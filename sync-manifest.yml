@@ -149,12 +149,17 @@ groups:
     mode: sync
     status: staged
     blocker: >
-      review-budget.mjs hardcodes REPO_OWNER/REPO_NAME, and six call sites
-      across review-budget.mjs and review-loop-record.mjs use them to verify
-      a snapshot came from the expected repo. Making that identity per-repo is
-      a security-relevant change to the receipt machinery and gets its own
-      reviewed PR rather than riding along with a file move. Until then these
-      scripts are correct for Overhype only.
+      Two couplings, both needing the same reviewed change. (1) review-budget.mjs
+      hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
+      and review-loop-record.mjs use them to verify a snapshot came from the
+      expected repo. (2) check-contract-consistency.mjs assumes CLAUDE.md sits at
+      the root of the corpus it scans — true in a consumer, false once the
+      contract is split into a vendored core plus an overlay; its own test fails
+      in this repo for exactly that reason, which is how the assumption was
+      found. Making repo identity and contract-surface paths configurable is a
+      security-relevant change to the receipt and guard machinery, and gets its
+      own reviewed PR rather than riding along with a file move. Until then
+      these scripts are correct for Overhype's layout only.
     paths:
       - from: core/scripts/
         to: scripts/

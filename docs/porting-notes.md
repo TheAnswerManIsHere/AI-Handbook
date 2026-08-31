@@ -110,6 +110,24 @@ guard that cannot determine which repo it is protecting has to refuse, not
 default. `.agents/memory/ci-guard-must-fail-loud-on-missing-inputs.md` is the
 entry that says why, and it came across in this port.
 
+**A second coupling, found by running the payload's own tests here.** Of the
+599 machinery tests, 598 pass in this repo; the one that fails is
+`check-contract-consistency`'s assertion that its scanned corpus includes
+`CLAUDE.md`. That guard assumes the contract sits in one file at the repo root
+— true in a consumer, false the moment the contract is split into a vendored
+core plus an overlay, which is the split this repo introduces. So the guard
+needs to learn about both surfaces, and that belongs in the same reviewed
+change as the repo identity. Recorded rather than patched here: a one-line
+path tweak to a consistency guard, made in passing inside a 180-file move, is
+exactly the kind of edit that gets waved through.
+
+The other two failures seen on the first run were not findings — they were the
+receipt scaffolding gap above, and they went green once it was ported and
+committed. Worth noting for the shape of it: they failed while the files
+existed in the working tree and passed only after the commit, because the
+machinery reads that path out of a committed ref. The suite was demonstrating
+the very rule the receipts README states.
+
 ## Not yet built
 
 - **The sync workflow itself.** This PR establishes the payload and the
