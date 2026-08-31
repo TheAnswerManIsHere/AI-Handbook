@@ -28,23 +28,27 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       # No install step: the machinery is deliberately dependency-free, and
       # keeping it that way is why this line is a comment rather than an
       # `npm ci`. If a dependency ever becomes necessary, that is a decision
       # to make explicitly, not by adding it here quietly.
+      # The glob is required, not stylistic: Node 22 resolves a bare directory
+      # argument to `--test` as a MODULE path and dies with MODULE_NOT_FOUND
+      # before running anything. It fails as "1 test, 1 failed", which reads
+      # like a real test failure rather than a bad invocation.
       - name: Run machinery tests
-        run: node --test scripts/__tests__/
+        run: node --test scripts/__tests__/*.test.mjs
 
   manifest:
     name: Manifest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Check payload coverage
