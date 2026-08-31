@@ -93,6 +93,24 @@ groups:
       - from: core/.agents/memory/
         to: .agents/memory/
 
+  - id: receipt-scaffolding
+    mode: sync
+    status: ready
+    description: >
+      The receipt system's contract and the directories it reads from. The
+      machinery reads these paths out of a committed ref rather than the
+      working tree, so in a repo where nothing has been written yet an
+      untracked directory is indistinguishable from a missing one — these
+      READMEs hold the directories open. The directory-local .gitignore
+      encodes the evidence-vs-decision split; it lives beside what it governs
+      rather than in the repo root so that it syncs as an ordinary file
+      instead of needing append-to-an-existing-file semantics.
+    paths:
+      - from: core/.agents/receipts/
+        to: .agents/receipts/
+      - from: core/.agents/adjudications/
+        to: .agents/adjudications/
+
   - id: skills
     mode: sync
     status: ready
