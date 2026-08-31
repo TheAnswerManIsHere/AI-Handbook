@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Web research — WebFetch and the Firecrawl connector
 
 > Claude Code's web-research tooling. Not a product dependency: the products have
@@ -7,12 +9,18 @@
 
 ## Configuration
 
-`.mcp.json` at the repo root declares the hosted server
-(`https://mcp.firecrawl.dev/v2/mcp`) and reads the credential from
-`${FIRECRAWL_API_KEY}`. That variable is set in the **cloud environment settings
-at claude.ai**, which only David can edit — the key is never committed, because
-this repo is public. Cloud sessions load project-scoped MCP servers without an
-approval prompt, so the committed file is sufficient config on its own. There is
+**`.mcp.json` at the repo root is a required consumer file — it is not synced.**
+It declares the hosted server (`https://mcp.firecrawl.dev/v2/mcp`) and reads the
+credential from `${FIRECRAWL_API_KEY}`. It stays consumer-owned because a repo's
+MCP declaration is where its *other* servers are declared too, and overwriting
+it on every sync would delete them. A repo without one has no Firecrawl tools,
+and the fallback below (`WebFetch`) is the whole story there.
+
+That variable is set in the **cloud environment settings at claude.ai**, which
+only David can edit — the key is never committed, and in a public repo it must
+not be. Cloud sessions load project-scoped MCP servers without an approval
+prompt, so a committed `.mcp.json` plus the environment variable is sufficient
+config on its own. There is
 no direct URL for that setting: it lives behind the cloud icon in the row above
 the message box at [claude.ai/code](https://claude.ai/code).
 

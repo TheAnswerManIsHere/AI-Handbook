@@ -3,6 +3,8 @@ name: plan-review-loop
 description: Use in feature-building mode once the pre-plan conversation has settled intent and a draft plan exists, or whenever a plan needs to be delivered to David for approval. NOT for bugfix mode, which skips plan review entirely.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # The Codex plan-review loop (and how a plan is delivered)
 
 Migrated out of `CLAUDE.md` so it loads when a plan is actually being reviewed

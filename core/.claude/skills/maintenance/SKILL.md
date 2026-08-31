@@ -3,6 +3,8 @@ name: maintenance
 description: Weekly repo maintenance ritual. Use when David says /maintenance or asks for the weekly maintenance pass. Triages the Dependabot PR queue (merges green minor/patch bumps, flags majors), reviews production errors (Sentry), checks CI health on main, and delivers a "what shipped this week" digest. Ops-shaped, Sonnet-tier work.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Weekly maintenance
 
 David invokes this roughly weekly (`/maintenance`). It is **ops work**, and

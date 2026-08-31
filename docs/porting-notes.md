@@ -174,6 +174,43 @@ cover this had been passing on a bad indent in its fixture rather than on the
 flow sequence — a reminder that a passing test proves nothing until you know
 which assertion carried it.
 
+## The second round, and what it says about the first
+
+Round 2 returned nine findings. Two were my own round-1 fixes being incomplete;
+five were more payload files with the same portability problem round 1 had
+already found once. That repetition is the finding worth recording.
+
+**The portability pass was shallow, and iterating through review rounds is an
+expensive way to discover that.** So the response was an audit rather than five
+more edits: every payload file was grepped for references to paths, packages
+and commands that do not exist in the payload, and each hit judged by one
+question — **does this file tell the reader to DO something with that path, or
+cite it as evidence of something that happened?** Evidence stays; instruction
+does not, because an agent follows instructions.
+
+That test would have caught all of them the first time, and it is the test to
+use on the next extraction. What it removed:
+`docs/engineering/migrations-and-backfills.md`, whose opening lines say schema
+lives in `lib/db/src/schema/*.ts` and to apply it with
+`pnpm --filter @workspace/db push-force`. What it left alone: the memory
+entries citing `artifacts/api-server/src/...` in a write-up of something that
+went wrong, which are grounding, not orders.
+
+Three more files had **normative** text naming the product rather than
+prescriptive commands, which is the same error in a quieter register:
+`plan-review-contract.md` said the contract applies when reviewing a plan "for
+Overhype.me" — read literally in DojoOS, that says the plan-review procedure
+does not apply there; `workstream-tracking.md` hardcoded one product's Project
+board; `documentation-workflow.md` defined the harvest as writing the
+Overhype.me Manual. All three now name the consuming repo's product.
+
+**The ownership banner is now real.** `consuming-repos.md` promised that every
+synced file carries a header warning that local edits are lost. Two files had
+one. 140 now do, inserted after YAML front matter where skills have it, so a
+skill's `name`/`description` still parse. A promise in documentation that the
+artifacts do not keep is worse than no promise: it is what an agent relies on
+before editing.
+
 ## Not yet built
 
 - **The sync workflow itself.** This PR establishes the payload and the

@@ -110,6 +110,10 @@ destination.
 | `docs/ai-context/codex-environment.md` | Describes *this* repo's Codex sandbox: its setup script, its packages, which suites run there |
 | `docs/ai-context/replit-environment.md` | Describes *this* repo's Repl: its database, its session hooks, its deploy path |
 | `docs/ai-context/decisions.md` | The product's settled decisions and their rationale |
+| `docs/engineering/migrations-and-backfills.md` | Written as operational instruction against one product's schema layout and migration commands. Its principles are fleet-wide; its instructions are not, and an agent follows instructions |
+| `docs/tests/test-run-contract.md` | What a PR's post-merge verification must contain, in terms of this repo's own test runners |
+| `docs/handoff/README.md` | The cross-tool transit folder and its delete-when-addressed contract |
+| `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
 A consumer needs these before or alongside its first sync. They may be started
 from the corresponding file in another repo, but they are then owned locally

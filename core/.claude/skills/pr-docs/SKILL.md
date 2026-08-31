@@ -3,6 +3,8 @@ name: pr-docs
 description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Every PR ships post-merge verification + a UAT
 
 Migrated out of `CLAUDE.md` so it loads when the docs are actually being

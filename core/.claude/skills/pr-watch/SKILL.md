@@ -3,6 +3,8 @@ name: pr-watch
 description: Use after opening or being re-engaged on any PR (implementation or [PLAN REVIEW]), and whenever a github-webhook-activity event arrives for a watched PR.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Watching the PRs I open
 
 Migrated out of `CLAUDE.md` so it loads when a PR is actually being watched.

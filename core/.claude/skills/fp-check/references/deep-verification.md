@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Deep Verification
 
 Full task-based verification for complex bugs. Use when routing from SKILL.md selects the deep path, or when standard verification escalates.

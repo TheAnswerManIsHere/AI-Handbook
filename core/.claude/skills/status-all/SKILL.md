@@ -3,6 +3,8 @@ name: status-all
 description: Give David a cold-open summary of EVERY open workstream across all sessions — where each stands in the lifecycle, who's holding it, and which ones are stalled or need his input. Use when David says /status-all, "what's the state of everything", "what needs me across the board", or is picking work back up after time away and doesn't remember where he left off. This is the FLEET view; for "what is THIS session working on", use /status instead. Best run from a fresh, cheap session rather than an existing long thread.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # /status-all — the workstream board, read cold
 
 **Fleet view.** For one session's own state — "what am I working on right now

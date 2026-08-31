@@ -156,7 +156,7 @@ export function walk(dir, root) {
 export function check(manifest, payloadFiles, exists) {
   const problems = [];
   const covered = new Map(); // payload path -> group id
-  const destinations = new Map(); // RESOLVED destination file -> group id
+  const destinations = new Map(); // RESOLVED destination file -> { src, group }
   const groupsById = new Map();
 
   for (const group of manifest.groups ?? []) if (group.id) groupsById.set(group.id, group);
@@ -203,11 +203,19 @@ export function check(manifest, payloadFiles, exists) {
         // destination. Comparing these, rather than the declared roots, is
         // what makes the uniqueness claim true.
         const dest = isDir ? p.to + leaf : p.to;
+        // Keyed on the SOURCE, not the group. Keying on the group id made a
+        // collision between two path entries of the SAME group compare equal
+        // to itself and vanish -- and a group with several path entries is the
+        // normal case, so the gap was in the common path, not an edge.
         const priorDest = destinations.get(dest);
-        if (priorDest && priorDest !== group.id) {
-          problems.push(`destination "${dest}" is written by two groups: ${priorDest} and ${group.id}`);
+        if (priorDest && priorDest.src !== f) {
+          const where =
+            priorDest.group === group.id
+              ? `twice within group "${group.id}"`
+              : `by two groups (${priorDest.group} and ${group.id})`;
+          problems.push(`destination "${dest}" is written ${where}: ${priorDest.src} and ${f}`);
         }
-        destinations.set(dest, group.id);
+        destinations.set(dest, { src: f, group: group.id });
       }
     }
   }

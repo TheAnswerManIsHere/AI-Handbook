@@ -3,6 +3,8 @@ name: next
 description: Answer "given where we are in our development lifecycle, what is the next thing we should be doing?" — the prioritized recommendation across all work, not one session's state. Use when David says /next, "what's next", "what should I work on", or has just finished something and needs the next task. Ranks work closest to done ahead of new starts, follows Blocked-by chains so an interrupted UAT is never lost, and names which candidates can safely run in parallel sessions. For "where does THIS session stand" use /status; for "what needs me across everything" use /status-all.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # /next — what should we work on now
 
 Three skills, three questions. Don't confuse them:

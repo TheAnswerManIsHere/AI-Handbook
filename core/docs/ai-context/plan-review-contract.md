@@ -1,9 +1,12 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Plan-review contract (for Codex, ChatGPT, or any AI reviewer)
 
 > **The single canonical, cross-agent contract for reviewing a *plan* — not
 > code.** Whenever any AI reviewer (Codex on the automated draft-PR loop,
 > ChatGPT via manual upload, or a future reviewer) is asked to review a
-> software-development plan for Overhype.me, this is the contract it applies.
+> software-development plan for the product whose repo it is working in, this
+> is the contract it applies.
 > Every reviewer-specific skill or prompt is a **thin enactment** of this file —
 > it adds only that reviewer's delivery mechanics (where feedback goes, what
 > format) and defers to this file for the review substance. The root
@@ -21,7 +24,7 @@
 ## When this applies
 
 Whenever you are reviewing a **software-development implementation plan** for
-Overhype.me — usually written by Claude Code, unless told otherwise. On the
+this repo's product — usually written by Claude Code, unless told otherwise. On the
 automated Codex loop, that means a PR whose title is prefixed
 **`[PLAN REVIEW]`** (equivalently, carrying a `plan-review` label); for a normal
 code PR, ignore this file — it is not a code-review checklist, and a code diff

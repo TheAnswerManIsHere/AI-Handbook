@@ -3,6 +3,8 @@ name: An uncaught throw in the PreToolUse guard fails OPEN, not closed
 description: guard-decision.mjs signals "block" with exit code 2; an escaping exception exits 1, which the harness reads as a hook error and lets the tool call proceed. Wrap anything fallible in try/catch and return a blocked verdict.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 ## Rule
 In `scripts/guard-decision.mjs` (and anything `.claude/guard.sh` forwards to),
 **never let an exception escape.** Wrap every fallible step — filesystem reads,

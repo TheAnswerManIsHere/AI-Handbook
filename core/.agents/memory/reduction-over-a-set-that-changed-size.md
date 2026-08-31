@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 ## A change to a set's cardinality invalidates every reduction over it
 
 A reduction — `Math.min`, `Math.max`, `[0]`, `find`, "the first one" — encodes

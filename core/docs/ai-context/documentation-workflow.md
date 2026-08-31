@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Documentation workflow — the `/document` end-of-feature ceremony
 
 > **Shared, cross-agent contract.** Claude Code and Codex both follow this.
@@ -9,9 +11,10 @@ When a feature is done, the durable learnings from building it — decisions
 and their *why*, gotchas, the new shape of a subsystem — should be locked
 into the repo's versioned docs before the chat that holds them evaporates.
 This is that ceremony. It turns the standing "memory lives in files" habit
-into an explicit fold-in pass, and it is how the human-facing
-[Overhype.me Manual](../manual/README.md) gets written, incrementally, one
-area at a time.
+into an explicit fold-in pass, and where a repo keeps a human-facing Manual
+(`docs/manual/`) it is how that Manual gets written, incrementally, one area
+at a time. A repo without one skips the Manual step; the harvest into
+`docs/ai-context/` and `.agents/memory/` is the part that always runs.
 
 **When it runs (David, 2026-08-20 — superseding the per-merge trigger):**
 **batched at `/maintenance`**, one pass covering every product feature merged

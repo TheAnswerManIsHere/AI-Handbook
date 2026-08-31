@@ -225,3 +225,37 @@ test("an excluded leaf stays uncovered, so exclusion cannot hide a file", () => 
   );
   assert.ok(problems.some((p) => p.includes("never sync") && p.includes("b.md")));
 });
+
+test("DETECTS a collision between two path entries of the SAME group", () => {
+  // Keying the destination map on group id made this compare equal to itself
+  // and disappear. A group with several path entries is the normal case, so
+  // the gap sat in the common path rather than an edge.
+  const problems = check(
+    manifest([
+      {
+        id: "one",
+        mode: "sync",
+        status: "ready",
+        paths: [
+          { from: "core/a/", to: "dest/" },
+          { from: "core/b/", to: "dest/" },
+        ],
+      },
+    ]),
+    ["core/a/x.md", "core/b/x.md"],
+    allExist,
+  );
+  assert.ok(
+    problems.some((p) => p.includes('destination "dest/x.md" is written twice within group "one"')),
+    `expected a within-group collision, got: ${JSON.stringify(problems)}`,
+  );
+});
+
+test("one source mapped by one entry is never reported as colliding with itself", () => {
+  const problems = check(
+    manifest([{ id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a/", to: "dest/" }] }]),
+    ["core/a/x.md", "core/a/y.md"],
+    allExist,
+  );
+  assert.deepEqual(problems, []);
+});

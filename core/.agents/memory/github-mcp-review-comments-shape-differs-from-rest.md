@@ -3,6 +3,8 @@ name: GitHub MCP pull_request_read shape differs materially from the REST API
 description: get_review_comments groups by thread with a bare author string, no numeric id, no in_reply_to_id, and no pull_request_review_id — and the reviewer bot's login has an inconsistent [bot] suffix across methods.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 ## Rule
 Never assume the GitHub MCP server's `pull_request_read` tool returns the
 same shape as the equivalent REST endpoint. Verify against a real, live call

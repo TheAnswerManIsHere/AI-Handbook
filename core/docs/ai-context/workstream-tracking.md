@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Workstream tracking — the board, the labels, and who updates what
 
 > **Shared, cross-agent contract.** Codex sees `Workstream: #N` in PR bodies
@@ -12,9 +14,9 @@
 David runs ~10 concurrent sessions and cannot tell where any of them stand,
 or which need him, without opening each one. This closes that gap using
 GitHub's own project management rather than a bespoke tracker: **one issue
-per workstream**, a private Project board
-([Overhype.me Workstreams](https://github.com/users/TheAnswerManIsHere/projects/1))
-for visual scanning, and a `/status-all` skill for the judgment the board can't
+per workstream**, a private Project board for visual scanning (each repo's
+board is named in its own `CLAUDE.md` overlay; the sync workflow takes it as
+`PROJECT_OWNER`/`PROJECT_NUMBER` rather than hardcoding one), and a `/status-all` skill for the judgment the board can't
 compute on its own (stall detection, plain-language restatement of what a
 David-gate is actually asking).
 

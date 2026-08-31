@@ -65,7 +65,16 @@ groups:
 
   - id: contracts
     mode: sync
-    status: ready
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      working-modes.md prescribes the review loop as a procedure and names
+      review-budget.mjs and review-loop-record.mjs as the commands that run it,
+      so the group follows its strictest member. This was identified when the
+      requires: mechanism was added and then not applied here — the rule was
+      written and one of its cases missed, which is why the check now enforces
+      it rather than leaving it to a reading of the manifest.
     description: >
       Cross-agent contracts that govern how work is done, independent of what
       the product is. Product truth (brief, direction, roadmap, architecture,
@@ -83,7 +92,15 @@ groups:
   - id: engineering
     mode: sync
     status: ready
-    description: Engineering practice that is not stack-specific.
+    description: >
+      Engineering practice that is not stack-specific. migrations-and-backfills.md
+      is deliberately NOT here: its guidance is written as operational
+      instruction against one product's Drizzle layout ("schema lives in
+      lib/db/src/schema", "apply with pnpm --filter @workspace/db push-force"),
+      which an agent in another repo would follow into the wrong workflow. The
+      idempotency, observability and row-state principles inside it are
+      genuinely fleet-wide and worth extracting one day — as a rewrite, not a
+      move. Until then it is a required consumer document.
     paths:
       - from: core/docs/engineering/
         to: docs/engineering/

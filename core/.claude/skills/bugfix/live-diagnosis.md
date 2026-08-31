@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Live-environment evidence during diagnosis
 
 Loaded from step 2 of [`SKILL.md`](SKILL.md) when a bug's root cause or tier

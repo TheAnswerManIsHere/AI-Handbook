@@ -3,6 +3,8 @@ name: git show / cat-file -e exit 128 for BOTH a missing path and a missing ref
 description: A script shelling out to git cannot tell "the file isn't in that commit" from "that ref doesn't exist" by exit status alone; resolve the ref first, then ask about the path, or the actionable error branch is unreachable.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 ## Rule
 `git cat-file -e <ref>:<path>` and `git show <ref>:<path>` **both exit 128**
 when the path is missing from the tree *and* when the ref itself does not

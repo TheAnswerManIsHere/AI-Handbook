@@ -1,3 +1,5 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Finding which test actually failed in CI — and why the obvious route is blocked
 
 **The problem.** `mcp__github__get_job_logs` returns the **tail** of a job's

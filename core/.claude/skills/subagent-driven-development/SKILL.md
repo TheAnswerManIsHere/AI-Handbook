@@ -3,6 +3,8 @@ name: subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Subagent-Driven Development
 
 Execute plan by dispatching a fresh implementer subagent per task, a task review (spec compliance + code quality) after each, and a broad whole-branch review at the end.

@@ -3,6 +3,8 @@ name: model-routing
 description: Use when deciding or explaining a model/effort escalation beyond the tier table in CLAUDE.md, or when David asks whether a switch can be automated.
 ---
 
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
+
 # Model and effort routing — the reference detail
 
 Migrated out of `CLAUDE.md` so it loads when a routing question is actually
