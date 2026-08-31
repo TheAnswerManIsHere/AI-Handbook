@@ -1,0 +1,155 @@
+# AI-Handbook sync manifest
+#
+# The single declaration of what this repo vendors into which consumer repos.
+# The sync workflow reads ONLY this file to decide what to copy: a payload file
+# that is not listed here does not travel, and adding a file to `core/` without
+# listing it is the one mistake that fails silently. The consistency check
+# (`scripts/check-manifest.mjs`) exists to make that mistake loud instead.
+#
+# Two axes, deliberately separate:
+#
+#   mode:   sync — the handbook owns the file; every sync overwrites the
+#                  consumer's copy. Local edits are lost by design. This is the
+#                  default and it is what makes the contract single-sourced.
+#           seed — the handbook owns only the FIRST copy. The sync writes it
+#                  when it is absent and never touches it again. For files a
+#                  consumer must own and diverge (its own overlay, its own
+#                  product docs).
+#
+#   status: ready  — safe to sync to any consumer today.
+#           staged — present in this repo, deliberately NOT synced yet, with a
+#                    named blocker. The sync skips these entirely. A staged
+#                    group is a promise with a reason, not a parking lot: the
+#                    blocker names what must land before it flips to ready.
+
+version: 1
+
+consumers:
+  - repo: TheAnswerManIsHere/Overhypeme
+    # Migrating to handbook-synced copies is its own PR: the diff must be
+    # provably content-identical before its local copies are deleted.
+    enrolled: false
+  - repo: TheAnswerManIsHere/DojoOS
+    enrolled: false # flips true when the DojoOS bootstrap PR lands
+
+groups:
+  - id: claude-core
+    mode: sync
+    status: ready
+    description: >
+      The portable half of the Claude Code working contract. A consumer's own
+      CLAUDE.md imports this eagerly with `@.agents/core/claude-core.md`, so
+      every rule here is loaded in every session.
+    paths:
+      - from: core/.agents/core/claude-core.md
+        to: .agents/core/claude-core.md
+
+  - id: agents-core
+    mode: sync
+    status: ready
+    description: >
+      The portable half of the cross-agent routing constitution. A consumer's
+      AGENTS.md LINKS here rather than importing — AGENTS.md has no import
+      mechanism — so this file must read standalone.
+    paths:
+      - from: core/.agents/core/agents-core.md
+        to: .agents/core/agents-core.md
+
+  - id: contracts
+    mode: sync
+    status: ready
+    description: >
+      Cross-agent contracts that govern how work is done, independent of what
+      the product is. Product truth (brief, direction, roadmap, architecture,
+      glossary, decisions, subsystem docs) is NOT here and never syncs — it is
+      the consuming repo's own.
+    paths:
+      - from: core/docs/ai-context/
+        to: docs/ai-context/
+
+  - id: engineering
+    mode: sync
+    status: ready
+    description: Engineering practice that is not stack-specific.
+    paths:
+      - from: core/docs/engineering/
+        to: docs/engineering/
+
+  - id: planning
+    mode: sync
+    status: ready
+    paths:
+      - from: core/.agents/PLANS.md
+        to: .agents/PLANS.md
+
+  - id: memory
+    mode: sync
+    status: ready
+    description: >
+      Environment and tooling gotchas that are true of the harness, GitHub,
+      the proxy and the toolchain rather than of one product's code. Entries
+      about a product's own subsystems stay in that product's repo.
+    paths:
+      - from: core/.agents/memory/
+        to: .agents/memory/
+
+  - id: skills
+    mode: sync
+    status: ready
+    description: >
+      Process and practice skills. Product-specific skills (a product's design,
+      implementation, plan-review, migration-review and subsystem skills) are
+      not here and are owned by the consuming repo.
+    paths:
+      - from: core/.claude/skills/
+        to: .claude/skills/
+
+  - id: agent-definitions
+    mode: sync
+    status: ready
+    paths:
+      - from: core/.claude/agents/
+        to: .claude/agents/
+
+  - id: guard
+    mode: sync
+    status: staged
+    blocker: >
+      guard.sh and guard-decision.mjs carry the repo identity used to verify
+      that a merge or review action targets the repo the receipt was minted
+      for. That identity is currently a hardcoded literal (see the `machinery`
+      group's blocker — the same change covers both). Syncing this group
+      before that lands would install a guard in DojoOS that authorizes
+      against Overhype's identity, which is worse than no guard.
+    paths:
+      - from: core/.claude/guard.sh
+        to: .claude/guard.sh
+      - from: core/scripts/guard-decision.mjs
+        to: scripts/guard-decision.mjs
+
+  - id: machinery
+    mode: sync
+    status: staged
+    blocker: >
+      review-budget.mjs hardcodes REPO_OWNER/REPO_NAME, and six call sites
+      across review-budget.mjs and review-loop-record.mjs use them to verify
+      a snapshot came from the expected repo. Making that identity per-repo is
+      a security-relevant change to the receipt machinery and gets its own
+      reviewed PR rather than riding along with a file move. Until then these
+      scripts are correct for Overhype only.
+    paths:
+      - from: core/scripts/
+        to: scripts/
+        exclude:
+          - guard-decision.mjs # travels with the `guard` group
+
+  - id: settings-template
+    mode: seed
+    status: ready
+    description: >
+      Seeded once. Each repo owns its own permissions and env from then on —
+      allowlists legitimately differ per product, and overwriting a consumer's
+      settings on every sync would clobber grants it needs.
+    paths:
+      - from: core/.claude/settings.template.json
+        to: .claude/settings.json

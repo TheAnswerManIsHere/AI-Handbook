@@ -1,0 +1,224 @@
+#!/usr/bin/env node
+/**
+ * Manifest consistency check.
+ *
+ * The sync reads `sync-manifest.yml` and nothing else, so a payload file that
+ * no group covers simply never travels. That failure is silent at exactly the
+ * wrong moment: the handbook looks complete, the sync reports success, and a
+ * consumer repo is quietly missing a rule. This check turns that into a red
+ * build.
+ *
+ * It verifies four things:
+ *   1. Every file under `core/` is covered by exactly one manifest group.
+ *   2. Every path a group declares actually exists.
+ *   3. No two groups write to the same destination.
+ *   4. Every group declares a known mode/status, and every `staged` group
+ *      names a blocker — a staged group without a stated reason is a parking
+ *      lot, which is the thing `status` exists to prevent.
+ *
+ * Deliberately dependency-free, matching the rest of the machinery. The YAML
+ * reader below understands only the subset this manifest uses and THROWS on
+ * anything else rather than guessing — a parser that silently mis-reads the
+ * manifest would recreate the very failure this file exists to catch.
+ */
+
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { join, relative, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const MANIFEST = join(REPO_ROOT, "sync-manifest.yml");
+const PAYLOAD_DIR = "core";
+
+const MODES = new Set(["sync", "seed"]);
+const STATUSES = new Set(["ready", "staged"]);
+
+/**
+ * Minimal YAML reader for this manifest's shape: nested maps, lists of maps,
+ * plain scalars, and folded (`>`) block scalars whose content we keep but
+ * never interpret. Anything outside that vocabulary throws.
+ */
+export function parseManifestYaml(text) {
+  const lines = [];
+  text.split("\n").forEach((raw, i) => {
+    const withoutComment = raw.replace(/(^|\s)#.*$/, "");
+    if (withoutComment.trim() === "") return;
+    const indent = withoutComment.length - withoutComment.trimStart().length;
+    lines.push({ indent, text: withoutComment.trim(), lineNo: i + 1 });
+  });
+
+  let pos = 0;
+
+  const scalar = (v) => {
+    if (v === "true") return true;
+    if (v === "false") return false;
+    if (/^-?\d+$/.test(v)) return Number(v);
+    return v.replace(/^["'](.*)["']$/, "$1");
+  };
+
+  // Consumes an indented block following a `>` or `|` marker; content is kept
+  // verbatim-ish but never parsed — it is prose.
+  const readBlockScalar = (parentIndent) => {
+    const parts = [];
+    while (pos < lines.length && lines[pos].indent > parentIndent) {
+      parts.push(lines[pos].text);
+      pos++;
+    }
+    return parts.join(" ");
+  };
+
+  const parseBlock = (indent) => {
+    // A list?
+    if (pos < lines.length && lines[pos].indent === indent && lines[pos].text.startsWith("- ")) {
+      const items = [];
+      while (pos < lines.length && lines[pos].indent === indent && lines[pos].text.startsWith("- ")) {
+        const { text, lineNo } = lines[pos];
+        const rest = text.slice(2).trim();
+        if (rest.includes(":") && !rest.startsWith("http")) {
+          // `- key: value` starts a map whose first pair is on the dash line.
+          const idx = rest.indexOf(":");
+          const key = rest.slice(0, idx).trim();
+          const value = rest.slice(idx + 1).trim();
+          pos++;
+          const map = {};
+          if (value === ">" || value === "|") map[key] = readBlockScalar(indent);
+          else if (value === "") map[key] = parseBlock(indent + 2);
+          else map[key] = scalar(value);
+          // Remaining pairs of this item are indented past the dash.
+          while (pos < lines.length && lines[pos].indent > indent) {
+            Object.assign(map, parseBlock(lines[pos].indent));
+          }
+          items.push(map);
+        } else if (rest === "") {
+          throw new Error(`manifest:${lineNo}: bare list dash is not supported`);
+        } else {
+          items.push(scalar(rest));
+          pos++;
+        }
+      }
+      return items;
+    }
+
+    // Otherwise a map.
+    const map = {};
+    while (pos < lines.length && lines[pos].indent === indent) {
+      const { text, lineNo } = lines[pos];
+      if (text.startsWith("- ")) break;
+      const idx = text.indexOf(":");
+      if (idx === -1) throw new Error(`manifest:${lineNo}: expected "key: value", got ${JSON.stringify(text)}`);
+      const key = text.slice(0, idx).trim();
+      const value = text.slice(idx + 1).trim();
+      pos++;
+      if (value === ">" || value === "|") map[key] = readBlockScalar(indent);
+      else if (value === "") map[key] = pos < lines.length && lines[pos].indent > indent ? parseBlock(lines[pos].indent) : null;
+      else map[key] = scalar(value);
+    }
+    return map;
+  };
+
+  const doc = parseBlock(0);
+  if (pos !== lines.length) {
+    throw new Error(`manifest:${lines[pos].lineNo}: unexpected indentation; this reader supports only the manifest's documented subset`);
+  }
+  return doc;
+}
+
+/** Every file under a directory, repo-relative, dotfiles included. */
+export function walk(dir, root) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) out.push(...walk(full, root));
+    else out.push(relative(root, full));
+  }
+  return out;
+}
+
+export function check(manifest, payloadFiles, exists) {
+  const problems = [];
+  const covered = new Map(); // payload path -> group id
+  const destinations = new Map(); // destination path -> group id
+
+  for (const group of manifest.groups ?? []) {
+    if (!group.id) problems.push(`a group is missing an "id"`);
+    if (!MODES.has(group.mode)) problems.push(`${group.id}: mode must be one of ${[...MODES].join("/")}, got "${group.mode}"`);
+    if (!STATUSES.has(group.status)) problems.push(`${group.id}: status must be one of ${[...STATUSES].join("/")}, got "${group.status}"`);
+    if (group.status === "staged" && !group.blocker) {
+      problems.push(`${group.id}: a staged group must name its blocker — what has to land before it flips to ready`);
+    }
+
+    for (const p of group.paths ?? []) {
+      if (!p.from || !p.to) {
+        problems.push(`${group.id}: every path needs "from" and "to"`);
+        continue;
+      }
+      if (!p.from.startsWith(`${PAYLOAD_DIR}/`)) {
+        problems.push(`${group.id}: "from" must live under ${PAYLOAD_DIR}/, got "${p.from}"`);
+        continue;
+      }
+      if (!exists(p.from)) {
+        problems.push(`${group.id}: declared path does not exist: ${p.from}`);
+        continue;
+      }
+
+      const isDir = p.from.endsWith("/");
+      const excluded = new Set(p.exclude ?? []);
+      const matched = isDir
+        ? payloadFiles.filter((f) => f.startsWith(p.from))
+        : payloadFiles.filter((f) => f === p.from);
+
+      if (matched.length === 0) problems.push(`${group.id}: "${p.from}" matches no files`);
+
+      for (const f of matched) {
+        const leaf = f.slice(p.from.length);
+        if (excluded.has(leaf)) continue;
+        const prior = covered.get(f);
+        if (prior && prior !== group.id) problems.push(`${f} is claimed by two groups: ${prior} and ${group.id}`);
+        covered.set(f, group.id);
+      }
+
+      const priorDest = destinations.get(p.to);
+      if (priorDest && priorDest !== group.id) {
+        problems.push(`destination "${p.to}" is written by two groups: ${priorDest} and ${group.id}`);
+      }
+      destinations.set(p.to, group.id);
+    }
+  }
+
+  for (const f of payloadFiles) {
+    if (!covered.has(f)) problems.push(`payload file is in no manifest group, so it will never sync: ${f}`);
+  }
+
+  return problems;
+}
+
+function main() {
+  if (!existsSync(MANIFEST)) {
+    console.error("check-manifest: sync-manifest.yml not found");
+    process.exit(1);
+  }
+  const manifest = parseManifestYaml(readFileSync(MANIFEST, "utf8"));
+  const payloadRoot = join(REPO_ROOT, PAYLOAD_DIR);
+  if (!existsSync(payloadRoot)) {
+    console.error(`check-manifest: ${PAYLOAD_DIR}/ not found`);
+    process.exit(1);
+  }
+  const payloadFiles = walk(payloadRoot, REPO_ROOT).map((f) => f.split("\\").join("/"));
+  const problems = check(manifest, payloadFiles, (p) => existsSync(join(REPO_ROOT, p)));
+
+  if (problems.length) {
+    console.error(`check-manifest: ${problems.length} problem(s)\n`);
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
+
+  const ready = (manifest.groups ?? []).filter((g) => g.status === "ready");
+  const staged = (manifest.groups ?? []).filter((g) => g.status === "staged");
+  console.log(
+    `check-manifest: OK — ${payloadFiles.length} payload files across ` +
+      `${manifest.groups.length} groups (${ready.length} ready, ${staged.length} staged)`,
+  );
+  for (const g of staged) console.log(`  staged: ${g.id}`);
+}
+
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) main();

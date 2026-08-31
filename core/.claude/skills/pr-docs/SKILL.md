@@ -1,0 +1,128 @@
+---
+name: pr-docs
+description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier.
+---
+
+# Every PR ships post-merge verification + a UAT
+
+Migrated out of `CLAUDE.md` so it loads when the docs are actually being
+written. The rule that a product-visible feature PR is not complete until
+both halves exist stays resident in `CLAUDE.md`.
+
+### The pairing (David, 2026-08-15 — the standalone TEST_RUN file is retired)
+
+**This section is the feature-mode default: paired by default, unconditionally.**
+Bugfix mode does **not** inherit this pairing — its verification is
+conditional per tier, and its infra-only fixes may ship neither half: see
+[`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-b--elevated-fix).
+What follows describes the feature-mode default.
+
+For **every** feature-mode PR that has product-visible or testable behavior,
+I ship two things:
+
+1. **The PR body's *Post-merge verification* section** — the
+   engineering checks for Replit's live environment (the technical safety
+   net). This replaced the old `docs/tests/Replit/PR<N>_..._TEST_RUN.md`
+   file (David, 2026-08-15): the checks are written **with the diff and
+   reviewed with it** in the same Codex pass, instead of shipping as a
+   separate criticality-1 artifact with its own lifecycle.
+
+   **Content and shape are governed by
+   [`test-run-contract.md`](../../../docs/tests/test-run-contract.md)** —
+   the section template, the read-only rule, "Replit owns the database
+   connection," what earns a check and what to demote. I follow it rather
+   than restating it. The short version, because I kept getting this
+   wrong: **it verifies what only Replit's environment can verify** —
+   live-DB migration state, post-merge repo-health gates, behavior against
+   live config/data. Never a re-run of suites CI already ran. "none
+   needed" is the correct content for a PR with nothing
+   environment-specific.
+
+   **Execution is part of close-out, not a separate ceremony.** After
+   merge + sync, I drive the section through the Replit connector (the
+   two-call sequence in `CLAUDE.md`'s connector policy, read-only scoping
+   stated in the prompt), read the results back with `ask_question`, and
+   report them — pass or fail — in the close-out merge report. A failure
+   routes through the normal channel and the workstream stays at its
+   verification stage until clean. A clearly-labeled mutating deploy step
+   in the section (the contract's third permitted write shape) is mine to
+   execute through the connector at the same point.
+
+   **Legacy TEST_RUN files still in `docs/tests/Replit/` run out under the
+   old pattern**: I drive each run, and on a full pass delete the doc (a
+   tiny deletion PR, self-merged); its continued presence means not-run or
+   not-clean. I do NOT create new TEST_RUN files, flag the absence of one,
+   or "restore" a deleted one.
+
+2. **`docs/tests/UAT/PR<N>_<FEATURE>_UAT.md`** — the in-app, click-through
+   acceptance test for David, written to
+   [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md). **That
+   format is mandatory and it is not a style preference**: `/uat` drives the
+   run by enumerating `### ` headings inside `## Steps` and `## Regression`,
+   so a doc outside the format is a doc that cannot be driven. Setup lines,
+   step shape (`Do:` / `Expect:`), regression IDs and the deliberate
+   omissions all live there rather than being restated here. **This half
+   stays file-based, but ownership of deletion changed (David, 2026-08-22):
+   I delete a UAT doc once he confirms the run complete**, in the same
+   close-out, rather than waiting on his own click — so the directory
+   never accumulates finished tests. See `/uat` for the one exception
+   (content worth harvesting first).
+
+   Because the PR number is in the filename, the UAT doc follows the
+   **PR-first** flow: open the PR with a "Docs pending" placeholder note,
+   read the assigned number, write and commit the UAT doc to the **same PR
+   before merge**, then replace the note with the link. `<N>` is the GitHub
+   PR number; `<FEATURE>` is a SCREAMING_SNAKE_CASE slug. The doc always
+   lands on the same PR — never a separate later PR.
+
+   **The doc is a script I drive, not a page he reads (David, 2026-08-21).**
+   David works through it with me step by step via [`/uat`](../uat/SKILL.md),
+   so write it for that: **setup is mine to execute** — the `[claude]` lines
+   in the format — and `[david]` is reserved for what only his own session or
+   device can do, admin-gated setup included (I hold no admin session; see
+   `/uat` section 2). The doc is still the canonical script;
+   **I delete it once he confirms the run complete** (David, 2026-08-22).
+
+   **No Artifact page (David, 2026-08-21 — retiring the 2026-07-22 rule).**
+   The Artifact existed as a reading surface for working through the doc
+   alone on an iPad; the `/uat` session replaced that job. Publish one only
+   if he asks for a solo run.
+
+A product-visible PR is **not** complete — and I don't present it to David
+as done — until the verification section has real content (or an explicit
+"none needed") and the UAT doc exists and is linked, unless the
+ship-the-UI-surface exception applies. For the UAT's structure, follow
+[`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md) — **not** the
+nearest surviving doc, which is how six competing conventions accumulated in
+the first place. (Pure infra/refactor with zero
+observable behavior can use a single short verification note in the PR body
+instead, per the ship-the-UI-surface exception.)
+
+**A phase PR gets its own UAT, and an added scope line.** When this PR is
+one phase of a phased feature (see
+[`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md)'s
+*Phased features*), two things change:
+
+- **UAT is per-phase, not deferred to the last phase.** If *this phase* is
+  product-visible, it ships its own `docs/tests/UAT/PR<N>_…_UAT.md` — the
+  same rule as any other PR. Deferring every phase's UAT to the end would
+  leave David with nothing to verify for weeks and would pile the whole
+  feature's risk into one session. A phase with no product-visible surface
+  of its own ships a verification note instead, same exception as always.
+- **The oracle section gets a scope line** naming which of the parent
+  plan's sections this phase *delivers* and which it *defers* to a later
+  phase. Without it a reviewer can't tell an out-of-scope-for-this-phase
+  gap from a silently dropped requirement — and the whole point of the
+  oracle is catching a PR that quietly narrowed the approved scope. Cite
+  the parent issue for the plan itself, alongside the usual
+  approved-plan-source line.
+
+**Workstream label.** Per
+[`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
+this skill owns no `stage:`/`waiting:` transition of its own — `pr-watch`
+already owns `stage:code-review` for the PR this pairing rides on. Just
+confirm the workstream issue's `mode:` label is `feature` (this pairing is
+feature-mode-only), and once the UAT doc is committed, add it to the
+workstream issue's State of Play `Artifacts` field — the UAT link is
+exactly the kind of thing a cold-resumed session needs and won't find by
+re-deriving it from the PR alone.

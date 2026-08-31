@@ -1,0 +1,51 @@
+name: Check
+
+# The whole gate for this repo. There is no product build here — what can
+# actually break is the machinery's behaviour and the manifest's coverage, so
+# those are what run.
+#
+# Both jobs are named so they can be added to the branch ruleset's required
+# status checks. Adding them there is a one-time repo setting, not something
+# this file can do.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A second push to a PR makes the first run's answer irrelevant, so cancel it.
+# Runs on main are not cancelled: each one is the record for a distinct commit.
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # No install step: the machinery is deliberately dependency-free, and
+      # keeping it that way is why this line is a comment rather than an
+      # `npm ci`. If a dependency ever becomes necessary, that is a decision
+      # to make explicitly, not by adding it here quietly.
+      - name: Run machinery tests
+        run: node --test scripts/__tests__/
+
+  manifest:
+    name: Manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check payload coverage
+        run: node scripts/check-manifest.mjs
