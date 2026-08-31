@@ -8,13 +8,22 @@
  * consumer repo is quietly missing a rule. This check turns that into a red
  * build.
  *
- * It verifies four things:
+ * It verifies five things:
  *   1. Every file under `core/` is covered by exactly one manifest group.
  *   2. Every path a group declares actually exists.
- *   3. No two groups write to the same destination.
+ *   3. No two groups write to the same destination — compared per RESOLVED
+ *      FILE, not per declared root. Two groups can declare non-equal roots
+ *      (`dest/` and `dest/x`) and still both write `dest/x`; comparing the
+ *      roots returns "unique" while the sync silently overwrites one group's
+ *      output by copy order.
  *   4. Every group declares a known mode/status, and every `staged` group
  *      names a blocker — a staged group without a stated reason is a parking
  *      lot, which is the thing `status` exists to prevent.
+ *   5. No `ready` group requires a `staged` one. A file is not ready because
+ *      of what it is; it is ready when everything it depends on has arrived.
+ *      Shipping a contract whose procedure invokes a script the consumer will
+ *      not receive hands that consumer instructions it cannot follow, which is
+ *      worse than not shipping it — it looks governed without being governed.
  *
  * Deliberately dependency-free, matching the rest of the machinery. The YAML
  * reader below understands only the subset this manifest uses and THROWS on
@@ -49,7 +58,17 @@ export function parseManifestYaml(text) {
 
   let pos = 0;
 
-  const scalar = (v) => {
+  const scalar = (v, lineNo) => {
+    // Flow sequences and mappings are valid YAML that this reader does not
+    // model. Silently taking `[a, b]` as the string "[a, b]" is the worst
+    // outcome: a caller iterating it gets one item per CHARACTER, which is
+    // exactly what happened the first time a `requires: [machinery]` was
+    // written here. Refuse it and name the block form instead.
+    if (/^[[{]/.test(v)) {
+      throw new Error(
+        `manifest:${lineNo}: flow syntax (${v.slice(0, 20)}…) is not supported — write it as an indented block list`,
+      );
+    }
     if (v === "true") return true;
     if (v === "false") return false;
     if (/^-?\d+$/.test(v)) return Number(v);
@@ -83,7 +102,7 @@ export function parseManifestYaml(text) {
           const map = {};
           if (value === ">" || value === "|") map[key] = readBlockScalar(indent);
           else if (value === "") map[key] = parseBlock(indent + 2);
-          else map[key] = scalar(value);
+          else map[key] = scalar(value, lineNo);
           // Remaining pairs of this item are indented past the dash.
           while (pos < lines.length && lines[pos].indent > indent) {
             Object.assign(map, parseBlock(lines[pos].indent));
@@ -111,7 +130,7 @@ export function parseManifestYaml(text) {
       pos++;
       if (value === ">" || value === "|") map[key] = readBlockScalar(indent);
       else if (value === "") map[key] = pos < lines.length && lines[pos].indent > indent ? parseBlock(lines[pos].indent) : null;
-      else map[key] = scalar(value);
+      else map[key] = scalar(value, lineNo);
     }
     return map;
   };
@@ -137,7 +156,10 @@ export function walk(dir, root) {
 export function check(manifest, payloadFiles, exists) {
   const problems = [];
   const covered = new Map(); // payload path -> group id
-  const destinations = new Map(); // destination path -> group id
+  const destinations = new Map(); // RESOLVED destination file -> group id
+  const groupsById = new Map();
+
+  for (const group of manifest.groups ?? []) if (group.id) groupsById.set(group.id, group);
 
   for (const group of manifest.groups ?? []) {
     if (!group.id) problems.push(`a group is missing an "id"`);
@@ -175,13 +197,35 @@ export function check(manifest, payloadFiles, exists) {
         const prior = covered.get(f);
         if (prior && prior !== group.id) problems.push(`${f} is claimed by two groups: ${prior} and ${group.id}`);
         covered.set(f, group.id);
-      }
 
-      const priorDest = destinations.get(p.to);
-      if (priorDest && priorDest !== group.id) {
-        problems.push(`destination "${p.to}" is written by two groups: ${priorDest} and ${group.id}`);
+        // Resolve where this specific file actually lands. For a directory
+        // mapping the leaf is appended; for a file mapping `to` IS the
+        // destination. Comparing these, rather than the declared roots, is
+        // what makes the uniqueness claim true.
+        const dest = isDir ? p.to + leaf : p.to;
+        const priorDest = destinations.get(dest);
+        if (priorDest && priorDest !== group.id) {
+          problems.push(`destination "${dest}" is written by two groups: ${priorDest} and ${group.id}`);
+        }
+        destinations.set(dest, group.id);
       }
-      destinations.set(p.to, group.id);
+    }
+  }
+
+  // Readiness is transitive. A group is only as ready as the groups it needs.
+  for (const group of manifest.groups ?? []) {
+    for (const req of group.requires ?? []) {
+      const dep = groupsById.get(req);
+      if (!dep) {
+        problems.push(`${group.id}: requires "${req}", which is not a group in this manifest`);
+        continue;
+      }
+      if (group.status === "ready" && dep.status !== "ready") {
+        problems.push(
+          `${group.id} is ready but requires "${req}", which is ${dep.status} — ` +
+            `a consumer would receive instructions referring to files it will not get`,
+        );
+      }
     }
   }
 

@@ -35,7 +35,15 @@ consumers:
 groups:
   - id: claude-core
     mode: sync
-    status: ready
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      The contract this file carries prescribes the review loop as a procedure —
+      declare a budget with review-budget.mjs, capture a round check, build the
+      adjudication record. Delivered without the machinery it names, a consumer
+      gets a mandatory procedure it cannot perform. Flips to ready with the
+      machinery.
     description: >
       The portable half of the Claude Code working contract. A consumer's own
       CLAUDE.md imports this eagerly with `@.agents/core/claude-core.md`, so
@@ -62,7 +70,12 @@ groups:
       Cross-agent contracts that govern how work is done, independent of what
       the product is. Product truth (brief, direction, roadmap, architecture,
       glossary, decisions, subsystem docs) is NOT here and never syncs — it is
-      the consuming repo's own.
+      the consuming repo's own. Neither are the agent-environment docs: a
+      repo's Codex and Replit environments describe ITS setup script, ITS
+      packages and ITS database, so each consumer owns
+      docs/ai-context/codex-environment.md and replit-environment.md. Synced
+      files link to them and those links resolve in a consumer; they are listed
+      as required consumer documents in docs/consuming-repos.md.
     paths:
       - from: core/docs/ai-context/
         to: docs/ai-context/
@@ -95,7 +108,13 @@ groups:
 
   - id: receipt-scaffolding
     mode: sync
-    status: ready
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      These directories exist to serve the machinery that reads them, and the
+      README documents that machinery's contract. Delivered alone they are a
+      description of something the consumer does not have. Travels with it.
     description: >
       The receipt system's contract and the directories it reads from. The
       machinery reads these paths out of a committed ref rather than the
@@ -113,7 +132,14 @@ groups:
 
   - id: skills
     mode: sync
-    status: ready
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      bugfix, document, maintenance, plan-review-loop and pr-watch each drive
+      the machinery as a procedure. Grouping is deliberately coarse: rather
+      than split 36 skills to ship 31 a little sooner, the whole group follows
+      its strictest member and flips with the machinery, which is the next PR.
     description: >
       Process and practice skills. Product-specific skills (a product's design,
       implementation, plan-review, migration-review and subsystem skills) are
@@ -124,7 +150,14 @@ groups:
 
   - id: agent-definitions
     mode: sync
-    status: ready
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      review-loop-adjudicator's only permitted input is the record produced by
+      review-loop-record.mjs. Without it the agent has nothing to read and its
+      one guarantee — that it judges a mechanical record rather than the loop's
+      own prose — cannot hold.
     paths:
       - from: core/.claude/agents/
         to: .claude/agents/
@@ -168,7 +201,15 @@ groups:
 
   - id: settings-template
     mode: seed
-    status: ready
+    status: staged
+    requires:
+      - guard
+    blocker: >
+      All three PreToolUse hooks invoke .claude/guard.sh and the template sets
+      defaultMode bypassPermissions. Seeded while the guard group is staged, a
+      consumer would get failing hook commands AND permission bypass without
+      the protection the template itself calls non-optional — strictly worse
+      than seeding nothing. Travels with the guard.
     description: >
       Seeded once. Each repo owns its own permissions and env from then on —
       allowlists legitimately differ per product, and overwriting a consumer's

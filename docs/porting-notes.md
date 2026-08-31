@@ -128,6 +128,52 @@ existed in the working tree and passed only after the commit, because the
 machinery reads that path out of a committed ref. The suite was demonstrating
 the very rule the receipts README states.
 
+## Corrected after review
+
+Codex's first round found four real problems, three of them one problem wearing
+different hats. Recorded here because the underlying mistake is easy to repeat.
+
+**Readiness is transitive, and the first cut ignored that.** Groups were marked
+ready or staged by *what the files were* rather than by *what they depend on*.
+So `contracts` shipped ready while prescribing procedures that invoke the
+staged machinery; `agent-definitions` shipped the adjudicator whose only
+permitted input is a record the staged machinery generates; and worst,
+`settings-template` shipped ready with three hooks invoking a guard from the
+staged `guard` group **and** `defaultMode: bypassPermissions` — a consumer
+would have been seeded with permission bypass and no guard, strictly worse than
+being seeded with nothing.
+
+Fixed as a mechanism rather than three relabelings: groups now declare
+`requires:`, and the manifest check refuses a `ready` group that requires a
+staged one. The relabeling then follows from the rule instead of from judgment,
+and the same mistake cannot be made silently again. The honest consequence is
+that 7 of 12 groups are now staged behind the machinery — which makes the
+repo-portability work a **prerequisite** for the sync rather than a preference,
+not a nice-to-have to schedule later.
+
+**The two agent-environment docs were wrongly taken.** `codex-environment.md`
+instructs the Codex UI to run `scripts/codex-setup.sh` — a file that was never
+in the payload — and hardcodes Overhype's pnpm packages and suite counts;
+`replit-environment.md` names Overhype's session hook and its `heliumdb`
+database. Both were included on the strength of a low count of the string
+"Overhype", which measured the wrong thing: **product coupling is not the same
+as product mentions.** They are now consumer-owned, listed as required consumer
+documents in `consuming-repos.md`, and the synced files that link to them
+resolve in a consumer.
+
+**The destination-uniqueness check did not check what it claimed.** It compared
+declared roots, so `dest/` and `dest/x.md` looked distinct while both wrote
+`dest/x.md`; the sync would have let copy order pick a winner under a gate
+asserting uniqueness. It now resolves and compares per-file destinations.
+
+One more, self-inflicted while fixing the above and worth the same treatment:
+the manifest reader took `requires: [machinery]` as the *string* `"[machinery]"`
+and iterated it character by character, producing eleven confident, wrong
+problems. It now refuses flow syntax outright. The test that was supposed to
+cover this had been passing on a bad indent in its fixture rather than on the
+flow sequence — a reminder that a passing test proves nothing until you know
+which assertion carried it.
+
 ## Not yet built
 
 - **The sync workflow itself.** This PR establishes the payload and the

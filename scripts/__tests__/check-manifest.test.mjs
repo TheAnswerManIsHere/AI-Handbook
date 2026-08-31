@@ -43,10 +43,23 @@ groups:
   assert.match(doc.groups[0].description, /Folded prose/);
 });
 
-test("parser throws rather than guessing at syntax it does not model", () => {
-  // A flow mapping is valid YAML and NOT part of this reader's subset.
-  // Silently mis-reading it would defeat the whole check.
-  assert.throws(() => parseManifestYaml("groups: [a, b]\n  bad: indent\n"));
+test("parser refuses flow sequences instead of reading them as strings", () => {
+  // Not hypothetical: `requires: [machinery]` was written here first, taken as
+  // the STRING "[machinery]", and iterated one character at a time — eleven
+  // bogus "group not found" problems and no hint at the cause. Taking a flow
+  // sequence as a scalar is the single worst thing this reader can do, so it
+  // refuses. (An earlier version of this test used a flow sequence followed by
+  // a bad indent, and passed on the indent — proving nothing about flow
+  // syntax. The input here is otherwise valid.)
+  assert.throws(
+    () => parseManifestYaml("groups:\n  - id: one\n    requires: [machinery]\n"),
+    /flow syntax/,
+  );
+});
+
+test("parser reads the block-list form that replaced it", () => {
+  const doc = parseManifestYaml("groups:\n  - id: one\n    requires:\n      - machinery\n      - guard\n");
+  assert.deepEqual(doc.groups[0].requires, ["machinery", "guard"]);
 });
 
 test("clean manifest with full coverage reports no problems", () => {
@@ -90,6 +103,71 @@ test("DETECTS two groups writing the same destination", () => {
     allExist,
   );
   assert.ok(problems.some((p) => p.includes("written by two groups")));
+});
+
+test("DETECTS a collision the declared roots do not reveal", () => {
+  // The roots differ ("dest/" vs "dest/x.md"), so comparing them says unique.
+  // Both nonetheless write dest/x.md, and the sync would silently let copy
+  // order decide the winner. Comparing resolved destinations is the point.
+  const problems = check(
+    manifest([
+      { id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a/", to: "dest/" }] },
+      { id: "two", mode: "sync", status: "ready", paths: [{ from: "core/b.md", to: "dest/x.md" }] },
+    ]),
+    ["core/a/x.md", "core/b.md"],
+    allExist,
+  );
+  assert.ok(
+    problems.some((p) => p.includes('destination "dest/x.md" is written by two groups')),
+    "a per-file comparison catches what a root comparison cannot",
+  );
+});
+
+test("a directory mapping's files land at distinct destinations without false alarms", () => {
+  const problems = check(
+    manifest([{ id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a/", to: "dest/" }] }]),
+    ["core/a/x.md", "core/a/y.md", "core/a/nested/z.md"],
+    allExist,
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS a ready group that requires a staged one", () => {
+  const problems = check(
+    manifest([
+      { id: "docs", mode: "sync", status: "ready", requires: ["tools"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "tools", mode: "sync", status: "staged", blocker: "not portable yet", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("is ready but requires")));
+});
+
+test("a staged group may require another staged group", () => {
+  // Staging cascades downward, not upward: two blocked groups blocked on the
+  // same thing is coherent, and must not be reported as a problem.
+  const problems = check(
+    manifest([
+      { id: "docs", mode: "sync", status: "staged", blocker: "waits on tools", requires: ["tools"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "tools", mode: "sync", status: "staged", blocker: "not portable yet", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS a requires: naming a group that does not exist", () => {
+  const problems = check(
+    manifest([
+      { id: "docs", mode: "sync", status: "ready", requires: ["typo-here"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "rest", mode: "sync", status: "ready", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("not a group in this manifest")));
 });
 
 test("DETECTS two groups claiming the same payload file", () => {

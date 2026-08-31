@@ -98,14 +98,32 @@ and if the core is wrong, fix the core.
 <The repo's actual commands, and what CI requires.>
 ```
 
+## Required consumer documents
+
+Some synced files link to documents the handbook deliberately does **not**
+ship, because their content is per-repo. The links resolve in a consumer and
+dangle in the handbook, which is expected — payload is written for its
+destination.
+
+| Document | Why it cannot be shared |
+|---|---|
+| `docs/ai-context/codex-environment.md` | Describes *this* repo's Codex sandbox: its setup script, its packages, which suites run there |
+| `docs/ai-context/replit-environment.md` | Describes *this* repo's Repl: its database, its session hooks, its deploy path |
+| `docs/ai-context/decisions.md` | The product's settled decisions and their rationale |
+
+A consumer needs these before or alongside its first sync. They may be started
+from the corresponding file in another repo, but they are then owned locally
+and diverge — that is the point.
+
 ## Enrolling a repo
 
 1. Add it to `consumers:` in `sync-manifest.yml` with `enrolled: false`.
 2. Land the repo's own overlay `CLAUDE.md` and `AGENTS.md` from the templates
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
-3. Run the sync, review the pull request it opens, merge.
-4. Flip `enrolled: true`.
+3. Create the required consumer documents above.
+4. Run the sync, review the pull request it opens, merge.
+5. Flip `enrolled: true`.
 
 A repo is enrolled only once its overlay exists. A vendored core that nothing
 imports is inert: the files are present, the rules are not loaded, and the
