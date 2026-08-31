@@ -29,11 +29,15 @@ into an unrelated repo is noise that erodes trust in everything around it.
 | Group | Count | Note |
 |---|---|---|
 | Skills | 36 | Everything except the six `overhype-*` skills and `domain-modeling`, which encode product knowledge |
-| Contracts (`docs/ai-context/`) | 10 | Working rules, modes, planning, plan review, documentation, workstream tracking, failure patterns, web research, and both agent-environment docs |
-| Engineering practice | 2 | `code-review.md`, `migrations-and-backfills.md` |
-| Memory entries | 33 | Of 65 — see below |
+| Contracts (`docs/ai-context/`) | 8 | Working rules, modes, planning, plan review, documentation, workstream tracking, failure patterns, web research |
+| Engineering practice | 1 | `code-review.md` |
+| Memory entries | 34 | Of 65 — see below |
 | Machinery scripts | 11 (+9 test files) | Review loop, readiness, project sync, guard |
 | Agent definitions | 3 | Including the review-loop adjudicator |
+
+Counts are as they stand after the review corrections below — the first cut
+took two agent-environment docs and a migrations doc that had to go back, and
+gained one memory entry the core links to.
 
 ## What was changed on the way
 
