@@ -47,7 +47,8 @@ const STATUSES = new Set(["ready", "staged"]);
 // one as absent, and a ready group passes the readiness gate with its
 // dependency silently dropped. Groups legitimately omit `requires`, so absence
 // cannot be the signal -- the spelling has to be.
-const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "blocker", "description", "paths"]);
+const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "mentions", "blocker", "description", "paths"]);
+const MENTION_KEYS = new Set(["group", "ref", "from", "form", "count", "why"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
 const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
 
@@ -273,6 +274,77 @@ export function check(manifest, payloadFiles, exists) {
     if (group.status === "ready" && group.blocker) {
       problems.push(`${group.id}: a ready group must not still carry a blocker — clear it in the same change that flips the status`);
     }
+    for (const m of group.mentions ?? []) {
+      if (m === null || typeof m !== "object" || Array.isArray(m)) {
+        problems.push(`${group.id}: a mentions entry is not a mapping: ${JSON.stringify(m)}`);
+        continue;
+      }
+      for (const key of Object.keys(m)) {
+        if (!MENTION_KEYS.has(key)) {
+          problems.push(`${group.id}: unknown mentions key "${key}" — known keys are ${[...MENTION_KEYS].join(", ")}`);
+        }
+      }
+      if (typeof m.group !== "string") {
+        problems.push(`${group.id}: every mentions entry needs a "group"`);
+        continue;
+      }
+      // Scoped to the referenced FILE, not the group pair. A group-wide
+      // exemption suppresses every reference between two groups, including a
+      // real one added later -- so the classification would silently widen
+      // itself as the payload changed.
+      if (typeof m.ref !== "string" || !m.ref.startsWith(`${PAYLOAD_DIR}/`)) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a "ref" naming the payload file being referenced ` +
+            `— a group-wide exemption would also suppress a real reference added later`,
+        );
+        continue;
+      }
+      // `from` is mandatory, not optional. Omitting it exempted every file in
+      // the source group, so an entry whose reason named one file silently
+      // covered the others -- the same widening the `ref` scoping was added to
+      // stop, one level in.
+      if (typeof m.from !== "string" || !m.from.startsWith(`${PAYLOAD_DIR}/`)) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a "from" naming the payload file doing the referencing ` +
+            `— without it the exemption covers every other file in this group too`,
+        );
+      }
+      // The matched FORM is mandatory too -- the fifth and last scope axis. One
+      // file can name one target two ways for two reasons: a generic
+      // ".gitignore" that collides with the receipts file, and a real
+      // instruction to open ".agents/receipts/.gitignore". Without this the
+      // first entry covers the second, and the stale-evidence check does not
+      // notice, because the from/ref pair is still live.
+      if (typeof m.form !== "string" || m.form.trim().length === 0) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a "form" naming the exact string being classified ` +
+            `— an entry that names the file but not the spelling also covers a different reference to the same file`,
+        );
+      }
+      // The occurrence COUNT is the sixth scope axis. Without it an entry
+      // written for three occurrences also covers a fourth added later, and
+      // the stale check stays satisfied because the form is still live.
+      if (!Number.isInteger(m.count) || m.count < 1) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a positive integer "count" of occurrences ` +
+            `— an entry that does not say how many it covers also covers occurrences added after it was written`,
+        );
+      }
+      // The reason is mandatory and is the whole point. An exemption without
+      // one is indistinguishable from a missed dependency, which is the
+      // failure this file exists to make loud.
+      if (typeof m.why !== "string" || m.why.trim().length === 0) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without saying why — an exemption with no stated reason ` +
+            `cannot be told apart from a dependency someone forgot to declare`,
+        );
+      }
+      if ((group.requires ?? []).includes(m.group)) {
+        problems.push(
+          `${group.id}: "${m.group}" is in both requires and mentions — it is either a dependency or it is not`,
+        );
+      }
+    }
     if (!group.paths || group.paths.length === 0) {
       problems.push(`${group.id}: declares no paths, so it delivers nothing — a group another group can require while supplying no files`);
     }
@@ -365,6 +437,14 @@ export function check(manifest, payloadFiles, exists) {
     }
   }
 
+  for (const group of manifest.groups ?? []) {
+    for (const m of group.mentions ?? []) {
+      if (typeof m?.group === "string" && !groupsById.has(m.group)) {
+        problems.push(`${group.id}: mentions "${m.group}", which is not a group in this manifest`);
+      }
+    }
+  }
+
   // Readiness is transitive. A group is only as ready as the groups it needs.
   for (const group of manifest.groups ?? []) {
     for (const req of group.requires ?? []) {
@@ -411,44 +491,186 @@ export function ownersOf(manifest, payloadFiles) {
   return owner;
 }
 
-/** Every reference from a payload file to another path, as written. */
-export function referencesIn(file, text) {
-  const refs = new Set();
-  if (/\.m?js$/.test(file)) {
-    // Match the SPECIFIER position, not the statement shape.
-    //
-    // Two consecutive review rounds found forms an earlier statement-shaped
-    // regex could not see -- first single quotes, then multiline named imports
-    // and `export ... from`. The second round is the signal: a regex that
-    // enumerates statement syntax is a list, and this repo's recorded lesson is
-    // that lists of this kind do not converge. Every static form -- single or
-    // multiline, `import ... from`, `export ... from`, `export * from`, and a
-    // bare side-effect `import "..."` -- puts the module specifier in exactly
-    // one place, so match that and stop caring about what precedes it.
-    //
-    // This deliberately errs toward OVER-detection: a relative specifier
-    // mentioned in a comment or string would be read as a dependency. The two
-    // failure directions are not symmetric. Over-declaring makes a group wait
-    // for one it did not strictly need; under-declaring ships a consumer a
-    // module graph that fails at load. The first is a scheduling cost, the
-    // second is a broken guard, so the bias belongs where it is.
-    //
-    // Dynamic `import()` stays out: it is a runtime branch that may never be
-    // taken, whereas everything above loads during module instantiation.
-    for (const m of text.matchAll(/\bfrom\s*(["'])(\.[^"'\n]+)\1/g)) refs.add(m[2]);
-    for (const m of text.matchAll(/(?:^|[\s;{}])import\s*(["'])(\.[^"'\n]+)\1/g)) refs.add(m[2]);
+/**
+ * Every string by which `target` could legitimately be referenced from `source`.
+ *
+ * This inverts the earlier design, and the inversion is the point. Extracting
+ * path-shaped tokens from prose and then resolving them requires a regex, a
+ * regex requires an alphabet, and an alphabet is an enumeration -- so two
+ * consecutive review rounds each found something the enumeration omitted:
+ * first the file extensions (.py, .ts, .html, .dot, .gitignore, and three
+ * files with no extension), then the filename characters themselves (`c++.md`
+ * extracts as `.md`). Deriving the alphabet from the payload too would just
+ * move the enumeration again.
+ *
+ * So: do not extract. The payload IS the search set. For each candidate target
+ * compute the strings that would actually name it, and look for those. Nothing
+ * is enumerated, because every form is computed from the two real paths.
+ */
+export function referenceFormsFor(sourceFile, targetFile, destOf, uniqueSuffixes) {
+  const forms = new Set();
+
+  // The relative form is computed between DESTINATIONS, not between payload
+  // paths. A file's reference to another is written for where both will LAND,
+  // and the manifest may relocate either -- `settings.template.json` already
+  // becomes `.claude/settings.json` on delivery. Computing from `core/` paths
+  // asks where files sit, which is the same wrong-layout error that put two
+  // corpus-wide gates in the wrong group.
+  //
+  // Payload-relative is kept as well: a reference written before the manifest
+  // relocated either file is still a reference, and an extra form only ever
+  // over-detects.
+  for (const [from, to] of [
+    [destOf.get(sourceFile), destOf.get(targetFile)],
+    [sourceFile, targetFile],
+  ]) {
+    if (!from || !to) continue;
+    const rel = posix.relative(posix.dirname(from), to);
+    if (!rel) continue;
+    forms.add(rel);
+    if (!rel.startsWith(".")) forms.add(`./${rel}`);
   }
-  for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
-    const raw = m[1];
-    if (/^(https?:|mailto:|#)/.test(raw)) continue;
-    // Strip the fragment rather than skipping the link. Refusing anything
-    // containing "#" was this derivation's first bug: the single reference
-    // proving planning depends on engineering carries a heading anchor, so the
-    // check silently under-reported exactly the edge it was written to find.
-    refs.add(raw.split("#")[0]);
+
+  const dest = destOf.get(targetFile);
+  if (dest) {
+    forms.add(dest);
+    for (const suffix of uniqueSuffixes.get(targetFile) ?? []) forms.add(suffix);
   }
-  refs.delete("");
-  return [...refs];
+  forms.delete("");
+  return [...forms];
+}
+
+/**
+ * Suffixes of a destination that identify exactly ONE payload file.
+ *
+ * A templated reference names where a file lands without knowing the root --
+ * `{baseDir}/skills/semgrep/references/scanner-task-prompt.md` -- so the
+ * resolvable forms are the destination's trailing segments. Only the
+ * unambiguous ones count: "README.md" is a suffix of several destinations and
+ * identifies none of them, so it is not a reference to any.
+ */
+export function uniqueSuffixesOf(destOf) {
+  const bySuffix = new Map(); // suffix -> Set of payload files
+  for (const [file, dest] of destOf) {
+    const parts = dest.split("/");
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const suffix = parts.slice(i).join("/");
+      if (!bySuffix.has(suffix)) bySuffix.set(suffix, new Set());
+      bySuffix.get(suffix).add(file);
+    }
+  }
+  const out = new Map();
+  for (const [suffix, files] of bySuffix) {
+    if (files.size !== 1) continue; // ambiguous: identifies no single file
+    const [file] = files;
+    if (!out.has(file)) out.set(file, []);
+    out.get(file).push(suffix);
+  }
+  return out;
+}
+
+/**
+ * Does `text` reference `form` as a path, rather than merely containing those
+ * characters inside a longer one?
+ *
+ * The boundary test is on what surrounds the match, so it needs no alphabet of
+ * its own: a path character before the match means this is a different, longer
+ * path (`xtwo.md` is not `two.md`), and a path character after means the same
+ * (`two.md.bak`). A URL is excluded the same way it always was -- by what
+ * precedes it.
+ */
+export function mentionOffsets(text, form) {
+  const offsets = [];
+  let from = 0;
+  for (;;) {
+    const i = text.indexOf(form, from);
+    if (i === -1) return offsets;
+    from = i + 1;
+    const before = i === 0 ? "" : text[i - 1];
+    const after = text[i + form.length] ?? "";
+    if (/[A-Za-z0-9_+~-]/.test(before)) continue; // inside a longer name
+    // A URL's path is not a payload reference. This is not an enumeration of
+    // schemes: it walks back over the unbroken run of non-whitespace before
+    // the match and asks whether it contains "://", which is what makes a URL
+    // a URL. Removing the blanket slash rejection (below) removed the accident
+    // that used to cover this case, so it is now stated deliberately.
+    //
+    // The walk-back is a scan over `\s`, not a search for the nearest " " or
+    // "\n". Those two were the fifth enumeration found in this mechanism, and
+    // the comment right here already claimed the general behaviour they did not
+    // implement -- a tab, CR, form feed or non-breaking space put the URL back
+    // inside the run and DISCARDED a real reference. `\s` is a closed class the
+    // language defines, so this is a derivation and not a shorter list.
+    let runStart = i;
+    while (runStart > 0 && !/\s/.test(text[runStart - 1])) runStart--;
+    if (text.slice(runStart, i).includes("://")) continue;
+    // A slash before is ACCEPTED. An earlier version rejected it unless the
+    // preceding character was `}`, which encoded this repo's current
+    // `{baseDir}` spelling as if it were the general case -- a one-element
+    // enumeration, and the fourth found in this mechanism. `$BASE_DIR/`,
+    // `%ROOT%/` and `$(root)/` all name a root just as legitimately.
+    //
+    // Accepting it can over-detect: `x/deep/b/two.md` matches the form
+    // `deep/b/two.md`. That fails closed (the reference needs classifying) and
+    // is empirically free -- removing the rejection entirely changes the
+    // reference count on this corpus by zero, so the `}` case was the only
+    // thing it was deciding.
+    if (/[A-Za-z0-9_+~/-]/.test(after)) continue; // a longer name or deeper path
+    // A dot after is sentence punctuation ("covered by .gitignore.") unless a
+    // word character follows it, which makes it a different file ("two.md.bak").
+    if (after === "." && /[A-Za-z0-9]/.test(text[i + form.length + 1] ?? "")) continue;
+    offsets.push(i);
+  }
+}
+
+/**
+ * Does `text` reference `form` at all? The boolean face of `mentionOffsets`.
+ *
+ * Positions matter now because forms OVERLAP: one occurrence of
+ * `.agents/receipts/.gitignore` is also an occurrence of `receipts/.gitignore`
+ * and of `.gitignore`, and treating those as three separate references would
+ * demand three exemptions for one piece of text. The dependency check resolves
+ * that by position; everything else only needs the yes/no.
+ */
+export function mentionsForm(text, form) {
+  return mentionOffsets(text, form).length > 0;
+}
+
+/**
+ * The DISTINCT references `text` makes to one target, given every form that
+ * could name it.
+ *
+ * Forms overlap by construction: `.agents/receipts/.gitignore`,
+ * `receipts/.gitignore` and `.gitignore` all name the same file, and one
+ * occurrence of the longest matches all three. Counting those as three
+ * references would demand three exemptions for one piece of prose.
+ *
+ * So the longest form claims its span first, and a shorter form survives only
+ * where it matches somewhere the longer one did not. A file mentioning a bare
+ * ".gitignore" yields one reference; a file mentioning both that and the full
+ * receipts path yields two, which is exactly the case an exemption scoped only
+ * to the file pair was silently covering.
+ */
+export function distinctReferences(text, forms) {
+  const claimed = [];
+  const out = [];
+  for (const form of [...forms].sort((a, b) => b.length - a.length)) {
+    const fresh = mentionOffsets(text, form).filter(
+      (i) => !claimed.some(([start, end]) => i >= start && i + form.length <= end),
+    );
+    if (!fresh.length) continue;
+    // The COUNT travels with the form. An exemption covers the occurrences its
+    // author read, not however many exist later: `claude-core.md` names
+    // `.claude/settings.json` three times under one entry, and a fourth
+    // occurrence added as a real instruction would have ridden in on it with
+    // the stale check still satisfied -- the form was still live. Position
+    // would be precise but churns on every unrelated edit; the count changes
+    // exactly when the set of occurrences does, which is when a human should
+    // re-look.
+    out.push({ form, count: fresh.length });
+    for (const i of fresh) claimed.push([i, i + form.length]);
+  }
+  return out;
 }
 
 /**
@@ -469,6 +691,26 @@ export function referencesIn(file, text) {
 export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   const problems = [];
   const owner = ownersOf(manifest, payloadFiles);
+
+  // Where each payload file LANDS in a consumer. A file that references
+  // another by its consumer path -- which is what a templated or prose
+  // reference does -- can only be resolved against this, not against the
+  // payload layout.
+  const byDestination = new Map(); // consumer path -> payload path
+  for (const group of manifest.groups ?? []) {
+    for (const p of group.paths ?? []) {
+      if (!p.from || !p.to) continue;
+      const isDir = p.from.endsWith("/");
+      const excluded = new Set(p.exclude ?? []);
+      for (const f of payloadFiles) {
+        if (isDir ? !f.startsWith(p.from) : f !== p.from) continue;
+        const leaf = f.slice(p.from.length);
+        if (excluded.has(leaf)) continue;
+        const dest = posix.normalize(isDir ? p.to + leaf : p.to);
+        if (!byDestination.has(dest)) byDestination.set(dest, f);
+      }
+    }
+  }
   const declared = new Map((manifest.groups ?? []).map((g) => [g.id, g.requires ?? []]));
 
   const closureOf = (id) => {
@@ -483,19 +725,123 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
     return out;
   };
 
-  const missing = new Map(); // "src->dst" -> evidence
+  // Groups this one references WITHOUT depending on: prose that describes
+  // another group's files rather than instructing an agent to read them.
+  //
+  // This distinction is semantic and no extractor can make it. "The refusal
+  // lives in `guard-decision.mjs`" and "Use `{baseDir}/skills/x.md` for the
+  // full method" are the same shape and only one is a dependency -- the
+  // instruction-vs-evidence test this repo already runs on payload, applied to
+  // references instead of files. Declaring every syntactic match instead
+  // collapses ten of twelve groups into one cycle, which is measured, not
+  // feared: it would end the staging design outright.
+  //
+  // Unlike the syntax list this check replaced, this one is BOUNDED -- by the
+  // corpus, not by how many ways a path can be written -- it shrinks as payload
+  // is rewritten, every entry must say why, and nothing can be missed, because
+  // an unclassified reference still fails the build.
+  const mentionsOf = new Map((manifest.groups ?? []).map((g) => [g.id, g.mentions ?? []]));
 
-  // Some payload is referenced by NAME rather than by path. A skill that says
-  // "spawn the semgrep-scanner agent" creates a hard dependency on the group
-  // delivering `.claude/agents/semgrep-scanner.md`, and no link resolver can
-  // see it -- which is exactly how that edge survived nine review rounds. The
-  // name set is DERIVED from the payload, not maintained here: whatever agent
-  // files exist define the names to look for, so adding an agent extends the
-  // check for free.
-  const namedEntities = new Map(); // bare name -> owning group
+  // A static import is never exemptible. Everything else about a reference is
+  // ambiguous -- a backticked path reads the same whether it instructs or
+  // describes -- but `import x from "./y.mjs"` is unambiguous: the module
+  // loads at instantiation or the file does not run. This closes the case a
+  // scoped exemption alone cannot: a comment about `guard-decision.mjs` is
+  // classified as evidence, and then a real import of that same file is added
+  // to that same source file.
+  // Static-import specifiers, DECODED the way the engine decodes them. The
+  // scan below matches literal text, but Node resolves the parsed string:
+  // `import x from "../b/t\\u0077o.mjs"` loads two.mjs while containing the
+  // substring "t\\u0077o.mjs" -- invisible to indexOf, so the reference (and
+  // with it the never-exemptible rule) was silently skipped. Decoding follows
+  // the language's escape rules, so it is a derivation, not a list: every
+  // escape the spec defines either maps to its defined character or, for the
+  // NonEscapeCharacter case, to the character itself.
+  const decodeJsString = (raw) =>
+    raw.replace(
+      /\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})|\\\r?\n|\\(.)/g,
+      (_, brace, u4, x2, ch) => {
+        if (brace !== undefined) return String.fromCodePoint(parseInt(brace, 16));
+        if (u4 !== undefined) return String.fromCodePoint(parseInt(u4, 16));
+        if (x2 !== undefined) return String.fromCodePoint(parseInt(x2, 16));
+        if (ch === undefined) return ""; // line continuation
+        return { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", v: "\v", 0: "\0" }[ch] ?? ch;
+      },
+    );
+
+  // No file-type gate, for the reason recorded on the round-3 thread: "which
+  // files can contain an import" was an enumeration. A comment may legally sit
+  // between `from` and the specifier, so the gap is "whitespace and comments".
+  const GAP = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\n]*\n)*`;
+  const SPECIFIER = new RegExp(
+    String.raw`(?:from|import)${GAP}("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')`,
+    "g",
+  );
+  const specifiersOf = (text) => {
+    const out = [];
+    for (const m of text.matchAll(SPECIFIER)) out.push(decodeJsString(m[1].slice(1, -1)));
+    return out;
+  };
+
+  const importsIn = (file, text, form) => specifiersOf(text).includes(form);
+
+  const exempt = (srcGroup, srcFile, text, form, count, targetFile) =>
+    (mentionsOf.get(srcGroup) ?? []).some(
+      (m) =>
+        m?.ref === targetFile &&
+        // The named group must actually own the referenced file. Without this
+        // a typo in `group` grants an exemption for a file that group does not
+        // deliver, suppressing a real edge while every other check passes.
+        m.group === owner.get(targetFile) &&
+        m.from === srcFile &&
+        // Scoped to the matched spelling, not just the file pair.
+        m.form === form &&
+        // ...and to the OCCURRENCES the author actually read. An entry covers
+        // the N occurrences that existed when it was written; occurrence N+1,
+        // added later as a real instruction, is new evidence nobody classified
+        // and must fail until someone looks. The count changes exactly when
+        // the set of occurrences does -- unlike positions, which churn on
+        // every unrelated edit.
+        m.count === count &&
+        !importsIn(srcFile, text, form),
+    );
+
+  const missing = new Map(); // "srcFile\u0000targetFile" -> { src, dst, evidence }
+
+  // Every reference actually detected this run, exempted or not. An exemption
+  // is a claim about evidence that exists; once the evidence is gone the claim
+  // is unverified, and the day that source gains a REAL reference to the same
+  // target the stale entry would exempt it with nobody reading the new
+  // evidence. Three earlier tightenings closed the scope axes of this same
+  // error -- ref, from, group -- and this is its time axis.
+  const seen = new Map(); // "srcFile\u0000targetFile\u0000form" -> occurrence count
+
+  const destOf = new Map([...byDestination].map(([dest, file]) => [file, dest]));
+  const uniqueSuffixes = uniqueSuffixesOf(destOf);
+
+  // The third identification mechanism: some payload is named rather than
+  // pathed. A skill saying "spawn the semgrep-scanner agent" depends on the
+  // group delivering that agent, and no path form appears anywhere. The name
+  // set is derived from the payload, so adding an agent extends the check.
+  const namedEntities = new Map(); // bare name -> { group, file }
   for (const [file, group] of owner) {
-    const m = /(?:^|\/)\.claude\/agents\/([^/]+)\.md$/.exec(file);
-    if (m) namedEntities.set(m[1], group);
+    // Matched against the DESTINATION. An agent is named by where it is
+    // installed, not by where its source sits: a definition sourced elsewhere
+    // and mapped into .claude/agents/ is an agent, and one sourced there but
+    // mapped elsewhere is not.
+    const dest = destOf.get(file);
+    if (!dest) continue;
+    const m = /(?:^|\/)\.claude\/agents\/([^/]+)\.md$/.exec(dest);
+    if (m) namedEntities.set(m[1], { group, file });
+    // A skill is invoked by its consumer COMMAND, not a path: "run /bugfix"
+    // depends on the group installing .claude/skills/bugfix/ and no path form
+    // appears anywhere in that sentence. The name set is derived from the
+    // destinations, so adding a skill extends the check. The leading slash is
+    // part of the name -- bare "bugfix" in prose is a word, "/bugfix" is the
+    // command -- which is also what keeps skill names like "next" and
+    // "document" from matching ordinary English.
+    const sk = /(?:^|\/)\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(dest);
+    if (sk) namedEntities.set(`/${sk[1]}`, { group, file });
   }
 
   for (const file of payloadFiles) {
@@ -505,34 +851,79 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
     try {
       text = readFile(file);
     } catch {
-      continue; // unreadable (binary, permissions) is the coverage check's business, not this one
+      continue; // unreadable is the coverage check's business, not this one
     }
-    const dir = posix.dirname(file);
-    for (const ref of referencesIn(file, text)) {
-      const target = posix.normalize(posix.join(dir, ref));
-      const dst = owner.get(target);
-      if (!dst || dst === src) continue;
+    const specifiers = specifiersOf(text);
+
+    for (const [target, dst] of owner) {
+      if (dst === src) continue;
       if (closureOf(src).has(dst)) continue;
-      const key = `${src}\u0000${dst}`;
-      if (!missing.has(key)) missing.set(key, `${file} → ${target}`);
+      const forms = referenceFormsFor(file, target, destOf, uniqueSuffixes);
+      // Keyed per REFERENCE, not per group pair and no longer per file pair
+      // either. An exemption is scoped to one source file AND one spelling, so
+      // each distinct spelling needs its own classification -- reporting one
+      // per pair meant a maintainer fixed one and got the next, one round-trip
+      // at a time, and stopping at the first match meant a second spelling
+      // rode in on the first one's exemption.
+      const matched = distinctReferences(text, forms);
+      // A decoded static-import specifier is a reference even when the literal
+      // scan cannot see it: `"../b/t\\u0077o.mjs"` loads two.mjs. Decoded
+      // specifiers that equal a form the text did not otherwise match are
+      // added here; importsIn consults the same decoded set, so they are also
+      // never exemptible.
+      for (const spec of specifiers) {
+        if (!forms.includes(spec)) continue;
+        if (matched.some((r) => r.form === spec)) continue;
+        matched.push({ form: spec, count: specifiers.filter((x) => x === spec).length });
+      }
+      for (const { form, count } of matched) {
+        seen.set(`${file}\u0000${target}\u0000${form}`, count);
+        if (exempt(src, file, text, form, count, target)) continue;
+        missing.set(`${file}\u0000${target}\u0000${form}`, {
+          src, dst, evidence: `${file} names "${form}" (${count}×)`,
+        });
+      }
     }
 
-    for (const [name, dst] of namedEntities) {
+    for (const [name, { group: dst, file: agentFile }] of namedEntities) {
       if (dst === src) continue;
       // Word-bounded, so `semgrep-scanner` in prose or a `subagent_type:` line
-      // matches while a longer identifier containing it does not.
-      if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
+      // matches while a longer identifier containing it does not. For a
+      // /command the same boundary also refuses a path segment: in
+      // ".claude/skills/bugfix/SKILL.md" the "/bugfix" is preceded by a word
+      // character, so only the standalone command matches.
+      const count = [...text.matchAll(
+        new RegExp(`(?<![\\w/.-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w/-])`, "g"),
+      )].length;
+      if (!count) continue;
       if (closureOf(src).has(dst)) continue;
-      const key = `${src}\u0000${dst}`;
-      if (!missing.has(key)) missing.set(key, `${file} names "${name}"`);
+      seen.set(`${file}\u0000${agentFile}\u0000${name}`, count);
+      if (exempt(src, file, text, name, count, agentFile)) continue;
+      missing.set(`${file}\u0000${agentFile}\u0000${name}`, {
+        src, dst, evidence: `${file} names "${name}" (${count}×)`,
+      });
     }
   }
 
-  for (const [key, evidence] of missing) {
-    const [src, dst] = key.split("\u0000");
+  for (const group of manifest.groups ?? []) {
+    for (const m of group.mentions ?? []) {
+      if (typeof m?.ref !== "string" || typeof m?.from !== "string" || typeof m?.form !== "string") continue; // schema check reports these
+      const live = seen.get(`${m.from}\u0000${m.ref}\u0000${m.form}`);
+      if (live === m.count) continue;
+      problems.push(
+        live === undefined
+          ? `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref} as "${m.form}", but that file no longer ` +
+              `references it that way — an exemption outliving its evidence would silently cover a real reference added later`
+          : `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref} as "${m.form}" ${m.count}×, but the file now ` +
+              `has ${live} occurrence(s) — the changed set is new evidence nobody classified; re-read and update count`,
+      );
+    }
+  }
+
+  for (const { src, dst, evidence } of missing.values()) {
     problems.push(
-      `${src} references files delivered by "${dst}" but does not require it — e.g. ${evidence}. ` +
-        `Add "${dst}" to ${src}'s requires, or stop referencing it.`,
+      `${src} references files delivered by "${dst}" but neither requires nor classifies it — ${evidence}. ` +
+        `Add "${dst}" to ${src}'s requires, or record a scoped mentions entry saying why it is evidence.`,
     );
   }
   return problems;

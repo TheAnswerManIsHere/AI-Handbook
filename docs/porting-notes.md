@@ -246,10 +246,37 @@ One PR per group. It does three things:
    does it cite one as evidence of something that happened? Evidence stays.
    Instruction is rewritten to name the consuming repo's equivalent, made
    conditional, or moved out of the payload entirely.
-2. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
+2. **Canonicalizes the group's references, in the same read** (David,
+   2026-09-01). Every reference that is an *instruction* is rewritten to the
+   consumer-path form the skills already use — `` `{baseDir}/path/to/file.md` ``
+   — and every `mentions` entry for a file so converted is deleted, because a
+   marked instruction is a declared dependency and needs no exemption. The
+   marginal cost is near zero: step 1 already reads every file in the group and
+   already decides instruction-vs-evidence per reference, which is the same
+   judgment call.
+
+   **Why this is worth doing rather than leaving the checker to infer.**
+   Detecting a reference in unmarked prose is guesswork, and its cost is on
+   record: five review rounds went into "is this string a reference?", each
+   finding a case the last rule missed (extension list, character alphabet,
+   import-guard extensions, placeholder spelling, whitespace spelling), plus
+   four rounds narrowing the exemption scope from a group pair down to one
+   spelling's occurrence count. A canonical form makes detection exact string
+   matching, and the whole `mentions` sidecar — 39 entries, each scoped five
+   ways to stay honest — shrinks toward nothing, because intent is declared at
+   the reference site where the author actually knows it.
+
+   **The prose scan does not go away; it demotes.** "Not marked, therefore not
+   a dependency" fails open — a future file writing `read docs/x.md for the
+   method` in plain prose would sail through. So dependencies come from the
+   markers, detected exactly, and the inference scan becomes a lint: *this
+   looks like an unmarked reference; mark it or say it is prose.* A miss there
+   is a style slip, not a lost edge. That is the point — the checker stops
+   needing to be perfect, which is what made it expensive.
+3. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
    the check refuses `ready` while a required group is staged, so the
    dependency order enforces itself.
-3. **States what was inspected**, so the next group's PR is not re-deriving
+4. **States what was inspected**, so the next group's PR is not re-deriving
    the test.
 
 The blockers in `sync-manifest.yml` are the queue, and the manifest's own
@@ -267,73 +294,55 @@ instance to every consumer — with the manifest asserting the work was done.
 
 ### The order that falls out of the dependencies
 
-**Corrected again after round 7, and this time derived rather than written.**
-The order below is no longer maintained by hand: `check-manifest` reads the
-links in every payload file, maps each target to the group that delivers it,
-and fails when a group references another group it does not require. Three
-rounds had corrected this graph by hand and the check found five more edges
-none of them had — including `guard` → `machinery`, which the previous version
-of this section got exactly backwards.
+**This order is generated, not written.** `check-manifest` derives the whole
+dependency graph from the payload's own references and fails when a group
+references another it neither requires nor classifies. Everything below is read
+off that graph; if it and the manifest ever disagree, the manifest is right and
+this section is stale.
 
-**What the derived graph says, and it is not what the plan assumed:** five
-groups — `contracts`, `engineering`, `memory`, `planning`, `skills` — form a
-single dependency cycle. They are not a sequence and cannot be unstaged one at
-a time. That is 3 contract files, 1 engineering doc, 34 memory entries,
-`PLANS.md` and 36 skills flipping in one PR, because each of the five carries
-mandatory references into the others. The corpus is densely cross-linked, and
-the per-group decomposition the staging plan assumed does not exist for its
-middle. Whether to flip all five at once or to cut some of the cross-links
-first is a real decision, and it belongs to whoever takes the next PR.
-
-The remainder still decomposes cleanly:
+Earlier versions of this section were written by hand, corrected by hand four
+times, and wrong every time — including in the specific way that matters most:
+three of them opened with "machinery first, it depends on nothing," which was
+false, because two corpus-wide gates were filed under `machinery` and dragged
+contracts, skills and planning in behind them. That is fixed (issue #2), and
+"machinery first" is true again for the first time since it was written.
 
 1. **`machinery`** — depends on nothing.
-2. **`guard`** — requires `machinery`, which was wrong in every earlier version
-   of this document. `guard-decision.mjs` statically imports `pr-ready.mjs` and
-   `review-budget.mjs`; delivered without them the hook exits
+2. **`guard`** — requires `machinery`. `guard-decision.mjs` statically imports
+   `pr-ready.mjs` and `review-budget.mjs`; delivered without them the hook exits
    `ERR_MODULE_NOT_FOUND` before evaluating any command, so it fails instead of
-   guarding. Reproduced by assembling a consumer layout with the guard payload
-   alone.
-3. **The five-group cycle**, in one PR.
-4. **`agents-core`**, `receipt-scaffolding`, `agent-definitions`,
-   `settings-template` — each waits on one of the above.
-5. **`claude-core` last**, requiring seven groups.
+   guarding.
+3. **`agent-definitions` + `contracts` + `engineering` + `memory` + `planning` +
+   `skills`, in ONE PR.** Six groups, one dependency cycle, ~151 files. Not a
+   sequence and not decomposable: each member carries mandatory references into
+   the others, so any subset ships with a route into a group still staged. The
+   check evaluates the manifest's final state, so flipping all six in one commit
+   passes and any subset fails — the cycle behaving as a constraint rather than
+   as a bug. **This is the large piece of work in the whole plan.**
+4. **`agents-core`** — requires `contracts` and `planning`.
+5. **`receipt-scaffolding`** — requires `machinery`.
+6. **`claude-core`** — requires eight groups, which is everything except
+   `settings-template`. It also now delivers the two corpus-wide gates, since
+   they only make sense once the contract is whole.
+7. **`settings-template`** — requires `guard`, and is seeded rather than synced.
 
-The superseded prose is kept below because the reason it was wrong is the
-lesson, not the order itself.
+### Why a file's group is a claim about its dependencies
 
----
+Three times a sharper check produced a dependency that turned out to be an
+artifact of **where a file was filed** rather than anything in the code, and
+three times the fix was to move one file:
 
-**Written after round 5** — this replaced an earlier version that
-called `planning` and `engineering` independent. They are not, and the reason
-is worth keeping: the earlier order was written from what each group *is*
-rather than from what its files *route to*, which is the same mistake the
-`requires:` mechanism was added to prevent. Reading the links instead of the
-labels produces a different shape.
+| Round | File | Was in | Moved to | Manufactured |
+|---|---|---|---|---|
+| 9 | `guard-decision.test.mjs` | machinery | guard | machinery ↔ guard |
+| 10 | `review-loop-adjudicator.md` | agent-definitions | machinery | machinery ↔ agent-definitions |
+| issue #2 | the two corpus-wide gates | machinery | claude-core | machinery → contracts, skills, planning |
 
-1. **`machinery` and `guard`.** No dependencies. They carry the hardcoded repo
-   identity, they block six other groups, and they are the only groups whose
-   blocker is code rather than prose.
-2. **`memory`.** Independent — an entry-by-entry audit, nothing else.
-3. **`contracts` + `planning` + `engineering`, in ONE PR.** These three are a
-   dependency cycle, not a sequence: `engineering`'s code-review.md delegates
-   its oracle and stopping rule to `contracts`; `contracts` routes to
-   `.agents/PLANS.md` in `planning` from three separate files; and `planning`
-   cites both of the others in its own preflight. No ordering of three separate
-   PRs satisfies it, because each one would ship with a mandatory reference to
-   a group still staged. The check evaluates the manifest's final state, so
-   flipping all three in one commit passes and any subset fails — which is the
-   cycle behaving as a constraint rather than as a bug.
-4. **`agents-core`** (needs contracts + planning) and **`skills`** (needs
-   machinery + contracts) follow, plus `agent-definitions`,
-   `receipt-scaffolding` and `settings-template` once their single dependency
-   has landed.
-5. **`claude-core` last.** It requires seven groups, which is every other group
-   except `agent-definitions`, `receipt-scaffolding` and `settings-template`.
-
-A cycle here is not a modelling failure. It is what a genuinely interdependent
-contract looks like, and the honest encoding is the one that refuses to let any
-member ship alone.
+The rule that falls out: **when a group's dependency is surprising, check
+whether the grouping is describing the code or fighting it.** The third case is
+the one that cost most — it invalidated the plan's opening line for four rounds
+without anything contradicting it, because the claim lived in prose and the
+check could not see the references that disproved it.
 
 ## Not yet built
 
@@ -599,3 +608,346 @@ the first deletes it, git creates a fresh lock at that path, and the second
 deletes the replacement — corrupting an in-flight git operation. The blocker
 now orders its own items by that: (4) never runs, (5) runs and does nothing,
 (6) runs and does harm.
+
+## Issue #2 — the derivation, and what it could not decide (2026-09-01)
+
+PR #1 merged with three known defects. Fixing them turned out to require one
+change of approach and one honest admission about what a check can do.
+
+### The approach change: one extractor, bounded resolution
+
+The derivation had grown **three syntax-specific extractors** — js import
+specifiers, markdown links, and nothing at all that could see a backtick-quoted
+templated path. Two consecutive review rounds each found a form the previous
+one missed. That is the list-shaped failure this repo has now recorded four
+times.
+
+The fix was to stop extracting by syntax. There is an unbounded number of ways
+to *write* a reference, but a **bounded** number of ways one file can
+*identify* another:
+
+1. by a path relative to the referring file
+2. by the path it will have in a consumer
+3. by a name that is not a path at all
+
+So: one permissive extractor grabs anything path-shaped, and resolution against
+those three decides what is real. A token that resolves to nothing costs
+nothing.
+
+### The admission: a syntactic check cannot make a semantic call
+
+Turning it on produced **sixteen** undeclared edges — and declaring them all
+collapses **ten of twelve groups into one cycle**, which would end the staging
+design outright. So the resolver was over-detecting, and the reason is worth
+stating precisely, because it is not fixable by a better regex:
+
+```
+"The refusal lives in `guard-decision.mjs`"                 <- evidence
+"Use `{baseDir}/skills/differential-review/adversarial.md`" <- instruction
+```
+
+Identical shape. One is a dependency and one is not, and the difference is the
+verb. This is the **instruction-vs-evidence test** the repo already applies to
+payload files, applied to references instead — and like the original, it needs a
+reader.
+
+Of the sixteen: **two were real** (`agent-definitions` → `skills`, and
+`claude-core` → `receipt-scaffolding` through a file the corpus gate actually
+reads) and **fourteen were evidence** — doc comments, a test fixture writing a
+fake file at a path, error strings pointing a human at a memory entry.
+
+So the manifest gained `mentions:` — the same observation as `requires`, with
+the opposite conclusion recorded and a mandatory reason. Unlike the syntax list
+it replaced, this list is **bounded by the corpus rather than by imagination**,
+it shrinks as payload is rewritten, and nothing can slip past it: an
+unclassified reference still fails the build.
+
+### The third misfiled file
+
+`check-contract-consistency.mjs` and `check-docs-accuracy.mjs` were filed under
+`machinery`. Both are, by their own headers, gates over the **assembled**
+contract — one scans CLAUDE.md, AGENTS.md, PLANS.md, `docs/ai-context/` and the
+skills; the other is "a docs-accuracy gate for the repo-native agent context
+system." Filed as machinery they made the group everything waits on depend on
+`contracts`, `skills` and `planning`.
+
+Round 9 recorded this as a portability defect in the scripts. It was *partly*
+that and mostly this — and the first draft of this section said "it was not,"
+which overclaimed. Moving them restored `machinery` to dependency-free, making
+"machinery first" — the plan's opening line since round 7 and false for every
+one of those rounds — true. It did **not** widen what the gates scan: neither
+inventories `.agents/core/`, so in an assembled consumer the two vendored core
+contracts are exempt from the gates meant to protect them. That is now a
+`claude-core` blocker condition.
+
+**The distinction worth keeping:** a file in the wrong group and a file with a
+wrong inventory look identical from the manifest, and fixing the first does not
+fix the second. Moving a file changes *when* it is delivered, never *what it
+does*.
+
+That is the third time (rounds 9, 10, and here) that a sharper check produced a
+dependency which was an artifact of filing. The table above records all three.
+
+### What is verified, not asserted
+
+The documented order was walked step by step, flipping each step's groups to
+`ready` against the real check:
+
+```
+step 1: +machinery                                          -> PASS
+step 2: +guard                                              -> PASS
+step 3: +agent-definitions+contracts+engineering+memory+planning+skills -> PASS
+step 4: +agents-core                                        -> PASS
+step 5: +receipt-scaffolding                                -> PASS
+step 6: +claude-core                                        -> PASS
+step 7: +settings-template                                  -> PASS
+```
+
+Four earlier versions of that order were written by hand and every one was
+wrong. This one is read off the graph the check derives, and the walk above is
+the oracle rather than a reading of it.
+
+### Round 1 on the fix: the exemption was itself too broad
+
+The first review of the fix found four things, and the P1 was the risk the PR
+body had already named without taking far enough. `mentions` exempted a
+**group pair**, so once `machinery` was classified as merely mentioning
+`guard`, a real import of `guard-decision.mjs` added later would be suppressed
+too — the classification silently widening itself as the payload changed.
+
+Two changes, because scoping alone does not close it:
+
+- **Entries name the `ref` they exempt** (and optionally the `from` file).
+  Scoping immediately surfaced two references the group-wide form had been
+  hiding: `memory` and `contracts` each reach `guard` through *two* files, and
+  only the first of each had been classified. The mechanism found its own
+  under-reporting the moment it got tighter.
+- **A static import is never exemptible.** Everything else about a reference is
+  ambiguous; `import x from "./y.mjs"` is not. This closes the exact case
+  scoping cannot: evidence classified in a file, then a real import of that
+  same file added to it.
+
+The other three: the ownership-warning requirement did not travel with the two
+moved gates and now does; the gates' inventories still omit `.agents/core/`, so
+"moving them resolved it" overclaimed — the *grouping* is fixed, the
+*inventories* are not, and that is now a `claude-core` condition; and the
+extractor still hardcoded a file-extension list.
+
+**That last one is the one to remember.** The extractor called itself
+syntax-independent while omitting `.py`, `.ts`, `.html`, `.dot`, `.gitignore`
+and three files with no extension at all — the same list-shaped failure, one
+level down from the syntax list it had just replaced. The token shape is now
+derived from the payload's own filenames. Replacing a list with a mechanism
+does not help if the mechanism contains a list.
+
+### Round 2: the extraction itself was the enumeration
+
+Six findings. The one that mattered was small on its face — the token
+extractor's character class omits `+`, so a payload file named `c++.md` is
+invisible — and decisive underneath: **that is the second enumeration found
+inside the derivation in two rounds.** Round 1 found the extension list; this
+found the alphabet.
+
+Patching it would have added `+` and waited for the next character. The
+registered stop condition was a *third* such round, and rather than walk toward
+it, the approach changed.
+
+**The inversion.** Extracting path-shaped tokens from prose and then resolving
+them needs a regex; a regex needs an alphabet; an alphabet is an enumeration.
+So stop extracting. **The payload is the search set.** For each candidate
+target, compute the strings that would actually name it — the relative path
+from the referring file, the destination path, and the destination's unique
+trailing segments — and look for those in the text. Nothing is enumerated,
+because every form is computed from two real paths. `c++.md` works for free,
+and so does whatever the next surprising filename is.
+
+The boundary test came with it, and it too has no alphabet of its own: it asks
+what *surrounds* a match. A word character before means a longer name; a slash
+before means a longer path — unless what precedes the slash is a `}`, which is
+a template segment standing in for an unknown root. A dot after is sentence
+punctuation unless a word character follows it, which makes `two.md.bak` a
+different file from `two.md`.
+
+**What the tightening cost, and why it was worth it.** Two of the six findings
+were that exemptions were still too broad: `group` was never checked against
+the ref's actual owner, so a typo would exempt a file that group does not
+deliver; and `from` was optional, so an entry whose reason named one file
+silently covered every other file in its group. Both are now mandatory. The
+classified set went from 14 entries to **34** — every one of the twenty new
+ones a reference that a looser rule had been hiding. The last few were third
+and fourth files in a group referencing the same target for entirely separate
+reasons, which is exactly what a per-group exemption cannot express.
+
+One finding was declined with the reasoning recorded: ambiguous suffixes are
+skipped rather than reported as errors. The corpus contains exactly **two**
+ambiguous suffixes, `README.md` and `SKILL.md`, and all nine references
+matching them are generic prose. Erroring would demand nine exemptions for
+things that are not references, which devalues the exemption list. What would
+change this: a payload file whose *only* identifying form is ambiguous.
+
+A usability defect surfaced while fixing the rest — the check reported one
+problem per group pair while exemptions are per source file, so a maintainer
+fixed one and got the next, one round-trip at a time. It now reports every
+unclassified reference.
+
+### Round 3: the enumerations were in the parts that ask about syntax
+
+Six findings, all real, all fixed on David's grant of five further rounds.
+
+**Two more enumerations — the third and fourth.** The static-import guard
+gated on file extension (`.js/.mjs/.cjs`, omitting the payload's own `.ts`
+file), and the boundary rule accepted a preceding slash only before `}`,
+encoding this repo's `{baseDir}` spelling as though it were the general case.
+
+Both are now gone rather than extended, and both removals were **measured
+free** before being made:
+
+- The import guard no longer asks what kind of file it is looking at, only
+  whether the text contains an import naming this form. The cost is that
+  documentation showing an import example can no longer be classified as
+  evidence — which fails *closed*, and is free here: the one non-JS payload
+  file containing import syntax names `./yourModule` and `./factTextEdit`,
+  neither of them payload.
+- The boundary rule accepts any preceding slash. Removing the rejection
+  entirely changes this corpus's reference count by **zero**, so the `}` case
+  was the only thing it decided.
+
+That second removal took a real protection with it, which is the part worth
+recording: the slash rejection had been *accidentally* excluding URLs. URL
+exclusion is now stated deliberately — walk back over the unbroken
+non-whitespace run and look for `://`, which is what makes a URL a URL rather
+than a list of schemes. **Removing an over-broad rule can remove a correct
+behaviour that was riding on it.**
+
+**Two "wrong layout" bugs, one function.** `referenceFormsFor` computed the
+relative form between `core/` paths, and `namedEntities` matched agent names
+against source paths — both asking where files *sit* when the question is
+where they *land*. This is the same error that put two corpus-wide gates in
+the wrong group, committed again in the code written to fix it. Both now use
+`destOf`. It was not hypothetical: `settings.template.json` becomes
+`.claude/settings.json` on delivery, so the precondition was live; nothing
+broke only because a second form covered it, which is redundancy rather than
+correctness.
+
+**The time axis of an error already closed on three spatial axes.** `mentions`
+entries were read only to suppress a detected reference, never checked in
+reverse — so an entry whose evidence had disappeared would sit there and,
+the day its source gained a *real* reference to the same target, exempt it
+with nobody reading the new evidence. Every entry must now match a reference
+detected in the same run. Three earlier tightenings closed scope (`ref`,
+`from`, `group`); this closes time.
+
+**And a third doc-versus-manifest contradiction:** the blocker said
+`claude-core` unstages "last" while the generated order ends with
+`settings-template`. Each time, the manifest changed and a sentence describing
+it did not. Three instances in two PRs is a pattern, and the pattern's fix is
+to derive the prose claim rather than restate it — recorded here rather than
+built, because it is a different piece of work.
+
+## Known gaps in the dependency check (round 6, 2026-09-01) — CLOSED HERE
+
+David granted rounds 5 and 6 with the terms stated up front: *"If, after those
+two rounds there are still holes, document them and let's move on."* Round 6
+found three. All three are recorded here rather than fixed, per that
+instruction, and the loop ended on `571a4b0` — a head round 6 reviewed.
+
+**Every one of them fails OPEN.** The check misses a real reference rather than
+inventing one, so the failure is a group flipping to `ready` while something it
+genuinely needs is still staged. That is stated plainly because it is the worse
+of the two directions, and because the unstaging PRs are the compensating
+control: each one reads every file in its group by hand, and step 2 above now
+converts references to a canonical form as it goes — which **dissolves gaps 1
+and 2 rather than working around them**, since a marked instruction needs no
+inference at all.
+
+| # | Gap | Live on this corpus? |
+|---|---|---|
+| 1 | A reference to a **directory** produces no edge | No instance found |
+| 2 | A **dynamic** `import()` is invisible AND exemptible | **One instance**, same-group |
+| 3 | A **non-normalized** specifier may lose its edge | No instance; needs a second precondition |
+
+### Gap 1 — directory references
+
+`Read ../b/ before proceeding` is a real dependency on the group delivering
+that directory. Reference forms are computed per *file*, so no form is ever
+`../b/`, and the check returns nothing:
+
+```
+run("Read ../b/ before proceeding")  ->  []
+```
+
+Closing it means adding uniquely-owned consumer directories to the search set.
+Bounded work, and the same shape as the `/command` mechanism added in round 5 —
+a fourth way a payload file can be named.
+
+### Gap 2 — dynamic imports, the sharpest of the three
+
+`await import("../b/two.mjs")` is a runtime dependency as hard as a static one:
+the module loads when that path executes or the code fails. The specifier
+pattern requires the quote to follow `import` directly, so a dynamic import
+matches nothing — and because `importsIn` returns false, **a standing `mentions`
+entry actively exempts it.** Measured:
+
+```
+dynamic import, with a scoped exemption for that exact form  ->  []
+static import,  with the same exemption (control)            ->  edge reported
+```
+
+This is the never-exemptible invariant failing on an input it was written to
+cover, and unlike the round-5 escaped-import case it is **not hypothetical**:
+
+```
+core/scripts/review-budget.mjs:1695
+  const { reviewerPasses } = await import("./review-counting.mjs");
+```
+
+Both files are in `machinery` today, so no cross-group edge is currently
+missed. The exposure is prospective — and specifically so, because *this PR
+moved misfiled files between groups three times*. If those two ever split, the
+edge is invisible and exemptible at once.
+
+**Recorded as the one to fix first** if the check is revisited: it is small
+(admit `import` followed by `(`), it is the only gap with a live instance, and
+it is the only one that breaks an invariant the code states unconditionally.
+
+### Gap 3 — non-normalized specifiers
+
+`import x from "../b/./two.mjs"` is valid and resolves, but is matched by exact
+membership in the computed forms, so the canonical relative form does not match
+it. On this corpus the edge is still found, via the unique-basename form —
+Codex's report understated this, and the correction matters because it is the
+difference between a live hole and a doubly-preconditioned one:
+
+```
+import x from "../b/./two.mjs"  ->  edge reported, as "two.mjs"
+```
+
+Losing the edge needs **both** a non-normalized specifier *and* an ambiguous
+basename. Neither exists today: zero non-normalized specifiers in the payload,
+and no duplicate `.mjs` basenames across groups. The real fix is to resolve
+each specifier against the importing file's destination rather than test
+membership — which is what `referenceFormsFor` already does for prose, so this
+is an inconsistency between two halves of the same function rather than a
+missing mechanism.
+
+### What the six rounds actually bought
+
+Worth recording honestly, because the ratio is the lesson. The check found
+**seven real dependency edges** a hand-written list had missed, **three
+misfiled files** whose grouping manufactured false dependencies, and **five
+real unclassified references** that successive tightenings surfaced
+(two from `form` scoping, two `/uat` from `/command` derivation, one from
+`from` scoping). Every one of those is a mistake that would have shipped.
+
+Against that: nine review rounds across two PRs, of which **five were spent on
+the same class** — a list hidden inside a mechanism that claimed not to have
+one. Each was found, each was removed by deriving instead of enumerating, and
+after each I stated there were no lists left. I was wrong twice. The third
+time, instead of asserting it again, round 5 added a test that *generates* the
+general case; it fails on 22 of 24 whitespace characters under the old rule,
+where I had found four by hand. **The generated test is the durable artifact
+of this whole episode** — not any individual fix, and certainly not my
+confidence.
+
+The strategic conclusion is above, in step 2 of the unstaging procedure:
+inference was the wrong foundation. The convention should have come first.

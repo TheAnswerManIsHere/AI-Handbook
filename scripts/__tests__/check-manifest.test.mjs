@@ -1,7 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseManifestYaml, check, checkDerivedDependencies, referencesIn, walk } from "../check-manifest.mjs";
+import {
+  parseManifestYaml,
+  check,
+  checkDerivedDependencies,
+  referenceFormsFor,
+  uniqueSuffixesOf,
+  mentionsForm,
+  distinctReferences,
+  walk,
+} from "../check-manifest.mjs";
 
 // The point of this suite is the FAILING cases. A manifest checker that only
 // ever returns "OK" is indistinguishable from no checker at all, and the
@@ -510,9 +519,6 @@ test("DERIVES an undeclared dependency from a static import", () => {
 // The one reference proving planning depends on engineering carries a heading
 // anchor. A first version of this derivation skipped any link containing "#"
 // and silently under-reported exactly the edge it existed to find.
-test("a link with a heading fragment still counts as a reference", () => {
-  assert.deepEqual(referencesIn("core/a/one.md", "[x](../b/two.md#some-heading)"), ["../b/two.md"]);
-});
 
 test("a declared dependency is not reported", () => {
   const problems = checkDerivedDependencies(
@@ -593,54 +599,10 @@ test("DERIVES a dependency from a SINGLE-quoted static import", () => {
   assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
 });
 
-test("referencesIn reads both quote styles and bare side-effect imports", () => {
-  assert.deepEqual(referencesIn("a.mjs", `import { x } from './y.mjs';`), ["./y.mjs"]);
-  assert.deepEqual(referencesIn("a.mjs", `import { x } from "./y.mjs";`), ["./y.mjs"]);
-  assert.deepEqual(referencesIn("a.mjs", `import './y.mjs';`), ["./y.mjs"]);
-  // A mismatched pair is not a valid import and must not be read as one.
-  assert.deepEqual(referencesIn("a.mjs", `import { x } from "./y.mjs';`), []);
-});
-
-test("DETECTS consumer repos that differ only in case", () => {
-  const problems = check(
-    {
-      version: 1,
-      groups: [],
-      consumers: [
-        { repo: "Owner/Repo", enrolled: true },
-        { repo: "owner/repo", enrolled: false },
-      ],
-    },
-    [],
-    allExist,
-  );
-  assert.ok(problems.some((p) => p.includes("is listed twice")));
-});
-
 // Every static form puts the specifier in one place. Two rounds were spent
 // growing a statement-shaped regex — single quotes, then multiline and
 // re-exports — before it became clear that enumerating statement syntax is a
 // list, and lists of this kind do not converge. These pin the forms.
-test("referencesIn sees every static module form", () => {
-  const forms = {
-    "multiline named import": "import {\n  a,\n  b,\n} from \"./other.mjs\";",
-    "static re-export": 'export { x } from "./other.mjs";',
-    "star re-export": 'export * from "./other.mjs";',
-    "single-quoted": "import { a } from './other.mjs';",
-    "default import": 'import x from "./other.mjs";',
-    "namespace import": 'import * as x from "./other.mjs";',
-    "bare side-effect": 'import "./other.mjs";',
-  };
-  for (const [name, src] of Object.entries(forms)) {
-    assert.deepEqual(referencesIn("a.mjs", src), ["./other.mjs"], `missed: ${name}`);
-  }
-});
-
-test("referencesIn excludes dynamic imports, bare specifiers and malformed quotes", () => {
-  assert.deepEqual(referencesIn("a.mjs", 'const x = await import("./other.mjs");'), []);
-  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "node:fs";'), []);
-  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "./other.mjs\';'), []);
-});
 
 test("DERIVES a dependency from a static re-export across groups", () => {
   const problems = checkDerivedDependencies(
@@ -693,4 +655,429 @@ test("the agent-name set is derived from the payload, not hardcoded", () => {
     (f) => (f === "core/skills/a/SKILL.md" ? "delegate to brand-new-agent" : ""),
   );
   assert.ok(problems.some((p) => p.includes('names "brand-new-agent"')));
+});
+
+// --- resolution: the bounded set of ways one file identifies another ---
+
+const twoGroups = (extra = {}) =>
+  manifest([
+    { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }], ...extra },
+    { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "deep/b/" }] },
+  ]);
+
+// --- mentions: the classification a syntactic check cannot make ---
+
+test("the real manifest declares or classifies every reference its files imply", () => {
+  // The regression bar for the graph. Eleven review rounds corrected it by
+  // hand; it now fails in CI instead.
+  const doc = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const root = new URL("../../", import.meta.url);
+  const files = walk(new URL("core", root).pathname, root.pathname.replace(/\/$/, ""));
+  const problems = checkDerivedDependencies(doc, files.map((f) => f.split("\\").join("/")), (f) =>
+    readFileSync(new URL(f, root), "utf8"),
+  );
+  assert.deepEqual(problems, []);
+});
+
+// --- reference forms: the payload is the search set, nothing is enumerated ---
+
+test("referenceFormsFor computes every way a target can be named", () => {
+  const destOf = new Map([["core/b/two.md", "deep/b/two.md"]]);
+  const uniq = uniqueSuffixesOf(destOf);
+  const forms = referenceFormsFor("core/a/one.md", "core/b/two.md", destOf, uniq);
+  for (const expected of ["../b/two.md", "deep/b/two.md", "b/two.md", "two.md"]) {
+    assert.ok(forms.includes(expected), `missing form: ${expected}`);
+  }
+});
+
+test("a filename shared by two destinations is nobody's identifying form", () => {
+  // "README.md" is a suffix of several destinations and identifies none of
+  // them, so it must not resolve to any single one.
+  const destOf = new Map([["core/a/README.md", "a/README.md"], ["core/b/README.md", "b/README.md"]]);
+  const uniq = uniqueSuffixesOf(destOf);
+  assert.deepEqual(uniq.get("core/a/README.md") ?? [], ["a/README.md"]);
+  assert.ok(!(uniq.get("core/a/README.md") ?? []).includes("README.md"));
+});
+
+test("mentionsForm requires path boundaries, with no alphabet of its own", () => {
+  // The boundary test looks at what SURROUNDS the match, which is why the
+  // inversion has no character class to omit anything from. `c++.md` works for
+  // free, and that was the finding that prompted the inversion.
+  assert.equal(mentionsForm("see .gitignore now", ".gitignore"), true);
+  assert.equal(mentionsForm("it is gitignored here", ".gitignore"), false);
+  assert.equal(mentionsForm("read ../b/c++.md today", "../b/c++.md"), true);
+  assert.equal(mentionsForm("read xtwo.md", "two.md"), false);
+  assert.equal(mentionsForm("read two.md.bak", "two.md"), false);
+  assert.equal(mentionsForm("at https://x.com/docs/two.md", "docs/two.md"), false);
+  assert.equal(mentionsForm("`{baseDir}/deep/b/two.md`", "deep/b/two.md"), true);
+  // A preceding slash is ACCEPTED, whatever names the root. Rejecting it
+  // unless preceded by `}` encoded one placeholder spelling as the general
+  // case; removing the rejection changes this corpus's count by zero and
+  // fails closed when it over-detects.
+  assert.equal(mentionsForm("read $BASE_DIR/deep/b/two.md", "deep/b/two.md"), true);
+  assert.equal(mentionsForm("read %ROOT%/deep/b/two.md", "deep/b/two.md"), true);
+  assert.equal(mentionsForm("in x/deep/b/two.md here", "deep/b/two.md"), true);
+  // A URL is still not a reference. Removing the slash rejection removed the
+  // accident that used to cover this, so it is now stated: walk back over the
+  // unbroken non-whitespace run and look for "://".
+  assert.equal(mentionsForm("see http://a.b/deep/b/two.md now", "deep/b/two.md"), false);
+});
+
+test("DERIVES an edge from any syntax, because syntax is never inspected", () => {
+  const groups = (extra = {}) =>
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }], ...extra },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "deep/b/" }] },
+    ]);
+  for (const [label, text] of [
+    ["markdown link", "see [two](../b/two.md)"],
+    ["backticked prose", "the logic lives in `../b/two.md`"],
+    ["templated path", "Use `{baseDir}/deep/b/two.md` for the method"],
+    ["bare prose", "documented in deep/b/two.md."],
+    ["unusual characters", "see ../b/two.md alongside c++ notes"],
+  ]) {
+    const problems = checkDerivedDependencies(groups(), ["core/a/one.md", "core/b/two.md"],
+      (f) => (f === "core/a/one.md" ? text : ""));
+    assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), label);
+  }
+});
+
+// --- mentions: scoped, reasoned, and never covering an import ---
+
+const pair = (extra = {}) =>
+  manifest([
+    { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }], ...extra },
+    { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+  ]);
+const M = (o) => ({ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 1, why: "evidence", ...o });
+
+test("a fully scoped mention suppresses exactly its own reference", () => {
+  const problems = checkDerivedDependencies(pair({ mentions: [M()] }), ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""));
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS a mention whose group does not own its ref", () => {
+  // A typo in `group` would otherwise grant an exemption for a file that group
+  // does not deliver, suppressing a real edge while every other check passes.
+  const problems = checkDerivedDependencies(pair({ mentions: [M({ group: "a" })] }),
+    ["core/a/one.md", "core/b/two.md"], (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""));
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("DETECTS a mention with no from", () => {
+  const problems = check(pair({ mentions: [{ group: "b", ref: "core/b/two.md", why: "no from" }] }),
+    ["core/a/one.md", "core/b/two.md"], allExist);
+  assert.ok(problems.some((p) => p.includes('without a "from"')));
+});
+
+test("a mention scoped to one source does not cover another", () => {
+  const problems = checkDerivedDependencies(pair({ mentions: [M()] }),
+    ["core/a/one.md", "core/a/other.md", "core/b/two.md"],
+    () => "see [two](../b/two.md)");
+  assert.ok(problems.some((p) => p.includes("core/a/other.md")));
+});
+
+test("a mention NEVER exempts a static import, comments included", () => {
+  for (const src of [
+    'import { x } from "../b/two.mjs";',
+    'import { x } from /* why */ "../b/two.mjs";',
+    "import { x } from // why\n  '../b/two.mjs';",
+  ]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+          mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", form: "../b/two.mjs", count: 1, why: "a comment mentions it" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+      ]),
+      ["core/a/one.mjs", "core/b/two.mjs"],
+      (f) => (f === "core/a/one.mjs" ? src : ""),
+    );
+    assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), src);
+  }
+});
+
+test("every reference is reported, not one per group pair", () => {
+  // Exemptions are per source file, so reporting one per pair meant a
+  // maintainer fixed one and got the next, one round-trip at a time.
+  const problems = checkDerivedDependencies(pair(), ["core/a/one.md", "core/a/other.md", "core/b/two.md"],
+    () => "see [two](../b/two.md)");
+  assert.equal(problems.filter((p) => p.includes('delivered by "b"')).length, 2);
+});
+
+test("the real manifest declares or classifies every reference its files imply", () => {
+  const doc = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const root = new URL("../../", import.meta.url);
+  const files = walk(new URL("core", root).pathname, root.pathname.replace(/\/$/, ""));
+  const problems = checkDerivedDependencies(doc, files.map((f) => f.split("\\").join("/")), (f) =>
+    readFileSync(new URL(f, root), "utf8"),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS consumer repos that differ only in case", () => {
+  const problems = check(
+    { version: 1, groups: [], consumers: [{ repo: "Owner/Repo", enrolled: true }, { repo: "owner/repo", enrolled: false }] },
+    [], allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("is listed twice")));
+});
+
+test("DETECTS malformed mentions entries", () => {
+  for (const [entry, expected] of [
+    [{ group: "b", from: "core/a/one.md", why: "no ref" }, 'without a "ref"'],
+    [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md" }, "without saying why"],
+    [{ group: "nope", ref: "core/b/two.md", from: "core/a/one.md", why: "x" }, 'which is not a group'],
+    [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", why: "x", reson: "typo" }, 'unknown mentions key'],
+  ]) {
+    const problems = check(pair({ mentions: [entry] }), ["core/a/one.md", "core/b/two.md"], allExist);
+    assert.ok(problems.some((p) => p.includes(expected)), expected);
+  }
+});
+
+test("DETECTS a group that both requires and mentions the same group", () => {
+  const problems = check(pair({ requires: ["b"], mentions: [M({ why: "contradictory" })] }),
+    ["core/a/one.md", "core/b/two.md"], allExist);
+  assert.ok(problems.some((p) => p.includes("either a dependency or it is not")));
+});
+
+test("DETECTS a mention whose evidence no longer exists", () => {
+  // Three earlier tightenings closed the SCOPE axes of exemption breadth —
+  // ref, from, group. This is the TIME axis: an exemption outliving the
+  // reference that justified it would silently cover a real one added later.
+  const problems = checkDerivedDependencies(
+    pair({ mentions: [M({ why: "evidence that is no longer there" })] }),
+    ["core/a/one.md", "core/b/two.md"],
+    () => "this file no longer mentions anything",
+  );
+  assert.ok(problems.some((p) => p.includes("no longer references it")));
+});
+
+test("a mention backed by a live reference is not reported stale", () => {
+  const problems = checkDerivedDependencies(
+    pair({ mentions: [M()] }),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("relative forms are computed between DESTINATIONS, not payload paths", () => {
+  // A reference is written for where files LAND. The manifest may relocate
+  // either — settings.template.json already becomes .claude/settings.json.
+  const destOf = new Map([["core/x/one.mjs", "src/one.mjs"], ["core/y/two.mjs", "lib/two.mjs"]]);
+  const forms = referenceFormsFor("core/x/one.mjs", "core/y/two.mjs", destOf, uniqueSuffixesOf(destOf));
+  assert.ok(forms.includes("../lib/two.mjs"), `consumer-relative form missing: ${forms.join(", ")}`);
+  assert.ok(forms.includes("../y/two.mjs"), "payload-relative form should also be kept");
+});
+
+test("DERIVES an edge through a relocating mapping", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/x/one.mjs", to: "src/one.mjs" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/y/two.mjs", to: "lib/two.mjs" }] },
+    ]),
+    ["core/x/one.mjs", "core/y/two.mjs"],
+    (f) => (f === "core/x/one.mjs" ? 'import { z } from "../lib/two.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("an agent is named by where it is INSTALLED, not where its source sits", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "s", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/s/", to: "s/" }] },
+      { id: "ag", mode: "sync", status: "staged", blocker: "x",
+        paths: [{ from: "core/definitions/reviewer.md", to: ".claude/agents/reviewer.md" }] },
+    ]),
+    ["core/s/SKILL.md", "core/definitions/reviewer.md"],
+    (f) => (f === "core/s/SKILL.md" ? "delegate to the reviewer agent" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "reviewer"')));
+});
+
+test("a static import is never exemptible, whatever the file extension", () => {
+  // "Which files can contain an import" was an enumeration that omitted the
+  // payload's own .ts file. The question is about the text, not the extension.
+  for (const ext of ["ts", "mts", "jsx", "mjs"]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+          mentions: [{ group: "b", ref: `core/b/two.${ext}`, from: `core/a/one.${ext}`, why: "a comment" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+      ]),
+      [`core/a/one.${ext}`, `core/b/two.${ext}`],
+      (f) => (f.startsWith("core/a/") ? `import { x } from "../b/two.${ext}";` : ""),
+    );
+    assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), ext);
+  }
+});
+
+test("a consumer path behind ANY root placeholder resolves", () => {
+  // The boundary rule encoded `{baseDir}` as the only placeholder spelling.
+  for (const prefix of ["{baseDir}", "$BASE_DIR", "%ROOT%", "$(root)", "~"]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "deep/b/" }] },
+      ]),
+      ["core/a/one.md", "core/b/two.md"],
+      (f) => (f === "core/a/one.md" ? `Use \`${prefix}/deep/b/two.md\` for this` : ""),
+    );
+    assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), prefix);
+  }
+});
+
+// Every character the LANGUAGE calls whitespace ends the run a URL check walks
+// back over. The point of generating the set rather than listing it is that
+// listing it is exactly what failed: the code searched for the nearest " " or
+// "\n" while the comment above it claimed the general behaviour, so a tab, CR,
+// form feed or non-breaking space put the URL back inside the run and DISCARDED
+// a real reference. This test cannot be satisfied by thinking of more
+// separators, which is the only kind of test that settles this class.
+test("EVERY whitespace character ends the URL run, not the two I thought of", () => {
+  const whitespace = [];
+  for (let cp = 0; cp <= 0x3000; cp++) {
+    const ch = String.fromCodePoint(cp);
+    if (/\s/.test(ch)) whitespace.push(ch);
+  }
+  assert.ok(whitespace.length > 10, `expected many whitespace chars, got ${whitespace.length}`);
+  for (const ch of whitespace) {
+    const text = `https://example.test/x${ch}../b/two.md`;
+    assert.equal(
+      mentionsForm(text, "../b/two.md"),
+      true,
+      `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")} did not end the run`,
+    );
+  }
+  // The rule it protects still holds: a path INSIDE a URL is not a reference.
+  assert.equal(mentionsForm("see https://example.test/b/two.md here", "../b/two.md"), false);
+});
+
+test("overlapping forms for one occurrence are ONE reference, not three", () => {
+  // `.agents/receipts/.gitignore` is also an occurrence of `receipts/.gitignore`
+  // and of `.gitignore`. Counting all three would demand three exemptions for
+  // one piece of prose, which is why the longest form claims its span first.
+  const forms = [".agents/receipts/.gitignore", "receipts/.gitignore", ".gitignore"];
+  assert.deepEqual(
+    distinctReferences("see `.agents/receipts/.gitignore` for this", forms),
+    [{ form: ".agents/receipts/.gitignore", count: 1 }],
+  );
+  // A shorter form survives where it matches somewhere the longer one did not.
+  assert.deepEqual(
+    distinctReferences("respects `.gitignore`, and see `.agents/receipts/.gitignore`", forms),
+    [{ form: ".agents/receipts/.gitignore", count: 1 }, { form: ".gitignore", count: 1 }],
+  );
+});
+
+test("DETECTS a second spelling riding in on the first spelling's exemption", () => {
+  // The live case this was found on: a memory file describes guard-decision.mjs
+  // by its path AND by its bare name. One entry covered both, so a real
+  // instruction using the other spelling would have been silently exempt.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 1, why: "evidence" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "described in ../b/two.md, and now go read two.md" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "two.md"')), problems.join("\n"));
+});
+
+test("DETECTS a mention whose form is not the one that matched", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", count: 1, why: "wrong spelling" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see ../b/two.md" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("DETECTS a mention whose FORM no longer appears, though the pair still does", () => {
+  // The stale check now runs on the triple. A file that stopped using one
+  // spelling but kept another would have looked healthy under the pair key.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [
+          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 1, why: "live" },
+          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", count: 1, why: "gone" },
+        ] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see ../b/two.md" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes("no longer") && p.includes('as "two.md"')), problems.join("\n"));
+});
+
+test("DETECTS a new occurrence riding in on an entry written for fewer", () => {
+  // Round-5 finding: claude-core.md names .claude/settings.json three times
+  // under one entry. A fourth occurrence, added as a real instruction, kept
+  // CI green because the form was still live. The count changes exactly when
+  // the occurrence set does.
+  const groups = (text) => checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 2, why: "the two I read" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? text : ""),
+  );
+  assert.deepEqual(groups("see ../b/two.md and again ../b/two.md"), []);
+  const problems = groups("see ../b/two.md and again ../b/two.md and NOW READ ../b/two.md");
+  assert.ok(problems.some((p) => p.includes("has 3 occurrence")), problems.join("\n"));
+});
+
+test("DERIVES the reference from an ESCAPED static import, and it is never exemptible", () => {
+  // Node loads two.mjs from "../b/t\u0077o.mjs"; a literal scan sees nothing.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", form: "../b/two.mjs", count: 1, why: "try to exempt it" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.mjs", "core/b/two.mjs"],
+    (f) => (f === "core/a/one.mjs" ? 'import x from "../b/t\\u0077o.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), problems.join("\n"));
+});
+
+test("DERIVES a dependency from a /command invoking an installed skill", () => {
+  // "Run /two" names no path at all; the entity comes from the destination
+  // .claude/skills/two/SKILL.md, so adding a skill extends the check.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: ".claude/skills/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two/SKILL.md"],
+    (f) => (f === "core/a/one.md" ? "When asked, run /two and report." : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "/two"')), problems.join("\n"));
+});
+
+test("a /command inside a path or URL is NOT a skill reference", () => {
+  for (const text of [
+    "see .claude/skills/two/SKILL.md",          // path segment
+    "https://example.test/two",                  // URL path
+    "docs/two/readme is elsewhere",              // other path
+  ]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: ".claude/skills/" }] },
+      ]),
+      ["core/a/one.md", "core/b/two/SKILL.md"],
+      (f) => (f === "core/a/one.md" ? text : ""),
+    );
+    assert.ok(!problems.some((p) => p.includes('names "/two"')), `${text}: ${problems.join("\n")}`);
+  }
 });
