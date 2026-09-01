@@ -415,16 +415,28 @@ export function ownersOf(manifest, payloadFiles) {
 export function referencesIn(file, text) {
   const refs = new Set();
   if (/\.m?js$/.test(file)) {
-    // Static imports only. A dynamic import is a runtime branch that may never
-    // be taken; a static one fails at load, before any code runs.
-    // Both quote styles. Accepting only double quotes made the gate's answer
-    // depend on the author's formatting: a single-quoted cross-group import
-    // would return no reference at all, and the group could go ready without
-    // the one supplying the module -- ERR_MODULE_NOT_FOUND in the consumer,
-    // from a check that reported the manifest sound. Today's payload happens
-    // to be uniformly double-quoted, which is exactly why nothing caught it.
-    for (const m of text.matchAll(/(?:^|\n)\s*import\s[^;\n]*?from\s+(["'])(\.[^"']+)\1/g)) refs.add(m[2]);
-    for (const m of text.matchAll(/(?:^|\n)\s*import\s+(["'])(\.[^"']+)\1/g)) refs.add(m[2]);
+    // Match the SPECIFIER position, not the statement shape.
+    //
+    // Two consecutive review rounds found forms an earlier statement-shaped
+    // regex could not see -- first single quotes, then multiline named imports
+    // and `export ... from`. The second round is the signal: a regex that
+    // enumerates statement syntax is a list, and this repo's recorded lesson is
+    // that lists of this kind do not converge. Every static form -- single or
+    // multiline, `import ... from`, `export ... from`, `export * from`, and a
+    // bare side-effect `import "..."` -- puts the module specifier in exactly
+    // one place, so match that and stop caring about what precedes it.
+    //
+    // This deliberately errs toward OVER-detection: a relative specifier
+    // mentioned in a comment or string would be read as a dependency. The two
+    // failure directions are not symmetric. Over-declaring makes a group wait
+    // for one it did not strictly need; under-declaring ships a consumer a
+    // module graph that fails at load. The first is a scheduling cost, the
+    // second is a broken guard, so the bias belongs where it is.
+    //
+    // Dynamic `import()` stays out: it is a runtime branch that may never be
+    // taken, whereas everything above loads during module instantiation.
+    for (const m of text.matchAll(/\bfrom\s*(["'])(\.[^"'\n]+)\1/g)) refs.add(m[2]);
+    for (const m of text.matchAll(/(?:^|[\s;{}])import\s*(["'])(\.[^"'\n]+)\1/g)) refs.add(m[2]);
   }
   for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
     const raw = m[1];

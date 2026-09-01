@@ -616,3 +616,40 @@ test("DETECTS consumer repos that differ only in case", () => {
   );
   assert.ok(problems.some((p) => p.includes("is listed twice")));
 });
+
+// Every static form puts the specifier in one place. Two rounds were spent
+// growing a statement-shaped regex — single quotes, then multiline and
+// re-exports — before it became clear that enumerating statement syntax is a
+// list, and lists of this kind do not converge. These pin the forms.
+test("referencesIn sees every static module form", () => {
+  const forms = {
+    "multiline named import": "import {\n  a,\n  b,\n} from \"./other.mjs\";",
+    "static re-export": 'export { x } from "./other.mjs";',
+    "star re-export": 'export * from "./other.mjs";',
+    "single-quoted": "import { a } from './other.mjs';",
+    "default import": 'import x from "./other.mjs";',
+    "namespace import": 'import * as x from "./other.mjs";',
+    "bare side-effect": 'import "./other.mjs";',
+  };
+  for (const [name, src] of Object.entries(forms)) {
+    assert.deepEqual(referencesIn("a.mjs", src), ["./other.mjs"], `missed: ${name}`);
+  }
+});
+
+test("referencesIn excludes dynamic imports, bare specifiers and malformed quotes", () => {
+  assert.deepEqual(referencesIn("a.mjs", 'const x = await import("./other.mjs");'), []);
+  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "node:fs";'), []);
+  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "./other.mjs\';'), []);
+});
+
+test("DERIVES a dependency from a static re-export across groups", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.mjs", "core/b/two.mjs"],
+    (f) => (f === "core/a/one.mjs" ? 'export { x } from "../b/two.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});

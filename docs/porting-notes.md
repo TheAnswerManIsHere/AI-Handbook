@@ -491,3 +491,50 @@ lock sweeper is a script that silently never runs where the recorded items are
 prose that misleads; the two skill identities fail in code, and the Sentry one
 fails by *succeeding* against another product's data, which is the worst
 failure shape in the set.
+
+## Round 9: when refining the regex became the wrong move (2026-09-01)
+
+Three findings — one fixed, two recorded.
+
+The fixed one was that the derived-dependency check could not see multiline
+named imports or `export ... from` re-exports. Round 8 had already extended the
+same regex once, for single quotes. **Two consecutive rounds growing one
+pattern is the signal**, and it is the same signal this repo has now recorded
+three times in different clothes: enumerating cases is a list, and lists of this
+kind do not converge.
+
+So the approach changed rather than the pattern. Every static form — single or
+multiline, `import ... from`, `export ... from`, `export * from`, a bare
+side-effect import — puts the module specifier in exactly one place. Matching
+the **specifier position** and ignoring the statement shape covers all of them
+at once, and the seven forms are pinned by test.
+
+Two things came out of that change:
+
+- **The check had been blind on the live payload, not hypothetically.**
+  `pr-ready.mjs` already imports `review-loop-record.mjs` with a multiline named
+  import. Both are in `machinery`, so no edge was wrong — but the gate had been
+  reporting OK while unable to see real imports in the corpus it was gating.
+- **It immediately found an edge nothing had seen:** `machinery` delivers
+  `guard-decision.test.mjs`, which imports the module `guard` delivers. The fix
+  was the grouping, not the graph — the test moved into `guard`, where its
+  subject already lives. Declaring the edge would have created a
+  `machinery` ↔ `guard` cycle manufactured by where a file was filed rather
+  than by anything in the code. **A cycle that appears when a check gets
+  sharper is worth interrogating before it is accepted.**
+
+The bias in that check is deliberate and now stated in the code: it errs toward
+over-detection, since a specifier inside a comment would read as a dependency.
+The failure directions are not symmetric — over-declaring makes a group wait for
+one it did not strictly need, while under-declaring ships a consumer a module
+graph that fails at load.
+
+The two recorded findings were both `machinery`, and both were tested against
+the bar the manifest header now states. The worktree bug earned a new item: the
+recorded item (4) is that nothing invokes the lock sweeper, this is that the
+sweeper is wrong about where locks live in a supported layout, and they need
+different fixes. The `check-docs-accuracy.mjs` finding did **not** earn a new
+item — it is the same corpus-definition assumption already recorded for
+`check-contract-consistency.mjs`, so it extended that item instead. It did add
+something: that assumption fails in the *consumer*, not only here, and silently
+exempts the two files every overlay routes through.

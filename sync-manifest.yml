@@ -326,6 +326,12 @@ groups:
         to: .claude/guard.sh
       - from: core/scripts/guard-decision.mjs
         to: scripts/guard-decision.mjs
+      # The test travels with its subject. Left in `machinery` it imported a
+      # module `guard` delivers, which made the two groups mutually dependent
+      # -- a cycle created by the grouping rather than by the code. Moving one
+      # file dissolves it; declaring the edge would have preserved it.
+      - from: core/scripts/__tests__/guard-decision.test.mjs
+        to: scripts/__tests__/guard-decision.test.mjs
 
   - id: machinery
     mode: sync
@@ -338,7 +344,14 @@ groups:
       the root of the corpus it scans — true in a consumer, false once the
       contract is split into a vendored core plus an overlay; its own test fails
       in this repo for exactly that reason, which is how the assumption was
-      found. Making repo identity and contract-surface paths configurable is a
+      found. The same assumption is in check-docs-accuracy.mjs and is worse
+      there, because it fails in the CONSUMER rather than here: its inventory
+      omits .agents/core/, so a broken relative link in the vendored
+      claude-core.md or agents-core.md — the two files every consumer's overlay
+      routes through — passes the docs-accuracy gate reporting zero files
+      checked. Both scripts need their corpus defined in terms of the
+      core-plus-overlay layout rather than a single root, which is one change
+      and is why this stays one item. Making repo identity and contract-surface paths configurable is a
       security-relevant change to the receipt and guard machinery, and gets its
       own reviewed PR rather than riding along with a file move. Until then
       these scripts are correct for Overhype's layout only. (3) A third coupling,
@@ -355,12 +368,21 @@ groups:
       that never runs while its own documentation says the problem is handled,
       which is worse than an absent script. Either the portable watcher ships
       with it or a consumer-owned invoker becomes an enrollment requirement.
+      (5) The same script is silently disabled in a linked git worktree, a
+      layout the synced using-git-worktrees skill explicitly supports: `.git`
+      is a pointer file there, so the sweeper returns without inspecting either
+      the per-worktree or the common git directory and stale locks survive. A
+      distinct failure from (4) and needing a distinct fix — that one is
+      wiring, this one is the script being wrong about where locks live —
+      resolved by consulting `git rev-parse --git-dir`/`--git-common-dir`, or
+      by restricting the sweeper to the primary checkout and saying so.
       Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/scripts/
         to: scripts/
         exclude:
           - guard-decision.mjs # travels with the `guard` group
+          - __tests__/guard-decision.test.mjs # ditto — a test goes with its subject
 
   - id: settings-template
     mode: seed
