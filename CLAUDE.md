@@ -53,7 +53,7 @@ widens authority, it does.
 ## Verifying
 
 ```
-node --test scripts/__tests__/     # the machinery's own tests
+node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
 node scripts/check-manifest.mjs    # every payload file is actually routed
 ```
 

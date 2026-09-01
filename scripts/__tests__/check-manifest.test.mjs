@@ -273,3 +273,68 @@ test("DETECTS a duplicate group id instead of last-one-wins", () => {
   );
   assert.ok(problems.some((p) => p.includes('duplicate group id "dup"')));
 });
+
+test("parser refuses a duplicate key in one mapping", () => {
+  // `mode: sync` then `mode: seed` silently became seed — turning a
+  // handbook-owned file into a write-once seed with no gate failing. Same
+  // class as the duplicate group id, one level down and quieter.
+  assert.throws(
+    () => parseManifestYaml("groups:\n  - id: one\n    mode: sync\n    mode: seed\n"),
+    /duplicate key "mode"/,
+  );
+});
+
+test("DETECTS a group that declares no paths", () => {
+  // A lost or misspelled `paths:` makes a group deliver nothing while still
+  // being requirable — a dependency that supplies no files but satisfies the
+  // readiness rule.
+  const problems = check(
+    manifest([
+      { id: "empty", mode: "sync", status: "ready" },
+      { id: "rest", mode: "sync", status: "ready", paths: [{ from: "core/a.md", to: "a.md" }, { from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("declares no paths")));
+});
+
+test("DETECTS a ready group that still carries a blocker", () => {
+  // Unstaging is "clear the blocker AND flip the status". Doing only the
+  // second ships a group whose own declaration says it is not ready.
+  const problems = check(
+    manifest([
+      { id: "one", mode: "sync", status: "ready", blocker: "still unresolved", paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "two", mode: "sync", status: "ready", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("must not still carry a blocker")));
+});
+
+test("DETECTS destinations that are equal only after normalization", () => {
+  // `dest/x.md` and `dest/sub/../x.md` are one file on disk; comparing raw
+  // strings lets a path spelling bypass the uniqueness claim.
+  const problems = check(
+    manifest([
+      { id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a.md", to: "dest/x.md" }] },
+      { id: "two", mode: "sync", status: "ready", paths: [{ from: "core/b.md", to: "dest/sub/../x.md" }] },
+    ]),
+    ["core/a.md", "core/b.md"],
+    allExist,
+  );
+  assert.ok(
+    problems.some((p) => p.includes("written by two groups")),
+    `expected a normalized collision, got: ${JSON.stringify(problems)}`,
+  );
+});
+
+test("DETECTS a destination that escapes the consumer root", () => {
+  const problems = check(
+    manifest([{ id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a.md", to: "../outside.md" }] }]),
+    ["core/a.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("escapes the consumer repo root")));
+});

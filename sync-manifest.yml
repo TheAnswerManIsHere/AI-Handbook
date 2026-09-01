@@ -38,12 +38,24 @@ groups:
     status: staged
     requires:
       - machinery
+      - guard
+      - agents-core
+      - contracts
+      - planning
+      - memory
+      - skills
     blocker: >
-      The contract this file carries prescribes the review loop as a procedure —
-      declare a budget with review-budget.mjs, capture a round check, build the
-      adjudication record. Delivered without the machinery it names, a consumer
-      gets a mandatory procedure it cannot perform. Flips to ready with the
-      machinery.
+      This file is imported eagerly into every Claude session in a consumer, so
+      everything it routes to has to be there. Enumerated from its own links
+      rather than from memory: agents-core, eight contracts under
+      docs/ai-context/, PLANS.md, two memory entries, the pr-watch and
+      plan-review-loop skills, guard.sh, and the review-loop machinery it
+      prescribes as a procedure (declare a budget, capture a round check, build
+      the adjudication record). Declaring only `machinery` would have let this
+      group flip to ready the moment the machinery unstaged — which is the very
+      first step of the documented order — handing every session mandatory
+      routes and protections that do not exist. This is the last group to
+      unstage, not the first.
     description: >
       The portable half of the Claude Code working contract. A consumer's own
       CLAUDE.md imports this eagerly with `@.agents/core/claude-core.md`, so

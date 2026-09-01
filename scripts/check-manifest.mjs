@@ -32,7 +32,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative, dirname } from "node:path";
+import { join, relative, dirname, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -127,6 +127,13 @@ export function parseManifestYaml(text) {
       if (idx === -1) throw new Error(`manifest:${lineNo}: expected "key: value", got ${JSON.stringify(text)}`);
       const key = text.slice(0, idx).trim();
       const value = text.slice(idx + 1).trim();
+      // A repeated key silently overwriting the first is the duplicate-group-id
+      // bug one level down, and quieter: `mode: sync` followed by `mode: seed`
+      // would turn a handbook-owned file into a write-once seed with no gate
+      // failing. A merge that leaves both lines is exactly how it happens.
+      if (Object.prototype.hasOwnProperty.call(map, key)) {
+        throw new Error(`manifest:${lineNo}: duplicate key "${key}" in one mapping — the manifest is ambiguous`);
+      }
       pos++;
       if (value === ">" || value === "|") map[key] = readBlockScalar(indent);
       else if (value === "") map[key] = pos < lines.length && lines[pos].indent > indent ? parseBlock(lines[pos].indent) : null;
@@ -181,6 +188,16 @@ export function check(manifest, payloadFiles, exists) {
     if (group.status === "staged" && !group.blocker) {
       problems.push(`${group.id}: a staged group must name its blocker — what has to land before it flips to ready`);
     }
+    // Unstaging is "clear the blocker AND flip the status". A change that does
+    // only the second would ship a group whose own declaration still says a
+    // named problem must be solved first — the claim and the state disagreeing,
+    // with the state winning silently.
+    if (group.status === "ready" && group.blocker) {
+      problems.push(`${group.id}: a ready group must not still carry a blocker — clear it in the same change that flips the status`);
+    }
+    if (!group.paths || group.paths.length === 0) {
+      problems.push(`${group.id}: declares no paths, so it delivers nothing — a group another group can require while supplying no files`);
+    }
 
     for (const p of group.paths ?? []) {
       if (!p.from || !p.to) {
@@ -215,7 +232,16 @@ export function check(manifest, payloadFiles, exists) {
         // mapping the leaf is appended; for a file mapping `to` IS the
         // destination. Comparing these, rather than the declared roots, is
         // what makes the uniqueness claim true.
-        const dest = isDir ? p.to + leaf : p.to;
+        // Normalize before comparing: `dest/x.md` and `dest/sub/../x.md` are
+        // the same file on disk, so comparing raw strings would let the
+        // uniqueness claim be bypassed by a path spelling. posix.normalize is
+        // used rather than the platform default so the result does not depend
+        // on which OS runs the check.
+        const dest = posix.normalize(isDir ? p.to + leaf : p.to);
+        if (dest.startsWith("../") || dest.startsWith("/")) {
+          problems.push(`${group.id}: destination "${dest}" escapes the consumer repo root`);
+          continue;
+        }
         // Keyed on the SOURCE, not the group. Keying on the group id made a
         // collision between two path entries of the SAME group compare equal
         // to itself and vanish -- and a group with several path entries is the
