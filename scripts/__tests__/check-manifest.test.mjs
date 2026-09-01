@@ -577,3 +577,42 @@ test("the real manifest declares every dependency its files imply", () => {
   );
   assert.deepEqual(problems, []);
 });
+
+test("DERIVES a dependency from a SINGLE-quoted static import", () => {
+  // The payload is uniformly double-quoted today, which is why a
+  // double-quote-only regex looked correct. The gate's answer must not depend
+  // on the author's formatting.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.mjs", "core/b/two.mjs"],
+    (f) => (f === "core/a/one.mjs" ? "import { x } from '../b/two.mjs';" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("referencesIn reads both quote styles and bare side-effect imports", () => {
+  assert.deepEqual(referencesIn("a.mjs", `import { x } from './y.mjs';`), ["./y.mjs"]);
+  assert.deepEqual(referencesIn("a.mjs", `import { x } from "./y.mjs";`), ["./y.mjs"]);
+  assert.deepEqual(referencesIn("a.mjs", `import './y.mjs';`), ["./y.mjs"]);
+  // A mismatched pair is not a valid import and must not be read as one.
+  assert.deepEqual(referencesIn("a.mjs", `import { x } from "./y.mjs';`), []);
+});
+
+test("DETECTS consumer repos that differ only in case", () => {
+  const problems = check(
+    {
+      version: 1,
+      groups: [],
+      consumers: [
+        { repo: "Owner/Repo", enrolled: true },
+        { repo: "owner/repo", enrolled: false },
+      ],
+    },
+    [],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("is listed twice")));
+});

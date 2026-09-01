@@ -218,10 +218,18 @@ export function check(manifest, payloadFiles, exists) {
       if (typeof c.enrolled !== "boolean") {
         problems.push(`consumer "${c.repo}": "enrolled" must be true or false, got ${JSON.stringify(c.enrolled)}`);
       }
-      if (seenRepos.has(c.repo)) {
-        problems.push(`consumer "${c.repo}" is listed twice — which entry decides enrollment is ambiguous`);
+      // GitHub slugs are case-insensitive, and the payload already compares
+      // them that way (pr-ready.mjs lowercases both sides before matching a
+      // head repo to a receipt). Comparing raw spelling here would let
+      // "Owner/Repo" and "owner/repo" pass as distinct entries carrying
+      // different `enrolled` values for one repository.
+      const slug = c.repo.toLowerCase();
+      if (seenRepos.has(slug)) {
+        problems.push(
+          `consumer "${c.repo}" is listed twice (case-insensitively) — which entry decides enrollment is ambiguous`,
+        );
       }
-      seenRepos.add(c.repo);
+      seenRepos.add(slug);
     }
   }
   const covered = new Map(); // payload path -> group id
@@ -409,8 +417,14 @@ export function referencesIn(file, text) {
   if (/\.m?js$/.test(file)) {
     // Static imports only. A dynamic import is a runtime branch that may never
     // be taken; a static one fails at load, before any code runs.
-    for (const m of text.matchAll(/(?:^|\n)\s*import\s[^;\n]*?from\s+"(\.[^"]+)"/g)) refs.add(m[1]);
-    for (const m of text.matchAll(/(?:^|\n)\s*import\s+"(\.[^"]+)"/g)) refs.add(m[1]);
+    // Both quote styles. Accepting only double quotes made the gate's answer
+    // depend on the author's formatting: a single-quoted cross-group import
+    // would return no reference at all, and the group could go ready without
+    // the one supplying the module -- ERR_MODULE_NOT_FOUND in the consumer,
+    // from a check that reported the manifest sound. Today's payload happens
+    // to be uniformly double-quoted, which is exactly why nothing caught it.
+    for (const m of text.matchAll(/(?:^|\n)\s*import\s[^;\n]*?from\s+(["'])(\.[^"']+)\1/g)) refs.add(m[2]);
+    for (const m of text.matchAll(/(?:^|\n)\s*import\s+(["'])(\.[^"']+)\1/g)) refs.add(m[2]);
   }
   for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
     const raw = m[1];

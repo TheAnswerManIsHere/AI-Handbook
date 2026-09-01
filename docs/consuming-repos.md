@@ -158,12 +158,7 @@ readiness, not link resolution.
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
 3. Create the required consumer documents above.
-4. Flip `enrolled: true`. **This precedes the first sync, not follows it.** The
-   sync targets enrolled consumers only, so a repo still marked `false` is one
-   the sync skips — it would open no pull request, and there would be nothing
-   to merge at step 5. Steps 2 and 3 are what make the flip safe, and they have
-   already happened by here.
-5. **Verify the repo's `main` ruleset is in place** — block force pushes,
+4. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
    status checks. The seeded `.claude/settings.json` sets
    `defaultMode: bypassPermissions`, and `guard.sh` deliberately delegates
@@ -172,7 +167,7 @@ readiness, not link resolution.
    without the ruleset has neither: the local guard does not cover it and the
    server is not configured to. Settings are a repo-level thing the sync cannot
    write, so this is a human step and it gates the ones below.
-6. **If the repo already has `.claude/settings.json`, merge the template's
+5. **If the repo already has `.claude/settings.json`, merge the template's
    three `PreToolUse` hooks into it by hand.** `settings-template` is
    `mode: seed`, which writes only when the file is absent — correct, because a
    consumer's permissions and env are its own and a sync that overwrote them
@@ -181,13 +176,25 @@ readiness, not link resolution.
    invokes it**. That failure is silent: the guard is present, the hooks are
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
+6. Flip `enrolled: true`. **This is the last step before the sync, and it comes
+   after every prerequisite above — not before them.** An earlier version put
+   the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
+   repo into the sync's target set while the controls those steps install were
+   still missing. Since the intended sync is merge-triggered, "eligible" and
+   "ready" have to be the same moment: a repo flipped early can receive
+   `bypassPermissions` before the ruleset that constrains it exists, and an
+   inert guard before the hooks that invoke it are merged.
 7. Run the sync, review the pull request it opens, merge.
 
-`enrolled` means "this repo's overlay and required documents are in place, so
-send it the core" — not "the core has arrived." A vendored core that nothing
-imports is inert: the files are present, the rules are not loaded, and the repo
-looks governed without being governed, which is the worst of the three states.
-That is what steps 2 and 3 prevent, and why they gate the flip.
+`enrolled` means "every prerequisite is in place, so send it the core" — not
+"the core has arrived." A vendored core that nothing imports is inert: the
+files are present, the rules are not loaded, and the repo looks governed
+without being governed, which is the worst of the three states. Steps 2 and 3
+prevent that; steps 4 and 5 prevent the security equivalent, where a repo holds
+the bypass without the controls. **The flip goes last because the flip is what
+makes the sync fire** — anything that must be true before delivery has to be
+true before the flip, and a step added to this list later belongs above it, not
+below.
 
 ## Rules for changing shared content
 

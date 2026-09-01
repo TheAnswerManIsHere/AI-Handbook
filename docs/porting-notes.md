@@ -449,3 +449,45 @@ link containing `#`, and the single reference proving `planning` depends on
 was silently dropping one — caught only because the prototype's output was
 compared against what the rounds had already established by hand. **A new check
 is not evidence until something independent agrees with it.**
+
+## Round 8, and what a blocker is for (2026-09-01)
+
+Seven findings. Four fixed, three recorded — and the split is now stable enough
+to name as a rule rather than a per-round judgement.
+
+**The fixes were all self-inflicted, and one of them is the useful lesson.**
+Round 6 moved the enrollment flip earlier, to fix a deadlock where the sync
+skipped a repo still marked `enrolled: false`. Round 7 then added two steps —
+verify the branch ruleset, merge the guard hooks into an existing settings file
+— and placed them *after* the flip, because that is where new steps naturally
+go. The result was worse than the original bug: a repo eligible for a
+merge-triggered sync before the controls constraining it existed, able to
+receive `bypassPermissions` without the ruleset and an inert guard without its
+hooks. Neither change was wrong on its own; the ordering invariant was
+invisible because nothing stated it. It is stated now — **the flip is what
+makes the sync fire, so anything that must be true before delivery goes above
+it, and a step added later belongs above it too.**
+
+The other three: the derived-dependency check read only double-quoted static
+imports, so the gate's answer depended on the author's formatting; consumer
+slugs were compared by raw spelling while the payload compares them
+case-insensitively; and `receipt-scaffolding` carries a non-Markdown file
+without owing the ownership warning its sibling groups owe.
+
+**The three recorded findings prompted a change to the manifest's header**,
+because rounds 5, 6 and 8 have each read the blockers as exhaustive inventories
+and reported that a group's blocker "does not name" some further non-portable
+passage. That reading is wrong, and leaving it uncorrected would grow the
+blockers without bound while the payload stayed exactly as unportable as it is.
+A blocker names the **category** of work with enough specificity to start from.
+The payload is 179 files; enumerating every instance in the manifest would be
+the sweep that staging exists to replace with per-file work.
+
+So the rule, now in the manifest itself: **an instance is worth adding only
+when it names a different category, or fails in a different way than what is
+already listed.** All three of this round's were kept on exactly that test —
+`working-modes.md` is normative where the recorded item was illustrative; the
+lock sweeper is a script that silently never runs where the recorded items are
+prose that misleads; the two skill identities fail in code, and the Sentry one
+fails by *succeeding* against another product's data, which is the worst
+failure shape in the set.

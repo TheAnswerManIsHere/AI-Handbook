@@ -16,6 +16,17 @@
 #                  consumer must own and diverge (its own overlay, its own
 #                  product docs).
 #
+# What a blocker is, and is not: it names the CATEGORY of work that must happen
+# before a group travels, with enough specificity to start from — not an
+# exhaustive inventory of every line in the group that needs changing. The
+# payload is 179 files written for one product over months; enumerating every
+# non-portable passage here would be the sweep that this whole staging design
+# exists to replace with per-file work. Reviews keep finding further instances,
+# and that is expected: each is confirmation the category is real, not evidence
+# the blocker was wrong. An instance is worth adding only when it names a
+# DIFFERENT category, or when it fails in a different way than the ones already
+# listed — a script that errors is not the same problem as prose that misleads.
+#
 #   status: ready  — safe to sync to any consumer today.
 #           staged — present in this repo, deliberately NOT synced yet, with a
 #                    named blocker. The sync skips these entirely. A staged
@@ -112,9 +123,15 @@ groups:
       unconditional codegen procedure naming one product's package layout and
       generator, which in another repo is a set of commands that do not exist
       and an architecture instruction that is wrong — it becomes an explicitly
-      scoped example or moves to the overlay. And these files reference
-      consumer-owned documents that nothing verifies; the link-resolution check
-      described in the `skills` blocker covers this group too.
+      scoped example or moves to the overlay. working-modes.md is the larger
+      job and is named separately because it is normative rather than
+      illustrative: it distinguishes one product's packages when routing work,
+      and assigns bugfix tiers by that product's subsystems, so in another
+      consumer it classifies work by an architecture that does not exist. That
+      is a full portability rewrite of the file's rules, not a scoping pass.
+      And these files reference consumer-owned documents that nothing verifies;
+      the link-resolution check described in the `skills` blocker covers this
+      group too.
     description: >
       Cross-agent contracts that govern how work is done, independent of what
       the product is. Product truth (brief, direction, roadmap, architecture,
@@ -214,6 +231,10 @@ groups:
       These directories exist to serve the machinery that reads them, and the
       README documents that machinery's contract. Delivered alone they are a
       description of something the consumer does not have. Travels with it.
+      This group also carries a non-Markdown synced file — .agents/receipts/
+      .gitignore — so it owes the same ownership warning the machinery, guard
+      and skills blockers require, and did not say so. An agent editing it in a
+      consumer would lose the work on the next sync with nothing warning it.
     description: >
       The receipt system's contract and the directories it reads from. The
       machinery reads these paths out of a committed ref rather than the
@@ -249,7 +270,13 @@ groups:
       mechanical check verifies. Unstaging includes a link-resolution check that
       fails when a referenced target is neither in core/ nor declared
       consumer-owned — two review rounds each found three more missing
-      documents by hand, which is a sweep, and sweeps do not converge. Grouping is deliberately coarse: rather
+      documents by hand, which is a sweep, and sweeps do not converge.
+      Two further product identities are bound in code rather than prose and
+      so fail rather than mislead: pr-watch requires snapshots naming one
+      specific repository, and maintenance queries one specific Sentry
+      organization — returning another product's incidents, which is the worse
+      of the two because it succeeds. Both need consumer-configurable
+      identities or a move to the overlay. Grouping is deliberately coarse: rather
       than split 36 skills to ship 31 a little sooner, the whole group follows
       its strictest member and flips with the machinery, which is the next PR. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     description: >
@@ -321,7 +348,14 @@ groups:
       whose workflow exposes different jobs, no PR can ever mint a READY
       receipt. The readiness gate would be permanently closed rather than
       wrongly open, which is the safer direction but still unusable; required
-      checks come from each consumer's CI contract. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+      checks come from each consumer's CI contract. (4) clean-stale-git-locks.sh
+      documents itself as automatic cleanup invoked by a watcher process, and
+      no watcher travels with it — nothing in the payload, the workflow, the
+      manifest or the enrollment steps invokes it. A consumer receives a helper
+      that never runs while its own documentation says the problem is handled,
+      which is worse than an absent script. Either the portable watcher ships
+      with it or a consumer-owned invoker becomes an enrollment requirement.
+      Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/scripts/
         to: scripts/
