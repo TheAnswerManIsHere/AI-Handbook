@@ -246,10 +246,37 @@ One PR per group. It does three things:
    does it cite one as evidence of something that happened? Evidence stays.
    Instruction is rewritten to name the consuming repo's equivalent, made
    conditional, or moved out of the payload entirely.
-2. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
+2. **Canonicalizes the group's references, in the same read** (David,
+   2026-09-01). Every reference that is an *instruction* is rewritten to the
+   consumer-path form the skills already use — `` `{baseDir}/path/to/file.md` ``
+   — and every `mentions` entry for a file so converted is deleted, because a
+   marked instruction is a declared dependency and needs no exemption. The
+   marginal cost is near zero: step 1 already reads every file in the group and
+   already decides instruction-vs-evidence per reference, which is the same
+   judgment call.
+
+   **Why this is worth doing rather than leaving the checker to infer.**
+   Detecting a reference in unmarked prose is guesswork, and its cost is on
+   record: five review rounds went into "is this string a reference?", each
+   finding a case the last rule missed (extension list, character alphabet,
+   import-guard extensions, placeholder spelling, whitespace spelling), plus
+   four rounds narrowing the exemption scope from a group pair down to one
+   spelling's occurrence count. A canonical form makes detection exact string
+   matching, and the whole `mentions` sidecar — 39 entries, each scoped five
+   ways to stay honest — shrinks toward nothing, because intent is declared at
+   the reference site where the author actually knows it.
+
+   **The prose scan does not go away; it demotes.** "Not marked, therefore not
+   a dependency" fails open — a future file writing `read docs/x.md for the
+   method` in plain prose would sail through. So dependencies come from the
+   markers, detected exactly, and the inference scan becomes a lint: *this
+   looks like an unmarked reference; mark it or say it is prose.* A miss there
+   is a style slip, not a lost edge. That is the point — the checker stops
+   needing to be perfect, which is what made it expensive.
+3. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
    the check refuses `ready` while a required group is staged, so the
    dependency order enforces itself.
-3. **States what was inspected**, so the next group's PR is not re-deriving
+4. **States what was inspected**, so the next group's PR is not re-deriving
    the test.
 
 The blockers in `sync-manifest.yml` are the queue, and the manifest's own
@@ -816,3 +843,111 @@ detected in the same run. Three earlier tightenings closed scope (`ref`,
 it did not. Three instances in two PRs is a pattern, and the pattern's fix is
 to derive the prose claim rather than restate it — recorded here rather than
 built, because it is a different piece of work.
+
+## Known gaps in the dependency check (round 6, 2026-09-01) — CLOSED HERE
+
+David granted rounds 5 and 6 with the terms stated up front: *"If, after those
+two rounds there are still holes, document them and let's move on."* Round 6
+found three. All three are recorded here rather than fixed, per that
+instruction, and the loop ended on `571a4b0` — a head round 6 reviewed.
+
+**Every one of them fails OPEN.** The check misses a real reference rather than
+inventing one, so the failure is a group flipping to `ready` while something it
+genuinely needs is still staged. That is stated plainly because it is the worse
+of the two directions, and because the unstaging PRs are the compensating
+control: each one reads every file in its group by hand, and step 2 above now
+converts references to a canonical form as it goes — which **dissolves gaps 1
+and 2 rather than working around them**, since a marked instruction needs no
+inference at all.
+
+| # | Gap | Live on this corpus? |
+|---|---|---|
+| 1 | A reference to a **directory** produces no edge | No instance found |
+| 2 | A **dynamic** `import()` is invisible AND exemptible | **One instance**, same-group |
+| 3 | A **non-normalized** specifier may lose its edge | No instance; needs a second precondition |
+
+### Gap 1 — directory references
+
+`Read ../b/ before proceeding` is a real dependency on the group delivering
+that directory. Reference forms are computed per *file*, so no form is ever
+`../b/`, and the check returns nothing:
+
+```
+run("Read ../b/ before proceeding")  ->  []
+```
+
+Closing it means adding uniquely-owned consumer directories to the search set.
+Bounded work, and the same shape as the `/command` mechanism added in round 5 —
+a fourth way a payload file can be named.
+
+### Gap 2 — dynamic imports, the sharpest of the three
+
+`await import("../b/two.mjs")` is a runtime dependency as hard as a static one:
+the module loads when that path executes or the code fails. The specifier
+pattern requires the quote to follow `import` directly, so a dynamic import
+matches nothing — and because `importsIn` returns false, **a standing `mentions`
+entry actively exempts it.** Measured:
+
+```
+dynamic import, with a scoped exemption for that exact form  ->  []
+static import,  with the same exemption (control)            ->  edge reported
+```
+
+This is the never-exemptible invariant failing on an input it was written to
+cover, and unlike the round-5 escaped-import case it is **not hypothetical**:
+
+```
+core/scripts/review-budget.mjs:1695
+  const { reviewerPasses } = await import("./review-counting.mjs");
+```
+
+Both files are in `machinery` today, so no cross-group edge is currently
+missed. The exposure is prospective — and specifically so, because *this PR
+moved misfiled files between groups three times*. If those two ever split, the
+edge is invisible and exemptible at once.
+
+**Recorded as the one to fix first** if the check is revisited: it is small
+(admit `import` followed by `(`), it is the only gap with a live instance, and
+it is the only one that breaks an invariant the code states unconditionally.
+
+### Gap 3 — non-normalized specifiers
+
+`import x from "../b/./two.mjs"` is valid and resolves, but is matched by exact
+membership in the computed forms, so the canonical relative form does not match
+it. On this corpus the edge is still found, via the unique-basename form —
+Codex's report understated this, and the correction matters because it is the
+difference between a live hole and a doubly-preconditioned one:
+
+```
+import x from "../b/./two.mjs"  ->  edge reported, as "two.mjs"
+```
+
+Losing the edge needs **both** a non-normalized specifier *and* an ambiguous
+basename. Neither exists today: zero non-normalized specifiers in the payload,
+and no duplicate `.mjs` basenames across groups. The real fix is to resolve
+each specifier against the importing file's destination rather than test
+membership — which is what `referenceFormsFor` already does for prose, so this
+is an inconsistency between two halves of the same function rather than a
+missing mechanism.
+
+### What the six rounds actually bought
+
+Worth recording honestly, because the ratio is the lesson. The check found
+**seven real dependency edges** a hand-written list had missed, **three
+misfiled files** whose grouping manufactured false dependencies, and **five
+real unclassified references** that successive tightenings surfaced
+(two from `form` scoping, two `/uat` from `/command` derivation, one from
+`from` scoping). Every one of those is a mistake that would have shipped.
+
+Against that: nine review rounds across two PRs, of which **five were spent on
+the same class** — a list hidden inside a mechanism that claimed not to have
+one. Each was found, each was removed by deriving instead of enumerating, and
+after each I stated there were no lists left. I was wrong twice. The third
+time, instead of asserting it again, round 5 added a test that *generates* the
+general case; it fails on 22 of 24 whitespace characters under the old rule,
+where I had found four by hand. **The generated test is the durable artifact
+of this whole episode** — not any individual fix, and certainly not my
+confidence.
+
+The strategic conclusion is above, in step 2 of the unstaging procedure:
+inference was the wrong foundation. The convention should have come first.
