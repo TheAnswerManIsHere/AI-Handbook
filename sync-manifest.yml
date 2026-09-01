@@ -1,0 +1,440 @@
+# AI-Handbook sync manifest
+#
+# The single declaration of what this repo vendors into which consumer repos.
+# The sync workflow reads ONLY this file to decide what to copy: a payload file
+# that is not listed here does not travel, and adding a file to `core/` without
+# listing it is the one mistake that fails silently. The consistency check
+# (`scripts/check-manifest.mjs`) exists to make that mistake loud instead.
+#
+# Two axes, deliberately separate:
+#
+#   mode:   sync — the handbook owns the file; every sync overwrites the
+#                  consumer's copy. Local edits are lost by design. This is the
+#                  default and it is what makes the contract single-sourced.
+#           seed — the handbook owns only the FIRST copy. The sync writes it
+#                  when it is absent and never touches it again. For files a
+#                  consumer must own and diverge (its own overlay, its own
+#                  product docs).
+#
+# What a blocker is, and is not: it names the CATEGORY of work that must happen
+# before a group travels, with enough specificity to start from — not an
+# exhaustive inventory of every line in the group that needs changing. The
+# payload is 179 files written for one product over months; enumerating every
+# non-portable passage here would be the sweep that this whole staging design
+# exists to replace with per-file work. Reviews keep finding further instances,
+# and that is expected: each is confirmation the category is real, not evidence
+# the blocker was wrong. An instance is worth adding only when it names a
+# DIFFERENT category, or when it fails in a different way than the ones already
+# listed — a script that errors is not the same problem as prose that misleads.
+#
+# The consequence for whoever clears one: audit the WHOLE group against the
+# category, do not fix the cited passages and flip. The citations are where to
+# start reading, and a group marked ready asserts the category is closed.
+#
+#   status: ready  — safe to sync to any consumer today.
+#           staged — present in this repo, deliberately NOT synced yet, with a
+#                    named blocker. The sync skips these entirely. A staged
+#                    group is a promise with a reason, not a parking lot: the
+#                    blocker names what must land before it flips to ready.
+
+version: 1
+
+consumers:
+  - repo: TheAnswerManIsHere/Overhypeme
+    # Migrating to handbook-synced copies is its own PR: the diff must be
+    # provably content-identical before its local copies are deleted.
+    enrolled: false
+  - repo: TheAnswerManIsHere/DojoOS
+    enrolled: false # flips true when the DojoOS bootstrap PR lands
+
+groups:
+  - id: claude-core
+    mode: sync
+    status: staged
+    requires:
+      - machinery
+      - guard
+      - agents-core
+      - contracts
+      - planning
+      - memory
+      - skills
+    blocker: >
+      This file is imported eagerly into every Claude session in a consumer, so
+      everything it routes to has to be there. Enumerated from its own links
+      rather than from memory: agents-core, eight contracts under
+      docs/ai-context/, PLANS.md, two memory entries, the pr-watch and
+      plan-review-loop skills, guard.sh, and the review-loop machinery it
+      prescribes as a procedure (declare a budget, capture a round check, build
+      the adjudication record). Declaring only `machinery` would have let this
+      group flip to ready the moment the machinery unstaged — which is the very
+      first step of the documented order — handing every session mandatory
+      routes and protections that do not exist. This is the last group to
+      unstage, not the first.
+    description: >
+      The portable half of the Claude Code working contract. A consumer's own
+      CLAUDE.md imports this eagerly with `@.agents/core/claude-core.md`, so
+      every rule here is loaded in every session.
+    paths:
+      - from: core/.agents/core/claude-core.md
+        to: .agents/core/claude-core.md
+
+  - id: agents-core
+    mode: sync
+    status: staged
+    requires:
+      - contracts
+      - planning
+    blocker: >
+      This is a consumer's primary AGENTS entry point and it routes agents to
+      agent-working-rules, working-modes, documentation-workflow,
+      workstream-tracking and the plan-review contract. Delivered while
+      `contracts` is staged, those routes lead nowhere from the one file every
+      agent is told to read first. It also mandates `.agents/PLANS.md` at its
+      line 127 — "do not begin implementation until David approves" is not a
+      rule an agent can follow when the template it names is absent — so
+      `planning` is a dependency too, not merely an adjacent group.
+    description: >
+      The portable half of the cross-agent routing constitution. A consumer's
+      AGENTS.md LINKS here rather than importing — AGENTS.md has no import
+      mechanism — so this file must read standalone.
+    paths:
+      - from: core/.agents/core/agents-core.md
+        to: .agents/core/agents-core.md
+
+  - id: contracts
+    mode: sync
+    status: staged
+    requires:
+      - machinery
+      - planning
+      - memory
+      - skills
+    blocker: >
+      working-modes.md prescribes the review loop as a procedure and names
+      review-budget.mjs and review-loop-record.mjs as the commands that run it,
+      so the group follows its strictest member. This was identified when the
+      requires: mechanism was added and then not applied here — the rule was
+      written and one of its cases missed, which is why the check now enforces
+      it rather than leaving it to a reading of the manifest. It also depends on
+      `planning`: agent-working-rules.md, working-modes.md and
+      plan-review-contract.md each route to `.agents/PLANS.md`. That dependency
+      is MUTUAL — planning routes back into these same contracts — so the two
+      flip in one commit rather than in sequence. The check evaluates the
+      manifest's final state, so a cycle is satisfiable exactly that way and
+      unsatisfiable any other way, which is the intended reading. Two items
+      recorded rather than fixed: known-failure-patterns.md carries an
+      unconditional codegen procedure naming one product's package layout and
+      generator, which in another repo is a set of commands that do not exist
+      and an architecture instruction that is wrong — it becomes an explicitly
+      scoped example or moves to the overlay. working-modes.md is the larger
+      job and is named separately because it is normative rather than
+      illustrative: it distinguishes one product's packages when routing work,
+      and assigns bugfix tiers by that product's subsystems, so in another
+      consumer it classifies work by an architecture that does not exist. That
+      is a full portability rewrite of the file's rules, not a scoping pass.
+      And these files reference consumer-owned documents that nothing verifies;
+      the link-resolution check described in the `skills` blocker covers this
+      group too.
+    description: >
+      Cross-agent contracts that govern how work is done, independent of what
+      the product is. Product truth (brief, direction, roadmap, architecture,
+      glossary, decisions, subsystem docs) is NOT here and never syncs — it is
+      the consuming repo's own. Neither are the agent-environment docs: a
+      repo's Codex and Replit environments describe ITS setup script, ITS
+      packages and ITS database, so each consumer owns
+      docs/ai-context/codex-environment.md and replit-environment.md. Synced
+      files link to them and those links resolve in a consumer; they are listed
+      as required consumer documents in docs/consuming-repos.md.
+    paths:
+      - from: core/docs/ai-context/
+        to: docs/ai-context/
+
+  - id: engineering
+    mode: sync
+    status: staged
+    requires:
+      - contracts
+      - memory
+    blocker: >
+      code-review.md normatively delegates its review oracle, the increment
+      test, the bugfix tiers and its stopping rule to working-modes.md in the
+      `contracts` group, so rewriting the checklist below does not by itself
+      make this group deliverable — a consumer would get a review guide whose
+      core procedures link nowhere. Separately, code-review.md's repository-fit checklist instructs reviewers to require
+      patterns that exist in one product only — its frontend, its Drizzle
+      schema, its async queue, its enrichment and rendering modules. In another
+      repo that produces confident, wrong review findings and steers
+      implementations toward the wrong architecture. Unstaging means rewriting
+      that section to express the portable invariant without naming subsystems.
+    description: >
+      Engineering practice that is not stack-specific. migrations-and-backfills.md
+      is deliberately NOT here: its guidance is written as operational
+      instruction against one product's Drizzle layout ("schema lives in
+      lib/db/src/schema", "apply with pnpm --filter @workspace/db push-force"),
+      which an agent in another repo would follow into the wrong workflow. The
+      idempotency, observability and row-state principles inside it are
+      genuinely fleet-wide and worth extracting one day — as a rewrite, not a
+      move. Until then it is a required consumer document.
+    paths:
+      - from: core/docs/engineering/
+        to: docs/engineering/
+
+  - id: planning
+    mode: sync
+    status: staged
+    requires:
+      - contracts
+      - engineering
+    blocker: >
+      The template's required procedure runs through other groups: its
+      preflight cites agent-working-rules.md and four working-modes.md sections
+      (`contracts`), and its review oracle cites code-review.md
+      (`engineering`). Fixing only the scope wording below would let this group
+      flip ready with those mandatory references dangling. The `contracts`
+      dependency is mutual — see that group's blocker — so the two flip
+      together. Separately, PLANS.md's normative opening scopes the planning-and-approval requirement
+      to work on one named product. Read literally in another consumer, it says
+      non-trivial work there is outside the template — the failure mode that
+      excuses an agent from a required process rather than misdirecting it.
+      Unstaging is a wording pass over the template's scope clauses.
+    paths:
+      - from: core/.agents/PLANS.md
+        to: .agents/PLANS.md
+
+  - id: memory
+    mode: sync
+    status: staged
+    requires:
+      - contracts
+    blocker: >
+      Most entries are portable, but three carry instructions rather than
+      evidence and are wrong elsewhere: replit-direct-push asserts
+      unconditionally that "production is never a git ref" and tells agents not
+      to reason about production from `main` — in a consumer where `main`
+      deploys, that suppresses a real escalation; running-long-test-suites
+      directs agents to a workflow specific to one repo instead of running the
+      suite; repo-wide-typecheck mandates a `../lib/<pkg>` project-reference
+      path and a root typecheck script a consumer may not have. Unstaging means
+      auditing the set entry by entry against the instruction-vs-evidence test,
+      not shipping 34 files on the strength of a sample.
+    description: >
+      Environment and tooling gotchas that are true of the harness, GitHub,
+      the proxy and the toolchain rather than of one product's code. Entries
+      about a product's own subsystems stay in that product's repo.
+    paths:
+      - from: core/.agents/memory/
+        to: .agents/memory/
+
+  - id: receipt-scaffolding
+    mode: sync
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      These directories exist to serve the machinery that reads them, and the
+      README documents that machinery's contract. Delivered alone they are a
+      description of something the consumer does not have. Travels with it.
+      This group also carries a non-Markdown synced file — .agents/receipts/
+      .gitignore — so it owes the same ownership warning the machinery, guard
+      and skills blockers require, and did not say so. An agent editing it in a
+      consumer would lose the work on the next sync with nothing warning it.
+    description: >
+      The receipt system's contract and the directories it reads from. The
+      machinery reads these paths out of a committed ref rather than the
+      working tree, so in a repo where nothing has been written yet an
+      untracked directory is indistinguishable from a missing one — these
+      READMEs hold the directories open. The directory-local .gitignore
+      encodes the evidence-vs-decision split; it lives beside what it governs
+      rather than in the repo root so that it syncs as an ordinary file
+      instead of needing append-to-an-existing-file semantics.
+    paths:
+      - from: core/.agents/receipts/
+        to: .agents/receipts/
+      - from: core/.agents/adjudications/
+        to: .agents/adjudications/
+
+  - id: skills
+    mode: sync
+    status: staged
+    requires:
+      - machinery
+      - contracts
+      - agent-definitions
+    blocker: >
+      bugfix, document, maintenance, plan-review-loop and pr-watch each drive
+      the machinery as a procedure, and fourteen of these files route into
+      docs/ai-context/ — bugfix/SKILL.md names working-modes.md as its source
+      of truth outright. A skill is an executable ceremony; shipping one whose
+      rules are absent is worse than shipping neither. Two further items,
+      recorded rather than fixed because the group is staged: next/SKILL.md
+      resolves its empty-queue recommendation to a named product rather than to
+      the consumer's own roadmap, which would point one product's prioritisation
+      at another; and these files reference consumer-owned documents
+      (deferred-work.md, product-direction.md, current-roadmap.md) that no
+      mechanical check verifies. Unstaging includes a link-resolution check that
+      fails when a referenced target is neither in core/ nor declared
+      consumer-owned — two review rounds each found three more missing
+      documents by hand, which is a sweep, and sweeps do not converge.
+      Two further product identities are bound in code rather than prose and
+      so fail rather than mislead: pr-watch requires snapshots naming one
+      specific repository, and maintenance queries one specific Sentry
+      organization — returning another product's incidents, which is the worse
+      of the two because it succeeds. Both need consumer-configurable
+      identities or a move to the overlay. Grouping is deliberately coarse: rather
+      than split 36 skills to ship 31 a little sooner, the whole group follows
+      its strictest member and flips with the machinery, which is the next PR. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+    description: >
+      Process and practice skills. Product-specific skills (a product's design,
+      implementation, plan-review, migration-review and subsystem skills) are
+      not here and are owned by the consuming repo.
+    paths:
+      - from: core/.claude/skills/
+        to: .claude/skills/
+
+  - id: agent-definitions
+    mode: sync
+    status: staged
+    blocker: >
+      adversarial-modeler and semgrep-scanner are spawned by the
+      differential-review and semgrep skills, so they are only useful once
+      those travel — but they depend on nothing themselves and can be
+      delivered ahead of `skills` harmlessly. The blocker is the ordinary
+      portability audit every payload group owes: both carry tool allowlists
+      and prompts written against one product's codebase and its languages.
+    description: >
+      Subagent definitions spawned BY skills. review-loop-adjudicator is not
+      here — it belongs to `machinery`, whose record generator is its only
+      permitted input, and grouping it by file location rather than by what it
+      depends on made `machinery` and `agent-definitions` mutually dependent.
+    paths:
+      - from: core/.claude/agents/
+        to: .claude/agents/
+        exclude:
+          - review-loop-adjudicator.md # travels with the `machinery` it judges
+
+  - id: guard
+    mode: sync
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      guard.sh and guard-decision.mjs carry the repo identity used to verify
+      that a merge or review action targets the repo the receipt was minted
+      for. That identity is currently a hardcoded literal (see the `machinery`
+      group's blocker — the same change covers both). Syncing this group
+      before that lands would install a guard in DojoOS that authorizes
+      against Overhype's identity, which is worse than no guard. Round 6 added a
+      second condition: guard-decision.mjs deliberately does NOT enforce
+      PR-only-changes or passing-checks locally, delegating both to a
+      server-side branch ruleset. That delegation is sound where the ruleset
+      exists and vacuous where it does not, and the seeded settings enable
+      bypassPermissions — so a consumer could receive the guard, the bypass,
+      and no server-side control at all. The ruleset is now a verified
+      enrollment prerequisite in docs/consuming-repos.md, and unstaging this
+      group means confirming it for each consumer rather than assuming it. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+    paths:
+      - from: core/.claude/guard.sh
+        to: .claude/guard.sh
+      - from: core/scripts/guard-decision.mjs
+        to: scripts/guard-decision.mjs
+      # The test travels with its subject. Left in `machinery` it imported a
+      # module `guard` delivers, which made the two groups mutually dependent
+      # -- a cycle created by the grouping rather than by the code. Moving one
+      # file dissolves it; declaring the edge would have preserved it.
+      - from: core/scripts/__tests__/guard-decision.test.mjs
+        to: scripts/__tests__/guard-decision.test.mjs
+
+  - id: machinery
+    mode: sync
+    status: staged
+    blocker: >
+      Two couplings, both needing the same reviewed change. (1) review-budget.mjs
+      hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
+      and review-loop-record.mjs use them to verify a snapshot came from the
+      expected repo. (2) check-contract-consistency.mjs assumes CLAUDE.md sits at
+      the root of the corpus it scans — true in a consumer, false once the
+      contract is split into a vendored core plus an overlay; its own test fails
+      in this repo for exactly that reason, which is how the assumption was
+      found. The same assumption is in check-docs-accuracy.mjs and is worse
+      there, because it fails in the CONSUMER rather than here: its inventory
+      omits .agents/core/, so a broken relative link in the vendored
+      claude-core.md or agents-core.md — the two files every consumer's overlay
+      routes through — passes the docs-accuracy gate reporting zero files
+      checked. Both scripts need their corpus defined in terms of the
+      core-plus-overlay layout rather than a single root, which is one change
+      and is why this stays one item. Making repo identity and contract-surface paths configurable is a
+      security-relevant change to the receipt and guard machinery, and gets its
+      own reviewed PR rather than riding along with a file move. Until then
+      these scripts are correct for Overhype's layout only. (3) A third coupling,
+      found in round 6 and distinct from the owner/name constants in (1):
+      pr-ready.mjs hardcodes REQUIRED_CHECKS to five job names from one repo's
+      CI, and checkCi counts every absent name as a failure — so in a consumer
+      whose workflow exposes different jobs, no PR can ever mint a READY
+      receipt. The readiness gate would be permanently closed rather than
+      wrongly open, which is the safer direction but still unusable; required
+      checks come from each consumer's CI contract. (4) clean-stale-git-locks.sh
+      documents itself as automatic cleanup invoked by a watcher process, and
+      no watcher travels with it — nothing in the payload, the workflow, the
+      manifest or the enrollment steps invokes it. A consumer receives a helper
+      that never runs while its own documentation says the problem is handled,
+      which is worse than an absent script. Either the portable watcher ships
+      with it or a consumer-owned invoker becomes an enrollment requirement.
+      (5) The same script is silently disabled in a linked git worktree, a
+      layout the synced using-git-worktrees skill explicitly supports: `.git`
+      is a pointer file there, so the sweeper returns without inspecting either
+      the per-worktree or the common git directory and stale locks survive. A
+      distinct failure from (4) and needing a distinct fix — that one is
+      wiring, this one is the script being wrong about where locks live —
+      resolved by consulting `git rev-parse --git-dir`/`--git-common-dir`, or
+      by restricting the sweeper to the primary checkout and saying so.
+      (6) The same script can DELETE A LIVE LOCK. It documents support for
+      overlapping instances, and two of them can each classify one stale lock
+      as eligible and pass the process check; the first deletes it, git creates
+      a fresh lock at that path, and the second deletes the replacement —
+      corrupting an in-flight git operation in the consumer. This is the only
+      item in this blocker whose failure is destructive rather than absent or
+      inert, so it outranks the rest: (4) never runs, (5) runs and does
+      nothing, (6) runs and does harm. The fix is to serialize instances or to
+      re-verify at deletion time that the path still identifies the same stale
+      lock — a check-then-act gap, not a missing feature.
+      Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+    paths:
+      - from: core/scripts/
+        to: scripts/
+        exclude:
+          - guard-decision.mjs # travels with the `guard` group
+          - __tests__/guard-decision.test.mjs # ditto — a test goes with its subject
+      # The adjudicator is machinery, not a skill helper: its ONLY permitted
+      # input is review-loop-record.mjs's output, and a machinery test asserts
+      # it is in the scanned contract corpus. Filed under .claude/agents/ it
+      # made these two groups mutually dependent — a cycle produced by where a
+      # file sits rather than by what it needs.
+      - from: core/.claude/agents/review-loop-adjudicator.md
+        to: .claude/agents/review-loop-adjudicator.md
+
+  - id: settings-template
+    mode: seed
+    status: staged
+    requires:
+      - guard
+    blocker: >
+      All three PreToolUse hooks invoke .claude/guard.sh and the template sets
+      defaultMode bypassPermissions. Seeded while the guard group is staged, a
+      consumer would get failing hook commands AND permission bypass without
+      the protection the template itself calls non-optional — strictly worse
+      than seeding nothing. Travels with the guard. A second problem, from round
+      6, is not fixed by that ordering: seed mode writes only when the file is
+      ABSENT, so in a consumer that already has .claude/settings.json — which
+      Overhype does — this group delivers nothing and the vendored guard.sh
+      arrives with no hook invoking it. The guard is inert and no diff says so.
+      Enrollment now carries a hand-merge step for the three PreToolUse hooks;
+      unstaging means confirming it happened, because a seed can offer a
+      starting point but cannot deliver a requirement.
+    description: >
+      Seeded once. Each repo owns its own permissions and env from then on —
+      allowlists legitimately differ per product, and overwriting a consumer's
+      settings on every sync would clobber grants it needs.
+    paths:
+      - from: core/.claude/settings.template.json
+        to: .claude/settings.json

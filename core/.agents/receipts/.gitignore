@@ -1,0 +1,40 @@
+# Receipts split by KIND, and the line is evidence vs. decision.
+#
+# EVIDENCE is session-local, not repo history: each file describes one PR at
+# one moment, is worthless once the moment passes, and is re-derivable at will.
+# Three shapes are ignored --
+#   pr-*.json                 readiness, quoted in a merge claim and checked by the merge hook
+#   loop-round-check-*.json   rounds counted from a snapshot for the budget guard
+#   loop-round-check-*.claim  the atomic single-use claim on one such receipt
+#
+# DECISIONS (loop-budget-*.json, loop-extension-*.json) are committed instead.
+# They are taken once and bind afterwards, and they MUST survive the container
+# or tripwire 2 can never fire: an ephemeral extension record means a loop that
+# already spent its one self-serve adjudication is offered the self-serve
+# tripwire again by the next session, forever.
+#
+# Named shapes rather than ignoring the directory and re-including exceptions,
+# because git cannot re-include a file whose parent directory is excluded --
+# written that way the negations read correctly and do nothing. The cost is
+# that a NEW evidence shape must be added here; the benefit is that the rule
+# actually works. A new file in this directory that is evidence belongs on
+# this list.
+#
+# The round COUNT is deliberately evidence. It was a committed file in this
+# mechanism's first design, and that is precisely what failed: a cache of state
+# GitHub already holds, which drifted from it four different ways in one
+# evening.
+#
+# This lives in the directory it governs rather than in the repo root so that
+# it is an ordinary synced file — one copy in the handbook, carried to every
+# consumer. Patterns are relative to this directory.
+pr-*.json
+loop-round-check-*.json
+# Matches BOTH claim shapes: the original `<check>.json.claim`, and the
+# per-generation `<check>.json.<nonce>.claim` the guard writes now that the
+# claim is keyed to the receipt's nonce (`claimPath` = `${checkPath(pr)}.${nonce}.claim`).
+# The narrower `*.json.claim` pattern stopped matching the moment the nonce
+# was added -- a silent coupling break that showed up only as an untracked
+# file -- so the pattern is written to cover the whole family rather than one
+# spelling of it.
+loop-round-check-*.claim

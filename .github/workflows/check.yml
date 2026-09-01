@@ -1,0 +1,119 @@
+name: Check
+
+# The whole gate for this repo. There is no product build here — what can
+# actually break is the machinery's behaviour and the manifest's coverage, so
+# those are what run.
+#
+# Both jobs are named so they can be added to the branch ruleset's required
+# status checks. Adding them there is a one-time repo setting, not something
+# this file can do.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A second push to a PR makes the first run's answer irrelevant, so cancel it.
+# Runs on main are not cancelled: each one is the record for a distinct commit.
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # No install step: the machinery is deliberately dependency-free, and
+      # keeping it that way is why this line is a comment rather than an
+      # `npm ci`. If a dependency ever becomes necessary, that is a decision
+      # to make explicitly, not by adding it here quietly.
+      # The glob is required, not stylistic: Node 22 resolves a bare directory
+      # argument to `--test` as a MODULE path and dies with MODULE_NOT_FOUND
+      # before running anything. It fails as "1 test, 1 failed", which reads
+      # like a real test failure rather than a bad invocation.
+      - name: Run machinery tests
+        run: node --test scripts/__tests__/*.test.mjs
+
+      # The payload is code, and until this ran it was code nobody tested here:
+      # a regression in the review-budget, receipt, guard or readiness scripts
+      # could merge behind a green Test job because the step above only covers
+      # this repo's own 33-test manifest suite.
+      #
+      # One file is excluded, by name rather than by skipping the suite:
+      # check-contract-consistency.test.mjs asserts the scanned corpus contains
+      # CLAUDE.md at the corpus root. That is true in a consumer and false here,
+      # where the contract is deliberately split into a vendored core plus an
+      # overlay. It is the second half of the `machinery` group's blocker, and
+      # it is a fact about this repo's layout, not a failing behaviour.
+      - name: Run payload machinery tests
+        run: |
+          node --test $(ls core/scripts/__tests__/*.test.mjs \
+            | grep -v 'check-contract-consistency.test.mjs')
+
+      # An exclusion with no expiry is how a temporary carve-out becomes
+      # permanent. This asserts the exclusion is still EARNED: when the
+      # machinery PR makes the contract surface configurable, that test starts
+      # passing, this step goes red, and the carve-out above gets deleted in
+      # the same change rather than outliving its reason.
+      - name: The excluded test is still failing for the documented reason
+        run: |
+          # "Did it fail?" is not the question — a nonzero exit proves nothing
+          # about WHICH assertion failed. An unrelated regression in this file
+          # would exit nonzero too, and a version of this step that only
+          # checked the exit code would report the exclusion as earned while
+          # waving that regression through. So assert the exact shape: one
+          # failure, and it is the documented corpus-layout assertion.
+          set +e
+          out=$(node --test core/scripts/__tests__/check-contract-consistency.test.mjs 2>&1)
+          status=$?
+          set -e
+          echo "$out" | tail -20
+
+          if [ $status -eq 0 ]; then
+            echo "::error::check-contract-consistency now passes in this layout."
+            echo "The machinery blocker it documents is resolved — delete this step"
+            echo "and the grep -v exclusion above, so the file runs with the rest."
+            exit 1
+          fi
+
+          fails=$(echo "$out" | sed -n 's/^# fail \([0-9][0-9]*\)$/\1/p')
+          if [ "$fails" != "1" ]; then
+            echo "::error::Expected exactly 1 failure in the excluded file, got '${fails:-unknown}'."
+            echo "Something beyond the documented layout assertion is failing here."
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "not scanned: CLAUDE.md"; then
+            echo "::error::The excluded file fails, but NOT for the documented reason."
+            echo "Expected the 'not scanned: CLAUDE.md' corpus-layout assertion."
+            echo "A different failure in an excluded file is a regression nobody is running."
+            exit 1
+          fi
+          echo "Failing for exactly the documented reason; the exclusion remains earned."
+
+      # A shell test is invisible to the node --test glob above, so it was
+      # running nowhere. Its six cases are the safety envelope on lock deletion
+      # — fresh locks, non-allowlisted paths, an active git process — which is
+      # the kind of code where a regression deletes something it should not.
+      - name: Run the shell safety tests
+        working-directory: core
+        run: bash scripts/__tests__/clean-stale-git-locks.test.sh
+
+  manifest:
+    name: Manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Check payload coverage
+        run: node scripts/check-manifest.mjs
