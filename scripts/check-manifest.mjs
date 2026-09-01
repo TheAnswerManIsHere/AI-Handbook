@@ -485,6 +485,19 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
 
   const missing = new Map(); // "src->dst" -> evidence
 
+  // Some payload is referenced by NAME rather than by path. A skill that says
+  // "spawn the semgrep-scanner agent" creates a hard dependency on the group
+  // delivering `.claude/agents/semgrep-scanner.md`, and no link resolver can
+  // see it -- which is exactly how that edge survived nine review rounds. The
+  // name set is DERIVED from the payload, not maintained here: whatever agent
+  // files exist define the names to look for, so adding an agent extends the
+  // check for free.
+  const namedEntities = new Map(); // bare name -> owning group
+  for (const [file, group] of owner) {
+    const m = /(?:^|\/)\.claude\/agents\/([^/]+)\.md$/.exec(file);
+    if (m) namedEntities.set(m[1], group);
+  }
+
   for (const file of payloadFiles) {
     const src = owner.get(file);
     if (!src) continue;
@@ -502,6 +515,16 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       if (closureOf(src).has(dst)) continue;
       const key = `${src}\u0000${dst}`;
       if (!missing.has(key)) missing.set(key, `${file} → ${target}`);
+    }
+
+    for (const [name, dst] of namedEntities) {
+      if (dst === src) continue;
+      // Word-bounded, so `semgrep-scanner` in prose or a `subagent_type:` line
+      // matches while a longer identifier containing it does not.
+      if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
+      if (closureOf(src).has(dst)) continue;
+      const key = `${src}\u0000${dst}`;
+      if (!missing.has(key)) missing.set(key, `${file} names "${name}"`);
     }
   }
 

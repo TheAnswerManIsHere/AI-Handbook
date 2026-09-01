@@ -252,9 +252,18 @@ One PR per group. It does three things:
 3. **States what was inspected**, so the next group's PR is not re-deriving
    the test.
 
-The blockers in `sync-manifest.yml` are the queue. They are written to be
-actionable: each names the specific files and the specific problem, not a
-category.
+The blockers in `sync-manifest.yml` are the queue, and the manifest's own
+header defines what one is — read that first, because this paragraph
+contradicted it until round 10 caught the disagreement. A blocker names the
+**category** of work with enough specificity to start from, illustrated by
+specific files and specific problems. Those named instances are examples, not
+the boundary.
+
+**The practical consequence, which is the thing the contradiction endangered:**
+clearing a blocker means auditing the whole group against the category it
+names, not fixing the passages it happens to cite. A maintainer who fixed only
+the named instances and flipped the group to ready would ship every remaining
+instance to every consumer — with the manifest asserting the work was done.
 
 ### The order that falls out of the dependencies
 
@@ -538,3 +547,55 @@ item — it is the same corpus-definition assumption already recorded for
 `check-contract-consistency.mjs`, so it extended that item instead. It did add
 something: that assumption fails in the *consumer*, not only here, and silently
 exempts the two files every overlay routes through.
+
+## Round 10: the last round on the grant (2026-09-01)
+
+Three findings — two fixed, one recorded. Findings per round: 5, 9, 7, 7, 14,
+8, 3, 7, 3, 3.
+
+**A contradiction this document was carrying.** Round 8 added a definition of
+what a blocker is to the manifest header — a category, illustrated by
+instances. This file still said each blocker "names the specific files and the
+specific problem, **not a category**," which is the opposite. The danger is
+concrete rather than editorial: a maintainer reading only this file would fix
+the cited passages, flip the group to ready, and ship every remaining instance
+to every consumer with the manifest asserting the work was done. Both documents
+now state the same contract, and both state the consequence — **clearing a
+blocker means auditing the whole group against the category, not fixing its
+citations.**
+
+**A dependency class the derived check could not see.** `skills` needs
+`agent-definitions`: the semgrep skill spawns `semgrep-scanner`,
+differential-review delegates to `adversarial-modeler`. These are references by
+**name**, not by path, so no link resolver would ever find them — which is how
+the edge survived nine rounds of review, three of which were specifically about
+this graph. The check now derives the set of agent names *from the payload
+itself* and treats a word-bounded mention as a reference, so adding an agent
+extends the check with no edit to it.
+
+It immediately found two more: `claude-core` names the adjudicator (satisfied
+transitively once `skills` declared the edge), and `machinery`'s
+contract-consistency test asserts the adjudicator file is in the scanned
+corpus.
+
+**That last one produced a cycle, and last round's rule was applied to it.**
+`agent-definitions` required `machinery` because the adjudicator's only input
+is the record generator; `machinery` now referenced `agent-definitions`. The
+cycle was real in the sense that both edges were real — but it existed because
+three agents were grouped by *where their files sit* rather than by *what they
+depend on*. `review-loop-adjudicator` is machinery; `adversarial-modeler` and
+`semgrep-scanner` are skill helpers. Moving one file dissolved the cycle and
+left `agent-definitions` depending on nothing.
+
+**Twice now, a sharper check has produced a cycle that was an artifact of
+filing rather than of code, and both times the fix was to move a file.** The
+rule generalises: when a group's dependency is surprising, check whether the
+grouping is describing the code or fighting it.
+
+The recorded finding is `machinery` item (6), and it is the most serious thing
+found in the payload across ten rounds: the lock sweeper can delete a *live*
+lock. Two overlapping instances can each classify one stale lock as eligible,
+the first deletes it, git creates a fresh lock at that path, and the second
+deletes the replacement — corrupting an in-flight git operation. The blocker
+now orders its own items by that: (4) never runs, (5) runs and does nothing,
+(6) runs and does harm.

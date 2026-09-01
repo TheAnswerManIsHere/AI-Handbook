@@ -653,3 +653,44 @@ test("DERIVES a dependency from a static re-export across groups", () => {
   );
   assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
 });
+
+// Some payload is referenced by NAME, not by path — a skill saying "spawn the
+// semgrep-scanner agent" depends on the group delivering that agent, and no
+// link resolver can see it. That edge survived nine review rounds.
+test("DERIVES a dependency from an agent referenced by name", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "skills", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/skills/", to: "s/" }] },
+      { id: "agents", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/.claude/agents/", to: ".claude/agents/" }] },
+    ]),
+    ["core/skills/a/SKILL.md", "core/.claude/agents/my-scanner.md"],
+    (f) => (f === "core/skills/a/SKILL.md" ? "Use `subagent_type: my-scanner` for this step." : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('skills references files delivered by "agents"')));
+  assert.ok(problems.some((p) => p.includes('names "my-scanner"')));
+});
+
+test("an agent name embedded in a longer identifier is not a reference", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "skills", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/skills/", to: "s/" }] },
+      { id: "agents", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/.claude/agents/", to: ".claude/agents/" }] },
+    ]),
+    ["core/skills/a/SKILL.md", "core/.claude/agents/scanner.md"],
+    (f) => (f === "core/skills/a/SKILL.md" ? "see legacy-scanner-v2 and scanners" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("the agent-name set is derived from the payload, not hardcoded", () => {
+  // Adding an agent file must extend the check with no edit here.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "skills", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/skills/", to: "s/" }] },
+      { id: "agents", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/.claude/agents/", to: ".claude/agents/" }] },
+    ]),
+    ["core/skills/a/SKILL.md", "core/.claude/agents/brand-new-agent.md"],
+    (f) => (f === "core/skills/a/SKILL.md" ? "delegate to brand-new-agent" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "brand-new-agent"')));
+});

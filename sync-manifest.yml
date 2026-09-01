@@ -27,6 +27,10 @@
 # DIFFERENT category, or when it fails in a different way than the ones already
 # listed — a script that errors is not the same problem as prose that misleads.
 #
+# The consequence for whoever clears one: audit the WHOLE group against the
+# category, do not fix the cited passages and flip. The citations are where to
+# start reading, and a group marked ready asserts the category is closed.
+#
 #   status: ready  — safe to sync to any consumer today.
 #           staged — present in this repo, deliberately NOT synced yet, with a
 #                    named blocker. The sync skips these entirely. A staged
@@ -256,6 +260,7 @@ groups:
     requires:
       - machinery
       - contracts
+      - agent-definitions
     blocker: >
       bugfix, document, maintenance, plan-review-loop and pr-watch each drive
       the machinery as a procedure, and fourteen of these files route into
@@ -290,16 +295,23 @@ groups:
   - id: agent-definitions
     mode: sync
     status: staged
-    requires:
-      - machinery
     blocker: >
-      review-loop-adjudicator's only permitted input is the record produced by
-      review-loop-record.mjs. Without it the agent has nothing to read and its
-      one guarantee — that it judges a mechanical record rather than the loop's
-      own prose — cannot hold.
+      adversarial-modeler and semgrep-scanner are spawned by the
+      differential-review and semgrep skills, so they are only useful once
+      those travel — but they depend on nothing themselves and can be
+      delivered ahead of `skills` harmlessly. The blocker is the ordinary
+      portability audit every payload group owes: both carry tool allowlists
+      and prompts written against one product's codebase and its languages.
+    description: >
+      Subagent definitions spawned BY skills. review-loop-adjudicator is not
+      here — it belongs to `machinery`, whose record generator is its only
+      permitted input, and grouping it by file location rather than by what it
+      depends on made `machinery` and `agent-definitions` mutually dependent.
     paths:
       - from: core/.claude/agents/
         to: .claude/agents/
+        exclude:
+          - review-loop-adjudicator.md # travels with the `machinery` it judges
 
   - id: guard
     mode: sync
@@ -376,6 +388,16 @@ groups:
       wiring, this one is the script being wrong about where locks live —
       resolved by consulting `git rev-parse --git-dir`/`--git-common-dir`, or
       by restricting the sweeper to the primary checkout and saying so.
+      (6) The same script can DELETE A LIVE LOCK. It documents support for
+      overlapping instances, and two of them can each classify one stale lock
+      as eligible and pass the process check; the first deletes it, git creates
+      a fresh lock at that path, and the second deletes the replacement —
+      corrupting an in-flight git operation in the consumer. This is the only
+      item in this blocker whose failure is destructive rather than absent or
+      inert, so it outranks the rest: (4) never runs, (5) runs and does
+      nothing, (6) runs and does harm. The fix is to serialize instances or to
+      re-verify at deletion time that the path still identifies the same stale
+      lock — a check-then-act gap, not a missing feature.
       Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/scripts/
@@ -383,6 +405,13 @@ groups:
         exclude:
           - guard-decision.mjs # travels with the `guard` group
           - __tests__/guard-decision.test.mjs # ditto — a test goes with its subject
+      # The adjudicator is machinery, not a skill helper: its ONLY permitted
+      # input is review-loop-record.mjs's output, and a machinery test asserts
+      # it is in the scanned contract corpus. Filed under .claude/agents/ it
+      # made these two groups mutually dependent — a cycle produced by where a
+      # file sits rather than by what it needs.
+      - from: core/.claude/agents/review-loop-adjudicator.md
+        to: .claude/agents/review-loop-adjudicator.md
 
   - id: settings-template
     mode: seed
