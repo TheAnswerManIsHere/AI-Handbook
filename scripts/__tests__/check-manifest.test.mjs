@@ -709,6 +709,17 @@ test("mentionsForm requires path boundaries, with no alphabet of its own", () =>
   assert.equal(mentionsForm("read two.md.bak", "two.md"), false);
   assert.equal(mentionsForm("at https://x.com/docs/two.md", "docs/two.md"), false);
   assert.equal(mentionsForm("`{baseDir}/deep/b/two.md`", "deep/b/two.md"), true);
+  // A preceding slash is ACCEPTED, whatever names the root. Rejecting it
+  // unless preceded by `}` encoded one placeholder spelling as the general
+  // case; removing the rejection changes this corpus's count by zero and
+  // fails closed when it over-detects.
+  assert.equal(mentionsForm("read $BASE_DIR/deep/b/two.md", "deep/b/two.md"), true);
+  assert.equal(mentionsForm("read %ROOT%/deep/b/two.md", "deep/b/two.md"), true);
+  assert.equal(mentionsForm("in x/deep/b/two.md here", "deep/b/two.md"), true);
+  // A URL is still not a reference. Removing the slash rejection removed the
+  // accident that used to cover this, so it is now stated: walk back over the
+  // unbroken non-whitespace run and look for "://".
+  assert.equal(mentionsForm("see http://a.b/deep/b/two.md now", "deep/b/two.md"), false);
 });
 
 test("DERIVES an edge from any syntax, because syntax is never inspected", () => {
@@ -827,4 +838,91 @@ test("DETECTS a group that both requires and mentions the same group", () => {
   const problems = check(pair({ requires: ["b"], mentions: [M({ why: "contradictory" })] }),
     ["core/a/one.md", "core/b/two.md"], allExist);
   assert.ok(problems.some((p) => p.includes("either a dependency or it is not")));
+});
+
+test("DETECTS a mention whose evidence no longer exists", () => {
+  // Three earlier tightenings closed the SCOPE axes of exemption breadth —
+  // ref, from, group. This is the TIME axis: an exemption outliving the
+  // reference that justified it would silently cover a real one added later.
+  const problems = checkDerivedDependencies(
+    pair({ mentions: [M({ why: "evidence that is no longer there" })] }),
+    ["core/a/one.md", "core/b/two.md"],
+    () => "this file no longer mentions anything",
+  );
+  assert.ok(problems.some((p) => p.includes("no longer references it")));
+});
+
+test("a mention backed by a live reference is not reported stale", () => {
+  const problems = checkDerivedDependencies(
+    pair({ mentions: [M()] }),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("relative forms are computed between DESTINATIONS, not payload paths", () => {
+  // A reference is written for where files LAND. The manifest may relocate
+  // either — settings.template.json already becomes .claude/settings.json.
+  const destOf = new Map([["core/x/one.mjs", "src/one.mjs"], ["core/y/two.mjs", "lib/two.mjs"]]);
+  const forms = referenceFormsFor("core/x/one.mjs", "core/y/two.mjs", destOf, uniqueSuffixesOf(destOf));
+  assert.ok(forms.includes("../lib/two.mjs"), `consumer-relative form missing: ${forms.join(", ")}`);
+  assert.ok(forms.includes("../y/two.mjs"), "payload-relative form should also be kept");
+});
+
+test("DERIVES an edge through a relocating mapping", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/x/one.mjs", to: "src/one.mjs" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/y/two.mjs", to: "lib/two.mjs" }] },
+    ]),
+    ["core/x/one.mjs", "core/y/two.mjs"],
+    (f) => (f === "core/x/one.mjs" ? 'import { z } from "../lib/two.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("an agent is named by where it is INSTALLED, not where its source sits", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "s", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/s/", to: "s/" }] },
+      { id: "ag", mode: "sync", status: "staged", blocker: "x",
+        paths: [{ from: "core/definitions/reviewer.md", to: ".claude/agents/reviewer.md" }] },
+    ]),
+    ["core/s/SKILL.md", "core/definitions/reviewer.md"],
+    (f) => (f === "core/s/SKILL.md" ? "delegate to the reviewer agent" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "reviewer"')));
+});
+
+test("a static import is never exemptible, whatever the file extension", () => {
+  // "Which files can contain an import" was an enumeration that omitted the
+  // payload's own .ts file. The question is about the text, not the extension.
+  for (const ext of ["ts", "mts", "jsx", "mjs"]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+          mentions: [{ group: "b", ref: `core/b/two.${ext}`, from: `core/a/one.${ext}`, why: "a comment" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+      ]),
+      [`core/a/one.${ext}`, `core/b/two.${ext}`],
+      (f) => (f.startsWith("core/a/") ? `import { x } from "../b/two.${ext}";` : ""),
+    );
+    assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), ext);
+  }
+});
+
+test("a consumer path behind ANY root placeholder resolves", () => {
+  // The boundary rule encoded `{baseDir}` as the only placeholder spelling.
+  for (const prefix of ["{baseDir}", "$BASE_DIR", "%ROOT%", "$(root)", "~"]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "deep/b/" }] },
+      ]),
+      ["core/a/one.md", "core/b/two.md"],
+      (f) => (f === "core/a/one.md" ? `Use \`${prefix}/deep/b/two.md\` for this` : ""),
+    );
+    assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), prefix);
+  }
 });

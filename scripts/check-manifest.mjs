@@ -488,12 +488,31 @@ export function ownersOf(manifest, payloadFiles) {
  */
 export function referenceFormsFor(sourceFile, targetFile, destOf, uniqueSuffixes) {
   const forms = new Set();
-  const rel = posix.relative(posix.dirname(sourceFile), targetFile);
-  forms.add(rel);                       // ../b/two.md
-  if (!rel.startsWith(".")) forms.add(`./${rel}`); // ./two.md
+
+  // The relative form is computed between DESTINATIONS, not between payload
+  // paths. A file's reference to another is written for where both will LAND,
+  // and the manifest may relocate either -- `settings.template.json` already
+  // becomes `.claude/settings.json` on delivery. Computing from `core/` paths
+  // asks where files sit, which is the same wrong-layout error that put two
+  // corpus-wide gates in the wrong group.
+  //
+  // Payload-relative is kept as well: a reference written before the manifest
+  // relocated either file is still a reference, and an extra form only ever
+  // over-detects.
+  for (const [from, to] of [
+    [destOf.get(sourceFile), destOf.get(targetFile)],
+    [sourceFile, targetFile],
+  ]) {
+    if (!from || !to) continue;
+    const rel = posix.relative(posix.dirname(from), to);
+    if (!rel) continue;
+    forms.add(rel);
+    if (!rel.startsWith(".")) forms.add(`./${rel}`);
+  }
+
   const dest = destOf.get(targetFile);
   if (dest) {
-    forms.add(dest);                    // docs/ai-context/working-modes.md
+    forms.add(dest);
     for (const suffix of uniqueSuffixes.get(targetFile) ?? []) forms.add(suffix);
   }
   forms.delete("");
@@ -548,13 +567,25 @@ export function mentionsForm(text, form) {
     const before = i === 0 ? "" : text[i - 1];
     const after = text[i + form.length] ?? "";
     if (/[A-Za-z0-9_+~-]/.test(before)) continue; // inside a longer name
-    if (before === "/" && !form.startsWith("/")) {
-      // A slash before usually means a longer path (or a URL). The exception
-      // is a TEMPLATE segment standing in for a root the referring file does
-      // not know -- `{baseDir}/skills/x.md` -- which is a real reference and
-      // was the form that survived eleven review rounds.
-      if (!/\}$/.test(text.slice(0, i - 1))) continue;
-    }
+    // A URL's path is not a payload reference. This is not an enumeration of
+    // schemes: it walks back over the unbroken run of non-whitespace before
+    // the match and asks whether it contains "://", which is what makes a URL
+    // a URL. Removing the blanket slash rejection (below) removed the accident
+    // that used to cover this case, so it is now stated deliberately.
+    const runStart = text.lastIndexOf(" ", i) + 1;
+    const nlStart = text.lastIndexOf("\n", i) + 1;
+    if (text.slice(Math.max(runStart, nlStart), i).includes("://")) continue;
+    // A slash before is ACCEPTED. An earlier version rejected it unless the
+    // preceding character was `}`, which encoded this repo's current
+    // `{baseDir}` spelling as if it were the general case -- a one-element
+    // enumeration, and the fourth found in this mechanism. `$BASE_DIR/`,
+    // `%ROOT%/` and `$(root)/` all name a root just as legitimately.
+    //
+    // Accepting it can over-detect: `x/deep/b/two.md` matches the form
+    // `deep/b/two.md`. That fails closed (the reference needs classifying) and
+    // is empirically free -- removing the rejection entirely changes the
+    // reference count on this corpus by zero, so the `}` case was the only
+    // thing it was deciding.
     if (/[A-Za-z0-9_+~/-]/.test(after)) continue; // a longer name or deeper path
     // A dot after is sentence punctuation ("covered by .gitignore.") unless a
     // word character follows it, which makes it a different file ("two.md.bak").
@@ -640,7 +671,18 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   // classified as evidence, and then a real import of that same file is added
   // to that same source file.
   const importsIn = (file, text, form) => {
-    if (!/\.[cm]?js$/.test(file)) return false;
+    // No file-type gate. "Which files can contain an import" was an
+    // enumeration -- it listed .js/.mjs/.cjs and omitted the payload's own .ts
+    // file, and adding .ts/.mts/.cts/.jsx would be the same move that failed
+    // twice already. The question the guard actually needs answered is whether
+    // THIS TEXT contains an import naming this form, which does not depend on
+    // the extension.
+    //
+    // The cost is that documentation showing an import example can no longer
+    // be classified as evidence. That fails CLOSED -- the reference must be
+    // declared rather than exempted -- and it is free on this corpus: the only
+    // non-JS file containing import syntax names ./yourModule and
+    // ./factTextEdit, neither of which is payload.
     const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // A comment may legally sit between `from` and the specifier, so the gap
     // is "whitespace and comments" rather than `\s*`. An import the pattern
@@ -661,7 +703,15 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
         !importsIn(srcFile, text, form),
     );
 
-  const missing = new Map(); // "src\u0000dst" -> evidence
+  const missing = new Map(); // "srcFile\u0000targetFile" -> { src, dst, evidence }
+
+  // Every reference actually detected this run, exempted or not. An exemption
+  // is a claim about evidence that exists; once the evidence is gone the claim
+  // is unverified, and the day that source gains a REAL reference to the same
+  // target the stale entry would exempt it with nobody reading the new
+  // evidence. Three earlier tightenings closed the scope axes of this same
+  // error -- ref, from, group -- and this is its time axis.
+  const seen = new Set(); // "srcFile\u0000targetFile"
 
   const destOf = new Map([...byDestination].map(([dest, file]) => [file, dest]));
   const uniqueSuffixes = uniqueSuffixesOf(destOf);
@@ -670,10 +720,16 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   // pathed. A skill saying "spawn the semgrep-scanner agent" depends on the
   // group delivering that agent, and no path form appears anywhere. The name
   // set is derived from the payload, so adding an agent extends the check.
-  const namedEntities = new Map(); // bare name -> owning group
+  const namedEntities = new Map(); // bare name -> { group, file }
   for (const [file, group] of owner) {
-    const m = /(?:^|\/)\.claude\/agents\/([^/]+)\.md$/.exec(file);
-    if (m) namedEntities.set(m[1], group);
+    // Matched against the DESTINATION. An agent is named by where it is
+    // installed, not by where its source sits: a definition sourced elsewhere
+    // and mapped into .claude/agents/ is an agent, and one sourced there but
+    // mapped elsewhere is not.
+    const dest = destOf.get(file);
+    if (!dest) continue;
+    const m = /(?:^|\/)\.claude\/agents\/([^/]+)\.md$/.exec(dest);
+    if (m) namedEntities.set(m[1], { group, file });
   }
 
   for (const file of payloadFiles) {
@@ -692,6 +748,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       const forms = referenceFormsFor(file, target, destOf, uniqueSuffixes);
       const form = forms.find((f) => mentionsForm(text, f));
       if (!form) continue;
+      seen.add(`${file}\u0000${target}`);
       if (exempt(src, file, text, form, target)) continue;
       // Keyed per REFERENCE, not per group pair. Since an exemption is scoped
       // to one source file, each reference needs its own classification -- and
@@ -700,15 +757,26 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       missing.set(`${file}\u0000${target}`, { src, dst, evidence: `${file} names "${form}"` });
     }
 
-    for (const [name, dst] of namedEntities) {
+    for (const [name, { group: dst, file: agentFile }] of namedEntities) {
       if (dst === src) continue;
       // Word-bounded, so `semgrep-scanner` in prose or a `subagent_type:` line
       // matches while a longer identifier containing it does not.
       if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
       if (closureOf(src).has(dst)) continue;
-      const agentFile = [...owner].find(([f, g]) => g === dst && f.endsWith(`/${name}.md`))?.[0];
-      if (agentFile && exempt(src, file, text, name, agentFile)) continue;
-      missing.set(`${file}\u0000${agentFile ?? name}`, { src, dst, evidence: `${file} names "${name}"` });
+      seen.add(`${file}\u0000${agentFile}`);
+      if (exempt(src, file, text, name, agentFile)) continue;
+      missing.set(`${file}\u0000${agentFile}`, { src, dst, evidence: `${file} names "${name}"` });
+    }
+  }
+
+  for (const group of manifest.groups ?? []) {
+    for (const m of group.mentions ?? []) {
+      if (typeof m?.ref !== "string" || typeof m?.from !== "string") continue; // schema check reports these
+      if (seen.has(`${m.from}\u0000${m.ref}`)) continue;
+      problems.push(
+        `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref}, but that file no longer references it — ` +
+          `an exemption outliving its evidence would silently cover a real reference added later`,
+      );
     }
   }
 

@@ -762,3 +762,57 @@ A usability defect surfaced while fixing the rest — the check reported one
 problem per group pair while exemptions are per source file, so a maintainer
 fixed one and got the next, one round-trip at a time. It now reports every
 unclassified reference.
+
+### Round 3: the enumerations were in the parts that ask about syntax
+
+Six findings, all real, all fixed on David's grant of five further rounds.
+
+**Two more enumerations — the third and fourth.** The static-import guard
+gated on file extension (`.js/.mjs/.cjs`, omitting the payload's own `.ts`
+file), and the boundary rule accepted a preceding slash only before `}`,
+encoding this repo's `{baseDir}` spelling as though it were the general case.
+
+Both are now gone rather than extended, and both removals were **measured
+free** before being made:
+
+- The import guard no longer asks what kind of file it is looking at, only
+  whether the text contains an import naming this form. The cost is that
+  documentation showing an import example can no longer be classified as
+  evidence — which fails *closed*, and is free here: the one non-JS payload
+  file containing import syntax names `./yourModule` and `./factTextEdit`,
+  neither of them payload.
+- The boundary rule accepts any preceding slash. Removing the rejection
+  entirely changes this corpus's reference count by **zero**, so the `}` case
+  was the only thing it decided.
+
+That second removal took a real protection with it, which is the part worth
+recording: the slash rejection had been *accidentally* excluding URLs. URL
+exclusion is now stated deliberately — walk back over the unbroken
+non-whitespace run and look for `://`, which is what makes a URL a URL rather
+than a list of schemes. **Removing an over-broad rule can remove a correct
+behaviour that was riding on it.**
+
+**Two "wrong layout" bugs, one function.** `referenceFormsFor` computed the
+relative form between `core/` paths, and `namedEntities` matched agent names
+against source paths — both asking where files *sit* when the question is
+where they *land*. This is the same error that put two corpus-wide gates in
+the wrong group, committed again in the code written to fix it. Both now use
+`destOf`. It was not hypothetical: `settings.template.json` becomes
+`.claude/settings.json` on delivery, so the precondition was live; nothing
+broke only because a second form covered it, which is redundancy rather than
+correctness.
+
+**The time axis of an error already closed on three spatial axes.** `mentions`
+entries were read only to suppress a detected reference, never checked in
+reverse — so an entry whose evidence had disappeared would sit there and,
+the day its source gained a *real* reference to the same target, exempt it
+with nobody reading the new evidence. Every entry must now match a reference
+detected in the same run. Three earlier tightenings closed scope (`ref`,
+`from`, `group`); this closes time.
+
+**And a third doc-versus-manifest contradiction:** the blocker said
+`claude-core` unstages "last" while the generated order ends with
+`settings-template`. Each time, the manifest changed and a sentence describing
+it did not. Three instances in two PRs is a pattern, and the pattern's fix is
+to derive the prose claim rather than restate it — recorded here rather than
+built, because it is a different piece of work.

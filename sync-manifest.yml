@@ -121,8 +121,13 @@ groups:
       the adjudication record). Declaring only `machinery` would have let this
       group flip to ready the moment the machinery unstaged — which is the very
       first step of the documented order — handing every session mandatory
-      routes and protections that do not exist. This is the last group to
-      unstage, not the first.
+      routes and protections that do not exist. It unstages near the END of the
+      order, after everything it routes to. Not literally last: `settings-template`
+      requires only `guard` and can flip before or after this group, so the
+      generated order simply emits it as a trailing leaf. An earlier version of
+      this sentence said "last," which contradicted the order without failing
+      any check — the third time in two PRs that a sentence describing the
+      manifest outlived a change to it.
 
       Two conditions came with the two corpus-wide gates this group now
       delivers. (1) They are non-Markdown synced files carrying no ownership
