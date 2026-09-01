@@ -159,7 +159,20 @@ export function check(manifest, payloadFiles, exists) {
   const destinations = new Map(); // RESOLVED destination file -> { src, group }
   const groupsById = new Map();
 
-  for (const group of manifest.groups ?? []) if (group.id) groupsById.set(group.id, group);
+  for (const group of manifest.groups ?? []) {
+    if (!group.id) continue;
+    // Duplicate ids are rejected rather than last-one-wins. Silently keeping
+    // the last record would let a manifest pass with one `dup` staged and
+    // another ready, a ready group requiring `dup`, and the same payload
+    // routed twice -- with readiness decided by declaration order instead of
+    // by the rule. Every downstream check reads this map, so an ambiguous
+    // manifest has to fail here or it corrupts all of them.
+    if (groupsById.has(group.id)) {
+      problems.push(`duplicate group id "${group.id}" — ids must be unique; the manifest is ambiguous`);
+      continue;
+    }
+    groupsById.set(group.id, group);
+  }
 
   for (const group of manifest.groups ?? []) {
     if (!group.id) problems.push(`a group is missing an "id"`);

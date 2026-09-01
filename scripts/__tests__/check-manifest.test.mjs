@@ -259,3 +259,17 @@ test("one source mapped by one entry is never reported as colliding with itself"
   );
   assert.deepEqual(problems, []);
 });
+
+test("DETECTS a duplicate group id instead of last-one-wins", () => {
+  // Ambiguity here is not cosmetic: every later check reads the id map, so a
+  // silently-dropped record makes readiness depend on declaration order.
+  const problems = check(
+    manifest([
+      { id: "dup", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "dup", mode: "sync", status: "ready", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('duplicate group id "dup"')));
+});

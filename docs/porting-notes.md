@@ -215,6 +215,56 @@ skill's `name`/`description` still parse. A promise in documentation that the
 artifacts do not keep is worse than no promise: it is what an agent relies on
 before editing.
 
+## The decision that ended the loop (David, 2026-09-01)
+
+Three review rounds returned 5, then 9, then 7 findings, with the
+portability class holding at 3, 5, 5. Each pass caught a *category* and the
+next round found a different one — first product names, then paths and
+commands, then normative scope clauses and unconditional environment
+assertions buried in retrospective notes. Two pre-registered flip conditions
+tripped, and the loop stopped rather than attempting a fourth sweep.
+
+**David's call: merge the structure with every group staged, then unstage
+group by group.** Nothing syncs to any consumer on this merge. What lands is
+the repo, the manifest, the check, and the payload — parked, with each group
+naming the portability work that has to happen before it can travel.
+
+The reasoning, kept because it generalizes: **179 files of prose written for
+one product over months do not become portable by sweeping them.** A sweep
+finds the category it was designed to find. Each file becomes portable by
+being read and rewritten with one question in mind, and that is per-file work
+with a finish line — not a pass over a corpus. Staging converts an
+open-ended review loop into discrete, reviewable units.
+
+### How a group gets unstaged
+
+One PR per group. It does three things:
+
+1. **Applies the instruction-vs-evidence test to every file in the group** —
+   does this file tell an agent to DO something with a path, command, package,
+   board, workflow or subsystem that may not exist in the consuming repo, or
+   does it cite one as evidence of something that happened? Evidence stays.
+   Instruction is rewritten to name the consuming repo's equivalent, made
+   conditional, or moved out of the payload entirely.
+2. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
+   the check refuses `ready` while a required group is staged, so the
+   dependency order enforces itself.
+3. **States what was inspected**, so the next group's PR is not re-deriving
+   the test.
+
+The blockers in `sync-manifest.yml` are the queue. They are written to be
+actionable: each names the specific files and the specific problem, not a
+category.
+
+### The order that falls out of the dependencies
+
+`machinery` and `guard` first — they carry the hardcoded repo identity, they
+block `claude-core`, `contracts`, `skills`, `agent-definitions`,
+`receipt-scaffolding` and `settings-template`, and they are the only groups
+whose blocker is code rather than prose. `contracts` next, which releases
+`agents-core`. `memory`, `planning` and `engineering` are independent and can
+go in any order, or together.
+
 ## Not yet built
 
 - **The sync workflow itself.** This PR establishes the payload and the

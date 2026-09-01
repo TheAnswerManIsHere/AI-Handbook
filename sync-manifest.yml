@@ -54,7 +54,15 @@ groups:
 
   - id: agents-core
     mode: sync
-    status: ready
+    status: staged
+    requires:
+      - contracts
+    blocker: >
+      This is a consumer's primary AGENTS entry point and it routes agents to
+      agent-working-rules, working-modes, documentation-workflow,
+      workstream-tracking and the plan-review contract. Delivered while
+      `contracts` is staged, those routes lead nowhere from the one file every
+      agent is told to read first. Flips with contracts.
     description: >
       The portable half of the cross-agent routing constitution. A consumer's
       AGENTS.md LINKS here rather than importing — AGENTS.md has no import
@@ -91,7 +99,14 @@ groups:
 
   - id: engineering
     mode: sync
-    status: ready
+    status: staged
+    blocker: >
+      code-review.md's repository-fit checklist instructs reviewers to require
+      patterns that exist in one product only — its frontend, its Drizzle
+      schema, its async queue, its enrichment and rendering modules. In another
+      repo that produces confident, wrong review findings and steers
+      implementations toward the wrong architecture. Unstaging means rewriting
+      that section to express the portable invariant without naming subsystems.
     description: >
       Engineering practice that is not stack-specific. migrations-and-backfills.md
       is deliberately NOT here: its guidance is written as operational
@@ -107,14 +122,31 @@ groups:
 
   - id: planning
     mode: sync
-    status: ready
+    status: staged
+    blocker: >
+      PLANS.md's normative opening scopes the planning-and-approval requirement
+      to work on one named product. Read literally in another consumer, it says
+      non-trivial work there is outside the template — the failure mode that
+      excuses an agent from a required process rather than misdirecting it.
+      Unstaging is a wording pass over the template's scope clauses.
     paths:
       - from: core/.agents/PLANS.md
         to: .agents/PLANS.md
 
   - id: memory
     mode: sync
-    status: ready
+    status: staged
+    blocker: >
+      Most entries are portable, but three carry instructions rather than
+      evidence and are wrong elsewhere: replit-direct-push asserts
+      unconditionally that "production is never a git ref" and tells agents not
+      to reason about production from `main` — in a consumer where `main`
+      deploys, that suppresses a real escalation; running-long-test-suites
+      directs agents to a workflow specific to one repo instead of running the
+      suite; repo-wide-typecheck mandates a `../lib/<pkg>` project-reference
+      path and a root typecheck script a consumer may not have. Unstaging means
+      auditing the set entry by entry against the instruction-vs-evidence test,
+      not shipping 34 files on the strength of a sample.
     description: >
       Environment and tooling gotchas that are true of the harness, GitHub,
       the proxy and the toolchain rather than of one product's code. Entries
