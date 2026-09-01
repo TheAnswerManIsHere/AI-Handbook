@@ -200,7 +200,7 @@ groups:
       bugfix, document, maintenance, plan-review-loop and pr-watch each drive
       the machinery as a procedure. Grouping is deliberately coarse: rather
       than split 36 skills to ship 31 a little sooner, the whole group follows
-      its strictest member and flips with the machinery, which is the next PR.
+      its strictest member and flips with the machinery, which is the next PR. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     description: >
       Process and practice skills. Product-specific skills (a product's design,
       implementation, plan-review, migration-review and subsystem skills) are
@@ -232,7 +232,7 @@ groups:
       for. That identity is currently a hardcoded literal (see the `machinery`
       group's blocker — the same change covers both). Syncing this group
       before that lands would install a guard in DojoOS that authorizes
-      against Overhype's identity, which is worse than no guard.
+      against Overhype's identity, which is worse than no guard. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/.claude/guard.sh
         to: .claude/guard.sh
@@ -253,7 +253,7 @@ groups:
       found. Making repo identity and contract-surface paths configurable is a
       security-relevant change to the receipt and guard machinery, and gets its
       own reviewed PR rather than riding along with a file move. Until then
-      these scripts are correct for Overhype's layout only.
+      these scripts are correct for Overhype's layout only. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/scripts/
         to: scripts/
