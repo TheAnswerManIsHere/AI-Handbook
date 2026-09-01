@@ -749,7 +749,7 @@ const pair = (extra = {}) =>
     { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }], ...extra },
     { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
   ]);
-const M = (o) => ({ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", why: "evidence", ...o });
+const M = (o) => ({ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 1, why: "evidence", ...o });
 
 test("a fully scoped mention suppresses exactly its own reference", () => {
   const problems = checkDerivedDependencies(pair({ mentions: [M()] }), ["core/a/one.md", "core/b/two.md"],
@@ -787,7 +787,7 @@ test("a mention NEVER exempts a static import, comments included", () => {
     const problems = checkDerivedDependencies(
       manifest([
         { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
-          mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", form: "../b/two.mjs", why: "a comment mentions it" }] },
+          mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", form: "../b/two.mjs", count: 1, why: "a comment mentions it" }] },
         { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
       ]),
       ["core/a/one.mjs", "core/b/two.mjs"],
@@ -961,12 +961,12 @@ test("overlapping forms for one occurrence are ONE reference, not three", () => 
   const forms = [".agents/receipts/.gitignore", "receipts/.gitignore", ".gitignore"];
   assert.deepEqual(
     distinctReferences("see `.agents/receipts/.gitignore` for this", forms),
-    [".agents/receipts/.gitignore"],
+    [{ form: ".agents/receipts/.gitignore", count: 1 }],
   );
   // A shorter form survives where it matches somewhere the longer one did not.
   assert.deepEqual(
     distinctReferences("respects `.gitignore`, and see `.agents/receipts/.gitignore`", forms),
-    [".agents/receipts/.gitignore", ".gitignore"],
+    [{ form: ".agents/receipts/.gitignore", count: 1 }, { form: ".gitignore", count: 1 }],
   );
 });
 
@@ -977,7 +977,7 @@ test("DETECTS a second spelling riding in on the first spelling's exemption", ()
   const problems = checkDerivedDependencies(
     manifest([
       { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
-        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", why: "evidence" }] },
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 1, why: "evidence" }] },
       { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
     ]),
     ["core/a/one.md", "core/b/two.md"],
@@ -990,7 +990,7 @@ test("DETECTS a mention whose form is not the one that matched", () => {
   const problems = checkDerivedDependencies(
     manifest([
       { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
-        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", why: "wrong spelling" }] },
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", count: 1, why: "wrong spelling" }] },
       { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
     ]),
     ["core/a/one.md", "core/b/two.md"],
@@ -1006,8 +1006,8 @@ test("DETECTS a mention whose FORM no longer appears, though the pair still does
     manifest([
       { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
         mentions: [
-          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", why: "live" },
-          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", why: "gone" },
+          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 1, why: "live" },
+          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", count: 1, why: "gone" },
         ] },
       { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
     ]),
@@ -1015,4 +1015,69 @@ test("DETECTS a mention whose FORM no longer appears, though the pair still does
     (f) => (f === "core/a/one.md" ? "see ../b/two.md" : ""),
   );
   assert.ok(problems.some((p) => p.includes("no longer") && p.includes('as "two.md"')), problems.join("\n"));
+});
+
+test("DETECTS a new occurrence riding in on an entry written for fewer", () => {
+  // Round-5 finding: claude-core.md names .claude/settings.json three times
+  // under one entry. A fourth occurrence, added as a real instruction, kept
+  // CI green because the form was still live. The count changes exactly when
+  // the occurrence set does.
+  const groups = (text) => checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", count: 2, why: "the two I read" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? text : ""),
+  );
+  assert.deepEqual(groups("see ../b/two.md and again ../b/two.md"), []);
+  const problems = groups("see ../b/two.md and again ../b/two.md and NOW READ ../b/two.md");
+  assert.ok(problems.some((p) => p.includes("has 3 occurrence")), problems.join("\n"));
+});
+
+test("DERIVES the reference from an ESCAPED static import, and it is never exemptible", () => {
+  // Node loads two.mjs from "../b/t\u0077o.mjs"; a literal scan sees nothing.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", form: "../b/two.mjs", count: 1, why: "try to exempt it" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.mjs", "core/b/two.mjs"],
+    (f) => (f === "core/a/one.mjs" ? 'import x from "../b/t\\u0077o.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), problems.join("\n"));
+});
+
+test("DERIVES a dependency from a /command invoking an installed skill", () => {
+  // "Run /two" names no path at all; the entity comes from the destination
+  // .claude/skills/two/SKILL.md, so adding a skill extends the check.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: ".claude/skills/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two/SKILL.md"],
+    (f) => (f === "core/a/one.md" ? "When asked, run /two and report." : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "/two"')), problems.join("\n"));
+});
+
+test("a /command inside a path or URL is NOT a skill reference", () => {
+  for (const text of [
+    "see .claude/skills/two/SKILL.md",          // path segment
+    "https://example.test/two",                  // URL path
+    "docs/two/readme is elsewhere",              // other path
+  ]) {
+    const problems = checkDerivedDependencies(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+        { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: ".claude/skills/" }] },
+      ]),
+      ["core/a/one.md", "core/b/two/SKILL.md"],
+      (f) => (f === "core/a/one.md" ? text : ""),
+    );
+    assert.ok(!problems.some((p) => p.includes('names "/two"')), `${text}: ${problems.join("\n")}`);
+  }
 });

@@ -48,7 +48,7 @@ const STATUSES = new Set(["ready", "staged"]);
 // dependency silently dropped. Groups legitimately omit `requires`, so absence
 // cannot be the signal -- the spelling has to be.
 const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "mentions", "blocker", "description", "paths"]);
-const MENTION_KEYS = new Set(["group", "ref", "from", "form", "why"]);
+const MENTION_KEYS = new Set(["group", "ref", "from", "form", "count", "why"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
 const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
 
@@ -319,6 +319,15 @@ export function check(manifest, payloadFiles, exists) {
         problems.push(
           `${group.id}: mentions "${m.group}" without a "form" naming the exact string being classified ` +
             `— an entry that names the file but not the spelling also covers a different reference to the same file`,
+        );
+      }
+      // The occurrence COUNT is the sixth scope axis. Without it an entry
+      // written for three occurrences also covers a fourth added later, and
+      // the stale check stays satisfied because the form is still live.
+      if (!Number.isInteger(m.count) || m.count < 1) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a positive integer "count" of occurrences ` +
+            `— an entry that does not say how many it covers also covers occurrences added after it was written`,
         );
       }
       // The reason is mandatory and is the whole point. An exemption without
@@ -650,7 +659,15 @@ export function distinctReferences(text, forms) {
       (i) => !claimed.some(([start, end]) => i >= start && i + form.length <= end),
     );
     if (!fresh.length) continue;
-    out.push(form);
+    // The COUNT travels with the form. An exemption covers the occurrences its
+    // author read, not however many exist later: `claude-core.md` names
+    // `.claude/settings.json` three times under one entry, and a fourth
+    // occurrence added as a real instruction would have ridden in on it with
+    // the stale check still satisfied -- the form was still live. Position
+    // would be precise but churns on every unrelated edit; the count changes
+    // exactly when the set of occurrences does, which is when a human should
+    // re-look.
+    out.push({ form, count: fresh.length });
     for (const i of fresh) claimed.push([i, i + form.length]);
   }
   return out;
@@ -732,28 +749,43 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   // scoped exemption alone cannot: a comment about `guard-decision.mjs` is
   // classified as evidence, and then a real import of that same file is added
   // to that same source file.
-  const importsIn = (file, text, form) => {
-    // No file-type gate. "Which files can contain an import" was an
-    // enumeration -- it listed .js/.mjs/.cjs and omitted the payload's own .ts
-    // file, and adding .ts/.mts/.cts/.jsx would be the same move that failed
-    // twice already. The question the guard actually needs answered is whether
-    // THIS TEXT contains an import naming this form, which does not depend on
-    // the extension.
-    //
-    // The cost is that documentation showing an import example can no longer
-    // be classified as evidence. That fails CLOSED -- the reference must be
-    // declared rather than exempted -- and it is free on this corpus: the only
-    // non-JS file containing import syntax names ./yourModule and
-    // ./factTextEdit, neither of which is payload.
-    const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // A comment may legally sit between `from` and the specifier, so the gap
-    // is "whitespace and comments" rather than `\s*`. An import the pattern
-    // cannot see would be silently exemptible, against the stated invariant.
-    const GAP = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\n]*\n)*`;
-    return new RegExp(String.raw`(?:from|import)${GAP}(["'])${esc}\1`).test(text);
+  // Static-import specifiers, DECODED the way the engine decodes them. The
+  // scan below matches literal text, but Node resolves the parsed string:
+  // `import x from "../b/t\\u0077o.mjs"` loads two.mjs while containing the
+  // substring "t\\u0077o.mjs" -- invisible to indexOf, so the reference (and
+  // with it the never-exemptible rule) was silently skipped. Decoding follows
+  // the language's escape rules, so it is a derivation, not a list: every
+  // escape the spec defines either maps to its defined character or, for the
+  // NonEscapeCharacter case, to the character itself.
+  const decodeJsString = (raw) =>
+    raw.replace(
+      /\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})|\\\r?\n|\\(.)/g,
+      (_, brace, u4, x2, ch) => {
+        if (brace !== undefined) return String.fromCodePoint(parseInt(brace, 16));
+        if (u4 !== undefined) return String.fromCodePoint(parseInt(u4, 16));
+        if (x2 !== undefined) return String.fromCodePoint(parseInt(x2, 16));
+        if (ch === undefined) return ""; // line continuation
+        return { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", v: "\v", 0: "\0" }[ch] ?? ch;
+      },
+    );
+
+  // No file-type gate, for the reason recorded on the round-3 thread: "which
+  // files can contain an import" was an enumeration. A comment may legally sit
+  // between `from` and the specifier, so the gap is "whitespace and comments".
+  const GAP = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\n]*\n)*`;
+  const SPECIFIER = new RegExp(
+    String.raw`(?:from|import)${GAP}("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')`,
+    "g",
+  );
+  const specifiersOf = (text) => {
+    const out = [];
+    for (const m of text.matchAll(SPECIFIER)) out.push(decodeJsString(m[1].slice(1, -1)));
+    return out;
   };
 
-  const exempt = (srcGroup, srcFile, text, form, targetFile) =>
+  const importsIn = (file, text, form) => specifiersOf(text).includes(form);
+
+  const exempt = (srcGroup, srcFile, text, form, count, targetFile) =>
     (mentionsOf.get(srcGroup) ?? []).some(
       (m) =>
         m?.ref === targetFile &&
@@ -764,6 +796,13 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
         m.from === srcFile &&
         // Scoped to the matched spelling, not just the file pair.
         m.form === form &&
+        // ...and to the OCCURRENCES the author actually read. An entry covers
+        // the N occurrences that existed when it was written; occurrence N+1,
+        // added later as a real instruction, is new evidence nobody classified
+        // and must fail until someone looks. The count changes exactly when
+        // the set of occurrences does -- unlike positions, which churn on
+        // every unrelated edit.
+        m.count === count &&
         !importsIn(srcFile, text, form),
     );
 
@@ -775,7 +814,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   // target the stale entry would exempt it with nobody reading the new
   // evidence. Three earlier tightenings closed the scope axes of this same
   // error -- ref, from, group -- and this is its time axis.
-  const seen = new Set(); // "srcFile\u0000targetFile"
+  const seen = new Map(); // "srcFile\u0000targetFile\u0000form" -> occurrence count
 
   const destOf = new Map([...byDestination].map(([dest, file]) => [file, dest]));
   const uniqueSuffixes = uniqueSuffixesOf(destOf);
@@ -794,6 +833,15 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
     if (!dest) continue;
     const m = /(?:^|\/)\.claude\/agents\/([^/]+)\.md$/.exec(dest);
     if (m) namedEntities.set(m[1], { group, file });
+    // A skill is invoked by its consumer COMMAND, not a path: "run /bugfix"
+    // depends on the group installing .claude/skills/bugfix/ and no path form
+    // appears anywhere in that sentence. The name set is derived from the
+    // destinations, so adding a skill extends the check. The leading slash is
+    // part of the name -- bare "bugfix" in prose is a word, "/bugfix" is the
+    // command -- which is also what keeps skill names like "next" and
+    // "document" from matching ordinary English.
+    const sk = /(?:^|\/)\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(dest);
+    if (sk) namedEntities.set(`/${sk[1]}`, { group, file });
   }
 
   for (const file of payloadFiles) {
@@ -805,6 +853,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
     } catch {
       continue; // unreadable is the coverage check's business, not this one
     }
+    const specifiers = specifiersOf(text);
 
     for (const [target, dst] of owner) {
       if (dst === src) continue;
@@ -816,32 +865,57 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       // per pair meant a maintainer fixed one and got the next, one round-trip
       // at a time, and stopping at the first match meant a second spelling
       // rode in on the first one's exemption.
-      for (const form of distinctReferences(text, forms)) {
-        seen.add(`${file}\u0000${target}\u0000${form}`);
-        if (exempt(src, file, text, form, target)) continue;
-        missing.set(`${file}\u0000${target}\u0000${form}`, { src, dst, evidence: `${file} names "${form}"` });
+      const matched = distinctReferences(text, forms);
+      // A decoded static-import specifier is a reference even when the literal
+      // scan cannot see it: `"../b/t\\u0077o.mjs"` loads two.mjs. Decoded
+      // specifiers that equal a form the text did not otherwise match are
+      // added here; importsIn consults the same decoded set, so they are also
+      // never exemptible.
+      for (const spec of specifiers) {
+        if (!forms.includes(spec)) continue;
+        if (matched.some((r) => r.form === spec)) continue;
+        matched.push({ form: spec, count: specifiers.filter((x) => x === spec).length });
+      }
+      for (const { form, count } of matched) {
+        seen.set(`${file}\u0000${target}\u0000${form}`, count);
+        if (exempt(src, file, text, form, count, target)) continue;
+        missing.set(`${file}\u0000${target}\u0000${form}`, {
+          src, dst, evidence: `${file} names "${form}" (${count}×)`,
+        });
       }
     }
 
     for (const [name, { group: dst, file: agentFile }] of namedEntities) {
       if (dst === src) continue;
       // Word-bounded, so `semgrep-scanner` in prose or a `subagent_type:` line
-      // matches while a longer identifier containing it does not.
-      if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
+      // matches while a longer identifier containing it does not. For a
+      // /command the same boundary also refuses a path segment: in
+      // ".claude/skills/bugfix/SKILL.md" the "/bugfix" is preceded by a word
+      // character, so only the standalone command matches.
+      const count = [...text.matchAll(
+        new RegExp(`(?<![\\w/.-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w/-])`, "g"),
+      )].length;
+      if (!count) continue;
       if (closureOf(src).has(dst)) continue;
-      seen.add(`${file}\u0000${agentFile}\u0000${name}`);
-      if (exempt(src, file, text, name, agentFile)) continue;
-      missing.set(`${file}\u0000${agentFile}\u0000${name}`, { src, dst, evidence: `${file} names "${name}"` });
+      seen.set(`${file}\u0000${agentFile}\u0000${name}`, count);
+      if (exempt(src, file, text, name, count, agentFile)) continue;
+      missing.set(`${file}\u0000${agentFile}\u0000${name}`, {
+        src, dst, evidence: `${file} names "${name}" (${count}×)`,
+      });
     }
   }
 
   for (const group of manifest.groups ?? []) {
     for (const m of group.mentions ?? []) {
       if (typeof m?.ref !== "string" || typeof m?.from !== "string" || typeof m?.form !== "string") continue; // schema check reports these
-      if (seen.has(`${m.from}\u0000${m.ref}\u0000${m.form}`)) continue;
+      const live = seen.get(`${m.from}\u0000${m.ref}\u0000${m.form}`);
+      if (live === m.count) continue;
       problems.push(
-        `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref} as "${m.form}", but that file no longer ` +
-          `references it that way — an exemption outliving its evidence would silently cover a real reference added later`,
+        live === undefined
+          ? `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref} as "${m.form}", but that file no longer ` +
+              `references it that way — an exemption outliving its evidence would silently cover a real reference added later`
+          : `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref} as "${m.form}" ${m.count}×, but the file now ` +
+              `has ${live} occurrence(s) — the changed set is new evidence nobody classified; re-read and update count`,
       );
     }
   }

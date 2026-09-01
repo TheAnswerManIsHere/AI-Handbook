@@ -39,21 +39,23 @@
 #           Three rules keep `mentions` from quietly becoming a way to switch
 #           the check off:
 #
-#             - Every entry is scoped to ONE reference, on four axes: the `ref`
+#             - Every entry is scoped to ONE reference, on five axes: the `ref`
 #               being referenced, the `from` file doing the referencing, a
-#               `group` that must actually own the ref, and the `form` — the
-#               exact string that matched. Anything broader suppresses
+#               `group` that must actually own the ref, the `form` — the exact
+#               string that matched — and the `count` of occurrences the author
+#               read when writing the entry. Anything broader suppresses
 #               references that do not exist yet. Not hypothetical — each
-#               tightening step surfaced more references the looser form had
-#               been hiding, taking the classified set from 14 to 34 to 37. The
-#               `form` axis was the last and the only one whose omission was
-#               ACTIVE rather than latent: three files name the same target both
-#               by path and by bare name, and one entry was covering both
-#               spellings.
-#             - A fifth axis is TIME. An entry whose from/ref/form triple no
-#               longer appears in the source is reported stale, because an
-#               exemption outliving its evidence would silently cover a real
-#               reference added later.
+#               tightening step surfaced more references the looser rule had
+#               been hiding, taking the classified set from 14 to 34 to 37 to
+#               39. The `form` axis was the only one whose omission was ACTIVE:
+#               three files name the same target both by path and by bare name,
+#               and one entry was covering both spellings. `count` closes the
+#               same gap one level down — an entry written for three
+#               occurrences must not also cover a fourth added later.
+#             - The sixth axis is TIME. An entry whose from/ref/form triple no
+#               longer appears, or whose count no longer matches, is reported,
+#               because an exemption outliving its evidence would silently
+#               cover a real reference added later.
 #             - Every entry says WHY. An exemption with no stated reason cannot
 #               be told apart from a dependency somebody forgot.
 #             - A static import is NEVER exemptible. Everything else about a
@@ -115,6 +117,7 @@ groups:
         ref: core/.claude/settings.template.json
         from: core/.agents/core/claude-core.md
         form: ".claude/settings.json"
+        count: 3
         why: >
           claude-core.md names .claude/settings.json when listing the files
           that define the agent's own guardrails. It is quoting a filename in
@@ -214,6 +217,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/docs/ai-context/known-failure-patterns.md
         form: ".claude/guard.sh"
+        count: 2
         why: >
           The same file notes that guard.sh runs only when node is available
           and describes the node-less fallback. Behaviour being documented,
@@ -223,6 +227,7 @@ groups:
         ref: core/scripts/guard-decision.mjs
         from: core/docs/ai-context/known-failure-patterns.md
         form: "scripts/guard-decision.mjs"
+        count: 3
         why: >
           known-failure-patterns.md describes where the curl/wget refusal
           lives. The same shape as the agent-definitions reference that IS a
@@ -232,6 +237,7 @@ groups:
         ref: core/scripts/guard-decision.mjs
         from: core/docs/ai-context/known-failure-patterns.md
         form: "guard-decision.mjs"
+        count: 1
         why: >
           "The refusal lives in `guard-decision.mjs`" — the bare spelling, and
           the exact sentence the check's own comment quotes as the canonical
@@ -287,6 +293,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/docs/engineering/code-review.md
         form: ".claude/guard.sh"
+        count: 1
         why: >
           code-review.md mentions .claude/guard.sh while making a point about
           naming. Illustration.
@@ -346,6 +353,7 @@ groups:
         ref: core/scripts/check-docs-accuracy.mjs
         from: core/.agents/memory/docs-accuracy-skips-paths-missing-their-top-level-prefix.md
         form: "scripts/check-docs-accuracy.mjs"
+        count: 1
         why: >
           docs-accuracy-skips-paths-missing-their-top-level-prefix.md
           describes how check-docs-accuracy treats backticked tokens. A gotcha
@@ -355,6 +363,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.agents/memory/hook-uncaught-throw-fails-open.md
         form: ".claude/guard.sh"
+        count: 2
         why: >
           The same entry describes how guard.sh forwards an exit code. Found
           only once mentions became reference-scoped — the group-wide form had
@@ -363,6 +372,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.agents/memory/hook-uncaught-throw-fails-open.md
         form: "guard.sh"
+        count: 1
         why: >
           The same file also names the script bare — "`guard.sh` forwards that
           1" — narrating what the wrapper does with an exit code. Evidence, the
@@ -372,6 +382,7 @@ groups:
         ref: core/scripts/guard-decision.mjs
         from: core/.agents/memory/hook-uncaught-throw-fails-open.md
         form: "scripts/guard-decision.mjs"
+        count: 1
         why: >
           hook-uncaught-throw-fails-open.md describes a defect in guard-
           decision.mjs's exit-code handling. Evidence of an incident, not an
@@ -380,6 +391,7 @@ groups:
         ref: core/scripts/guard-decision.mjs
         from: core/.agents/memory/hook-uncaught-throw-fails-open.md
         form: "guard-decision.mjs"
+        count: 3
         why: >
           The bare spelling appears in the frontmatter description and in the
           note that the node-unavailable fallback does not load the module at
@@ -388,6 +400,7 @@ groups:
         ref: core/scripts/check-docs-accuracy.mjs
         from: core/.agents/memory/prose-cross-refs-invisible-to-link-checker.md
         form: "check-docs-accuracy.mjs"
+        count: 3
         why: >
           A second memory entry describing what check-docs-accuracy validates.
           Surfaced only once `from` became mandatory — the first entry's
@@ -396,6 +409,7 @@ groups:
         ref: core/.agents/receipts/.gitignore
         from: core/.agents/memory/prose-cross-refs-invisible-to-link-checker.md
         form: ".gitignore"
+        count: 1
         why: >
           The entry says a tool 'respects .gitignore by default' — generic git
           behaviour, not this payload's receipts .gitignore. The unique-suffix
@@ -404,6 +418,7 @@ groups:
         ref: core/scripts/guard-decision.mjs
         from: core/.agents/memory/reading-a-failed-ci-test-from-the-log-archive.md
         form: "scripts/guard-decision.mjs"
+        count: 1
         why: >
           Describes which transports the decision module refuses, as
           background for a CI-log workaround. Evidence.
@@ -436,6 +451,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.agents/receipts/README.md
         form: ".claude/guard.sh"
+        count: 1
         why: >
           The README explains which guards read this directory's state.
           Orientation for a reader; the directories work regardless.
@@ -474,6 +490,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.claude/skills/bugfix/SKILL.md
         form: ".claude/guard.sh"
+        count: 1
         why: >
           bugfix/SKILL.md mentions that .claude/guard.sh blocks force-push, as
           context for why a git instruction is shaped the way it is.
@@ -482,6 +499,7 @@ groups:
         ref: core/.claude/settings.template.json
         from: core/.claude/skills/model-routing/SKILL.md
         form: ".claude/settings.json"
+        count: 1
         why: >
           model-routing/SKILL.md cites .claude/settings.json as where a pin
           lives, explaining a past decision. Evidence.
@@ -489,6 +507,7 @@ groups:
         ref: core/.agents/receipts/.gitignore
         from: core/.claude/skills/brainstorming/visual-companion.md
         form: ".gitignore"
+        count: 1
         why: >
           Tells the user to add a scratch directory to the CONSUMER's
           .gitignore. Not this payload file at all — the same generic-name
@@ -497,6 +516,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.claude/skills/document/SKILL.md
         form: ".claude/guard.sh"
+        count: 1
         why: >
           Notes that guard.sh blocks force-push, as context for a git
           instruction. A second skills file doing what bugfix/SKILL.md does;
@@ -505,6 +525,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.claude/skills/maintenance/SKILL.md
         form: ".claude/guard.sh"
+        count: 1
         why: >
           Names guard.sh alongside a workflow file while describing a CI
           pattern. Illustration.
@@ -512,6 +533,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/.claude/skills/pr-watch/SKILL.md
         form: ".claude/guard.sh"
+        count: 1
         why: >
           States that guard.sh refuses a transport, as the reason an
           instruction is worded the way it is. Describing a constraint.
@@ -519,6 +541,7 @@ groups:
         ref: core/.agents/receipts/.gitignore
         from: core/.claude/skills/subagent-driven-development/scripts/sdd-workspace
         form: ".gitignore"
+        count: 2
         why: >
           A shell comment about the workspace's own .gitignore. Generic name
           collision, not this payload file.
@@ -526,6 +549,7 @@ groups:
         ref: core/.agents/receipts/.gitignore
         from: core/.claude/skills/using-git-worktrees/SKILL.md
         form: ".gitignore"
+        count: 2
         why: >
           Tells the user to add a path to the repository's .gitignore. Again
           the consumer's file, not the receipts one.
@@ -600,6 +624,7 @@ groups:
         ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
         from: core/scripts/guard-decision.mjs
         form: ".agents/memory/github-rest-api-blocked-from-bash.md"
+        count: 1
         why: >
           guard-decision.mjs's refusal message points a human at a memory
           entry explaining why the transport is blocked. Advice in an error
@@ -635,10 +660,31 @@ groups:
     mode: sync
     status: staged
     mentions:
+      - group: skills
+        ref: core/.claude/skills/uat/SKILL.md
+        from: core/scripts/check-uat-format.mjs
+        form: "/uat"
+        count: 8
+        why: >
+          The format checker's comments and error messages explain WHY the
+          shape matters by naming the skill that drives it — "a doc /uat
+          cannot drive", "all drivable by /uat". The checker validates files;
+          it never invokes the skill, and it runs correctly where the skill
+          is not installed. Surfaced by the /command mechanism, round 5.
+      - group: skills
+        ref: core/.claude/skills/uat/SKILL.md
+        from: core/scripts/__tests__/check-uat-format.test.mjs
+        form: "/uat"
+        count: 2
+        why: >
+          Test comments explaining that the filename glob and step headings
+          exist because /uat enumerates them. Same evidence shape as the
+          checker it tests.
       - group: receipt-scaffolding
         ref: core/.agents/receipts/README.md
         from: core/scripts/__tests__/pr-ready.test.mjs
         form: ".agents/receipts/README.md"
+        count: 1
         why: >
           pr-ready.test.mjs constructs a FIXTURE at .agents/receipts/README.md
           -- it writes a fake file at that path rather than reading the
@@ -647,6 +693,7 @@ groups:
         ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
         from: core/scripts/pr-ready.mjs
         form: ".agents/memory/github-rest-api-blocked-from-bash.md"
+        count: 1
         why: >
           pr-ready.mjs's error text points a human at a memory entry for
           background. A dangling pointer if memory is absent, not a broken
@@ -655,6 +702,7 @@ groups:
         ref: core/scripts/guard-decision.mjs
         from: core/scripts/review-budget.mjs
         form: "guard-decision.mjs"
+        count: 2
         why: >
           review-budget.mjs comments refer to guard-decision.mjs's documented
           contract. Comments, not imports -- verified: no import statement
@@ -663,6 +711,7 @@ groups:
         ref: core/docs/ai-context/plan-review-contract.md
         from: core/scripts/review-counting.mjs
         form: "docs/ai-context/plan-review-contract.md"
+        count: 1
         why: >
           review-counting.mjs comments describe what plan-review-contract.md
           does and does not serialize. Rationale for the code's shape.
@@ -670,6 +719,7 @@ groups:
         ref: core/docs/engineering/code-review.md
         from: core/scripts/review-counting.mjs
         form: "docs/engineering/code-review.md"
+        count: 1
         why: >
           review-counting.mjs comments note that code-review.md does not
           define a category. Same comment block as above.
@@ -677,6 +727,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/scripts/__tests__/review-budget.test.mjs
         form: "guard.sh"
+        count: 1
         why: >
           A test comment tracing how an exit code propagates through guard.sh.
           Describing behaviour under test, not loading the file.
@@ -684,6 +735,7 @@ groups:
         ref: core/docs/ai-context/plan-review-contract.md
         from: core/scripts/__tests__/review-counting.test.mjs
         form: "plan-review-contract.md"
+        count: 1
         why: >
           A test comment noting which contract names a field in prose.
           Rationale for an assertion.
@@ -691,6 +743,7 @@ groups:
         ref: core/docs/engineering/code-review.md
         from: core/scripts/__tests__/review-counting.test.mjs
         form: "code-review.md"
+        count: 1
         why: >
           Same comment, noting that code-review.md has no such definition.
           Same rationale.
@@ -698,6 +751,7 @@ groups:
         ref: core/.agents/receipts/.gitignore
         from: core/scripts/review-budget.mjs
         form: ".gitignore"
+        count: 1
         why: >
           A comment noting that ephemeral evidence is covered by .gitignore.
           Describing the receipts convention, not reading the file.
@@ -705,6 +759,7 @@ groups:
         ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
         from: core/scripts/review-counting.mjs
         form: ".agents/memory/github-rest-api-blocked-from-bash.md"
+        count: 1
         why: >
           A second script pointing a human at the same memory entry pr-
           ready.mjs points at. Advice in a comment; from-scoping split it from
@@ -713,6 +768,7 @@ groups:
         ref: core/docs/ai-context/known-failure-patterns.md
         from: core/scripts/review-budget.mjs
         form: "known-failure-patterns.md"
+        count: 1
         why: >
           A comment citing where a failure pattern is recorded, explaining why
           two checks fail open. Rationale.
@@ -720,6 +776,7 @@ groups:
         ref: core/.claude/guard.sh
         from: core/scripts/review-budget.mjs
         form: "guard.sh"
+        count: 1
         why: >
           A comment tracing how an exit code propagates through guard.sh. Same
           class as the test comment already classified; from-scoping separated
@@ -728,6 +785,7 @@ groups:
         ref: core/docs/ai-context/working-modes.md
         from: core/scripts/review-loop-record.mjs
         form: "working-modes.md"
+        count: 2
         why: >
           A comment pointing at where the loop-ledger contract is defined, as
           the source of a hardcoded expectation. Evidence.
@@ -735,6 +793,7 @@ groups:
         ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
         from: core/scripts/review-loop-record.mjs
         form: ".agents/memory/github-rest-api-blocked-from-bash.md"
+        count: 1
         why: >
           A third script pointing a human at the same memory entry. Advice in
           a comment.
