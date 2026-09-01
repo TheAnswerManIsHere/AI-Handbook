@@ -48,7 +48,7 @@ const STATUSES = new Set(["ready", "staged"]);
 // dependency silently dropped. Groups legitimately omit `requires`, so absence
 // cannot be the signal -- the spelling has to be.
 const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "mentions", "blocker", "description", "paths"]);
-const MENTION_KEYS = new Set(["group", "ref", "from", "why"]);
+const MENTION_KEYS = new Set(["group", "ref", "from", "form", "why"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
 const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
 
@@ -309,6 +309,18 @@ export function check(manifest, payloadFiles, exists) {
             `— without it the exemption covers every other file in this group too`,
         );
       }
+      // The matched FORM is mandatory too -- the fifth and last scope axis. One
+      // file can name one target two ways for two reasons: a generic
+      // ".gitignore" that collides with the receipts file, and a real
+      // instruction to open ".agents/receipts/.gitignore". Without this the
+      // first entry covers the second, and the stale-evidence check does not
+      // notice, because the from/ref pair is still live.
+      if (typeof m.form !== "string" || m.form.trim().length === 0) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a "form" naming the exact string being classified ` +
+            `— an entry that names the file but not the spelling also covers a different reference to the same file`,
+        );
+      }
       // The reason is mandatory and is the whole point. An exemption without
       // one is indistinguishable from a missed dependency, which is the
       // failure this file exists to make loud.
@@ -558,11 +570,12 @@ export function uniqueSuffixesOf(destOf) {
  * (`two.md.bak`). A URL is excluded the same way it always was -- by what
  * precedes it.
  */
-export function mentionsForm(text, form) {
+export function mentionOffsets(text, form) {
+  const offsets = [];
   let from = 0;
   for (;;) {
     const i = text.indexOf(form, from);
-    if (i === -1) return false;
+    if (i === -1) return offsets;
     from = i + 1;
     const before = i === 0 ? "" : text[i - 1];
     const after = text[i + form.length] ?? "";
@@ -572,9 +585,16 @@ export function mentionsForm(text, form) {
     // the match and asks whether it contains "://", which is what makes a URL
     // a URL. Removing the blanket slash rejection (below) removed the accident
     // that used to cover this case, so it is now stated deliberately.
-    const runStart = text.lastIndexOf(" ", i) + 1;
-    const nlStart = text.lastIndexOf("\n", i) + 1;
-    if (text.slice(Math.max(runStart, nlStart), i).includes("://")) continue;
+    //
+    // The walk-back is a scan over `\s`, not a search for the nearest " " or
+    // "\n". Those two were the fifth enumeration found in this mechanism, and
+    // the comment right here already claimed the general behaviour they did not
+    // implement -- a tab, CR, form feed or non-breaking space put the URL back
+    // inside the run and DISCARDED a real reference. `\s` is a closed class the
+    // language defines, so this is a derivation and not a shorter list.
+    let runStart = i;
+    while (runStart > 0 && !/\s/.test(text[runStart - 1])) runStart--;
+    if (text.slice(runStart, i).includes("://")) continue;
     // A slash before is ACCEPTED. An earlier version rejected it unless the
     // preceding character was `}`, which encoded this repo's current
     // `{baseDir}` spelling as if it were the general case -- a one-element
@@ -590,8 +610,50 @@ export function mentionsForm(text, form) {
     // A dot after is sentence punctuation ("covered by .gitignore.") unless a
     // word character follows it, which makes it a different file ("two.md.bak").
     if (after === "." && /[A-Za-z0-9]/.test(text[i + form.length + 1] ?? "")) continue;
-    return true;
+    offsets.push(i);
   }
+}
+
+/**
+ * Does `text` reference `form` at all? The boolean face of `mentionOffsets`.
+ *
+ * Positions matter now because forms OVERLAP: one occurrence of
+ * `.agents/receipts/.gitignore` is also an occurrence of `receipts/.gitignore`
+ * and of `.gitignore`, and treating those as three separate references would
+ * demand three exemptions for one piece of text. The dependency check resolves
+ * that by position; everything else only needs the yes/no.
+ */
+export function mentionsForm(text, form) {
+  return mentionOffsets(text, form).length > 0;
+}
+
+/**
+ * The DISTINCT references `text` makes to one target, given every form that
+ * could name it.
+ *
+ * Forms overlap by construction: `.agents/receipts/.gitignore`,
+ * `receipts/.gitignore` and `.gitignore` all name the same file, and one
+ * occurrence of the longest matches all three. Counting those as three
+ * references would demand three exemptions for one piece of prose.
+ *
+ * So the longest form claims its span first, and a shorter form survives only
+ * where it matches somewhere the longer one did not. A file mentioning a bare
+ * ".gitignore" yields one reference; a file mentioning both that and the full
+ * receipts path yields two, which is exactly the case an exemption scoped only
+ * to the file pair was silently covering.
+ */
+export function distinctReferences(text, forms) {
+  const claimed = [];
+  const out = [];
+  for (const form of [...forms].sort((a, b) => b.length - a.length)) {
+    const fresh = mentionOffsets(text, form).filter(
+      (i) => !claimed.some(([start, end]) => i >= start && i + form.length <= end),
+    );
+    if (!fresh.length) continue;
+    out.push(form);
+    for (const i of fresh) claimed.push([i, i + form.length]);
+  }
+  return out;
 }
 
 /**
@@ -700,6 +762,8 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
         // deliver, suppressing a real edge while every other check passes.
         m.group === owner.get(targetFile) &&
         m.from === srcFile &&
+        // Scoped to the matched spelling, not just the file pair.
+        m.form === form &&
         !importsIn(srcFile, text, form),
     );
 
@@ -746,15 +810,17 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       if (dst === src) continue;
       if (closureOf(src).has(dst)) continue;
       const forms = referenceFormsFor(file, target, destOf, uniqueSuffixes);
-      const form = forms.find((f) => mentionsForm(text, f));
-      if (!form) continue;
-      seen.add(`${file}\u0000${target}`);
-      if (exempt(src, file, text, form, target)) continue;
-      // Keyed per REFERENCE, not per group pair. Since an exemption is scoped
-      // to one source file, each reference needs its own classification -- and
-      // reporting one per pair meant a maintainer fixed one and got the next,
-      // one round-trip at a time.
-      missing.set(`${file}\u0000${target}`, { src, dst, evidence: `${file} names "${form}"` });
+      // Keyed per REFERENCE, not per group pair and no longer per file pair
+      // either. An exemption is scoped to one source file AND one spelling, so
+      // each distinct spelling needs its own classification -- reporting one
+      // per pair meant a maintainer fixed one and got the next, one round-trip
+      // at a time, and stopping at the first match meant a second spelling
+      // rode in on the first one's exemption.
+      for (const form of distinctReferences(text, forms)) {
+        seen.add(`${file}\u0000${target}\u0000${form}`);
+        if (exempt(src, file, text, form, target)) continue;
+        missing.set(`${file}\u0000${target}\u0000${form}`, { src, dst, evidence: `${file} names "${form}"` });
+      }
     }
 
     for (const [name, { group: dst, file: agentFile }] of namedEntities) {
@@ -763,19 +829,19 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       // matches while a longer identifier containing it does not.
       if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
       if (closureOf(src).has(dst)) continue;
-      seen.add(`${file}\u0000${agentFile}`);
+      seen.add(`${file}\u0000${agentFile}\u0000${name}`);
       if (exempt(src, file, text, name, agentFile)) continue;
-      missing.set(`${file}\u0000${agentFile}`, { src, dst, evidence: `${file} names "${name}"` });
+      missing.set(`${file}\u0000${agentFile}\u0000${name}`, { src, dst, evidence: `${file} names "${name}"` });
     }
   }
 
   for (const group of manifest.groups ?? []) {
     for (const m of group.mentions ?? []) {
-      if (typeof m?.ref !== "string" || typeof m?.from !== "string") continue; // schema check reports these
-      if (seen.has(`${m.from}\u0000${m.ref}`)) continue;
+      if (typeof m?.ref !== "string" || typeof m?.from !== "string" || typeof m?.form !== "string") continue; // schema check reports these
+      if (seen.has(`${m.from}\u0000${m.ref}\u0000${m.form}`)) continue;
       problems.push(
-        `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref}, but that file no longer references it — ` +
-          `an exemption outliving its evidence would silently cover a real reference added later`,
+        `${group.id}: mentions "${m.group}" for ${m.from} → ${m.ref} as "${m.form}", but that file no longer ` +
+          `references it that way — an exemption outliving its evidence would silently cover a real reference added later`,
       );
     }
   }

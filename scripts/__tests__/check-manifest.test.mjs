@@ -8,6 +8,7 @@ import {
   referenceFormsFor,
   uniqueSuffixesOf,
   mentionsForm,
+  distinctReferences,
   walk,
 } from "../check-manifest.mjs";
 
@@ -748,7 +749,7 @@ const pair = (extra = {}) =>
     { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }], ...extra },
     { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
   ]);
-const M = (o) => ({ group: "b", ref: "core/b/two.md", from: "core/a/one.md", why: "evidence", ...o });
+const M = (o) => ({ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", why: "evidence", ...o });
 
 test("a fully scoped mention suppresses exactly its own reference", () => {
   const problems = checkDerivedDependencies(pair({ mentions: [M()] }), ["core/a/one.md", "core/b/two.md"],
@@ -786,7 +787,7 @@ test("a mention NEVER exempts a static import, comments included", () => {
     const problems = checkDerivedDependencies(
       manifest([
         { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
-          mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", why: "a comment mentions it" }] },
+          mentions: [{ group: "b", ref: "core/b/two.mjs", from: "core/a/one.mjs", form: "../b/two.mjs", why: "a comment mentions it" }] },
         { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
       ]),
       ["core/a/one.mjs", "core/b/two.mjs"],
@@ -925,4 +926,93 @@ test("a consumer path behind ANY root placeholder resolves", () => {
     );
     assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')), prefix);
   }
+});
+
+// Every character the LANGUAGE calls whitespace ends the run a URL check walks
+// back over. The point of generating the set rather than listing it is that
+// listing it is exactly what failed: the code searched for the nearest " " or
+// "\n" while the comment above it claimed the general behaviour, so a tab, CR,
+// form feed or non-breaking space put the URL back inside the run and DISCARDED
+// a real reference. This test cannot be satisfied by thinking of more
+// separators, which is the only kind of test that settles this class.
+test("EVERY whitespace character ends the URL run, not the two I thought of", () => {
+  const whitespace = [];
+  for (let cp = 0; cp <= 0x3000; cp++) {
+    const ch = String.fromCodePoint(cp);
+    if (/\s/.test(ch)) whitespace.push(ch);
+  }
+  assert.ok(whitespace.length > 10, `expected many whitespace chars, got ${whitespace.length}`);
+  for (const ch of whitespace) {
+    const text = `https://example.test/x${ch}../b/two.md`;
+    assert.equal(
+      mentionsForm(text, "../b/two.md"),
+      true,
+      `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")} did not end the run`,
+    );
+  }
+  // The rule it protects still holds: a path INSIDE a URL is not a reference.
+  assert.equal(mentionsForm("see https://example.test/b/two.md here", "../b/two.md"), false);
+});
+
+test("overlapping forms for one occurrence are ONE reference, not three", () => {
+  // `.agents/receipts/.gitignore` is also an occurrence of `receipts/.gitignore`
+  // and of `.gitignore`. Counting all three would demand three exemptions for
+  // one piece of prose, which is why the longest form claims its span first.
+  const forms = [".agents/receipts/.gitignore", "receipts/.gitignore", ".gitignore"];
+  assert.deepEqual(
+    distinctReferences("see `.agents/receipts/.gitignore` for this", forms),
+    [".agents/receipts/.gitignore"],
+  );
+  // A shorter form survives where it matches somewhere the longer one did not.
+  assert.deepEqual(
+    distinctReferences("respects `.gitignore`, and see `.agents/receipts/.gitignore`", forms),
+    [".agents/receipts/.gitignore", ".gitignore"],
+  );
+});
+
+test("DETECTS a second spelling riding in on the first spelling's exemption", () => {
+  // The live case this was found on: a memory file describes guard-decision.mjs
+  // by its path AND by its bare name. One entry covered both, so a real
+  // instruction using the other spelling would have been silently exempt.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", why: "evidence" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "described in ../b/two.md, and now go read two.md" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('names "two.md"')), problems.join("\n"));
+});
+
+test("DETECTS a mention whose form is not the one that matched", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", why: "wrong spelling" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see ../b/two.md" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("DETECTS a mention whose FORM no longer appears, though the pair still does", () => {
+  // The stale check now runs on the triple. A file that stopped using one
+  // spelling but kept another would have looked healthy under the pair key.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [
+          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "../b/two.md", why: "live" },
+          { group: "b", ref: "core/b/two.md", from: "core/a/one.md", form: "two.md", why: "gone" },
+        ] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see ../b/two.md" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes("no longer") && p.includes('as "two.md"')), problems.join("\n"));
 });
