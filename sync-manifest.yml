@@ -93,6 +93,8 @@ groups:
     requires:
       - machinery
       - planning
+      - memory
+      - skills
     blocker: >
       working-modes.md prescribes the review loop as a procedure and names
       review-budget.mjs and review-loop-record.mjs as the commands that run it,
@@ -132,6 +134,7 @@ groups:
     status: staged
     requires:
       - contracts
+      - memory
     blocker: >
       code-review.md normatively delegates its review oracle, the increment
       test, the bugfix tiers and its stopping rule to working-modes.md in the
@@ -181,6 +184,8 @@ groups:
   - id: memory
     mode: sync
     status: staged
+    requires:
+      - contracts
     blocker: >
       Most entries are portable, but three carry instructions rather than
       evidence and are wrong elsewhere: replit-direct-push asserts
@@ -272,6 +277,8 @@ groups:
   - id: guard
     mode: sync
     status: staged
+    requires:
+      - machinery
     blocker: >
       guard.sh and guard-decision.mjs carry the repo identity used to verify
       that a merge or review action targets the repo the receipt was minted

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseManifestYaml, check } from "../check-manifest.mjs";
+import { parseManifestYaml, check, checkDerivedDependencies, referencesIn, walk } from "../check-manifest.mjs";
 
 // The point of this suite is the FAILING cases. A manifest checker that only
 // ever returns "OK" is indistinguishable from no checker at all, and the
@@ -12,7 +12,11 @@ import { parseManifestYaml, check } from "../check-manifest.mjs";
 const FILES = ["core/a.md", "core/dir/b.md", "core/dir/c.md"];
 const allExist = () => true;
 
-const manifest = (groups) => ({ version: 1, groups });
+// A valid manifest needs a consumers list, so the helper supplies one: these
+// tests are about groups, and every one of them would otherwise carry a
+// "declares no consumers" problem it never meant to assert.
+const CONSUMERS = [{ repo: "owner/one", enrolled: false }];
+const manifest = (groups) => ({ version: 1, consumers: CONSUMERS, groups });
 
 test("parser reads the manifest's documented subset", () => {
   const doc = parseManifestYaml(`
@@ -427,5 +431,149 @@ test("every key the real manifest uses is in the known-key schema", () => {
   // in the same commit rather than in CI on someone else's branch.
   const doc = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
   const problems = check(doc, [], () => true).filter((p) => p.includes("unknown"));
+  assert.deepEqual(problems, []);
+});
+
+// --- consumers: the list that decides who the sync targets ---
+
+const withConsumers = (groups) => manifest(groups);
+
+test("DETECTS a misspelled enrolled key on a consumer", () => {
+  const problems = check(
+    { version: 1, consumers: [{ repo: "owner/one", enroled: true }], groups: [] },
+    [],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('unknown key "enroled"')));
+});
+
+test("DETECTS a non-boolean enrolled value", () => {
+  const problems = check(
+    { version: 1, consumers: [{ repo: "owner/one", enrolled: "true" }], groups: [] },
+    [],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('"enrolled" must be true or false')));
+});
+
+test("DETECTS a duplicated consumer repo", () => {
+  const problems = check(
+    {
+      version: 1,
+      groups: [],
+      consumers: [
+        { repo: "owner/one", enrolled: true },
+        { repo: "owner/one", enrolled: false },
+      ],
+    },
+    [],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("is listed twice")));
+});
+
+test("DETECTS a missing or malformed consumers list", () => {
+  for (const manifestValue of [{ version: 1, groups: [] }, { version: 1, consumers: [], groups: [] }]) {
+    const problems = check(manifestValue, [], allExist);
+    assert.ok(problems.some((p) => p.includes("declares no consumers")));
+  }
+  const bad = check({ version: 1, consumers: [{ repo: "no-slash", enrolled: true }], groups: [] }, [], allExist);
+  assert.ok(bad.some((p) => p.includes("owner/name")));
+});
+
+// --- the dependency graph, derived from the files rather than declared ---
+
+test("DERIVES an undeclared dependency from a markdown link", () => {
+  const problems = checkDerivedDependencies(
+    withConsumers([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("DERIVES an undeclared dependency from a static import", () => {
+  const problems = checkDerivedDependencies(
+    withConsumers([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.mjs", "core/b/two.mjs"],
+    (f) => (f === "core/a/one.mjs" ? 'import { x } from "../b/two.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+// The one reference proving planning depends on engineering carries a heading
+// anchor. A first version of this derivation skipped any link containing "#"
+// and silently under-reported exactly the edge it existed to find.
+test("a link with a heading fragment still counts as a reference", () => {
+  assert.deepEqual(referencesIn("core/a/one.md", "[x](../b/two.md#some-heading)"), ["../b/two.md"]);
+});
+
+test("a declared dependency is not reported", () => {
+  const problems = checkDerivedDependencies(
+    withConsumers([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", requires: ["b"], paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("a TRANSITIVE dependency satisfies the requirement", () => {
+  // A requires B, B requires C. A's reference to a C file is already covered,
+  // because a group goes ready only when everything it requires is ready.
+  const problems = checkDerivedDependencies(
+    withConsumers([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", requires: ["b"], paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", requires: ["c"], paths: [{ from: "core/b/", to: "b/" }] },
+      { id: "c", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/c/", to: "c/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md", "core/c/three.md"],
+    (f) => (f === "core/a/one.md" ? "see [three](../c/three.md)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("a dependency CYCLE terminates instead of hanging", () => {
+  // Cycles are legitimate here — five groups in the real manifest form one —
+  // so closure traversal must be cycle-safe rather than assume a DAG.
+  const problems = checkDerivedDependencies(
+    withConsumers([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", requires: ["b"], paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", requires: ["a"], paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("external and same-group links are not dependencies", () => {
+  const problems = checkDerivedDependencies(
+    withConsumers([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+    ]),
+    ["core/a/one.md", "core/a/two.md"],
+    (f) => (f === "core/a/one.md" ? "[x](https://example.com/y.md) [y](./two.md) [z](#anchor)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("the real manifest declares every dependency its files imply", () => {
+  // The regression bar for the graph itself: this is what three review rounds
+  // corrected by hand, and it now fails in CI instead.
+  const doc = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const root = new URL("../../", import.meta.url);
+  const files = walk(new URL("core", root).pathname, root.pathname.replace(/\/$/, ""));
+  const problems = checkDerivedDependencies(doc, files.map((f) => f.split("\\").join("/")), (f) =>
+    readFileSync(new URL(f, root), "utf8"),
+  );
   assert.deepEqual(problems, []);
 });

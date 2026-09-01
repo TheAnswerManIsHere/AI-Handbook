@@ -49,6 +49,7 @@ const STATUSES = new Set(["ready", "staged"]);
 // cannot be the signal -- the spelling has to be.
 const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "blocker", "description", "paths"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
+const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
 
 /**
  * Minimal YAML reader for this manifest's shape: nested maps, lists of maps,
@@ -186,6 +187,43 @@ export function walk(dir, root) {
 
 export function check(manifest, payloadFiles, exists) {
   const problems = [];
+
+  // The consumers list decides who the sync targets, and until now nothing
+  // read it. A misspelled `enroled: true` leaves `enrolled` undefined, the
+  // sync skips that repo, and the build stays green while every future
+  // consumer pull request silently stops being opened -- a failure with no
+  // symptom, which is the exact class this whole file exists to make loud.
+  const consumers = manifest.consumers;
+  if (!Array.isArray(consumers) || consumers.length === 0) {
+    problems.push(`the manifest declares no consumers — the sync would have nowhere to deliver`);
+  } else {
+    const seenRepos = new Set();
+    for (const c of consumers) {
+      if (c === null || typeof c !== "object" || Array.isArray(c)) {
+        problems.push(`a consumer entry is not a mapping: ${JSON.stringify(c)}`);
+        continue;
+      }
+      for (const key of Object.keys(c)) {
+        if (!CONSUMER_KEYS.has(key)) {
+          problems.push(
+            `consumer "${c.repo ?? "(unnamed)"}": unknown key "${key}" — known keys are ${[...CONSUMER_KEYS].join(", ")}; ` +
+              `a misspelled "enrolled" reads as absent and silently un-targets the repo`,
+          );
+        }
+      }
+      if (typeof c.repo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(c.repo)) {
+        problems.push(`a consumer needs a "repo" of the form owner/name, got ${JSON.stringify(c.repo)}`);
+        continue;
+      }
+      if (typeof c.enrolled !== "boolean") {
+        problems.push(`consumer "${c.repo}": "enrolled" must be true or false, got ${JSON.stringify(c.enrolled)}`);
+      }
+      if (seenRepos.has(c.repo)) {
+        problems.push(`consumer "${c.repo}" is listed twice — which entry decides enrollment is ambiguous`);
+      }
+      seenRepos.add(c.repo);
+    }
+  }
   const covered = new Map(); // payload path -> group id
   const destinations = new Map(); // RESOLVED destination file -> { src, group }
   const groupsById = new Map();
@@ -343,6 +381,114 @@ export function check(manifest, payloadFiles, exists) {
   return problems;
 }
 
+/**
+ * Which group delivers each payload file, by the manifest's own routing.
+ * Shared by the coverage check and the dependency derivation so the two can
+ * never disagree about ownership.
+ */
+export function ownersOf(manifest, payloadFiles) {
+  const owner = new Map();
+  for (const group of manifest.groups ?? []) {
+    for (const p of group.paths ?? []) {
+      if (!p.from || !p.to) continue;
+      const isDir = p.from.endsWith("/");
+      const excluded = new Set(p.exclude ?? []);
+      for (const f of payloadFiles) {
+        if (isDir ? !f.startsWith(p.from) : f !== p.from) continue;
+        if (excluded.has(f.slice(p.from.length))) continue;
+        if (!owner.has(f)) owner.set(f, group.id);
+      }
+    }
+  }
+  return owner;
+}
+
+/** Every reference from a payload file to another path, as written. */
+export function referencesIn(file, text) {
+  const refs = new Set();
+  if (/\.m?js$/.test(file)) {
+    // Static imports only. A dynamic import is a runtime branch that may never
+    // be taken; a static one fails at load, before any code runs.
+    for (const m of text.matchAll(/(?:^|\n)\s*import\s[^;\n]*?from\s+"(\.[^"]+)"/g)) refs.add(m[1]);
+    for (const m of text.matchAll(/(?:^|\n)\s*import\s+"(\.[^"]+)"/g)) refs.add(m[1]);
+  }
+  for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+    const raw = m[1];
+    if (/^(https?:|mailto:|#)/.test(raw)) continue;
+    // Strip the fragment rather than skipping the link. Refusing anything
+    // containing "#" was this derivation's first bug: the single reference
+    // proving planning depends on engineering carries a heading anchor, so the
+    // check silently under-reported exactly the edge it was written to find.
+    refs.add(raw.split("#")[0]);
+  }
+  refs.delete("");
+  return [...refs];
+}
+
+/**
+ * Derive the dependency graph from what the files actually reference, and
+ * compare it against what the manifest declares.
+ *
+ * Three separate review rounds corrected this graph by hand and a fourth
+ * would have found more: rounds 5 and 7 between them named seven edges, and
+ * running this check finds ones no round did. A hand-maintained `requires`
+ * list is a sweep, and the lesson this repo has now paid for repeatedly is
+ * that sweeps do not converge -- the file links are the ground truth, so read
+ * them instead of re-reading the manifest.
+ *
+ * Transitive edges satisfy the requirement: if A requires B and B requires C,
+ * A's reference to a C file is already covered, because a group only goes
+ * ready when everything it requires is ready and that property is inductive.
+ */
+export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
+  const problems = [];
+  const owner = ownersOf(manifest, payloadFiles);
+  const declared = new Map((manifest.groups ?? []).map((g) => [g.id, g.requires ?? []]));
+
+  const closureOf = (id) => {
+    const out = new Set();
+    const stack = [...(declared.get(id) ?? [])];
+    while (stack.length) {
+      const next = stack.pop();
+      if (out.has(next)) continue; // cycles are legitimate here and must not hang
+      out.add(next);
+      stack.push(...(declared.get(next) ?? []));
+    }
+    return out;
+  };
+
+  const missing = new Map(); // "src->dst" -> evidence
+
+  for (const file of payloadFiles) {
+    const src = owner.get(file);
+    if (!src) continue;
+    let text;
+    try {
+      text = readFile(file);
+    } catch {
+      continue; // unreadable (binary, permissions) is the coverage check's business, not this one
+    }
+    const dir = posix.dirname(file);
+    for (const ref of referencesIn(file, text)) {
+      const target = posix.normalize(posix.join(dir, ref));
+      const dst = owner.get(target);
+      if (!dst || dst === src) continue;
+      if (closureOf(src).has(dst)) continue;
+      const key = `${src}\u0000${dst}`;
+      if (!missing.has(key)) missing.set(key, `${file} → ${target}`);
+    }
+  }
+
+  for (const [key, evidence] of missing) {
+    const [src, dst] = key.split("\u0000");
+    problems.push(
+      `${src} references files delivered by "${dst}" but does not require it — e.g. ${evidence}. ` +
+        `Add "${dst}" to ${src}'s requires, or stop referencing it.`,
+    );
+  }
+  return problems;
+}
+
 function main() {
   if (!existsSync(MANIFEST)) {
     console.error("check-manifest: sync-manifest.yml not found");
@@ -355,7 +501,10 @@ function main() {
     process.exit(1);
   }
   const payloadFiles = walk(payloadRoot, REPO_ROOT).map((f) => f.split("\\").join("/"));
-  const problems = check(manifest, payloadFiles, (p) => existsSync(join(REPO_ROOT, p)));
+  const problems = [
+    ...check(manifest, payloadFiles, (p) => existsSync(join(REPO_ROOT, p))),
+    ...checkDerivedDependencies(manifest, payloadFiles, (p) => readFileSync(join(REPO_ROOT, p), "utf8")),
+  ];
 
   if (problems.length) {
     console.error(`check-manifest: ${problems.length} problem(s)\n`);

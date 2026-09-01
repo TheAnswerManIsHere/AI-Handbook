@@ -258,7 +258,44 @@ category.
 
 ### The order that falls out of the dependencies
 
-**Corrected after round 5** — the version below replaces an earlier one that
+**Corrected again after round 7, and this time derived rather than written.**
+The order below is no longer maintained by hand: `check-manifest` reads the
+links in every payload file, maps each target to the group that delivers it,
+and fails when a group references another group it does not require. Three
+rounds had corrected this graph by hand and the check found five more edges
+none of them had — including `guard` → `machinery`, which the previous version
+of this section got exactly backwards.
+
+**What the derived graph says, and it is not what the plan assumed:** five
+groups — `contracts`, `engineering`, `memory`, `planning`, `skills` — form a
+single dependency cycle. They are not a sequence and cannot be unstaged one at
+a time. That is 3 contract files, 1 engineering doc, 34 memory entries,
+`PLANS.md` and 36 skills flipping in one PR, because each of the five carries
+mandatory references into the others. The corpus is densely cross-linked, and
+the per-group decomposition the staging plan assumed does not exist for its
+middle. Whether to flip all five at once or to cut some of the cross-links
+first is a real decision, and it belongs to whoever takes the next PR.
+
+The remainder still decomposes cleanly:
+
+1. **`machinery`** — depends on nothing.
+2. **`guard`** — requires `machinery`, which was wrong in every earlier version
+   of this document. `guard-decision.mjs` statically imports `pr-ready.mjs` and
+   `review-budget.mjs`; delivered without them the hook exits
+   `ERR_MODULE_NOT_FOUND` before evaluating any command, so it fails instead of
+   guarding. Reproduced by assembling a consumer layout with the guard payload
+   alone.
+3. **The five-group cycle**, in one PR.
+4. **`agents-core`**, `receipt-scaffolding`, `agent-definitions`,
+   `settings-template` — each waits on one of the above.
+5. **`claude-core` last**, requiring seven groups.
+
+The superseded prose is kept below because the reason it was wrong is the
+lesson, not the order itself.
+
+---
+
+**Written after round 5** — this replaced an earlier version that
 called `planning` and `engineering` independent. They are not, and the reason
 is worth keeping: the earlier order was written from what each group *is*
 rather than from what its files *route to*, which is the same mistake the
@@ -373,3 +410,42 @@ whose files carry the references.
 the missing entries," the next round finds more entries. The disposition that
 converges is to state the invariant and queue the check that enforces it. A
 list is a snapshot of a sweep; a check is the sweep run continuously.
+
+## Round 7: deriving the graph instead of correcting it (2026-09-01)
+
+Three findings, all on this repo's own artifact rather than the payload — the
+first round with none of the payload-portability class.
+
+Two were undeclared dependency edges (`contracts` → `skills`, `guard` →
+`machinery`), which is the third consecutive round correcting this graph by
+hand. Round 6's recorded lesson said what to do about that: when the fix is
+"add the missing entries," state the rule and build the check. So the check got
+built. It resolves every markdown link and static import in the payload, maps
+each target to the group that delivers it, and fails when a group references
+another it does not require, treating transitive edges as satisfied and cycles
+as legitimate.
+
+It found five undeclared edges. Two were the ones reported; three —
+`contracts` → `memory`, `engineering` → `memory`, `memory` → `contracts` — had
+survived every round to that point.
+
+**And it changed the plan.** With the full graph declared, `contracts`,
+`engineering`, `memory`, `planning` and `skills` are one strongly-connected
+component: five groups, ~75 files, that can only go ready together. The
+staging design assumed the corpus decomposed into independently shippable
+units; for its middle, it does not. That is a fact about the corpus which no
+amount of care in writing the manifest would have surfaced, because the
+manifest is where the assumption lived.
+
+The third finding was that `check()` validated `groups` and never `consumers`
+— so a misspelled `enroled: true` would leave every consumer un-targeted, the
+sync silently delivering nothing, and the build green. Now validated: known
+keys, `owner/name` shape, boolean `enrolled`, no duplicates, non-empty.
+
+**The self-inflicted bug worth recording**, because it is the same shape as the
+false completeness claim in round 6: the derivation's first version skipped any
+link containing `#`, and the single reference proving `planning` depends on
+`engineering` carries a heading anchor. A check written to find missing edges
+was silently dropping one — caught only because the prototype's output was
+compared against what the rounds had already established by hand. **A new check
+is not evidence until something independent agrees with it.**
