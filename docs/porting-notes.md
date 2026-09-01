@@ -712,3 +712,53 @@ and three files with no extension at all — the same list-shaped failure, one
 level down from the syntax list it had just replaced. The token shape is now
 derived from the payload's own filenames. Replacing a list with a mechanism
 does not help if the mechanism contains a list.
+
+### Round 2: the extraction itself was the enumeration
+
+Six findings. The one that mattered was small on its face — the token
+extractor's character class omits `+`, so a payload file named `c++.md` is
+invisible — and decisive underneath: **that is the second enumeration found
+inside the derivation in two rounds.** Round 1 found the extension list; this
+found the alphabet.
+
+Patching it would have added `+` and waited for the next character. The
+registered stop condition was a *third* such round, and rather than walk toward
+it, the approach changed.
+
+**The inversion.** Extracting path-shaped tokens from prose and then resolving
+them needs a regex; a regex needs an alphabet; an alphabet is an enumeration.
+So stop extracting. **The payload is the search set.** For each candidate
+target, compute the strings that would actually name it — the relative path
+from the referring file, the destination path, and the destination's unique
+trailing segments — and look for those in the text. Nothing is enumerated,
+because every form is computed from two real paths. `c++.md` works for free,
+and so does whatever the next surprising filename is.
+
+The boundary test came with it, and it too has no alphabet of its own: it asks
+what *surrounds* a match. A word character before means a longer name; a slash
+before means a longer path — unless what precedes the slash is a `}`, which is
+a template segment standing in for an unknown root. A dot after is sentence
+punctuation unless a word character follows it, which makes `two.md.bak` a
+different file from `two.md`.
+
+**What the tightening cost, and why it was worth it.** Two of the six findings
+were that exemptions were still too broad: `group` was never checked against
+the ref's actual owner, so a typo would exempt a file that group does not
+deliver; and `from` was optional, so an entry whose reason named one file
+silently covered every other file in its group. Both are now mandatory. The
+classified set went from 14 entries to **34** — every one of the twenty new
+ones a reference that a looser rule had been hiding. The last few were third
+and fourth files in a group referencing the same target for entirely separate
+reasons, which is exactly what a per-group exemption cannot express.
+
+One finding was declined with the reasoning recorded: ambiguous suffixes are
+skipped rather than reported as errors. The corpus contains exactly **two**
+ambiguous suffixes, `README.md` and `SKILL.md`, and all nine references
+matching them are generic prose. Erroring would demand nine exemptions for
+things that are not references, which devalues the exemption list. What would
+change this: a payload file whose *only* identifying form is ambiguous.
+
+A usability defect surfaced while fixing the rest — the check reported one
+problem per group pair while exemptions are per source file, so a maintainer
+fixed one and got the next, one round-trip at a time. It now reports every
+unclassified reference.

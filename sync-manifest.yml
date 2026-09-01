@@ -39,13 +39,14 @@
 #           Three rules keep `mentions` from quietly becoming a way to switch
 #           the check off:
 #
-#             - Every entry names the `ref` it exempts — the specific payload
-#               file being referenced — and optionally the `from` file doing
-#               the referencing. A group-wide exemption would also suppress a
-#               real reference added later. This is not hypothetical: scoping
-#               immediately surfaced two references (`memory` and `contracts`
-#               each reach `guard` through TWO files) that the group-wide form
-#               had been hiding behind the first one classified.
+#             - Every entry is scoped to ONE reference: the `ref` being
+#               referenced, the `from` file doing the referencing, and a
+#               `group` that must actually own the ref. Anything broader
+#               suppresses references that do not exist yet. Not hypothetical —
+#               each tightening step surfaced more references the looser form
+#               had been hiding, taking the classified set from 14 to 34, and
+#               the last of those were third and fourth files in a group
+#               referencing the same target for entirely separate reasons.
 #             - Every entry says WHY. An exemption with no stated reason cannot
 #               be told apart from a dependency somebody forgot.
 #             - A static import is NEVER exemptible. Everything else about a
@@ -105,6 +106,7 @@ groups:
     mentions:
       - group: settings-template
         ref: core/.claude/settings.template.json
+        from: core/.agents/core/claude-core.md
         why: >
           claude-core.md names .claude/settings.json when listing the files
           that define the agent's own guardrails. It is quoting a filename in
@@ -205,6 +207,7 @@ groups:
           reference-scoping.
       - group: guard
         ref: core/scripts/guard-decision.mjs
+        from: core/docs/ai-context/known-failure-patterns.md
         why: >
           known-failure-patterns.md describes where the curl/wget refusal
           lives. The same shape as the agent-definitions reference that IS a
@@ -259,6 +262,7 @@ groups:
     mentions:
       - group: guard
         ref: core/.claude/guard.sh
+        from: core/docs/engineering/code-review.md
         why: >
           code-review.md mentions .claude/guard.sh while making a point about
           naming. Illustration.
@@ -316,6 +320,7 @@ groups:
     mentions:
       - group: claude-core
         ref: core/scripts/check-docs-accuracy.mjs
+        from: core/.agents/memory/docs-accuracy-skips-paths-missing-their-top-level-prefix.md
         why: >
           docs-accuracy-skips-paths-missing-their-top-level-prefix.md
           describes how check-docs-accuracy treats backticked tokens. A gotcha
@@ -330,10 +335,31 @@ groups:
           been hiding this second reference behind the first.
       - group: guard
         ref: core/scripts/guard-decision.mjs
+        from: core/.agents/memory/hook-uncaught-throw-fails-open.md
         why: >
           hook-uncaught-throw-fails-open.md describes a defect in guard-
           decision.mjs's exit-code handling. Evidence of an incident, not an
           instruction to open the file.
+      - group: claude-core
+        ref: core/scripts/check-docs-accuracy.mjs
+        from: core/.agents/memory/prose-cross-refs-invisible-to-link-checker.md
+        why: >
+          A second memory entry describing what check-docs-accuracy validates.
+          Surfaced only once `from` became mandatory — the first entry's
+          exemption had been covering this one.
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/.agents/memory/prose-cross-refs-invisible-to-link-checker.md
+        why: >
+          The entry says a tool 'respects .gitignore by default' — generic git
+          behaviour, not this payload's receipts .gitignore. The unique-suffix
+          rule cannot tell those apart, which is what classification is for.
+      - group: guard
+        ref: core/scripts/guard-decision.mjs
+        from: core/.agents/memory/reading-a-failed-ci-test-from-the-log-archive.md
+        why: >
+          Describes which transports the decision module refuses, as
+          background for a CI-log workaround. Evidence.
     blocker: >
       Most entries are portable, but three carry instructions rather than
       evidence and are wrong elsewhere: replit-direct-push asserts
@@ -361,6 +387,7 @@ groups:
     mentions:
       - group: guard
         ref: core/.claude/guard.sh
+        from: core/.agents/receipts/README.md
         why: >
           The README explains which guards read this directory's state.
           Orientation for a reader; the directories work regardless.
@@ -397,15 +424,55 @@ groups:
     mentions:
       - group: guard
         ref: core/.claude/guard.sh
+        from: core/.claude/skills/bugfix/SKILL.md
         why: >
           bugfix/SKILL.md mentions that .claude/guard.sh blocks force-push, as
           context for why a git instruction is shaped the way it is.
           Describing a constraint, not routing to a file.
       - group: settings-template
         ref: core/.claude/settings.template.json
+        from: core/.claude/skills/model-routing/SKILL.md
         why: >
           model-routing/SKILL.md cites .claude/settings.json as where a pin
           lives, explaining a past decision. Evidence.
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/.claude/skills/brainstorming/visual-companion.md
+        why: >
+          Tells the user to add a scratch directory to the CONSUMER's
+          .gitignore. Not this payload file at all — the same generic-name
+          collision as the memory entry above.
+      - group: guard
+        ref: core/.claude/guard.sh
+        from: core/.claude/skills/document/SKILL.md
+        why: >
+          Notes that guard.sh blocks force-push, as context for a git
+          instruction. A second skills file doing what bugfix/SKILL.md does;
+          found by from-scoping.
+      - group: guard
+        ref: core/.claude/guard.sh
+        from: core/.claude/skills/maintenance/SKILL.md
+        why: >
+          Names guard.sh alongside a workflow file while describing a CI
+          pattern. Illustration.
+      - group: guard
+        ref: core/.claude/guard.sh
+        from: core/.claude/skills/pr-watch/SKILL.md
+        why: >
+          States that guard.sh refuses a transport, as the reason an
+          instruction is worded the way it is. Describing a constraint.
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/.claude/skills/subagent-driven-development/scripts/sdd-workspace
+        why: >
+          A shell comment about the workspace's own .gitignore. Generic name
+          collision, not this payload file.
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/.claude/skills/using-git-worktrees/SKILL.md
+        why: >
+          Tells the user to add a path to the repository's .gitignore. Again
+          the consumer's file, not the receipts one.
     blocker: >
       bugfix, document, maintenance, plan-review-loop and pr-watch each drive
       the machinery as a procedure, and fourteen of these files route into
@@ -475,6 +542,7 @@ groups:
     mentions:
       - group: memory
         ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
+        from: core/scripts/guard-decision.mjs
         why: >
           guard-decision.mjs's refusal message points a human at a memory
           entry explaining why the transport is blocked. Advice in an error
@@ -512,32 +580,93 @@ groups:
     mentions:
       - group: receipt-scaffolding
         ref: core/.agents/receipts/README.md
+        from: core/scripts/__tests__/pr-ready.test.mjs
         why: >
           pr-ready.test.mjs constructs a FIXTURE at .agents/receipts/README.md
           -- it writes a fake file at that path rather than reading the
           delivered one, so the test passes with the group absent.
       - group: memory
         ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
+        from: core/scripts/pr-ready.mjs
         why: >
           pr-ready.mjs's error text points a human at a memory entry for
           background. A dangling pointer if memory is absent, not a broken
           code path.
       - group: guard
         ref: core/scripts/guard-decision.mjs
+        from: core/scripts/review-budget.mjs
         why: >
           review-budget.mjs comments refer to guard-decision.mjs's documented
           contract. Comments, not imports -- verified: no import statement
           names it.
       - group: contracts
         ref: core/docs/ai-context/plan-review-contract.md
+        from: core/scripts/review-counting.mjs
         why: >
           review-counting.mjs comments describe what plan-review-contract.md
           does and does not serialize. Rationale for the code's shape.
       - group: engineering
         ref: core/docs/engineering/code-review.md
+        from: core/scripts/review-counting.mjs
         why: >
           review-counting.mjs comments note that code-review.md does not
           define a category. Same comment block as above.
+      - group: guard
+        ref: core/.claude/guard.sh
+        from: core/scripts/__tests__/review-budget.test.mjs
+        why: >
+          A test comment tracing how an exit code propagates through guard.sh.
+          Describing behaviour under test, not loading the file.
+      - group: contracts
+        ref: core/docs/ai-context/plan-review-contract.md
+        from: core/scripts/__tests__/review-counting.test.mjs
+        why: >
+          A test comment noting which contract names a field in prose.
+          Rationale for an assertion.
+      - group: engineering
+        ref: core/docs/engineering/code-review.md
+        from: core/scripts/__tests__/review-counting.test.mjs
+        why: >
+          Same comment, noting that code-review.md has no such definition.
+          Same rationale.
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/scripts/review-budget.mjs
+        why: >
+          A comment noting that ephemeral evidence is covered by .gitignore.
+          Describing the receipts convention, not reading the file.
+      - group: memory
+        ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
+        from: core/scripts/review-counting.mjs
+        why: >
+          A second script pointing a human at the same memory entry pr-
+          ready.mjs points at. Advice in a comment; from-scoping split it from
+          the first.
+      - group: contracts
+        ref: core/docs/ai-context/known-failure-patterns.md
+        from: core/scripts/review-budget.mjs
+        why: >
+          A comment citing where a failure pattern is recorded, explaining why
+          two checks fail open. Rationale.
+      - group: guard
+        ref: core/.claude/guard.sh
+        from: core/scripts/review-budget.mjs
+        why: >
+          A comment tracing how an exit code propagates through guard.sh. Same
+          class as the test comment already classified; from-scoping separated
+          them.
+      - group: contracts
+        ref: core/docs/ai-context/working-modes.md
+        from: core/scripts/review-loop-record.mjs
+        why: >
+          A comment pointing at where the loop-ledger contract is defined, as
+          the source of a hardcoded expectation. Evidence.
+      - group: memory
+        ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
+        from: core/scripts/review-loop-record.mjs
+        why: >
+          A third script pointing a human at the same memory entry. Advice in
+          a comment.
     blocker: >
       Two couplings, both needing the same reviewed change. (1) review-budget.mjs
       hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
