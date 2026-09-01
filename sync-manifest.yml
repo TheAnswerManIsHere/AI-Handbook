@@ -69,12 +69,16 @@ groups:
     status: staged
     requires:
       - contracts
+      - planning
     blocker: >
       This is a consumer's primary AGENTS entry point and it routes agents to
       agent-working-rules, working-modes, documentation-workflow,
       workstream-tracking and the plan-review contract. Delivered while
       `contracts` is staged, those routes lead nowhere from the one file every
-      agent is told to read first. Flips with contracts.
+      agent is told to read first. It also mandates `.agents/PLANS.md` at its
+      line 127 — "do not begin implementation until David approves" is not a
+      rule an agent can follow when the template it names is absent — so
+      `planning` is a dependency too, not merely an adjacent group.
     description: >
       The portable half of the cross-agent routing constitution. A consumer's
       AGENTS.md LINKS here rather than importing — AGENTS.md has no import
@@ -88,13 +92,20 @@ groups:
     status: staged
     requires:
       - machinery
+      - planning
     blocker: >
       working-modes.md prescribes the review loop as a procedure and names
       review-budget.mjs and review-loop-record.mjs as the commands that run it,
       so the group follows its strictest member. This was identified when the
       requires: mechanism was added and then not applied here — the rule was
       written and one of its cases missed, which is why the check now enforces
-      it rather than leaving it to a reading of the manifest.
+      it rather than leaving it to a reading of the manifest. It also depends on
+      `planning`: agent-working-rules.md, working-modes.md and
+      plan-review-contract.md each route to `.agents/PLANS.md`. That dependency
+      is MUTUAL — planning routes back into these same contracts — so the two
+      flip in one commit rather than in sequence. The check evaluates the
+      manifest's final state, so a cycle is satisfiable exactly that way and
+      unsatisfiable any other way, which is the intended reading.
     description: >
       Cross-agent contracts that govern how work is done, independent of what
       the product is. Product truth (brief, direction, roadmap, architecture,
@@ -112,8 +123,14 @@ groups:
   - id: engineering
     mode: sync
     status: staged
+    requires:
+      - contracts
     blocker: >
-      code-review.md's repository-fit checklist instructs reviewers to require
+      code-review.md normatively delegates its review oracle, the increment
+      test, the bugfix tiers and its stopping rule to working-modes.md in the
+      `contracts` group, so rewriting the checklist below does not by itself
+      make this group deliverable — a consumer would get a review guide whose
+      core procedures link nowhere. Separately, code-review.md's repository-fit checklist instructs reviewers to require
       patterns that exist in one product only — its frontend, its Drizzle
       schema, its async queue, its enrichment and rendering modules. In another
       repo that produces confident, wrong review findings and steers
@@ -135,8 +152,17 @@ groups:
   - id: planning
     mode: sync
     status: staged
+    requires:
+      - contracts
+      - engineering
     blocker: >
-      PLANS.md's normative opening scopes the planning-and-approval requirement
+      The template's required procedure runs through other groups: its
+      preflight cites agent-working-rules.md and four working-modes.md sections
+      (`contracts`), and its review oracle cites code-review.md
+      (`engineering`). Fixing only the scope wording below would let this group
+      flip ready with those mandatory references dangling. The `contracts`
+      dependency is mutual — see that group's blocker — so the two flip
+      together. Separately, PLANS.md's normative opening scopes the planning-and-approval requirement
       to work on one named product. Read literally in another consumer, it says
       non-trivial work there is outside the template — the failure mode that
       excuses an agent from a required process rather than misdirecting it.
@@ -196,9 +222,13 @@ groups:
     status: staged
     requires:
       - machinery
+      - contracts
     blocker: >
       bugfix, document, maintenance, plan-review-loop and pr-watch each drive
-      the machinery as a procedure. Grouping is deliberately coarse: rather
+      the machinery as a procedure, and fourteen of these files route into
+      docs/ai-context/ — bugfix/SKILL.md names working-modes.md as its source
+      of truth outright. A skill is an executable ceremony; shipping one whose
+      rules are absent is worse than shipping neither. Grouping is deliberately coarse: rather
       than split 36 skills to ship 31 a little sooner, the whole group follows
       its strictest member and flips with the machinery, which is the next PR. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     description: >

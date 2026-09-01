@@ -258,12 +258,36 @@ category.
 
 ### The order that falls out of the dependencies
 
-`machinery` and `guard` first — they carry the hardcoded repo identity, they
-block `claude-core`, `contracts`, `skills`, `agent-definitions`,
-`receipt-scaffolding` and `settings-template`, and they are the only groups
-whose blocker is code rather than prose. `contracts` next, which releases
-`agents-core`. `memory`, `planning` and `engineering` are independent and can
-go in any order, or together.
+**Corrected after round 5** — the version below replaces an earlier one that
+called `planning` and `engineering` independent. They are not, and the reason
+is worth keeping: the earlier order was written from what each group *is*
+rather than from what its files *route to*, which is the same mistake the
+`requires:` mechanism was added to prevent. Reading the links instead of the
+labels produces a different shape.
+
+1. **`machinery` and `guard`.** No dependencies. They carry the hardcoded repo
+   identity, they block six other groups, and they are the only groups whose
+   blocker is code rather than prose.
+2. **`memory`.** Independent — an entry-by-entry audit, nothing else.
+3. **`contracts` + `planning` + `engineering`, in ONE PR.** These three are a
+   dependency cycle, not a sequence: `engineering`'s code-review.md delegates
+   its oracle and stopping rule to `contracts`; `contracts` routes to
+   `.agents/PLANS.md` in `planning` from three separate files; and `planning`
+   cites both of the others in its own preflight. No ordering of three separate
+   PRs satisfies it, because each one would ship with a mandatory reference to
+   a group still staged. The check evaluates the manifest's final state, so
+   flipping all three in one commit passes and any subset fails — which is the
+   cycle behaving as a constraint rather than as a bug.
+4. **`agents-core`** (needs contracts + planning) and **`skills`** (needs
+   machinery + contracts) follow, plus `agent-definitions`,
+   `receipt-scaffolding` and `settings-template` once their single dependency
+   has landed.
+5. **`claude-core` last.** It requires seven groups, which is every other group
+   except `agent-definitions`, `receipt-scaffolding` and `settings-template`.
+
+A cycle here is not a modelling failure. It is what a genuinely interdependent
+contract looks like, and the honest encoding is the one that refuses to let any
+member ship alone.
 
 ## Not yet built
 
@@ -275,3 +299,41 @@ go in any order, or together.
   Overhype's migration from local copies to vendored ones. Overhype goes last
   deliberately: it is the running contract, and its diff has to be provably
   content-identical before its local copies are deleted.
+
+## The third round of the same lesson (round 5, 2026-09-01)
+
+Round 5 returned fourteen findings on a head that rounds 1–4 had already
+worked over. Every one was verified against the files before being acted on,
+and every one was correct. They fell into four groups, and the split is the
+useful part of the record:
+
+- **Five findings on the manifest's dependency graph.** `planning` needed
+  `contracts` and `engineering`; `contracts` needed `planning`; `engineering`
+  needed `contracts`; `agents-core` needed `planning`; `skills` needed
+  `contracts`. These were not hardening — they were the load-bearing content of
+  this PR being wrong, and they rewrote the unstaging order above.
+- **Four on the check.** `posix.normalize("..")` is `".."`, which never matched
+  the `"../"` prefix test the escape guard was built around. A key on a list
+  item's dash line was invisible to the duplicate-key guard, so `- id: original`
+  followed by an indented `id: overwritten` merged silently — on the one field
+  that decides group identity. Emptiness was measured before exclusions, so a
+  group excluding every leaf could be marked ready and satisfy a `requires`
+  while delivering nothing. And a misspelled `requires` was kept by the reader
+  and ignored by the gate.
+- **Four on this repo's own docs**, all the same shape: describing the intended
+  system as though it were the running one. The README advertised agent
+  environments as shared payload and the sync as current behaviour; the
+  enrolment steps ran the sync before the flip that makes a repo a sync target.
+- **One on CI**, which was the largest gap: 599 payload tests existed and none
+  of them ran. 581 now run on every PR. The one genuinely unrunnable file is
+  excluded by name with a step that fails when the exclusion stops being
+  earned, so the carve-out cannot outlive its reason.
+
+**The pattern across five rounds, which is the thing to carry forward:** each
+round found a *new category* rather than more of the last one — product names,
+then paths and commands, then normative scope clauses, then unconditional
+environment assertions, then a dependency graph inferred from labels instead of
+links. A sweep finds the category it is looking for. What actually closed each
+one was a mechanical check that could not be talked out of its answer, which is
+why four of round 5's findings became parser rules and tests rather than a note
+saying to be careful.

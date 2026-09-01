@@ -44,16 +44,23 @@ here; a rule that is true for one product belongs in that product's overlay.
 See [`docs/consuming-repos.md`](docs/consuming-repos.md) for the composition
 model and the overlay template.
 
-**Sync propagates through review, not silently.** A merge here opens a pull
-request in each enrolled consumer. Nothing lands in a product repo without the
-same review the product's own code gets.
+**Sync will propagate through review, not silently.** The intended model: a
+merge here opens a pull request in each enrolled consumer, so nothing lands in a
+product repo without the same review the product's own code gets.
+
+**Not built yet.** The sync workflow does not exist — `check.yml` is the only
+workflow in this repo — and every group in `sync-manifest.yml` is `staged`, so
+no consumer is receiving anything today. The payload is parked here, correct and
+reviewed, waiting on the follow-up PRs tracked in
+[`docs/porting-notes.md`](docs/porting-notes.md). Read a statement about "the
+sync" below as a description of the design, not of something running.
 
 ## What is in `core/`
 
 | Group | What |
 |---|---|
 | `.agents/core/` | The portable halves of `CLAUDE.md` and `AGENTS.md` |
-| `docs/ai-context/` | Cross-agent contracts: working rules, modes, planning, plan review, documentation, workstream tracking, failure patterns, agent environments |
+| `docs/ai-context/` | Cross-agent contracts: working rules, modes, planning, plan review, documentation, workstream tracking, failure patterns |
 | `docs/engineering/` | Code review and migration practice |
 | `.agents/memory/` | Environment and tooling gotchas — the harness, GitHub, the proxy, the toolchain |
 | `.claude/skills/` | Process and practice skills |
@@ -61,7 +68,12 @@ same review the product's own code gets.
 | `scripts/` | Review-loop and readiness machinery |
 
 Product truth is deliberately absent. If something here only makes sense for
-one product, it is in the wrong repo.
+one product, it is in the wrong repo. The agent-environment docs
+(`codex-environment.md`, `replit-environment.md`) are the case worth naming,
+because they sit in `docs/ai-context/` and look shared: each describes ITS
+repo's setup script, packages, database and deploy path, so every consumer owns
+its own. They and the rest of the consumer-owned set are listed in
+[`docs/consuming-repos.md`](docs/consuming-repos.md).
 
 ## Working in this repo
 

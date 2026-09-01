@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { parseManifestYaml, check } from "../check-manifest.mjs";
 
 // The point of this suite is the FAILING cases. A manifest checker that only
@@ -337,4 +338,94 @@ test("DETECTS a destination that escapes the consumer root", () => {
     allExist,
   );
   assert.ok(problems.some((p) => p.includes("escapes the consumer repo root")));
+});
+
+// `..` is its own normal form, so it never matched the "../" prefix test that
+// the escape check was written around. The bare case and the case that reduces
+// to it are both covered, because `a/../..` is how it arrives in practice.
+test("DETECTS a destination that normalizes to exactly ..", () => {
+  for (const to of ["..", "a/../.."]) {
+    const problems = check(
+      manifest([{ id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a.md", to }] }]),
+      ["core/a.md"],
+      allExist,
+    );
+    assert.ok(
+      problems.some((p) => p.includes("escapes the consumer repo root")),
+      `"${to}" was accepted as a destination`,
+    );
+  }
+});
+
+// The duplicate-key guard lives inside the map reader, which never sees the
+// key written on the dash line — so group identity was the one field the guard
+// could not protect.
+test("parser refuses a key repeated between a dash line and its indented block", () => {
+  assert.throws(
+    () => parseManifestYaml("groups:\n  - id: original\n    id: overwritten\n    mode: sync\n"),
+    /duplicate key "id" in one list item/,
+  );
+});
+
+test("parser still reads a normal list item whose keys are all distinct", () => {
+  const doc = parseManifestYaml("groups:\n  - id: one\n    mode: sync\n    status: ready\n");
+  assert.deepEqual(doc.groups[0], { id: "one", mode: "sync", status: "ready" });
+});
+
+// "Matches files" and "delivers files" are different claims. A group that
+// excludes every leaf it matched can still be marked ready and satisfy another
+// group's `requires` while supplying nothing.
+test("DETECTS a group whose exclusions cover every file it matches", () => {
+  const problems = check(
+    manifest([
+      { id: "empty", mode: "sync", status: "ready", paths: [{ from: "core/dir/", to: "d/", exclude: ["b.md", "c.md"] }] },
+      { id: "real", mode: "sync", status: "ready", paths: [{ from: "core/dir/", to: "docs/" }] },
+    ]),
+    ["core/dir/b.md", "core/dir/c.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("delivers nothing")));
+});
+
+test("a group that excludes SOME of its files is not reported as empty", () => {
+  const problems = check(
+    manifest([{ id: "one", mode: "sync", status: "ready", paths: [{ from: "core/dir/", to: "d/", exclude: ["b.md"] }] }]),
+    ["core/dir/b.md", "core/dir/c.md"],
+    allExist,
+  );
+  assert.equal(problems.filter((p) => p.includes("delivers nothing")).length, 0);
+});
+
+// A misspelled `requires` is kept by the reader and ignored by the readiness
+// gate, so the group ships with its dependency silently dropped. Absence
+// cannot be the signal — plenty of groups have no dependencies — so the
+// spelling is checked instead.
+test("DETECTS a misspelled requires key rather than ignoring it", () => {
+  const problems = check(
+    manifest([
+      { id: "one", mode: "sync", status: "ready", require: ["two"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "two", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/dir/b.md", to: "b.md" }] },
+    ]),
+    ["core/a.md", "core/dir/b.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('unknown group key "require"')));
+});
+
+test("DETECTS an unknown path key", () => {
+  const problems = check(
+    manifest([{ id: "one", mode: "sync", status: "ready", paths: [{ from: "core/a.md", to: "a.md", excludes: ["x"] }] }]),
+    ["core/a.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('unknown path key "excludes"')));
+});
+
+test("every key the real manifest uses is in the known-key schema", () => {
+  // The schema is a denylist by construction: adding a manifest feature without
+  // adding its key here turns a valid manifest red. This catches that inversion
+  // in the same commit rather than in CI on someone else's branch.
+  const doc = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const problems = check(doc, [], () => true).filter((p) => p.includes("unknown"));
+  assert.deepEqual(problems, []);
 });

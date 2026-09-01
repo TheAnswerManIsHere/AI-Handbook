@@ -113,6 +113,9 @@ destination.
 | `docs/engineering/migrations-and-backfills.md` | Written as operational instruction against one product's schema layout and migration commands. Its principles are fleet-wide; its instructions are not, and an agent follows instructions |
 | `docs/tests/test-run-contract.md` | What a PR's post-merge verification must contain, in terms of this repo's own test runners |
 | `docs/handoff/README.md` | The cross-tool transit folder and its delete-when-addressed contract |
+| `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks. Its non-oracle sections are per-repo |
+| `docs/tests/uat-doc-format.md` | The UAT skill and `check-uat-format.mjs` define a run through this file's structure, which names this repo's own surfaces |
+| `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
 A consumer needs these before or alongside its first sync. They may be started
@@ -126,12 +129,18 @@ and diverge — that is the point.
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
 3. Create the required consumer documents above.
-4. Run the sync, review the pull request it opens, merge.
-5. Flip `enrolled: true`.
+4. Flip `enrolled: true`. **This precedes the first sync, not follows it.** The
+   sync targets enrolled consumers only, so a repo still marked `false` is one
+   the sync skips — it would open no pull request, and there would be nothing
+   to merge at step 5. Steps 2 and 3 are what make the flip safe, and they have
+   already happened by here.
+5. Run the sync, review the pull request it opens, merge.
 
-A repo is enrolled only once its overlay exists. A vendored core that nothing
-imports is inert: the files are present, the rules are not loaded, and the
-repo looks governed without being governed — the worst of the three states.
+`enrolled` means "this repo's overlay and required documents are in place, so
+send it the core" — not "the core has arrived." A vendored core that nothing
+imports is inert: the files are present, the rules are not loaded, and the repo
+looks governed without being governed, which is the worst of the three states.
+That is what steps 2 and 3 prevent, and why they gate the flip.
 
 ## Rules for changing shared content
 

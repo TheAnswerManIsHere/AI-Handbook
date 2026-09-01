@@ -42,6 +42,14 @@ const PAYLOAD_DIR = "core";
 const MODES = new Set(["sync", "seed"]);
 const STATUSES = new Set(["ready", "staged"]);
 
+// An unknown key is a typo, and the expensive typo is a misspelled `requires`:
+// the reader keeps the unknown property, `group.requires ?? []` reads the real
+// one as absent, and a ready group passes the readiness gate with its
+// dependency silently dropped. Groups legitimately omit `requires`, so absence
+// cannot be the signal -- the spelling has to be.
+const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "blocker", "description", "paths"]);
+const PATH_KEYS = new Set(["from", "to", "exclude"]);
+
 /**
  * Minimal YAML reader for this manifest's shape: nested maps, lists of maps,
  * plain scalars, and folded (`>`) block scalars whose content we keep but
@@ -103,9 +111,25 @@ export function parseManifestYaml(text) {
           if (value === ">" || value === "|") map[key] = readBlockScalar(indent);
           else if (value === "") map[key] = parseBlock(indent + 2);
           else map[key] = scalar(value, lineNo);
-          // Remaining pairs of this item are indented past the dash.
+          // Remaining pairs of this item are indented past the dash. The key
+          // written ON the dash line is already in `map`, and it is invisible
+          // to the duplicate-key guard inside parseBlock -- which only sees the
+          // indented block. So `- id: original` followed by an indented
+          // `id: overwritten` used to merge here silently, last-one-wins, on
+          // the one field that decides group identity. Compare before merging.
           while (pos < lines.length && lines[pos].indent > indent) {
-            Object.assign(map, parseBlock(lines[pos].indent));
+            const nested = parseBlock(lines[pos].indent);
+            if (nested === null || typeof nested !== "object" || Array.isArray(nested)) {
+              throw new Error(`manifest:${lineNo}: list item's indented block is not a mapping`);
+            }
+            for (const key of Object.keys(nested)) {
+              if (Object.prototype.hasOwnProperty.call(map, key)) {
+                throw new Error(
+                  `manifest:${lineNo}: duplicate key "${key}" in one list item — the manifest is ambiguous`,
+                );
+              }
+            }
+            Object.assign(map, nested);
           }
           items.push(map);
         } else if (rest === "") {
@@ -183,6 +207,14 @@ export function check(manifest, payloadFiles, exists) {
 
   for (const group of manifest.groups ?? []) {
     if (!group.id) problems.push(`a group is missing an "id"`);
+    for (const key of Object.keys(group)) {
+      if (!GROUP_KEYS.has(key)) {
+        problems.push(
+          `${group.id}: unknown group key "${key}" — known keys are ${[...GROUP_KEYS].join(", ")}; ` +
+            `a misspelled key is silently ignored, which is how a dependency goes missing`,
+        );
+      }
+    }
     if (!MODES.has(group.mode)) problems.push(`${group.id}: mode must be one of ${[...MODES].join("/")}, got "${group.mode}"`);
     if (!STATUSES.has(group.status)) problems.push(`${group.id}: status must be one of ${[...STATUSES].join("/")}, got "${group.status}"`);
     if (group.status === "staged" && !group.blocker) {
@@ -199,7 +231,22 @@ export function check(manifest, payloadFiles, exists) {
       problems.push(`${group.id}: declares no paths, so it delivers nothing — a group another group can require while supplying no files`);
     }
 
+    // Counted AFTER exclusions, because "matches files" and "delivers files"
+    // are different claims. A group whose exclude list covers every matched
+    // leaf passes the per-path check above while shipping nothing -- and an
+    // empty group can still be marked ready and satisfy another group's
+    // `requires`, which is the readiness gate certifying a dependency that
+    // delivers no file.
+    let delivered = 0;
+
     for (const p of group.paths ?? []) {
+      for (const key of Object.keys(p)) {
+        if (!PATH_KEYS.has(key)) {
+          problems.push(
+            `${group.id}: unknown path key "${key}" — known keys are ${[...PATH_KEYS].join(", ")}`,
+          );
+        }
+      }
       if (!p.from || !p.to) {
         problems.push(`${group.id}: every path needs "from" and "to"`);
         continue;
@@ -224,6 +271,7 @@ export function check(manifest, payloadFiles, exists) {
       for (const f of matched) {
         const leaf = f.slice(p.from.length);
         if (excluded.has(leaf)) continue;
+        delivered++;
         const prior = covered.get(f);
         if (prior && prior !== group.id) problems.push(`${f} is claimed by two groups: ${prior} and ${group.id}`);
         covered.set(f, group.id);
@@ -238,7 +286,12 @@ export function check(manifest, payloadFiles, exists) {
         // used rather than the platform default so the result does not depend
         // on which OS runs the check.
         const dest = posix.normalize(isDir ? p.to + leaf : p.to);
-        if (dest.startsWith("../") || dest.startsWith("/")) {
+        // `..` is its own normal form: posix.normalize("..") and
+        // posix.normalize("a/../..") both return exactly "..", which the
+        // "../" prefix test does not match. Escaping means the normalized
+        // path LEADS with a `..` segment, and that segment is unterminated
+        // when it is the whole string -- so the bare case needs naming.
+        if (dest === ".." || dest.startsWith("../") || dest.startsWith("/")) {
           problems.push(`${group.id}: destination "${dest}" escapes the consumer repo root`);
           continue;
         }
@@ -256,6 +309,13 @@ export function check(manifest, payloadFiles, exists) {
         }
         destinations.set(dest, { src: f, group: group.id });
       }
+    }
+
+    if ((group.paths ?? []).length > 0 && delivered === 0) {
+      problems.push(
+        `${group.id}: every file its paths match is excluded, so it delivers nothing — ` +
+          `a group another group can require while supplying no files`,
+      );
     }
   }
 

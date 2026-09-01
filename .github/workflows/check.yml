@@ -43,6 +43,37 @@ jobs:
       - name: Run machinery tests
         run: node --test scripts/__tests__/*.test.mjs
 
+      # The payload is code, and until this ran it was code nobody tested here:
+      # a regression in the review-budget, receipt, guard or readiness scripts
+      # could merge behind a green Test job because the step above only covers
+      # this repo's own 33-test manifest suite.
+      #
+      # One file is excluded, by name rather than by skipping the suite:
+      # check-contract-consistency.test.mjs asserts the scanned corpus contains
+      # CLAUDE.md at the corpus root. That is true in a consumer and false here,
+      # where the contract is deliberately split into a vendored core plus an
+      # overlay. It is the second half of the `machinery` group's blocker, and
+      # it is a fact about this repo's layout, not a failing behaviour.
+      - name: Run payload machinery tests
+        run: |
+          node --test $(ls core/scripts/__tests__/*.test.mjs \
+            | grep -v 'check-contract-consistency.test.mjs')
+
+      # An exclusion with no expiry is how a temporary carve-out becomes
+      # permanent. This asserts the exclusion is still EARNED: when the
+      # machinery PR makes the contract surface configurable, that test starts
+      # passing, this step goes red, and the carve-out above gets deleted in
+      # the same change rather than outliving its reason.
+      - name: The excluded test is still failing for the documented reason
+        run: |
+          if node --test core/scripts/__tests__/check-contract-consistency.test.mjs; then
+            echo "::error::check-contract-consistency now passes in this layout."
+            echo "The machinery blocker it documents is resolved — delete this step"
+            echo "and the grep -v exclusion above, so the file runs with the rest."
+            exit 1
+          fi
+          echo "Still failing as documented; the exclusion above remains earned."
+
   manifest:
     name: Manifest
     runs-on: ubuntu-latest
