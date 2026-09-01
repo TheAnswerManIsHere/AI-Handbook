@@ -337,3 +337,39 @@ links. A sweep finds the category it is looking for. What actually closed each
 one was a mechanical check that could not be talked out of its answer, which is
 why four of round 5's findings became parser rules and tests rather than a note
 saying to be careful.
+
+## Round 6, and the sweep that recurred one level up (2026-09-01)
+
+Eight findings on `0a5236a`. Four were recorded against blockers rather than
+fixed — payload content, staged, not shipping — and four were fixed here. Two
+of the fixes are worth the record because both were defects in the *previous
+round's* fixes:
+
+- **The expiry guard did not verify what it claimed to.** Round 5 added a CI
+  step that runs the one excluded payload test and fails if it *passes*, so the
+  carve-out could not outlive its reason. But it branched on the exit code
+  alone, and a nonzero exit proves only that something failed — an unrelated
+  regression in that file would take the same branch and the step would report
+  the exclusion as earned. Demonstrated with a throwaway failing test before
+  fixing. It now asserts the exact shape: one failure, carrying the documented
+  `not scanned: CLAUDE.md` assertion.
+- **The required-consumer-documents table was a sweep.** Round 5 added three
+  missing entries and I wrote that the sweep "found no fourth missing target."
+  Round 6 named three more. A mechanical pass over the payload's outbound
+  references finds more still. The claim was false because the oracle behind it
+  was three greps for three named files — a completeness claim resting on a
+  check that could only ever confirm what it was handed.
+
+The second is the round-5 lesson recurring one level up. Rounds 1–5 established
+that *payload portability* does not yield to sweeps. Round 6 shows that the
+*inventory of what a consumer must own* does not either — and for the same
+reason, which is that both grow as the corpus does. The fix was therefore not a
+longer table but a stated rule ("any path the payload references that `core/`
+does not ship is consumer-owned"), the table demoted to examples of it, and a
+link-resolution check recorded as an unstaging requirement on the two groups
+whose files carry the references.
+
+**Generalised, since it has now cost six rounds:** when a finding's fix is "add
+the missing entries," the next round finds more entries. The disposition that
+converges is to state the invariant and queue the check that enforces it. A
+list is a snapshot of a sweep; a check is the sweep run continuously.

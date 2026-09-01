@@ -66,13 +66,46 @@ jobs:
       # the same change rather than outliving its reason.
       - name: The excluded test is still failing for the documented reason
         run: |
-          if node --test core/scripts/__tests__/check-contract-consistency.test.mjs; then
+          # "Did it fail?" is not the question — a nonzero exit proves nothing
+          # about WHICH assertion failed. An unrelated regression in this file
+          # would exit nonzero too, and a version of this step that only
+          # checked the exit code would report the exclusion as earned while
+          # waving that regression through. So assert the exact shape: one
+          # failure, and it is the documented corpus-layout assertion.
+          set +e
+          out=$(node --test core/scripts/__tests__/check-contract-consistency.test.mjs 2>&1)
+          status=$?
+          set -e
+          echo "$out" | tail -20
+
+          if [ $status -eq 0 ]; then
             echo "::error::check-contract-consistency now passes in this layout."
             echo "The machinery blocker it documents is resolved — delete this step"
             echo "and the grep -v exclusion above, so the file runs with the rest."
             exit 1
           fi
-          echo "Still failing as documented; the exclusion above remains earned."
+
+          fails=$(echo "$out" | sed -n 's/^# fail \([0-9][0-9]*\)$/\1/p')
+          if [ "$fails" != "1" ]; then
+            echo "::error::Expected exactly 1 failure in the excluded file, got '${fails:-unknown}'."
+            echo "Something beyond the documented layout assertion is failing here."
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "not scanned: CLAUDE.md"; then
+            echo "::error::The excluded file fails, but NOT for the documented reason."
+            echo "Expected the 'not scanned: CLAUDE.md' corpus-layout assertion."
+            echo "A different failure in an excluded file is a regression nobody is running."
+            exit 1
+          fi
+          echo "Failing for exactly the documented reason; the exclusion remains earned."
+
+      # A shell test is invisible to the node --test glob above, so it was
+      # running nowhere. Its six cases are the safety envelope on lock deletion
+      # — fresh locks, non-allowlisted paths, an active git process — which is
+      # the kind of code where a regression deletes something it should not.
+      - name: Run the shell safety tests
+        working-directory: core
+        run: bash scripts/__tests__/clean-stale-git-locks.test.sh
 
   manifest:
     name: Manifest

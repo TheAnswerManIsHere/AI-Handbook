@@ -116,11 +116,40 @@ destination.
 | `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks. Its non-oracle sections are per-repo |
 | `docs/tests/uat-doc-format.md` | The UAT skill and `check-uat-format.mjs` define a run through this file's structure, which names this repo's own surfaces |
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
+| `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
+| `docs/ai-context/product-direction.md` | The next-work skill resolves its recommendation through it. Product truth by definition |
+| `docs/ai-context/current-roadmap.md` | Same — the maintenance, status and next skills all read it, and it is per-product |
 | `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
 A consumer needs these before or alongside its first sync. They may be started
 from the corresponding file in another repo, but they are then owned locally
 and diverge — that is the point.
+
+### This table is not exhaustive, and cannot be
+
+Two consecutive review rounds each named three more required documents this
+table was missing, and a mechanical sweep of the payload's outbound references
+finds more still. That is the signature of a **sweep**, not of a list that is
+nearly complete: enumerating by hand finds the category you went looking for,
+and the payload keeps acquiring references.
+
+So the rule, rather than the list, is what to rely on:
+
+> **Any path the payload references that `core/` does not ship is
+> consumer-owned, and must exist in the consumer before the group referencing
+> it goes ready.**
+
+The rows above are the cases worth explaining — the ones where *why* it cannot
+be shared is not obvious. They are examples of the rule, not its boundary.
+
+Enforcing the rule mechanically — resolving every link in a group's files and
+failing when a target is neither in `core/` nor declared consumer-owned — is
+the check that would actually close this, and it belongs with the groups whose
+files carry the references. It is recorded in the `skills` and `contracts`
+blockers as an unstaging requirement, because until those groups travel the
+gap has no consumer to affect. **Do not read a passing `check-manifest` as
+evidence this table is complete**; the check covers payload coverage and
+readiness, not link resolution.
 
 ## Enrolling a repo
 
@@ -134,7 +163,16 @@ and diverge — that is the point.
    the sync skips — it would open no pull request, and there would be nothing
    to merge at step 5. Steps 2 and 3 are what make the flip safe, and they have
    already happened by here.
-5. Run the sync, review the pull request it opens, merge.
+5. **Verify the repo's `main` ruleset is in place** — block force pushes,
+   restrict deletions, require linear history, require a pull request, require
+   status checks. The seeded `.claude/settings.json` sets
+   `defaultMode: bypassPermissions`, and `guard.sh` deliberately delegates
+   PR-only-changes and passing-checks enforcement to this server-side control
+   rather than reimplementing it locally. A consumer that installs the guard
+   without the ruleset has neither: the local guard does not cover it and the
+   server is not configured to. Settings are a repo-level thing the sync cannot
+   write, so this is a human step and it gates the ones below.
+6. Run the sync, review the pull request it opens, merge.
 
 `enrolled` means "this repo's overlay and required documents are in place, so
 send it the core" — not "the core has arrived." A vendored core that nothing

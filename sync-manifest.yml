@@ -105,7 +105,14 @@ groups:
       is MUTUAL — planning routes back into these same contracts — so the two
       flip in one commit rather than in sequence. The check evaluates the
       manifest's final state, so a cycle is satisfiable exactly that way and
-      unsatisfiable any other way, which is the intended reading.
+      unsatisfiable any other way, which is the intended reading. Two items
+      recorded rather than fixed: known-failure-patterns.md carries an
+      unconditional codegen procedure naming one product's package layout and
+      generator, which in another repo is a set of commands that do not exist
+      and an architecture instruction that is wrong — it becomes an explicitly
+      scoped example or moves to the overlay. And these files reference
+      consumer-owned documents that nothing verifies; the link-resolution check
+      described in the `skills` blocker covers this group too.
     description: >
       Cross-agent contracts that govern how work is done, independent of what
       the product is. Product truth (brief, direction, roadmap, architecture,
@@ -228,7 +235,16 @@ groups:
       the machinery as a procedure, and fourteen of these files route into
       docs/ai-context/ — bugfix/SKILL.md names working-modes.md as its source
       of truth outright. A skill is an executable ceremony; shipping one whose
-      rules are absent is worse than shipping neither. Grouping is deliberately coarse: rather
+      rules are absent is worse than shipping neither. Two further items,
+      recorded rather than fixed because the group is staged: next/SKILL.md
+      resolves its empty-queue recommendation to a named product rather than to
+      the consumer's own roadmap, which would point one product's prioritisation
+      at another; and these files reference consumer-owned documents
+      (deferred-work.md, product-direction.md, current-roadmap.md) that no
+      mechanical check verifies. Unstaging includes a link-resolution check that
+      fails when a referenced target is neither in core/ nor declared
+      consumer-owned — two review rounds each found three more missing
+      documents by hand, which is a sweep, and sweeps do not converge. Grouping is deliberately coarse: rather
       than split 36 skills to ship 31 a little sooner, the whole group follows
       its strictest member and flips with the machinery, which is the next PR. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     description: >
@@ -262,7 +278,15 @@ groups:
       for. That identity is currently a hardcoded literal (see the `machinery`
       group's blocker — the same change covers both). Syncing this group
       before that lands would install a guard in DojoOS that authorizes
-      against Overhype's identity, which is worse than no guard. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+      against Overhype's identity, which is worse than no guard. Round 6 added a
+      second condition: guard-decision.mjs deliberately does NOT enforce
+      PR-only-changes or passing-checks locally, delegating both to a
+      server-side branch ruleset. That delegation is sound where the ruleset
+      exists and vacuous where it does not, and the seeded settings enable
+      bypassPermissions — so a consumer could receive the guard, the bypass,
+      and no server-side control at all. The ruleset is now a verified
+      enrollment prerequisite in docs/consuming-repos.md, and unstaging this
+      group means confirming it for each consumer rather than assuming it. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/.claude/guard.sh
         to: .claude/guard.sh
@@ -283,7 +307,14 @@ groups:
       found. Making repo identity and contract-surface paths configurable is a
       security-relevant change to the receipt and guard machinery, and gets its
       own reviewed PR rather than riding along with a file move. Until then
-      these scripts are correct for Overhype's layout only. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+      these scripts are correct for Overhype's layout only. (3) A third coupling,
+      found in round 6 and distinct from the owner/name constants in (1):
+      pr-ready.mjs hardcodes REQUIRED_CHECKS to five job names from one repo's
+      CI, and checkCi counts every absent name as a failure — so in a consumer
+      whose workflow exposes different jobs, no PR can ever mint a READY
+      receipt. The readiness gate would be permanently closed rather than
+      wrongly open, which is the safer direction but still unusable; required
+      checks come from each consumer's CI contract. Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
     paths:
       - from: core/scripts/
         to: scripts/
