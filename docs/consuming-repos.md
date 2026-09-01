@@ -172,7 +172,16 @@ readiness, not link resolution.
    without the ruleset has neither: the local guard does not cover it and the
    server is not configured to. Settings are a repo-level thing the sync cannot
    write, so this is a human step and it gates the ones below.
-6. Run the sync, review the pull request it opens, merge.
+6. **If the repo already has `.claude/settings.json`, merge the template's
+   three `PreToolUse` hooks into it by hand.** `settings-template` is
+   `mode: seed`, which writes only when the file is absent — correct, because a
+   consumer's permissions and env are its own and a sync that overwrote them
+   would delete grants it needs. But the consequence is that an existing file
+   is left untouched, so the vendored `guard.sh` arrives and **nothing ever
+   invokes it**. That failure is silent: the guard is present, the hooks are
+   not, and no diff shows it. This applies to the first consumer immediately —
+   Overhype already has a settings file — so it is a step, not a footnote.
+7. Run the sync, review the pull request it opens, merge.
 
 `enrolled` means "this repo's overlay and required documents are in place, so
 send it the core" — not "the core has arrived." A vendored core that nothing
@@ -195,4 +204,8 @@ That is what steps 2 and 3 prevent, and why they gate the flip.
   saying what must land first. Check `sync-manifest.yml` before assuming a file
   has reached a consumer.
 - **Seeded files diverge on purpose.** `mode: seed` writes once and never
-  again; a consumer's `.claude/settings.json` is meant to differ.
+  again; a consumer's `.claude/settings.json` is meant to differ. The cost is
+  that seeding is a no-op in a repo that already has the file, so anything the
+  template contributes which is *not* optional — the `PreToolUse` hooks — has
+  to be merged by hand at enrollment. A seed cannot deliver a requirement; it
+  can only offer a starting point.

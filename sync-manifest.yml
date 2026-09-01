@@ -331,7 +331,14 @@ groups:
       defaultMode bypassPermissions. Seeded while the guard group is staged, a
       consumer would get failing hook commands AND permission bypass without
       the protection the template itself calls non-optional — strictly worse
-      than seeding nothing. Travels with the guard.
+      than seeding nothing. Travels with the guard. A second problem, from round
+      6, is not fixed by that ordering: seed mode writes only when the file is
+      ABSENT, so in a consumer that already has .claude/settings.json — which
+      Overhype does — this group delivers nothing and the vendored guard.sh
+      arrives with no hook invoking it. The guard is inert and no diff says so.
+      Enrollment now carries a hand-merge step for the three PreToolUse hooks;
+      unstaging means confirming it happened, because a seed can offer a
+      starting point but cannot deliver a requirement.
     description: >
       Seeded once. Each repo owns its own permissions and env from then on —
       allowlists legitimately differ per product, and overwriting a consumer's
