@@ -48,7 +48,7 @@ const STATUSES = new Set(["ready", "staged"]);
 // dependency silently dropped. Groups legitimately omit `requires`, so absence
 // cannot be the signal -- the spelling has to be.
 const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "mentions", "blocker", "description", "paths"]);
-const MENTION_KEYS = new Set(["group", "why"]);
+const MENTION_KEYS = new Set(["group", "ref", "from", "why"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
 const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
 
@@ -288,6 +288,20 @@ export function check(manifest, payloadFiles, exists) {
         problems.push(`${group.id}: every mentions entry needs a "group"`);
         continue;
       }
+      // Scoped to the referenced FILE, not the group pair. A group-wide
+      // exemption suppresses every reference between two groups, including a
+      // real one added later -- so the classification would silently widen
+      // itself as the payload changed.
+      if (typeof m.ref !== "string" || !m.ref.startsWith(`${PAYLOAD_DIR}/`)) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without a "ref" naming the payload file being referenced ` +
+            `— a group-wide exemption would also suppress a real reference added later`,
+        );
+        continue;
+      }
+      if (m.from !== undefined && (typeof m.from !== "string" || !m.from.startsWith(`${PAYLOAD_DIR}/`))) {
+        problems.push(`${group.id}: mentions "${m.group}" with a "from" that is not a payload path`);
+      }
       // The reason is mandatory and is the whole point. An exemption without
       // one is indistinguishable from a missed dependency, which is the
       // failure this file exists to make loud.
@@ -450,15 +464,39 @@ export function ownersOf(manifest, payloadFiles) {
 }
 
 /**
+ * The token shape to look for, DERIVED from what the payload actually contains.
+ *
+ * An earlier version hardcoded an extension list and called itself
+ * syntax-independent. It was not: the list omitted .py, .ts, .html, .dot,
+ * .gitignore and three files with no extension at all, so a reference to any
+ * of them produced no token, no derived edge, and no required classification.
+ * That is the same list-shaped failure one level down from the syntax list it
+ * replaced -- which is the whole reason this is computed rather than written.
+ */
+export function tokenPatternFor(payloadFiles) {
+  const endings = new Set();
+  for (const f of payloadFiles) {
+    const leaf = f.slice(f.lastIndexOf("/") + 1);
+    const dot = leaf.lastIndexOf(".");
+    // A leading-dot name like ".gitignore" is an ending in its own right, not
+    // an extension; so is a file with no dot at all.
+    endings.add(dot > 0 ? leaf.slice(dot + 1) : leaf);
+  }
+  const alt = [...endings]
+    .sort((a, b) => b.length - a.length) // longest first so ".test.mjs" wins over ".mjs"
+    .map((e) => e.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  return new RegExp(`[A-Za-z0-9_@.{}/-]*(?:\\.(?:${alt})|(?:^|[/])(?:${alt}))\\b`, "g");
+}
+
+/**
  * Every path-shaped token in a payload file, as written.
  *
  * ONE permissive extractor, deliberately, replacing three syntax-specific ones
  * (js import specifiers, markdown links, and -- added a round later -- nothing
  * that could see a backtick-quoted templated path). Enumerating the syntaxes
  * that can carry a reference is an unbounded list, and this repo has now paid
- * three times over for the lesson that lists of that kind do not converge: two
- * consecutive review rounds each found a form the previous extractor could not
- * see.
+ * four times over for the lesson that lists of that kind do not converge.
  *
  * What IS bounded is the set of ways one file can identify another, and that
  * is what the caller resolves against:
@@ -470,13 +508,13 @@ export function ownersOf(manifest, payloadFiles) {
  * So: grab anything path-shaped here, and let resolution decide what is real.
  * A token that resolves to nothing costs nothing.
  */
-export function referencesIn(file, text) {
+export function referencesIn(file, text, pattern) {
   const refs = new Set();
-  for (const m of text.matchAll(/[A-Za-z0-9_@.{}/-]*\.(?:md|mjs|cjs|js|json|sh|ya?ml)\b/g)) {
+  for (const m of text.matchAll(pattern)) {
     let raw = m[0];
     // A URL's path resembles a repo path and is never a payload reference. The
-    // scheme sits outside the match (the regex starts after "https:"), so the
-    // test is on what PRECEDES the token, not on the token itself.
+    // scheme sits outside the match, so the test is on what PRECEDES the
+    // token, not on the token itself.
     if (/[:/]$/.test(text.slice(Math.max(0, m.index - 1), m.index))) continue;
     if (raw.startsWith("//")) continue;
     // A template segment stands in for a root the referring file does not know
@@ -560,10 +598,30 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   // corpus, not by how many ways a path can be written -- it shrinks as payload
   // is rewritten, every entry must say why, and nothing can be missed, because
   // an unclassified reference still fails the build.
-  const mentionsOf = new Map(
-    (manifest.groups ?? []).map((g) => [g.id, new Set((g.mentions ?? []).map((m) => m?.group))]),
-  );
-  const mentioned = (id) => mentionsOf.get(id) ?? new Set();
+  const mentionsOf = new Map((manifest.groups ?? []).map((g) => [g.id, g.mentions ?? []]));
+
+  // A static import is never exemptible. Everything else about a reference is
+  // ambiguous -- a backticked path reads the same whether it instructs or
+  // describes -- but `import x from "./y.mjs"` is unambiguous: the module
+  // loads at instantiation or the file does not run. This closes the case a
+  // scoped exemption alone cannot: a comment about `guard-decision.mjs` is
+  // classified as evidence, and then a real import of that same file is added
+  // to that same source file.
+  const importsIn = (file, text, ref) => {
+    if (!/\.[cm]?js$/.test(file)) return false;
+    const esc = ref.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:from|import)\\s*(["'])${esc}\\1`).test(text);
+  };
+
+  const exempt = (srcGroup, srcFile, text, ref, targetFile) =>
+    (mentionsOf.get(srcGroup) ?? []).some(
+      (m) =>
+        m?.ref === targetFile &&
+        (m.from === undefined || m.from === srcFile) &&
+        !importsIn(srcFile, text, ref),
+    );
+
+  const tokenPattern = tokenPatternFor(payloadFiles);
 
   const missing = new Map(); // "src->dst" -> evidence
 
@@ -590,7 +648,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       continue; // unreadable (binary, permissions) is the coverage check's business, not this one
     }
     const dir = posix.dirname(file);
-    for (const ref of referencesIn(file, text)) {
+    for (const ref of referencesIn(file, text, tokenPattern)) {
       // Resolution 1 -- relative to the referring file. Covers import
       // specifiers and ordinary markdown links.
       let target = owner.has(posix.normalize(posix.join(dir, ref)))
@@ -620,7 +678,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       const dst = owner.get(target);
       if (!dst || dst === src) continue;
       if (closureOf(src).has(dst)) continue;
-      if (mentioned(src).has(dst)) continue;
+      if (exempt(src, file, text, ref, target)) continue;
       const key = `${src}\u0000${dst}`;
       if (!missing.has(key)) missing.set(key, `${file} ${how}`);
     }
@@ -631,7 +689,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       // matches while a longer identifier containing it does not.
       if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
       if (closureOf(src).has(dst)) continue;
-      if (mentioned(src).has(dst)) continue;
+      if (exempt(src, file, text, name, [...owner].find(([f, g]) => g === dst && f.endsWith(`/${name}.md`))?.[0])) continue;
       const key = `${src}\u0000${dst}`;
       if (!missing.has(key)) missing.set(key, `${file} names "${name}"`);
     }

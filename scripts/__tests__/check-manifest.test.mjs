@@ -1,7 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseManifestYaml, check, checkDerivedDependencies, referencesIn, walk } from "../check-manifest.mjs";
+import {
+  parseManifestYaml,
+  check,
+  checkDerivedDependencies,
+  referencesIn,
+  tokenPatternFor,
+  walk,
+} from "../check-manifest.mjs";
+
+// The extractor's token shape is derived from the payload, so a test that
+// calls referencesIn directly has to say what the payload looks like.
+const PATTERN_FILES = ["core/a/x.md", "core/a/x.mjs", "core/a/x.py", "core/a/x.ts", "core/a/.gitignore", "core/a/task-brief"];
+const pat = () => tokenPatternFor(PATTERN_FILES);
 
 // The point of this suite is the FAILING cases. A manifest checker that only
 // ever returns "OK" is indistinguishable from no checker at all, and the
@@ -511,7 +523,7 @@ test("DERIVES an undeclared dependency from a static import", () => {
 // anchor. A first version of this derivation skipped any link containing "#"
 // and silently under-reported exactly the edge it existed to find.
 test("a link with a heading fragment still counts as a reference", () => {
-  assert.deepEqual(referencesIn("core/a/one.md", "[x](../b/two.md#some-heading)"), ["../b/two.md"]);
+  assert.deepEqual(referencesIn("core/a/one.md", "[x](../b/two.md#some-heading)", pat()), ["../b/two.md"]);
 });
 
 test("a declared dependency is not reported", () => {
@@ -612,15 +624,15 @@ test("referencesIn extracts path-shaped tokens regardless of the syntax carrying
     ["heading fragment", "[x](./y.md#a-heading)", ["./y.md"]],
     ["trailing punctuation", "documented in docs/x.md.", ["docs/x.md"]],
   ]) {
-    assert.deepEqual(referencesIn("core/a/one.mjs", src), expected, label);
+    assert.deepEqual(referencesIn("core/a/one.mjs", src, pat()), expected, label);
   }
 });
 
 test("referencesIn excludes URLs and non-path tokens", () => {
-  assert.deepEqual(referencesIn("a.mjs", "see https://example.com/thing.md"), []);
-  assert.deepEqual(referencesIn("a.md", "[x](https://github.com/o/r/blob/main/docs/x.md)"), []);
+  assert.deepEqual(referencesIn("a.mjs", "see https://example.com/thing.md", pat()), []);
+  assert.deepEqual(referencesIn("a.md", "[x](https://github.com/o/r/blob/main/docs/x.md)", pat()), []);
   assert.deepEqual(referencesIn("a.mjs", 'import { x } from "node:fs";'), []);
-  assert.deepEqual(referencesIn("a.md", "no paths here at all"), []);
+  assert.deepEqual(referencesIn("a.md", "no paths here at all", pat()), []);
 });
 
 test("DETECTS consumer repos that differ only in case", () => {
@@ -654,7 +666,7 @@ test("referencesIn sees every static module form", () => {
     "bare side-effect": 'import "./other.mjs";',
   };
   for (const [name, src] of Object.entries(forms)) {
-    assert.deepEqual(referencesIn("a.mjs", src), ["./other.mjs"], `missed: ${name}`);
+    assert.deepEqual(referencesIn("a.mjs", src, pat()), ["./other.mjs"], `missed: ${name}`);
   }
 });
 
@@ -763,7 +775,7 @@ test("an ambiguous suffix is not a dependency", () => {
 
 test("a declared mention suppresses the derived edge", () => {
   const problems = checkDerivedDependencies(
-    twoGroups({ mentions: [{ group: "b", why: "prose describing b, not an instruction to read it" }] }),
+    twoGroups({ mentions: [{ group: "b", ref: "core/b/two.md", why: "prose describing b, not an instruction to read it" }] }),
     ["core/a/one.md", "core/b/two.md"],
     (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
   );
@@ -771,13 +783,13 @@ test("a declared mention suppresses the derived edge", () => {
 });
 
 test("DETECTS a mention with no stated reason", () => {
-  const problems = check(twoGroups({ mentions: [{ group: "b" }] }), ["core/a/one.md", "core/b/two.md"], allExist);
+  const problems = check(twoGroups({ mentions: [{ group: "b", ref: "core/b/two.md" }] }), ["core/a/one.md", "core/b/two.md"], allExist);
   assert.ok(problems.some((p) => p.includes("without saying why")));
 });
 
 test("DETECTS a group that both requires and mentions the same group", () => {
   const problems = check(
-    twoGroups({ requires: ["b"], mentions: [{ group: "b", why: "contradictory" }] }),
+    twoGroups({ requires: ["b"], mentions: [{ group: "b", ref: "core/b/two.md", why: "contradictory" }] }),
     ["core/a/one.md", "core/b/two.md"],
     allExist,
   );
@@ -786,7 +798,7 @@ test("DETECTS a group that both requires and mentions the same group", () => {
 
 test("DETECTS a mention naming a group that does not exist", () => {
   const problems = check(
-    twoGroups({ mentions: [{ group: "nope", why: "typo" }] }),
+    twoGroups({ mentions: [{ group: "nope", ref: "core/b/two.md", why: "typo" }] }),
     ["core/a/one.md", "core/b/two.md"],
     allExist,
   );
@@ -795,7 +807,7 @@ test("DETECTS a mention naming a group that does not exist", () => {
 
 test("DETECTS an unknown key on a mentions entry", () => {
   const problems = check(
-    twoGroups({ mentions: [{ group: "b", why: "ok", reson: "typo" }] }),
+    twoGroups({ mentions: [{ group: "b", ref: "core/b/two.md", why: "ok", reson: "typo" }] }),
     ["core/a/one.md", "core/b/two.md"],
     allExist,
   );
@@ -812,4 +824,65 @@ test("the real manifest declares or classifies every reference its files imply",
     readFileSync(new URL(f, root), "utf8"),
   );
   assert.deepEqual(problems, []);
+});
+
+test("DETECTS a mention with no scoped ref", () => {
+  // A group-wide exemption suppresses every reference between two groups,
+  // including a real one added later. Found on the real corpus the moment
+  // scoping landed: `memory` and `contracts` each referenced `guard` through
+  // TWO files, and the group-wide form had been hiding the second behind the
+  // first.
+  const problems = check(
+    twoGroups({ mentions: [{ group: "b", why: "no ref given" }] }),
+    ["core/a/one.md", "core/b/two.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('without a "ref"')));
+});
+
+test("a mention scoped to one file does not exempt a reference to another", () => {
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.md", why: "evidence" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md", "core/b/three.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md) and [three](../b/three.md)" : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("a mention NEVER exempts a static import", () => {
+  // Everything else about a reference is ambiguous; an import is not. This
+  // closes the case scoping alone cannot: a comment about a file classified as
+  // evidence, and then a real import of that same file added to that same
+  // source file.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }],
+        mentions: [{ group: "b", ref: "core/b/two.mjs", why: "a comment mentions it" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "b/" }] },
+    ]),
+    ["core/a/one.mjs", "core/b/two.mjs"],
+    (f) => (f === "core/a/one.mjs" ? '// see ../b/two.mjs\nimport { x } from "../b/two.mjs";' : ""),
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("the extractor's token shape is derived from the payload, not a list", () => {
+  // A hardcoded extension list omitted .py, .ts, .html, .dot, .gitignore and
+  // three files with no extension at all -- the same list-shaped failure one
+  // level down from the syntax list it replaced.
+  const files = ["core/a/x.py", "core/a/y.dot", "core/a/.gitignore", "core/a/task-brief", "core/a/z.ts"];
+  const p2 = tokenPatternFor(files);
+  for (const [src, expected] of [
+    ["run scripts/thing.py now", ["scripts/thing.py"]],
+    ["the graph docs/g.dot shows", ["docs/g.dot"]],
+    ["`{baseDir}/skills/x.ts`", ["skills/x.ts"]],
+    ["the .agents/receipts/.gitignore encodes it", [".agents/receipts/.gitignore"]],
+    ["run scripts/task-brief to start", ["scripts/task-brief"]],
+  ]) {
+    assert.deepEqual(referencesIn("core/a/one.md", src, new RegExp(p2.source, "g")), expected, src);
+  }
 });

@@ -34,9 +34,25 @@
 #           extractor can tell them apart, and `check-manifest` does not try.
 #           It derives every cross-group reference and then requires that each
 #           be classified one way or the other; an unclassified one fails the
-#           build. Every `mentions` entry must say why, because an exemption
-#           with no stated reason is indistinguishable from a dependency
-#           somebody forgot.
+#           build.
+#
+#           Three rules keep `mentions` from quietly becoming a way to switch
+#           the check off:
+#
+#             - Every entry names the `ref` it exempts — the specific payload
+#               file being referenced — and optionally the `from` file doing
+#               the referencing. A group-wide exemption would also suppress a
+#               real reference added later. This is not hypothetical: scoping
+#               immediately surfaced two references (`memory` and `contracts`
+#               each reach `guard` through TWO files) that the group-wide form
+#               had been hiding behind the first one classified.
+#             - Every entry says WHY. An exemption with no stated reason cannot
+#               be told apart from a dependency somebody forgot.
+#             - A static import is NEVER exemptible. Everything else about a
+#               reference is ambiguous; `import x from "./y.mjs"` is not — the
+#               module loads or the file does not run. So a comment about a
+#               file can be classified as evidence and a real import of that
+#               same file, in that same source file, still fails.
 #
 #           Measured, in case the strictness looks excessive: treating every
 #           derived reference as a dependency collapses ten of twelve groups
@@ -88,6 +104,7 @@ groups:
       - receipt-scaffolding
     mentions:
       - group: settings-template
+        ref: core/.claude/settings.template.json
         why: >
           claude-core.md names .claude/settings.json when listing the files
           that define the agent's own guardrails. It is quoting a filename in
@@ -104,6 +121,17 @@ groups:
       first step of the documented order — handing every session mandatory
       routes and protections that do not exist. This is the last group to
       unstage, not the first.
+
+      Two conditions came with the two corpus-wide gates this group now
+      delivers. (1) They are non-Markdown synced files carrying no ownership
+      warning; that requirement travelled here from the `machinery` blocker
+      along with them, and an agent editing one in a consumer would lose the
+      work on the next sync with nothing warning it. (2) Their inventories omit
+      `.agents/core/`, so in an assembled consumer a retired rule left live in
+      the vendored claude-core.md, or a broken link in agents-core.md, passes
+      both gates — the two files every consumer's overlay routes through, and
+      the ones this group exists to deliver. Moving the gates fixed which group
+      owns them; it did not widen what they scan.
     description: >
       The portable half of the Claude Code working contract. A consumer's own
       CLAUDE.md imports this eagerly with `@.agents/core/claude-core.md`, so
@@ -168,6 +196,15 @@ groups:
       - skills
     mentions:
       - group: guard
+        ref: core/.claude/guard.sh
+        from: core/docs/ai-context/known-failure-patterns.md
+        why: >
+          The same file notes that guard.sh runs only when node is available
+          and describes the node-less fallback. Behaviour being documented,
+          not a file anyone is told to open. Also surfaced only by
+          reference-scoping.
+      - group: guard
+        ref: core/scripts/guard-decision.mjs
         why: >
           known-failure-patterns.md describes where the curl/wget refusal
           lives. The same shape as the agent-definitions reference that IS a
@@ -221,6 +258,7 @@ groups:
       - memory
     mentions:
       - group: guard
+        ref: core/.claude/guard.sh
         why: >
           code-review.md mentions .claude/guard.sh while making a point about
           naming. Illustration.
@@ -277,12 +315,21 @@ groups:
       - contracts
     mentions:
       - group: claude-core
+        ref: core/scripts/check-docs-accuracy.mjs
         why: >
           docs-accuracy-skips-paths-missing-their-top-level-prefix.md
           describes how check-docs-accuracy treats backticked tokens. A gotcha
           entry recording past behaviour; the entry is readable and true
           whether or not the script is delivered.
       - group: guard
+        ref: core/.claude/guard.sh
+        from: core/.agents/memory/hook-uncaught-throw-fails-open.md
+        why: >
+          The same entry describes how guard.sh forwards an exit code. Found
+          only once mentions became reference-scoped — the group-wide form had
+          been hiding this second reference behind the first.
+      - group: guard
+        ref: core/scripts/guard-decision.mjs
         why: >
           hook-uncaught-throw-fails-open.md describes a defect in guard-
           decision.mjs's exit-code handling. Evidence of an incident, not an
@@ -313,6 +360,7 @@ groups:
       - machinery
     mentions:
       - group: guard
+        ref: core/.claude/guard.sh
         why: >
           The README explains which guards read this directory's state.
           Orientation for a reader; the directories work regardless.
@@ -348,11 +396,13 @@ groups:
       - agent-definitions
     mentions:
       - group: guard
+        ref: core/.claude/guard.sh
         why: >
           bugfix/SKILL.md mentions that .claude/guard.sh blocks force-push, as
           context for why a git instruction is shaped the way it is.
           Describing a constraint, not routing to a file.
       - group: settings-template
+        ref: core/.claude/settings.template.json
         why: >
           model-routing/SKILL.md cites .claude/settings.json as where a pin
           lives, explaining a past decision. Evidence.
@@ -424,6 +474,7 @@ groups:
       - machinery
     mentions:
       - group: memory
+        ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
         why: >
           guard-decision.mjs's refusal message points a human at a memory
           entry explaining why the transport is blocked. Advice in an error
@@ -460,25 +511,30 @@ groups:
     status: staged
     mentions:
       - group: receipt-scaffolding
+        ref: core/.agents/receipts/README.md
         why: >
           pr-ready.test.mjs constructs a FIXTURE at .agents/receipts/README.md
           -- it writes a fake file at that path rather than reading the
           delivered one, so the test passes with the group absent.
       - group: memory
+        ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
         why: >
           pr-ready.mjs's error text points a human at a memory entry for
           background. A dangling pointer if memory is absent, not a broken
           code path.
       - group: guard
+        ref: core/scripts/guard-decision.mjs
         why: >
           review-budget.mjs comments refer to guard-decision.mjs's documented
           contract. Comments, not imports -- verified: no import statement
           names it.
       - group: contracts
+        ref: core/docs/ai-context/plan-review-contract.md
         why: >
           review-counting.mjs comments describe what plan-review-contract.md
           does and does not serialize. Rationale for the code's shape.
       - group: engineering
+        ref: core/docs/engineering/code-review.md
         why: >
           review-counting.mjs comments note that code-review.md does not
           define a category. Same comment block as above.
@@ -486,13 +542,16 @@ groups:
       Two couplings, both needing the same reviewed change. (1) review-budget.mjs
       hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
       and review-loop-record.mjs use them to verify a snapshot came from the
-      expected repo. (2) RESOLVED by issue #2 — the two corpus-wide gates
+      expected repo. (2) PARTLY resolved by issue #2 — the two corpus-wide gates
       (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
       with `claude-core`, because they were never standalone machinery: each
       scans the ASSEMBLED contract, so filing them here made the group that
       everything waits on depend on contracts, skills and planning. What was
       recorded as a portability defect in the scripts was the scripts being in
-      the wrong group. Retained for the record: check-contract-consistency.mjs assumes CLAUDE.md sits at
+      the wrong group — but only partly, and the distinction matters: the
+      GROUPING is fixed, the INVENTORIES are not. Neither gate scans
+      .agents/core/, which is now a condition on the `claude-core` blocker
+      instead. Retained for the record: check-contract-consistency.mjs assumes CLAUDE.md sits at
       the root of the corpus it scans — true in a consumer, false once the
       contract is split into a vendored core plus an overlay; its own test fails
       in this repo for exactly that reason, which is how the assumption was

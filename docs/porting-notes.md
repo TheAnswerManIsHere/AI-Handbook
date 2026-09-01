@@ -644,10 +644,19 @@ skills; the other is "a docs-accuracy gate for the repo-native agent context
 system." Filed as machinery they made the group everything waits on depend on
 `contracts`, `skills` and `planning`.
 
-Round 9 recorded this as a portability defect in the scripts. It was not. The
-scripts were in the wrong group, and moving them restored `machinery` to
-dependency-free — making "machinery first," the plan's opening line since round
-7 and false for every one of those rounds, true.
+Round 9 recorded this as a portability defect in the scripts. It was *partly*
+that and mostly this — and the first draft of this section said "it was not,"
+which overclaimed. Moving them restored `machinery` to dependency-free, making
+"machinery first" — the plan's opening line since round 7 and false for every
+one of those rounds — true. It did **not** widen what the gates scan: neither
+inventories `.agents/core/`, so in an assembled consumer the two vendored core
+contracts are exempt from the gates meant to protect them. That is now a
+`claude-core` blocker condition.
+
+**The distinction worth keeping:** a file in the wrong group and a file with a
+wrong inventory look identical from the manifest, and fixing the first does not
+fix the second. Moving a file changes *when* it is delivered, never *what it
+does*.
 
 That is the third time (rounds 9, 10, and here) that a sharper check produced a
 dependency which was an artifact of filing. The table above records all three.
@@ -670,3 +679,36 @@ step 7: +settings-template                                  -> PASS
 Four earlier versions of that order were written by hand and every one was
 wrong. This one is read off the graph the check derives, and the walk above is
 the oracle rather than a reading of it.
+
+### Round 1 on the fix: the exemption was itself too broad
+
+The first review of the fix found four things, and the P1 was the risk the PR
+body had already named without taking far enough. `mentions` exempted a
+**group pair**, so once `machinery` was classified as merely mentioning
+`guard`, a real import of `guard-decision.mjs` added later would be suppressed
+too — the classification silently widening itself as the payload changed.
+
+Two changes, because scoping alone does not close it:
+
+- **Entries name the `ref` they exempt** (and optionally the `from` file).
+  Scoping immediately surfaced two references the group-wide form had been
+  hiding: `memory` and `contracts` each reach `guard` through *two* files, and
+  only the first of each had been classified. The mechanism found its own
+  under-reporting the moment it got tighter.
+- **A static import is never exemptible.** Everything else about a reference is
+  ambiguous; `import x from "./y.mjs"` is not. This closes the exact case
+  scoping cannot: evidence classified in a file, then a real import of that
+  same file added to it.
+
+The other three: the ownership-warning requirement did not travel with the two
+moved gates and now does; the gates' inventories still omit `.agents/core/`, so
+"moving them resolved it" overclaimed — the *grouping* is fixed, the
+*inventories* are not, and that is now a `claude-core` condition; and the
+extractor still hardcoded a file-extension list.
+
+**That last one is the one to remember.** The extractor called itself
+syntax-independent while omitting `.py`, `.ts`, `.html`, `.dot`, `.gitignore`
+and three files with no extension at all — the same list-shaped failure, one
+level down from the syntax list it had just replaced. The token shape is now
+derived from the payload's own filenames. Replacing a list with a mechanism
+does not help if the mechanism contains a list.
