@@ -267,73 +267,55 @@ instance to every consumer — with the manifest asserting the work was done.
 
 ### The order that falls out of the dependencies
 
-**Corrected again after round 7, and this time derived rather than written.**
-The order below is no longer maintained by hand: `check-manifest` reads the
-links in every payload file, maps each target to the group that delivers it,
-and fails when a group references another group it does not require. Three
-rounds had corrected this graph by hand and the check found five more edges
-none of them had — including `guard` → `machinery`, which the previous version
-of this section got exactly backwards.
+**This order is generated, not written.** `check-manifest` derives the whole
+dependency graph from the payload's own references and fails when a group
+references another it neither requires nor classifies. Everything below is read
+off that graph; if it and the manifest ever disagree, the manifest is right and
+this section is stale.
 
-**What the derived graph says, and it is not what the plan assumed:** five
-groups — `contracts`, `engineering`, `memory`, `planning`, `skills` — form a
-single dependency cycle. They are not a sequence and cannot be unstaged one at
-a time. That is 3 contract files, 1 engineering doc, 34 memory entries,
-`PLANS.md` and 36 skills flipping in one PR, because each of the five carries
-mandatory references into the others. The corpus is densely cross-linked, and
-the per-group decomposition the staging plan assumed does not exist for its
-middle. Whether to flip all five at once or to cut some of the cross-links
-first is a real decision, and it belongs to whoever takes the next PR.
-
-The remainder still decomposes cleanly:
+Earlier versions of this section were written by hand, corrected by hand four
+times, and wrong every time — including in the specific way that matters most:
+three of them opened with "machinery first, it depends on nothing," which was
+false, because two corpus-wide gates were filed under `machinery` and dragged
+contracts, skills and planning in behind them. That is fixed (issue #2), and
+"machinery first" is true again for the first time since it was written.
 
 1. **`machinery`** — depends on nothing.
-2. **`guard`** — requires `machinery`, which was wrong in every earlier version
-   of this document. `guard-decision.mjs` statically imports `pr-ready.mjs` and
-   `review-budget.mjs`; delivered without them the hook exits
+2. **`guard`** — requires `machinery`. `guard-decision.mjs` statically imports
+   `pr-ready.mjs` and `review-budget.mjs`; delivered without them the hook exits
    `ERR_MODULE_NOT_FOUND` before evaluating any command, so it fails instead of
-   guarding. Reproduced by assembling a consumer layout with the guard payload
-   alone.
-3. **The five-group cycle**, in one PR.
-4. **`agents-core`**, `receipt-scaffolding`, `agent-definitions`,
-   `settings-template` — each waits on one of the above.
-5. **`claude-core` last**, requiring seven groups.
+   guarding.
+3. **`agent-definitions` + `contracts` + `engineering` + `memory` + `planning` +
+   `skills`, in ONE PR.** Six groups, one dependency cycle, ~151 files. Not a
+   sequence and not decomposable: each member carries mandatory references into
+   the others, so any subset ships with a route into a group still staged. The
+   check evaluates the manifest's final state, so flipping all six in one commit
+   passes and any subset fails — the cycle behaving as a constraint rather than
+   as a bug. **This is the large piece of work in the whole plan.**
+4. **`agents-core`** — requires `contracts` and `planning`.
+5. **`receipt-scaffolding`** — requires `machinery`.
+6. **`claude-core`** — requires eight groups, which is everything except
+   `settings-template`. It also now delivers the two corpus-wide gates, since
+   they only make sense once the contract is whole.
+7. **`settings-template`** — requires `guard`, and is seeded rather than synced.
 
-The superseded prose is kept below because the reason it was wrong is the
-lesson, not the order itself.
+### Why a file's group is a claim about its dependencies
 
----
+Three times a sharper check produced a dependency that turned out to be an
+artifact of **where a file was filed** rather than anything in the code, and
+three times the fix was to move one file:
 
-**Written after round 5** — this replaced an earlier version that
-called `planning` and `engineering` independent. They are not, and the reason
-is worth keeping: the earlier order was written from what each group *is*
-rather than from what its files *route to*, which is the same mistake the
-`requires:` mechanism was added to prevent. Reading the links instead of the
-labels produces a different shape.
+| Round | File | Was in | Moved to | Manufactured |
+|---|---|---|---|---|
+| 9 | `guard-decision.test.mjs` | machinery | guard | machinery ↔ guard |
+| 10 | `review-loop-adjudicator.md` | agent-definitions | machinery | machinery ↔ agent-definitions |
+| issue #2 | the two corpus-wide gates | machinery | claude-core | machinery → contracts, skills, planning |
 
-1. **`machinery` and `guard`.** No dependencies. They carry the hardcoded repo
-   identity, they block six other groups, and they are the only groups whose
-   blocker is code rather than prose.
-2. **`memory`.** Independent — an entry-by-entry audit, nothing else.
-3. **`contracts` + `planning` + `engineering`, in ONE PR.** These three are a
-   dependency cycle, not a sequence: `engineering`'s code-review.md delegates
-   its oracle and stopping rule to `contracts`; `contracts` routes to
-   `.agents/PLANS.md` in `planning` from three separate files; and `planning`
-   cites both of the others in its own preflight. No ordering of three separate
-   PRs satisfies it, because each one would ship with a mandatory reference to
-   a group still staged. The check evaluates the manifest's final state, so
-   flipping all three in one commit passes and any subset fails — which is the
-   cycle behaving as a constraint rather than as a bug.
-4. **`agents-core`** (needs contracts + planning) and **`skills`** (needs
-   machinery + contracts) follow, plus `agent-definitions`,
-   `receipt-scaffolding` and `settings-template` once their single dependency
-   has landed.
-5. **`claude-core` last.** It requires seven groups, which is every other group
-   except `agent-definitions`, `receipt-scaffolding` and `settings-template`.
-
-A cycle here is not a modelling failure. It is what a genuinely interdependent
-contract looks like, and the honest encoding is the one that refuses to let any
-member ship alone.
+The rule that falls out: **when a group's dependency is surprising, check
+whether the grouping is describing the code or fighting it.** The third case is
+the one that cost most — it invalidated the plan's opening line for four rounds
+without anything contradicting it, because the claim lived in prose and the
+check could not see the references that disproved it.
 
 ## Not yet built
 
@@ -599,3 +581,92 @@ the first deletes it, git creates a fresh lock at that path, and the second
 deletes the replacement — corrupting an in-flight git operation. The blocker
 now orders its own items by that: (4) never runs, (5) runs and does nothing,
 (6) runs and does harm.
+
+## Issue #2 — the derivation, and what it could not decide (2026-09-01)
+
+PR #1 merged with three known defects. Fixing them turned out to require one
+change of approach and one honest admission about what a check can do.
+
+### The approach change: one extractor, bounded resolution
+
+The derivation had grown **three syntax-specific extractors** — js import
+specifiers, markdown links, and nothing at all that could see a backtick-quoted
+templated path. Two consecutive review rounds each found a form the previous
+one missed. That is the list-shaped failure this repo has now recorded four
+times.
+
+The fix was to stop extracting by syntax. There is an unbounded number of ways
+to *write* a reference, but a **bounded** number of ways one file can
+*identify* another:
+
+1. by a path relative to the referring file
+2. by the path it will have in a consumer
+3. by a name that is not a path at all
+
+So: one permissive extractor grabs anything path-shaped, and resolution against
+those three decides what is real. A token that resolves to nothing costs
+nothing.
+
+### The admission: a syntactic check cannot make a semantic call
+
+Turning it on produced **sixteen** undeclared edges — and declaring them all
+collapses **ten of twelve groups into one cycle**, which would end the staging
+design outright. So the resolver was over-detecting, and the reason is worth
+stating precisely, because it is not fixable by a better regex:
+
+```
+"The refusal lives in `guard-decision.mjs`"                 <- evidence
+"Use `{baseDir}/skills/differential-review/adversarial.md`" <- instruction
+```
+
+Identical shape. One is a dependency and one is not, and the difference is the
+verb. This is the **instruction-vs-evidence test** the repo already applies to
+payload files, applied to references instead — and like the original, it needs a
+reader.
+
+Of the sixteen: **two were real** (`agent-definitions` → `skills`, and
+`claude-core` → `receipt-scaffolding` through a file the corpus gate actually
+reads) and **fourteen were evidence** — doc comments, a test fixture writing a
+fake file at a path, error strings pointing a human at a memory entry.
+
+So the manifest gained `mentions:` — the same observation as `requires`, with
+the opposite conclusion recorded and a mandatory reason. Unlike the syntax list
+it replaced, this list is **bounded by the corpus rather than by imagination**,
+it shrinks as payload is rewritten, and nothing can slip past it: an
+unclassified reference still fails the build.
+
+### The third misfiled file
+
+`check-contract-consistency.mjs` and `check-docs-accuracy.mjs` were filed under
+`machinery`. Both are, by their own headers, gates over the **assembled**
+contract — one scans CLAUDE.md, AGENTS.md, PLANS.md, `docs/ai-context/` and the
+skills; the other is "a docs-accuracy gate for the repo-native agent context
+system." Filed as machinery they made the group everything waits on depend on
+`contracts`, `skills` and `planning`.
+
+Round 9 recorded this as a portability defect in the scripts. It was not. The
+scripts were in the wrong group, and moving them restored `machinery` to
+dependency-free — making "machinery first," the plan's opening line since round
+7 and false for every one of those rounds, true.
+
+That is the third time (rounds 9, 10, and here) that a sharper check produced a
+dependency which was an artifact of filing. The table above records all three.
+
+### What is verified, not asserted
+
+The documented order was walked step by step, flipping each step's groups to
+`ready` against the real check:
+
+```
+step 1: +machinery                                          -> PASS
+step 2: +guard                                              -> PASS
+step 3: +agent-definitions+contracts+engineering+memory+planning+skills -> PASS
+step 4: +agents-core                                        -> PASS
+step 5: +receipt-scaffolding                                -> PASS
+step 6: +claude-core                                        -> PASS
+step 7: +settings-template                                  -> PASS
+```
+
+Four earlier versions of that order were written by hand and every one was
+wrong. This one is read off the graph the check derives, and the walk above is
+the oracle rather than a reading of it.

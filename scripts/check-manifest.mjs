@@ -47,7 +47,8 @@ const STATUSES = new Set(["ready", "staged"]);
 // one as absent, and a ready group passes the readiness gate with its
 // dependency silently dropped. Groups legitimately omit `requires`, so absence
 // cannot be the signal -- the spelling has to be.
-const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "blocker", "description", "paths"]);
+const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "mentions", "blocker", "description", "paths"]);
+const MENTION_KEYS = new Set(["group", "why"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
 const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
 
@@ -273,6 +274,35 @@ export function check(manifest, payloadFiles, exists) {
     if (group.status === "ready" && group.blocker) {
       problems.push(`${group.id}: a ready group must not still carry a blocker — clear it in the same change that flips the status`);
     }
+    for (const m of group.mentions ?? []) {
+      if (m === null || typeof m !== "object" || Array.isArray(m)) {
+        problems.push(`${group.id}: a mentions entry is not a mapping: ${JSON.stringify(m)}`);
+        continue;
+      }
+      for (const key of Object.keys(m)) {
+        if (!MENTION_KEYS.has(key)) {
+          problems.push(`${group.id}: unknown mentions key "${key}" — known keys are ${[...MENTION_KEYS].join(", ")}`);
+        }
+      }
+      if (typeof m.group !== "string") {
+        problems.push(`${group.id}: every mentions entry needs a "group"`);
+        continue;
+      }
+      // The reason is mandatory and is the whole point. An exemption without
+      // one is indistinguishable from a missed dependency, which is the
+      // failure this file exists to make loud.
+      if (typeof m.why !== "string" || m.why.trim().length === 0) {
+        problems.push(
+          `${group.id}: mentions "${m.group}" without saying why — an exemption with no stated reason ` +
+            `cannot be told apart from a dependency someone forgot to declare`,
+        );
+      }
+      if ((group.requires ?? []).includes(m.group)) {
+        problems.push(
+          `${group.id}: "${m.group}" is in both requires and mentions — it is either a dependency or it is not`,
+        );
+      }
+    }
     if (!group.paths || group.paths.length === 0) {
       problems.push(`${group.id}: declares no paths, so it delivers nothing — a group another group can require while supplying no files`);
     }
@@ -365,6 +395,14 @@ export function check(manifest, payloadFiles, exists) {
     }
   }
 
+  for (const group of manifest.groups ?? []) {
+    for (const m of group.mentions ?? []) {
+      if (typeof m?.group === "string" && !groupsById.has(m.group)) {
+        problems.push(`${group.id}: mentions "${m.group}", which is not a group in this manifest`);
+      }
+    }
+  }
+
   // Readiness is transitive. A group is only as ready as the groups it needs.
   for (const group of manifest.groups ?? []) {
     for (const req of group.requires ?? []) {
@@ -411,43 +449,47 @@ export function ownersOf(manifest, payloadFiles) {
   return owner;
 }
 
-/** Every reference from a payload file to another path, as written. */
+/**
+ * Every path-shaped token in a payload file, as written.
+ *
+ * ONE permissive extractor, deliberately, replacing three syntax-specific ones
+ * (js import specifiers, markdown links, and -- added a round later -- nothing
+ * that could see a backtick-quoted templated path). Enumerating the syntaxes
+ * that can carry a reference is an unbounded list, and this repo has now paid
+ * three times over for the lesson that lists of that kind do not converge: two
+ * consecutive review rounds each found a form the previous extractor could not
+ * see.
+ *
+ * What IS bounded is the set of ways one file can identify another, and that
+ * is what the caller resolves against:
+ *
+ *   1. by a path relative to the referring file  (`./pr-ready.mjs`)
+ *   2. by the path it will have in a consumer    (`skills/semgrep/...`)
+ *   3. by a name that is not a path at all       (an agent's name)
+ *
+ * So: grab anything path-shaped here, and let resolution decide what is real.
+ * A token that resolves to nothing costs nothing.
+ */
 export function referencesIn(file, text) {
   const refs = new Set();
-  if (/\.m?js$/.test(file)) {
-    // Match the SPECIFIER position, not the statement shape.
-    //
-    // Two consecutive review rounds found forms an earlier statement-shaped
-    // regex could not see -- first single quotes, then multiline named imports
-    // and `export ... from`. The second round is the signal: a regex that
-    // enumerates statement syntax is a list, and this repo's recorded lesson is
-    // that lists of this kind do not converge. Every static form -- single or
-    // multiline, `import ... from`, `export ... from`, `export * from`, and a
-    // bare side-effect `import "..."` -- puts the module specifier in exactly
-    // one place, so match that and stop caring about what precedes it.
-    //
-    // This deliberately errs toward OVER-detection: a relative specifier
-    // mentioned in a comment or string would be read as a dependency. The two
-    // failure directions are not symmetric. Over-declaring makes a group wait
-    // for one it did not strictly need; under-declaring ships a consumer a
-    // module graph that fails at load. The first is a scheduling cost, the
-    // second is a broken guard, so the bias belongs where it is.
-    //
-    // Dynamic `import()` stays out: it is a runtime branch that may never be
-    // taken, whereas everything above loads during module instantiation.
-    for (const m of text.matchAll(/\bfrom\s*(["'])(\.[^"'\n]+)\1/g)) refs.add(m[2]);
-    for (const m of text.matchAll(/(?:^|[\s;{}])import\s*(["'])(\.[^"'\n]+)\1/g)) refs.add(m[2]);
+  for (const m of text.matchAll(/[A-Za-z0-9_@.{}/-]*\.(?:md|mjs|cjs|js|json|sh|ya?ml)\b/g)) {
+    let raw = m[0];
+    // A URL's path resembles a repo path and is never a payload reference. The
+    // scheme sits outside the match (the regex starts after "https:"), so the
+    // test is on what PRECEDES the token, not on the token itself.
+    if (/[:/]$/.test(text.slice(Math.max(0, m.index - 1), m.index))) continue;
+    if (raw.startsWith("//")) continue;
+    // A template segment stands in for a root the referring file does not know
+    // -- `{baseDir}/skills/x.md`. Drop it and let the suffix resolver match
+    // what remains against real destinations.
+    raw = raw.replace(/^\{[^}]*\}\/?/, "");
+    // Markdown heading fragments and trailing punctuation are not part of the
+    // path. Refusing anything containing "#" was this derivation's first bug:
+    // the one reference proving planning depends on engineering carries an
+    // anchor, so the check silently under-reported the edge it existed to find.
+    raw = raw.split("#")[0].replace(/[.,;:)\]]+$/, "");
+    if (raw && raw !== "." && raw !== "..") refs.add(raw);
   }
-  for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
-    const raw = m[1];
-    if (/^(https?:|mailto:|#)/.test(raw)) continue;
-    // Strip the fragment rather than skipping the link. Refusing anything
-    // containing "#" was this derivation's first bug: the single reference
-    // proving planning depends on engineering carries a heading anchor, so the
-    // check silently under-reported exactly the edge it was written to find.
-    refs.add(raw.split("#")[0]);
-  }
-  refs.delete("");
   return [...refs];
 }
 
@@ -469,6 +511,26 @@ export function referencesIn(file, text) {
 export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
   const problems = [];
   const owner = ownersOf(manifest, payloadFiles);
+
+  // Where each payload file LANDS in a consumer. A file that references
+  // another by its consumer path -- which is what a templated or prose
+  // reference does -- can only be resolved against this, not against the
+  // payload layout.
+  const byDestination = new Map(); // consumer path -> payload path
+  for (const group of manifest.groups ?? []) {
+    for (const p of group.paths ?? []) {
+      if (!p.from || !p.to) continue;
+      const isDir = p.from.endsWith("/");
+      const excluded = new Set(p.exclude ?? []);
+      for (const f of payloadFiles) {
+        if (isDir ? !f.startsWith(p.from) : f !== p.from) continue;
+        const leaf = f.slice(p.from.length);
+        if (excluded.has(leaf)) continue;
+        const dest = posix.normalize(isDir ? p.to + leaf : p.to);
+        if (!byDestination.has(dest)) byDestination.set(dest, f);
+      }
+    }
+  }
   const declared = new Map((manifest.groups ?? []).map((g) => [g.id, g.requires ?? []]));
 
   const closureOf = (id) => {
@@ -482,6 +544,26 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
     }
     return out;
   };
+
+  // Groups this one references WITHOUT depending on: prose that describes
+  // another group's files rather than instructing an agent to read them.
+  //
+  // This distinction is semantic and no extractor can make it. "The refusal
+  // lives in `guard-decision.mjs`" and "Use `{baseDir}/skills/x.md` for the
+  // full method" are the same shape and only one is a dependency -- the
+  // instruction-vs-evidence test this repo already runs on payload, applied to
+  // references instead of files. Declaring every syntactic match instead
+  // collapses ten of twelve groups into one cycle, which is measured, not
+  // feared: it would end the staging design outright.
+  //
+  // Unlike the syntax list this check replaced, this one is BOUNDED -- by the
+  // corpus, not by how many ways a path can be written -- it shrinks as payload
+  // is rewritten, every entry must say why, and nothing can be missed, because
+  // an unclassified reference still fails the build.
+  const mentionsOf = new Map(
+    (manifest.groups ?? []).map((g) => [g.id, new Set((g.mentions ?? []).map((m) => m?.group))]),
+  );
+  const mentioned = (id) => mentionsOf.get(id) ?? new Set();
 
   const missing = new Map(); // "src->dst" -> evidence
 
@@ -509,12 +591,38 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
     }
     const dir = posix.dirname(file);
     for (const ref of referencesIn(file, text)) {
-      const target = posix.normalize(posix.join(dir, ref));
+      // Resolution 1 -- relative to the referring file. Covers import
+      // specifiers and ordinary markdown links.
+      let target = owner.has(posix.normalize(posix.join(dir, ref)))
+        ? posix.normalize(posix.join(dir, ref))
+        : null;
+      let how = target ? `→ ${target}` : null;
+
+      // Resolution 2 -- as a consumer path. Covers templated and prose
+      // references, which name where a file LANDS rather than where it sits in
+      // the payload. Requires a "/" so a bare filename cannot suffix-match half
+      // the corpus; the boundary check stops "x/y.md" matching "zx/y.md".
+      if (!target && ref.includes("/")) {
+        const matches = [...byDestination].filter(
+          ([dest]) => dest === ref || dest.endsWith(`/${ref}`),
+        );
+        // Ambiguity is not a dependency: if a suffix matches destinations from
+        // two different groups, which one is referenced is unknowable, and
+        // guessing would declare an edge that may not exist.
+        const groups = new Set(matches.map(([, f]) => owner.get(f)));
+        if (groups.size === 1) {
+          target = matches[0][1];
+          how = `names "${ref}"`;
+        }
+      }
+
+      if (!target) continue;
       const dst = owner.get(target);
       if (!dst || dst === src) continue;
       if (closureOf(src).has(dst)) continue;
+      if (mentioned(src).has(dst)) continue;
       const key = `${src}\u0000${dst}`;
-      if (!missing.has(key)) missing.set(key, `${file} → ${target}`);
+      if (!missing.has(key)) missing.set(key, `${file} ${how}`);
     }
 
     for (const [name, dst] of namedEntities) {
@@ -523,6 +631,7 @@ export function checkDerivedDependencies(manifest, payloadFiles, readFile) {
       // matches while a longer identifier containing it does not.
       if (!new RegExp(`(?<![\\w-])${name.replace(/[.*+?^$()|[\]\\]/g, "\\$&")}(?![\\w-])`).test(text)) continue;
       if (closureOf(src).has(dst)) continue;
+      if (mentioned(src).has(dst)) continue;
       const key = `${src}\u0000${dst}`;
       if (!missing.has(key)) missing.set(key, `${file} names "${name}"`);
     }

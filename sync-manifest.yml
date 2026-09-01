@@ -16,6 +16,32 @@
 #                  consumer must own and diverge (its own overlay, its own
 #                  product docs).
 #
+#   requires / mentions: both record that a group's files reference another
+#           group's files. They record OPPOSITE conclusions about the same
+#           observation, and the difference is the instruction-vs-evidence test
+#           this repo already applies to payload:
+#
+#           requires — the reference is an INSTRUCTION. "Use
+#                      `{baseDir}/skills/x.md` for the full method" tells an
+#                      agent to go read a file, and delivering the group
+#                      without it hands that agent a route to nowhere.
+#           mentions — the reference is EVIDENCE. "The refusal lives in
+#                      `guard-decision.mjs`" describes where something is; the
+#                      sentence is true and useful whether or not that group
+#                      was delivered.
+#
+#           The two are the same SHAPE — a backticked path in prose — so no
+#           extractor can tell them apart, and `check-manifest` does not try.
+#           It derives every cross-group reference and then requires that each
+#           be classified one way or the other; an unclassified one fails the
+#           build. Every `mentions` entry must say why, because an exemption
+#           with no stated reason is indistinguishable from a dependency
+#           somebody forgot.
+#
+#           Measured, in case the strictness looks excessive: treating every
+#           derived reference as a dependency collapses ten of twelve groups
+#           into a single cycle and ends the staging design outright.
+#
 # What a blocker is, and is not: it names the CATEGORY of work that must happen
 # before a group travels, with enough specificity to start from — not an
 # exhaustive inventory of every line in the group that needs changing. The
@@ -59,6 +85,13 @@ groups:
       - planning
       - memory
       - skills
+      - receipt-scaffolding
+    mentions:
+      - group: settings-template
+        why: >
+          claude-core.md names .claude/settings.json when listing the files
+          that define the agent's own guardrails. It is quoting a filename in
+          a rule, not telling anyone to read it.
     blocker: >
       This file is imported eagerly into every Claude session in a consumer, so
       everything it routes to has to be there. Enumerated from its own links
@@ -78,6 +111,29 @@ groups:
     paths:
       - from: core/.agents/core/claude-core.md
         to: .agents/core/claude-core.md
+      # The retired-contract guard travels with the group that means "the
+      # contract is fully assembled." It is not standalone machinery: its own
+      # header calls it a guard over the whole corpus, it scans CLAUDE.md,
+      # AGENTS.md, PLANS.md, docs/ai-context/ and the skills, and its test
+      # asserts specific members of that corpus. Filed under `machinery` it
+      # made the group that everything waits on depend on contracts, skills
+      # and planning -- pulling machinery into the cycle and destroying the
+      # "machinery first" plan. Third time a misfiled file manufactured a
+      # dependency: guard-decision.test.mjs (round 9), review-loop-adjudicator
+      # (round 10), this (issue #2).
+      - from: core/scripts/check-contract-consistency.mjs
+        to: scripts/check-contract-consistency.mjs
+      - from: core/scripts/__tests__/check-contract-consistency.test.mjs
+        to: scripts/__tests__/check-contract-consistency.test.mjs
+      # Same class, found by the same check once the first one moved:
+      # check-docs-accuracy is a "docs-accuracy gate for the repo-native agent
+      # context system" by its own header, scanning docs/ai-context,
+      # docs/engineering, docs/manual, AGENTS.md, .agents/PLANS.md and the
+      # skills. Round 9 recorded its corpus assumption as a machinery blocker
+      # item; the assumption is not a defect in the script, it is the script
+      # being in the wrong group.
+      - from: core/scripts/check-docs-accuracy.mjs
+        to: scripts/check-docs-accuracy.mjs
 
   - id: agents-core
     mode: sync
@@ -110,6 +166,13 @@ groups:
       - planning
       - memory
       - skills
+    mentions:
+      - group: guard
+        why: >
+          known-failure-patterns.md describes where the curl/wget refusal
+          lives. The same shape as the agent-definitions reference that IS a
+          dependency -- and the difference is the verb: this one says where
+          something is, that one says to go read it.
     blocker: >
       working-modes.md prescribes the review loop as a procedure and names
       review-budget.mjs and review-loop-record.mjs as the commands that run it,
@@ -156,6 +219,11 @@ groups:
     requires:
       - contracts
       - memory
+    mentions:
+      - group: guard
+        why: >
+          code-review.md mentions .claude/guard.sh while making a point about
+          naming. Illustration.
     blocker: >
       code-review.md normatively delegates its review oracle, the increment
       test, the bugfix tiers and its stopping rule to working-modes.md in the
@@ -207,6 +275,18 @@ groups:
     status: staged
     requires:
       - contracts
+    mentions:
+      - group: claude-core
+        why: >
+          docs-accuracy-skips-paths-missing-their-top-level-prefix.md
+          describes how check-docs-accuracy treats backticked tokens. A gotcha
+          entry recording past behaviour; the entry is readable and true
+          whether or not the script is delivered.
+      - group: guard
+        why: >
+          hook-uncaught-throw-fails-open.md describes a defect in guard-
+          decision.mjs's exit-code handling. Evidence of an incident, not an
+          instruction to open the file.
     blocker: >
       Most entries are portable, but three carry instructions rather than
       evidence and are wrong elsewhere: replit-direct-push asserts
@@ -231,6 +311,11 @@ groups:
     status: staged
     requires:
       - machinery
+    mentions:
+      - group: guard
+        why: >
+          The README explains which guards read this directory's state.
+          Orientation for a reader; the directories work regardless.
     blocker: >
       These directories exist to serve the machinery that reads them, and the
       README documents that machinery's contract. Delivered alone they are a
@@ -261,6 +346,16 @@ groups:
       - machinery
       - contracts
       - agent-definitions
+    mentions:
+      - group: guard
+        why: >
+          bugfix/SKILL.md mentions that .claude/guard.sh blocks force-push, as
+          context for why a git instruction is shaped the way it is.
+          Describing a constraint, not routing to a file.
+      - group: settings-template
+        why: >
+          model-routing/SKILL.md cites .claude/settings.json as where a pin
+          lives, explaining a past decision. Evidence.
     blocker: >
       bugfix, document, maintenance, plan-review-loop and pr-watch each drive
       the machinery as a procedure, and fourteen of these files route into
@@ -295,13 +390,22 @@ groups:
   - id: agent-definitions
     mode: sync
     status: staged
+    requires:
+      - skills
     blocker: >
       adversarial-modeler and semgrep-scanner are spawned by the
-      differential-review and semgrep skills, so they are only useful once
-      those travel — but they depend on nothing themselves and can be
-      delivered ahead of `skills` harmlessly. The blocker is the ordinary
-      portability audit every payload group owes: both carry tool allowlists
-      and prompts written against one product's codebase and its languages.
+      differential-review and semgrep skills, and they route back into those
+      skills' own reference files — `{baseDir}/skills/differential-review/
+      adversarial.md` and `{baseDir}/skills/semgrep/references/
+      scanner-task-prompt.md` — so they require `skills` and cannot ship ahead
+      of it. An earlier version of this blocker asserted the opposite in so
+      many words, that they "depend on nothing themselves and can be delivered
+      ahead of skills harmlessly." That claim was false and no check could
+      contradict it, because the references are templated paths in prose and
+      the derivation only understood links and imports at the time. It does
+      now. The blocker itself is the ordinary portability audit every payload
+      group owes: both carry tool allowlists and prompts written against one
+      product's codebase and its languages.
     description: >
       Subagent definitions spawned BY skills. review-loop-adjudicator is not
       here — it belongs to `machinery`, whose record generator is its only
@@ -318,6 +422,12 @@ groups:
     status: staged
     requires:
       - machinery
+    mentions:
+      - group: memory
+        why: >
+          guard-decision.mjs's refusal message points a human at a memory
+          entry explaining why the transport is blocked. Advice in an error
+          string.
     blocker: >
       guard.sh and guard-decision.mjs carry the repo identity used to verify
       that a merge or review action targets the repo the receipt was minted
@@ -348,11 +458,41 @@ groups:
   - id: machinery
     mode: sync
     status: staged
+    mentions:
+      - group: receipt-scaffolding
+        why: >
+          pr-ready.test.mjs constructs a FIXTURE at .agents/receipts/README.md
+          -- it writes a fake file at that path rather than reading the
+          delivered one, so the test passes with the group absent.
+      - group: memory
+        why: >
+          pr-ready.mjs's error text points a human at a memory entry for
+          background. A dangling pointer if memory is absent, not a broken
+          code path.
+      - group: guard
+        why: >
+          review-budget.mjs comments refer to guard-decision.mjs's documented
+          contract. Comments, not imports -- verified: no import statement
+          names it.
+      - group: contracts
+        why: >
+          review-counting.mjs comments describe what plan-review-contract.md
+          does and does not serialize. Rationale for the code's shape.
+      - group: engineering
+        why: >
+          review-counting.mjs comments note that code-review.md does not
+          define a category. Same comment block as above.
     blocker: >
       Two couplings, both needing the same reviewed change. (1) review-budget.mjs
       hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
       and review-loop-record.mjs use them to verify a snapshot came from the
-      expected repo. (2) check-contract-consistency.mjs assumes CLAUDE.md sits at
+      expected repo. (2) RESOLVED by issue #2 — the two corpus-wide gates
+      (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
+      with `claude-core`, because they were never standalone machinery: each
+      scans the ASSEMBLED contract, so filing them here made the group that
+      everything waits on depend on contracts, skills and planning. What was
+      recorded as a portability defect in the scripts was the scripts being in
+      the wrong group. Retained for the record: check-contract-consistency.mjs assumes CLAUDE.md sits at
       the root of the corpus it scans — true in a consumer, false once the
       contract is split into a vendored core plus an overlay; its own test fails
       in this repo for exactly that reason, which is how the assumption was
@@ -405,6 +545,9 @@ groups:
         exclude:
           - guard-decision.mjs # travels with the `guard` group
           - __tests__/guard-decision.test.mjs # ditto — a test goes with its subject
+          - check-contract-consistency.mjs # a corpus-wide guard; travels with `claude-core`
+          - __tests__/check-contract-consistency.test.mjs # ditto
+          - check-docs-accuracy.mjs # ditto — a gate over the assembled context system
       # The adjudicator is machinery, not a skill helper: its ONLY permitted
       # input is review-loop-record.mjs's output, and a machinery test asserts
       # it is in the scanned contract corpus. Filed under .claude/agents/ it

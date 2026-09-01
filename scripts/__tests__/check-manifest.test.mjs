@@ -593,12 +593,34 @@ test("DERIVES a dependency from a SINGLE-quoted static import", () => {
   assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
 });
 
-test("referencesIn reads both quote styles and bare side-effect imports", () => {
-  assert.deepEqual(referencesIn("a.mjs", `import { x } from './y.mjs';`), ["./y.mjs"]);
-  assert.deepEqual(referencesIn("a.mjs", `import { x } from "./y.mjs";`), ["./y.mjs"]);
-  assert.deepEqual(referencesIn("a.mjs", `import './y.mjs';`), ["./y.mjs"]);
-  // A mismatched pair is not a valid import and must not be read as one.
-  assert.deepEqual(referencesIn("a.mjs", `import { x } from "./y.mjs';`), []);
+test("referencesIn extracts path-shaped tokens regardless of the syntax carrying them", () => {
+  // This REPLACES an assertion that referencesIn returned only syntactically
+  // valid import specifiers. That contract was the problem: it made extraction
+  // responsible for deciding what counts, and deciding required knowing every
+  // syntax in advance -- a list that lost twice, to single quotes and then to
+  // multiline imports. Extraction is now permissive and RESOLUTION decides, so
+  // a token that resolves to nothing simply costs nothing.
+  for (const [label, src, expected] of [
+    ["double-quoted import", 'import { x } from "./y.mjs";', ["./y.mjs"]],
+    ["single-quoted import", "import { x } from './y.mjs';", ["./y.mjs"]],
+    ["bare side-effect", 'import "./y.mjs";', ["./y.mjs"]],
+    ["multiline import", "import {\n a,\n} from \"./y.mjs\";", ["./y.mjs"]],
+    ["static re-export", 'export { x } from "./y.mjs";', ["./y.mjs"]],
+    ["markdown link", "see [x](./y.mjs)", ["./y.mjs"]],
+    ["backticked prose", "the logic lives in `./y.mjs` today", ["./y.mjs"]],
+    ["templated path", "read `{baseDir}/skills/y.md`", ["skills/y.md"]],
+    ["heading fragment", "[x](./y.md#a-heading)", ["./y.md"]],
+    ["trailing punctuation", "documented in docs/x.md.", ["docs/x.md"]],
+  ]) {
+    assert.deepEqual(referencesIn("core/a/one.mjs", src), expected, label);
+  }
+});
+
+test("referencesIn excludes URLs and non-path tokens", () => {
+  assert.deepEqual(referencesIn("a.mjs", "see https://example.com/thing.md"), []);
+  assert.deepEqual(referencesIn("a.md", "[x](https://github.com/o/r/blob/main/docs/x.md)"), []);
+  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "node:fs";'), []);
+  assert.deepEqual(referencesIn("a.md", "no paths here at all"), []);
 });
 
 test("DETECTS consumer repos that differ only in case", () => {
@@ -636,11 +658,6 @@ test("referencesIn sees every static module form", () => {
   }
 });
 
-test("referencesIn excludes dynamic imports, bare specifiers and malformed quotes", () => {
-  assert.deepEqual(referencesIn("a.mjs", 'const x = await import("./other.mjs");'), []);
-  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "node:fs";'), []);
-  assert.deepEqual(referencesIn("a.mjs", 'import { x } from "./other.mjs\';'), []);
-});
 
 test("DERIVES a dependency from a static re-export across groups", () => {
   const problems = checkDerivedDependencies(
@@ -693,4 +710,106 @@ test("the agent-name set is derived from the payload, not hardcoded", () => {
     (f) => (f === "core/skills/a/SKILL.md" ? "delegate to brand-new-agent" : ""),
   );
   assert.ok(problems.some((p) => p.includes('names "brand-new-agent"')));
+});
+
+// --- resolution: the bounded set of ways one file identifies another ---
+
+const twoGroups = (extra = {}) =>
+  manifest([
+    { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }], ...extra },
+    { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "deep/b/" }] },
+  ]);
+
+test("RESOLVES a reference by path relative to the referring file", () => {
+  const problems = checkDerivedDependencies(twoGroups(), ["core/a/one.md", "core/b/two.md"], (f) =>
+    f === "core/a/one.md" ? "see [two](../b/two.md)" : "",
+  );
+  assert.ok(problems.some((p) => p.includes('a references files delivered by "b"')));
+});
+
+test("RESOLVES a reference by the path the file will have in a consumer", () => {
+  // The form that survived eleven review rounds: a templated path naming where
+  // a file LANDS, which no relative resolver can see.
+  const problems = checkDerivedDependencies(twoGroups(), ["core/a/one.md", "core/b/two.md"], (f) =>
+    f === "core/a/one.md" ? "Use `{baseDir}/deep/b/two.md` for the full method" : "",
+  );
+  assert.ok(problems.some((p) => p.includes('names "deep/b/two.md"')));
+});
+
+test("a bare filename does not resolve by suffix", () => {
+  // Otherwise "README.md" would tie together every group that has one.
+  const problems = checkDerivedDependencies(twoGroups(), ["core/a/one.md", "core/b/two.md"], (f) =>
+    f === "core/a/one.md" ? "mentions two.md in passing" : "",
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("an ambiguous suffix is not a dependency", () => {
+  // Two groups landing the same trailing path: which one is meant is
+  // unknowable, and guessing would declare an edge that may not exist.
+  const problems = checkDerivedDependencies(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/a/", to: "a/" }] },
+      { id: "b", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/b/", to: "x/same/" }] },
+      { id: "c", mode: "sync", status: "staged", blocker: "x", paths: [{ from: "core/c/", to: "y/same/" }] },
+    ]),
+    ["core/a/one.md", "core/b/two.md", "core/c/two.md"],
+    (f) => (f === "core/a/one.md" ? "read `{root}/same/two.md`" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+// --- mentions: the classification a syntactic check cannot make ---
+
+test("a declared mention suppresses the derived edge", () => {
+  const problems = checkDerivedDependencies(
+    twoGroups({ mentions: [{ group: "b", why: "prose describing b, not an instruction to read it" }] }),
+    ["core/a/one.md", "core/b/two.md"],
+    (f) => (f === "core/a/one.md" ? "see [two](../b/two.md)" : ""),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS a mention with no stated reason", () => {
+  const problems = check(twoGroups({ mentions: [{ group: "b" }] }), ["core/a/one.md", "core/b/two.md"], allExist);
+  assert.ok(problems.some((p) => p.includes("without saying why")));
+});
+
+test("DETECTS a group that both requires and mentions the same group", () => {
+  const problems = check(
+    twoGroups({ requires: ["b"], mentions: [{ group: "b", why: "contradictory" }] }),
+    ["core/a/one.md", "core/b/two.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("either a dependency or it is not")));
+});
+
+test("DETECTS a mention naming a group that does not exist", () => {
+  const problems = check(
+    twoGroups({ mentions: [{ group: "nope", why: "typo" }] }),
+    ["core/a/one.md", "core/b/two.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('mentions "nope", which is not a group')));
+});
+
+test("DETECTS an unknown key on a mentions entry", () => {
+  const problems = check(
+    twoGroups({ mentions: [{ group: "b", why: "ok", reson: "typo" }] }),
+    ["core/a/one.md", "core/b/two.md"],
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('unknown mentions key "reson"')));
+});
+
+test("the real manifest declares or classifies every reference its files imply", () => {
+  // The regression bar for the graph. Eleven review rounds corrected it by
+  // hand; it now fails in CI instead.
+  const doc = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const root = new URL("../../", import.meta.url);
+  const files = walk(new URL("core", root).pathname, root.pathname.replace(/\/$/, ""));
+  const problems = checkDerivedDependencies(doc, files.map((f) => f.split("\\").join("/")), (f) =>
+    readFileSync(new URL(f, root), "utf8"),
+  );
+  assert.deepEqual(problems, []);
 });
