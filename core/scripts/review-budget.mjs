@@ -177,10 +177,12 @@ export function repoSlug(io = nodeIo()) {
     const slug = io.originSlug();
     if (!slug) {
       throw new Error(
-        "cannot determine this repository's identity: `git ls-remote --get-url origin` did not " +
-          "resolve to an owner/name. Every receipt and snapshot check binds to that identity, so " +
-          "refusing here is the safe direction -- a guessed identity would validate a receipt " +
-          "minted somewhere else. Add an `origin` remote pointing at this repository.",
+        "cannot determine this repository's identity from `origin`. Either it is unset or its URL " +
+          "does not name an owner/repo, or its fetch and push URLs name DIFFERENT repositories -- " +
+          "in which case \"which repository is this\" has no single answer and guessing either way " +
+          "is how the binding gets bypassed. Every receipt and snapshot check binds to this " +
+          "identity, so refusing is the safe direction: a guessed identity would validate a receipt " +
+          "minted somewhere else. Point `origin` (fetch and push) at this repository.",
       );
     }
     SLUG_CACHE.set(key, slug);
@@ -525,20 +527,37 @@ export function nodeIo(root = REPO_ROOT) {
      * really use is the only one that says anything true.
      */
     originSlug() {
-      let url;
-      try {
-        url = execFileSync("git", ["ls-remote", "--get-url", "origin"], {
-          cwd: root,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-        }).trim();
-      } catch {
-        return null; // no git, or no origin -- the caller refuses
-      }
-      // `--get-url` echoes the name back when the remote is unknown, so an
-      // unconfigured `origin` returns the literal string "origin".
-      if (!url || url === "origin") return null;
-      return slugFromRemoteUrl(url);
+      const at = (args) => {
+        try {
+          const out = execFileSync("git", args, {
+            cwd: root,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+          }).trim();
+          // `--get-url` echoes the name back when the remote is unknown, so
+          // an unconfigured `origin` comes back as the literal "origin".
+          return !out || out === "origin" ? null : slugFromRemoteUrl(out);
+        } catch {
+          return null;
+        }
+      };
+      // BOTH URLs, because a remote can fetch from one repository and push to
+      // another. `ls-remote --get-url` returns only the FETCH url, so a
+      // checkout with `remote.origin.pushurl` set would have been identified
+      // as its upstream or mirror -- and `targetsThisRepo` would then return
+      // false for the repository actually being operated on, which does not
+      // block the request, it SKIPS the guard entirely. Fail-open, and this
+      // repo already records the divergent-pushurl configuration as a real
+      // one in known-failure-patterns.md. (Codex, PR #7 round 1.)
+      const fetchSlug = at(["ls-remote", "--get-url", "origin"]);
+      const pushSlug = at(["remote", "get-url", "--push", "origin"]);
+      if (!fetchSlug || !pushSlug) return null;
+      // Divergence is ambiguity, and ambiguity here is refused rather than
+      // resolved: if this checkout fetches from one repository and pushes to
+      // another, "which repository is this" has no single answer, and picking
+      // either is how the binding gets bypassed.
+      if (fetchSlug.toLowerCase() !== pushSlug.toLowerCase()) return null;
+      return fetchSlug;
     },
     /**
      * `null` means the file is ABSENT. Anything else -- a permissions error, a
@@ -1410,7 +1429,20 @@ function refusal(pr, state, spent, tiedCount = false) {
 export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now = Date.now()) {
   // From the INJECTED io, not a default one: a caller that scopes this
   // judgement to a particular checkout must get that checkout's identity.
-  const slug = repoSlug(io);
+  //
+  // CAUGHT, not thrown. `repoSlug` refuses when identity is unresolvable,
+  // which is the right refusal in the wrong shape here: an exception escapes
+  // `decide()`, rejects the hook's `main()`, and exits 1 -- and the hook
+  // contract is exit 2 to block, anything else to allow. So the fail-CLOSED
+  // identity check became a fail-OPEN hook error, which is the exact defect
+  // .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
+  // (Codex, PR #7 round 1.)
+  let slug;
+  try {
+    slug = repoSlug(io);
+  } catch (err) {
+    return { blocked: true, reason: `${err.message}` };
+  }
   if (!REVIEW_REQUEST_TOOLS.has(toolName)) return { blocked: false, reason: null };
   if (!mentionsReviewRequest(toolInput?.body)) return { blocked: false, reason: null };
   if (!targetsThisRepo(toolInput, slug)) return { blocked: false, reason: null };

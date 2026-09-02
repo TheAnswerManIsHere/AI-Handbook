@@ -1894,7 +1894,44 @@ const withConfig = (contents) => {
 
 test("required checks come from the consumer's own declaration", () => {
   const root = withConfig(JSON.stringify({ requiredChecks: ["Manifest", "Test"] }));
-  assert.deepEqual(requiredChecks(root), ["Manifest", "Test"]);
+  assert.deepEqual(requiredChecks(null, root), ["Manifest", "Test"]);
+});
+
+test("the policy is read from the COMMITTED head, not the working tree", () => {
+  // An uncommitted edit -- plausible exactly while CI config is being changed
+  // -- could otherwise shrink the list, mint a READY receipt for a commit that
+  // does not contain that policy, and survive the file being reverted.
+  const root = mkdtempSync(join(tmpdir(), "required-checks-head-"));
+  const g = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  g("init", "-q", ".");
+  g("config", "user.email", "t@example.test");
+  g("config", "user.name", "T");
+  mkdirSync(join(root, ".agents"), { recursive: true });
+  writeFileSync(join(root, ".agents/required-checks.json"), JSON.stringify({ requiredChecks: ["Build", "Test"] }));
+  g("add", "-A");
+  g("commit", "-q", "-m", "commit the policy");
+  const head = g("rev-parse", "HEAD").trim();
+
+  // Now weaken it in the working tree only.
+  writeFileSync(join(root, ".agents/required-checks.json"), JSON.stringify({ requiredChecks: ["Build"] }));
+
+  assert.deepEqual(requiredChecks(head, root), ["Build", "Test"], "the committed policy is what binds");
+  assert.deepEqual(requiredChecks(null, root), ["Build"], "and the working tree is only used with no head");
+});
+
+test("REFUSES a policy that exists only in the working tree", () => {
+  const root = mkdtempSync(join(tmpdir(), "required-checks-uncommitted-"));
+  const g = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  g("init", "-q", ".");
+  g("config", "user.email", "t@example.test");
+  g("config", "user.name", "T");
+  writeFileSync(join(root, "seed.txt"), "x");
+  g("add", "-A");
+  g("commit", "-q", "-m", "seed");
+  const head = g("rev-parse", "HEAD").trim();
+  mkdirSync(join(root, ".agents"), { recursive: true });
+  writeFileSync(join(root, ".agents/required-checks.json"), JSON.stringify({ requiredChecks: ["Build"] }));
+  assert.throws(() => requiredChecks(head, root), /is not committed at/);
 });
 
 test("REFUSES when the declaration is absent -- the gate must know what it waits for", () => {
@@ -1902,20 +1939,20 @@ test("REFUSES when the declaration is absent -- the gate must know what it waits
   // names from one repo's CI meant no PR in any other repo could ever mint a
   // receipt. Absent config now says so instead of silently requiring nothing.
   const root = withConfig(null);
-  assert.throws(() => requiredChecks(root), /is missing, so this gate does not know which checks/);
+  assert.throws(() => requiredChecks(null, root), /is missing, so this gate does not know which checks/);
 });
 
 test("REFUSES an empty list -- a gate that requires nothing is satisfied by anything", () => {
   // The fail-OPEN reading, and the one this whole constant exists to prevent.
   const root = withConfig(JSON.stringify({ requiredChecks: [] }));
-  assert.throws(() => requiredChecks(root), /satisfied by any green set/);
+  assert.throws(() => requiredChecks(null, root), /satisfied by any green set/);
 });
 
 test("REFUSES a malformed declaration rather than reading past it", () => {
-  assert.throws(() => requiredChecks(withConfig("{ not json")), /not valid JSON/);
-  assert.throws(() => requiredChecks(withConfig(JSON.stringify({}))), /array of non-empty job names/);
-  assert.throws(() => requiredChecks(withConfig(JSON.stringify({ requiredChecks: "Test" }))), /array of non-empty/);
-  assert.throws(() => requiredChecks(withConfig(JSON.stringify({ requiredChecks: ["ok", ""] }))), /array of non-empty/);
+  assert.throws(() => requiredChecks(null, withConfig("{ not json")), /not valid JSON/);
+  assert.throws(() => requiredChecks(null, withConfig(JSON.stringify({}))), /array of non-empty job names/);
+  assert.throws(() => requiredChecks(null, withConfig(JSON.stringify({ requiredChecks: "Test" }))), /array of non-empty/);
+  assert.throws(() => requiredChecks(null, withConfig(JSON.stringify({ requiredChecks: ["ok", ""] }))), /array of non-empty/);
 });
 
 test("a declared job that never appears keeps the gate closed", () => {

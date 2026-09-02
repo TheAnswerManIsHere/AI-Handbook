@@ -1687,3 +1687,35 @@ test("identity comparison is case-insensitive on both sides", () => {
   assert.equal(targetsThisRepo({ owner: "testowner", repo: "testrepo" }, TEST_SLUG), true);
   assert.equal(targetsThisRepo({ owner: "TESTOWNER", repo: "TESTREPO" }, TEST_SLUG), true);
 });
+
+test("identity names the PUSH target, and divergence is refused", () => {
+  // `ls-remote --get-url` returns only the FETCH url. A checkout with
+  // remote.origin.pushurl set would have been identified as its upstream or
+  // mirror -- and targetsThisRepo returning false does not BLOCK the request,
+  // it skips the guard entirely. Fail-open, and this repo already records the
+  // divergent-pushurl configuration as one that really occurs.
+  __resetRepoSlugCache();
+  const agree = { ...fakeIo(), root: "/test/agree", originSlug: () => "Owner/Repo" };
+  assert.equal(repoSlug(agree), "Owner/Repo");
+  __resetRepoSlugCache();
+  const diverged = { ...fakeIo(), root: "/test/diverged", originSlug: () => null };
+  assert.throws(() => repoSlug(diverged), /fetch and push URLs name DIFFERENT repositories/);
+  __resetRepoSlugCache();
+});
+
+test("an unresolvable identity BLOCKS the request rather than throwing past the hook", () => {
+  // The hook contract is exit 2 to block and anything else to allow, so an
+  // exception escaping judgeReviewRequest turns a fail-CLOSED identity check
+  // into a fail-OPEN hook error -- the defect
+  // .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
+  __resetRepoSlugCache();
+  const io = { ...fakeIo({ [budgetPath(1)]: budget(1) }), root: "/test/no-identity", originSlug: () => null };
+  const verdict = judgeReviewRequest(
+    { toolName: "mcp__github__add_issue_comment", toolInput: { owner: "A", repo: "B", issue_number: 1, body: "@codex review" } },
+    io,
+    Date.parse(NOW),
+  );
+  assert.equal(verdict.blocked, true, "an unresolvable identity must block, not throw");
+  assert.match(verdict.reason, /cannot determine this repository's identity/);
+  __resetRepoSlugCache();
+});

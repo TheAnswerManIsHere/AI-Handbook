@@ -115,21 +115,44 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  */
 export const REQUIRED_CHECKS_FILE = ".agents/required-checks.json";
 
-export function requiredChecks(root = join(HERE, "..")) {
-  const p = join(root, REQUIRED_CHECKS_FILE);
+export function requiredChecks(headSha = null, cwd = join(HERE, "..")) {
   const howto =
-    `Create ${REQUIRED_CHECKS_FILE} naming the CI jobs that must be PRESENT before a readiness ` +
+    `Commit ${REQUIRED_CHECKS_FILE} naming the CI jobs that must be PRESENT before a readiness ` +
     `receipt is honest -- every job that can appear late, not just the ones that must pass. ` +
     `Shape: {"requiredChecks": ["Job Name", ...]}.`;
-  let raw;
-  try {
-    raw = readFileSync(p, "utf8");
-  } catch (err) {
-    throw fail(
-      err.code === "ENOENT"
-        ? `${REQUIRED_CHECKS_FILE} is missing, so this gate does not know which checks it is waiting for. ${howto}`
-        : `${REQUIRED_CHECKS_FILE} could not be read (${err.code}). ${howto}`,
-    );
+  // READ AT THE VALIDATED HEAD, not from the working tree.
+  //
+  // The receipt binds to `snapshot.pr.head.sha`, so the policy it was minted
+  // under has to be bound to that commit too. Reading the working tree let an
+  // uncommitted edit -- plausible precisely while CI config is being changed
+  // -- shrink the list, mint a READY receipt for a commit that does not
+  // contain that policy, and survive the file being reverted, because nothing
+  // downstream ever re-reads it. Reading the commit closes that without a
+  // comparison step: the working tree simply is not consulted.
+  // (Codex, PR #7 round 1.) `checkRail` already reads the committed budget
+  // receipt this way, so this is the established shape rather than a new one.
+  let raw = null;
+  if (headSha) {
+    raw = git(["show", `${headSha}:${REQUIRED_CHECKS_FILE}`], cwd);
+    if (raw === null) {
+      throw fail(
+        `${REQUIRED_CHECKS_FILE} is not committed at ${headSha.slice(0, 7)}, so this gate does not know ` +
+          `which checks it is waiting for -- and a policy that exists only in the working tree is not ` +
+          `bound to the commit the receipt would cover. ${howto}`,
+      );
+    }
+  } else {
+    // No head to bind to (unit tests, ad-hoc inspection). The working tree is
+    // the only source available; every production path supplies a head.
+    try {
+      raw = readFileSync(join(cwd, REQUIRED_CHECKS_FILE), "utf8");
+    } catch (err) {
+      throw fail(
+        err.code === "ENOENT"
+          ? `${REQUIRED_CHECKS_FILE} is missing, so this gate does not know which checks it is waiting for. ${howto}`
+          : `${REQUIRED_CHECKS_FILE} could not be read (${err.code}). ${howto}`,
+      );
+    }
   }
   let parsed;
   try {
@@ -1341,7 +1364,7 @@ function countDelivered(snapshot) {
 }
 
 /** The full verdict for a validated snapshot. */
-export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, required = requiredChecks()) {
+export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, required = null) {
   const headSha = snapshot.pr.head.sha;
   const directCodex = checkCodex(snapshot.issueComments, snapshot.reviews, headSha);
   // A closed review-loop adjudication (see checkAdjudicatedCodex) is a
@@ -1366,8 +1389,12 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
       : adjudicated
         ? { ...directCodex, detail: `${directCodex.detail} | adjudication fallback also failed: ${adjudicated.detail}` }
         : directCodex;
+  // Resolved from the SAME commit the receipt binds to, so the policy and the
+  // evidence describe one state. An explicit list (tests) wins; production
+  // supplies none and gets the committed one.
+  const policy = required ?? requiredChecks(headSha, adjudicationOpts.cwd);
   const items = {
-    ci: checkCi(snapshot.checkRuns, headSha, required),
+    ci: checkCi(snapshot.checkRuns, headSha, policy),
     codex,
     threads: checkThreads(snapshot.reviewThreads),
     capture: checkCapture(snapshot.capturedAt, codex.acceptedAt, now),
@@ -1386,6 +1413,9 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
     // When the EVIDENCE was read, which is what the merge gate ages against.
     // `generatedAt` only says when this process ran. (Codex, #490.)
     evidenceAt: oldest.length ? new Date(Math.min(...oldest)).toISOString() : null,
+    // The policy this verdict was reached under, recorded so a receipt cannot
+    // be read without seeing what it actually demanded. (Codex, PR #7 round 1.)
+    requiredChecks: policy,
     items,
   };
 }

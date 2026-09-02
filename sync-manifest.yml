@@ -769,10 +769,32 @@ groups:
         ref: core/docs/ai-context/known-failure-patterns.md
         from: core/scripts/review-budget.mjs
         form: "known-failure-patterns.md"
+        count: 2
+        why: >
+          Comments citing where a failure pattern is recorded, explaining why
+          two checks fail open, and why identity refuses when a remote's fetch
+          and push URLs diverge — that configuration is recorded there as one
+          that really occurs. Rationale, not a route: the code is correct
+          whether or not the reader ever opens the file.
+      - group: memory
+        ref: core/.agents/memory/hook-uncaught-throw-fails-open.md
+        from: core/scripts/review-budget.mjs
+        form: ".agents/memory/hook-uncaught-throw-fails-open.md"
         count: 1
         why: >
-          A comment citing where a failure pattern is recorded, explaining why
-          two checks fail open. Rationale.
+          A comment naming the incident that explains why an unresolvable
+          identity returns a blocked verdict instead of throwing: an exception
+          escapes the hook and exits 1, which the harness reads as a hook error
+          and allows. Evidence for the shape of the code, not an instruction.
+      - group: memory
+        ref: core/.agents/memory/hook-uncaught-throw-fails-open.md
+        from: core/scripts/__tests__/review-budget.test.mjs
+        form: ".agents/memory/hook-uncaught-throw-fails-open.md"
+        count: 1
+        why: >
+          The same citation in the test that pins the behaviour, so a reader
+          who wonders why a blocked verdict is asserted rather than a throw can
+          find the incident. Evidence.
       - group: guard
         ref: core/.claude/guard.sh
         from: core/scripts/review-budget.mjs
