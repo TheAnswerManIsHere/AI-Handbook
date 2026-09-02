@@ -200,11 +200,13 @@ below.
 
 - **Never edit a vendored file in a consumer.** The next sync overwrites it and
   the reasoning is lost. Every synced **Markdown** file carries a header saying
-  so. The non-Markdown payload — scripts under `core/scripts`, skill helper
-  executables, `guard.sh` — does **not** yet, which is why every group
-  containing them is staged: each one's blocker requires the ownership comment
-  before it can travel. `core/.claude/settings.template.json` is the exception
-  and already carries its own notice, worded for a seed rather than a sync.
+  so. The non-Markdown payload is **partly** there: everything `machinery`
+  delivers — `core/scripts/*.mjs`, `retry-on-eagain.sh` and their tests — now
+  carries the notice too, placed after the shebang. Skill helper executables and
+  `guard.sh` do **not** yet, which is why the groups containing them stay
+  staged: each one's blocker requires the ownership comment before it can
+  travel. `core/.claude/settings.template.json` is a third case and already
+  carries its own notice, worded for a seed rather than a sync.
 - **Change the handbook, let the sync carry it.** One edit, every repo, each
   through review.
 - **A `staged` group does not sync.** It is in the payload with a named blocker

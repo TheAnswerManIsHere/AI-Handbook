@@ -273,10 +273,17 @@ One PR per group. It does three things:
    looks like an unmarked reference; mark it or say it is prose.* A miss there
    is a style slip, not a lost edge. That is the point — the checker stops
    needing to be perfect, which is what made it expensive.
-3. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
+3. **Audits the group's runtime imports by hand** — every `import(...)` and any
+   other specifier the checker cannot see (gap 2 below), confirming each
+   target's group is already `ready` or is being flipped in the same PR. This is
+   a checklist item rather than a convention because it is the one reference
+   class canonicalization cannot reach: an executable import is code, not prose,
+   so no marker can be written over it, and the checker will actively exempt it
+   if a `mentions` entry happens to match.
+4. **Clears the group's `blocker:` in the manifest and flips it to `ready`** —
    the check refuses `ready` while a required group is staged, so the
    dependency order enforces itself.
-4. **States what was inspected**, so the next group's PR is not re-deriving
+5. **States what was inspected**, so the next group's PR is not re-deriving
    the test.
 
 The blockers in `sync-manifest.yml` are the queue, and the manifest's own
@@ -308,17 +315,19 @@ contracts, skills and planning in behind them. That is fixed (issue #2), and
 "machinery first" is true again for the first time since it was written.
 
 1. **`machinery`** — depends on nothing.
-2. **`guard`** — requires `machinery`. `guard-decision.mjs` statically imports
-   `pr-ready.mjs` and `review-budget.mjs`; delivered without them the hook exits
-   `ERR_MODULE_NOT_FOUND` before evaluating any command, so it fails instead of
-   guarding.
-3. **`agent-definitions` + `contracts` + `engineering` + `memory` + `planning` +
+2. **`agent-definitions` + `contracts` + `engineering` + `memory` + `planning` +
    `skills`, in ONE PR.** Six groups, one dependency cycle, ~151 files. Not a
    sequence and not decomposable: each member carries mandatory references into
    the others, so any subset ships with a route into a group still staged. The
    check evaluates the manifest's final state, so flipping all six in one commit
    passes and any subset fails — the cycle behaving as a constraint rather than
    as a bug. **This is the large piece of work in the whole plan.**
+3. **`guard`** — requires `machinery` and `memory`. `guard-decision.mjs`
+   statically imports `pr-ready.mjs` and `review-budget.mjs`; delivered without
+   them the hook exits `ERR_MODULE_NOT_FOUND` before evaluating any command, so
+   it fails instead of guarding. It requires `memory` because its refusal
+   message ends by naming a memory entry to read — an instruction, not evidence
+   (issue #4). That dependency is what moved this step from second to third.
 4. **`agents-core`** — requires `contracts` and `planning`.
 5. **`receipt-scaffolding`** — requires `machinery`.
 6. **`claude-core`** — requires eight groups, which is everything except
@@ -855,16 +864,24 @@ instruction, and the loop ended on `571a4b0` — a head round 6 reviewed.
 inventing one, so the failure is a group flipping to `ready` while something it
 genuinely needs is still staged. That is stated plainly because it is the worse
 of the two directions, and because the unstaging PRs are the compensating
-control: each one reads every file in its group by hand, and step 2 above now
-converts references to a canonical form as it goes — which **dissolves gaps 1
-and 2 rather than working around them**, since a marked instruction needs no
-inference at all.
+control: each one reads every file in its group by hand, and the unstaging
+procedure above now converts references to a canonical form as it goes.
+
+**That canonicalization dissolves gap 1 and does NOT dissolve gap 2.** An
+earlier version of this paragraph claimed both, and it was wrong. Canonical
+markers are a convention for *prose instructions to an agent*; a runtime
+`import("../b/two.mjs")` is executable code, and no prose marker can be written
+over it. Gap 2 survives conversion untouched, which is why the unstaging
+procedure carries an explicit runtime-import audit as its own step. Recorded
+because this is the error that matters most in a gap list: a note claiming a
+gap is handled stops the next session looking.
 
 | # | Gap | Live on this corpus? |
 |---|---|---|
 | 1 | A reference to a **directory** produces no edge | No instance found |
 | 2 | A **dynamic** `import()` is invisible AND exemptible | **One instance**, same-group |
 | 3 | A **non-normalized** specifier may lose its edge | No instance; needs a second precondition |
+| 4 | An occurrence **edited in place** keeps its count, so an exemption survives its evidence changing meaning | Latent |
 
 ### Gap 1 — directory references
 
@@ -951,3 +968,22 @@ confidence.
 
 The strategic conclusion is above, in step 2 of the unstaging procedure:
 inference was the wrong foundation. The convention should have come first.
+
+### Gap 4 — a same-count replacement (round 7)
+
+The `count` axis notices occurrences being *added*. It does not notice one being
+**rewritten**. Change `Historically this lived in two.md` to `Read two.md before
+proceeding` and the count is identical, so the exemption written for evidence
+now silently covers an instruction, with the stale-evidence check satisfied
+because nothing about the from/ref/form/count tuple changed.
+
+Real, and the seventh face of a family already closed on six axes. Direction:
+**fails open.**
+
+Recorded rather than fixed, and the reason is a judgment rather than only a
+budget. The fix Codex proposed is "bind exemptions to stable context or an
+inline marker" — and the inline marker *is* the canonicalization direction. A
+seventh axis on the sidecar would be one more turn of a mechanism this repo has
+already turned six times, each turn making the sidecar heavier while leaving the
+cause in place: the check having to guess what a sentence means. This gap is
+best closed by deleting the mechanism that has it, not by extending it.

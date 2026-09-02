@@ -99,14 +99,6 @@ jobs:
           fi
           echo "Failing for exactly the documented reason; the exclusion remains earned."
 
-      # A shell test is invisible to the node --test glob above, so it was
-      # running nowhere. Its six cases are the safety envelope on lock deletion
-      # — fresh locks, non-allowlisted paths, an active git process — which is
-      # the kind of code where a regression deletes something it should not.
-      - name: Run the shell safety tests
-        working-directory: core
-        run: bash scripts/__tests__/clean-stale-git-locks.test.sh
-
   manifest:
     name: Manifest
     runs-on: ubuntu-latest

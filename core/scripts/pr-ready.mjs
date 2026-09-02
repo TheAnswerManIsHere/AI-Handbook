@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
  * Decide, from real GitHub data, whether a PR actually meets the merge bar --
  * and leave a receipt saying so.

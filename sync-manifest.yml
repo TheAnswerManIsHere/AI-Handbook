@@ -619,16 +619,17 @@ groups:
     status: staged
     requires:
       - machinery
-    mentions:
-      - group: memory
-        ref: core/.agents/memory/github-rest-api-blocked-from-bash.md
-        from: core/scripts/guard-decision.mjs
-        form: ".agents/memory/github-rest-api-blocked-from-bash.md"
-        count: 1
-        why: >
-          guard-decision.mjs's refusal message points a human at a memory
-          entry explaining why the transport is blocked. Advice in an error
-          string.
+      # guard-decision.mjs's refusal message ends "See
+      # .agents/memory/github-rest-api-blocked-from-bash.md." — a route handed to
+      # the reader at the moment they are blocked, which is this manifest's own
+      # definition of an INSTRUCTION. It was classified as evidence with the
+      # reason "advice in an error string", and advice that names a file to open
+      # is exactly what the instruction half of the test describes. The check
+      # DETECTED the reference correctly; the judgment applied to it was wrong.
+      # Left as a mention, the documented order unstaged guard before memory and
+      # would have shipped every consumer a refusal pointing at a file it does
+      # not have. (Codex, round 7 of PR #3; issue #4.)
+      - memory
     blocker: >
       guard.sh and guard-decision.mjs carry the repo identity used to verify
       that a merge or review action targets the repo the receipt was minted
@@ -831,32 +832,19 @@ groups:
       whose workflow exposes different jobs, no PR can ever mint a READY
       receipt. The readiness gate would be permanently closed rather than
       wrongly open, which is the safer direction but still unusable; required
-      checks come from each consumer's CI contract. (4) clean-stale-git-locks.sh
-      documents itself as automatic cleanup invoked by a watcher process, and
-      no watcher travels with it — nothing in the payload, the workflow, the
-      manifest or the enrollment steps invokes it. A consumer receives a helper
-      that never runs while its own documentation says the problem is handled,
-      which is worse than an absent script. Either the portable watcher ships
-      with it or a consumer-owned invoker becomes an enrollment requirement.
-      (5) The same script is silently disabled in a linked git worktree, a
-      layout the synced using-git-worktrees skill explicitly supports: `.git`
-      is a pointer file there, so the sweeper returns without inspecting either
-      the per-worktree or the common git directory and stale locks survive. A
-      distinct failure from (4) and needing a distinct fix — that one is
-      wiring, this one is the script being wrong about where locks live —
-      resolved by consulting `git rev-parse --git-dir`/`--git-common-dir`, or
-      by restricting the sweeper to the primary checkout and saying so.
-      (6) The same script can DELETE A LIVE LOCK. It documents support for
-      overlapping instances, and two of them can each classify one stale lock
-      as eligible and pass the process check; the first deletes it, git creates
-      a fresh lock at that path, and the second deletes the replacement —
-      corrupting an in-flight git operation in the consumer. This is the only
-      item in this blocker whose failure is destructive rather than absent or
-      inert, so it outranks the rest: (4) never runs, (5) runs and does
-      nothing, (6) runs and does harm. The fix is to serialize instances or to
-      re-verify at deletion time that the path still identifies the same stale
-      lock — a check-then-act gap, not a missing feature.
-      Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+      checks come from each consumer's CI contract. Items (4), (5) and (6) named
+      clean-stale-git-locks.sh: a script nothing invoked, a script silently
+      disabled in a linked worktree, and a script that could delete a LIVE lock.
+      All three are gone with the script itself. The Replit sandbox constraint it
+      worked around no longer exists — probed live, the agent can now delete under
+      .git/ — it had never once removed a real lock, and its check-then-act gap
+      made its one possible failure destructive. Removed from Overhype in PR #604
+      and from this payload here rather than hardened: a hardened design was
+      prototyped and works, but hardening a tool with no remaining job only buys
+      maintenance and a second repo to port it to. The reasoning and that design
+      are recorded in Overhype's .agents/memory/, so this is a deletion with a way
+      back rather than a loss.
+      The ownership comment this group owed is DONE: all 14 files it delivers now carry the notice docs/consuming-repos.md promises, placed after the shebang so nothing loses executability. Only the two configurability items above remain.
     paths:
       - from: core/scripts/
         to: scripts/
