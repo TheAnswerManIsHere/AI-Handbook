@@ -844,7 +844,7 @@ groups:
       maintenance and a second repo to port it to. The reasoning and that design
       are recorded in Overhype's .agents/memory/, so this is a deletion with a way
       back rather than a loss.
-      Separately, none of this group's files carry the ownership comment that docs/consuming-repos.md promises every synced file has — an agent editing one in a consumer would lose the work on the next sync with nothing warning it. A language-appropriate comment goes in before this group travels.
+      The ownership comment this group owed is DONE: all 14 files it delivers now carry the notice docs/consuming-repos.md promises, placed after the shebang so nothing loses executability. Only the two configurability items above remain.
     paths:
       - from: core/scripts/
         to: scripts/
