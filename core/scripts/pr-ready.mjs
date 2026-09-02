@@ -92,7 +92,63 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * a follow-on to the same finding, which is why the rule here is now the
  * *scheduling shape* rather than a list of examples.)
  */
-const REQUIRED_CHECKS = ["Classify changed paths", "Build", "Test", "Frontend Test", "E2E Smoke"];
+/**
+ * ...and WHERE that list comes from, which is the half that could not travel.
+ *
+ * These were five job names from one repository's `build.yml`. In any other
+ * consumer every one of them is absent, `checkCi` counts each absence as a
+ * failure, and NO pull request can ever mint a READY receipt -- the readiness
+ * gate permanently closed rather than wrongly open. Safer of the two
+ * directions, and still unusable. (Found in round 6 of AI-Handbook #3, on a
+ * real merge this gate refused.)
+ *
+ * Unlike the repository's identity, this cannot be derived. "Which jobs must
+ * be present before a receipt is honest" is a POLICY each consumer states
+ * about its own CI, not a property of the checkout that can be observed -- so
+ * it is declared, in a file the repository owns.
+ *
+ * FAILS CLOSED, deliberately and in every direction: absent file, unreadable
+ * file, malformed contents, or an empty list all refuse. An empty list is
+ * refused rather than treated as "nothing required" because that is exactly
+ * the fail-OPEN reading -- any green set would satisfy a gate that demands
+ * nothing, which is the failure this constant was introduced to prevent.
+ */
+export const REQUIRED_CHECKS_FILE = ".agents/required-checks.json";
+
+export function requiredChecks(root = join(HERE, "..")) {
+  const p = join(root, REQUIRED_CHECKS_FILE);
+  const howto =
+    `Create ${REQUIRED_CHECKS_FILE} naming the CI jobs that must be PRESENT before a readiness ` +
+    `receipt is honest -- every job that can appear late, not just the ones that must pass. ` +
+    `Shape: {"requiredChecks": ["Job Name", ...]}.`;
+  let raw;
+  try {
+    raw = readFileSync(p, "utf8");
+  } catch (err) {
+    throw fail(
+      err.code === "ENOENT"
+        ? `${REQUIRED_CHECKS_FILE} is missing, so this gate does not know which checks it is waiting for. ${howto}`
+        : `${REQUIRED_CHECKS_FILE} could not be read (${err.code}). ${howto}`,
+    );
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw fail(`${REQUIRED_CHECKS_FILE} is not valid JSON. ${howto}`);
+  }
+  const list = parsed?.requiredChecks;
+  if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n.trim() === "")) {
+    throw fail(`${REQUIRED_CHECKS_FILE} must carry "requiredChecks" as an array of non-empty job names. ${howto}`);
+  }
+  if (list.length === 0) {
+    throw fail(
+      `${REQUIRED_CHECKS_FILE} declares an empty "requiredChecks". A gate that requires nothing is ` +
+        `satisfied by any green set, which is the fail-open direction this list exists to prevent. ${howto}`,
+    );
+  }
+  return list;
+}
 
 /**
  * How stale the underlying evidence may be when a receipt is minted.
@@ -323,7 +379,7 @@ export function assertSnapshot(snapshot, prNumber) {
  * described the old one -- and the branch-tip comparison would then agree,
  * because it too is looking at the new commit. (Codex, #490.)
  */
-export function checkCi(checkRuns, headSha = null) {
+export function checkCi(checkRuns, headSha = null, required = requiredChecks()) {
   if (checkRuns.length === 0) {
     return { pass: false, detail: "no check runs reported for the head commit -- CI has not started" };
   }
@@ -348,15 +404,16 @@ export function checkCi(checkRuns, headSha = null) {
     }
   }
   const names = new Set(checkRuns.map((r) => r.name));
-  const missing = REQUIRED_CHECKS.filter((n) => !names.has(n));
+  const missing = required.filter((n) => !names.has(n));
   if (missing.length) {
     return {
       pass: false,
       detail:
         `${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} absent from the check runs. ` +
         `A nonempty set of passing checks is not the bar -- ${names.size} check(s) can all be green ` +
-        `while a mandatory job has not been created yet (Test depends on Classify changed paths, so it ` +
-        `appears late). Re-read get_check_runs once the workflow has fanned out.`,
+        `while a mandatory job has not been created yet -- a job gated on an earlier one appears late. ` +
+        `Re-read get_check_runs once the workflow has fanned out, or correct ${REQUIRED_CHECKS_FILE} if ` +
+        `the job was renamed.`,
     };
   }
 
@@ -1284,7 +1341,7 @@ function countDelivered(snapshot) {
 }
 
 /** The full verdict for a validated snapshot. */
-export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}) {
+export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, required = requiredChecks()) {
   const headSha = snapshot.pr.head.sha;
   const directCodex = checkCodex(snapshot.issueComments, snapshot.reviews, headSha);
   // A closed review-loop adjudication (see checkAdjudicatedCodex) is a
@@ -1310,7 +1367,7 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}) {
         ? { ...directCodex, detail: `${directCodex.detail} | adjudication fallback also failed: ${adjudicated.detail}` }
         : directCodex;
   const items = {
-    ci: checkCi(snapshot.checkRuns, headSha),
+    ci: checkCi(snapshot.checkRuns, headSha, required),
     codex,
     threads: checkThreads(snapshot.reviewThreads),
     capture: checkCapture(snapshot.capturedAt, codex.acceptedAt, now),

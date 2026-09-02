@@ -11,6 +11,7 @@ import {
   checkCapture,
   codeReviewOutage,
   checkCi,
+  requiredChecks,
   checkCodex,
   checkAdjudicatedCodex,
   checkRail,
@@ -40,42 +41,48 @@ const run = (name, status, conclusion, head_sha = HEAD, started_at = STARTED) =>
  * required job has not been created yet. (Codex, #490.)
  */
 const REQUIRED = ["Classify changed paths", "Build", "Test", "Frontend Test", "E2E Smoke"];
+
+// checkCi now takes its required list as an argument -- the payload cannot know
+// one repo's job names. Every call here supplies REQUIRED so these tests keep
+// asserting the same behaviour without depending on a config file.
+const checkCiWith = (runs, headSha = null) => checkCi(runs, headSha, REQUIRED);
+const evaluateWith = (snap, now, opts = {}) => evaluate(snap, now, opts, REQUIRED);
 const allRequired = (status = "completed", conclusion = "success", head_sha = HEAD) =>
   REQUIRED.map((n) => run(n, status, conclusion, head_sha));
 
 test("CI: all completed and successful passes", () => {
-  assert.equal(checkCi(allRequired()).pass, true);
+  assert.equal(checkCiWith(allRequired()).pass, true);
 });
 
 test("CI: skipped and neutral are passes, not failures", () => {
   // This repo's CI classifier skips whole jobs for inert paths by design.
   // Treating a skip as a failure would make every docs-only PR un-mergeable.
-  const res = checkCi([...allRequired("completed", "skipped"), run("e2e", "completed", "neutral")]);
+  const res = checkCiWith([...allRequired("completed", "skipped"), run("e2e", "completed", "neutral")]);
   assert.equal(res.pass, true);
 });
 
 test("CI: a queued or in-progress run is not green", () => {
-  const res = checkCi([...allRequired(), run("e2e", "in_progress", null)]);
+  const res = checkCiWith([...allRequired(), run("e2e", "in_progress", null)]);
   assert.equal(res.pass, false);
   assert.match(res.detail, /still running/);
 });
 
 test("CI: a failure is named, not just counted", () => {
-  const res = checkCi([...allRequired(), run("e2e", "completed", "failure")]);
+  const res = checkCiWith([...allRequired(), run("e2e", "completed", "failure")]);
   assert.equal(res.pass, false);
   assert.match(res.detail, /e2e \(failure\)/);
 });
 
 test("CI: cancelled and timed_out are failures, not neutral outcomes", () => {
-  assert.equal(checkCi([...allRequired(), run("e2e", "completed", "cancelled")]).pass, false);
-  assert.equal(checkCi([...allRequired(), run("e2e", "completed", "timed_out")]).pass, false);
+  assert.equal(checkCiWith([...allRequired(), run("e2e", "completed", "cancelled")]).pass, false);
+  assert.equal(checkCiWith([...allRequired(), run("e2e", "completed", "timed_out")]).pass, false);
 });
 
 test("CI: a green set missing a MANDATORY job is not green", () => {
   // The bar is not "some checks exist and none failed". A snapshot taken after
   // Classify succeeds but before Test is created reports exactly that, and the
   // receipt it mints stays usable for an hour. (Codex, #490.)
-  const res = checkCi([run("Classify changed paths", "completed", "success"), run("Build", "completed", "success")], HEAD);
+  const res = checkCiWith([run("Classify changed paths", "completed", "success"), run("Build", "completed", "success")], HEAD);
   assert.equal(res.pass, false);
   assert.match(res.detail, /absent from the check runs/);
 });
@@ -87,7 +94,7 @@ test("CI: every classifier-dependent job is required, not just Test", () => {
   // that could still turn up — and fail — after a receipt was minted.
   // (Codex, #490.)
   for (const missing of ["Frontend Test", "E2E Smoke"]) {
-    const res = checkCi(allRequired().filter((r) => r.name !== missing), HEAD);
+    const res = checkCiWith(allRequired().filter((r) => r.name !== missing), HEAD);
     assert.equal(res.pass, false, `${missing} must be required`);
     assert.match(res.detail, new RegExp(`${missing} is absent`));
   }
@@ -95,7 +102,7 @@ test("CI: every classifier-dependent job is required, not just Test", () => {
 
 test("CI: no runs at all is not green -- it is CI that has not started", () => {
   // An empty array would otherwise satisfy `every()` and read as a pass.
-  assert.equal(checkCi([]).pass, false);
+  assert.equal(checkCiWith([]).pass, false);
 });
 
 test("CI: green checks from ANOTHER commit do not count", () => {
@@ -103,19 +110,19 @@ test("CI: green checks from ANOTHER commit do not count", () => {
   // a push with the PR metadata read after it would bind a receipt to the new
   // commit while its CI item described the old one -- and the branch-tip
   // comparison would agree, because it too sees the new commit. (Codex, #490.)
-  const res = checkCi([run("build", "completed", "success", "b".repeat(40))], HEAD);
+  const res = checkCiWith([run("build", "completed", "success", "b".repeat(40))], HEAD);
   assert.equal(res.pass, false);
   assert.match(res.detail, /belong to another commit/);
 });
 
 test("CI: a run with no head_sha cannot be tied to the head", () => {
-  const res = checkCi([{ name: "build", status: "completed", conclusion: "success", started_at: STARTED }], HEAD);
+  const res = checkCiWith([{ name: "build", status: "completed", conclusion: "success", started_at: STARTED }], HEAD);
   assert.equal(res.pass, false);
   assert.match(res.detail, /no head_sha/);
 });
 
 test("CI: runs on the head commit pass the binding", () => {
-  assert.equal(checkCi(allRequired(), HEAD).pass, true);
+  assert.equal(checkCiWith(allRequired(), HEAD).pass, true);
 });
 
 // ---------------------------------------------------------------------------
@@ -380,7 +387,7 @@ test("outage: the receipt verdict names it, not a generic NOT READY", () => {
     comment("me", "@codex review", "2026-08-17T04:00:00Z"),
     comment(CODEX_BOT, "You have reached your Codex usage limits for code reviews.", "2026-08-17T04:01:00Z"),
   ];
-  assert.equal(evaluate(snap, NOW).verdict, "BLOCKED -- CODEX UNAVAILABLE");
+  assert.equal(evaluateWith(snap, NOW).verdict, "BLOCKED -- CODEX UNAVAILABLE");
 });
 
 test("Codex: the bot's own comments never count as review requests", () => {
@@ -436,7 +443,7 @@ const goodSnapshot = () => ({
 test("snapshot: a well-formed snapshot validates and evaluates READY", () => {
   const snap = goodSnapshot();
   assertSnapshot(snap, 500);
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "READY");
   assert.equal(receipt.headSha, HEAD);
   assert.equal(receipt.branch, "claude/x");
@@ -554,7 +561,7 @@ test("capture ordering: threads read BEFORE the accepted response fail", () => {
   // existed. (Codex, #490.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = "2026-08-17T04:09:00Z"; // before the 04:10 pass
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.equal(receipt.items.threads.pass, true);
   assert.match(receipt.items.capture.detail, /read before the Codex response/);
@@ -567,7 +574,7 @@ test("capture ordering: a read inside the response's reported second is stale", 
   // the end of the reported second. (Codex, #490 round 5.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = "2026-08-17T04:10:00.500Z";
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /read before the Codex response/);
 });
@@ -579,7 +586,7 @@ test("capture ordering: a SAME-SECOND read is stale, not fresh", () => {
   // reason. (Codex, #490.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = "2026-08-17T04:10:00Z"; // exactly the pass time
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /read before the Codex response/);
 });
@@ -590,7 +597,7 @@ test("capture recency: a saved snapshot cannot mint a fresh receipt", () => {
   // for an hour as long as the branch tip had not moved -- past a reopened
   // thread or a re-run that went red. (Codex, #490.)
   const snap = goodSnapshot();
-  const receipt = evaluate(snap, NOW + 3 * 60 * 60 * 1000);
+  const receipt = evaluateWith(snap, NOW + 3 * 60 * 60 * 1000);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /outside the 60-minute window/);
 });
@@ -602,7 +609,7 @@ test("capture recency: ONE future timestamp is enough to reject", () => {
   // while the read had actually happened first. (Codex, #490 round 3.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = new Date(NOW + 60 * 60 * 1000).toISOString();
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /is in the future/);
 });
@@ -614,7 +621,7 @@ test("capture ordering: the REQUEST SET must also be read after the response", (
   // (Codex, #490 round 3.)
   const snap = goodSnapshot();
   snap.capturedAt.issueComments = "2026-08-17T04:09:00Z"; // before the 04:10 pass
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /issueComments/);
 });
@@ -639,7 +646,7 @@ test("outage: a limit on a LATER round is still a STOP", () => {
     comment("me", "@codex review\n\nRound 2.", "2026-08-17T04:20:00Z"),
     comment(CODEX_BOT, "You have reached your Codex usage limits for code reviews.", "2026-08-17T04:21:00Z"),
   ];
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "BLOCKED -- CODEX UNAVAILABLE");
   assert.match(receipt.items.codex.detail, /^STOP --/);
 });
@@ -672,7 +679,7 @@ test("Codex: an exact timestamp tie reads as unanswered, not answered", () => {
 test("evaluate: one failing item is enough for NOT READY", () => {
   const snap = goodSnapshot();
   snap.reviewThreads = [{ id: "t1", isResolved: false }];
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.equal(receipt.items.ci.pass, true);
   assert.equal(receipt.items.threads.pass, false);
@@ -1383,7 +1390,7 @@ test("adjudication: a request landing in the SAME SECOND as the record's evidenc
 });
 
 // ---------------------------------------------------------------------------
-// evaluate()-level integration.
+// evaluateWith()-level integration.
 // ---------------------------------------------------------------------------
 
 test("evaluate: a failed live Codex check falls back to a qualifying adjudication and reaches READY", () => {
@@ -1400,7 +1407,7 @@ test("evaluate: a failed live Codex check falls back to a qualifying adjudicatio
   // enforces against the adjudication's own acceptedAt.
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, true);
   assert.match(receipt.items.codex.detail, /adjudicated ship-with-gaps-recorded/);
   assert.equal(receipt.items.capture.pass, true);
@@ -1420,7 +1427,7 @@ test("evaluate: reviewThreads captured BEFORE the adjudication's record fails ca
   // it cannot be shown to reflect the loop's final state.
   snap.capturedAt = { checkRuns: LATER, reviewThreads: "2026-08-17T04:00:00Z", issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, true);
   assert.equal(receipt.items.capture.pass, false);
   assert.equal(receipt.verdict, "NOT READY");
@@ -1433,7 +1440,7 @@ test("evaluate: a failed live Codex check AND a non-qualifying adjudication stay
   snap.issueComments = [];
   snap.reviews = [];
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, false);
   assert.match(receipt.items.codex.detail, /review loop was never started/);
   assert.match(receipt.items.codex.detail, /adjudication fallback also failed/);
@@ -1441,11 +1448,11 @@ test("evaluate: a failed live Codex check AND a non-qualifying adjudication stay
 });
 
 test("evaluate: a PASSING live Codex check never even looks for an adjudication receipt", () => {
-  // Confirms the fallback is a fallback -- a normal green PR's evaluate()
+  // Confirms the fallback is a fallback -- a normal green PR's evaluateWith()
   // must not depend on .agents/receipts existing at all, let alone on git
   // ancestry succeeding for an unrelated cwd.
   const snap = goodSnapshot();
-  const receipt = evaluate(snap, NOW, { cwd: "/nonexistent" });
+  const receipt = evaluateWith(snap, NOW, { cwd: "/nonexistent" });
   assert.equal(receipt.items.codex.pass, true);
   assert.equal(receipt.verdict, "READY");
 });
@@ -1464,7 +1471,7 @@ test("evaluate: a live Codex outage is never overridden by a qualifying adjudica
   snap.reviews = [];
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, false);
   assert.ok(receipt.items.codex.outage, "directCodex must report an outage");
   assert.equal(receipt.verdict, "BLOCKED -- CODEX UNAVAILABLE");
@@ -1482,7 +1489,7 @@ test("evaluate: a fresh @codex review request in the snapshot after adjudication
   snap.reviews = [];
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, false);
   assert.match(receipt.items.codex.detail, /a fresh review may have been asked for since the loop closed/);
   assert.equal(receipt.verdict, "NOT READY");
@@ -1872,4 +1879,51 @@ test("adjudication: the internal tier gets the merge-gate fallback like every ti
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, true);
   assert.match(res.detail, /bookkeeping-only/);
+});
+
+// ---------------------------------------------------------------------------
+// Required checks: declared per consumer, and fail-closed in every direction
+// ---------------------------------------------------------------------------
+
+const withConfig = (contents) => {
+  const root = mkdtempSync(join(tmpdir(), "required-checks-"));
+  mkdirSync(join(root, ".agents"), { recursive: true });
+  if (contents !== null) writeFileSync(join(root, ".agents/required-checks.json"), contents);
+  return root;
+};
+
+test("required checks come from the consumer's own declaration", () => {
+  const root = withConfig(JSON.stringify({ requiredChecks: ["Manifest", "Test"] }));
+  assert.deepEqual(requiredChecks(root), ["Manifest", "Test"]);
+});
+
+test("REFUSES when the declaration is absent -- the gate must know what it waits for", () => {
+  // This is the defect that made the payload unusable elsewhere: five job
+  // names from one repo's CI meant no PR in any other repo could ever mint a
+  // receipt. Absent config now says so instead of silently requiring nothing.
+  const root = withConfig(null);
+  assert.throws(() => requiredChecks(root), /is missing, so this gate does not know which checks/);
+});
+
+test("REFUSES an empty list -- a gate that requires nothing is satisfied by anything", () => {
+  // The fail-OPEN reading, and the one this whole constant exists to prevent.
+  const root = withConfig(JSON.stringify({ requiredChecks: [] }));
+  assert.throws(() => requiredChecks(root), /satisfied by any green set/);
+});
+
+test("REFUSES a malformed declaration rather than reading past it", () => {
+  assert.throws(() => requiredChecks(withConfig("{ not json")), /not valid JSON/);
+  assert.throws(() => requiredChecks(withConfig(JSON.stringify({}))), /array of non-empty job names/);
+  assert.throws(() => requiredChecks(withConfig(JSON.stringify({ requiredChecks: "Test" }))), /array of non-empty/);
+  assert.throws(() => requiredChecks(withConfig(JSON.stringify({ requiredChecks: ["ok", ""] }))), /array of non-empty/);
+});
+
+test("a declared job that never appears keeps the gate closed", () => {
+  // The behaviour the hardcoded list protected, now protecting whatever the
+  // consumer declares instead of one repo's five job names.
+  const declared = ["Manifest", "Test"];
+  const present = [run("Manifest", "completed", "success", HEAD)];
+  const res = checkCi(present, HEAD, declared);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /Test is absent/);
 });

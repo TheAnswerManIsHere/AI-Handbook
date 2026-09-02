@@ -733,8 +733,8 @@ const reviewPayload = (body, overrides = {}) =>
   JSON.stringify({
     tool_name: REVIEW_TOOL,
     tool_input: {
-      owner: "TheAnswerManIsHere",
-      repo: "Overhypeme",
+      owner: TEST_OWNER,
+      repo: TEST_REPO,
       issue_number: 991,
       body,
       ...overrides,
@@ -742,10 +742,18 @@ const reviewPayload = (body, overrides = {}) =>
   });
 
 /** An in-memory receipt store, so these tests never touch .agents/receipts. */
+// The payload no longer hardcodes one repository's identity, so the fake io
+// supplies it -- a test must not depend on which repo it runs inside.
+const TEST_OWNER = "TestOwner";
+const TEST_REPO = "TestRepo";
+const TEST_SLUG = `${TEST_OWNER}/${TEST_REPO}`;
+
 const memoryIo = (files = {}) => {
   const store = { ...files };
   return {
     store,
+    root: `/test/${Math.random().toString(36).slice(2)}`,
+    originSlug: () => TEST_SLUG,
     now: () => NOW_ISO,
     read: (rel) => (rel in store ? store[rel] : null),
     exists: (rel) => rel in store,
@@ -789,7 +797,7 @@ const budgetFile = (pr, tier, cap) =>
 const checkFile = (pr, spent) =>
   JSON.stringify({
     pr,
-    repo: "TheAnswerManIsHere/Overhypeme",
+    repo: TEST_SLUG,
     capturedAt: "2026-08-17T11:59:00.000Z",
     delivered: spent,
     pending: 0,

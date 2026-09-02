@@ -799,52 +799,46 @@ groups:
           A third script pointing a human at the same memory entry. Advice in
           a comment.
     blocker: >
-      Two couplings, both needing the same reviewed change. (1) review-budget.mjs
-      hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
-      and review-loop-record.mjs use them to verify a snapshot came from the
-      expected repo. (2) PARTLY resolved by issue #2 — the two corpus-wide gates
+      BOTH configurability couplings are now RESOLVED; what remains is the
+      per-group audit, not a coupling. (1) review-budget.mjs hardcoded
+      REPO_OWNER/REPO_NAME, used across review-budget.mjs and
+      review-loop-record.mjs to verify a snapshot came from the expected repo.
+      The identity is now DERIVED from `git ls-remote --get-url origin` and
+      threaded from the injected io, with no config file and deliberately no
+      environment override: the comparison exists so a receipt minted elsewhere
+      cannot be laundered into this repo's gate, and that only works if the
+      value compared against is something neither the snapshot nor the process
+      that benefits from spoofing it can set. Unresolvable identity throws.
+      (2) PARTLY resolved by issue #2 — the two corpus-wide gates
       (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
       with `claude-core`, because they were never standalone machinery: each
       scans the ASSEMBLED contract, so filing them here made the group that
-      everything waits on depend on contracts, skills and planning. What was
-      recorded as a portability defect in the scripts was the scripts being in
-      the wrong group — but only partly, and the distinction matters: the
-      GROUPING is fixed, the INVENTORIES are not. Neither gate scans
-      .agents/core/, which is now a condition on the `claude-core` blocker
-      instead. Retained for the record: check-contract-consistency.mjs assumes CLAUDE.md sits at
-      the root of the corpus it scans — true in a consumer, false once the
-      contract is split into a vendored core plus an overlay; its own test fails
-      in this repo for exactly that reason, which is how the assumption was
-      found. The same assumption is in check-docs-accuracy.mjs and is worse
-      there, because it fails in the CONSUMER rather than here: its inventory
-      omits .agents/core/, so a broken relative link in the vendored
-      claude-core.md or agents-core.md — the two files every consumer's overlay
-      routes through — passes the docs-accuracy gate reporting zero files
-      checked. Both scripts need their corpus defined in terms of the
-      core-plus-overlay layout rather than a single root, which is one change
-      and is why this stays one item. Making repo identity and contract-surface paths configurable is a
-      security-relevant change to the receipt and guard machinery, and gets its
-      own reviewed PR rather than riding along with a file move. Until then
-      these scripts are correct for Overhype's layout only. (3) A third coupling,
-      found in round 6 and distinct from the owner/name constants in (1):
-      pr-ready.mjs hardcodes REQUIRED_CHECKS to five job names from one repo's
-      CI, and checkCi counts every absent name as a failure — so in a consumer
-      whose workflow exposes different jobs, no PR can ever mint a READY
-      receipt. The readiness gate would be permanently closed rather than
-      wrongly open, which is the safer direction but still unusable; required
-      checks come from each consumer's CI contract. Items (4), (5) and (6) named
+      everything waits on depend on contracts, skills and planning. The GROUPING
+      is fixed; the INVENTORIES are not, and that half is now a condition on the
+      `claude-core` blocker rather than this one — neither gate scans
+      .agents/core/, so a broken relative link in the vendored claude-core.md or
+      agents-core.md passes the docs-accuracy gate reporting zero files checked.
+      (3) pr-ready.mjs hardcoded REQUIRED_CHECKS to five job names from one
+      repo's CI, so in any other consumer no PR could ever mint a READY receipt.
+      Now DECLARED per consumer in .agents/required-checks.json, because unlike
+      identity this cannot be derived: "which jobs must be present before a
+      receipt is honest" is a policy about a repo's own CI, not an observable
+      property of the checkout. Fails closed in every direction — absent,
+      unreadable, malformed, or empty all refuse — because a gate that requires
+      nothing is satisfied by any green set, which is the fail-OPEN reading this
+      list exists to prevent. Items (4), (5) and (6) named
       clean-stale-git-locks.sh: a script nothing invoked, a script silently
       disabled in a linked worktree, and a script that could delete a LIVE lock.
       All three are gone with the script itself. The Replit sandbox constraint it
       worked around no longer exists — probed live, the agent can now delete under
       .git/ — it had never once removed a real lock, and its check-then-act gap
       made its one possible failure destructive. Removed from Overhype in PR #604
-      and from this payload here rather than hardened: a hardened design was
+      and from this payload rather than hardened: a hardened design was
       prototyped and works, but hardening a tool with no remaining job only buys
       maintenance and a second repo to port it to. The reasoning and that design
       are recorded in Overhype's .agents/memory/, so this is a deletion with a way
       back rather than a loss.
-      The ownership comment this group owed is DONE: all 14 files it delivers now carry the notice docs/consuming-repos.md promises, placed after the shebang so nothing loses executability. Only the two configurability items above remain.
+      The ownership comment this group owed is DONE: all 14 files it delivers now carry the notice docs/consuming-repos.md promises, placed after the shebang so nothing loses executability. WHAT STILL BLOCKS THE FLIP is no longer a coupling but the per-group unstaging audit itself — the instruction-vs-evidence test applied file by file, reference canonicalization, and the runtime-import audit, per docs/porting-notes.md. Those are a reading of all 14 files, not a code change, and they are this group's next and last step.
     paths:
       - from: core/scripts/
         to: scripts/

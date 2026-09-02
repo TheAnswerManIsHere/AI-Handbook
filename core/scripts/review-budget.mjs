@@ -129,8 +129,69 @@ export const RECEIPTS_DIR = ".agents/receipts";
 // posture as RECEIPTS_DIR above: a stable, well-known repo-relative path, not
 // a value expected to drift.
 const ADJUDICATIONS_DIR = ".agents/adjudications";
-export const REPO_OWNER = "TheAnswerManIsHere";
-export const REPO_NAME = "Overhypeme";
+/**
+ * WHICH REPOSITORY THIS IS -- derived, never declared.
+ *
+ * These were hardcoded to one repo's owner and name, which is why this file
+ * could not travel: every check below compares a snapshot's or receipt's
+ * self-declared `repo` against them, so in any other repository the
+ * comparison is against the wrong constant and the whole binding is theatre.
+ *
+ * WHY DERIVED RATHER THAN CONFIGURED. The comparison exists so that a
+ * receipt minted elsewhere cannot be laundered into this repo's merge gate.
+ * That only works if the value it compares against is something the snapshot
+ * cannot influence. A config file could be edited to match a foreign
+ * receipt; an environment variable is worse, because the process that would
+ * benefit from spoofing it is the same process that sets it -- and this gate
+ * exists to constrain ME. `origin` cannot drift from reality: it IS the
+ * repository this checkout pushes to, and `pr-ready.mjs` already treats it as
+ * authoritative when it resolves branch tips and refuses fork heads. So the
+ * identity is read from git, and there is deliberately no override.
+ *
+ * FAILS CLOSED. Unresolvable identity throws rather than defaulting, so a
+ * checkout with no origin refuses to mint or validate receipts instead of
+ * validating them against a guess.
+ */
+export function slugFromRemoteUrl(url) {
+  // Split at the host boundary -- `/` for URL forms, `:` for the scp-like
+  // `git@host:owner/repo` -- rather than enumerating schemes. https, ssh,
+  // git and the scp form all reduce to "whatever follows the host".
+  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/]+@)?[^/:]+[/:](.+)$/i.exec(String(url ?? "").trim());
+  if (!m) return null;
+  const parts = m[1].replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+  // The trailing two segments are owner and name. Taking the LAST two rather
+  // than the first two keeps nested hosting paths working; on GitHub, which
+  // is what the API comparison is against, there are exactly two.
+  if (parts.length < 2) return null;
+  return parts.slice(-2).join("/");
+}
+
+// Memoized per root: the identity of a checkout cannot change inside one
+// process, and `targetsThisRepo` runs on the guard's hot path -- every tool
+// call -- so this must not shell out each time.
+const SLUG_CACHE = new Map();
+
+export function repoSlug(io = nodeIo()) {
+  const key = io.root ?? "";
+  if (!SLUG_CACHE.has(key)) {
+    const slug = io.originSlug();
+    if (!slug) {
+      throw new Error(
+        "cannot determine this repository's identity: `git ls-remote --get-url origin` did not " +
+          "resolve to an owner/name. Every receipt and snapshot check binds to that identity, so " +
+          "refusing here is the safe direction -- a guessed identity would validate a receipt " +
+          "minted somewhere else. Add an `origin` remote pointing at this repository.",
+      );
+    }
+    SLUG_CACHE.set(key, slug);
+  }
+  return SLUG_CACHE.get(key);
+}
+
+/** Test seam: forget any resolved identity. Never called in production. */
+export function __resetRepoSlugCache() {
+  SLUG_CACHE.clear();
+}
 
 /**
  * How old a round-check receipt's evidence may be. Same figure as
@@ -380,10 +441,13 @@ export function prNumberFrom(toolInput) {
 }
 
 /** True when the call targets this repo. Anything else is not our loop. */
-export function targetsThisRepo(toolInput) {
+export function targetsThisRepo(toolInput, slug = repoSlug()) {
   const owner = String(toolInput?.owner ?? "").toLowerCase();
   const repo = String(toolInput?.repo ?? "").toLowerCase();
-  return owner === REPO_OWNER.toLowerCase() && repo === REPO_NAME.toLowerCase();
+  // Case-insensitive on BOTH sides: a remote URL commonly spells the name in
+  // a different case than the GitHub API returns (this repo's origin says
+  // `ai-handbook`, the API says `AI-Handbook`), and they are the same repo.
+  return `${owner}/${repo}` === slug.toLowerCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +515,31 @@ function extensionSequence(pr, name) {
 export function nodeIo(root = REPO_ROOT) {
   const abs = (rel) => path.join(root, rel);
   return {
+    root,
     now: () => new Date().toISOString(),
+    /**
+     * This repository's `owner/name`, read from `origin`, or null when it
+     * cannot be determined. `ls-remote --get-url` rather than `remote get-url`
+     * so `insteadOf` rewrites are honoured -- the same resolution `durableRef`
+     * below already relies on, and for the same reason: the URL git would
+     * really use is the only one that says anything true.
+     */
+    originSlug() {
+      let url;
+      try {
+        url = execFileSync("git", ["ls-remote", "--get-url", "origin"], {
+          cwd: root,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }).trim();
+      } catch {
+        return null; // no git, or no origin -- the caller refuses
+      }
+      // `--get-url` echoes the name back when the remote is unknown, so an
+      // unconfigured `origin` returns the literal string "origin".
+      if (!url || url === "origin") return null;
+      return slugFromRemoteUrl(url);
+    },
     /**
      * `null` means the file is ABSENT. Anything else -- a permissions error, a
      * transient I/O failure -- throws, and `readJson` turns that into a
@@ -1162,10 +1250,10 @@ export function countRounds({ reviewerPasses, issueComments }) {
 }
 
 /** What the round-check CLI writes and the guard demands. */
-export function validateCheckReceipt(pr, receipt, now) {
+export function validateCheckReceipt(pr, receipt, now, slug = repoSlug()) {
   if (!receipt || typeof receipt !== "object") return "round-check receipt is not an object";
   if (receipt.pr !== pr) return `round-check receipt names PR ${receipt.pr}, not ${pr}`;
-  const target = `${REPO_OWNER}/${REPO_NAME}`;
+  const target = slug;
   if (typeof receipt.repo !== "string" || receipt.repo.toLowerCase() !== target.toLowerCase()) {
     return `round-check receipt was minted for ${receipt.repo ?? "an unrecorded repository"}, not ${target}`;
   }
@@ -1207,10 +1295,10 @@ export function validateCheckReceipt(pr, receipt, now) {
 // The decision
 // ---------------------------------------------------------------------------
 
-const CHECK_HOWTO = (pr) =>
+const CHECK_HOWTO = (pr, slug = repoSlug()) =>
   `Capture pull_request_read (get, get_reviews, get_comments) into a snapshot and run ` +
   `\`node scripts/review-budget.mjs check --pr ${pr} --mcp-snapshot <file>\`. The snapshot must carry ` +
-  `repo: "${REPO_OWNER}/${REPO_NAME}", pr.number, a capturedAt timestamp from when GitHub was actually ` +
+  `repo: "${slug}", pr.number, a capturedAt timestamp from when GitHub was actually ` +
   `read, complete.reviews/complete.issueComments attestations, a body on every issue comment and on every ` +
   `reviewer-authored review, and must be re-captured rather than reused once it is an hour old.`;
 
@@ -1320,9 +1408,12 @@ function refusal(pr, state, spent, tiedCount = false) {
  * one post.
  */
 export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now = Date.now()) {
+  // From the INJECTED io, not a default one: a caller that scopes this
+  // judgement to a particular checkout must get that checkout's identity.
+  const slug = repoSlug(io);
   if (!REVIEW_REQUEST_TOOLS.has(toolName)) return { blocked: false, reason: null };
   if (!mentionsReviewRequest(toolInput?.body)) return { blocked: false, reason: null };
-  if (!targetsThisRepo(toolInput)) return { blocked: false, reason: null };
+  if (!targetsThisRepo(toolInput, slug)) return { blocked: false, reason: null };
 
   // Refuse the trigger on any surface the count cannot see. This is what makes
   // `issueComments` a complete pending surface -- see REVIEW_REQUEST_SURFACE.
@@ -1382,18 +1473,18 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
   if (check.state === "absent") {
     return {
       blocked: true,
-      reason: `no round-check receipt for PR #${pr} -- the round count is evidence, not recollection. ${CHECK_HOWTO(pr)}`,
+      reason: `no round-check receipt for PR #${pr} -- the round count is evidence, not recollection. ${CHECK_HOWTO(pr, slug)}`,
     };
   }
   if (check.state !== "ok") {
     return {
       blocked: true,
-      reason: `round-check receipt for PR #${pr} could not be read (${check.state}: ${check.error}). ${CHECK_HOWTO(pr)}`,
+      reason: `round-check receipt for PR #${pr} could not be read (${check.state}: ${check.error}). ${CHECK_HOWTO(pr, slug)}`,
     };
   }
-  const checkError = validateCheckReceipt(pr, check.value, now);
+  const checkError = validateCheckReceipt(pr, check.value, now, slug);
   if (checkError) {
-    return { blocked: true, reason: `${checkError}. ${CHECK_HOWTO(pr)}` };
+    return { blocked: true, reason: `${checkError}. ${CHECK_HOWTO(pr, slug)}` };
   }
 
   // A RETRY OF A STALLED ROUND IS NOT A NEW ROUND, and refusing it was a real
@@ -1455,7 +1546,7 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
         blocked: true,
         reason:
           `the round-check receipt for PR #${pr} has already been claimed by another post in flight -- one ` +
-          `check authorizes one request. ${CHECK_HOWTO(pr)}`,
+          `check authorizes one request. ${CHECK_HOWTO(pr, slug)}`,
       };
     }
     // Consume the receipt: one check, one post. Written before the post goes
@@ -1471,7 +1562,7 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
       reason:
         `the round-check receipt for PR #${pr} could not be claimed or consumed (${err.message}), so this ` +
         `post cannot be recorded as spending its round. Refusing rather than proceeding on an unrecorded ` +
-        `round. ${CHECK_HOWTO(pr)}`,
+        `round. ${CHECK_HOWTO(pr, slug)}`,
     };
   }
   return { blocked: false, reason: null };
@@ -1566,7 +1657,7 @@ const hasStableId = (record) =>
   (typeof record?.id === "number" && Number.isFinite(record.id)) ||
   (typeof record?.id === "string" && record.id.length > 0);
 
-export function assertCountingSnapshot(pr, snapshot, now = Date.now()) {
+export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug = repoSlug()) {
   if (!snapshot || typeof snapshot !== "object") throw new Error("snapshot is not an object");
   if (snapshot.pr?.number !== pr) {
     throw new Error(`snapshot describes PR ${snapshot.pr?.number}, but --pr says ${pr}`);
@@ -1577,7 +1668,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now()) {
   // while `check` stamped the receipt with THIS repo's name regardless of
   // where the data came from. (Codex, #503 round 4. `pr-ready.mjs` already
   // binds its readiness snapshot this way; this path did not.)
-  const target = `${REPO_OWNER}/${REPO_NAME}`;
+  const target = slug;
   if (typeof snapshot.repo !== "string" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {
     throw new Error(
       `snapshot must name its source repository as "repo": "${target}" -- it says ` +
@@ -1659,10 +1750,14 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now()) {
 }
 
 async function check(flags, io) {
+  // Resolved once, from THIS checkout's origin, and threaded into both the
+  // snapshot assertion and the minted receipt so they cannot disagree about
+  // which repository the evidence describes.
+  const slug = repoSlug(io);
   const pr = requirePr(flags);
-  if (!flags["mcp-snapshot"]) throw new Error(`--mcp-snapshot <file> is required. ${CHECK_HOWTO(pr)}`);
+  if (!flags["mcp-snapshot"]) throw new Error(`--mcp-snapshot <file> is required. ${CHECK_HOWTO(pr, slug)}`);
   const snapshot = JSON.parse(fs.readFileSync(flags["mcp-snapshot"], "utf8"));
-  assertCountingSnapshot(pr, snapshot, Date.parse(io.now()));
+  assertCountingSnapshot(pr, snapshot, Date.parse(io.now()), slug);
 
   const state = loadLoop(pr, io);
   if (state.problem === "no-budget") throw new Error(`no budget declared for PR #${pr} -- declare first`);
@@ -1701,7 +1796,7 @@ async function check(flags, io) {
 
   const receipt = {
     pr,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: slug,
     // The snapshot's own capture time, NOT `io.now()`. See the freshness note
     // in assertCountingSnapshot: stamping the command time lets a stale
     // snapshot mint an indefinitely-renewable receipt.

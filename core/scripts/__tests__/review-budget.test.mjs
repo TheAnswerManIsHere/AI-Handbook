@@ -24,8 +24,9 @@ import {
   assertCountingSnapshot,
   judgeReviewRequest,
   MAX_CHECK_AGE_MS,
-  REPO_OWNER,
-  REPO_NAME,
+  repoSlug,
+  slugFromRemoteUrl,
+  __resetRepoSlugCache,
 } from "../review-budget.mjs";
 
 // ---------------------------------------------------------------------------
@@ -36,10 +37,19 @@ import {
 
 const NOW = Date.parse("2026-08-17T12:00:00.000Z");
 
-export function fakeIo(files = {}) {
+export const TEST_SLUG = "TestOwner/TestRepo";
+export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
+
+export function fakeIo(files = {}, { originSlug = TEST_SLUG } = {}) {
   const store = { ...files };
   return {
     store,
+    // A distinct root per fake io, so the production slug cache -- which is
+    // keyed by root -- cannot leak one test's identity into another's.
+    root: `/test/${Math.random().toString(36).slice(2)}`,
+    // Injected, never resolved from the checkout: a test must not depend on
+    // which repository it happens to be running inside.
+    originSlug: () => originSlug,
     now: () => new Date(NOW).toISOString(),
     read: (rel) => (rel in store ? store[rel] : null),
     exists: (rel) => rel in store,
@@ -98,7 +108,7 @@ const budget = (pr, tier = "product", extra = {}) =>
 const check = (pr, spent, extra = {}) =>
   json({
     pr,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: TEST_SLUG,
     capturedAt: new Date(NOW - 60_000).toISOString(),
     delivered: spent,
     pending: 0,
@@ -134,7 +144,7 @@ const adjudication = (pr, extra = {}) => ({
 
 const post = (pr, body = "@codex review") => ({
   toolName: "mcp__github__add_issue_comment",
-  toolInput: { owner: REPO_OWNER, repo: REPO_NAME, issue_number: pr, body },
+  toolInput: { owner: TEST_OWNER, repo: TEST_REPO, issue_number: pr, body },
 });
 
 // ---------------------------------------------------------------------------
@@ -164,8 +174,8 @@ test("the PR number is read from either resource's parameter name", () => {
 });
 
 test("only this repo's loops are budgeted", () => {
-  assert.equal(targetsThisRepo({ owner: REPO_OWNER, repo: REPO_NAME }), true);
-  assert.equal(targetsThisRepo({ owner: "someone", repo: "else" }), false);
+  assert.equal(targetsThisRepo({ owner: TEST_OWNER, repo: TEST_REPO }, TEST_SLUG), true);
+  assert.equal(targetsThisRepo({ owner: "someone", repo: "else" }, TEST_SLUG), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -672,24 +682,24 @@ test("allowance refuses a nonsense spent count rather than defaulting", () => {
 // ---------------------------------------------------------------------------
 
 test("a round-check receipt must be bound to this PR and repo", () => {
-  assert.match(validateCheckReceipt(1, JSON.parse(check(2, 0)), NOW), /names PR 2, not 1/);
+  assert.match(validateCheckReceipt(1, JSON.parse(check(2, 0)), NOW, TEST_SLUG), /names PR 2, not 1/);
   assert.match(
-    validateCheckReceipt(1, { ...JSON.parse(check(1, 0)), repo: "someone/else" }, NOW),
+    validateCheckReceipt(1, { ...JSON.parse(check(1, 0)), repo: "someone/else" }, NOW, TEST_SLUG),
     /minted for someone\/else/,
   );
 });
 
 test("a stale round-check receipt is refused", () => {
   const old = { ...JSON.parse(check(1, 0)), capturedAt: new Date(NOW - MAX_CHECK_AGE_MS - 1000).toISOString() };
-  assert.match(validateCheckReceipt(1, old, NOW), /no longer current/);
+  assert.match(validateCheckReceipt(1, old, NOW, TEST_SLUG), /no longer current/);
 
   const future = { ...JSON.parse(check(1, 0)), capturedAt: new Date(NOW + 60_000).toISOString() };
-  assert.match(validateCheckReceipt(1, future, NOW), /no longer current/, "a future capture is not evidence either");
+  assert.match(validateCheckReceipt(1, future, NOW, TEST_SLUG), /no longer current/, "a future capture is not evidence either");
 });
 
 test("a consumed round-check receipt cannot authorize a second post", () => {
   const used = { ...JSON.parse(check(1, 0)), consumedAt: "2026-08-17T11:00:00.000Z" };
-  assert.match(validateCheckReceipt(1, used, NOW), /already consumed/);
+  assert.match(validateCheckReceipt(1, used, NOW, TEST_SLUG), /already consumed/);
 });
 
 // ---------------------------------------------------------------------------
@@ -966,7 +976,7 @@ test("the sensitive tier runs the same two-tier tripwire: Fable at 5, David at 8
 test("a review request with no readable PR number is refused, not waved through", () => {
   const call = {
     toolName: "mcp__github__add_issue_comment",
-    toolInput: { owner: REPO_OWNER, repo: REPO_NAME, body: "@codex review" },
+    toolInput: { owner: TEST_OWNER, repo: TEST_REPO, body: "@codex review" },
   };
   assert.match(judgeReviewRequest(call, fakeIo(), NOW).reason, /no readable PR number/);
 });
@@ -1001,7 +1011,7 @@ const SNAPSHOT_NOW = Date.parse("2026-08-17T10:40:00Z");
 
 const snapshot = (pr, extra = {}) => ({
   pr: { number: pr },
-  repo: "TheAnswerManIsHere/Overhypeme",
+  repo: TEST_SLUG,
   capturedAt: "2026-08-17T10:35:00Z",
   reviews: [
     {
@@ -1016,7 +1026,7 @@ const snapshot = (pr, extra = {}) => ({
   ...extra,
 });
 
-const assertSnapshot = (pr, snap) => assertCountingSnapshot(pr, snap, SNAPSHOT_NOW);
+const assertSnapshot = (pr, snap) => assertCountingSnapshot(pr, snap, SNAPSHOT_NOW, TEST_SLUG);
 
 test("a counting snapshot must describe this PR and be attested complete", () => {
   assert.doesNotThrow(() => assertSnapshot(1, snapshot(1)));
@@ -1062,7 +1072,7 @@ test("the trigger is refused on any surface the count cannot see", () => {
     "mcp__github__pull_request_review_write",
   ]) {
     const verdict = judgeReviewRequest(
-      { toolName, toolInput: { owner: REPO_OWNER, repo: REPO_NAME, pullNumber: 7, body: "@codex review" } },
+      { toolName, toolInput: { owner: TEST_OWNER, repo: TEST_REPO, pullNumber: 7, body: "@codex review" } },
       io,
       NOW,
     );
@@ -1083,7 +1093,7 @@ test("a reply that does not carry the trigger is untouched by the surface rule",
   const verdict = judgeReviewRequest(
     {
       toolName: "mcp__github__add_reply_to_pull_request_comment",
-      toolInput: { owner: REPO_OWNER, repo: REPO_NAME, pullNumber: 7, body: "Fixed in abc1234." },
+      toolInput: { owner: TEST_OWNER, repo: TEST_REPO, pullNumber: 7, body: "Fixed in abc1234." },
     },
     io,
     NOW,
@@ -1096,7 +1106,7 @@ test("a counting snapshot is bound to the repository, not just the PR number", (
   // laundered into a lower count while `check` stamped this repo's name on it.
   assert.throws(() => assertSnapshot(1, snapshot(1, { repo: undefined })), /must name its source repository/);
   assert.throws(() => assertSnapshot(1, snapshot(1, { repo: "someone/else" })), /must name its source repository/);
-  assert.doesNotThrow(() => assertSnapshot(1, snapshot(1, { repo: "theanswermanishere/overhypeme" })));
+  assert.doesNotThrow(() => assertSnapshot(1, snapshot(1, { repo: TEST_SLUG.toLowerCase() })));
 });
 
 test("freshness is a property of the evidence, not of the command", () => {
@@ -1417,23 +1427,23 @@ test("a round-check receipt must carry a coherent delivered/pending split", () =
   // The gate reads these directly now, so neither may be absent or wrong.
   const base = {
     pr: 1,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: TEST_SLUG,
     capturedAt: new Date(NOW - 60_000).toISOString(),
     nonce: "0123456789abcdef",
   };
   assert.match(
-    validateCheckReceipt(1, { ...base, spent: 2, pending: 0 }, NOW),
+    validateCheckReceipt(1, { ...base, spent: 2, pending: 0 }, NOW, TEST_SLUG),
     /no usable delivered count/,
   );
   assert.match(
-    validateCheckReceipt(1, { ...base, spent: 2, delivered: 2, pending: 2 }, NOW),
+    validateCheckReceipt(1, { ...base, spent: 2, delivered: 2, pending: 2 }, NOW, TEST_SLUG),
     /at most one round can be in flight/,
   );
   assert.match(
-    validateCheckReceipt(1, { ...base, spent: 5, delivered: 2, pending: 1 }, NOW),
+    validateCheckReceipt(1, { ...base, spent: 5, delivered: 2, pending: 1 }, NOW, TEST_SLUG),
     /does not add up/,
   );
-  assert.equal(validateCheckReceipt(1, { ...base, spent: 3, delivered: 2, pending: 1 }, NOW), null);
+  assert.equal(validateCheckReceipt(1, { ...base, spent: 3, delivered: 2, pending: 1 }, NOW, TEST_SLUG), null);
 });
 
 // ---------------------------------------------------------------------------
@@ -1488,7 +1498,7 @@ test("a snapshot must be strictly newer than the evidence already on file", () =
   // for a whole hour.
   const receipt = {
     pr: 1,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: TEST_SLUG,
     capturedAt: "2026-08-17T10:35:00Z",
     delivered: 1,
     pending: 0,
@@ -1614,3 +1624,66 @@ test("a standing terminal verdict refuses even a pending-round retry (Codex, #55
   assert.match(reason, /TERMINAL adjudication verdict is standing/);
 });
 
+
+// ---------------------------------------------------------------------------
+// Repository identity: derived from origin, never declared
+// ---------------------------------------------------------------------------
+
+test("a remote URL yields owner/name in every form git can produce", () => {
+  // Not an enumeration of schemes: the parse splits at the host boundary, so
+  // https, ssh, git and the scp-like form all reduce to the same two segments.
+  for (const url of [
+    "https://github.com/Owner/Repo.git",
+    "https://github.com/Owner/Repo",
+    "git@github.com:Owner/Repo.git",
+    "ssh://git@github.com/Owner/Repo",
+    "git://github.com/Owner/Repo.git",
+  ]) {
+    assert.equal(slugFromRemoteUrl(url), "Owner/Repo", url);
+  }
+});
+
+test("an unresolvable remote yields null rather than a guess", () => {
+  // `ls-remote --get-url` echoes the name back for an unknown remote, and a
+  // URL with only one path segment names no repository.
+  for (const url of ["origin", "https://github.com/onlyone", "", null, undefined]) {
+    assert.equal(slugFromRemoteUrl(url), null, JSON.stringify(url));
+  }
+});
+
+test("REFUSES to operate when the repository's identity cannot be determined", () => {
+  // The fail-closed direction is the whole point: every receipt and snapshot
+  // check binds to this identity, so guessing it would validate a receipt
+  // minted somewhere else.
+  __resetRepoSlugCache();
+  const io = { ...fakeIo(), root: "/test/no-origin", originSlug: () => null };
+  assert.throws(() => repoSlug(io), /cannot determine this repository's identity/);
+  __resetRepoSlugCache();
+});
+
+test("identity is resolved ONCE per checkout, not per call", () => {
+  // targetsThisRepo runs on the guard's hot path -- every tool call -- so a
+  // shell-out per call would be a real cost.
+  __resetRepoSlugCache();
+  let calls = 0;
+  const io = { ...fakeIo(), root: "/test/counted", originSlug: () => { calls++; return "A/B"; } };
+  assert.equal(repoSlug(io), "A/B");
+  assert.equal(repoSlug(io), "A/B");
+  assert.equal(repoSlug(io), "A/B");
+  assert.equal(calls, 1);
+  __resetRepoSlugCache();
+});
+
+test("a foreign repo's loop is not budgeted, whatever the PR number", () => {
+  // Every repository has a #991. The identity is what tells them apart.
+  assert.equal(targetsThisRepo({ owner: "Other", repo: "Repo" }, TEST_SLUG), false);
+  assert.equal(targetsThisRepo({ owner: TEST_OWNER, repo: TEST_REPO }, TEST_SLUG), true);
+});
+
+test("identity comparison is case-insensitive on both sides", () => {
+  // A remote URL commonly spells the name in a different case than the GitHub
+  // API returns -- this repo's origin says `ai-handbook`, the API says
+  // `AI-Handbook` -- and they are the same repository.
+  assert.equal(targetsThisRepo({ owner: "testowner", repo: "testrepo" }, TEST_SLUG), true);
+  assert.equal(targetsThisRepo({ owner: "TESTOWNER", repo: "TESTREPO" }, TEST_SLUG), true);
+});

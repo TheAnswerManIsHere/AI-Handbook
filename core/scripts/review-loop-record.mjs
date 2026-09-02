@@ -61,7 +61,7 @@ import {
   REVIEWER_LOGINS,
   normalizeLogin,
 } from "./review-counting.mjs";
-import { loadLoop, allowance, countRounds, tierCap, nodeIo, TIERS, REPO_OWNER, REPO_NAME } from "./review-budget.mjs";
+import { loadLoop, allowance, countRounds, tierCap, nodeIo, TIERS, repoSlug } from "./review-budget.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -497,7 +497,7 @@ export function parseArgs(argv) {
  *
  * (Both: Codex, round 1.)
  */
-export function assertAdjudicationSnapshot(pr, snapshot) {
+export function assertAdjudicationSnapshot(pr, snapshot, slug = repoSlug()) {
   if (snapshot?.pr?.number !== pr) {
     throw new Error(`snapshot describes PR ${snapshot?.pr?.number}, but --pr says ${pr}`);
   }
@@ -506,7 +506,7 @@ export function assertAdjudicationSnapshot(pr, snapshot) {
   // the adjudicator's ONLY input. A foreign loop's rounds and findings
   // presented under this PR's budget is the worst input that reader can get.
   // (Codex, #503 round 4 — raised against `check`; the class lives here too.)
-  const target = `${REPO_OWNER}/${REPO_NAME}`;
+  const target = slug;
   if (typeof snapshot.repo !== "string" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {
     throw new Error(
       `snapshot must name its source repository as "repo": "${target}" -- it says ` +

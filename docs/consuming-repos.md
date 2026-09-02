@@ -176,7 +176,23 @@ readiness, not link resolution.
    invokes it**. That failure is silent: the guard is present, the hooks are
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
-6. Flip `enrolled: true`. **This is the last step before the sync, and it comes
+6. **Create `.agents/required-checks.json`**, naming the CI jobs that must be
+   PRESENT before a readiness receipt is honest — every job that can appear
+   late, not only the ones that must pass:
+
+   ```json
+   { "requiredChecks": ["Classify changed paths", "Build", "Test"] }
+   ```
+
+   This is the one thing the payload cannot work out for itself. A repository's
+   *identity* is derived from `origin` and needs no configuration, but which
+   jobs its gate waits for is a policy about its own CI. `pr-ready.mjs` refuses
+   to mint a receipt when this file is absent, malformed, or empty — an empty
+   list is refused rather than read as "nothing required", because a gate that
+   requires nothing is satisfied by any green set. So a consumer that skips
+   this step gets a permanently closed readiness gate, loudly, rather than an
+   open one silently.
+7. Flip `enrolled: true`. **This is the last step before the sync, and it comes
    after every prerequisite above — not before them.** An earlier version put
    the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
    repo into the sync's target set while the controls those steps install were
@@ -184,14 +200,14 @@ readiness, not link resolution.
    "ready" have to be the same moment: a repo flipped early can receive
    `bypassPermissions` before the ruleset that constrains it exists, and an
    inert guard before the hooks that invoke it are merged.
-7. Run the sync, review the pull request it opens, merge.
+8. Run the sync, review the pull request it opens, merge.
 
 `enrolled` means "every prerequisite is in place, so send it the core" — not
 "the core has arrived." A vendored core that nothing imports is inert: the
 files are present, the rules are not loaded, and the repo looks governed
 without being governed, which is the worst of the three states. Steps 2 and 3
 prevent that; steps 4 and 5 prevent the security equivalent, where a repo holds
-the bypass without the controls. **The flip goes last because the flip is what
+the bypass without the controls; step 6 keeps its merge gate usable. **The flip goes last because the flip is what
 makes the sync fire** — anything that must be true before delivery has to be
 true before the flip, and a step added to this list later belongs above it, not
 below.
