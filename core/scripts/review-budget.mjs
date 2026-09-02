@@ -147,16 +147,32 @@ const ADJUDICATIONS_DIR = ".agents/adjudications";
  * meant the guard silently did not run. The list did not converge, which is
  * this repo's recorded signature for a wrong shape rather than a wrong entry.
  *
- * WHY DECLARING IS SAFE NOW, when it would not have been before. The original
+ * WHY DECLARING IS SAFE, and the one way it was NOT, now closed. The original
  * objection was that a config file could be edited to match a foreign
- * receipt. That objection died with the skip, because identity is compared on
- * BOTH sides of every path that uses it: `judgeReviewRequest` requires the
- * outgoing request to name this identity AND the receipt authorizing it to
- * name the same one. Moving the declared value moves both, and the request
- * that actually reaches GitHub must then name the moved repository -- so
- * spoofing cannot push an unbudgeted round at the real one, it can only
- * block. The merge gate never consults this value at all: `checkMerge` binds
- * the receipt to the merge tool's own owner/repo, so a laundered receipt is
+ * receipt. Most of that objection died with the skip, because identity is
+ * compared on BOTH sides of every path that uses it: `judgeReviewRequest`
+ * requires the outgoing request to name this identity AND the receipt
+ * authorizing it to name the same one. Moving the declared value moves both,
+ * and the request that reaches GitHub must then name the moved repository.
+ *
+ * An earlier revision of this comment stopped there and concluded that
+ * spoofing "can only block". That was WRONG, and the counterexample is worth
+ * keeping because it is the exact shape the argument missed: one side did not
+ * move. The BUDGET was found by PR number alone, out of this checkout's
+ * durable ref, and never compared to anything -- so editing this file pointed
+ * the guard at another repository while `loadLoop` went on serving THIS
+ * repository's budget, spending a round the other repo never budgeted.
+ * "Both sides" was a claim about two of the three things involved.
+ * (Codex, PR #7 round 4.)
+ *
+ * The budget now records the identity it was declared under, validated
+ * against the identity in the DURABLE REF -- see `durableSlug`, and note it
+ * is not this working-tree value, because a local edit must not be what
+ * decides which budget applies. So the third side moves too, and a spoofed
+ * declaration now refuses rather than borrowing.
+ *
+ * The merge gate never consults this value at all: `checkMerge` binds the
+ * receipt to the merge tool's own owner/repo, so a laundered receipt is
  * caught there whatever this file says.
  *
  * FAILS CLOSED, and now loudly. An absent, malformed, or merely WRONG
@@ -235,6 +251,29 @@ export function machineryConfig(io = nodeIo()) {
 
 export function repoSlug(io = nodeIo()) {
   return machineryConfig(io).repo;
+}
+
+/**
+ * The identity as the DURABLE REF spells it, or null when it cannot be read.
+ *
+ * `repoSlug` reads the working tree, which is right for the guard's hot path:
+ * "which repository is this checkout" has no commit to bind to, and a wrong
+ * answer there only causes refusals. It is wrong for anything on the durable
+ * decision path. `loadLoop`'s whole invariant is that the bytes it parses are
+ * the bytes in the ref, so that no local edit is what grants a round -- and a
+ * working-tree identity threaded into that path is a local edit deciding
+ * which budget applies. The rail tests pin this by blowing up every
+ * filesystem reader; the first version of this fix failed them immediately,
+ * which is the invariant doing its job.
+ *
+ * Returns null rather than throwing: the caller is validating a budget and
+ * turns this into a refusal with the rest of that budget's context.
+ */
+export function durableSlug(io, ref) {
+  const raw = readDurableJson(io, ref, MACHINERY_CONFIG_FILE);
+  if (raw.state !== "ok") return null;
+  const repo = typeof raw.value?.repo === "string" ? raw.value.repo.trim() : "";
+  return SLUG_RE.test(repo) ? repo : null;
 }
 
 /** Test seam: forget any parsed configuration. Never called in production. */
@@ -844,7 +883,7 @@ function readDurableJson(io, ref, rel) {
 // about it, or the guard is just a wall.
 // ---------------------------------------------------------------------------
 
-export function validateBudget(pr, receipt) {
+export function validateBudget(pr, receipt, slug = undefined) {
   if (!receipt || typeof receipt !== "object") return "budget receipt is not an object";
   if (receipt.pr !== pr) return `budget receipt names PR ${receipt.pr}, not ${pr}`;
   if (!Object.hasOwn(TIERS, receipt.tier)) {
@@ -862,6 +901,30 @@ export function validateBudget(pr, receipt) {
   }
   if (typeof receipt.artifact !== "string" || !receipt.artifact.trim()) {
     return "budget receipt needs a non-empty `artifact` naming what is under review";
+  }
+  // The identity the budget was declared under must still be this checkout's.
+  // Absent is REFUSED rather than tolerated: a budget with no repo is one
+  // declared before this field existed, and grandfathering it in would leave
+  // the hole open on exactly the loops already in flight. Re-declaring is one
+  // command. (Codex, PR #7 round 4.)
+  // `null` means the caller could not resolve a durable identity. That
+  // REFUSES rather than falling back to the working tree -- falling back is
+  // precisely the substitution this parameter exists to prevent.
+  const ours = slug === null ? null : (slug ?? repoSlug());
+  if (ours === null) {
+    return (
+      "this checkout cannot read its declared identity from the durable ref, so a budget cannot be tied " +
+      "to a repository -- commit and push " + MACHINERY_CONFIG_FILE
+    );
+  }
+  if (typeof receipt.repo !== "string" || !receipt.repo.trim()) {
+    return (
+      "budget receipt does not record which repository it was declared for, so it cannot be told apart " +
+      "from another repository's budget for the same PR number -- re-declare it"
+    );
+  }
+  if (receipt.repo.toLowerCase() !== ours.toLowerCase()) {
+    return `budget receipt was declared for ${receipt.repo}, but this checkout is ${ours}`;
   }
   return null;
 }
@@ -1097,7 +1160,10 @@ export function loadLoop(pr, io) {
   if (budget.state !== "ok") {
     return { problem: "bad-receipt", detail: `${budgetPath(pr)} could not be read from ${ref} (${budget.state}: ${budget.error})` };
   }
-  const budgetError = validateBudget(pr, budget.value);
+  // From the REF, never `repoSlug(io)`: see durableSlug. A budget that
+  // records an identity the ref does not agree with is refused, which is what
+  // stops a working-tree edit relabelling another repository's loop.
+  const budgetError = validateBudget(pr, budget.value, durableSlug(io, ref));
   if (budgetError) return { problem: "bad-receipt", detail: `${budgetPath(pr)} (in ${ref}): ${budgetError}` };
 
   const tier = budget.value.tier;
@@ -1691,12 +1757,24 @@ function declare(flags, io) {
   const receipt = {
     pr,
     tier: flags.tier,
+    // WHICH REPOSITORY THIS BUDGET IS FOR.
+    //
+    // Without it the budget was found by PR NUMBER alone, out of this
+    // checkout's durable ref, and never compared to anything. So an
+    // uncommitted edit of the declared identity pointed the guard at another
+    // repository while `loadLoop` went on serving THIS repository's budget --
+    // letting one local file relabel another repo's loop and spend a round
+    // that repo never budgeted. Recording it here is what makes the
+    // both-sides claim in the identity header actually true: move the
+    // declaration and the budget stops matching, instead of quietly coming
+    // along. (Codex, PR #7 round 4.)
+    repo: repoSlug(io),
     budget: TIERS[flags.tier].budget,
     criticality,
     artifact: flags.artifact ?? "",
     declaredAt: io.now(),
   };
-  const error = validateBudget(pr, receipt);
+  const error = validateBudget(pr, receipt, repoSlug(io));
   if (error) throw new Error(error);
   // Never silently replace a live budget: overwriting one mid-loop could move
   // the tier under a loop already in flight.

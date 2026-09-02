@@ -1771,12 +1771,21 @@ export function decide(raw, options = {}) {
     const reason = checkMerge(payload.tool_input, {
       readReceipt: readReceiptFromDisk,
       resolveSha: remoteTip,
-      // Local-only, and null on any failure: this abstains rather than blocks
-      // (see checkMerge), so a checkout that cannot resolve its base leaves
-      // the other bindings to do their work instead of wedging the gate.
+      // THE LIVE TIP, not the local remote-tracking ref.
+      //
+      // This read `policyCommit().local`, which is by definition as old as
+      // the last fetch -- so it could equal the receipt's recorded sha while
+      // GitHub already carried a stronger policy, and the check passed on a
+      // comparison of two stale values. `remoteTip` is the same `ls-remote`
+      // this gate already runs for the branch tip a few lines down, so asking
+      // the remote costs nothing new here. (Codex, PR #7 round 4.)
+      //
+      // Null on any failure, which ABSTAINS rather than blocks (see
+      // checkMerge): a network fault must not wedge the gate when the head-sha
+      // binding beside it is still doing its work.
       resolveBasePolicy: () => {
         try {
-          return policyCommit().local ?? null;
+          return remoteTip(policyCommit().baseBranch) ?? null;
         } catch {
           return null;
         }

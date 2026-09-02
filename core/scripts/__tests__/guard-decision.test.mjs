@@ -789,6 +789,9 @@ const budgetFile = (pr, tier, cap) =>
   JSON.stringify({
     pr,
     tier,
+    // The repository the budget was declared for, matched against the
+    // identity in the DURABLE ref -- the fake serves the same store for both.
+    repo: TEST_SLUG,
     budget: cap,
     criticality: 30,
     artifact: "x",

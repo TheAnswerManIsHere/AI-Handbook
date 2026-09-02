@@ -1567,7 +1567,15 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
   }
   // The guard's own validation, not a bare tier read: an unvalidated budget
   // (wrong PR, tier/number mismatch) must not anchor a rail decision.
-  const budgetError = validateBudget(prNumber, budget);
+  //
+  // The identity comes from THIS `cwd`, the same checkout the budget was just
+  // read out of -- not from a default io rooted at wherever this module
+  // happens to sit. Reading the two from different places is how a budget
+  // gets validated against a repository it has nothing to do with, which is
+  // the whole defect the repo field was added for. Surfaced by the rail tests,
+  // which run against a temp repo: the mismatch made every one of them read
+  // this module's own root.
+  const budgetError = validateBudget(prNumber, budget, repoSlug(nodeIo(cwd)));
   if (budgetError) {
     return { pass: false, detail: `committed budget receipt is invalid (${budgetError}) -- cannot rule out the rail` };
   }
@@ -1847,6 +1855,32 @@ function main() {
         `pr-ready: this receipt validated ${receipt.headSha.slice(0, 7)}, but ${receipt.branch} is now at ${tip.slice(0, 7)} -- re-run with a fresh snapshot\n`,
       );
       return 1;
+    }
+    // THE SAME POLICY CHECK THE MERGE GATE MAKES.
+    //
+    // `--show` is the surface a readiness claim is quoted from, and for a PR
+    // David merges it is the ONLY control -- no hook sees his click. It
+    // checked the receipt's age and the PR head and stopped there, so it
+    // would print READY under a required-check policy the base branch had
+    // already replaced. A gate and the human-readable view of that gate
+    // disagreeing about the same receipt is the defect this repo has already
+    // fixed once, for the staleness window. (Codex, PR #7 round 4.)
+    const recordedPolicy = receipt.requiredChecksFrom?.sha;
+    if (typeof recordedPolicy === "string") {
+      let currentPolicy = null;
+      try {
+        currentPolicy = remoteTip(policyCommit().baseBranch);
+      } catch {
+        currentPolicy = null;
+      }
+      if (currentPolicy && currentPolicy !== recordedPolicy) {
+        process.stderr.write(
+          `pr-ready: this receipt was minted under the required-check policy at ${recordedPolicy.slice(0, 7)}, ` +
+            `but the base branch is now at ${currentPolicy.slice(0, 7)} -- the gate that approved this PR is ` +
+            `not the gate in force. Re-run with a fresh snapshot\n`,
+        );
+        return 1;
+      }
     }
     return receipt.verdict === "READY" ? 0 : 1;
   }

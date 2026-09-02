@@ -103,6 +103,10 @@ const budget = (pr, tier = "product", extra = {}) =>
   json({
     pr,
     tier,
+    // The repository the budget was declared for. Defaults to the fixture
+    // identity so the common case reads as it always did; the tests that care
+    // override it via `extra`.
+    repo: TEST_SLUG,
     budget: TIERS[tier].budget,
     criticality: 30,
     artifact: "a thing under review",
@@ -280,11 +284,11 @@ test("an ordinary comment after the last pass is not a pending round", () => {
 
 test("a budget cannot declare a number its tier does not have", () => {
   const receipt = JSON.parse(budget(1, "product"));
-  assert.equal(validateBudget(1, receipt), null);
+  assert.equal(validateBudget(1, receipt, TEST_SLUG), null);
 
   receipt.budget = 20;
   assert.match(
-    validateBudget(1, receipt),
+    validateBudget(1, receipt, TEST_SLUG),
     /declares budget 20 but tier "product" is 5/,
     "a free-text budget field is the no-stopping-rule state wearing a receipt",
   );
@@ -1390,6 +1394,69 @@ test("the real git adapter lists a directory from a ref, and reports an unreadab
     null,
     "null, never [] -- an empty list would silently forget every extension",
   );
+});
+
+
+test("a budget cannot be relabelled onto another repository by a local edit", () => {
+  // THE BOTH-SIDES CLAIM, made true. The identity moved with a working-tree
+  // edit but the BUDGET did not: `loadLoop` found it by PR number out of this
+  // checkout's durable ref and never compared it to anything, so editing one
+  // local file let this repo's budget authorize a round in another repo with
+  // the same PR number. (Codex, PR #7 round 4.)
+  const files = {
+    [budgetPath(30)]: budget(30),
+    [checkPath(30)]: check(30, 1),
+  };
+  // Honest baseline: with the declaration untouched, the post is allowed.
+  assert.equal(judgeReviewRequest(post(30), fakeIo(files), NOW).blocked, false);
+
+  // Now the working tree claims to be somewhere else, and the request follows
+  // it. The budget in the ref still says what it always said.
+  __resetRepoSlugCache();
+  const spoofed = fakeIo(files, { slug: "Someone/Else" });
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "Someone", repo: "Else", issue_number: 30, body: "@codex review" },
+    },
+    spoofed,
+    NOW,
+  );
+  assert.equal(verdict.blocked, true, "a relabelled checkout must not spend another repo's budget");
+  assert.match(verdict.reason, /declared for TestOwner\/TestRepo, but this checkout is Someone\/Else/);
+  __resetRepoSlugCache();
+});
+
+test("a budget that records no repository is refused, not grandfathered", () => {
+  // Tolerating an absent field would leave the hole open on exactly the loops
+  // already in flight, which are the ones that have a budget. Re-declaring is
+  // one command.
+  const stripped = JSON.parse(budget(31));
+  delete stripped.repo;
+  const files = { [budgetPath(31)]: json(stripped), [checkPath(31)]: check(31, 1) };
+  const verdict = judgeReviewRequest(post(31), fakeIo(files), NOW);
+  assert.equal(verdict.blocked, true);
+  assert.match(verdict.reason, /does not record which repository it was declared for/);
+});
+
+test("the identity a budget is judged against comes from the REF, not the working tree", () => {
+  // The first version of this fix read `repoSlug(io)` here, which put a
+  // working-tree read on the durable decision path -- the one thing loadLoop
+  // exists to prevent. Same shape as the test above it: blow up the
+  // filesystem readers and the decision must still be reachable.
+  const files = {
+    [budgetPath(32)]: budget(32),
+    [checkPath(32)]: check(32, 1),
+  };
+  const io = fakeIo(files);
+  io.read = () => {
+    throw new Error("the working tree must not be consulted for a durable decision");
+  };
+  io.listReceipts = () => {
+    throw new Error("the working tree must not be listed for durable decisions");
+  };
+  const state = loadLoop(32, io);
+  assert.equal(state.problem, undefined, "the budget validates from the ref alone");
 });
 
 test("only what is in the ref grants rounds, whatever the working tree says", () => {

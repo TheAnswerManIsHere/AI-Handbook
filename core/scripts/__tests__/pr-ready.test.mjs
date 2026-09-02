@@ -720,6 +720,14 @@ function tempRepo() {
   run(["init", "-q"]);
   run(["config", "user.email", "test@example.com"]);
   run(["config", "user.name", "Test"]);
+  // A repo running this machinery HAS a machinery config -- the scripts read
+  // their identity from the checkout they are pointed at, so a temp repo
+  // without one is not a realistic fixture, it is a repo the gate refuses.
+  mkdirSync(join(dir, ".agents"), { recursive: true });
+  writeFileSync(
+    join(dir, ".agents/machinery.json"),
+    JSON.stringify({ repo: SNAP_SLUG, baseBranch: "main", requiredChecks: ["Test"] }),
+  );
   const commit = (files, message) => {
     for (const [path, content] of Object.entries(files)) {
       const full = join(dir, path);
@@ -1509,7 +1517,7 @@ test("evaluate: a fresh @codex review request in the snapshot after adjudication
 // ---------------------------------------------------------------------------
 
 const railBudget = (pr) =>
-  JSON.stringify({ pr, tier: "product", budget: 5, criticality: 40, artifact: "x", declaredAt: "2026-08-17T00:00:00Z" });
+  JSON.stringify({ pr, tier: "product", repo: SNAP_SLUG, budget: 5, criticality: 40, artifact: "x", declaredAt: "2026-08-17T00:00:00Z" });
 const railExt = (pr, seq, fields) => {
   const path = `.agents/receipts/loop-extension-${pr}-${seq}.json`;
   // checkRail now runs validateExtension over every receipt (pure mode), so
@@ -1739,7 +1747,7 @@ test("rail: with NO David authorization beneath it, a trailing ship receipt stil
   const { dir, commit } = tempRepo();
   const budgetFile = {
     ".agents/receipts/loop-budget-999.json": JSON.stringify({
-      pr: 999, tier: "product", budget: 5, criticality: 30, artifact: "test", declaredAt: "2026-08-21T00:00:00Z",
+      pr: 999, tier: "product", repo: SNAP_SLUG, budget: 5, criticality: 30, artifact: "test", declaredAt: "2026-08-21T00:00:00Z",
     }),
   };
   const rec = record(999, 1, { tier: "product", passes: 5, allowanceValue: 5, baseline: "a".repeat(40) });
