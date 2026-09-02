@@ -176,22 +176,44 @@ readiness, not link resolution.
    invokes it**. That failure is silent: the guard is present, the hooks are
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
-6. **Create `.agents/required-checks.json`**, naming the CI jobs that must be
-   PRESENT before a readiness receipt is honest — every job that can appear
-   late, not only the ones that must pass:
+6. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
+   self-documenting template. Three values, all of them facts about the
+   consumer that the handbook cannot know:
 
    ```json
-   { "requiredChecks": ["Classify changed paths", "Build", "Test"] }
+   {
+     "repo": "OWNER/REPO",
+     "baseBranch": "main",
+     "requiredChecks": ["Classify changed paths", "Build", "Test"]
+   }
    ```
 
-   This is the one thing the payload cannot work out for itself. A repository's
-   *identity* is derived from `origin` and needs no configuration, but which
-   jobs its gate waits for is a policy about its own CI. `pr-ready.mjs` refuses
-   to mint a receipt when this file is absent, malformed, or empty — an empty
-   list is refused rather than read as "nothing required", because a gate that
-   requires nothing is satisfied by any green set. So a consumer that skips
-   this step gets a permanently closed readiness gate, loudly, rather than an
-   open one silently.
+   - **`repo`** is this repository's `owner/name`. Every receipt and snapshot
+     check binds to it, and a review request whose target does not match it is
+     **refused**. An earlier revision derived this from `origin` instead, on
+     the reasoning that a remote cannot lie about where it pushes. Two review
+     rounds found six ways to parse a remote URL wrongly, and under the skip
+     semantics the guard had then, every one of them meant the guard silently
+     did not run. Declaring it is one line and no parsing; refusing rather than
+     skipping is what makes a wrong value announce itself.
+   - **`baseBranch`** is the branch pull requests merge into. The list below is
+     read from **that branch**, never from the pull request under review, so a
+     pull request cannot commit a shorter list and mint a receipt against the
+     gate it just weakened. `pr-ready.mjs` also refuses when the pull request's
+     actual base is not this branch, rather than gating it against a policy
+     that branch does not carry.
+   - **`requiredChecks`** names the CI jobs that must be PRESENT before a
+     readiness receipt is honest — every job that can appear **late**, not only
+     the ones that must pass. A job gated on an earlier one is created late, so
+     a snapshot taken too early sees a complete green set without it.
+
+   Every failure here is loud. `pr-ready.mjs` refuses when the file is absent
+   from the base branch, malformed, or declares an empty list — an empty list
+   is refused rather than read as "nothing required", because a gate that
+   requires nothing is satisfied by any green set. The guard refuses every
+   review request while `repo` is still the template's placeholder, naming this
+   file in the refusal. So a consumer that skips this step gets a closed gate
+   that says why, never an open one that says nothing.
 7. Flip `enrolled: true`. **This is the last step before the sync, and it comes
    after every prerequisite above — not before them.** An earlier version put
    the flip at step 4 and then grew steps 5 and 6 underneath it, which put a

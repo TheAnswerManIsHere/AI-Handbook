@@ -25,7 +25,8 @@ import {
   judgeReviewRequest,
   MAX_CHECK_AGE_MS,
   repoSlug,
-  slugFromRemoteUrl,
+  machineryConfig,
+  MACHINERY_CONFIG_FILE,
   __resetRepoSlugCache,
 } from "../review-budget.mjs";
 
@@ -40,16 +41,24 @@ const NOW = Date.parse("2026-08-17T12:00:00.000Z");
 export const TEST_SLUG = "TestOwner/TestRepo";
 export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
 
-export function fakeIo(files = {}, { originSlug = TEST_SLUG } = {}) {
-  const store = { ...files };
+export function fakeIo(files = {}, { slug = TEST_SLUG, baseBranch = "main", config } = {}) {
+  // The declared identity is seeded as a file rather than injected as a
+  // method: production reads it through `read`, so a test that stubs a
+  // separate seam would be testing a path production does not take. Pass
+  // `slug: null` to declare nothing, or `config` to declare something
+  // malformed.
+  const declared =
+    config !== undefined
+      ? { [MACHINERY_CONFIG_FILE]: config }
+      : slug === null
+        ? {}
+        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug, baseBranch }) };
+  const store = { ...declared, ...files };
   return {
     store,
     // A distinct root per fake io, so the production slug cache -- which is
     // keyed by root -- cannot leak one test's identity into another's.
     root: `/test/${Math.random().toString(36).slice(2)}`,
-    // Injected, never resolved from the checkout: a test must not depend on
-    // which repository it happens to be running inside.
-    originSlug: () => originSlug,
     now: () => new Date(NOW).toISOString(),
     read: (rel) => (rel in store ? store[rel] : null),
     exists: (rel) => rel in store,
@@ -981,26 +990,36 @@ test("a review request with no readable PR number is refused, not waved through"
   assert.match(judgeReviewRequest(call, fakeIo(), NOW).reason, /no readable PR number/);
 });
 
-test("ordinary comments, other repos, and other tools are untouched", () => {
+test("ordinary comments and unguarded tools are untouched", () => {
+  // The complement of the guard: everything that is NOT a review request at
+  // this repository passes without a receipt and without a write.
   const io = fakeIo();
+  const before = { ...io.store };
   assert.equal(judgeReviewRequest(post(1, "Fixed in abc123 — thanks."), io, NOW).blocked, false);
-  assert.equal(
-    judgeReviewRequest(
-      {
-        toolName: "mcp__github__add_issue_comment",
-        toolInput: { owner: "other", repo: "repo", issue_number: 1, body: "@codex review" },
-      },
-      io,
-      NOW,
-    ).blocked,
-    false,
-  );
   assert.equal(
     judgeReviewRequest({ toolName: "mcp__github__create_pull_request", toolInput: { body: "@codex review" } }, io, NOW)
       .blocked,
     false,
   );
-  assert.deepEqual(io.store, {}, "nothing is written for a call that is not a review request");
+  assert.deepEqual(io.store, before, "nothing is written for a call that is not a review request");
+});
+
+test("a review request at another repo is REFUSED, where it used to be skipped", () => {
+  // This assertion is inverted from what it was, deliberately. Skipping a
+  // foreign target made identity decide whether the guard ran at all, so
+  // every way of getting the identity wrong became a silent bypass rather
+  // than a visible refusal. (Codex, PR #7 rounds 1 and 2.)
+  const io = fakeIo();
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "other", repo: "repo", issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  assert.equal(verdict.blocked, true);
+  assert.match(verdict.reason, /targets other\/repo/);
 });
 
 // ---------------------------------------------------------------------------
@@ -1629,93 +1648,136 @@ test("a standing terminal verdict refuses even a pending-round retry (Codex, #55
 // Repository identity: derived from origin, never declared
 // ---------------------------------------------------------------------------
 
-test("a remote URL yields owner/name in every form git can produce", () => {
-  // Not an enumeration of schemes: the parse splits at the host boundary, so
-  // https, ssh, git and the scp-like form all reduce to the same two segments.
-  for (const url of [
-    "https://github.com/Owner/Repo.git",
-    "https://github.com/Owner/Repo",
-    "git@github.com:Owner/Repo.git",
-    "ssh://git@github.com/Owner/Repo",
-    "git://github.com/Owner/Repo.git",
-  ]) {
-    assert.equal(slugFromRemoteUrl(url), "Owner/Repo", url);
-  }
+test("the declared identity is what every check binds to", () => {
+  __resetRepoSlugCache();
+  const io = fakeIo({}, { slug: "Owner/Repo" });
+  assert.equal(repoSlug(io), "Owner/Repo");
+  assert.equal(machineryConfig(io).baseBranch, "main");
+  __resetRepoSlugCache();
 });
 
-test("an unresolvable remote yields null rather than a guess", () => {
-  // `ls-remote --get-url` echoes the name back for an unknown remote, and a
-  // URL with only one path segment names no repository.
-  for (const url of ["origin", "https://github.com/onlyone", "", null, undefined]) {
-    assert.equal(slugFromRemoteUrl(url), null, JSON.stringify(url));
-  }
-});
-
-test("REFUSES to operate when the repository's identity cannot be determined", () => {
+test("REFUSES to operate when no identity is declared", () => {
   // The fail-closed direction is the whole point: every receipt and snapshot
   // check binds to this identity, so guessing it would validate a receipt
   // minted somewhere else.
   __resetRepoSlugCache();
-  const io = { ...fakeIo(), root: "/test/no-origin", originSlug: () => null };
-  assert.throws(() => repoSlug(io), /cannot determine this repository's identity/);
+  assert.throws(() => repoSlug(fakeIo({}, { slug: null })), /is missing/);
   __resetRepoSlugCache();
 });
 
-test("identity is resolved ONCE per checkout, not per call", () => {
+test("REFUSES a malformed declaration rather than reading past it", () => {
+  // Each of these is a different way to arrive at "no usable identity", and
+  // every one of them must refuse rather than fall through to a default.
+  const bad = {
+    "not json at all": /not valid JSON/,
+    '{"baseBranch":"main"}': /must declare "repo"/,
+    '{"repo":"onlyone","baseBranch":"main"}': /must declare "repo"/,
+    '{"repo":"Owner/Repo/extra","baseBranch":"main"}': /must declare "repo"/,
+    '{"repo":"Owner/Repo"}': /must declare "baseBranch"/,
+    '{"repo":"Owner/Repo","baseBranch":"  "}': /must declare "baseBranch"/,
+  };
+  for (const [config, expected] of Object.entries(bad)) {
+    __resetRepoSlugCache();
+    assert.throws(() => repoSlug(fakeIo({}, { config })), expected, config);
+  }
+  __resetRepoSlugCache();
+});
+
+test("identity is read ONCE per checkout, not per call", () => {
   // targetsThisRepo runs on the guard's hot path -- every tool call -- so a
-  // shell-out per call would be a real cost.
+  // re-read and re-parse per call would be a real cost.
   __resetRepoSlugCache();
-  let calls = 0;
-  const io = { ...fakeIo(), root: "/test/counted", originSlug: () => { calls++; return "A/B"; } };
+  let reads = 0;
+  const base = fakeIo({}, { slug: "A/B" });
+  const io = {
+    ...base,
+    root: "/test/counted",
+    read: (rel) => {
+      if (rel === MACHINERY_CONFIG_FILE) reads++;
+      return base.read(rel);
+    },
+  };
   assert.equal(repoSlug(io), "A/B");
   assert.equal(repoSlug(io), "A/B");
   assert.equal(repoSlug(io), "A/B");
-  assert.equal(calls, 1);
+  assert.equal(reads, 1);
   __resetRepoSlugCache();
 });
 
-test("a foreign repo's loop is not budgeted, whatever the PR number", () => {
+test("a foreign repo's loop is not this loop, whatever the PR number", () => {
   // Every repository has a #991. The identity is what tells them apart.
   assert.equal(targetsThisRepo({ owner: "Other", repo: "Repo" }, TEST_SLUG), false);
   assert.equal(targetsThisRepo({ owner: TEST_OWNER, repo: TEST_REPO }, TEST_SLUG), true);
 });
 
 test("identity comparison is case-insensitive on both sides", () => {
-  // A remote URL commonly spells the name in a different case than the GitHub
-  // API returns -- this repo's origin says `ai-handbook`, the API says
-  // `AI-Handbook` -- and they are the same repository.
+  // A declaration commonly spells the name in a different case than the
+  // GitHub API returns -- `ai-handbook` against `AI-Handbook` -- and they are
+  // the same repository.
   assert.equal(targetsThisRepo({ owner: "testowner", repo: "testrepo" }, TEST_SLUG), true);
   assert.equal(targetsThisRepo({ owner: "TESTOWNER", repo: "TESTREPO" }, TEST_SLUG), true);
 });
 
-test("identity names the PUSH target, and divergence is refused", () => {
-  // `ls-remote --get-url` returns only the FETCH url. A checkout with
-  // remote.origin.pushurl set would have been identified as its upstream or
-  // mirror -- and targetsThisRepo returning false does not BLOCK the request,
-  // it skips the guard entirely. Fail-open, and this repo already records the
-  // divergent-pushurl configuration as one that really occurs.
+test("a review request at ANOTHER repository is REFUSED, not skipped", () => {
+  // The root of every identity finding in this PR. Skipping made "which
+  // repository is this" decide whether the guard ran at all, so each way of
+  // getting the identity wrong became a silent bypass. Refusing makes a wrong
+  // identity block a legitimate request -- loud and trivially fixed -- rather
+  // than wave an illegitimate one through.
   __resetRepoSlugCache();
-  const agree = { ...fakeIo(), root: "/test/agree", originSlug: () => "Owner/Repo" };
-  assert.equal(repoSlug(agree), "Owner/Repo");
-  __resetRepoSlugCache();
-  const diverged = { ...fakeIo(), root: "/test/diverged", originSlug: () => null };
-  assert.throws(() => repoSlug(diverged), /fetch and push URLs name DIFFERENT repositories/);
+  const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: "Owner/Repo" });
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "Someone", repo: "Else", issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  assert.equal(verdict.blocked, true, "a foreign review request must block, not skip");
+  assert.match(verdict.reason, /this checkout is Owner\/Repo/);
   __resetRepoSlugCache();
 });
 
-test("an unresolvable identity BLOCKS the request rather than throwing past the hook", () => {
+test("an undeclared identity BLOCKS a review request rather than throwing past the hook", () => {
   // The hook contract is exit 2 to block and anything else to allow, so an
   // exception escaping judgeReviewRequest turns a fail-CLOSED identity check
   // into a fail-OPEN hook error -- the defect
   // .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
   __resetRepoSlugCache();
-  const io = { ...fakeIo({ [budgetPath(1)]: budget(1) }), root: "/test/no-identity", originSlug: () => null };
+  const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: null });
   const verdict = judgeReviewRequest(
-    { toolName: "mcp__github__add_issue_comment", toolInput: { owner: "A", repo: "B", issue_number: 1, body: "@codex review" } },
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "A", repo: "B", issue_number: 1, body: "@codex review" },
+    },
     io,
-    Date.parse(NOW),
+    NOW,
   );
-  assert.equal(verdict.blocked, true, "an unresolvable identity must block, not throw");
-  assert.match(verdict.reason, /cannot determine this repository's identity/);
+  assert.equal(verdict.blocked, true, "an undeclared identity must block, not throw");
+  assert.match(verdict.reason, /is missing/);
+  __resetRepoSlugCache();
+});
+
+test("an undeclared identity does NOT block calls that are not review requests", () => {
+  // Resolving identity before establishing relevance refused every call the
+  // guard sees -- an ordinary PR comment, a `get_me` -- whenever the
+  // declaration was missing. Wrong direction for a check about review
+  // requests, and it would wedge a whole session. (Codex, PR #7 round 2.)
+  __resetRepoSlugCache();
+  const io = fakeIo({}, { slug: null });
+  for (const toolInput of [
+    { owner: "A", repo: "B", issue_number: 1, body: "Thanks, fixed in a1b2c3d." },
+    { owner: "A", repo: "B", issue_number: 1, body: "" },
+  ]) {
+    const verdict = judgeReviewRequest(
+      { toolName: "mcp__github__add_issue_comment", toolInput },
+      io,
+      NOW,
+    );
+    assert.equal(verdict.blocked, false, `an ordinary comment must pass: ${toolInput.body}`);
+  }
+  const unrelated = judgeReviewRequest({ toolName: "mcp__github__get_me", toolInput: {} }, io, NOW);
+  assert.equal(unrelated.blocked, false, "an unrelated tool must pass");
   __resetRepoSlugCache();
 });

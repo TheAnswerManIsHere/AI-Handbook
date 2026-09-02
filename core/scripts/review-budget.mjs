@@ -130,69 +130,116 @@ export const RECEIPTS_DIR = ".agents/receipts";
 // a value expected to drift.
 const ADJUDICATIONS_DIR = ".agents/adjudications";
 /**
- * WHICH REPOSITORY THIS IS -- derived, never declared.
+ * WHICH REPOSITORY THIS IS -- declared in `.agents/machinery.json`.
  *
  * These were hardcoded to one repo's owner and name, which is why this file
  * could not travel: every check below compares a snapshot's or receipt's
  * self-declared `repo` against them, so in any other repository the
  * comparison is against the wrong constant and the whole binding is theatre.
  *
- * WHY DERIVED RATHER THAN CONFIGURED. The comparison exists so that a
- * receipt minted elsewhere cannot be laundered into this repo's merge gate.
- * That only works if the value it compares against is something the snapshot
- * cannot influence. A config file could be edited to match a foreign
- * receipt; an environment variable is worse, because the process that would
- * benefit from spoofing it is the same process that sets it -- and this gate
- * exists to constrain ME. `origin` cannot drift from reality: it IS the
- * repository this checkout pushes to, and `pr-ready.mjs` already treats it as
- * authoritative when it resolves branch tips and refuses fork heads. So the
- * identity is read from git, and there is deliberately no override.
+ * DERIVING IT FROM `origin` WAS TRIED AND WITHDRAWN. Reading the remote URL
+ * looked strictly safer -- a config file can be edited, a remote cannot lie
+ * about where it pushes -- and it was not. Across two review rounds the URL
+ * parsing produced six ways to get the identity wrong: a trailing slash after
+ * `.git`, a second push URL `get-url --push` does not show, fetch and push
+ * naming different repositories, an unresolvable origin, and two more. Under
+ * the SKIP semantics `judgeReviewRequest` used to have, every one of them
+ * meant the guard silently did not run. The list did not converge, which is
+ * this repo's recorded signature for a wrong shape rather than a wrong entry.
  *
- * FAILS CLOSED. Unresolvable identity throws rather than defaulting, so a
- * checkout with no origin refuses to mint or validate receipts instead of
- * validating them against a guess.
+ * WHY DECLARING IS SAFE NOW, when it would not have been before. The original
+ * objection was that a config file could be edited to match a foreign
+ * receipt. That objection died with the skip, because identity is compared on
+ * BOTH sides of every path that uses it: `judgeReviewRequest` requires the
+ * outgoing request to name this identity AND the receipt authorizing it to
+ * name the same one. Moving the declared value moves both, and the request
+ * that actually reaches GitHub must then name the moved repository -- so
+ * spoofing cannot push an unbudgeted round at the real one, it can only
+ * block. The merge gate never consults this value at all: `checkMerge` binds
+ * the receipt to the merge tool's own owner/repo, so a laundered receipt is
+ * caught there whatever this file says.
+ *
+ * FAILS CLOSED, and now loudly. An absent, malformed, or merely WRONG
+ * declaration blocks review requests instead of waving them through, because
+ * the callers refuse on mismatch rather than skipping. A fork that forgets to
+ * update this line finds out on its first review request.
+ *
+ * READ FROM THE WORKING TREE, unlike the required-checks list `pr-ready.mjs`
+ * reads at a commit. Different questions: "which checkout is this" has no
+ * commit to bind to, since the guard answers it on tool calls with no pull
+ * request in sight, and an uncommitted edit to it can only cause refusals per
+ * the paragraph above. The checks list is a policy a pull request could
+ * otherwise weaken in its own favour, so that one binds to a commit.
  */
-export function slugFromRemoteUrl(url) {
-  // Split at the host boundary -- `/` for URL forms, `:` for the scp-like
-  // `git@host:owner/repo` -- rather than enumerating schemes. https, ssh,
-  // git and the scp form all reduce to "whatever follows the host".
-  const m = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/]+@)?[^/:]+[/:](.+)$/i.exec(String(url ?? "").trim());
-  if (!m) return null;
-  const parts = m[1].replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
-  // The trailing two segments are owner and name. Taking the LAST two rather
-  // than the first two keeps nested hosting paths working; on GitHub, which
-  // is what the API comparison is against, there are exactly two.
-  if (parts.length < 2) return null;
-  return parts.slice(-2).join("/");
-}
+export const MACHINERY_CONFIG_FILE = ".agents/machinery.json";
 
-// Memoized per root: the identity of a checkout cannot change inside one
-// process, and `targetsThisRepo` runs on the guard's hot path -- every tool
-// call -- so this must not shell out each time.
-const SLUG_CACHE = new Map();
+export const MACHINERY_CONFIG_HOWTO =
+  `Commit ${MACHINERY_CONFIG_FILE} declaring this repository's machinery configuration. Shape: ` +
+  `{"repo": "owner/name", "baseBranch": "main", "requiredChecks": ["Job Name", ...]}.`;
 
-export function repoSlug(io = nodeIo()) {
+const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
+
+// Memoized per root: a checkout's configuration cannot change inside one
+// process, and this runs on the guard's hot path -- every tool call -- so it
+// must not re-read and re-parse each time.
+const CONFIG_CACHE = new Map();
+
+/**
+ * This repository's declared machinery configuration, or a thrown refusal
+ * naming exactly what is wrong with it.
+ *
+ * Only the two fields every consumer needs to locate the rest are read and
+ * validated here. `requiredChecks` is deliberately NOT returned: `pr-ready.mjs`
+ * reads that field itself, from this same file at the base branch's commit
+ * rather than from the working tree, and handing it a working-tree copy from
+ * here is precisely the shortcut that would undo that binding.
+ */
+export function machineryConfig(io = nodeIo()) {
   const key = io.root ?? "";
-  if (!SLUG_CACHE.has(key)) {
-    const slug = io.originSlug();
-    if (!slug) {
+  if (!CONFIG_CACHE.has(key)) {
+    // `io.read` returns null only for ENOENT; a permissions or I/O fault
+    // throws rather than being collapsed into "absent", the same discipline
+    // every other read in this file follows.
+    const raw = io.read(MACHINERY_CONFIG_FILE);
+    if (raw === null) {
       throw new Error(
-        "cannot determine this repository's identity from `origin`. Either it is unset or its URL " +
-          "does not name an owner/repo, or its fetch and push URLs name DIFFERENT repositories -- " +
-          "in which case \"which repository is this\" has no single answer and guessing either way " +
-          "is how the binding gets bypassed. Every receipt and snapshot check binds to this " +
-          "identity, so refusing is the safe direction: a guessed identity would validate a receipt " +
-          "minted somewhere else. Point `origin` (fetch and push) at this repository.",
+        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which repository it is. Every ` +
+          `receipt and snapshot check binds to that identity, and a guessed one would validate evidence ` +
+          `minted somewhere else. ${MACHINERY_CONFIG_HOWTO}`,
       );
     }
-    SLUG_CACHE.set(key, slug);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
+    }
+    const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
+    if (!SLUG_RE.test(repo)) {
+      throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`);
+    }
+    // The branch pull requests target. Needed HERE rather than in
+    // `pr-ready.mjs` alone because that is the one field which cannot be read
+    // from the base commit: locating the base commit is what it is for.
+    const baseBranch = typeof parsed?.baseBranch === "string" ? parsed.baseBranch.trim() : "";
+    if (baseBranch === "") {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} must declare "baseBranch" -- the branch pull requests target, and the ` +
+          `one the readiness gate reads its required-checks policy from. ${MACHINERY_CONFIG_HOWTO}`,
+      );
+    }
+    CONFIG_CACHE.set(key, { repo, baseBranch });
   }
-  return SLUG_CACHE.get(key);
+  return CONFIG_CACHE.get(key);
 }
 
-/** Test seam: forget any resolved identity. Never called in production. */
+export function repoSlug(io = nodeIo()) {
+  return machineryConfig(io).repo;
+}
+
+/** Test seam: forget any parsed configuration. Never called in production. */
 export function __resetRepoSlugCache() {
-  SLUG_CACHE.clear();
+  CONFIG_CACHE.clear();
 }
 
 /**
@@ -519,46 +566,6 @@ export function nodeIo(root = REPO_ROOT) {
   return {
     root,
     now: () => new Date().toISOString(),
-    /**
-     * This repository's `owner/name`, read from `origin`, or null when it
-     * cannot be determined. `ls-remote --get-url` rather than `remote get-url`
-     * so `insteadOf` rewrites are honoured -- the same resolution `durableRef`
-     * below already relies on, and for the same reason: the URL git would
-     * really use is the only one that says anything true.
-     */
-    originSlug() {
-      const at = (args) => {
-        try {
-          const out = execFileSync("git", args, {
-            cwd: root,
-            encoding: "utf8",
-            stdio: ["ignore", "pipe", "ignore"],
-          }).trim();
-          // `--get-url` echoes the name back when the remote is unknown, so
-          // an unconfigured `origin` comes back as the literal "origin".
-          return !out || out === "origin" ? null : slugFromRemoteUrl(out);
-        } catch {
-          return null;
-        }
-      };
-      // BOTH URLs, because a remote can fetch from one repository and push to
-      // another. `ls-remote --get-url` returns only the FETCH url, so a
-      // checkout with `remote.origin.pushurl` set would have been identified
-      // as its upstream or mirror -- and `targetsThisRepo` would then return
-      // false for the repository actually being operated on, which does not
-      // block the request, it SKIPS the guard entirely. Fail-open, and this
-      // repo already records the divergent-pushurl configuration as a real
-      // one in known-failure-patterns.md. (Codex, PR #7 round 1.)
-      const fetchSlug = at(["ls-remote", "--get-url", "origin"]);
-      const pushSlug = at(["remote", "get-url", "--push", "origin"]);
-      if (!fetchSlug || !pushSlug) return null;
-      // Divergence is ambiguity, and ambiguity here is refused rather than
-      // resolved: if this checkout fetches from one repository and pushes to
-      // another, "which repository is this" has no single answer, and picking
-      // either is how the binding gets bypassed.
-      if (fetchSlug.toLowerCase() !== pushSlug.toLowerCase()) return null;
-      return fetchSlug;
-    },
     /**
      * `null` means the file is ABSENT. Anything else -- a permissions error, a
      * transient I/O failure -- throws, and `readJson` turns that into a
@@ -1427,15 +1434,25 @@ function refusal(pr, state, spent, tiedCount = false) {
  * one post.
  */
 export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now = Date.now()) {
+  // RELEVANCE FIRST, IDENTITY SECOND, and the order is load-bearing in both
+  // directions. Resolving identity up here refused every call the guard sees
+  // -- an ordinary PR comment, a `get_me` -- whenever the declaration was
+  // missing, because the refusal fired before anything had established that
+  // this call was even a review request. (Codex, PR #7 round 2.) Below these
+  // two lines, every remaining path IS a review request, so a refusal there
+  // is about the thing being guarded.
+  if (!REVIEW_REQUEST_TOOLS.has(toolName)) return { blocked: false, reason: null };
+  if (!mentionsReviewRequest(toolInput?.body)) return { blocked: false, reason: null };
+
   // From the INJECTED io, not a default one: a caller that scopes this
   // judgement to a particular checkout must get that checkout's identity.
   //
-  // CAUGHT, not thrown. `repoSlug` refuses when identity is unresolvable,
-  // which is the right refusal in the wrong shape here: an exception escapes
-  // `decide()`, rejects the hook's `main()`, and exits 1 -- and the hook
-  // contract is exit 2 to block, anything else to allow. So the fail-CLOSED
-  // identity check became a fail-OPEN hook error, which is the exact defect
-  // .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
+  // CAUGHT, not thrown. `machineryConfig` refuses when the declaration is
+  // absent or malformed, which is the right refusal in the wrong shape here:
+  // an exception escapes `decide()`, rejects the hook's `main()`, and exits 1
+  // -- and the hook contract is exit 2 to block, anything else to allow. So a
+  // fail-CLOSED identity check would become a fail-OPEN hook error, the exact
+  // defect .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
   // (Codex, PR #7 round 1.)
   let slug;
   try {
@@ -1443,9 +1460,37 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
   } catch (err) {
     return { blocked: true, reason: `${err.message}` };
   }
-  if (!REVIEW_REQUEST_TOOLS.has(toolName)) return { blocked: false, reason: null };
-  if (!mentionsReviewRequest(toolInput?.body)) return { blocked: false, reason: null };
-  if (!targetsThisRepo(toolInput, slug)) return { blocked: false, reason: null };
+
+  // A REVIEW REQUEST AT ANOTHER REPOSITORY IS REFUSED, NOT SKIPPED.
+  //
+  // This returned `not blocked` -- "not our loop, not our business" -- and
+  // that single line was the root of every identity finding in this PR. It
+  // made "which repository is this" the load-bearing question for whether the
+  // guard ran AT ALL, so each of the six ways to get the identity wrong
+  // turned into a silent bypass rather than a visible refusal. The check that
+  // exists to stop an unbudgeted round was one bad remote URL away from
+  // stopping nothing, and saying nothing about it.
+  //
+  // Refusing inverts that. A wrong identity now blocks a legitimate request,
+  // which is loud, immediate and trivially fixed; it can no longer wave an
+  // illegitimate one through, which was silent and unbounded. The one thing
+  // genuinely lost is posting a review request for another repository from
+  // this checkout -- and that was never safe: the round count, the budget and
+  // the receipts all live in THIS repo, so such a post was never counted
+  // against the loop it belonged to. Do it from a checkout of that
+  // repository, whose own guard can count it.
+  if (!targetsThisRepo(toolInput, slug)) {
+    const target = `${toolInput?.owner ?? "?"}/${toolInput?.repo ?? "?"}`;
+    return {
+      blocked: true,
+      reason:
+        `this checkout is ${slug}, but the review request targets ${target}. The budget, the round count ` +
+        `and the receipts that authorize a round all live in the repository the request is FOR, so a ` +
+        `request posted from somewhere else is never counted against the loop it belongs to. Post it ` +
+        `from a checkout of ${target}. If this checkout really is ${target}, its declared identity is ` +
+        `wrong -- fix "repo" in ${MACHINERY_CONFIG_FILE}.`,
+    };
+  }
 
   // Refuse the trigger on any surface the count cannot see. This is what makes
   // `issueComments` a complete pending surface -- see REVIEW_REQUEST_SURFACE.

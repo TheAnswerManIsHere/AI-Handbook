@@ -749,11 +749,13 @@ const TEST_REPO = "TestRepo";
 const TEST_SLUG = `${TEST_OWNER}/${TEST_REPO}`;
 
 const memoryIo = (files = {}) => {
-  const store = { ...files };
+  // The identity is a seeded FILE, not an injected method: production reads
+  // it through `read`, so stubbing a separate seam would exercise a path
+  // production never takes.
+  const store = { ".agents/machinery.json": JSON.stringify({ repo: TEST_SLUG, baseBranch: "main" }), ...files };
   return {
     store,
     root: `/test/${Math.random().toString(36).slice(2)}`,
-    originSlug: () => TEST_SLUG,
     now: () => NOW_ISO,
     read: (rel) => (rel in store ? store[rel] : null),
     exists: (rel) => rel in store,
@@ -835,8 +837,10 @@ test("an @codex review post past its budget is refused at tripwire 1", () => {
 
 test("an ordinary PR comment is unaffected by the budget", () => {
   const io = memoryIo();
+  // The seeded declaration, which the guard READS and must not modify.
+  const before = { ...io.store };
   assert.equal(decide(reviewPayload("Fixed in abc1234 — resolving this thread."), { io, now: NOW_MS }).blocked, false);
-  assert.deepEqual(io.store, {}, "and nothing is written");
+  assert.deepEqual(io.store, before, "and nothing is written");
 });
 
 test("the three judgements do not leak into each other", () => {

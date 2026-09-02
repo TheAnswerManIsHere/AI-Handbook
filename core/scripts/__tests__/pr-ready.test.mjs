@@ -12,6 +12,7 @@ import {
   codeReviewOutage,
   checkCi,
   requiredChecks,
+  policyCommit,
   checkCodex,
   checkAdjudicatedCodex,
   checkRail,
@@ -431,6 +432,9 @@ const goodSnapshot = () => ({
   pr: {
     number: 500,
     head: { sha: HEAD, ref: "claude/x", repo: "TheAnswerManIsHere/Overhypeme" },
+    // The branch the PR merges into: the required-checks policy is read from
+    // there, never from this PR, so a snapshot must name it.
+    base: { ref: "main" },
   },
   capturedAt: { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER },
   checkRuns: allRequired(),
@@ -1882,77 +1886,107 @@ test("adjudication: the internal tier gets the merge-gate fallback like every ti
 });
 
 // ---------------------------------------------------------------------------
-// Required checks: declared per consumer, and fail-closed in every direction
+// Required checks: declared per consumer, read from the BASE branch, and
+// fail-closed in every direction
 // ---------------------------------------------------------------------------
 
-const withConfig = (contents) => {
-  const root = mkdtempSync(join(tmpdir(), "required-checks-"));
+/**
+ * A repository whose `origin/<baseBranch>` carries a machinery declaration.
+ *
+ * `update-ref` rather than a real remote: the production lookup resolves
+ * `refs/remotes/origin/<branch>`, and writing that ref directly is the same
+ * state a fetch would leave behind, without a network.
+ */
+const policyRepo = (config, { baseBranch = "main" } = {}) => {
+  const root = mkdtempSync(join(tmpdir(), "policy-"));
+  const g = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  g("init", "-q", "-b", baseBranch, ".");
+  g("config", "user.email", "t@example.test");
+  g("config", "user.name", "T");
   mkdirSync(join(root, ".agents"), { recursive: true });
-  if (contents !== null) writeFileSync(join(root, ".agents/required-checks.json"), contents);
-  return root;
+  if (config !== null) writeFileSync(join(root, ".agents/machinery.json"), config);
+  else writeFileSync(join(root, "seed.txt"), "x");
+  g("add", "-A");
+  g("commit", "-q", "-m", "base");
+  const sha = g("rev-parse", "HEAD").trim();
+  g("update-ref", `refs/remotes/origin/${baseBranch}`, sha);
+  return { root, sha, g };
 };
 
+const declared = (checks, extra = {}) =>
+  JSON.stringify({ repo: "Owner/Repo", baseBranch: "main", requiredChecks: checks, ...extra });
+
 test("required checks come from the consumer's own declaration", () => {
-  const root = withConfig(JSON.stringify({ requiredChecks: ["Manifest", "Test"] }));
-  assert.deepEqual(requiredChecks(null, root), ["Manifest", "Test"]);
+  const { root, sha } = policyRepo(declared(["Manifest", "Test"]));
+  assert.deepEqual(requiredChecks(sha, root), ["Manifest", "Test"]);
 });
 
-test("the policy is read from the COMMITTED head, not the working tree", () => {
-  // An uncommitted edit -- plausible exactly while CI config is being changed
-  // -- could otherwise shrink the list, mint a READY receipt for a commit that
-  // does not contain that policy, and survive the file being reverted.
-  const root = mkdtempSync(join(tmpdir(), "required-checks-head-"));
-  const g = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  g("init", "-q", ".");
-  g("config", "user.email", "t@example.test");
-  g("config", "user.name", "T");
-  mkdirSync(join(root, ".agents"), { recursive: true });
-  writeFileSync(join(root, ".agents/required-checks.json"), JSON.stringify({ requiredChecks: ["Build", "Test"] }));
-  g("add", "-A");
-  g("commit", "-q", "-m", "commit the policy");
-  const head = g("rev-parse", "HEAD").trim();
-
-  // Now weaken it in the working tree only.
-  writeFileSync(join(root, ".agents/required-checks.json"), JSON.stringify({ requiredChecks: ["Build"] }));
-
-  assert.deepEqual(requiredChecks(head, root), ["Build", "Test"], "the committed policy is what binds");
-  assert.deepEqual(requiredChecks(null, root), ["Build"], "and the working tree is only used with no head");
+test("the base branch commit is what policyCommit resolves", () => {
+  const { root, sha } = policyRepo(declared(["Manifest"]));
+  const at = policyCommit(root);
+  assert.equal(at.sha, sha);
+  assert.equal(at.ref, "refs/remotes/origin/main");
+  assert.equal(at.baseBranch, "main");
 });
 
-test("REFUSES a policy that exists only in the working tree", () => {
-  const root = mkdtempSync(join(tmpdir(), "required-checks-uncommitted-"));
-  const g = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  g("init", "-q", ".");
-  g("config", "user.email", "t@example.test");
-  g("config", "user.name", "T");
-  writeFileSync(join(root, "seed.txt"), "x");
+test("a PR CANNOT weaken the gate that approves it", () => {
+  // The whole point of reading from the base. The pull request commits a
+  // shorter list at its own head; the gate keeps reading the base branch's,
+  // so the weakened list never takes effect. (Codex, PR #7 round 2 --
+  // "a PR cannot define the gate used to approve itself".)
+  const { root, sha, g } = policyRepo(declared(["Build", "Test"]));
+  g("checkout", "-q", "-b", "claude/weaken");
+  writeFileSync(join(root, ".agents/machinery.json"), declared(["Build"]));
   g("add", "-A");
-  g("commit", "-q", "-m", "seed");
-  const head = g("rev-parse", "HEAD").trim();
-  mkdirSync(join(root, ".agents"), { recursive: true });
-  writeFileSync(join(root, ".agents/required-checks.json"), JSON.stringify({ requiredChecks: ["Build"] }));
-  assert.throws(() => requiredChecks(head, root), /is not committed at/);
+  g("commit", "-q", "-m", "drop Test from the required list");
+  const prHead = g("rev-parse", "HEAD").trim();
+
+  assert.deepEqual(requiredChecks(sha, root), ["Build", "Test"], "the base branch policy is what binds");
+  assert.notEqual(prHead, sha);
+  // And the gate reaches for the base one on its own, without being handed it.
+  assert.deepEqual(requiredChecks(policyCommit(root).sha, root), ["Build", "Test"]);
+});
+
+test("REFUSES when the base branch ref is absent -- there is no trusted policy source", () => {
+  const { root, g } = policyRepo(declared(["Test"]));
+  g("update-ref", "-d", "refs/remotes/origin/main");
+  assert.throws(() => policyCommit(root), /does not resolve to a commit/);
+});
+
+test("REFUSES a policy read at anything other than a resolved commit", () => {
+  // Guards the seam itself: passing null or a branch name would silently
+  // reintroduce a working-tree or head-controlled read.
+  const { root } = policyRepo(declared(["Test"]));
+  for (const bad of [null, undefined, "", "HEAD", "main", "abc1234"]) {
+    assert.throws(() => requiredChecks(bad, root), /must be read at a resolved base commit/, String(bad));
+  }
 });
 
 test("REFUSES when the declaration is absent -- the gate must know what it waits for", () => {
   // This is the defect that made the payload unusable elsewhere: five job
   // names from one repo's CI meant no PR in any other repo could ever mint a
   // receipt. Absent config now says so instead of silently requiring nothing.
-  const root = withConfig(null);
-  assert.throws(() => requiredChecks(null, root), /is missing, so this gate does not know which checks/);
+  const { root, sha } = policyRepo(null);
+  assert.throws(() => requiredChecks(sha, root), /is not committed at/);
 });
 
 test("REFUSES an empty list -- a gate that requires nothing is satisfied by anything", () => {
   // The fail-OPEN reading, and the one this whole constant exists to prevent.
-  const root = withConfig(JSON.stringify({ requiredChecks: [] }));
-  assert.throws(() => requiredChecks(null, root), /satisfied by any green set/);
+  const { root, sha } = policyRepo(declared([]));
+  assert.throws(() => requiredChecks(sha, root), /satisfied by any green set/);
 });
 
 test("REFUSES a malformed declaration rather than reading past it", () => {
-  assert.throws(() => requiredChecks(null, withConfig("{ not json")), /not valid JSON/);
-  assert.throws(() => requiredChecks(null, withConfig(JSON.stringify({}))), /array of non-empty job names/);
-  assert.throws(() => requiredChecks(null, withConfig(JSON.stringify({ requiredChecks: "Test" }))), /array of non-empty/);
-  assert.throws(() => requiredChecks(null, withConfig(JSON.stringify({ requiredChecks: ["ok", ""] }))), /array of non-empty/);
+  const bad = {
+    "{ not json": /not valid JSON/,
+    [JSON.stringify({ repo: "Owner/Repo", baseBranch: "main" })]: /array of non-empty job names/,
+    [declared("Test")]: /array of non-empty/,
+    [declared(["ok", ""])]: /array of non-empty/,
+  };
+  for (const [config, expected] of Object.entries(bad)) {
+    const { root, sha } = policyRepo(config);
+    assert.throws(() => requiredChecks(sha, root), expected, config);
+  }
 });
 
 test("a declared job that never appears keeps the gate closed", () => {

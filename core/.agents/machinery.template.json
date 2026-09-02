@@ -1,0 +1,9 @@
+{
+  "_README": "Seeded once by the AI-Handbook sync, then owned by this repository. EDIT BOTH FIELDS BEFORE USE. Left as-is, the machinery refuses rather than guesses: every review request blocks with a message naming this file. That is the intended failure -- it announces itself instead of silently protecting nothing.",
+  "repo": "OWNER/REPO",
+  "_repo": "This repository's GitHub owner/name, exactly as the API spells it. Every receipt and snapshot check binds to it, and a review request whose target does not match it is REFUSED.",
+  "baseBranch": "main",
+  "_baseBranch": "The branch pull requests merge into. The required-checks policy below is read from THIS branch, never from the pull request under review, so that a pull request cannot weaken the gate that approves it.",
+  "requiredChecks": ["REPLACE-WITH-A-REQUIRED-CI-JOB-NAME"],
+  "_requiredChecks": "The CI jobs that must be PRESENT before a readiness receipt is honest -- every job that can appear late, not only the ones that must pass. A job gated on an earlier one is created late, so a snapshot taken too early sees a complete green set without it. Use the jobs.*.name values from this repo's workflows."
+}

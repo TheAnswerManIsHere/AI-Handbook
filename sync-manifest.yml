@@ -660,6 +660,17 @@ groups:
   - id: machinery
     mode: sync
     status: staged
+    requires:
+      # MUTUAL with machinery-config, and deliberately so. review-budget.mjs
+      # and pr-ready.mjs OPEN .agents/machinery.json -- they refuse without
+      # it, which is the instruction end of the instruction-vs-evidence test,
+      # not a sentence about where something lives. The reverse holds too: the
+      # seeded file is inert with nothing to read it. They are one thing split
+      # across two groups for exactly one reason -- a group carries a single
+      # mode, and the scripts are sync (the handbook owns them) while the
+      # config is seed (the consumer owns it after the first write). So the
+      # two flip in one commit, the way claude-core and planning already do.
+      - machinery-config
     mentions:
       - group: skills
         ref: core/.claude/skills/uat/SKILL.md
@@ -769,13 +780,13 @@ groups:
         ref: core/docs/ai-context/known-failure-patterns.md
         from: core/scripts/review-budget.mjs
         form: "known-failure-patterns.md"
-        count: 2
+        count: 1
         why: >
-          Comments citing where a failure pattern is recorded, explaining why
-          two checks fail open, and why identity refuses when a remote's fetch
-          and push URLs diverge — that configuration is recorded there as one
-          that really occurs. Rationale, not a route: the code is correct
-          whether or not the reader ever opens the file.
+          One comment citing where a failure pattern is recorded, explaining
+          why two checks fail open. Rationale, not a route: the code is
+          correct whether or not the reader ever opens the file. Was 2 — the
+          second cited the divergent-pushurl configuration, and went with the
+          remote-URL derivation it justified.
       - group: memory
         ref: core/.agents/memory/hook-uncaught-throw-fails-open.md
         from: core/scripts/review-budget.mjs
@@ -841,14 +852,21 @@ groups:
       .agents/core/, so a broken relative link in the vendored claude-core.md or
       agents-core.md passes the docs-accuracy gate reporting zero files checked.
       (3) pr-ready.mjs hardcoded REQUIRED_CHECKS to five job names from one
-      repo's CI, so in any other consumer no PR could ever mint a READY receipt.
-      Now DECLARED per consumer in .agents/required-checks.json, because unlike
-      identity this cannot be derived: "which jobs must be present before a
-      receipt is honest" is a policy about a repo's own CI, not an observable
-      property of the checkout. Fails closed in every direction — absent,
-      unreadable, malformed, or empty all refuse — because a gate that requires
-      nothing is satisfied by any green set, which is the fail-OPEN reading this
-      list exists to prevent. Items (4), (5) and (6) named
+      repo's CI, and review-budget.mjs hardcoded one repo's owner and name, so
+      in any other consumer no PR could ever mint a READY receipt and every
+      identity comparison was against the wrong constant. Both are now
+      DECLARED, together, in .agents/machinery.json — seeded by the
+      machinery-config group, which is why these two groups require each other.
+      An earlier revision of this item said identity, unlike the checks list,
+      could be DERIVED from origin and needed no configuration. That was
+      tried and withdrawn: two review rounds found six ways to parse a remote
+      URL wrongly, and under the skip semantics the guard had then, each one
+      meant the guard silently did not run. Both fail closed in every direction
+      — absent, unreadable, malformed, or empty all refuse — because a gate
+      that requires nothing is satisfied by any green set, which is the
+      fail-OPEN reading the list exists to prevent. The checks list is read
+      from the BASE branch rather than the pull request's head, so a pull
+      request cannot weaken the gate that approves it. Items (4), (5) and (6) named
       clean-stale-git-locks.sh: a script nothing invoked, a script silently
       disabled in a linked worktree, and a script that could delete a LIVE lock.
       All three are gone with the script itself. The Replit sandbox constraint it
@@ -877,6 +895,38 @@ groups:
       # file sits rather than by what it needs.
       - from: core/.claude/agents/review-loop-adjudicator.md
         to: .claude/agents/review-loop-adjudicator.md
+
+  - id: machinery-config
+    mode: seed
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      Seeded alone this file is inert -- nothing reads it until the scripts
+      that do are present -- and seeded with the machinery it is the one thing
+      standing between those scripts and a repository they cannot name. Travels
+      with the machinery. The seed's own failure mode is deliberate and does
+      not block unstaging: the template's placeholder values do not identify
+      any real repository, so a consumer that forgets to edit it has every
+      review request refused with a message naming this file, rather than a
+      guard quietly protecting nothing. Loud and one edit from fixed. Second
+      condition, inherited from settings-template's round-6 finding: seed mode
+      writes only when the file is ABSENT, so a consumer that already has
+      .agents/machinery.json keeps it and this group delivers nothing --
+      correct here, since the existing file is that repo's own identity and
+      overwriting it is precisely what seed mode exists to prevent.
+    description: >
+      Which repository this is, which branch its pull requests target, and
+      which CI jobs must be present before a readiness receipt is honest.
+      Seeded once, then owned by the consumer -- these three values are the
+      only per-repo configuration the machinery has, and every one of them is
+      a fact about the consumer that the handbook cannot know. The file
+      documents itself through _-prefixed sibling keys, which is also how it
+      carries the ownership warning every synced non-Markdown file owes: JSON
+      has no comment syntax.
+    paths:
+      - from: core/.agents/machinery.template.json
+        to: .agents/machinery.json
 
   - id: settings-template
     mode: seed

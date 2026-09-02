@@ -47,9 +47,12 @@ import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  MACHINERY_CONFIG_FILE,
   RECEIPTS_DIR as LOOP_RECEIPTS_DIR,
   TIERS,
   allowance,
+  machineryConfig,
+  nodeIo,
   railFor,
   validateBudget,
   validateExtension,
@@ -102,71 +105,85 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * directions, and still unusable. (Found in round 6 of AI-Handbook #3, on a
  * real merge this gate refused.)
  *
- * Unlike the repository's identity, this cannot be derived. "Which jobs must
+ * Unlike the repository's identity, this cannot be observed. "Which jobs must
  * be present before a receipt is honest" is a POLICY each consumer states
- * about its own CI, not a property of the checkout that can be observed -- so
- * it is declared, in a file the repository owns.
+ * about its own CI, so it is declared, in a file the repository owns --
+ * `.agents/machinery.json`, alongside the identity, so a consumer bootstraps
+ * the machinery by filling in one file rather than remembering two.
  *
- * FAILS CLOSED, deliberately and in every direction: absent file, unreadable
- * file, malformed contents, or an empty list all refuse. An empty list is
- * refused rather than treated as "nothing required" because that is exactly
- * the fail-OPEN reading -- any green set would satisfy a gate that demands
- * nothing, which is the failure this constant was introduced to prevent.
+ * READ FROM THE BASE BRANCH, never from the pull request under review. It was
+ * read at the PR's own head commit, which meant a pull request could commit a
+ * shorter list and mint a READY receipt against the gate it had just
+ * weakened: a pull request cannot be allowed to define the gate that approves
+ * it. (Codex, PR #7 round 2.) The base branch is the trusted side of that
+ * boundary -- changing the policy there requires merging a pull request,
+ * which requires passing the policy already in force.
+ *
+ * The commit is resolved from the remote-tracking ref rather than a local
+ * branch, because a local `main` can be anything I checked out, and it is
+ * RECORDED in the receipt so a reader can see which policy a verdict was
+ * minted under. A stale remote-tracking ref yields a stale policy; that is
+ * visible in the receipt and costs a fetch, where the alternative was
+ * invisible and cost the gate.
+ *
+ * FAILS CLOSED, deliberately and in every direction: absent ref, absent file,
+ * unreadable file, malformed contents, or an empty list all refuse. An empty
+ * list is refused rather than treated as "nothing required" because that is
+ * exactly the fail-OPEN reading -- any green set would satisfy a gate that
+ * demands nothing, which is the failure this constant was introduced to
+ * prevent.
  */
-export const REQUIRED_CHECKS_FILE = ".agents/required-checks.json";
+/**
+ * The commit the required-checks policy is read from: the tip of the declared
+ * base branch as this checkout last saw it on `origin`.
+ *
+ * Separate from `requiredChecks` so the resolved sha can be recorded in the
+ * receipt without resolving it twice, and so the "which ref" failure reads
+ * differently from the "what is in the file" ones.
+ */
+export function policyCommit(cwd = join(HERE, ".."), io = undefined) {
+  const { baseBranch } = machineryConfig(io ?? nodeIo(cwd));
+  const ref = `refs/remotes/origin/${baseBranch}`;
+  const sha = git(["rev-parse", "--verify", `${ref}^{commit}`], cwd);
+  if (!sha || !/^[0-9a-f]{40}$/i.test(sha)) {
+    throw fail(
+      `${ref} does not resolve to a commit, so the required-checks policy has no trusted source. The ` +
+        `policy is read from the base branch rather than from the pull request, because a pull request ` +
+        `must not define the gate that approves it. Run \`git fetch origin ${baseBranch}\` and retry.`,
+    );
+  }
+  return { sha, ref, baseBranch };
+}
 
-export function requiredChecks(headSha = null, cwd = join(HERE, "..")) {
+export function requiredChecks(policySha, cwd = join(HERE, "..")) {
   const howto =
-    `Commit ${REQUIRED_CHECKS_FILE} naming the CI jobs that must be PRESENT before a readiness ` +
-    `receipt is honest -- every job that can appear late, not just the ones that must pass. ` +
-    `Shape: {"requiredChecks": ["Job Name", ...]}.`;
-  // READ AT THE VALIDATED HEAD, not from the working tree.
-  //
-  // The receipt binds to `snapshot.pr.head.sha`, so the policy it was minted
-  // under has to be bound to that commit too. Reading the working tree let an
-  // uncommitted edit -- plausible precisely while CI config is being changed
-  // -- shrink the list, mint a READY receipt for a commit that does not
-  // contain that policy, and survive the file being reverted, because nothing
-  // downstream ever re-reads it. Reading the commit closes that without a
-  // comparison step: the working tree simply is not consulted.
-  // (Codex, PR #7 round 1.) `checkRail` already reads the committed budget
-  // receipt this way, so this is the established shape rather than a new one.
-  let raw = null;
-  if (headSha) {
-    raw = git(["show", `${headSha}:${REQUIRED_CHECKS_FILE}`], cwd);
-    if (raw === null) {
-      throw fail(
-        `${REQUIRED_CHECKS_FILE} is not committed at ${headSha.slice(0, 7)}, so this gate does not know ` +
-          `which checks it is waiting for -- and a policy that exists only in the working tree is not ` +
-          `bound to the commit the receipt would cover. ${howto}`,
-      );
-    }
-  } else {
-    // No head to bind to (unit tests, ad-hoc inspection). The working tree is
-    // the only source available; every production path supplies a head.
-    try {
-      raw = readFileSync(join(cwd, REQUIRED_CHECKS_FILE), "utf8");
-    } catch (err) {
-      throw fail(
-        err.code === "ENOENT"
-          ? `${REQUIRED_CHECKS_FILE} is missing, so this gate does not know which checks it is waiting for. ${howto}`
-          : `${REQUIRED_CHECKS_FILE} could not be read (${err.code}). ${howto}`,
-      );
-    }
+    `Declare "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch, naming the CI jobs that ` +
+    `must be PRESENT before a readiness receipt is honest -- every job that can appear late, not just ` +
+    `the ones that must pass. Shape: {"repo": "owner/name", "baseBranch": "main", ` +
+    `"requiredChecks": ["Job Name", ...]}.`;
+  if (typeof policySha !== "string" || !/^[0-9a-f]{40}$/i.test(policySha)) {
+    throw fail(`required-checks policy must be read at a resolved base commit, not "${policySha}". ${howto}`);
+  }
+  const raw = git(["show", `${policySha}:${MACHINERY_CONFIG_FILE}`], cwd);
+  if (raw === null) {
+    throw fail(
+      `${MACHINERY_CONFIG_FILE} is not committed at ${policySha.slice(0, 7)} on the base branch, so this ` +
+        `gate does not know which checks it is waiting for. ${howto}`,
+    );
   }
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw fail(`${REQUIRED_CHECKS_FILE} is not valid JSON. ${howto}`);
+    throw fail(`${MACHINERY_CONFIG_FILE} is not valid JSON at ${policySha.slice(0, 7)}. ${howto}`);
   }
   const list = parsed?.requiredChecks;
   if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n.trim() === "")) {
-    throw fail(`${REQUIRED_CHECKS_FILE} must carry "requiredChecks" as an array of non-empty job names. ${howto}`);
+    throw fail(`${MACHINERY_CONFIG_FILE} must carry "requiredChecks" as an array of non-empty job names. ${howto}`);
   }
   if (list.length === 0) {
     throw fail(
-      `${REQUIRED_CHECKS_FILE} declares an empty "requiredChecks". A gate that requires nothing is ` +
+      `${MACHINERY_CONFIG_FILE} declares an empty "requiredChecks". A gate that requires nothing is ` +
         `satisfied by any green set, which is the fail-open direction this list exists to prevent. ${howto}`,
     );
   }
@@ -348,6 +365,16 @@ export function assertSnapshot(snapshot, prNumber) {
         "after checking the bar, or extend remoteTip to resolve against the head repository.",
     );
   }
+  // WHICH BRANCH this pull request merges into. Validated at capture, beside
+  // the head fields, because the required-checks policy is read from the base
+  // branch and a snapshot that cannot name its base cannot be gated against
+  // the right policy. (Codex, PR #7 round 2.)
+  if (typeof pr.base?.ref !== "string" || pr.base.ref.trim() === "") {
+    throw fail(
+      'snapshot.pr.base.ref is required (pull_request_read method:"get", base.ref) -- the required-checks ' +
+        "policy is read from the base branch, never from this pull request",
+    );
+  }
   const complete = snapshot.complete ?? {};
   const capturedAt = snapshot.capturedAt ?? {};
   for (const key of Object.keys(MCP_METHOD_FOR)) {
@@ -435,7 +462,7 @@ export function checkCi(checkRuns, headSha = null, required = requiredChecks()) 
         `${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} absent from the check runs. ` +
         `A nonempty set of passing checks is not the bar -- ${names.size} check(s) can all be green ` +
         `while a mandatory job has not been created yet -- a job gated on an earlier one appears late. ` +
-        `Re-read get_check_runs once the workflow has fanned out, or correct ${REQUIRED_CHECKS_FILE} if ` +
+        `Re-read get_check_runs once the workflow has fanned out, or correct ${MACHINERY_CONFIG_FILE} if ` +
         `the job was renamed.`,
     };
   }
@@ -1389,10 +1416,37 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
       : adjudicated
         ? { ...directCodex, detail: `${directCodex.detail} | adjudication fallback also failed: ${adjudicated.detail}` }
         : directCodex;
-  // Resolved from the SAME commit the receipt binds to, so the policy and the
-  // evidence describe one state. An explicit list (tests) wins; production
-  // supplies none and gets the committed one.
-  const policy = required ?? requiredChecks(headSha, adjudicationOpts.cwd);
+  // Resolved from the BASE BRANCH, not from `headSha` -- the head is the pull
+  // request under review, and a pull request that supplies its own gate has
+  // not passed one. An explicit list (tests) wins; production supplies none
+  // and reads the trusted base. `policySource` goes into the receipt so a
+  // reader can see which commit the policy came from.
+  let policy = required;
+  let policySource = null;
+  if (!policy) {
+    const at = policyCommit(adjudicationOpts.cwd, adjudicationOpts.io);
+    // The base this PR actually targets, per GitHub, must be the base the
+    // policy was read from. Without this the declared `baseBranch` and the
+    // PR could name different branches, and the gate would be enforcing a
+    // policy from a branch this PR will never merge into.
+    const actual = snapshot.pr.base?.ref;
+    if (typeof actual !== "string" || actual.trim() === "") {
+      throw fail(
+        `snapshot.pr.base.ref is required -- the required-checks policy is read from the base branch, ` +
+          `so the gate has to confirm which branch this pull request actually targets`,
+      );
+    }
+    if (actual !== at.baseBranch) {
+      throw fail(
+        `this pull request targets ${actual}, but ${MACHINERY_CONFIG_FILE} declares the base branch as ` +
+          `${at.baseBranch}. The required-checks policy is read from the declared base, so merging into ` +
+          `a different branch would be gated by a policy that branch does not carry. Retarget the pull ` +
+          `request, or update "baseBranch" if the repository genuinely moved.`,
+      );
+    }
+    policy = requiredChecks(at.sha, adjudicationOpts.cwd);
+    policySource = { ref: at.ref, sha: at.sha };
+  }
   const items = {
     ci: checkCi(snapshot.checkRuns, headSha, policy),
     codex,
@@ -1416,6 +1470,10 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
     // The policy this verdict was reached under, recorded so a receipt cannot
     // be read without seeing what it actually demanded. (Codex, PR #7 round 1.)
     requiredChecks: policy,
+    // ...and WHERE it was read from, so a reader can tell a policy taken from
+    // the trusted base apart from one an explicit caller supplied, and can
+    // see whether the base commit was current. (Codex, PR #7 round 2.)
+    requiredChecksFrom: policySource,
     items,
   };
 }
