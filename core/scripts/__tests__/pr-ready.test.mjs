@@ -33,6 +33,11 @@ import {
 // ---------------------------------------------------------------------------
 
 const HEAD = "a".repeat(40);
+const BASE_SHA = "b".repeat(40);
+// The identity these snapshots claim, passed explicitly so no test depends on
+// which repository it happens to run inside.
+const SNAP_SLUG = "TheAnswerManIsHere/Overhypeme";
+const assertSnap = (snap, pr) => assertSnapshot(snap, pr, SNAP_SLUG);
 const STARTED = "2026-08-17T03:30:00Z";
 const run = (name, status, conclusion, head_sha = HEAD, started_at = STARTED) => ({ name, status, conclusion, head_sha, started_at });
 
@@ -434,7 +439,7 @@ const goodSnapshot = () => ({
     head: { sha: HEAD, ref: "claude/x", repo: "TheAnswerManIsHere/Overhypeme" },
     // The branch the PR merges into: the required-checks policy is read from
     // there, never from this PR, so a snapshot must name it.
-    base: { ref: "main" },
+    base: { ref: "main", sha: BASE_SHA },
   },
   capturedAt: { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER },
   checkRuns: allRequired(),
@@ -446,7 +451,7 @@ const goodSnapshot = () => ({
 
 test("snapshot: a well-formed snapshot validates and evaluates READY", () => {
   const snap = goodSnapshot();
-  assertSnapshot(snap, 500);
+  assertSnap(snap, 500);
   const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "READY");
   assert.equal(receipt.headSha, HEAD);
@@ -464,7 +469,7 @@ test("snapshot: a fork head is refused rather than resolved through origin", () 
   // (Codex, #490 round 6.)
   const snap = goodSnapshot();
   snap.pr.head.repo = "someone-else/Overhypeme";
-  assert.throws(() => assertSnapshot(snap, 500), /head is in someone-else\/Overhypeme/);
+  assert.throws(() => assertSnap(snap, 500), /head is in someone-else\/Overhypeme/);
 });
 
 test("snapshot: a missing head repo is rejected, not assumed to be ours", () => {
@@ -472,7 +477,7 @@ test("snapshot: a missing head repo is rejected, not assumed to be ours", () => 
   // this whole file exists to stop.
   const snap = goodSnapshot();
   delete snap.pr.head.repo;
-  assert.throws(() => assertSnapshot(snap, 500), /head\.repo/);
+  assert.throws(() => assertSnap(snap, 500), /head\.repo/);
 });
 
 test("snapshot: the head repo comparison ignores case", () => {
@@ -480,7 +485,7 @@ test("snapshot: the head repo comparison ignores case", () => {
   // differs only in case is the same repository, not a fork.
   const snap = goodSnapshot();
   snap.pr.head.repo = "theanswermanishere/overhypeme";
-  assert.doesNotThrow(() => assertSnapshot(snap, 500));
+  assert.doesNotThrow(() => assertSnap(snap, 500));
 });
 
 test("snapshot: a missing or malformed repo is rejected", () => {
@@ -488,24 +493,24 @@ test("snapshot: a missing or malformed repo is rejected", () => {
   // merge gate keys receipts by number. (Codex, #490.)
   const snap = goodSnapshot();
   delete snap.repo;
-  assert.throws(() => assertSnapshot(snap, 500), /snapshot\.repo must be "owner\/name"/);
+  assert.throws(() => assertSnap(snap, 500), /snapshot\.repo must be "owner\/name"/);
   const bare = goodSnapshot();
   bare.repo = "Overhypeme";
-  assert.throws(() => assertSnapshot(bare, 500), /snapshot\.repo must be "owner\/name"/);
+  assert.throws(() => assertSnap(bare, 500), /snapshot\.repo must be "owner\/name"/);
 });
 
 test("snapshot: a PR number mismatch is rejected", () => {
   // Guards against validating one PR and merging another.
-  assert.throws(() => assertSnapshot(goodSnapshot(), 501), /snapshot is for PR #500/);
+  assert.throws(() => assertSnap(goodSnapshot(), 501), /snapshot is for PR #500/);
 });
 
 test("snapshot: a missing or abbreviated head sha is rejected", () => {
   const snap = goodSnapshot();
   delete snap.pr.head.sha;
-  assert.throws(() => assertSnapshot(snap, 500), /full 40-character sha/);
+  assert.throws(() => assertSnap(snap, 500), /full 40-character sha/);
   const short = goodSnapshot();
   short.pr.head.sha = "abc1234";
-  assert.throws(() => assertSnapshot(short, 500), /full 40-character sha/);
+  assert.throws(() => assertSnap(short, 500), /full 40-character sha/);
 });
 
 test("snapshot: a missing head ref is rejected", () => {
@@ -514,13 +519,13 @@ test("snapshot: a missing head ref is rejected", () => {
   // still-fresh receipt. (Codex, #490.)
   const snap = goodSnapshot();
   delete snap.pr.head.ref;
-  assert.throws(() => assertSnapshot(snap, 500), /head\.ref is required/);
+  assert.throws(() => assertSnap(snap, 500), /head\.ref is required/);
 });
 
 test("snapshot: a missing capture time is rejected", () => {
   const snap = goodSnapshot();
   delete snap.capturedAt.reviewThreads;
-  assert.throws(() => assertSnapshot(snap, 500), /capturedAt\.reviewThreads/);
+  assert.throws(() => assertSnap(snap, 500), /capturedAt\.reviewThreads/);
 });
 
 test("snapshot: an unattested collection is rejected", () => {
@@ -528,19 +533,19 @@ test("snapshot: an unattested collection is rejected", () => {
   // item 3 into a rubber stamp on exactly the busy PRs where it matters.
   const snap = goodSnapshot();
   snap.complete.reviewThreads = false;
-  assert.throws(() => assertSnapshot(snap, 500), /complete\.reviewThreads must be explicitly true/);
+  assert.throws(() => assertSnap(snap, 500), /complete\.reviewThreads must be explicitly true/);
 });
 
 test("snapshot: a missing collection is rejected even when attested", () => {
   const snap = goodSnapshot();
   delete snap.checkRuns;
-  assert.throws(() => assertSnapshot(snap, 500), /snapshot\.checkRuns must be an array/);
+  assert.throws(() => assertSnap(snap, 500), /snapshot\.checkRuns must be an array/);
 });
 
 test("snapshot: a thread with no isResolved flag is rejected, not read as resolved", () => {
   const snap = goodSnapshot();
   snap.reviewThreads = [{ id: "t1" }];
-  assert.throws(() => assertSnapshot(snap, 500), /no boolean isResolved/);
+  assert.throws(() => assertSnap(snap, 500), /no boolean isResolved/);
 });
 
 test("snapshot: a comment with no timestamp is rejected", () => {
@@ -548,7 +553,7 @@ test("snapshot: a comment with no timestamp is rejected", () => {
   // silently sort as the epoch and could make an outstanding round look old.
   const snap = goodSnapshot();
   snap.issueComments = [{ user: { login: "me" }, body: "@codex review" }];
-  assert.throws(() => assertSnapshot(snap, 500), /missing or unparseable/);
+  assert.throws(() => assertSnap(snap, 500), /missing or unparseable/);
 });
 
 test("snapshot: a non-empty but UNPARSEABLE timestamp is rejected", () => {
@@ -556,7 +561,7 @@ test("snapshot: a non-empty but UNPARSEABLE timestamp is rejected", () => {
   // and any older valid response appears to answer it. (Codex, #490.)
   const snap = goodSnapshot();
   snap.issueComments[0].created_at = "sometime tuesday";
-  assert.throws(() => assertSnapshot(snap, 500), /missing or unparseable/);
+  assert.throws(() => assertSnap(snap, 500), /missing or unparseable/);
 });
 
 test("capture ordering: threads read BEFORE the accepted response fail", () => {
@@ -1945,6 +1950,64 @@ test("a PR CANNOT weaken the gate that approves it", () => {
   assert.notEqual(prHead, sha);
   // And the gate reaches for the base one on its own, without being handed it.
   assert.deepEqual(requiredChecks(policyCommit(root).sha, root), ["Build", "Test"]);
+});
+
+
+test("a snapshot for ANOTHER repository is refused, however self-consistent", () => {
+  // The both-sides check. A foreign snapshot passes its own internal
+  // consistency (repo == head.repo) and would otherwise be judged against
+  // THIS repo's policy and receipts, minting a receipt that names the foreign
+  // repo -- which checkMerge accepts, because it compares against the merge
+  // tool's own owner/repo. Same defect as the guard's skipped foreign target,
+  // in the other file. (Codex, PR #7 round 3.)
+  const snap = goodSnapshot();
+  snap.repo = "someone-else/Mirror";
+  snap.pr.head.repo = "someone-else/Mirror";
+  assert.throws(
+    () => assertSnapshot(snap, 500, SNAP_SLUG),
+    /this snapshot is for someone-else\/Mirror, but this checkout is/,
+  );
+  // And the identity comparison is case-insensitive, like every other one.
+  const cased = goodSnapshot();
+  cased.repo = SNAP_SLUG.toUpperCase();
+  cased.pr.head.repo = SNAP_SLUG.toUpperCase();
+  assert.doesNotThrow(() => assertSnapshot(cased, 500, SNAP_SLUG));
+});
+
+test("a snapshot with no base sha is refused -- the policy is read at it", () => {
+  const snap = goodSnapshot();
+  delete snap.pr.base.sha;
+  assert.throws(() => assertSnap(snap, 500), /base\.sha must be a full 40-character sha/);
+  snap.pr.base.sha = "b1b2b3b";
+  assert.throws(() => assertSnap(snap, 500), /base\.sha must be a full 40-character sha/);
+});
+
+test("the policy is read at GITHUB's base tip, not the local remote-tracking ref", () => {
+  // A local ref made the policy as stale as the last fetch, silently: a base
+  // that had STRENGTHENED its list since the fetch was enforced at the older,
+  // weaker version. (Codex, PR #7 round 3.)
+  const { root, sha: old, g } = policyRepo(declared(["Build"]));
+  // The base advances, strengthening the list. The local remote-tracking ref
+  // still points at the old commit, exactly as an unfetched checkout would.
+  writeFileSync(join(root, ".agents/machinery.json"), declared(["Build", "Test"]));
+  g("add", "-A");
+  g("commit", "-q", "-m", "require Test too");
+  const current = g("rev-parse", "HEAD").trim();
+
+  assert.equal(policyCommit(root).sha, old, "with no reported tip, the local ref is all there is");
+  assert.equal(policyCommit(root, undefined, current).sha, current, "GitHub's tip wins when supplied");
+  assert.deepEqual(requiredChecks(policyCommit(root, undefined, current).sha, root), ["Build", "Test"]);
+  assert.deepEqual(requiredChecks(policyCommit(root).sha, root), ["Build"], "the stale reading, for contrast");
+});
+
+test("a base tip this checkout does not have is a refusal, not a fallback", () => {
+  // `git show` can only read what is present, so silently falling back to the
+  // local ref would reintroduce the staleness this fixes.
+  const { root } = policyRepo(declared(["Build"]));
+  assert.throws(
+    () => policyCommit(root, undefined, "c".repeat(40)),
+    /which this checkout does not have/,
+  );
 });
 
 test("REFUSES when the base branch ref is absent -- there is no trusted policy source", () => {

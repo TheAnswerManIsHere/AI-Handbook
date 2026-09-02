@@ -311,10 +311,23 @@ Earlier versions of this section were written by hand, corrected by hand four
 times, and wrong every time — including in the specific way that matters most:
 three of them opened with "machinery first, it depends on nothing," which was
 false, because two corpus-wide gates were filed under `machinery` and dragged
-contracts, skills and planning in behind them. That is fixed (issue #2), and
-"machinery first" is true again for the first time since it was written.
+contracts, skills and planning in behind them.
 
-1. **`machinery`** — depends on nothing.
+Make that **five** hand-corrections. The sentence "machinery — depends on
+nothing" was true again for one PR, and PR #7 falsified it the same day by
+adding `machinery-config`. A paragraph whose whole subject is having got this
+wrong four times got it wrong a fifth, which is the argument for
+[issue #6](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/6) in a
+sentence: this ordering is DERIVABLE from the manifest, and every version of it
+written by hand has been wrong. Until the check generates it, treat what
+follows as commentary and `node scripts/check-manifest.mjs` as the authority —
+it is the thing that actually refuses a bad order.
+
+1. **`machinery` + `machinery-config`, in ONE PR.** A two-group cycle: the
+   scripts open `.agents/machinery.json`, and the seeded file is inert with
+   nothing to read it. They are two groups only because a group carries a
+   single mode, and the scripts are `sync` while the config is `seed`. Neither
+   flips alone — the check rejects the first step if you try.
 2. **`agent-definitions` + `contracts` + `engineering` + `memory` + `planning` +
    `skills`, in ONE PR.** Six groups, one dependency cycle, ~151 files. Not a
    sequence and not decomposable: each member carries mandatory references into

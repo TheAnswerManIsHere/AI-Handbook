@@ -936,8 +936,37 @@ const READY = {
 
 const MERGE_INPUT = { pullNumber: 500, owner: "TheAnswerManIsHere", repo: "Overhypeme" };
 
-const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT } = {}) =>
-  checkMerge(input, { readReceipt: () => receipt, resolveSha: () => tip });
+const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT, basePolicy } = {}) =>
+  checkMerge(input, {
+    readReceipt: () => receipt,
+    resolveSha: () => tip,
+    ...(basePolicy === undefined ? {} : { resolveBasePolicy: () => basePolicy }),
+  });
+
+const POLICY_SHA = "d".repeat(40);
+
+test("merge gate: a receipt minted under a SUPERSEDED policy blocks", () => {
+  // The head-sha binding catches a PR that moved; this catches the BASE
+  // moving. Without it, a base branch that strengthened its required-check
+  // list after minting left the old receipt mergeable for its whole freshness
+  // window. (Codex, PR #7 round 3.)
+  const receipt = { ...READY, requiredChecksFrom: { ref: "refs/remotes/origin/main", sha: POLICY_SHA } };
+  assert.match(
+    mergeReason(receipt, { basePolicy: "e".repeat(40) }),
+    /minted under the required-check policy at dddddddd*|is not the gate in force/,
+  );
+  assert.equal(mergeReason(receipt, { basePolicy: POLICY_SHA }), null, "the same policy still passes");
+});
+
+test("merge gate: an unresolvable or absent policy source ABSTAINS rather than blocks", () => {
+  // Two distinct reasons, and neither is evidence of a problem: a receipt
+  // written before this field existed carries no policy source, and a
+  // checkout that cannot resolve its base cannot answer the question.
+  // Blocking either would wedge the gate on every older receipt.
+  const withSource = { ...READY, requiredChecksFrom: { ref: "refs/remotes/origin/main", sha: POLICY_SHA } };
+  assert.equal(mergeReason(withSource, { basePolicy: null }), null, "unresolvable base abstains");
+  assert.equal(mergeReason(READY, { basePolicy: "e".repeat(40) }), null, "a receipt with no source abstains");
+});
 
 test("merge gate: a current, passing receipt allows the merge", () => {
   assert.equal(mergeReason(READY), null);

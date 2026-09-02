@@ -54,6 +54,7 @@ import {
   machineryConfig,
   nodeIo,
   railFor,
+  repoSlug,
   validateBudget,
   validateExtension,
 } from "./review-budget.mjs";
@@ -141,18 +142,44 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * receipt without resolving it twice, and so the "which ref" failure reads
  * differently from the "what is in the file" ones.
  */
-export function policyCommit(cwd = join(HERE, ".."), io = undefined) {
+export function policyCommit(cwd = join(HERE, ".."), io = undefined, reportedBaseSha = null) {
   const { baseBranch } = machineryConfig(io ?? nodeIo(cwd));
   const ref = `refs/remotes/origin/${baseBranch}`;
-  const sha = git(["rev-parse", "--verify", `${ref}^{commit}`], cwd);
-  if (!sha || !/^[0-9a-f]{40}$/i.test(sha)) {
+  const local = git(["rev-parse", "--verify", `${ref}^{commit}`], cwd);
+  if (!local || !/^[0-9a-f]{40}$/i.test(local)) {
     throw fail(
       `${ref} does not resolve to a commit, so the required-checks policy has no trusted source. The ` +
         `policy is read from the base branch rather than from the pull request, because a pull request ` +
         `must not define the gate that approves it. Run \`git fetch origin ${baseBranch}\` and retry.`,
     );
   }
-  return { sha, ref, baseBranch };
+  // GITHUB'S BASE TIP WINS OVER THE LOCAL REMOTE-TRACKING REF.
+  //
+  // Reading only the local ref made the policy as stale as the last fetch,
+  // silently: a base branch that had STRENGTHENED its list since I fetched
+  // would be enforced at its old, weaker version, and nothing downstream ever
+  // re-read it. The snapshot's base sha comes from GitHub in the same capture
+  // as every other piece of evidence here, so binding to it puts the policy
+  // under the same freshness cap as the evidence it judges -- rather than
+  // under no cap at all. (Codex, PR #7 round 3.)
+  //
+  // The local ref is still required, and still has to CONTAIN that commit:
+  // the policy is read with `git show`, which can only read what this
+  // checkout has. A missing one is a fetch, and says so.
+  if (reportedBaseSha) {
+    if (!/^[0-9a-f]{40}$/i.test(reportedBaseSha)) {
+      throw fail(`snapshot.pr.base.sha must be a full 40-character sha -- the policy is read at it`);
+    }
+    if (git(["cat-file", "-e", `${reportedBaseSha}^{commit}`], cwd) === null) {
+      throw fail(
+        `the base branch is at ${reportedBaseSha.slice(0, 7)} on GitHub, which this checkout does not ` +
+          `have -- so the required-checks policy in force cannot be read. Run \`git fetch origin ` +
+          `${baseBranch}\` and retry.`,
+      );
+    }
+    return { sha: reportedBaseSha, ref, baseBranch, local };
+  }
+  return { sha: local, ref, baseBranch, local };
 }
 
 export function requiredChecks(policySha, cwd = join(HERE, "..")) {
@@ -307,7 +334,7 @@ const MCP_METHOD_FOR = {
   reviews: "get_reviews",
 };
 
-export function assertSnapshot(snapshot, prNumber) {
+export function assertSnapshot(snapshot, prNumber, declared = undefined) {
   if (!snapshot || typeof snapshot !== "object") throw fail("snapshot is not an object");
 
   // A PR number alone does not name a pull request -- every repository has a
@@ -319,6 +346,32 @@ export function assertSnapshot(snapshot, prNumber) {
     throw fail('snapshot.repo must be "owner/name" -- the receipt is bound to a repository, not just a number');
   }
 
+  // ...AND IT MUST BE THIS ONE.
+  //
+  // The line above proves the snapshot names *a* repository; this proves it
+  // names *ours*. Without it the declared identity was never applied on the
+  // readiness path at all -- `machineryConfig` was read once, to locate the
+  // base branch, and nowhere else. A snapshot for another repository
+  // therefore passed on its own internal consistency (repo == head.repo),
+  // was judged against THIS repo's required-check policy and adjudication
+  // receipts, and minted a receipt naming the foreign repository -- which
+  // `checkMerge` then accepts, because it compares the receipt against the
+  // merge tool's own owner/repo and finds them equal. Where the two repos
+  // share a branch name and commit, as a fork or mirror does, the sha
+  // binding matches too and every remaining check passes.
+  //
+  // This is the same defect as the guard's skipped foreign target, in the
+  // other file: identity checked on one side only. Refusing here is the
+  // both-sides check the rest of this PR's argument assumes exists.
+  // (Codex, PR #7 round 3.)
+  const ours = declared ?? repoSlug();
+  if (snapshot.repo.toLowerCase() !== ours.toLowerCase()) {
+    throw fail(
+      `this snapshot is for ${snapshot.repo}, but this checkout is ${ours}. A readiness receipt is minted ` +
+        `from this repository's policy and its adjudication receipts, so it can only speak for this ` +
+        `repository. Run the gate from a checkout of ${snapshot.repo}.`,
+    );
+  }
   const pr = snapshot.pr;
   if (!pr || typeof pr !== "object") throw fail('snapshot is missing "pr"');
   if (pr.number !== prNumber) {
@@ -369,6 +422,15 @@ export function assertSnapshot(snapshot, prNumber) {
   // the head fields, because the required-checks policy is read from the base
   // branch and a snapshot that cannot name its base cannot be gated against
   // the right policy. (Codex, PR #7 round 2.)
+  // The base branch's TIP, which is what the required-checks policy is read
+  // at. Captured from GitHub with the rest of the evidence so the policy is
+  // no staler than the checks it judges. (Codex, PR #7 round 3.)
+  if (typeof pr.base?.sha !== "string" || !/^[0-9a-f]{40}$/i.test(pr.base.sha)) {
+    throw fail(
+      'snapshot.pr.base.sha must be a full 40-character sha (pull_request_read method:"get", base.sha) ' +
+        "-- the required-checks policy is read at that commit",
+    );
+  }
   if (typeof pr.base?.ref !== "string" || pr.base.ref.trim() === "") {
     throw fail(
       'snapshot.pr.base.ref is required (pull_request_read method:"get", base.ref) -- the required-checks ' +
@@ -1424,7 +1486,7 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
   let policy = required;
   let policySource = null;
   if (!policy) {
-    const at = policyCommit(adjudicationOpts.cwd, adjudicationOpts.io);
+    const at = policyCommit(adjudicationOpts.cwd, adjudicationOpts.io, snapshot.pr.base?.sha ?? null);
     // The base this PR actually targets, per GitHub, must be the base the
     // policy was read from. Without this the declared `baseBranch` and the
     // PR could name different branches, and the gate would be enforcing a

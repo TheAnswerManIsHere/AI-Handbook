@@ -229,7 +229,7 @@
 
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { staleReason, remoteTip } from "./pr-ready.mjs";
+import { staleReason, remoteTip, policyCommit } from "./pr-ready.mjs";
 import { REVIEW_REQUEST_TOOLS, judgeReviewRequest, nodeIo } from "./review-budget.mjs";
 
 const ALLOW = 0;
@@ -1639,7 +1639,7 @@ const RECEIPT_HOWTO =
  * word -- no hook sees his click -- which is why the receipt is also what
  * CLAUDE.md now requires a readiness claim to quote.
  */
-export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSha } = {}) {
+export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSha, resolveBasePolicy } = {}) {
   const pr = toolInput?.pullNumber;
   if (!Number.isInteger(pr)) {
     return `merge blocked: no pullNumber in the tool input, so no readiness receipt could be checked. ${RECEIPT_HOWTO}`;
@@ -1700,6 +1700,31 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
     return `merge blocked: the receipt for PR #${pr} names no branch, so its head sha cannot be checked against the tip. ${RECEIPT_HOWTO}`;
   }
 
+  // THE POLICY THE RECEIPT WAS MINTED UNDER MUST STILL BE THE POLICY IN FORCE.
+  //
+  // The head-sha binding below catches a PR that moved. It does not catch
+  // the BASE moving: if the base branch strengthened its required-check list
+  // after this receipt was minted, the receipt stayed valid for its whole
+  // freshness window, and nothing re-read the policy. So a merge could be
+  // authorized by a list the base branch had already replaced.
+  //
+  // `resolveBasePolicy` returns the base commit this checkout currently sees,
+  // or null when it cannot tell. Null ABSTAINS rather than blocks: unlike the
+  // branch tip above, a receipt minted before this field existed legitimately
+  // carries no policy source, and refusing those would wedge the gate on
+  // every receipt written before this change. A receipt that DOES name one
+  // gets it checked. (Codex, PR #7 round 3.)
+  const recordedPolicy = receipt.requiredChecksFrom?.sha;
+  if (typeof recordedPolicy === "string" && typeof resolveBasePolicy === "function") {
+    const currentPolicy = resolveBasePolicy();
+    if (currentPolicy && currentPolicy !== recordedPolicy) {
+      return (
+        `merge blocked: the receipt for PR #${pr} was minted under the required-check policy at ` +
+        `${recordedPolicy.slice(0, 7)}, but the base branch is now at ${currentPolicy.slice(0, 7)}. The ` +
+        `gate that approved this PR is not the gate in force. ${RECEIPT_HOWTO}`
+      );
+    }
+  }
   const tip = resolveSha(receipt.branch);
   if (!tip) {
     // Previously this abstained, on the reasoning that a branch this container
@@ -1746,6 +1771,16 @@ export function decide(raw, options = {}) {
     const reason = checkMerge(payload.tool_input, {
       readReceipt: readReceiptFromDisk,
       resolveSha: remoteTip,
+      // Local-only, and null on any failure: this abstains rather than blocks
+      // (see checkMerge), so a checkout that cannot resolve its base leaves
+      // the other bindings to do their work instead of wedging the gate.
+      resolveBasePolicy: () => {
+        try {
+          return policyCommit().local ?? null;
+        } catch {
+          return null;
+        }
+      },
       ...options,
     });
     return reason ? { blocked: true, reason } : { blocked: false, reason: null };
