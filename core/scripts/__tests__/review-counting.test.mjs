@@ -1,3 +1,4 @@
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 // Tests for the review-counting library -- the counting functions that stayed
 // on the enforcement path (review-budget.mjs, review-loop-record.mjs) when the
 // loop ledger was deleted (2026-08-20). Recovered from the deleted
