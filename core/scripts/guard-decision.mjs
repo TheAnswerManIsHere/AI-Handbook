@@ -229,7 +229,7 @@
 
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { staleReason, remoteTip, policyCommit } from "./pr-ready.mjs";
+import { staleReason, remoteTip, policyBranchOf } from "./pr-ready.mjs";
 import { REVIEW_REQUEST_TOOLS, judgeReviewRequest, nodeIo } from "./review-budget.mjs";
 
 const ALLOW = 0;
@@ -1716,7 +1716,7 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
   // gets it checked. (Codex, PR #7 round 3.)
   const recordedPolicy = receipt.requiredChecksFrom?.sha;
   if (typeof recordedPolicy === "string" && typeof resolveBasePolicy === "function") {
-    const currentPolicy = resolveBasePolicy();
+    const currentPolicy = resolveBasePolicy(receipt);
     // UNRESOLVABLE BLOCKS when the receipt names a policy.
     //
     // This abstained on null, on the reasoning that a receipt written before
@@ -1800,9 +1800,14 @@ export function decide(raw, options = {}) {
       // Null on any failure, which ABSTAINS rather than blocks (see
       // checkMerge): a network fault must not wedge the gate when the head-sha
       // binding beside it is still doing its work.
-      resolveBasePolicy: () => {
+      // The branch comes from the RECEIPT, which records the ref its policy
+      // was read at -- not from configuration, which this path no longer
+      // consults at all. Null on any failure, which abstains rather than
+      // blocks only when the receipt names no policy; see checkMerge.
+      resolveBasePolicy: (receipt) => {
         try {
-          return remoteTip(policyCommit().baseBranch) ?? null;
+          const branch = policyBranchOf(receipt);
+          return branch ? (remoteTip(branch) ?? null) : null;
         } catch {
           return null;
         }

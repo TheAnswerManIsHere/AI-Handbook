@@ -135,15 +135,49 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * prevent.
  */
 /**
- * The commit the required-checks policy is read from: the tip of the declared
- * base branch as this checkout last saw it on `origin`.
+ * The commit the required-checks policy is read from: the tip of the branch
+ * this pull request actually merges into.
+ *
+ * THE BRANCH IS NAMED BY THE CALLER, not by configuration. It used to come
+ * from a `baseBranch` field, which created a bootstrap -- the working tree
+ * chose which committed copy to trust -- and the self-consistency check that
+ * closed it deadlocked a legitimate base-branch rename: the config change
+ * that would fix it could not pass the gate it needed. Both are gone with the
+ * field. `evaluate` passes `snapshot.pr.base.ref`, which is GitHub's word for
+ * where this PR merges, captured with the rest of the evidence.
+ *
+ * A pull request retargeted at a branch it controls therefore reads THAT
+ * branch's policy -- which is correct rather than a hole: the gate's question
+ * is "what does the branch you are merging into require", and `main`'s policy
+ * was never the relevant one for a PR that does not merge there. What such a
+ * PR cannot do is merge into `main` on a receipt minted elsewhere, because
+ * the receipt records the ref its policy came from. (Codex, PR #7 round 7.)
  *
  * Separate from `requiredChecks` so the resolved sha can be recorded in the
  * receipt without resolving it twice, and so the "which ref" failure reads
  * differently from the "what is in the file" ones.
  */
-export function policyCommit(cwd = join(HERE, ".."), io = undefined, reportedBaseSha = null) {
-  const { baseBranch } = machineryConfig(io ?? nodeIo(cwd));
+/**
+ * The branch a receipt's recorded policy came from, per the receipt itself.
+ *
+ * Both re-checks -- the merge gate's and `--show`'s -- need to ask whether
+ * the policy in force still matches the one a receipt was minted under, and
+ * neither has a snapshot to hand. The receipt records `requiredChecksFrom.ref`
+ * for exactly this: it names the ref, so the branch is recoverable without
+ * consulting configuration. Returns null when the receipt names none, which
+ * both callers treat as "no policy claim to check".
+ */
+export function policyBranchOf(receipt) {
+  const ref = receipt?.requiredChecksFrom?.ref;
+  if (typeof ref !== "string") return null;
+  const m = /^refs\/remotes\/origin\/(.+)$/.exec(ref);
+  return m ? m[1] : null;
+}
+
+export function policyCommit(cwd = join(HERE, ".."), baseBranch = null, reportedBaseSha = null) {
+  if (typeof baseBranch !== "string" || baseBranch.trim() === "") {
+    throw fail("the base branch must be named by the caller -- the policy is read at the branch this PR merges into");
+  }
   const ref = `refs/remotes/origin/${baseBranch}`;
   const local = git(["rev-parse", "--verify", `${ref}^{commit}`], cwd);
   if (!local || !/^[0-9a-f]{40}$/i.test(local)) {
@@ -186,8 +220,7 @@ export function requiredChecks(policySha, cwd = join(HERE, "..")) {
   const howto =
     `Declare "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch, naming the CI jobs that ` +
     `must be PRESENT before a readiness receipt is honest -- every job that can appear late, not just ` +
-    `the ones that must pass. Shape: {"repo": "owner/name", "baseBranch": "main", ` +
-    `"requiredChecks": ["Job Name", ...]}.`;
+    `the ones that must pass. Shape: {"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
   if (typeof policySha !== "string" || !/^[0-9a-f]{40}$/i.test(policySha)) {
     throw fail(`required-checks policy must be read at a resolved base commit, not "${policySha}". ${howto}`);
   }
@@ -1486,26 +1519,12 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
   let policy = required;
   let policySource = null;
   if (!policy) {
-    const at = policyCommit(adjudicationOpts.cwd, adjudicationOpts.io, snapshot.pr.base?.sha ?? null);
-    // The base this PR actually targets, per GitHub, must be the base the
-    // policy was read from. Without this the declared `baseBranch` and the
-    // PR could name different branches, and the gate would be enforcing a
-    // policy from a branch this PR will never merge into.
-    const actual = snapshot.pr.base?.ref;
-    if (typeof actual !== "string" || actual.trim() === "") {
-      throw fail(
-        `snapshot.pr.base.ref is required -- the required-checks policy is read from the base branch, ` +
-          `so the gate has to confirm which branch this pull request actually targets`,
-      );
-    }
-    if (actual !== at.baseBranch) {
-      throw fail(
-        `this pull request targets ${actual}, but ${MACHINERY_CONFIG_FILE} declares the base branch as ` +
-          `${at.baseBranch}. The required-checks policy is read from the declared base, so merging into ` +
-          `a different branch would be gated by a policy that branch does not carry. Retarget the pull ` +
-          `request, or update "baseBranch" if the repository genuinely moved.`,
-      );
-    }
+    // GITHUB NAMES THE BRANCH; no configuration is consulted. `assertSnapshot`
+    // has already required base.ref, so the equality check against a declared
+    // value that used to sit here has nothing left to compare -- the branch
+    // the policy is read from IS the branch this PR merges into, by
+    // construction rather than by assertion.
+    const at = policyCommit(adjudicationOpts.cwd, snapshot.pr.base.ref, snapshot.pr.base.sha);
     policy = requiredChecks(at.sha, adjudicationOpts.cwd);
     policySource = { ref: at.ref, sha: at.sha };
   }
@@ -1866,7 +1885,8 @@ function main() {
     if (typeof recordedPolicy === "string") {
       let currentPolicy = null;
       try {
-        currentPolicy = remoteTip(policyCommit().baseBranch);
+        const branch = policyBranchOf(receipt);
+        currentPolicy = branch ? remoteTip(branch) : null;
       } catch {
         currentPolicy = null;
       }

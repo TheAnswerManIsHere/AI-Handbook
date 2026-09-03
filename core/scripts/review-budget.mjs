@@ -132,147 +132,80 @@ const ADJUDICATIONS_DIR = ".agents/adjudications";
 export const MACHINERY_CONFIG_FILE = ".agents/machinery.json";
 
 export const MACHINERY_CONFIG_HOWTO =
-  `Commit ${MACHINERY_CONFIG_FILE} on the base branch declaring this repository's machinery ` +
-  `configuration. Shape: {"repo": "owner/name", "baseBranch": "main", "requiredChecks": ["Job Name", ...]}.`;
+  `Commit ${MACHINERY_CONFIG_FILE} declaring this repository's machinery configuration. Shape: ` +
+  `{"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
 
 const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
 
 // The exact value `machinery.template.json` ships. Compared EXACTLY, not
 // case-folded: "Owner/Repo" is a plausible real repository name, and a check
 // that rejected it would refuse a legitimate consumer to catch an edit
-// nobody makes -- changing the placeholder’s case while leaving its letters.
+// nobody makes -- changing the placeholder's case while leaving its letters.
 const PLACEHOLDER_SLUG = "OWNER/REPO";
 
 // Memoized per root: a checkout's configuration cannot change inside one
-// process, and this runs on the guard's hot path -- every tool call -- so it
-// must not re-read and re-parse each time.
+// process, and this is read on paths that run per tool call.
 const CONFIG_CACHE = new Map();
 
-function parseConfig(raw, where) {
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON ${where}. ${MACHINERY_CONFIG_HOWTO}`);
-  }
-  const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
-  if (!SLUG_RE.test(repo)) {
-    throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name" ${where}. ${MACHINERY_CONFIG_HOWTO}`);
-  }
-  // THE SEED'S PLACEHOLDER IS NOT AN IDENTITY.
-  //
-  // It is shaped like one, so every structural check passed it and a consumer
-  // that committed the template unedited got a working configuration naming a
-  // repository that does not exist -- and a budget declared for it. The
-  // template promises the opposite: that leaving it produces a loud refusal
-  // naming the file. Making that true takes rejecting the sentinel by name.
-  // (Codex, PR #7 round 6.)
-  if (repo === PLACEHOLDER_SLUG) {
-    throw new Error(
-      `${MACHINERY_CONFIG_FILE} still carries the template's placeholder "${repo}" ${where}. Replace it ` +
-        `with this repository's real owner/name -- the seed is a form to fill in, not a default.`,
-    );
-  }
-  const baseBranch = typeof parsed?.baseBranch === "string" ? parsed.baseBranch.trim() : "";
-  if (baseBranch === "") {
-    throw new Error(
-      `${MACHINERY_CONFIG_FILE} must declare "baseBranch" ${where} -- the branch pull requests target, ` +
-        `which is the branch this configuration is trusted from. ${MACHINERY_CONFIG_HOWTO}`,
-    );
-  }
-  return { repo, baseBranch };
-}
-
 /**
- * This repository's machinery configuration, read from the BASE BRANCH.
+ * This repository's declared identity, read from the working tree.
  *
- * ONE SOURCE, and that is the entire point of this function's shape.
+ * THE ONLY WORKING-TREE READ LEFT IN THE MACHINERY, and it is here because
+ * this is the one position where a wrong value cannot do harm.
  *
- * Ten holes were found in this mechanism across five review rounds, and after
- * the first six were fixed by replacing URL derivation with a declaration,
- * every remaining one was the same shape: TWO sources of identity, and a
- * consumer bound to one while its counterpart was bound to the other. The
- * budget validated against the durable ref while the request and receipt used
- * the working tree (round 5). The readiness path used neither (round 3). Each
- * fix bound one more consumer and left a new unmatched pair, because a fix
- * that adds a comparison cannot shrink a surface that grows with every
- * consumer. The only thing that ends it is having nothing to compare.
+ * The history is worth keeping, because it is what makes that claim
+ * checkable rather than hopeful. Identity started DERIVED from the remote URL
+ * (six ways to parse it wrongly), became DECLARED and read everywhere (three
+ * more ways for two sources to disagree), then left the guard path entirely
+ * when the budget receipt turned out to answer the guard's real question by
+ * itself. What remains needs an identity for exactly one purpose: stamping
+ * `repo` into a budget at `declare` time.
  *
- * So the working-tree read is GONE. `repoSlug`, `durableSlug` and the
- * per-consumer plumbing collapse into this: every caller, on every path,
- * receives the configuration committed on the base branch.
+ * A wrong value there can only STRAND the loop. The stamped repository is
+ * compared against the repository each outgoing review request names, so a
+ * budget declared under the wrong identity authorizes nothing -- not a round
+ * here, not a round anywhere else. There is no direction in which getting
+ * this wrong opens something.
  *
- * WHY THE BASE BRANCH rather than the checkout's own upstream. Both are
- * durable; only one is trusted. `durableRef()` is the pull request's OWN
- * pushed branch, so binding to it lets a pull request declare the identity
- * its budget is then validated against -- the same defect as reading the
- * required-checks policy at the PR's head, which round 2 already made this
- * repo fix. Changing the configuration on the base branch requires merging a
- * pull request, which requires passing the gate the configuration defines.
- *
- * THE BOOTSTRAP, and why it is not circular: the base branch's NAME is read
- * from the working tree, because locating the trusted copy is the one thing
- * that cannot itself be read from it. That is closed by requiring the trusted
- * copy to declare the SAME baseBranch -- so pointing this at a branch you
- * control gets you a configuration that disagrees with itself and refuses.
- *
- * WHAT THIS DOES NOT DO, stated plainly because the previous version of this
- * comment overclaimed and Codex was right to disprove it. A local hook cannot
- * be tamper-proof against the agent it constrains: anyone who can edit this
- * checkout can edit the working tree, and with a matching self-consistent
- * config pushed to a branch they control, can still redirect it. What this
- * shape buys is that honest operation is correct on every path, and that
- * circumvention takes a deliberate, diff-visible edit to a file David merges
- * -- not a single stale value quietly disagreeing with another. The real
- * controls remain GitHub's server-side ruleset and his merge on carve-outs.
+ * It follows that this must not grow consumers. Anything that reads identity
+ * on a path where a wrong value could ALLOW rather than refuse is the bug
+ * this file has already produced ten times; take it from the artifact that
+ * path already trusts -- the budget receipt, or the snapshot -- as
+ * `judgeReviewRequest` and `pr-ready.mjs` now do.
  */
 export function machineryConfig(io = nodeIo()) {
   const key = io.root ?? "";
   if (!CONFIG_CACHE.has(key)) {
-    // The working tree names the branch, and NOTHING else. `io.read` returns
-    // null only for ENOENT; a permissions or I/O fault throws rather than
-    // being collapsed into "absent".
-    const local = io.read(MACHINERY_CONFIG_FILE);
-    if (local === null) {
+    // `io.read` returns null only for ENOENT; a permissions or I/O fault
+    // throws rather than being collapsed into "absent".
+    const raw = io.read(MACHINERY_CONFIG_FILE);
+    if (raw === null) {
       throw new Error(
-        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which base branch its ` +
-          `configuration is trusted from. ${MACHINERY_CONFIG_HOWTO}`,
+        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which repository it is. ` +
+          MACHINERY_CONFIG_HOWTO,
       );
     }
-    const { baseBranch: named } = parseConfig(local, "in the working tree");
-
-    const ref = `refs/remotes/origin/${named}`;
-    const shown = typeof io.readDurable === "function" ? io.readDurable(ref, MACHINERY_CONFIG_FILE) : null;
-    if (!shown || shown.state === "unknown") {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
+    }
+    const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
+    if (!SLUG_RE.test(repo)) {
+      throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`);
+    }
+    // The seed's placeholder is SHAPED like an identity, so every structural
+    // check passed it and an unedited template produced a working config
+    // naming a repository that does not exist. The template promises the
+    // opposite. (Codex, PR #7 round 6.)
+    if (repo === PLACEHOLDER_SLUG) {
       throw new Error(
-        `${ref} does not resolve, so this repository's configuration has no trusted source. The ` +
-          `configuration is read from the base branch rather than from the working tree or the pull ` +
-          `request, because neither can be trusted to say which repository this is. Run ` +
-          `\`git fetch origin ${named}\` and retry.`,
+        `${MACHINERY_CONFIG_FILE} still carries the template's placeholder "${repo}". Replace it with ` +
+          `this repository's real owner/name -- the seed is a form to fill in, not a default.`,
       );
     }
-    if (shown.state === "absent") {
-      throw new Error(
-        `${MACHINERY_CONFIG_FILE} is not committed on ${named}, so there is no trusted configuration to ` +
-          `read. ${MACHINERY_CONFIG_HOWTO}`,
-      );
-    }
-    const trusted = parseConfig(shown.text, `on ${named}`);
-
-    // SELF-CONSISTENCY, which is what closes the bootstrap. The trusted copy
-    // has to agree about which branch it is trusted from; otherwise pointing
-    // the working tree at a branch you control would make that branch the
-    // trusted source, and the config would be back under the control of the
-    // thing it is supposed to constrain. (Codex, PR #7 round 5.)
-    if (trusted.baseBranch !== named) {
-      throw new Error(
-        `${MACHINERY_CONFIG_FILE} in the working tree says the base branch is "${named}", but the copy ` +
-          `committed on ${named} says "${trusted.baseBranch}". A configuration that disagrees with itself ` +
-          `about where it is trusted from cannot be trusted at all -- point "baseBranch" at the branch ` +
-          `pull requests actually merge into.`,
-      );
-    }
-    CONFIG_CACHE.set(key, trusted);
+    CONFIG_CACHE.set(key, { repo });
   }
   return CONFIG_CACHE.get(key);
 }
@@ -917,7 +850,9 @@ export function validateBudget(pr, receipt) {
   if (typeof receipt.repo !== "string" || !SLUG_RE.test(receipt.repo.trim())) {
     return (
       'budget receipt must record "repo" as the "owner/name" it was declared for, so it cannot be ' +
-      "mistaken for another repository's budget for the same PR number -- re-declare it"
+      "mistaken for another repository's budget for the same PR number. This is where a budget written " +
+      "before that field existed lands: remove it and declare again -- the round count comes from GitHub " +
+      "and extension receipts are separate files, so nothing is lost"
     );
   }
   return null;
@@ -1724,12 +1659,6 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
 // deliberately, not a file created as a side effect of being blocked.
 // ---------------------------------------------------------------------------
 
-// Flags that are switches rather than settings. Kept as a named set rather
-// than "any flag may omit its value", because the general rule catches typos:
-// a value-taking flag that silently swallowed the next flag would be worse
-// than the error it replaces.
-const BOOLEAN_FLAGS = new Set(["repair"]);
-
 export function parseArgs(argv) {
   const [command, ...rest] = argv;
   const flags = {};
@@ -1737,10 +1666,6 @@ export function parseArgs(argv) {
     const token = rest[i];
     if (!token.startsWith("--")) throw new Error(`unexpected argument: ${token}`);
     const key = token.slice(2);
-    if (BOOLEAN_FLAGS.has(key)) {
-      flags[key] = true;
-      continue;
-    }
     const value = rest[i + 1];
     if (value === undefined || value.startsWith("--")) throw new Error(`--${key} needs a value`);
     flags[key] = value;
@@ -1751,7 +1676,6 @@ export function parseArgs(argv) {
 
 const USAGE = `usage:
   review-budget.mjs declare --pr <n> --tier <product|sensitive|internal> --criticality <1-100> --artifact "<text>"
-  review-budget.mjs declare --pr <n> --repair          (corrects only the recorded repository)
   review-budget.mjs check   --pr <n> --mcp-snapshot <file>
   review-budget.mjs status  --pr <n> [--mcp-snapshot <file>]
 
@@ -1766,54 +1690,8 @@ const requirePr = (flags) => {
   return pr;
 };
 
-/**
- * Correct the repository a budget records, and nothing else.
- *
- * This exists because refusing to re-declare left no way out of two states
- * this PR can create: a budget written by the previous schema has no `repo`,
- * and a consumer that committed the seed unedited has one naming the
- * template's placeholder. Both now refuse every review request, and both
- * diagnostics said "re-declare it" while `declare` made that impossible. A
- * diagnostic naming a recovery no command can perform is worse than none.
- * (Codex, PR #7 round 6.)
- *
- * BOUNDED, so it cannot become a general overwrite: tier, budget,
- * criticality, artifact and declaredAt are carried across untouched -- moving
- * the tier under a loop in flight is exactly what the refusal protects
- * against -- and it refuses when there is nothing to repair.
- */
-function repairBudget(pr, flags, io) {
-  if (!io.exists(budgetPath(pr))) {
-    throw new Error(`--repair needs an existing ${budgetPath(pr)} to repair`);
-  }
-  const existing = readJson(io, budgetPath(pr));
-  if (existing.state !== "ok") {
-    throw new Error(`${budgetPath(pr)} could not be read (${existing.state}), so it cannot be repaired`);
-  }
-  const repo = repoSlug(io);
-  if (existing.value.repo === repo) {
-    throw new Error(
-      `${budgetPath(pr)} already records ${repo}, so there is nothing to repair. --repair corrects a ` +
-        `budget's repository; it is not a way to re-declare a tier.`,
-    );
-  }
-  const repaired = { ...existing.value, repo, repairedAt: io.now() };
-  const error = validateBudget(pr, repaired);
-  if (error) throw new Error(`the repaired budget is still invalid: ${error}`);
-  io.write(budgetPath(pr), `${JSON.stringify(repaired, null, 2)}\n`);
-  return (
-    `repaired: PR #${pr} budget now records ${repo} (was ${existing.value.repo ?? "unrecorded"}); tier ` +
-    `"${existing.value.tier}" and its round history are unchanged. COMMIT AND PUSH it -- a budget is read ` +
-    `from the branch's remote-tracking ref.`
-  );
-}
-
 export function declare(flags, io) {
   const pr = requirePr(flags);
-  // REPAIR FIRST, because it preserves the tier rather than taking one, so
-  // demanding --tier here would make the recovery command require the very
-  // field it must not change.
-  if (flags.repair) return repairBudget(pr, flags, io);
   if (!Object.hasOwn(TIERS, flags.tier)) {
     throw new Error(`--tier must be one of: ${Object.keys(TIERS).join(", ")}`);
   }
@@ -1841,13 +1719,29 @@ export function declare(flags, io) {
   const error = validateBudget(pr, receipt);
   if (error) throw new Error(error);
   // Never silently replace a live budget: overwriting one mid-loop could move
-  // the tier under a loop already in flight. `--repair` above is the ONE
-  // exception, and it changes only the repository field.
+  // the tier under a loop already in flight.
+  //
+  // THE RECOVERY IS DELETE-THEN-DECLARE, and naming it correctly is the whole
+  // fix. An earlier revision grew a `--repair` mutator here, because the
+  // refusal said "re-declare it" while this line made that impossible. But a
+  // budget receipt holds only `tier`, `repo` and `criticality`: the round
+  // count is computed fresh from GitHub, and extensions are separate files
+  // keyed by sequence. So removing the file and declaring again reproduces
+  // the loop exactly, and the grant history survives untouched -- there was
+  // never anything for a mutator to preserve that deletion would lose.
+  //
+  // The mutator was wrong twice in the two rounds it existed, the second time
+  // by carrying working-tree edits into a durable receipt. Deleting it
+  // removes a write path into that receipt altogether, and four deliberate
+  // git operations are a better audit trail than a flag. (Codex, PR #7
+  // rounds 6 and 7.)
   if (io.exists(budgetPath(pr))) {
     throw new Error(
-      `${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop. If it names ` +
-        `the wrong repository or none at all, repair just that field:\n  node scripts/review-budget.mjs ` +
-        `declare --pr ${pr} --repair`,
+      `${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop. If it names the ` +
+        `wrong repository or none at all, remove it and declare again; the round count comes from GitHub ` +
+        `and extension receipts are separate files, so nothing is lost:\n  git rm ${budgetPath(pr)} && git ` +
+        `commit -m "drop stale budget for #${pr}" && git push\n  node scripts/review-budget.mjs declare ` +
+        `--pr ${pr} --tier <tier> --criticality <1-100> --artifact "<what is under review>"`,
     );
   }
   io.write(budgetPath(pr), `${JSON.stringify(receipt, null, 2)}\n`);

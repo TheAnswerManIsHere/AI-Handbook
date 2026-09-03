@@ -726,7 +726,7 @@ function tempRepo() {
   mkdirSync(join(dir, ".agents"), { recursive: true });
   writeFileSync(
     join(dir, ".agents/machinery.json"),
-    JSON.stringify({ repo: SNAP_SLUG, baseBranch: "main", requiredChecks: ["Test"] }),
+    JSON.stringify({ repo: SNAP_SLUG, requiredChecks: ["Test"] }),
   );
   const commit = (files, message) => {
     for (const [path, content] of Object.entries(files)) {
@@ -1926,20 +1926,24 @@ const policyRepo = (config, { baseBranch = "main" } = {}) => {
   return { root, sha, g };
 };
 
-const declared = (checks, extra = {}) =>
-  JSON.stringify({ repo: "Owner/Repo", baseBranch: "main", requiredChecks: checks, ...extra });
+const declared = (checks, extra = {}) => JSON.stringify({ repo: "Owner/Repo", requiredChecks: checks, ...extra });
 
 test("required checks come from the consumer's own declaration", () => {
   const { root, sha } = policyRepo(declared(["Manifest", "Test"]));
   assert.deepEqual(requiredChecks(sha, root), ["Manifest", "Test"]);
 });
 
-test("the base branch commit is what policyCommit resolves", () => {
+test("the branch is named by the caller, never by configuration", () => {
+  // The `baseBranch` field is gone: the working tree used to choose which
+  // committed copy to trust, which was a bootstrap, and the self-consistency
+  // check that closed it deadlocked a legitimate branch rename. GitHub names
+  // the branch now. (Codex, PR #7 round 7.)
   const { root, sha } = policyRepo(declared(["Manifest"]));
-  const at = policyCommit(root);
+  const at = policyCommit(root, "main");
   assert.equal(at.sha, sha);
   assert.equal(at.ref, "refs/remotes/origin/main");
-  assert.equal(at.baseBranch, "main");
+  assert.throws(() => policyCommit(root, null), /must be named by the caller/);
+  assert.throws(() => policyCommit(root, "  "), /must be named by the caller/);
 });
 
 test("a PR CANNOT weaken the gate that approves it", () => {
@@ -1956,8 +1960,7 @@ test("a PR CANNOT weaken the gate that approves it", () => {
 
   assert.deepEqual(requiredChecks(sha, root), ["Build", "Test"], "the base branch policy is what binds");
   assert.notEqual(prHead, sha);
-  // And the gate reaches for the base one on its own, without being handed it.
-  assert.deepEqual(requiredChecks(policyCommit(root).sha, root), ["Build", "Test"]);
+  assert.deepEqual(requiredChecks(policyCommit(root, "main").sha, root), ["Build", "Test"]);
 });
 
 
@@ -2002,10 +2005,10 @@ test("the policy is read at GITHUB's base tip, not the local remote-tracking ref
   g("commit", "-q", "-m", "require Test too");
   const current = g("rev-parse", "HEAD").trim();
 
-  assert.equal(policyCommit(root).sha, old, "with no reported tip, the local ref is all there is");
-  assert.equal(policyCommit(root, undefined, current).sha, current, "GitHub's tip wins when supplied");
-  assert.deepEqual(requiredChecks(policyCommit(root, undefined, current).sha, root), ["Build", "Test"]);
-  assert.deepEqual(requiredChecks(policyCommit(root).sha, root), ["Build"], "the stale reading, for contrast");
+  assert.equal(policyCommit(root, "main").sha, old, "with no reported tip, the local ref is all there is");
+  assert.equal(policyCommit(root, "main", current).sha, current, "GitHub's tip wins when supplied");
+  assert.deepEqual(requiredChecks(policyCommit(root, "main", current).sha, root), ["Build", "Test"]);
+  assert.deepEqual(requiredChecks(policyCommit(root, "main").sha, root), ["Build"], "the stale reading, for contrast");
 });
 
 test("a base tip this checkout does not have is a refusal, not a fallback", () => {
@@ -2013,7 +2016,7 @@ test("a base tip this checkout does not have is a refusal, not a fallback", () =
   // local ref would reintroduce the staleness this fixes.
   const { root } = policyRepo(declared(["Build"]));
   assert.throws(
-    () => policyCommit(root, undefined, "c".repeat(40)),
+    () => policyCommit(root, "main", "c".repeat(40)),
     /which this checkout does not have/,
   );
 });
@@ -2024,7 +2027,7 @@ test("REFUSES when the base branch ref is absent -- there is no trusted policy s
   // there is no trusted configuration, not merely no policy commit.
   const { root, g } = policyRepo(declared(["Test"]));
   g("update-ref", "-d", "refs/remotes/origin/main");
-  assert.throws(() => policyCommit(root), /has no trusted source/);
+  assert.throws(() => policyCommit(root, "main"), /does not resolve to a commit/);
 });
 
 test("REFUSES a policy read at anything other than a resolved commit", () => {

@@ -1,5 +1,7 @@
 {
   "repo": "TheAnswerManIsHere/AI-Handbook",
-  "baseBranch": "main",
-  "requiredChecks": ["Test", "Manifest"]
+  "requiredChecks": [
+    "Test",
+    "Manifest"
+  ]
 }

@@ -177,55 +177,60 @@ readiness, not link resolution.
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
 6. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
-   self-documenting template. Three values, all of them facts about the
-   consumer that the handbook cannot know:
+   self-documenting template. Two values, both facts about the consumer that
+   the handbook cannot know:
 
    ```json
    {
      "repo": "OWNER/REPO",
-     "baseBranch": "main",
      "requiredChecks": ["Classify changed paths", "Build", "Test"]
    }
    ```
 
-   - **`repo`** is this repository's `owner/name`. Every receipt and snapshot
-     check binds to it, and a review request whose target does not match it is
-     **refused**. An earlier revision derived this from `origin` instead, on
-     the reasoning that a remote cannot lie about where it pushes. Two review
-     rounds found six ways to parse a remote URL wrongly, and under the skip
-     semantics the guard had then, every one of them meant the guard silently
-     did not run. Declaring it is one line and no parsing; refusing rather than
-     skipping is what makes a wrong value announce itself.
-   - **`baseBranch`** is the branch pull requests merge into. The list below is
-     read from **that branch**, never from the pull request under review, so a
-     pull request cannot commit a shorter list and mint a receipt against the
-     gate it just weakened. `pr-ready.mjs` also refuses when the pull request's
-     actual base is not this branch, rather than gating it against a policy
-     that branch does not carry.
+   - **`repo`** is this repository's `owner/name`, and it is read in exactly
+     one place: when a review budget is declared, where it is stamped into the
+     budget receipt. From then on the guard compares that recorded repository
+     against the repository each outgoing review request names — neither of
+     which any local edit can move. A wrong value here can therefore only
+     **strand** a loop, never open one, which is why this is the one remaining
+     working-tree read in the machinery. Getting to that took two withdrawn
+     designs: deriving it from `origin` (six ways to parse a URL wrongly) and
+     reading the declaration on every path (three more ways for two sources to
+     disagree).
    - **`requiredChecks`** names the CI jobs that must be PRESENT before a
      readiness receipt is honest — every job that can appear **late**, not only
      the ones that must pass. A job gated on an earlier one is created late, so
-     a snapshot taken too early sees a complete green set without it.
+     a snapshot taken too early sees a complete green set without it. It is
+     read from the branch a pull request **merges into**, per GitHub, never
+     from the pull request itself — so a pull request cannot commit a shorter
+     list and mint a receipt against the gate it just weakened. There is no
+     `baseBranch` to declare: the branch comes from the snapshot.
 
    **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
    a real slug, so every structural check passed it and an unedited template
    produced a working configuration naming a repository that does not exist.
    It is now rejected explicitly, which is what makes the promise above true.
-   If a budget was already declared under it — or under the previous schema,
-   which recorded no repository at all — correct just that field, without
-   disturbing the tier or the loop history:
+   If a budget was already declared under the placeholder — or under an earlier
+   schema that recorded no repository at all — delete the receipt and declare
+   again. Nothing is lost: a budget holds only the tier, the repository and the
+   criticality, the round count is computed fresh from GitHub, and extension
+   receipts are separate files that the deletion does not touch.
 
    ```
-   node scripts/review-budget.mjs declare --pr <n> --repair
+   git rm .agents/receipts/loop-budget-<n>.json
+   git commit -m "drop stale budget for #<n>" && git push
+   node scripts/review-budget.mjs declare --pr <n> --tier <tier> \
+        --criticality <1-100> --artifact "<what is under review>"
    ```
 
-   Every failure here is loud. `pr-ready.mjs` refuses when the file is absent
-   from the base branch, malformed, or declares an empty list — an empty list
-   is refused rather than read as "nothing required", because a gate that
-   requires nothing is satisfied by any green set. The guard refuses every
-   review request while `repo` is still the template's placeholder, naming this
-   file in the refusal. So a consumer that skips this step gets a closed gate
-   that says why, never an open one that says nothing.
+   Every failure here is loud.
+   `pr-ready.mjs` refuses when the file is absent from the base branch,
+   malformed, or declares an empty list — an empty list is refused rather than
+   read as "nothing required", because a gate that requires nothing is
+   satisfied by any green set. Declaring a budget refuses while `repo` is
+   still the template's placeholder, naming this file. So a consumer that
+   skips this step gets a closed gate that says why, never an open one that
+   says nothing.
 7. Flip `enrolled: true`. **This is the last step before the sync, and it comes
    after every prerequisite above — not before them.** An earlier version put
    the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
