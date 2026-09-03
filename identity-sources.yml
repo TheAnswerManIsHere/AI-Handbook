@@ -20,8 +20,9 @@
 #   base-commit      read at the commit the PR merges into. Changing it means
 #                    merging a PR, so a branch cannot rewrite the policy that
 #                    judges it.
-#   durable-receipt  read from the branch's committed upstream. Changing it
-#                    means committing and pushing, so it is visible in a diff.
+#   durable-ref      read from the branch's committed upstream ref. Changing
+#                    it means committing and pushing, so it shows in a diff.
+#   durable-receipt  a receipt read out of that same ref.
 #   tool-input       the repository the outgoing call itself names. Not a
 #                    claim about the target -- it IS the target.
 #   snapshot         GitHub's own word, captured with the evidence and bound
@@ -29,7 +30,23 @@
 #   argument         supplied by the caller, which one of the above sourced.
 #   working-tree     MUTABLE. An uncommitted edit changes it. Requires an
 #                    explicit `decides:` saying what a wrong value can cause.
+#                    THERE ARE CURRENTLY NONE, and that is the point of the
+#                    rule rather than a reason to relax it: the last one was
+#                    `declare`, which sat here classified honestly for exactly
+#                    one round before round 9 named the fix.
 #   message-only     appears in text a human reads. Decides nothing.
+#
+# WHAT THE CHECK DOES NOT CATCH, demonstrated by the very change that
+# reclassified these five entries: a touchpoint whose SOURCE changes while its
+# line of code stays the same. `machineryConfig` moved from the working tree to
+# the durable ref without either key changing, so the check still passed while
+# every one of its classifications had gone stale. The key is the line, not the
+# behaviour behind it. Hashing each enclosing function's body would close it and
+# was rejected: a big function like `evaluate` would invalidate a dozen entries
+# on any unrelated edit, and churn is how a classification file becomes a
+# rubber stamp. So this half stays human, as it does in sync-manifest.yml --
+# what the machine guarantees is that nobody can ADD or REMOVE a touchpoint
+# without answering for it.
 #
 # Keys are JSON-encoded because they quote lines of source containing `:: `,
 # `"` and `'`. That keeps this file a strict subset of valid YAML.
@@ -164,42 +181,59 @@
 
 # --------------------------------------------------------------------------
 # review-budget.mjs
+
+- key: "pr-ready.mjs :: validateAdjudicationRecord :: budgetRepo = JSON.parse(budgetRaw)?.repo ?? null;"
+  source: durable-receipt
+  why: >-
+    The budget receipt read from git at the same headSha the record is read
+    from. Not a separately-resolved identity: the record's own `repo` was
+    copied out of this budget at generation time, so the budget is the
+    artifact it must agree with. `checkRail` carries the same note, for the
+    same reason.
+
+- key: "pr-ready.mjs :: validateAdjudicationRecord :: if (typeof record.repo !== \"string\" || record.repo.toLowerCase() !== budgetRepo.toLowerCase()) {"
+  source: durable-receipt
+  why: >-
+    Binds the cited mechanical record to the budget in the same commit.
+    Without it a record from another repository, committed here with a
+    matching PR number, was accepted as this PR's evidence and its rounds
+    could grant a READY verdict. No grandfathering: a record with no `repo`
+    is refused rather than read as bound.
+
+- key: "pr-ready.mjs :: validateAdjudicationRecord :: `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this PR's committed budget ` +"
+  source: message-only
+  why: >-
+    Refusal text naming both values and the checkout to regenerate in.
+    Decides nothing.
+
 # --------------------------------------------------------------------------
 
 - key: "review-budget.mjs :: machineryConfig :: export function machineryConfig(io = nodeIo()) {"
-  source: working-tree
-  decides: >-
-    Nothing on its own. Its one production caller is `declare`; see that
-    entry for what a wrong value there can cause.
+  source: durable-ref
   why: >-
-    An uncommitted edit changes what this returns. It is classified
-    working-tree rather than durable precisely so that every caller has to
-    justify itself here, which is how the six callers that used to exist --
-    two live, one dead, three latent default parameters -- were found.
+    Reads .agents/machinery.json out of the branch's committed upstream
+    (`io.durableRef()`), never from disk. Changing it costs a commit and a
+    push, so it is visible in a diff. A missing ref REFUSES rather than
+    falling back to the working tree: a fallback would make the untrusted
+    read reachable by arranging for the trusted one to fail, which is easier
+    than editing the ref rather than harder.
 
 - key: "review-budget.mjs :: machineryConfig :: const repo = typeof parsed?.repo === \"string\" ? parsed.repo.trim() : \"\";"
-  source: working-tree
-  decides: >-
-    Nothing beyond its caller. Refuses when the field is missing, malformed,
-    or still the template placeholder.
+  source: durable-ref
   why: >-
-    The parse and validation half of the read above -- same source, and the
-    place the placeholder rejection lives so an unedited seed cannot produce
-    a working identity.
+    The parse and validation half of the durable read above -- same source,
+    and the place the placeholder rejection lives so an unedited seed cannot
+    produce a working identity naming a repository that does not exist.
 
 - key: "review-budget.mjs :: repoSlug :: export function repoSlug(io = nodeIo()) {"
-  source: working-tree
-  decides: >-
-    Nothing on its own; see `declare`, its only production caller.
+  source: durable-ref
   why: >-
-    A one-field accessor over machineryConfig. Kept separate because the
-    check counts callers, and a named accessor makes a new one visible in a
-    diff.
+    A one-field accessor over machineryConfig, carrying its trust exactly.
+    Kept as a named function because the check counts callers, and a named
+    accessor makes a new one visible in a diff.
 
 - key: "review-budget.mjs :: repoSlug :: return machineryConfig(io).repo;"
-  source: working-tree
-  decides: >-
-    Nothing on its own; see `declare`.
+  source: durable-ref
   why: >-
     The body of the accessor above. Same source, same trust.
 
@@ -253,19 +287,18 @@
     other.
 
 - key: "review-budget.mjs :: declare :: repo: repoSlug(io),"
-  source: working-tree
-  decides: >-
-    Which repository this budget authorizes review rounds against. A wrong
-    value here mints a budget under which requests to THAT repository are
-    permitted and requests to this one are refused.
+  source: durable-ref
   why: >-
-    THE ONE REMAINING UNTRUSTED READ, stated rather than argued away. Its
-    blast radius is bounded by what a budget can do and by what spending it
-    requires: the receipt must be committed and pushed before the guard
-    reads it (loadLoop reads the remote-tracking ref), so the substitution
-    is visible in a diff, and it buys review rounds on another PR rather
-    than any access this checkout lacks. It is a recorded gap, not a
-    defended design: this entry is the record.
+    Stamps the identity into the budget receipt. Round 9 found this reading
+    the working tree, where an edit before `declare` minted a budget naming
+    another repository and requests to THAT repository then matched it. The
+    trust level is now chosen to EQUAL the artifact being stamped: `loadLoop`
+    reads the budget out of the same ref, so one commit-and-push is the price
+    of both and neither can move without the other showing in a diff. The
+    base commit would be stronger still, but `declare` has no snapshot and so
+    cannot know the branch the PR merges into -- and a config field naming it
+    is exactly the `baseBranch` this PR deleted for letting the working tree
+    pick its own trust anchor.
 
 - key: "review-budget.mjs :: assertCountingSnapshot :: if (typeof snapshot.repo !== \"string\" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {"
   source: snapshot
@@ -292,6 +325,27 @@
 
 # --------------------------------------------------------------------------
 # review-loop-record.mjs
+
+- key: "review-budget.mjs :: validateRecordReference :: if (typeof parsed.value?.repo !== \"string\" || parsed.value.repo.toLowerCase() !== slug.toLowerCase()) {"
+  source: durable-receipt
+  why: >-
+    The guard's half of the same binding, against a slug `loadLoop` sources
+    from the committed budget it has already loaded. `slug` has no working
+    default and a missing one REFUSES: an unbound record must not read as a
+    bound one.
+
+- key: "review-budget.mjs :: validateRecordReference :: `${recordPath} was generated for ${JSON.stringify(parsed.value?.repo ?? null)}, but this loop's budget ` +"
+  source: message-only
+  why: >-
+    Refusal text for the comparison above. Decides nothing.
+
+- key: "review-budget.mjs :: loadLoop :: const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions, slug: budget.value.repo });"
+  source: durable-receipt
+  why: >-
+    The only production call site, threading the loaded budget's repository
+    explicitly. Threading one value from the artifact already trusted is what
+    makes the no-default rule above enforceable rather than aspirational.
+
 # --------------------------------------------------------------------------
 
 - key: "review-loop-record.mjs :: buildRecord :: repo: budgetState.budget.repo,"

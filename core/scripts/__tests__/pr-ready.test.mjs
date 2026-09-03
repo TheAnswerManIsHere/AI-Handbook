@@ -748,6 +748,32 @@ function tempRepo() {
  * analysis actually covers, and (since Codex #539 round 2) the sole source
  * of the diff baseline this fallback trusts.
  */
+const TEST_REPO_SLUG = "TestOwner/TestRepo";
+
+/**
+ * The committed budget receipt every adjudication record is bound to.
+ *
+ * Production cannot reach `validateAdjudicationRecord` without one: a record
+ * is generated FROM a loaded budget, and its `repo` is copied out of that
+ * budget. These fixtures used to omit it, which is why a record from another
+ * repository could be committed into this one and accepted as its own
+ * evidence -- the tests modelled a state production never produces.
+ * (Codex, PR #7 round 9.)
+ */
+function loopBudget(pr, { repo = TEST_REPO_SLUG, tier = TIER } = {}) {
+  const path = `.agents/receipts/loop-budget-${pr}.json`;
+  const body = JSON.stringify({
+    pr,
+    tier,
+    repo,
+    budget: TIER_CAP,
+    criticality: 30,
+    artifact: "a thing under review",
+    declaredAt: "2026-08-17T00:00:00.000Z",
+  });
+  return { path, files: { [path]: body } };
+}
+
 function record(pr, seq, {
   passes = TIER_CAP,
   generatedAt = "2026-08-17T04:30:00Z",
@@ -761,18 +787,29 @@ function record(pr, seq, {
   extensions = [],
   baseline,
   resolved = true,
+  repo = TEST_REPO_SLUG,
+  // A record from before the field existed. `repo: undefined` cannot express
+  // this -- a destructuring default fills it back in -- and `repo: null`
+  // models a present-but-null key, which is a different thing.
+  omitRepo = false,
+  budgetRepo = TEST_REPO_SLUG,
 } = {}) {
   const path = `.agents/adjudications/${pr}-${seq}.json`;
   const body = JSON.stringify({
     generator,
     pr: recordPr,
+    // Which repository's loop this record describes. `budgetRepo` is a
+    // separate knob so a test can make the two DISAGREE, which is the whole
+    // point of the binding.
+    // JSON.stringify drops an undefined value, so this omits the key.
+    repo: omitRepo ? undefined : repo,
     generatedAt,
     evidenceCapturedAt,
     budget: { tier, pendingRequest, ambiguous, allowance: allowanceValue, extensions },
     rounds: { completedReviewerPasses: passes },
     sinceLastReview: { resolved, head: baseline },
   });
-  return { path, files: { [path]: body } };
+  return { path, files: { [path]: body }, budget: loopBudget(pr, { repo: budgetRepo, tier }) };
 }
 
 function extension(pr, seq, {
@@ -797,7 +834,13 @@ function extension(pr, seq, {
  * bookkeeping since" test needs.
  */
 function closedLoop(commit, pr, { seq = 1, recordOpts = {}, extOpts = {} } = {}) {
-  const baseline = commit({ "docs/x.md": "content" }, `c1 -- the reviewed commit for #${pr}`);
+  // The budget lands in the BASELINE commit, as it does in life: it is
+  // declared at loop start, long before any record cites it. It must not ride
+  // in the record's own commit -- the fallback's diff bound allows exactly the
+  // record and receipt to have changed since the baseline, and a third file
+  // there is a real content change.
+  const bud = loopBudget(pr, { repo: recordOpts.budgetRepo ?? TEST_REPO_SLUG, tier: recordOpts.tier ?? TIER });
+  const baseline = commit({ "docs/x.md": "content", ...bud.files }, `c1 -- the reviewed commit for #${pr}`);
   const rec = record(pr, seq, { baseline, ...recordOpts });
   const ext = extension(pr, seq, { recordPath: rec.path, ...extOpts });
   const head = commit({ ...rec.files, ...ext.files }, "c2 -- record + receipt land together");
@@ -988,7 +1031,7 @@ test("adjudication: the record's own embedded extension history showing a termin
   // loadLoop's validated chain at generation time -- ending in a terminal
   // verdict means only David may follow.
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1 -- the reviewed commit");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1 -- the reviewed commit");
   const rec = record(999, 1, {
     baseline,
     extensions: [{ kind: "adjudication", verdict: "escalate", grant: null }],
@@ -1038,7 +1081,7 @@ test("adjudication: a record from the wrong generator is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { generator: "scripts/some-other-tool.mjs", baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /was not produced by review-loop-record\.mjs/);
@@ -1048,7 +1091,7 @@ test("adjudication: a record describing a different PR is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { recordPr: 111, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /describes PR 111/);
@@ -1060,12 +1103,13 @@ test("adjudication: a broken budget state (record.budget.problem) is rejected", 
   const body = JSON.stringify({
     generator: "scripts/review-loop-record.mjs",
     pr: 999,
+    repo: TEST_REPO_SLUG,
     generatedAt: "2026-08-17T04:30:00Z",
     budget: { problem: "bad-receipt", detail: "loop-budget-999.json: unreadable" },
     rounds: { completedReviewerPasses: TIER_CAP },
   });
   const ext = extension(999, 1, { recordPath: path });
-  const head = commit({ [path]: body, ...ext.files }, "c1");
+  const head = commit({ [path]: body, ...ext.files, ...loopBudget(999).files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /broken budget state/);
@@ -1075,7 +1119,7 @@ test("adjudication: an unknown tier in the record is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { tier: "not-a-real-tier", baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /unknown tier/);
@@ -1099,7 +1143,7 @@ test("adjudication: a record generated below the loop's active allowance is reje
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { passes: TIER_CAP - 1, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /below the loop's active allowance of 5/);
@@ -1113,7 +1157,7 @@ test("adjudication: a David-granted allowance ABOVE the base tier cap is honored
   const { dir, commit } = tempRepo();
   const belowActive = record(999, 1, { passes: TIER_CAP + 1, allowanceValue: 8, baseline: "a".repeat(40) });
   const ext1 = extension(999, 1, { recordPath: belowActive.path });
-  const head1 = commit({ ...belowActive.files, ...ext1.files }, "c1");
+  const head1 = commit({ ...belowActive.files, ...ext1.files, ...belowActive.budget.files }, "c1");
   const res1 = checkAdjudicatedCodex(999, head1, { cwd: dir });
   assert.equal(res1.pass, false);
   assert.match(res1.detail, /below the loop's active allowance of 8/);
@@ -1128,6 +1172,7 @@ test("adjudication: a non-finite (uncapped) allowance is rejected, not treated a
   const body = JSON.stringify({
     generator: "scripts/review-loop-record.mjs",
     pr: 999,
+    repo: TEST_REPO_SLUG,
     generatedAt: "2026-08-17T04:30:00Z",
     evidenceCapturedAt: "2026-08-17T04:28:00Z",
     budget: { tier: "product", pendingRequest: false, ambiguous: false, allowance: null, extensions: [] },
@@ -1135,7 +1180,7 @@ test("adjudication: a non-finite (uncapped) allowance is rejected, not treated a
     sinceLastReview: { resolved: true, head: "a".repeat(40) },
   });
   const ext = extension(999, 1, { recordPath: path });
-  const head = commit({ [path]: body, ...ext.files }, "c1");
+  const head = commit({ [path]: body, ...ext.files, ...loopBudget(999).files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /below the loop's active allowance of null/);
@@ -1145,7 +1190,7 @@ test("adjudication: a record generated with a request still pending is rejected 
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { pendingRequest: true, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /pendingRequest is true/);
@@ -1159,7 +1204,7 @@ test("adjudication: a record with an AMBIGUOUS request/pass tie is rejected -- p
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { pendingRequest: false, ambiguous: true, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /budget\.ambiguous is true/);
@@ -1209,6 +1254,7 @@ test("adjudication: a record with no parseable evidenceCapturedAt is rejected (C
   const body = JSON.stringify({
     generator: "scripts/review-loop-record.mjs",
     pr: 999,
+    repo: TEST_REPO_SLUG,
     generatedAt: "2026-08-17T04:30:00Z",
     // evidenceCapturedAt omitted entirely
     budget: { tier: "product", pendingRequest: false, ambiguous: false, allowance: TIER_CAP, extensions: [] },
@@ -1216,7 +1262,7 @@ test("adjudication: a record with no parseable evidenceCapturedAt is rejected (C
     sinceLastReview: { resolved: true, head: "a".repeat(40) },
   });
   const ext = extension(999, 1, { recordPath: path });
-  const head = commit({ [path]: body, ...ext.files }, "c1");
+  const head = commit({ [path]: body, ...ext.files, ...loopBudget(999).files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /evidenceCapturedAt is missing or unparseable/);
@@ -1230,7 +1276,7 @@ test("adjudication: sinceLastReview.resolved !== true is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { resolved: false, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /sinceLastReview\.resolved is not true/);
@@ -1240,7 +1286,7 @@ test("adjudication: a malformed or abbreviated sinceLastReview.head is rejected"
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { baseline: "a".repeat(7) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /full 40-character/);
@@ -1250,7 +1296,7 @@ test("adjudication: a sinceLastReview.head that doesn't resolve to a real commit
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { baseline: "f".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /does not resolve to a commit/);
@@ -1303,6 +1349,49 @@ test("adjudication: an unrelated file added under .agents/receipts/ (e.g. a READ
   assert.match(res.detail, /README\.md/);
 });
 
+test("adjudication: ANOTHER repository's record, committed here, is refused", () => {
+  // Round 9's second P1. `review-loop-record.mjs` had recorded `repo` since
+  // that round, and a repo-wide search found the field only at the writer:
+  // written, never read. So a record generated in repository B and committed
+  // into A -- same PR number, resolvable shared baseline -- was accepted as
+  // A's own evidence, and B's rounds and findings could grant A extra rounds
+  // or a READY verdict. (Codex, PR #7 round 9.)
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
+  const rec = record(999, 1, { baseline, repo: "Someone/Else" });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /was generated for "Someone\/Else", but this PR's committed budget records TestOwner\/TestRepo/);
+});
+
+test("adjudication: a record predating the `repo` field is refused, not grandfathered", () => {
+  // Round 4 settled no-grandfathering for budgets and the reason carries: a
+  // record this check cannot bind must not read as one it has bound.
+  // Regenerating a record is one command.
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
+  const rec = record(999, 1, { baseline, omitRepo: true });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /was generated for null/);
+});
+
+test("adjudication: identity binding is case-insensitive, as everywhere else", () => {
+  // A declaration commonly spells the name in a different case than the API
+  // returns. It gets past the binding and fails on nothing.
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
+  const rec = record(999, 1, { baseline, repo: TEST_REPO_SLUG.toUpperCase() });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, true, res.detail);
+});
+
 test("adjudication: a baseline that is NOT an ancestor of the current head (history rewritten) is refused", () => {
   const { dir, commit, run } = tempRepo();
   const baseline = commit({ "a.txt": "1" }, "c1 -- the reviewed commit");
@@ -1311,7 +1400,7 @@ test("adjudication: a baseline that is NOT an ancestor of the current head (hist
   run(["rm", "-rq", "--cached", "."]);
   const rec = record(999, 1, { baseline });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ "b.txt": "2", ...rec.files, ...ext.files }, "unrelated history");
+  const head = commit({ "b.txt": "2", ...rec.files, ...ext.files, ...rec.budget.files }, "unrelated history");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /not an ancestor/);
@@ -1319,7 +1408,7 @@ test("adjudication: a baseline that is NOT an ancestor of the current head (hist
 
 test("adjudication: one real file mixed in with the receipt+record still fails the whole check", () => {
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
   const rec = record(999, 1, { baseline });
   const ext = extension(999, 1, { recordPath: rec.path });
   const head = commit({ ...rec.files, ...ext.files, "docs/x.md": "content changed too" }, "c2 -- record+receipt AND real content");
@@ -1823,7 +1912,7 @@ test("adjudication: a DIRECT David stop citing its own record is honored, mid-st
   // its own mechanical record; the record's baseline bounds the bookkeeping
   // diff and the tripwire floor is waived (passes 4 < allowance 5 here).
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1 -- the reviewed commit");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1 -- the reviewed commit");
   const rec = record(999, 1, { passes: 4, allowanceValue: 5, baseline });
   const head = commit(
     {
@@ -1841,7 +1930,7 @@ test("adjudication: a DIRECT David stop citing its own record is honored, mid-st
 
 test("adjudication: a direct stop still refuses when real content changed since its record's baseline", () => {
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
   const rec = record(999, 1, { passes: 4, allowanceValue: 5, baseline });
   const head = commit(
     {

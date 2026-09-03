@@ -89,30 +89,40 @@ source directly. They would fail on any other repo.
 
 **The machinery and guard groups are `staged` — they do not sync.**
 
-`review-budget.mjs` declares the repo identity as two hardcoded literals:
+**The identity coupling is RESOLVED** — PR #7, over ten review rounds. This
+paragraph described `REPO_OWNER`/`REPO_NAME` literals in `review-budget.mjs`
+and six call sites verifying snapshots against them; none of that exists any
+more, and a maintainer reading the old text got two contradictory accounts of
+what remains before unstaging. (Codex, PR #7 round 9 — the ninth instance in
+this repo of prose outliving the change it described, which is why issue #6
+exists.)
 
-```js
-export const REPO_OWNER = "TheAnswerManIsHere";
-export const REPO_NAME  = "Overhypeme";
-```
+What replaced it, in one line each:
 
-Six call sites across `review-budget.mjs` and `review-loop-record.mjs` use them
-to verify that a snapshot, receipt or merge actually targets the expected repo
-— a real check, not decoration: it is what stops a receipt minted for one repo
-from authorizing an action in another. `guard-decision.mjs` carries the same
-identity for the merge guard.
+- **The guard reads no configuration at all.** It compares the repository the
+  budget receipt records — out of the durable ref — against the repository the
+  outgoing review request names. Neither side can be moved by editing a file
+  in this checkout.
+- **Identity is declared** in `.agents/machinery.json` (`machinery-config`,
+  mode `seed`) and read from the **durable ref**, never the working tree.
+- **The required-checks policy** is read at the commit the pull request merges
+  into, so a PR cannot weaken the gate that approves it.
+- **Receipts, snapshots and adjudication records are each bound** to a
+  repository, and every one of those bindings is enumerated in
+  `identity-sources.yml` and checked by `scripts/check-identity-sources.mjs`
+  in CI — a new identity read fails the build until someone classifies it.
 
-Making that per-repo is a **security-relevant change to the receipt and guard
-machinery**, and under the internal tier's own rubric that is precisely the
-category that earns a careful, separately reviewed change. It gets its own PR
-rather than riding along inside a 180-file move, where nobody would see it.
+The fail-closed requirement still holds and is now tested in every direction: a
+missing config, a missing durable ref, an unedited template placeholder and an
+unbindable record all refuse rather than default.
+`.agents/memory/ci-guard-must-fail-loud-on-missing-inputs.md` is the entry that
+says why, and it came across in this port.
 
-Until that lands, these scripts are correct for Overhype and would be actively
-wrong in DojoOS — hence `staged`, which the sync skips and the manifest check
-requires a stated blocker for. The identity resolution must **fail closed**: a
-guard that cannot determine which repo it is protecting has to refuse, not
-default. `.agents/memory/ci-guard-must-fail-loud-on-missing-inputs.md` is the
-entry that says why, and it came across in this port.
+**What still blocks `machinery` and `guard` from `ready`** is no longer
+identity. It is the per-group **unstaging audit**: the instruction-vs-evidence
+test applied file by file, reference canonicalization, and the runtime-import
+audit — a reading of all 14 files that has not happened — plus the
+`check-contract-consistency` corpus-layout assertion below.
 
 **A second coupling, found by running the payload's own tests here.** Of the
 599 machinery tests, 598 pass in this repo; the one that fails is

@@ -41,18 +41,20 @@ const NOW = Date.parse("2026-08-17T12:00:00.000Z");
 export const TEST_SLUG = "TestOwner/TestRepo";
 export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
 
-export function fakeIo(files = {}, { slug = TEST_SLUG, baseBranch = "main", config } = {}) {
+export function fakeIo(files = {}, { slug = TEST_SLUG, config } = {}) {
   // The declared identity is seeded as a file rather than injected as a
-  // method: production reads it through `read`, so a test that stubs a
-  // separate seam would be testing a path production does not take. Pass
-  // `slug: null` to declare nothing, or `config` to declare something
-  // malformed.
+  // method: production reads it through `readDurable`, which in this fake is
+  // the same store, so a test that stubbed a separate seam would be testing a
+  // path production does not take. Pass `slug: null` to declare nothing, or
+  // `config` to declare something malformed. (It no longer carries a
+  // `baseBranch` field: that was deleted from the config in round 8, and a
+  // fixture seeding a field nothing reads is the rot this PR keeps finding.)
   const declared =
     config !== undefined
       ? { [MACHINERY_CONFIG_FILE]: config }
       : slug === null
         ? {}
-        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug, baseBranch }) };
+        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug }) };
   const store = { ...declared, ...files };
   return {
     store,
@@ -134,10 +136,15 @@ const check = (pr, spent, extra = {}) =>
  * The mechanical record an adjudication cites. It must show the loop AT its
  * cap, which is what proves the adjudication followed a fired tripwire.
  */
-const recordFile = (pr, passes = 5) =>
+const recordFile = (pr, passes = 5, { repo = TEST_SLUG } = {}) =>
   json({
     generator: "scripts/review-loop-record.mjs",
     pr,
+    // The repository this record's loop belongs to, compared against the
+    // budget's. Omitted here until round 9, which is exactly how a record
+    // from another repository could be committed in and spend this loop's
+    // rounds -- the field existed at the writer and nothing read it.
+    ...(repo === null ? {} : { repo }),
     rounds: { completedReviewerPasses: passes },
   });
 const RECORD = (pr) => `.agents/adjudications/${pr}-1.json`;
@@ -344,6 +351,39 @@ test("a non-continue verdict with no recordPath is rejected", () => {
     validateExtension(1, "product", shipped, { adjudicationsAlreadySeen: 0, io: null }),
     /must cite the mechanical record/,
   );
+});
+
+test("ANOTHER repository's record cannot grant this loop an extension", () => {
+  // Round 9's second P1, on the guard's side of it. The record has recorded
+  // `repo` since that round and neither validator read it, so a record
+  // generated in repository B and committed here -- same PR number, same
+  // shape -- was accepted as this loop's evidence and its rounds could open
+  // an extension that repository never granted. (Codex, PR #7 round 9.)
+  __resetRepoSlugCache();
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json(adjudication(1, { grant: 2, recordPath: RECORD(1) })),
+    [RECORD(1)]: recordFile(1, 5, { repo: "Someone/Else" }),
+  });
+  const state = loadLoop(1, io);
+  assert.equal(state.problem, "bad-receipt");
+  assert.match(state.detail, /was generated for "Someone\/Else", but this loop's budget records TestOwner\/TestRepo/);
+  __resetRepoSlugCache();
+});
+
+test("a record predating the `repo` field is refused, not grandfathered", () => {
+  // Round 4 settled no-grandfathering for budgets and the reason carries: a
+  // record this check cannot bind must not read as one it has bound.
+  __resetRepoSlugCache();
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json(adjudication(1, { grant: 2, recordPath: RECORD(1) })),
+    [RECORD(1)]: recordFile(1, 5, { repo: null }),
+  });
+  const state = loadLoop(1, io);
+  assert.equal(state.problem, "bad-receipt");
+  assert.match(state.detail, /was generated for null/);
+  __resetRepoSlugCache();
 });
 
 test("a recordPath outside .agents/adjudications/ is rejected -- pr-ready.mjs's merge gate would never accept it (Codex, #539 round 3)", () => {
@@ -1469,7 +1509,7 @@ test("the seed's placeholder is refused, so an unedited template fails loudly", 
   // (Codex, PR #7 round 6.)
   __resetRepoSlugCache();
   assert.throws(
-    () => repoSlug(fakeIo({}, { config: JSON.stringify({ repo: "OWNER/REPO", baseBranch: "main" }) })),
+    () => repoSlug(fakeIo({}, { config: JSON.stringify({ repo: "OWNER/REPO" }) })),
     /still carries the template's placeholder/,
   );
   // Matched EXACTLY: "Owner/Repo" is a plausible real name and must pass.
@@ -1781,7 +1821,39 @@ test("REFUSES to operate when no identity is declared", () => {
   // check binds to this identity, so guessing it would validate a receipt
   // minted somewhere else.
   __resetRepoSlugCache();
-  assert.throws(() => repoSlug(fakeIo({}, { slug: null })), /is missing/);
+  assert.throws(() => repoSlug(fakeIo({}, { slug: null })), /is not in origin\/fake/);
+  __resetRepoSlugCache();
+});
+
+test("a branch with no durable ref REFUSES rather than falling back to disk", () => {
+  // The fallback is the whole defect. If an unreadable ref dropped through to
+  // the working tree, the untrusted read would be reachable by arranging for
+  // the trusted one to fail -- which is easier than editing the ref, not
+  // harder.
+  __resetRepoSlugCache();
+  const base = fakeIo({}, { slug: "Real/Repo" });
+  const noUpstream = { ...base, durableRef: () => null };
+  assert.throws(() => repoSlug(noUpstream), /no REMOTE-tracking upstream/);
+  __resetRepoSlugCache();
+});
+
+test("a working-tree edit does NOT move the declared identity", () => {
+  // Round 9's P1, as a test. `declare` stamped identity from disk, so an edit
+  // before declaring minted a budget naming another repository -- and requests
+  // to THAT repository then matched it. The identity now comes out of the ref,
+  // so changing it costs a commit and a push, which is visible in a diff.
+  //
+  // This is the one io in the suite where the working tree and the ref
+  // disagree, because it is the one property that needs them to.
+  __resetRepoSlugCache();
+  const base = fakeIo({}, { slug: "Real/Repo" });
+  const spoofed = {
+    ...base,
+    root: "/test/spoofed",
+    read: (rel) =>
+      rel === MACHINERY_CONFIG_FILE ? JSON.stringify({ repo: "Evil/Spoof" }) : base.read(rel),
+  };
+  assert.equal(repoSlug(spoofed), "Real/Repo", "the ref decides, not the file on disk");
   __resetRepoSlugCache();
 });
 
@@ -1813,9 +1885,9 @@ test("identity is read ONCE per checkout, not per call", () => {
   const io = {
     ...base,
     root: "/test/counted",
-    read: (rel) => {
+    readDurable: (ref, rel) => {
       if (rel === MACHINERY_CONFIG_FILE) reads++;
-      return base.read(rel);
+      return base.readDurable(ref, rel);
     },
   };
   assert.equal(repoSlug(io), "A/B");

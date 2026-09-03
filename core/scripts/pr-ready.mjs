@@ -972,6 +972,52 @@ function validateAdjudicationRecord(prNumber, recordPath, headSha, cwd, { floor 
   }
   if (record.pr !== prNumber) return { ok: false, detail: `${recordPath} describes PR ${record.pr}, not ${prNumber}` };
 
+  // A PR NUMBER DOES NOT IDENTIFY A LOOP. Every repository has a #7, so a
+  // record generated in repository B and committed into A -- with the same
+  // number and a resolvable shared baseline -- was accepted here as A's own
+  // evidence, and B's rounds and findings could grant A extra rounds or a
+  // READY verdict. `review-loop-record.mjs` has recorded `repo` since round 9
+  // and a repo-wide search found the field only at the writer: written, never
+  // read. (Codex, PR #7 round 9.)
+  //
+  // Compared against THE BUDGET IN THE SAME COMMIT, not against a resolved
+  // identity. That is deliberate and follows `checkRail`'s note below: the
+  // record's `repo` was copied out of `budgetState.budget.repo` at generation
+  // time, so the budget is the artifact it must agree with, and resolving a
+  // second identity here is what produced the mismatches rounds 3 through 5
+  // each found in turn.
+  const budgetRaw = git(["show", `${headSha}:${LOOP_RECEIPTS_DIR}/loop-budget-${prNumber}.json`], cwd);
+  if (budgetRaw === null) {
+    return {
+      ok: false,
+      detail: `${recordPath} cites a loop with no committed budget receipt at ${headSha.slice(0, 7)} -- there is nothing to bind it to a repository`,
+    };
+  }
+  let budgetRepo = null;
+  try {
+    budgetRepo = JSON.parse(budgetRaw)?.repo ?? null;
+  } catch {
+    budgetRepo = null;
+  }
+  if (typeof budgetRepo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(budgetRepo)) {
+    return {
+      ok: false,
+      detail: `the committed budget for PR #${prNumber} records no usable repository, so ${recordPath} cannot be bound to one`,
+    };
+  }
+  // No grandfathering, for the same reason round 4 refused it on budgets: a
+  // record predating the field is one this check cannot bind, and "cannot
+  // bind" must not read as "fine". Regenerating a record is one command.
+  if (typeof record.repo !== "string" || record.repo.toLowerCase() !== budgetRepo.toLowerCase()) {
+    return {
+      ok: false,
+      detail:
+        `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this PR's committed budget ` +
+        `records ${budgetRepo}. Regenerate the record in a checkout of ${budgetRepo}: a PR number alone does ` +
+        "not identify a loop",
+    };
+  }
+
   if (record.budget?.problem) {
     return {
       ok: false,

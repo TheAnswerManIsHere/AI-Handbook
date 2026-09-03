@@ -31,7 +31,8 @@ const CLASSIFICATION = path.join(ROOT, "identity-sources.yml");
 /** The trusted sources. Anything else must justify itself. */
 const SOURCES = new Set([
   "base-commit", // read at the commit the PR merges into -- not PR-controlled
-  "durable-receipt", // out of the branch's committed upstream
+  "durable-ref", // read out of the branch's committed upstream ref
+  "durable-receipt", // a receipt read out of that same ref
   "tool-input", // the repository the outgoing call itself names
   "snapshot", // GitHub's own word, captured with the evidence
   "argument", // supplied by the caller, which one of the above must have sourced

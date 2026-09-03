@@ -840,11 +840,16 @@ groups:
       repository it was declared for, read from the durable ref, and is
       compared against the repository the outgoing request names. No
       configuration is read, so there is no second source to drift. The
-      declared config survives only where it is genuinely needed --
-      pr-ready.mjs's required-checks list and snapshot binding -- and is read
-      from the BASE BRANCH there, never from the working tree or the pull
-      request. A future audit should check that property, not this one's
-      predecessors.
+      declared config survives in exactly two places, each reading it from a
+      source the working tree cannot move: pr-ready.mjs's required-checks list
+      and snapshot binding, read at the BASE COMMIT; and review-budget.mjs's
+      `declare`, stamping the identity into a budget receipt, read from the
+      DURABLE REF -- the same ref the budget itself is later read from, so one
+      commit-and-push is the price of both. A tenth round found `declare`
+      still reading the working tree here and five other call sites the prose
+      had not counted, which is why that property is now enumerated in
+      identity-sources.yml and checked in CI rather than described. A future
+      audit should read the check's output, not this paragraph.
       (2) PARTLY resolved by issue #2 — the two corpus-wide gates
       (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
       with `claude-core`, because they were never standalone machinery: each

@@ -143,20 +143,19 @@ const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
 // nobody makes -- changing the placeholder's case while leaving its letters.
 const PLACEHOLDER_SLUG = "OWNER/REPO";
 
-// Memoized per root: a checkout's configuration cannot change inside one
-// process, and this is read on paths that run per tool call.
+// Memoized per (root, ref): the durable ref cannot change inside one process,
+// and this is read on paths that run per command.
 const CONFIG_CACHE = new Map();
 
 /**
- * This repository's declared identity, read from the working tree.
+ * This repository's declared identity, read from the DURABLE REF.
  *
- * THE ONLY WORKING-TREE READ LEFT IN THE MACHINERY. That sentence has been
- * written here before and been false; it is now checked rather than asserted.
- * In the handbook that vendors this payload, `check-identity-sources.mjs`
- * walks every identity touchpoint here and requires each to be classified in
- * `identity-sources.yml`, so a second working-tree read fails that build
- * instead of being described away. When this comment and that file disagree,
- * the file is right.
+ * NO PATH IN THIS FILE READS IDENTITY FROM THE WORKING TREE. That is checked,
+ * not asserted: in the handbook that vendors this payload,
+ * `check-identity-sources.mjs` walks every identity touchpoint here and
+ * requires each to be classified in `identity-sources.yml`, so a working-tree
+ * read fails that build instead of being described away. When this comment
+ * and that file disagree, the file is right.
  *
  * The history is why the check exists. Identity started DERIVED from the
  * remote URL (six ways to parse it wrongly), became DECLARED and read
@@ -169,14 +168,22 @@ const CONFIG_CACHE = new Map();
  * draft of this very paragraph was wrong too, and was corrected by running
  * the grep rather than by reading it again.
  *
- * The one remaining purpose: stamping `repo` into a budget at `declare` time.
- * A wrong value there mints a budget under which review requests to THAT
- * repository are permitted and requests to this one refused. What bounds it
- * is what spending a budget requires: `loadLoop` reads the receipt from the
- * branch's committed upstream, so the substitution has to be committed and
- * pushed before it does anything, and what it buys is review rounds on
- * another PR rather than any access this checkout lacks. A recorded gap,
- * not a defended design.
+ * WHY THE DURABLE REF AND NOT THE WORKING TREE. The last version read from
+ * disk and recorded the gap honestly: an edit before `declare` mints a budget
+ * naming another repository, and requests to that repository then match it.
+ * Round 9 found that gap and named the fix, which is this. The trust level is
+ * chosen to equal the artifact being stamped: `loadLoop` reads the budget out
+ * of `refs/remotes/<remote>/<branch>`, so reading the identity that goes INTO
+ * that budget from the same ref means one commit-and-push is the price of
+ * both, and neither can be moved without the other being visible in a diff.
+ * Reading it from the base commit would be stronger still, but `declare` has
+ * no snapshot and so cannot know which branch the PR merges into -- and a
+ * config field naming it is exactly the `baseBranch` this PR deleted for
+ * letting the working tree pick its own trust anchor.
+ *
+ * A missing durable ref REFUSES rather than falling back to disk. A fallback
+ * is the whole defect: it makes the untrusted read reachable by arranging for
+ * the trusted one to fail.
  *
  * It follows that this must not grow consumers. Anything that reads identity
  * on a path where a wrong value could ALLOW rather than refuse is the bug
@@ -185,31 +192,48 @@ const CONFIG_CACHE = new Map();
  * `judgeReviewRequest`, `check` and `pr-ready.mjs` now do.
  */
 export function machineryConfig(io = nodeIo()) {
-  const key = io.root ?? "";
+  const ref = typeof io.durableRef === "function" ? io.durableRef() : null;
+  if (!ref) {
+    throw new Error(
+      "this branch has no REMOTE-tracking upstream, so there is no durable ref to read " +
+        `${MACHINERY_CONFIG_FILE} from. Push the branch (\`git push -u origin <branch>\`) before declaring a ` +
+        "budget: the identity a budget records is read from the ref, never from the working tree, so that " +
+        "changing it costs a commit and a push rather than a local edit.",
+    );
+  }
+  const key = `${io.root ?? ""}\u0000${ref}`;
   if (!CONFIG_CACHE.has(key)) {
-    // `io.read` returns null only for ENOENT; a permissions or I/O fault
-    // throws rather than being collapsed into "absent".
-    const raw = io.read(MACHINERY_CONFIG_FILE);
-    if (raw === null) {
+    const shown = readDurableJson(io, ref, MACHINERY_CONFIG_FILE);
+    if (shown.state === "absent") {
       throw new Error(
-        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which repository it is. ` +
-          MACHINERY_CONFIG_HOWTO,
+        `${MACHINERY_CONFIG_FILE} is not in ${ref}, so this branch cannot say which repository it is. ` +
+          `If it exists locally, commit and push it. ${MACHINERY_CONFIG_HOWTO}`,
       );
     }
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
+    if (shown.state === "malformed") {
+      throw new Error(`${MACHINERY_CONFIG_FILE} in ${ref} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
     }
+    if (shown.state !== "ok") {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} could not be read from ${ref} (${shown.error}). ${MACHINERY_CONFIG_HOWTO}`,
+      );
+    }
+    const parsed = shown.value;
     const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
     if (!SLUG_RE.test(repo)) {
-      throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`);
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} in ${ref} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`,
+      );
     }
     // The seed's placeholder is SHAPED like an identity, so every structural
     // check passed it and an unedited template produced a working config
     // naming a repository that does not exist. The template promises the
     // opposite. (Codex, PR #7 round 6.)
+    //
+    // Compared EXACTLY, not case-folded: "Owner/Repo" is a plausible real
+    // repository name, and a check that rejected it would refuse a legitimate
+    // consumer to catch an edit nobody makes -- changing the placeholder's
+    // case while leaving its letters.
     if (repo === PLACEHOLDER_SLUG) {
       throw new Error(
         `${MACHINERY_CONFIG_FILE} still carries the template's placeholder "${repo}". Replace it with ` +
@@ -876,7 +900,7 @@ export function validateBudget(pr, receipt) {
  * likelier failures than the fabrication this module's header declines to
  * defend against.
  */
-function validateRecordReference(pr, tier, recordPath, io, ref, preceding = []) {
+function validateRecordReference(pr, tier, recordPath, io, ref, preceding = [], slug = null) {
   // pr-ready.mjs's merge-gate fallback requires every recordPath to live
   // under ADJUDICATIONS_DIR (never trusting an arbitrary path), so a
   // receipt this guard accepts as closing the loop must be one that gate
@@ -902,6 +926,27 @@ function validateRecordReference(pr, tier, recordPath, io, ref, preceding = []) 
     return `${recordPath} was not produced by review-loop-record.mjs (generator: ${JSON.stringify(parsed.value?.generator)})`;
   }
   if (parsed.value?.pr !== pr) return `${recordPath} describes PR ${parsed.value?.pr}, not ${pr}`;
+  // A PR NUMBER DOES NOT IDENTIFY A LOOP. Every repository has a #7, so a
+  // record generated in repository B and committed here -- same number,
+  // same shape -- was accepted as this loop's evidence, and B's rounds and
+  // findings could grant an extension here. The record has recorded `repo`
+  // since round 9 and nothing read it: written at the writer, consumed
+  // nowhere. (Codex, PR #7 round 9.)
+  //
+  // Compared against the BUDGET this loop was loaded from, which is where
+  // the record's own `repo` was copied from at generation time. Not against
+  // a separately-resolved identity: two sources of identity with a consumer
+  // bound to one and its counterpart bound to the other is the defect this
+  // file has produced eleven times.
+  if (!slug) {
+    return `${recordPath} cannot be bound to a repository -- no budget identity was supplied to validate it against`;
+  }
+  if (typeof parsed.value?.repo !== "string" || parsed.value.repo.toLowerCase() !== slug.toLowerCase()) {
+    return (
+      `${recordPath} was generated for ${JSON.stringify(parsed.value?.repo ?? null)}, but this loop's budget ` +
+      `records ${slug}. Regenerate the record in a checkout of ${slug} -- a PR number alone does not identify a loop`
+    );
+  }
   const passes = parsed.value?.rounds?.completedReviewerPasses;
   // AGAINST THE ALLOWANCE THIS RECEIPT'S OWN STAGE STARTS AT, never the base
   // tier cap. Repeat adjudications are valid as of 2026-08-20, and the base cap
@@ -924,7 +969,7 @@ function validateRecordReference(pr, tier, recordPath, io, ref, preceding = []) 
   return null;
 }
 
-export function validateExtension(pr, tier, receipt, { io, ref, preceding = [] }) {
+export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], slug = null }) {
   if (!receipt || typeof receipt !== "object") return "extension receipt is not an object";
   if (receipt.pr !== pr) return `extension receipt names PR ${receipt.pr}, not ${pr}`;
 
@@ -984,7 +1029,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [] }
     if (!Array.isArray(receipt.gaps)) {
       return "adjudication receipt must carry the adjudicator's `gaps` array, verbatim (empty is valid for a verdict with no known gaps)";
     }
-    const recordError = validateRecordReference(pr, tier, receipt.recordPath, io, ref, preceding);
+    const recordError = validateRecordReference(pr, tier, receipt.recordPath, io, ref, preceding, slug);
     if (recordError) return recordError;
     if (receipt.verdict !== "continue") return null; // ship-with-gaps-recorded / split / escalate grant nothing further
     // The adjudicator owns the SIZE of an extension (David, 2026-08-20); the
@@ -1157,7 +1202,7 @@ export function loadLoop(pr, io) {
     }
     // Only the extensions already accepted, in sequence order: this receipt
     // must answer the tripwire THEY establish, not an earlier one.
-    const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions });
+    const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions, slug: budget.value.repo });
     if (error) return { problem: "bad-receipt", detail: `${rel} (in ${ref}): ${error}` };
     extensions.push({ seq, ...parsed.value });
   }
