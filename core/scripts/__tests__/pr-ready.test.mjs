@@ -1369,6 +1369,24 @@ test("adjudication: ANOTHER repository's record, committed here, is refused", ()
   assert.match(res.detail, /was generated for "Someone\/Else", but this repository is TheAnswerManIsHere\/Overhypeme/);
 });
 
+test("adjudication: an internally-consistent budget+record pair from ANOTHER repository is refused", () => {
+  // Round 10's P1. The round-9 fix compared the record to the budget beside
+  // it, so a pair that agreed with EACH OTHER -- both naming another
+  // repository -- passed. Both are compared to the configured identity now,
+  // and identity is resolved before any item runs. (Codex, PR #7 round 10.)
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999, { repo: "Someone/Else" }).files }, "c1");
+  const rec = record(999, 1, { baseline, repo: "Someone/Else" });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /was generated for "Someone\/Else", but this repository is TheAnswerManIsHere\/Overhypeme/);
+  const rail = checkRail(999, head, dir, 0);
+  assert.equal(rail.pass, false);
+  assert.match(rail.detail, /declared for Someone\/Else, not TheAnswerManIsHere\/Overhypeme/);
+});
+
 test("adjudication: a record predating the `repo` field is refused, not grandfathered", () => {
   // Round 4 settled no-grandfathering for budgets and the reason carries: a
   // record this check cannot bind must not read as one it has bound.
