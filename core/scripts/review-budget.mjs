@@ -150,28 +150,39 @@ const CONFIG_CACHE = new Map();
 /**
  * This repository's declared identity, read from the working tree.
  *
- * THE ONLY WORKING-TREE READ LEFT IN THE MACHINERY, and it is here because
- * this is the one position where a wrong value cannot do harm.
+ * THE ONLY WORKING-TREE READ LEFT IN THE MACHINERY. That sentence has been
+ * written here before and been false; it is now checked rather than asserted.
+ * In the handbook that vendors this payload, `check-identity-sources.mjs`
+ * walks every identity touchpoint here and requires each to be classified in
+ * `identity-sources.yml`, so a second working-tree read fails that build
+ * instead of being described away. When this comment and that file disagree,
+ * the file is right.
  *
- * The history is worth keeping, because it is what makes that claim
- * checkable rather than hopeful. Identity started DERIVED from the remote URL
- * (six ways to parse it wrongly), became DECLARED and read everywhere (three
- * more ways for two sources to disagree), then left the guard path entirely
- * when the budget receipt turned out to answer the guard's real question by
- * itself. What remains needs an identity for exactly one purpose: stamping
- * `repo` into a budget at `declare` time.
+ * The history is why the check exists. Identity started DERIVED from the
+ * remote URL (six ways to parse it wrongly), became DECLARED and read
+ * everywhere (three more ways for two sources to disagree), then left the
+ * guard path entirely when the budget receipt turned out to answer the
+ * guard's real question by itself. Even after that, SIX call sites still
+ * reached back here -- two live, one dead, three latent default parameters --
+ * while this header said "exactly one purpose". The enumeration found them;
+ * prose had not, across nine rounds of people looking. The count in the first
+ * draft of this very paragraph was wrong too, and was corrected by running
+ * the grep rather than by reading it again.
  *
- * A wrong value there can only STRAND the loop. The stamped repository is
- * compared against the repository each outgoing review request names, so a
- * budget declared under the wrong identity authorizes nothing -- not a round
- * here, not a round anywhere else. There is no direction in which getting
- * this wrong opens something.
+ * The one remaining purpose: stamping `repo` into a budget at `declare` time.
+ * A wrong value there mints a budget under which review requests to THAT
+ * repository are permitted and requests to this one refused. What bounds it
+ * is what spending a budget requires: `loadLoop` reads the receipt from the
+ * branch's committed upstream, so the substitution has to be committed and
+ * pushed before it does anything, and what it buys is review rounds on
+ * another PR rather than any access this checkout lacks. A recorded gap,
+ * not a defended design.
  *
  * It follows that this must not grow consumers. Anything that reads identity
  * on a path where a wrong value could ALLOW rather than refuse is the bug
- * this file has already produced ten times; take it from the artifact that
+ * this file has already produced eleven times; take it from the artifact that
  * path already trusts -- the budget receipt, or the snapshot -- as
- * `judgeReviewRequest` and `pr-ready.mjs` now do.
+ * `judgeReviewRequest`, `check` and `pr-ready.mjs` now do.
  */
 export function machineryConfig(io = nodeIo()) {
   const key = io.root ?? "";
@@ -464,16 +475,6 @@ export function prNumberFrom(toolInput) {
   const raw = toolInput?.pullNumber ?? toolInput?.issue_number;
   const n = typeof raw === "string" ? Number(raw) : raw;
   return Number.isInteger(n) && n > 0 ? n : null;
-}
-
-/** True when the call targets this repo. Anything else is not our loop. */
-export function targetsThisRepo(toolInput, slug = repoSlug()) {
-  const owner = String(toolInput?.owner ?? "").toLowerCase();
-  const repo = String(toolInput?.repo ?? "").toLowerCase();
-  // Case-insensitive on BOTH sides: a remote URL commonly spells the name in
-  // a different case than the GitHub API returns (this repo's origin says
-  // `ai-handbook`, the API says `AI-Handbook`), and they are the same repo.
-  return `${owner}/${repo}` === slug.toLowerCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -1285,7 +1286,10 @@ export function countRounds({ reviewerPasses, issueComments }) {
 }
 
 /** What the round-check CLI writes and the guard demands. */
-export function validateCheckReceipt(pr, receipt, now, slug = repoSlug()) {
+export function validateCheckReceipt(pr, receipt, now, slug) {
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+    throw new Error("validateCheckReceipt requires an explicit repository slug -- pass the one the caller already trusts");
+  }
   if (!receipt || typeof receipt !== "object") return "round-check receipt is not an object";
   if (receipt.pr !== pr) return `round-check receipt names PR ${receipt.pr}, not ${pr}`;
   const target = slug;
@@ -1330,7 +1334,7 @@ export function validateCheckReceipt(pr, receipt, now, slug = repoSlug()) {
 // The decision
 // ---------------------------------------------------------------------------
 
-const CHECK_HOWTO = (pr, slug = repoSlug()) =>
+const CHECK_HOWTO = (pr, slug) =>
   `Capture pull_request_read (get, get_reviews, get_comments) into a snapshot and run ` +
   `\`node scripts/review-budget.mjs check --pr ${pr} --mcp-snapshot <file>\`. The snapshot must carry ` +
   `repo: "${slug}", pr.number, a capturedAt timestamp from when GitHub was actually ` +
@@ -1775,7 +1779,10 @@ const hasStableId = (record) =>
   (typeof record?.id === "number" && Number.isFinite(record.id)) ||
   (typeof record?.id === "string" && record.id.length > 0);
 
-export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug = repoSlug()) {
+export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+    throw new Error("assertCountingSnapshot requires an explicit repository slug -- pass the one the caller already trusts");
+  }
   if (!snapshot || typeof snapshot !== "object") throw new Error("snapshot is not an object");
   if (snapshot.pr?.number !== pr) {
     throw new Error(`snapshot describes PR ${snapshot.pr?.number}, but --pr says ${pr}`);
@@ -1868,18 +1875,26 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug = re
 }
 
 async function check(flags, io) {
-  // Resolved once, from THIS checkout's origin, and threaded into both the
-  // snapshot assertion and the minted receipt so they cannot disagree about
-  // which repository the evidence describes.
-  const slug = repoSlug(io);
   const pr = requirePr(flags);
-  if (!flags["mcp-snapshot"]) throw new Error(`--mcp-snapshot <file> is required. ${CHECK_HOWTO(pr, slug)}`);
-  const snapshot = JSON.parse(fs.readFileSync(flags["mcp-snapshot"], "utf8"));
-  assertCountingSnapshot(pr, snapshot, Date.parse(io.now()), slug);
 
+  // THE BUDGET IS LOADED FIRST BECAUSE IT IS WHERE IDENTITY COMES FROM.
+  //
+  // This used to open with `repoSlug(io)` -- a working-tree read -- and thread
+  // that into both the snapshot assertion and the minted receipt. It was
+  // refuse-only, since `judgeReviewRequest` re-validates the minted receipt
+  // against the durable budget, but it was a second source of identity for a
+  // value the durable receipt already holds, and every defect in this file has
+  // been two sources of identity. So there is one: the budget receipt, out of
+  // the branch's committed upstream, which is the same value the guard
+  // compares each outgoing request against.
   const state = loadLoop(pr, io);
   if (state.problem === "no-budget") throw new Error(`no budget declared for PR #${pr} -- declare first`);
   if (state.problem) throw new Error(`cannot check: ${state.detail}`);
+  const slug = state.budget.repo;
+
+  if (!flags["mcp-snapshot"]) throw new Error(`--mcp-snapshot <file> is required. ${CHECK_HOWTO(pr, slug)}`);
+  const snapshot = JSON.parse(fs.readFileSync(flags["mcp-snapshot"], "utf8"));
+  assertCountingSnapshot(pr, snapshot, Date.parse(io.now()), slug);
 
   // EACH CHECK NEEDS STRICTLY NEWER EVIDENCE THAN THE LAST ONE.
   //

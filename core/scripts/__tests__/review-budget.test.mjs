@@ -17,7 +17,6 @@ import {
   nodeIo,
   mentionsReviewRequest,
   prNumberFrom,
-  targetsThisRepo,
   validateBudget,
   validateExtension,
   validateCheckReceipt,
@@ -185,11 +184,6 @@ test("the PR number is read from either resource's parameter name", () => {
   assert.equal(prNumberFrom({ pullNumber: "502" }), 502);
   assert.equal(prNumberFrom({}), null);
   assert.equal(prNumberFrom({ pullNumber: 0 }), null);
-});
-
-test("only this repo's loops are budgeted", () => {
-  assert.equal(targetsThisRepo({ owner: TEST_OWNER, repo: TEST_REPO }, TEST_SLUG), true);
-  assert.equal(targetsThisRepo({ owner: "someone", repo: "else" }, TEST_SLUG), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -1810,8 +1804,9 @@ test("REFUSES a malformed declaration rather than reading past it", () => {
 });
 
 test("identity is read ONCE per checkout, not per call", () => {
-  // targetsThisRepo runs on the guard's hot path -- every tool call -- so a
-  // re-read and re-parse per call would be a real cost.
+  // The memo predates the guard giving up configuration reads entirely, so
+  // this is now a cheap property rather than a hot-path one. Kept because the
+  // cache is still what makes a single checkout's identity a single value.
   __resetRepoSlugCache();
   let reads = 0;
   const base = fakeIo({}, { slug: "A/B" });
@@ -1830,18 +1825,26 @@ test("identity is read ONCE per checkout, not per call", () => {
   __resetRepoSlugCache();
 });
 
-test("a foreign repo's loop is not this loop, whatever the PR number", () => {
-  // Every repository has a #991. The identity is what tells them apart.
-  assert.equal(targetsThisRepo({ owner: "Other", repo: "Repo" }, TEST_SLUG), false);
-  assert.equal(targetsThisRepo({ owner: TEST_OWNER, repo: TEST_REPO }, TEST_SLUG), true);
-});
-
 test("identity comparison is case-insensitive on both sides", () => {
-  // A declaration commonly spells the name in a different case than the
-  // GitHub API returns -- `ai-handbook` against `AI-Handbook` -- and they are
-  // the same repository.
-  assert.equal(targetsThisRepo({ owner: "testowner", repo: "testrepo" }, TEST_SLUG), true);
-  assert.equal(targetsThisRepo({ owner: "TESTOWNER", repo: "TESTREPO" }, TEST_SLUG), true);
+  // A budget commonly spells the name in a different case than the GitHub API
+  // returns -- `ai-handbook` against `AI-Handbook` -- and they are the same
+  // repository. Asserted where the comparison now lives: a request that
+  // matches the budget only case-insensitively must be ALLOWED, or the loop
+  // is unusable in every repo whose declaration disagrees with the API.
+  __resetRepoSlugCache();
+  const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: "Owner/Repo" });
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: TEST_OWNER.toUpperCase(), repo: TEST_REPO.toUpperCase(), issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  // It gets past IDENTITY -- it is refused for a missing round-check receipt,
+  // the next gate, not for naming another repository.
+  assert.doesNotMatch(verdict.reason ?? "", /targets/, "case alone must not read as a different repository");
+  __resetRepoSlugCache();
 });
 
 test("a review request at ANOTHER repository is REFUSED, not skipped", () => {
