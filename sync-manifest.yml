@@ -947,10 +947,14 @@ groups:
       that do are present -- and seeded with the machinery it is the one thing
       standing between those scripts and a repository they cannot name. Travels
       with the machinery. The seed's own failure mode is deliberate and does
-      not block unstaging: the template's placeholder values do not identify
-      any real repository, so a consumer that forgets to edit it has every
-      review request refused with a message naming this file, rather than a
-      guard quietly protecting nothing. Loud and one edit from fixed. Second
+      not block unstaging: the template's placeholder is rejected by name the
+      moment a budget is declared, with a message naming this file, so no
+      budget -- and therefore no review round -- can exist under it. A review
+      request posted before any budget exists refuses for lack of a budget and
+      says to declare one, which is where the placeholder is caught. (The guard
+      itself reads no configuration, for the fail-open reason recorded in
+      hook-uncaught-throw-fails-open.md, so it is `declare` that names the
+      file, not the refusal.) Loud and one edit from fixed. Second
       condition, inherited from settings-template's round-6 finding: seed mode
       writes only when the file is ABSENT, so a consumer that already has
       .agents/machinery.json keeps it and this group delivers nothing --

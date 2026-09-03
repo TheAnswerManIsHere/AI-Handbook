@@ -20,6 +20,7 @@ import {
   evaluate,
   staleReason,
   receiptIdentityReason,
+  receiptPolicyReason,
   CODEX_BOT,
 } from "../pr-ready.mjs";
 import { __resetRepoSlugCache } from "../review-budget.mjs";
@@ -655,6 +656,15 @@ test("--show: a receipt for ANOTHER repository is not presentable as READY", () 
   assert.equal(receiptIdentityReason({ repo: SNAP_SLUG.toUpperCase() }, SNAP_SLUG), null, "case-insensitive");
   assert.match(receiptIdentityReason({ repo: "someone-else/Mirror" }, SNAP_SLUG), /minted for someone-else\/Mirror, but this repository is/);
   assert.match(receiptIdentityReason({}, SNAP_SLUG), /an unrecorded repository/);
+});
+
+test("--show: a receipt minted under a DIFFERENT required-checks policy is not presentable as READY", () => {
+  // Stamp on mint, compare on consume -- for requiredChecks as for repo. A
+  // receipt minted under a mistakenly weakened list, then the file restored
+  // without a new head, passed age, tip and identity. (Codex, PR #7 round 12.)
+  assert.equal(receiptPolicyReason({ requiredChecks: ["Build", "Test"] }, ["Test", "Build"]), null, "order-insensitive");
+  assert.match(receiptPolicyReason({ requiredChecks: ["Build"] }, ["Build", "Test"]), /minted under required checks \[Build\], but .* now declares \[Build, Test\]/);
+  assert.match(receiptPolicyReason({}, ["Build"]), /records no required-checks policy/);
 });
 
 test("outage: a limit on a LATER round is still a STOP", () => {

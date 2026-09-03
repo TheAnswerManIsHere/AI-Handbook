@@ -287,6 +287,34 @@ function fail(message) {
  * another checkout, for a branch at the same tip, printed READY with nothing
  * on the line to say it was foreign. (Codex, PR #7 round 11.)
  */
+/**
+ * Why a stored receipt's recorded policy is not the policy in force, or null.
+ *
+ * The receipt records the `requiredChecks` it was minted under. "Stamp on
+ * mint, compare on consume" applies to that field exactly as it does to
+ * `repo`; the first version applied it to one and not the other. A receipt
+ * minted under a mistakenly weakened list -- then the file restored without a
+ * new head -- passed age, tip and identity and printed READY. Order-
+ * insensitive: the list is a set of job names. No grandfathering: a receipt
+ * that records no policy cannot be compared and is refused. (Codex, PR #7
+ * round 12.)
+ */
+export function receiptPolicyReason(receipt, configuredChecks) {
+  const recorded = receipt?.requiredChecks;
+  if (!Array.isArray(recorded)) {
+    return "this receipt records no required-checks policy, so it cannot be compared to the policy in force -- re-run the gate with a fresh snapshot";
+  }
+  const a = [...new Set(recorded)].sort();
+  const b = [...new Set(configuredChecks)].sort();
+  if (a.length !== b.length || a.some((x, i) => x !== b[i])) {
+    return (
+      `this receipt was minted under required checks [${a.join(", ")}], but ${MACHINERY_CONFIG_FILE} now ` +
+      `declares [${b.join(", ")}] -- the gate that approved this PR is not the gate in force; re-run with a fresh snapshot`
+    );
+  }
+  return null;
+}
+
 export function receiptIdentityReason(receipt, configured) {
   if (typeof receipt?.repo !== "string" || receipt.repo.toLowerCase() !== configured.toLowerCase()) {
     return (
@@ -1800,14 +1828,14 @@ function main() {
       return 1;
     }
     const receipt = JSON.parse(readFileSync(p, "utf8"));
-    let configured;
+    let cfg;
     try {
-      configured = localConfig().repo;
+      cfg = localConfig();
     } catch (e) {
       process.stderr.write(`pr-ready: ${e.message}\n`);
       return 2;
     }
-    const foreign = receiptIdentityReason(receipt, configured);
+    const foreign = receiptIdentityReason(receipt, cfg.repo) ?? receiptPolicyReason(receipt, cfg.requiredChecks);
     if (foreign) {
       process.stderr.write(`pr-ready: ${foreign}\n`);
       return 1;

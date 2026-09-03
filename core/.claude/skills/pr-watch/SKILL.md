@@ -103,7 +103,7 @@ node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>
 
 The snapshot is `pull_request_read` (`get`, `get_reviews`, `get_comments`),
 paginated and attested complete, and it must also name its source
-(`repo: "TheAnswerManIsHere/Overhypeme"`) and the moment GitHub was read
+(`repo`, the `owner/name` this checkout declares in `.agents/machinery.json`) and the moment GitHub was read
 (`capturedAt`) — a PR number alone does not identify a pull request, and
 freshness is a property of the evidence rather than of when the command was
 typed. Bodies are required on every issue comment and every reviewer-authored

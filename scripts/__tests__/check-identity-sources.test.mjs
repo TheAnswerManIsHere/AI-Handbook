@@ -81,6 +81,15 @@ test("block scalars fill EVERY field, not just `why`", () => {
   assert.doesNotMatch(e.source, /[>|]/);
 });
 
+test("a duplicated key is refused, not silently overwritten", () => {
+  // Map.set replaced the earlier entry, so a copy-paste that repeated a key
+  // passed on whichever classification came last. (Codex, PR #7 round 12.)
+  assert.throws(
+    () => parseClassification(entry("a.mjs :: f :: x.repo", { source: "github", why: WHY }) + "\n" + entry("a.mjs :: f :: x.repo", { source: "config", why: WHY })),
+    /duplicate key/,
+  );
+});
+
 test("an unquoted key is refused rather than half-parsed", () => {
   // Keys quote lines of source containing `:: `, so an unquoted scalar is
   // ambiguous to a real YAML parser even though a lenient reader would take

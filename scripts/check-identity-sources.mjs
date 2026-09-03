@@ -113,6 +113,10 @@ export function parseClassification(text) {
         );
       }
       current = { key, source: null, why: "" };
+      // A repeated key would silently replace the earlier entry, and the check
+      // would pass on whichever came last -- the human-edit mistake this file
+      // exists to catch, hidden by the file's own reader. (Codex, PR #7 round 12.)
+      if (out.has(key)) throw new Error(`identity-sources.yml: duplicate key ${JSON.stringify(key)}`);
       out.set(current.key, current);
       field = null;
       continue;

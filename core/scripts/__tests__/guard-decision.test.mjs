@@ -927,6 +927,7 @@ const READY = {
   verdict: "READY",
   pr: 500,
   repo: "TheAnswerManIsHere/Overhypeme",
+  requiredChecks: ["Build", "Test"],
   headSha: "a".repeat(40),
   branch: "claude/x",
   generatedAt: new Date(Date.now() - 60_000).toISOString(),
@@ -939,11 +940,30 @@ const READY = {
 
 const MERGE_INPUT = { pullNumber: 500, owner: "TheAnswerManIsHere", repo: "Overhypeme" };
 
-const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT } = {}) =>
+const CONFIG = { repo: READY.repo, requiredChecks: READY.requiredChecks };
+const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT, config = CONFIG } = {}) =>
   checkMerge(input, {
     readReceipt: () => receipt,
     resolveSha: () => tip,
+    resolveConfig: () => {
+      if (config instanceof Error) throw config;
+      return config;
+    },
   });
+
+test("merge gate: a receipt minted under a DIFFERENT required-checks policy blocks", () => {
+  // Stamp on mint, compare on consume -- for requiredChecks as for repo.
+  // (Codex, PR #7 round 12.)
+  const weaker = { ...READY, requiredChecks: ["Build"] };
+  assert.match(mergeReason(weaker), /minted under required checks \[Build\], but .* now declares \[Build, Test\]/);
+  assert.equal(mergeReason({ ...READY, requiredChecks: ["Test", "Build"] }), null, "order-insensitive");
+  assert.match(mergeReason({ ...READY, requiredChecks: undefined }), /records no required-checks policy/);
+});
+
+test("merge gate: an UNREADABLE configuration blocks rather than throwing out of the hook", () => {
+  // The hook cannot let a throw escape: exit 1 lets the tool call proceed.
+  assert.match(mergeReason(READY, { config: new Error("machinery.json is missing") }), /configuration could not be read \(machinery.json is missing\)/);
+});
 
 test("merge gate: a current, passing receipt allows the merge", () => {
   assert.equal(mergeReason(READY), null);

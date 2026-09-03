@@ -206,10 +206,19 @@
   source: message
   why: >-
     The printed receipt line now names the repository so a quoted READY is never anonymous.
-- key: "pr-ready.mjs :: main :: configured = localConfig().repo;"
+
+- key: "guard-decision.mjs :: decide :: resolveConfig: () => machineryConfig(nodeIo()),"
   source: config
   why: >-
-    The --show surface's one config read, through the shared reader; a failure here exits 2 (no verdict).
+    The merge hook's config read, wrapped so an unreadable config BLOCKS rather than throwing out of the hook.
+- key: "pr-ready.mjs :: main :: cfg = localConfig();"
+  source: config
+  why: >-
+    Reads the configured policy to compare a receipt's recorded policy against it on consume.
+- key: "pr-ready.mjs :: main :: const foreign = receiptIdentityReason(receipt, cfg.repo) ?? receiptPolicyReason(receipt, cfg.requiredChecks);"
+  source: config
+  why: >-
+    The --show surface's identity and policy comparisons, from one config read.
 
 # --------------------------------------------------------------------------
 # review-budget.mjs
