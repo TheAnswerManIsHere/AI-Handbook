@@ -2019,9 +2019,12 @@ test("a base tip this checkout does not have is a refusal, not a fallback", () =
 });
 
 test("REFUSES when the base branch ref is absent -- there is no trusted policy source", () => {
+  // The refusal now comes one step earlier, from the configuration itself:
+  // the config is READ from the base branch, so an absent base ref means
+  // there is no trusted configuration, not merely no policy commit.
   const { root, g } = policyRepo(declared(["Test"]));
   g("update-ref", "-d", "refs/remotes/origin/main");
-  assert.throws(() => policyCommit(root), /does not resolve to a commit/);
+  assert.throws(() => policyCommit(root), /has no trusted source/);
 });
 
 test("REFUSES a policy read at anything other than a resolved commit", () => {

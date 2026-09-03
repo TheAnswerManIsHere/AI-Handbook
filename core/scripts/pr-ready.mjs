@@ -1568,14 +1568,11 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
   // The guard's own validation, not a bare tier read: an unvalidated budget
   // (wrong PR, tier/number mismatch) must not anchor a rail decision.
   //
-  // The identity comes from THIS `cwd`, the same checkout the budget was just
-  // read out of -- not from a default io rooted at wherever this module
-  // happens to sit. Reading the two from different places is how a budget
-  // gets validated against a repository it has nothing to do with, which is
-  // the whole defect the repo field was added for. Surfaced by the rail tests,
-  // which run against a temp repo: the mismatch made every one of them read
-  // this module's own root.
-  const budgetError = validateBudget(prNumber, budget, repoSlug(nodeIo(cwd)));
+  // Shape only. The budget's repository is compared against the snapshot's
+  // in `assertSnapshot`, which is where the value to compare it to exists;
+  // resolving a second identity here is what produced the mismatch the rail
+  // tests surfaced.
+  const budgetError = validateBudget(prNumber, budget);
   if (budgetError) {
     return { pass: false, detail: `committed budget receipt is invalid (${budgetError}) -- cannot rule out the rail` };
   }

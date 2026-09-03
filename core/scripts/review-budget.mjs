@@ -129,69 +129,11 @@ export const RECEIPTS_DIR = ".agents/receipts";
 // posture as RECEIPTS_DIR above: a stable, well-known repo-relative path, not
 // a value expected to drift.
 const ADJUDICATIONS_DIR = ".agents/adjudications";
-/**
- * WHICH REPOSITORY THIS IS -- declared in `.agents/machinery.json`.
- *
- * These were hardcoded to one repo's owner and name, which is why this file
- * could not travel: every check below compares a snapshot's or receipt's
- * self-declared `repo` against them, so in any other repository the
- * comparison is against the wrong constant and the whole binding is theatre.
- *
- * DERIVING IT FROM `origin` WAS TRIED AND WITHDRAWN. Reading the remote URL
- * looked strictly safer -- a config file can be edited, a remote cannot lie
- * about where it pushes -- and it was not. Across two review rounds the URL
- * parsing produced six ways to get the identity wrong: a trailing slash after
- * `.git`, a second push URL `get-url --push` does not show, fetch and push
- * naming different repositories, an unresolvable origin, and two more. Under
- * the SKIP semantics `judgeReviewRequest` used to have, every one of them
- * meant the guard silently did not run. The list did not converge, which is
- * this repo's recorded signature for a wrong shape rather than a wrong entry.
- *
- * WHY DECLARING IS SAFE, and the one way it was NOT, now closed. The original
- * objection was that a config file could be edited to match a foreign
- * receipt. Most of that objection died with the skip, because identity is
- * compared on BOTH sides of every path that uses it: `judgeReviewRequest`
- * requires the outgoing request to name this identity AND the receipt
- * authorizing it to name the same one. Moving the declared value moves both,
- * and the request that reaches GitHub must then name the moved repository.
- *
- * An earlier revision of this comment stopped there and concluded that
- * spoofing "can only block". That was WRONG, and the counterexample is worth
- * keeping because it is the exact shape the argument missed: one side did not
- * move. The BUDGET was found by PR number alone, out of this checkout's
- * durable ref, and never compared to anything -- so editing this file pointed
- * the guard at another repository while `loadLoop` went on serving THIS
- * repository's budget, spending a round the other repo never budgeted.
- * "Both sides" was a claim about two of the three things involved.
- * (Codex, PR #7 round 4.)
- *
- * The budget now records the identity it was declared under, validated
- * against the identity in the DURABLE REF -- see `durableSlug`, and note it
- * is not this working-tree value, because a local edit must not be what
- * decides which budget applies. So the third side moves too, and a spoofed
- * declaration now refuses rather than borrowing.
- *
- * The merge gate never consults this value at all: `checkMerge` binds the
- * receipt to the merge tool's own owner/repo, so a laundered receipt is
- * caught there whatever this file says.
- *
- * FAILS CLOSED, and now loudly. An absent, malformed, or merely WRONG
- * declaration blocks review requests instead of waving them through, because
- * the callers refuse on mismatch rather than skipping. A fork that forgets to
- * update this line finds out on its first review request.
- *
- * READ FROM THE WORKING TREE, unlike the required-checks list `pr-ready.mjs`
- * reads at a commit. Different questions: "which checkout is this" has no
- * commit to bind to, since the guard answers it on tool calls with no pull
- * request in sight, and an uncommitted edit to it can only cause refusals per
- * the paragraph above. The checks list is a policy a pull request could
- * otherwise weaken in its own favour, so that one binds to a commit.
- */
 export const MACHINERY_CONFIG_FILE = ".agents/machinery.json";
 
 export const MACHINERY_CONFIG_HOWTO =
-  `Commit ${MACHINERY_CONFIG_FILE} declaring this repository's machinery configuration. Shape: ` +
-  `{"repo": "owner/name", "baseBranch": "main", "requiredChecks": ["Job Name", ...]}.`;
+  `Commit ${MACHINERY_CONFIG_FILE} on the base branch declaring this repository's machinery ` +
+  `configuration. Shape: {"repo": "owner/name", "baseBranch": "main", "requiredChecks": ["Job Name", ...]}.`;
 
 const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
 
@@ -200,80 +142,123 @@ const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
 // must not re-read and re-parse each time.
 const CONFIG_CACHE = new Map();
 
+function parseConfig(raw, where) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON ${where}. ${MACHINERY_CONFIG_HOWTO}`);
+  }
+  const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
+  if (!SLUG_RE.test(repo)) {
+    throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name" ${where}. ${MACHINERY_CONFIG_HOWTO}`);
+  }
+  const baseBranch = typeof parsed?.baseBranch === "string" ? parsed.baseBranch.trim() : "";
+  if (baseBranch === "") {
+    throw new Error(
+      `${MACHINERY_CONFIG_FILE} must declare "baseBranch" ${where} -- the branch pull requests target, ` +
+        `which is the branch this configuration is trusted from. ${MACHINERY_CONFIG_HOWTO}`,
+    );
+  }
+  return { repo, baseBranch };
+}
+
 /**
- * This repository's declared machinery configuration, or a thrown refusal
- * naming exactly what is wrong with it.
+ * This repository's machinery configuration, read from the BASE BRANCH.
  *
- * Only the two fields every consumer needs to locate the rest are read and
- * validated here. `requiredChecks` is deliberately NOT returned: `pr-ready.mjs`
- * reads that field itself, from this same file at the base branch's commit
- * rather than from the working tree, and handing it a working-tree copy from
- * here is precisely the shortcut that would undo that binding.
+ * ONE SOURCE, and that is the entire point of this function's shape.
+ *
+ * Ten holes were found in this mechanism across five review rounds, and after
+ * the first six were fixed by replacing URL derivation with a declaration,
+ * every remaining one was the same shape: TWO sources of identity, and a
+ * consumer bound to one while its counterpart was bound to the other. The
+ * budget validated against the durable ref while the request and receipt used
+ * the working tree (round 5). The readiness path used neither (round 3). Each
+ * fix bound one more consumer and left a new unmatched pair, because a fix
+ * that adds a comparison cannot shrink a surface that grows with every
+ * consumer. The only thing that ends it is having nothing to compare.
+ *
+ * So the working-tree read is GONE. `repoSlug`, `durableSlug` and the
+ * per-consumer plumbing collapse into this: every caller, on every path,
+ * receives the configuration committed on the base branch.
+ *
+ * WHY THE BASE BRANCH rather than the checkout's own upstream. Both are
+ * durable; only one is trusted. `durableRef()` is the pull request's OWN
+ * pushed branch, so binding to it lets a pull request declare the identity
+ * its budget is then validated against -- the same defect as reading the
+ * required-checks policy at the PR's head, which round 2 already made this
+ * repo fix. Changing the configuration on the base branch requires merging a
+ * pull request, which requires passing the gate the configuration defines.
+ *
+ * THE BOOTSTRAP, and why it is not circular: the base branch's NAME is read
+ * from the working tree, because locating the trusted copy is the one thing
+ * that cannot itself be read from it. That is closed by requiring the trusted
+ * copy to declare the SAME baseBranch -- so pointing this at a branch you
+ * control gets you a configuration that disagrees with itself and refuses.
+ *
+ * WHAT THIS DOES NOT DO, stated plainly because the previous version of this
+ * comment overclaimed and Codex was right to disprove it. A local hook cannot
+ * be tamper-proof against the agent it constrains: anyone who can edit this
+ * checkout can edit the working tree, and with a matching self-consistent
+ * config pushed to a branch they control, can still redirect it. What this
+ * shape buys is that honest operation is correct on every path, and that
+ * circumvention takes a deliberate, diff-visible edit to a file David merges
+ * -- not a single stale value quietly disagreeing with another. The real
+ * controls remain GitHub's server-side ruleset and his merge on carve-outs.
  */
 export function machineryConfig(io = nodeIo()) {
   const key = io.root ?? "";
   if (!CONFIG_CACHE.has(key)) {
-    // `io.read` returns null only for ENOENT; a permissions or I/O fault
-    // throws rather than being collapsed into "absent", the same discipline
-    // every other read in this file follows.
-    const raw = io.read(MACHINERY_CONFIG_FILE);
-    if (raw === null) {
+    // The working tree names the branch, and NOTHING else. `io.read` returns
+    // null only for ENOENT; a permissions or I/O fault throws rather than
+    // being collapsed into "absent".
+    const local = io.read(MACHINERY_CONFIG_FILE);
+    if (local === null) {
       throw new Error(
-        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which repository it is. Every ` +
-          `receipt and snapshot check binds to that identity, and a guessed one would validate evidence ` +
-          `minted somewhere else. ${MACHINERY_CONFIG_HOWTO}`,
+        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which base branch its ` +
+          `configuration is trusted from. ${MACHINERY_CONFIG_HOWTO}`,
       );
     }
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
-    }
-    const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
-    if (!SLUG_RE.test(repo)) {
-      throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`);
-    }
-    // The branch pull requests target. Needed HERE rather than in
-    // `pr-ready.mjs` alone because that is the one field which cannot be read
-    // from the base commit: locating the base commit is what it is for.
-    const baseBranch = typeof parsed?.baseBranch === "string" ? parsed.baseBranch.trim() : "";
-    if (baseBranch === "") {
+    const { baseBranch: named } = parseConfig(local, "in the working tree");
+
+    const ref = `refs/remotes/origin/${named}`;
+    const shown = typeof io.readDurable === "function" ? io.readDurable(ref, MACHINERY_CONFIG_FILE) : null;
+    if (!shown || shown.state === "unknown") {
       throw new Error(
-        `${MACHINERY_CONFIG_FILE} must declare "baseBranch" -- the branch pull requests target, and the ` +
-          `one the readiness gate reads its required-checks policy from. ${MACHINERY_CONFIG_HOWTO}`,
+        `${ref} does not resolve, so this repository's configuration has no trusted source. The ` +
+          `configuration is read from the base branch rather than from the working tree or the pull ` +
+          `request, because neither can be trusted to say which repository this is. Run ` +
+          `\`git fetch origin ${named}\` and retry.`,
       );
     }
-    CONFIG_CACHE.set(key, { repo, baseBranch });
+    if (shown.state === "absent") {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} is not committed on ${named}, so there is no trusted configuration to ` +
+          `read. ${MACHINERY_CONFIG_HOWTO}`,
+      );
+    }
+    const trusted = parseConfig(shown.text, `on ${named}`);
+
+    // SELF-CONSISTENCY, which is what closes the bootstrap. The trusted copy
+    // has to agree about which branch it is trusted from; otherwise pointing
+    // the working tree at a branch you control would make that branch the
+    // trusted source, and the config would be back under the control of the
+    // thing it is supposed to constrain. (Codex, PR #7 round 5.)
+    if (trusted.baseBranch !== named) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} in the working tree says the base branch is "${named}", but the copy ` +
+          `committed on ${named} says "${trusted.baseBranch}". A configuration that disagrees with itself ` +
+          `about where it is trusted from cannot be trusted at all -- point "baseBranch" at the branch ` +
+          `pull requests actually merge into.`,
+      );
+    }
+    CONFIG_CACHE.set(key, trusted);
   }
   return CONFIG_CACHE.get(key);
 }
 
 export function repoSlug(io = nodeIo()) {
   return machineryConfig(io).repo;
-}
-
-/**
- * The identity as the DURABLE REF spells it, or null when it cannot be read.
- *
- * `repoSlug` reads the working tree, which is right for the guard's hot path:
- * "which repository is this checkout" has no commit to bind to, and a wrong
- * answer there only causes refusals. It is wrong for anything on the durable
- * decision path. `loadLoop`'s whole invariant is that the bytes it parses are
- * the bytes in the ref, so that no local edit is what grants a round -- and a
- * working-tree identity threaded into that path is a local edit deciding
- * which budget applies. The rail tests pin this by blowing up every
- * filesystem reader; the first version of this fix failed them immediately,
- * which is the invariant doing its job.
- *
- * Returns null rather than throwing: the caller is validating a budget and
- * turns this into a refusal with the rest of that budget's context.
- */
-export function durableSlug(io, ref) {
-  const raw = readDurableJson(io, ref, MACHINERY_CONFIG_FILE);
-  if (raw.state !== "ok") return null;
-  const repo = typeof raw.value?.repo === "string" ? raw.value.repo.trim() : "";
-  return SLUG_RE.test(repo) ? repo : null;
 }
 
 /** Test seam: forget any parsed configuration. Never called in production. */
@@ -883,7 +868,7 @@ function readDurableJson(io, ref, rel) {
 // about it, or the guard is just a wall.
 // ---------------------------------------------------------------------------
 
-export function validateBudget(pr, receipt, slug = undefined) {
+export function validateBudget(pr, receipt) {
   if (!receipt || typeof receipt !== "object") return "budget receipt is not an object";
   if (receipt.pr !== pr) return `budget receipt names PR ${receipt.pr}, not ${pr}`;
   if (!Object.hasOwn(TIERS, receipt.tier)) {
@@ -902,29 +887,18 @@ export function validateBudget(pr, receipt, slug = undefined) {
   if (typeof receipt.artifact !== "string" || !receipt.artifact.trim()) {
     return "budget receipt needs a non-empty `artifact` naming what is under review";
   }
-  // The identity the budget was declared under must still be this checkout's.
-  // Absent is REFUSED rather than tolerated: a budget with no repo is one
-  // declared before this field existed, and grandfathering it in would leave
-  // the hole open on exactly the loops already in flight. Re-declaring is one
-  // command. (Codex, PR #7 round 4.)
-  // `null` means the caller could not resolve a durable identity. That
-  // REFUSES rather than falling back to the working tree -- falling back is
-  // precisely the substitution this parameter exists to prevent.
-  const ours = slug === null ? null : (slug ?? repoSlug());
-  if (ours === null) {
+  // The budget must NAME its repository. It is not compared here: this
+  // function validates the receipt's own shape, and the comparison that
+  // matters -- against the repository the outgoing request names -- belongs
+  // where that value exists. Absent is REFUSED rather than tolerated, because
+  // a budget that names no repository cannot be told apart from another
+  // repository's budget for the same PR number, which is the whole defect.
+  // (Codex, PR #7 round 4.)
+  if (typeof receipt.repo !== "string" || !SLUG_RE.test(receipt.repo.trim())) {
     return (
-      "this checkout cannot read its declared identity from the durable ref, so a budget cannot be tied " +
-      "to a repository -- commit and push " + MACHINERY_CONFIG_FILE
+      'budget receipt must record "repo" as the "owner/name" it was declared for, so it cannot be ' +
+      "mistaken for another repository's budget for the same PR number -- re-declare it"
     );
-  }
-  if (typeof receipt.repo !== "string" || !receipt.repo.trim()) {
-    return (
-      "budget receipt does not record which repository it was declared for, so it cannot be told apart " +
-      "from another repository's budget for the same PR number -- re-declare it"
-    );
-  }
-  if (receipt.repo.toLowerCase() !== ours.toLowerCase()) {
-    return `budget receipt was declared for ${receipt.repo}, but this checkout is ${ours}`;
   }
   return null;
 }
@@ -1160,10 +1134,24 @@ export function loadLoop(pr, io) {
   if (budget.state !== "ok") {
     return { problem: "bad-receipt", detail: `${budgetPath(pr)} could not be read from ${ref} (${budget.state}: ${budget.error})` };
   }
-  // From the REF, never `repoSlug(io)`: see durableSlug. A budget that
-  // records an identity the ref does not agree with is refused, which is what
-  // stops a working-tree edit relabelling another repository's loop.
-  const budgetError = validateBudget(pr, budget.value, durableSlug(io, ref));
+  // NO IDENTITY LOOKUP HERE, deliberately, and this is the change that ends
+  // the class rather than shrinking it.
+  //
+  // Every previous version compared the budget against "this repository's
+  // identity" resolved from somewhere -- the working tree, then the durable
+  // ref -- and every one left a consumer bound to the other source, which is
+  // what rounds 3, 4 and 5 each found in turn. The fix is not a better source.
+  // It is noticing that this decision never needed one: the budget receipt
+  // ALREADY records the repository it was declared for, out of the same ref
+  // its rounds come from, and the guard already knows the repository the
+  // outgoing request names. Comparing those two is the whole question, and
+  // neither side can be moved by editing a file in this checkout.
+  //
+  // So the comparison moves to `judgeReviewRequest`, where both values are in
+  // hand, and this path keeps the invariant the tests above pin: the bytes
+  // that grant rounds are the durable bytes, and the working tree is not read
+  // at all. (Codex, PR #7 round 5; David's option 1.)
+  const budgetError = validateBudget(pr, budget.value);
   if (budgetError) return { problem: "bad-receipt", detail: `${budgetPath(pr)} (in ${ref}): ${budgetError}` };
 
   const tier = budget.value.tier;
@@ -1510,53 +1498,22 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
   if (!REVIEW_REQUEST_TOOLS.has(toolName)) return { blocked: false, reason: null };
   if (!mentionsReviewRequest(toolInput?.body)) return { blocked: false, reason: null };
 
-  // From the INJECTED io, not a default one: a caller that scopes this
-  // judgement to a particular checkout must get that checkout's identity.
+  // NO IDENTITY LOOKUP ON THIS PATH AT ALL.
   //
-  // CAUGHT, not thrown. `machineryConfig` refuses when the declaration is
-  // absent or malformed, which is the right refusal in the wrong shape here:
-  // an exception escapes `decide()`, rejects the hook's `main()`, and exits 1
-  // -- and the hook contract is exit 2 to block, anything else to allow. So a
-  // fail-CLOSED identity check would become a fail-OPEN hook error, the exact
-  // defect .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
-  // (Codex, PR #7 round 1.)
-  let slug;
-  try {
-    slug = repoSlug(io);
-  } catch (err) {
-    return { blocked: true, reason: `${err.message}` };
-  }
-
-  // A REVIEW REQUEST AT ANOTHER REPOSITORY IS REFUSED, NOT SKIPPED.
+  // A declared-identity comparison used to sit here, and before that a skip.
+  // Both are gone, and the deletion is the point: the budget comparison below
+  // asks a strictly stronger question using only values this checkout cannot
+  // edit. "Is this my repository?" can be answered wrongly by a bad
+  // declaration -- which is what rounds 3, 4 and 5 each found a new way to do.
+  // "Is this the loop whose rounds I am about to spend?" cannot: the budget
+  // records the repository it was declared for, read out of the durable ref,
+  // and the tool input names the repository about to be posted to. Nothing in
+  // between, so there is no second source to drift from a first.
   //
-  // This returned `not blocked` -- "not our loop, not our business" -- and
-  // that single line was the root of every identity finding in this PR. It
-  // made "which repository is this" the load-bearing question for whether the
-  // guard ran AT ALL, so each of the six ways to get the identity wrong
-  // turned into a silent bypass rather than a visible refusal. The check that
-  // exists to stop an unbudgeted round was one bad remote URL away from
-  // stopping nothing, and saying nothing about it.
-  //
-  // Refusing inverts that. A wrong identity now blocks a legitimate request,
-  // which is loud, immediate and trivially fixed; it can no longer wave an
-  // illegitimate one through, which was silent and unbounded. The one thing
-  // genuinely lost is posting a review request for another repository from
-  // this checkout -- and that was never safe: the round count, the budget and
-  // the receipts all live in THIS repo, so such a post was never counted
-  // against the loop it belonged to. Do it from a checkout of that
-  // repository, whose own guard can count it.
-  if (!targetsThisRepo(toolInput, slug)) {
-    const target = `${toolInput?.owner ?? "?"}/${toolInput?.repo ?? "?"}`;
-    return {
-      blocked: true,
-      reason:
-        `this checkout is ${slug}, but the review request targets ${target}. The budget, the round count ` +
-        `and the receipts that authorize a round all live in the repository the request is FOR, so a ` +
-        `request posted from somewhere else is never counted against the loop it belongs to. Post it ` +
-        `from a checkout of ${target}. If this checkout really is ${target}, its declared identity is ` +
-        `wrong -- fix "repo" in ${MACHINERY_CONFIG_FILE}.`,
-    };
-  }
+  // A request aimed at another repository still refuses -- on that comparison,
+  // or on "no budget declared" when this checkout has no budget for that PR
+  // number at all. Neither can be switched off by editing a file here.
+  // (Codex, PR #7 round 5; David's option 1.)
 
   // Refuse the trigger on any surface the count cannot see. This is what makes
   // `issueComments` a complete pending surface -- see REVIEW_REQUEST_SURFACE.
@@ -1611,6 +1568,36 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
       reason: `round-budget receipt is unusable, so the budget cannot be checked: ${state.detail}`,
     };
   }
+  // THE COMPARISON THAT ENDS THE IDENTITY CLASS.
+  //
+  // Both sides are beyond the reach of anything in this working tree: the
+  // budget's repository comes out of the durable ref, and the target is the
+  // repository this call is about to post to. No configuration is consulted,
+  // so there is no second source to drift from a first -- which is what every
+  // one of rounds 3, 4 and 5's findings turned out to be.
+  //
+  // This subsumes the declared-identity check above rather than duplicating
+  // it: that one answers "is this my repository", which a wrong declaration
+  // can get wrong; this one answers "is this the loop whose rounds I am
+  // about to spend", which it cannot. (Codex, PR #7 round 5.)
+  const target = `${toolInput?.owner ?? "?"}/${toolInput?.repo ?? "?"}`;
+  if (state.budget.repo.toLowerCase() !== target.toLowerCase()) {
+    return {
+      blocked: true,
+      reason:
+        `the budget for PR #${pr} in this checkout was declared for ${state.budget.repo}, but this ` +
+        `review request targets ${target}. A budget authorizes rounds in the repository it was ` +
+        `declared for and no other, so spending it here would let a round go uncounted against the ` +
+        `loop it belongs to. Post the request from a checkout of ${target}, whose own budget and ` +
+        `round count cover it.`,
+    };
+  }
+
+  // THE LOOP'S REPOSITORY, for everything downstream: the round-check receipt
+  // it validates and the how-to text it prints. Taken from the budget rather
+  // than resolved again, so the receipt is checked against the same value the
+  // request was -- one source, carried, never re-derived.
+  const slug = state.budget.repo;
 
   const check = readJson(io, checkPath(pr));
   if (check.state === "absent") {
@@ -1774,7 +1761,7 @@ function declare(flags, io) {
     artifact: flags.artifact ?? "",
     declaredAt: io.now(),
   };
-  const error = validateBudget(pr, receipt, repoSlug(io));
+  const error = validateBudget(pr, receipt);
   if (error) throw new Error(error);
   // Never silently replace a live budget: overwriting one mid-loop could move
   // the tier under a loop already in flight.

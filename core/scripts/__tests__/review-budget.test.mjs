@@ -1023,7 +1023,11 @@ test("a review request at another repo is REFUSED, where it used to be skipped",
     NOW,
   );
   assert.equal(verdict.blocked, true);
-  assert.match(verdict.reason, /targets other\/repo/);
+  // The refusal now comes from the BUDGET, not from a declared identity: this
+  // checkout has no budget for other/repo#1, so there is nothing authorizing
+  // a round there. Either way it refuses; the difference is that this reason
+  // cannot be produced by a wrong config, because no config is read.
+  assert.match(verdict.reason, /no round budget declared for PR #1/);
 });
 
 // ---------------------------------------------------------------------------
@@ -1423,7 +1427,10 @@ test("a budget cannot be relabelled onto another repository by a local edit", ()
     NOW,
   );
   assert.equal(verdict.blocked, true, "a relabelled checkout must not spend another repo's budget");
-  assert.match(verdict.reason, /declared for TestOwner\/TestRepo, but this checkout is Someone\/Else/);
+  // The comparison is budget-to-TARGET now. Relabelling the checkout changes
+  // neither side: the budget still says TestOwner/TestRepo out of the ref, and
+  // the request still names Someone/Else. There is no third value to move.
+  assert.match(verdict.reason, /declared for TestOwner\/TestRepo, but this review request targets Someone\/Else/);
   __resetRepoSlugCache();
 });
 
@@ -1436,7 +1443,7 @@ test("a budget that records no repository is refused, not grandfathered", () => 
   const files = { [budgetPath(31)]: json(stripped), [checkPath(31)]: check(31, 1) };
   const verdict = judgeReviewRequest(post(31), fakeIo(files), NOW);
   assert.equal(verdict.blocked, true);
-  assert.match(verdict.reason, /does not record which repository it was declared for/);
+  assert.match(verdict.reason, /must record "repo" as the "owner\/name" it was declared for/);
 });
 
 test("the identity a budget is judged against comes from the REF, not the working tree", () => {
@@ -1788,9 +1795,12 @@ test("identity comparison is case-insensitive on both sides", () => {
 test("a review request at ANOTHER repository is REFUSED, not skipped", () => {
   // The root of every identity finding in this PR. Skipping made "which
   // repository is this" decide whether the guard ran at all, so each way of
-  // getting the identity wrong became a silent bypass. Refusing makes a wrong
-  // identity block a legitimate request -- loud and trivially fixed -- rather
-  // than wave an illegitimate one through.
+  // getting the identity wrong became a silent bypass.
+  //
+  // The refusal is now the budget's, not a declared identity's: this
+  // checkout's budget for #1 was declared for TestOwner/TestRepo and the
+  // request names Someone/Else. Both values come from outside the working
+  // tree, so no edit here can make them agree.
   __resetRepoSlugCache();
   const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: "Owner/Repo" });
   const verdict = judgeReviewRequest(
@@ -1802,18 +1812,24 @@ test("a review request at ANOTHER repository is REFUSED, not skipped", () => {
     NOW,
   );
   assert.equal(verdict.blocked, true, "a foreign review request must block, not skip");
-  assert.match(verdict.reason, /this checkout is Owner\/Repo/);
+  assert.match(verdict.reason, /declared for TestOwner\/TestRepo, but this review request targets Someone\/Else/);
   __resetRepoSlugCache();
 });
 
-test("an undeclared identity BLOCKS a review request rather than throwing past the hook", () => {
-  // The hook contract is exit 2 to block and anything else to allow, so an
-  // exception escaping judgeReviewRequest turns a fail-CLOSED identity check
-  // into a fail-OPEN hook error -- the defect
-  // .agents/memory/hook-uncaught-throw-fails-open.md exists to record.
+test("the guard governs a review request with NO configuration present at all", () => {
+  // Replaces "an undeclared identity BLOCKS...", which asserted a property
+  // this path no longer has and no longer needs. The guard reads no
+  // configuration, so a missing one cannot wedge it -- and cannot weaken it
+  // either, because the budget is what authorizes a round and the budget is
+  // read from the durable ref.
+  //
+  // The old test's real subject survives in the two below it: an exception
+  // escaping this function exits 1, which the hook reads as an error and lets
+  // the call through (.agents/memory/hook-uncaught-throw-fails-open.md). With
+  // no config on this path there is nothing left here to throw.
   __resetRepoSlugCache();
   const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: null });
-  const verdict = judgeReviewRequest(
+  const mismatched = judgeReviewRequest(
     {
       toolName: "mcp__github__add_issue_comment",
       toolInput: { owner: "A", repo: "B", issue_number: 1, body: "@codex review" },
@@ -1821,8 +1837,12 @@ test("an undeclared identity BLOCKS a review request rather than throwing past t
     io,
     NOW,
   );
-  assert.equal(verdict.blocked, true, "an undeclared identity must block, not throw");
-  assert.match(verdict.reason, /is missing/);
+  assert.equal(mismatched.blocked, true, "the budget still governs with no config present");
+  assert.match(mismatched.reason, /declared for TestOwner\/TestRepo, but this review request targets A\/B/);
+
+  // And an ordinary comment is untouched, as ever.
+  const ordinary = judgeReviewRequest(post(1, "Thanks, fixed."), io, NOW);
+  assert.equal(ordinary.blocked, false);
   __resetRepoSlugCache();
 });
 
