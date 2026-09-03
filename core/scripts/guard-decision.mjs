@@ -1717,7 +1717,24 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
   const recordedPolicy = receipt.requiredChecksFrom?.sha;
   if (typeof recordedPolicy === "string" && typeof resolveBasePolicy === "function") {
     const currentPolicy = resolveBasePolicy();
-    if (currentPolicy && currentPolicy !== recordedPolicy) {
+    // UNRESOLVABLE BLOCKS when the receipt names a policy.
+    //
+    // This abstained on null, on the reasoning that a receipt written before
+    // `requiredChecksFrom` existed carries none. That conflated two cases,
+    // and only one of them is an absence of information: a receipt WITHOUT
+    // the field says nothing about a policy, while a receipt WITH it says a
+    // policy applied and we cannot tell whether it still does. The second is
+    // the same shape as an unresolvable branch tip a few lines down, which
+    // denies -- and for the same reason: an abstention is indistinguishable
+    // from the case it exists to catch. (Codex, PR #7 round 5.)
+    if (!currentPolicy) {
+      return (
+        `merge blocked: the receipt for PR #${pr} was minted under the required-check policy at ` +
+        `${recordedPolicy.slice(0, 7)}, but the policy in force cannot be resolved, so there is no way ` +
+        `to tell whether it is still the gate. ${RECEIPT_HOWTO}`
+      );
+    }
+    if (currentPolicy !== recordedPolicy) {
       return (
         `merge blocked: the receipt for PR #${pr} was minted under the required-check policy at ` +
         `${recordedPolicy.slice(0, 7)}, but the base branch is now at ${currentPolicy.slice(0, 7)}. The ` +

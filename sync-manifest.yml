@@ -826,12 +826,22 @@ groups:
       per-group audit, not a coupling. (1) review-budget.mjs hardcoded
       REPO_OWNER/REPO_NAME, used across review-budget.mjs and
       review-loop-record.mjs to verify a snapshot came from the expected repo.
-      The identity is now DERIVED from `git ls-remote --get-url origin` and
-      threaded from the injected io, with no config file and deliberately no
-      environment override: the comparison exists so a receipt minted elsewhere
-      cannot be laundered into this repo's gate, and that only works if the
-      value compared against is something neither the snapshot nor the process
-      that benefits from spoofing it can set. Unresolvable identity throws.
+      That comparison no longer exists on the guard path, and this item is
+      resolved by DELETING it rather than by re-sourcing it. Two intermediate
+      designs were tried and withdrawn under review: derivation from
+      `git ls-remote --get-url origin` (six ways to parse a URL wrongly), then
+      a declared identity in .agents/machinery.json (three more ways for two
+      sources to disagree). What the guard actually needs is not "which
+      repository is this" but "is this the loop whose rounds I am about to
+      spend", and the budget receipt already answers that: it records the
+      repository it was declared for, read from the durable ref, and is
+      compared against the repository the outgoing request names. No
+      configuration is read, so there is no second source to drift. The
+      declared config survives only where it is genuinely needed --
+      pr-ready.mjs's required-checks list and snapshot binding -- and is read
+      from the BASE BRANCH there, never from the working tree or the pull
+      request. A future audit should check that property, not this one's
+      predecessors.
       (2) PARTLY resolved by issue #2 — the two corpus-wide gates
       (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
       with `claude-core`, because they were never standalone machinery: each
