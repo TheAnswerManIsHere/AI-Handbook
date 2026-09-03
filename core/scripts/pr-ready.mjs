@@ -279,6 +279,25 @@ function fail(message) {
 }
 
 /**
+ * Why a stored receipt cannot be shown as THIS repository's, or null.
+ *
+ * The merge hook binds a receipt to the merge tool's own owner/repo. `--show`
+ * has no tool input, so it binds to the configured identity -- the same
+ * comparison every other consume site makes. Without it a receipt minted in
+ * another checkout, for a branch at the same tip, printed READY with nothing
+ * on the line to say it was foreign. (Codex, PR #7 round 11.)
+ */
+export function receiptIdentityReason(receipt, configured) {
+  if (typeof receipt?.repo !== "string" || receipt.repo.toLowerCase() !== configured.toLowerCase()) {
+    return (
+      `this receipt was minted for ${receipt?.repo ?? "an unrecorded repository"}, but this repository ` +
+      `is ${configured} -- re-run the gate here with a fresh snapshot`
+    );
+  }
+  return null;
+}
+
+/**
  * Refuse a snapshot that hasn't been paginated to completion.
  *
  * Same reasoning as `review-counting.mjs`'s equivalent: this process cannot page
@@ -1709,7 +1728,7 @@ const LABEL = {
 
 export function formatReceipt(receipt) {
   const lines = [
-    `PR #${receipt.pr} @ ${receipt.headSha.slice(0, 7)} -- ${receipt.verdict}`,
+    `${receipt.repo ?? "(no repository recorded)"} PR #${receipt.pr} @ ${receipt.headSha.slice(0, 7)} -- ${receipt.verdict}`,
     ...Object.entries(receipt.items).map(
       ([key, item]) => `  ${item.pass ? "PASS" : "FAIL"}  ${LABEL[key]}: ${item.detail}`,
     ),
@@ -1781,6 +1800,18 @@ function main() {
       return 1;
     }
     const receipt = JSON.parse(readFileSync(p, "utf8"));
+    let configured;
+    try {
+      configured = localConfig().repo;
+    } catch (e) {
+      process.stderr.write(`pr-ready: ${e.message}\n`);
+      return 2;
+    }
+    const foreign = receiptIdentityReason(receipt, configured);
+    if (foreign) {
+      process.stderr.write(`pr-ready: ${foreign}\n`);
+      return 1;
+    }
     // NOTHING IS PRINTED UNTIL EVERY LIVE CHECK HAS PASSED.
     //
     // The formatted receipt used to go to stdout here, before the checks
@@ -1841,7 +1872,18 @@ function main() {
     return 2;
   }
 
-  const receipt = evaluate(snapshot);
+  // A throw here is NO VERDICT -- a missing or malformed config, a snapshot
+  // for another repository -- and the exit code has to say so. 1 means the
+  // gate ran and answered NOT READY; conflating the two made an onboarding
+  // mistake look like a readiness decision, with a stack trace and no
+  // receipt. (Codex, PR #7 round 11.)
+  let receipt;
+  try {
+    receipt = evaluate(snapshot);
+  } catch (e) {
+    process.stderr.write(`pr-ready: ${e.message}\n`);
+    return 2;
+  }
   mkdirSync(RECEIPT_DIR, { recursive: true });
   writeFileSync(receiptPath(args.pr), `${JSON.stringify(receipt, null, 2)}\n`);
   process.stdout.write(`${formatReceipt(receipt)}\n`);

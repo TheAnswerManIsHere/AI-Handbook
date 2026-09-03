@@ -19,6 +19,7 @@ import {
   checkThreads,
   evaluate,
   staleReason,
+  receiptIdentityReason,
   CODEX_BOT,
 } from "../pr-ready.mjs";
 import { __resetRepoSlugCache } from "../review-budget.mjs";
@@ -643,6 +644,17 @@ test("--show: a stale stored receipt is not presentable as READY", () => {
   const old = { verdict: "READY", evidenceAt: new Date(NOW - 3 * 60 * 60 * 1000).toISOString() };
   assert.match(staleReason(old, NOW), /no longer current/);
   assert.match(staleReason({ verdict: "READY" }, NOW), /records no evidenceAt/);
+});
+
+test("--show: a receipt for ANOTHER repository is not presentable as READY", () => {
+  // The same manual-merge path. A receipt minted in another checkout, for a
+  // branch at the same tip, passed the age and tip checks and printed READY
+  // with nothing on the line to say it was foreign. Bound to the configured
+  // identity now, like every other consume site. (Codex, PR #7 round 11.)
+  assert.equal(receiptIdentityReason({ repo: SNAP_SLUG }, SNAP_SLUG), null);
+  assert.equal(receiptIdentityReason({ repo: SNAP_SLUG.toUpperCase() }, SNAP_SLUG), null, "case-insensitive");
+  assert.match(receiptIdentityReason({ repo: "someone-else/Mirror" }, SNAP_SLUG), /minted for someone-else\/Mirror, but this repository is/);
+  assert.match(receiptIdentityReason({}, SNAP_SLUG), /an unrecorded repository/);
 });
 
 test("outage: a limit on a LATER round is still a STOP", () => {

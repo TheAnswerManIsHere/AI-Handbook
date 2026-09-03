@@ -193,6 +193,24 @@
   why: >-
     Refusal or guidance text. Decides nothing.
 
+
+- key: "pr-ready.mjs :: receiptIdentityReason :: if (typeof receipt?.repo !== \"string\" || receipt.repo.toLowerCase() !== configured.toLowerCase()) {"
+  source: artifact
+  why: >-
+    Binds a stored receipt to the configured identity on the --show surface, as every other consume site does.
+- key: "pr-ready.mjs :: receiptIdentityReason :: `this receipt was minted for ${receipt?.repo ?? \"an unrecorded repository\"}, but this repository ` +"
+  source: message
+  why: >-
+    Refusal text naming both values. Decides nothing.
+- key: "pr-ready.mjs :: formatReceipt :: `${receipt.repo ?? \"(no repository recorded)\"} PR #${receipt.pr} @ ${receipt.headSha.slice(0, 7)} -- ${receipt.verdict}`,"
+  source: message
+  why: >-
+    The printed receipt line now names the repository so a quoted READY is never anonymous.
+- key: "pr-ready.mjs :: main :: configured = localConfig().repo;"
+  source: config
+  why: >-
+    The --show surface's one config read, through the shared reader; a failure here exits 2 (no verdict).
+
 # --------------------------------------------------------------------------
 # review-budget.mjs
 # --------------------------------------------------------------------------

@@ -227,7 +227,7 @@ readiness, not link resolution.
    ```
 
    Every failure here is loud.
-   `pr-ready.mjs` refuses when the file is absent from the base branch,
+   `pr-ready.mjs` refuses when the file is absent,
    malformed, or declares an empty list — an empty list is refused rather than
    read as "nothing required", because a gate that requires nothing is
    satisfied by any green set. Declaring a budget refuses while `repo` is

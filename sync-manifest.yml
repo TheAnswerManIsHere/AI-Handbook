@@ -903,9 +903,11 @@ groups:
       meant the guard silently did not run. Both fail closed in every direction
       — absent, unreadable, malformed, or empty all refuse — because a gate
       that requires nothing is satisfied by any green set, which is the
-      fail-OPEN reading the list exists to prevent. The checks list is read
-      from the BASE branch rather than the pull request's head, so a pull
-      request cannot weaken the gate that approves it. Items (4), (5) and (6) named
+      fail-OPEN reading the list exists to prevent. Both are read from the
+      WORKING TREE through one function; an earlier revision read the checks
+      list from the base branch so "a pull request cannot weaken the gate
+      that approves it", which is defending the gate against the person who
+      runs it -- see item (1). Items (4), (5) and (6) named
       clean-stale-git-locks.sh: a script nothing invoked, a script silently
       disabled in a linked worktree, and a script that could delete a LIVE lock.
       All three are gone with the script itself. The Replit sandbox constraint it
