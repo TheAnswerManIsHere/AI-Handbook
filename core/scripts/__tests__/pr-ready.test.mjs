@@ -12,7 +12,6 @@ import {
   codeReviewOutage,
   checkCi,
   requiredChecks,
-  policyCommit,
   checkCodex,
   checkAdjudicatedCodex,
   checkRail,
@@ -22,6 +21,7 @@ import {
   staleReason,
   CODEX_BOT,
 } from "../pr-ready.mjs";
+import { __resetRepoSlugCache } from "../review-budget.mjs";
 
 // ---------------------------------------------------------------------------
 // Item 1: CI.
@@ -52,7 +52,7 @@ const REQUIRED = ["Classify changed paths", "Build", "Test", "Frontend Test", "E
 // one repo's job names. Every call here supplies REQUIRED so these tests keep
 // asserting the same behaviour without depending on a config file.
 const checkCiWith = (runs, headSha = null) => checkCi(runs, headSha, REQUIRED);
-const evaluateWith = (snap, now, opts = {}) => evaluate(snap, now, opts, REQUIRED);
+const evaluateWith = (snap, now, opts = {}) => evaluate(snap, now, opts, { repo: snap.repo, requiredChecks: REQUIRED });
 const allRequired = (status = "completed", conclusion = "success", head_sha = HEAD) =>
   REQUIRED.map((n) => run(n, status, conclusion, head_sha));
 
@@ -748,7 +748,10 @@ function tempRepo() {
  * analysis actually covers, and (since Codex #539 round 2) the sole source
  * of the diff baseline this fallback trusts.
  */
-const TEST_REPO_SLUG = "TestOwner/TestRepo";
+// The same identity tempRepo() declares in .agents/machinery.json: records and
+// budgets are compared to the CONFIG now, so a fixture record must name the
+// repository the fixture checkout declares.
+const TEST_REPO_SLUG = SNAP_SLUG;
 
 /**
  * The committed budget receipt every adjudication record is bound to.
@@ -1363,7 +1366,7 @@ test("adjudication: ANOTHER repository's record, committed here, is refused", ()
   const head = commit({ ...rec.files, ...ext.files }, "c2");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
-  assert.match(res.detail, /was generated for "Someone\/Else", but this PR's committed budget records TestOwner\/TestRepo/);
+  assert.match(res.detail, /was generated for "Someone\/Else", but this repository is TheAnswerManIsHere\/Overhypeme/);
 });
 
 test("adjudication: a record predating the `repo` field is refused, not grandfathered", () => {
@@ -1988,16 +1991,13 @@ test("adjudication: the internal tier gets the merge-gate fallback like every ti
 });
 
 // ---------------------------------------------------------------------------
-// Required checks: declared per consumer, read from the BASE branch, and
+// Machinery config: declared per consumer, read from the WORKING TREE, and
 // fail-closed in every direction
 // ---------------------------------------------------------------------------
 
 /**
- * A repository whose `origin/<baseBranch>` carries a machinery declaration.
- *
- * `update-ref` rather than a real remote: the production lookup resolves
- * `refs/remotes/origin/<branch>`, and writing that ref directly is the same
- * state a fetch would leave behind, without a network.
+ * A repository whose working tree carries a machinery declaration. Still a
+ * git repo, because `evaluate` reads receipts and records from it.
  */
 const policyRepo = (config, { baseBranch = "main" } = {}) => {
   const root = mkdtempSync(join(tmpdir(), "policy-"));
@@ -2019,51 +2019,29 @@ const declared = (checks, extra = {}) => JSON.stringify({ repo: "Owner/Repo", re
 
 test("required checks come from the consumer's own declaration", () => {
   const { root, sha } = policyRepo(declared(["Manifest", "Test"]));
-  assert.deepEqual(requiredChecks(sha, root), ["Manifest", "Test"]);
+  assert.deepEqual(requiredChecks(root), ["Manifest", "Test"]);
 });
 
-test("the branch is named by the caller, never by configuration", () => {
-  // The `baseBranch` field is gone: the working tree used to choose which
-  // committed copy to trust, which was a bootstrap, and the self-consistency
-  // check that closed it deadlocked a legitimate branch rename. GitHub names
-  // the branch now. (Codex, PR #7 round 7.)
-  const { root, sha } = policyRepo(declared(["Manifest"]));
-  const at = policyCommit(root, "main");
-  assert.equal(at.sha, sha);
-  assert.equal(at.ref, "refs/remotes/origin/main");
-  assert.throws(() => policyCommit(root, null), /must be named by the caller/);
-  assert.throws(() => policyCommit(root, "  "), /must be named by the caller/);
-});
-
-test("a PR CANNOT weaken the gate that approves it", () => {
-  // The whole point of reading from the base. The pull request commits a
-  // shorter list at its own head; the gate keeps reading the base branch's,
-  // so the weakened list never takes effect. (Codex, PR #7 round 2 --
-  // "a PR cannot define the gate used to approve itself".)
-  const { root, sha, g } = policyRepo(declared(["Build", "Test"]));
-  g("checkout", "-q", "-b", "claude/weaken");
+test("the policy is the working tree's declaration, by design", () => {
+  // The base-commit read this replaced defended against a PR that commits a
+  // weaker list at its own head -- authored by the person running the gate,
+  // who could as easily not run it. A changed policy shows in the diff David
+  // merges, which is the control. What this read has to catch is a MISTAKE:
+  // an unedited seed, an empty list, a malformed file -- all refused below.
+  // (.agents/memory/machinery-threat-model-is-my-own-mistakes.md)
+  const { root } = policyRepo(declared(["Build", "Test"]));
+  assert.deepEqual(requiredChecks(root), ["Build", "Test"]);
   writeFileSync(join(root, ".agents/machinery.json"), declared(["Build"]));
-  g("add", "-A");
-  g("commit", "-q", "-m", "drop Test from the required list");
-  const prHead = g("rev-parse", "HEAD").trim();
-
-  assert.deepEqual(requiredChecks(sha, root), ["Build", "Test"], "the base branch policy is what binds");
-  assert.notEqual(prHead, sha);
-  assert.deepEqual(requiredChecks(policyCommit(root, "main").sha, root), ["Build", "Test"]);
+  __resetRepoSlugCache();
+  assert.deepEqual(requiredChecks(root), ["Build"], "the file on disk is the declaration");
 });
 
-
-test("a snapshot for ANOTHER repository is refused, by the TRUSTED base config", () => {
-  // The both-sides check, and the source it reads from is the point. A
-  // foreign snapshot passes its own internal consistency (repo == head.repo)
-  // and would otherwise be judged against this repository's policy and
-  // adjudication receipts, minting a receipt checkMerge accepts because it
-  // compares against the merge tool's own owner/repo.
-  //
-  // Until round 8 the comparison read `repoSlug()` -- the working tree -- so
-  // an uncommitted edit plus a same-numbered fork or mirror defeated it. It
-  // now reads the repository the BASE COMMIT declares, at the same commit the
-  // required-checks list comes from. (Codex, PR #7 rounds 3 and 8.)
+test("a snapshot for ANOTHER repository is refused, by the declared config", () => {
+  // Every repository has a #7. A foreign snapshot passes its own internal
+  // consistency (repo == head.repo) and would otherwise be judged against
+  // this repository's receipts and records, minting a receipt checkMerge
+  // accepts. GitHub's word against the declared config, before any item
+  // runs. (Codex, PR #7 rounds 3, 8 and 10.)
   const { root, sha } = policyRepo(declared(["Test", "Manifest"]));
 
   const foreign = goodSnapshot();
@@ -2088,81 +2066,19 @@ test("a snapshot for ANOTHER repository is refused, by the TRUSTED base config",
   );
 });
 
-test("a base commit that declares no repository is refused, not read past", () => {
-  // The trusted source has to actually name one; otherwise there is nothing
-  // to bind the receipt to and the check would silently pass.
+test("a declaration with no repository is refused, not read past", () => {
+  // The declaration has to actually name one; otherwise there is nothing to
+  // bind the receipt to and the check would silently pass.
   const { root, sha } = policyRepo(JSON.stringify({ requiredChecks: ["Test"] }));
   const snap = goodSnapshot();
   snap.pr.base.sha = sha;
-  assert.throws(() => evaluate(snap, Date.now(), { cwd: root }), /does not declare "repo"/);
-});
-
-test("a snapshot with no base sha is refused -- the policy is read at it", () => {
-  const snap = goodSnapshot();
-  delete snap.pr.base.sha;
-  assert.throws(() => assertSnap(snap, 500), /base\.sha must be a full 40-character sha/);
-  snap.pr.base.sha = "b1b2b3b";
-  assert.throws(() => assertSnap(snap, 500), /base\.sha must be a full 40-character sha/);
-});
-
-test("the policy is read at GITHUB's base tip, not the local remote-tracking ref", () => {
-  // A local ref made the policy as stale as the last fetch, silently: a base
-  // that had STRENGTHENED its list since the fetch was enforced at the older,
-  // weaker version. (Codex, PR #7 round 3.)
-  const { root, sha: old, g } = policyRepo(declared(["Build"]));
-  // The base advances, strengthening the list. The local remote-tracking ref
-  // still points at the old commit, exactly as an unfetched checkout would.
-  writeFileSync(join(root, ".agents/machinery.json"), declared(["Build", "Test"]));
-  g("add", "-A");
-  g("commit", "-q", "-m", "require Test too");
-  const current = g("rev-parse", "HEAD").trim();
-
-  assert.equal(policyCommit(root, "main").sha, old, "with no reported tip, the local ref is all there is");
-  assert.equal(policyCommit(root, "main", current).sha, current, "GitHub's tip wins when supplied");
-  assert.deepEqual(requiredChecks(policyCommit(root, "main", current).sha, root), ["Build", "Test"]);
-  assert.deepEqual(requiredChecks(policyCommit(root, "main").sha, root), ["Build"], "the stale reading, for contrast");
-});
-
-test("a base tip this checkout does not have is a refusal, not a fallback", () => {
-  // `git show` can only read what is present, so silently falling back to the
-  // local ref would reintroduce the staleness this fixes.
-  const { root } = policyRepo(declared(["Build"]));
-  assert.throws(
-    () => policyCommit(root, "main", "c".repeat(40)),
-    /which this checkout does not have/,
-  );
-});
-
-test("REFUSES when the base branch ref is absent -- there is no trusted policy source", () => {
-  // The refusal now comes one step earlier, from the configuration itself:
-  // the config is READ from the base branch, so an absent base ref means
-  // there is no trusted configuration, not merely no policy commit.
-  const { root, g } = policyRepo(declared(["Test"]));
-  g("update-ref", "-d", "refs/remotes/origin/main");
-  assert.throws(() => policyCommit(root, "main"), /does not resolve to a commit/);
-});
-
-test("REFUSES a policy read at anything other than a resolved commit", () => {
-  // Guards the seam itself: passing null or a branch name would silently
-  // reintroduce a working-tree or head-controlled read.
-  const { root } = policyRepo(declared(["Test"]));
-  for (const bad of [null, undefined, "", "HEAD", "main", "abc1234"]) {
-    assert.throws(() => requiredChecks(bad, root), /must be read at a resolved base commit/, String(bad));
-  }
-});
-
-test("REFUSES when the declaration is absent -- the gate must know what it waits for", () => {
-  // This is the defect that made the payload unusable elsewhere: five job
-  // names from one repo's CI meant no PR in any other repo could ever mint a
-  // receipt. Absent config now says so instead of silently requiring nothing.
-  const { root, sha } = policyRepo(null);
-  assert.throws(() => requiredChecks(sha, root), /is not committed at/);
+  assert.throws(() => evaluate(snap, Date.now(), { cwd: root }), /must declare "repo"/);
 });
 
 test("REFUSES an empty list -- a gate that requires nothing is satisfied by anything", () => {
   // The fail-OPEN reading, and the one this whole constant exists to prevent.
   const { root, sha } = policyRepo(declared([]));
-  assert.throws(() => requiredChecks(sha, root), /satisfied by any green set/);
+  assert.throws(() => requiredChecks(root), /satisfied by any green set/);
 });
 
 test("REFUSES a malformed declaration rather than reading past it", () => {
@@ -2174,7 +2090,7 @@ test("REFUSES a malformed declaration rather than reading past it", () => {
   };
   for (const [config, expected] of Object.entries(bad)) {
     const { root, sha } = policyRepo(config);
-    assert.throws(() => requiredChecks(sha, root), expected, config);
+    assert.throws(() => requiredChecks(root), expected, config);
   }
 });
 

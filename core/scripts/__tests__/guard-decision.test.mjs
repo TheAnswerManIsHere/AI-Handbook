@@ -939,45 +939,11 @@ const READY = {
 
 const MERGE_INPUT = { pullNumber: 500, owner: "TheAnswerManIsHere", repo: "Overhypeme" };
 
-const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT, basePolicy } = {}) =>
+const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT } = {}) =>
   checkMerge(input, {
     readReceipt: () => receipt,
     resolveSha: () => tip,
-    ...(basePolicy === undefined ? {} : { resolveBasePolicy: () => basePolicy }),
   });
-
-const POLICY_SHA = "d".repeat(40);
-
-test("merge gate: a receipt minted under a SUPERSEDED policy blocks", () => {
-  // The head-sha binding catches a PR that moved; this catches the BASE
-  // moving. Without it, a base branch that strengthened its required-check
-  // list after minting left the old receipt mergeable for its whole freshness
-  // window. (Codex, PR #7 round 3.)
-  const receipt = { ...READY, requiredChecksFrom: { ref: "refs/remotes/origin/main", sha: POLICY_SHA } };
-  assert.match(
-    mergeReason(receipt, { basePolicy: "e".repeat(40) }),
-    /minted under the required-check policy at dddddddd*|is not the gate in force/,
-  );
-  assert.equal(mergeReason(receipt, { basePolicy: POLICY_SHA }), null, "the same policy still passes");
-});
-
-test("merge gate: an unresolvable policy BLOCKS; only an absent one abstains", () => {
-  // These were collapsed into one abstention, and only one of them is an
-  // absence of information. A receipt WITHOUT the field says nothing about a
-  // policy -- it predates it -- so blocking would wedge the gate on every
-  // older receipt for no gain. A receipt WITH the field says a policy applied
-  // and we cannot tell whether it still does, which is the same shape as an
-  // unresolvable branch tip: an abstention there is indistinguishable from
-  // the case it exists to catch. (Codex, PR #7 round 5.)
-  const withSource = { ...READY, requiredChecksFrom: { ref: "refs/remotes/origin/main", sha: POLICY_SHA } };
-  assert.match(
-    mergeReason(withSource, { basePolicy: null }),
-    /the policy in force cannot be resolved/,
-    "a named policy that cannot be resolved must block",
-  );
-  assert.equal(mergeReason(READY, { basePolicy: null }), null, "a receipt with no policy source abstains");
-  assert.equal(mergeReason(READY, { basePolicy: "e".repeat(40) }), null, "and stays abstaining when one resolves");
-});
 
 test("merge gate: a current, passing receipt allows the merge", () => {
   assert.equal(mergeReason(READY), null);

@@ -1,24 +1,30 @@
 #!/usr/bin/env node
 /**
- * Every place a repository identity enters a decision, classified.
+ * Every place a repository identity enters a decision, classified by WHAT IT
+ * READS -- not by how much to trust it.
  *
- * WHY THIS EXISTS. Across nine review rounds on PR #7 I wrote five confident
- * claims about where identity comes from -- "compared on both sides", "one
- * working-tree read, fail-closed", "the validators have something to check" --
- * and Codex disproved all five. The claims were not careless; two of them I
- * measured before publishing. They were narrower than the sentences I hung on
- * them, and prose has no way to say so.
+ * WHY THIS EXISTS. Across nine review rounds on PR #7 I wrote six confident
+ * claims about where identity comes from, and review disproved all six. The
+ * first version of this check answered that with a trust hierarchy -- base
+ * commit over durable ref over working tree, each read graded -- and round
+ * ten disproved that too: a gitignored receipt graded "durable", an env-var
+ * read the scanner could not see, a "0 working-tree" summary presented as a
+ * security property. The hierarchy was the mistake. It graded reads against
+ * an adversary who can edit this checkout, and that adversary is the person
+ * running the script. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  *
- * So the claim stops being prose. This enumerates every identity touchpoint in
- * the payload and requires each to be classified in `identity-sources.yml`
- * with its SOURCE and, for anything read from the working tree, an explicit
- * statement of what it can decide. A new touchpoint fails the build until
- * someone answers the question; a classified one that disappears fails too, so
- * the file cannot rot into a description of code that no longer exists.
+ * WHAT IT DOES NOW. It enumerates every touchpoint and requires a human to
+ * say what kind of thing each one reads, so that "identity comes from ONE
+ * config read, is stamped into every artifact, and is compared on every
+ * consume" is a claim someone has to answer for line by line -- and so a new
+ * touchpoint fails the build until they do, and a vanished one fails too.
+ * It is the `mentions:` design from sync-manifest.yml: the tool cannot judge
+ * a read, so it refuses to guess and makes a human say which it is.
  *
- * This is the `mentions:` design from sync-manifest.yml applied to identity,
- * for the same reason it works there: the tool cannot tell a safe read from an
- * unsafe one, so it refuses to guess and makes a human say which it is.
+ * WHAT IT CANNOT DO. It keys on the line of code, so a touchpoint whose
+ * behaviour changes while its text stays the same does not fail. It matches
+ * the spellings listed in PATTERNS, so an identity arriving some other way is
+ * invisible to it. Neither is a trust boundary and neither is claimed as one.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -28,24 +34,25 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PAYLOAD = path.join(ROOT, "core", "scripts");
 const CLASSIFICATION = path.join(ROOT, "identity-sources.yml");
 
-/** The trusted sources. Anything else must justify itself. */
+/** What a touchpoint reads. Anything else must justify itself. */
 const SOURCES = new Set([
-  "base-commit", // read at the commit the PR merges into -- not PR-controlled
-  "durable-ref", // read out of the branch's committed upstream ref
-  "durable-receipt", // a receipt read out of that same ref
+  "config", // .agents/machinery.json, through the one reader
+  "artifact", // a receipt, budget or record the machinery itself wrote
+  "github", // GitHub's own word: a captured snapshot, or an Actions env var
   "tool-input", // the repository the outgoing call itself names
-  "snapshot", // GitHub's own word, captured with the evidence
-  "argument", // supplied by the caller, which one of the above must have sourced
-  "working-tree", // MUTABLE. Requires `decides:` to be explicit.
-  "message-only", // appears in text a human reads; decides nothing
+  "message", // appears in text a human reads; decides nothing
 ]);
 
 /** An identity touchpoint: producing one, or reading one off an artifact. */
 const PATTERNS = [
   /\brepoSlug\s*\(/,
   /\bmachineryConfig\s*\(/,
-  /\bmachineryConfigAt\s*\(/,
+  /\blocalConfig\s*\(/,
   /\.repo\b/,
+  /\bGITHUB_REPOSITORY\b/,
+  // The identifier, not the English word: an assignment or an interpolation.
+  /\brepository\s*=/,
+  /\$\{repository\}/,
 ];
 
 const isComment = (line) => /^\s*(\/\/|\*|\/\*)/.test(line);
@@ -105,7 +112,7 @@ export function parseClassification(text) {
           `identity-sources.yml: key must be a double-quoted (JSON-escaped) string, got: ${literal}`,
         );
       }
-      current = { key, source: null, decides: null, why: "" };
+      current = { key, source: null, why: "" };
       out.set(current.key, current);
       field = null;
       continue;
@@ -147,15 +154,6 @@ export function check(hits, classified) {
     }
     if (!entry.why || entry.why.trim().length < 12) {
       problems.push(`${key}\n    needs a \`why\` saying how this source is trusted`);
-    }
-    // The rule the five disproved claims were all about: a value read from the
-    // working tree is MUTABLE, so what it may decide has to be stated, not
-    // assumed. "none" is the only answer that needs no further argument.
-    if (entry.source?.trim() === "working-tree" && !entry.decides?.trim()) {
-      problems.push(
-        `${key}\n    reads the WORKING TREE, so it must state \`decides:\` -- what a wrong value here can ` +
-          `cause. Use "none" only when a wrong value can solely refuse.`,
-      );
     }
   }
   for (const key of classified.keys()) {

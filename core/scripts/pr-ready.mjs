@@ -43,7 +43,7 @@
  */
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
@@ -157,115 +157,24 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * differently from the "what is in the file" ones.
  */
 /**
- * The branch a receipt's recorded policy came from, per the receipt itself.
- *
- * Both re-checks -- the merge gate's and `--show`'s -- need to ask whether
- * the policy in force still matches the one a receipt was minted under, and
- * neither has a snapshot to hand. The receipt records `requiredChecksFrom.ref`
- * for exactly this: it names the ref, so the branch is recoverable without
- * consulting configuration. Returns null when the receipt names none, which
- * both callers treat as "no policy claim to check".
+ * This checkout's machinery configuration -- identity and required checks --
+ * through the ONE reader the payload has, in review-budget.mjs. Working tree,
+ * on purpose: the base-commit and durable-ref readers this replaced defended
+ * against the person running the gate, who needs no exploit. The controls
+ * against deliberate action are David's merge and the server-side ruleset;
+ * this read catches MISTAKES, by failing closed on absent, malformed, empty
+ * or placeholder. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  */
-export function policyBranchOf(receipt) {
-  const ref = receipt?.requiredChecksFrom?.ref;
-  if (typeof ref !== "string") return null;
-  const m = /^refs\/remotes\/origin\/(.+)$/.exec(ref);
-  return m ? m[1] : null;
-}
-
-export function policyCommit(cwd = join(HERE, ".."), baseBranch = null, reportedBaseSha = null) {
-  if (typeof baseBranch !== "string" || baseBranch.trim() === "") {
-    throw fail("the base branch must be named by the caller -- the policy is read at the branch this PR merges into");
-  }
-  const ref = `refs/remotes/origin/${baseBranch}`;
-  const local = git(["rev-parse", "--verify", `${ref}^{commit}`], cwd);
-  if (!local || !/^[0-9a-f]{40}$/i.test(local)) {
-    throw fail(
-      `${ref} does not resolve to a commit, so the required-checks policy has no trusted source. The ` +
-        `policy is read from the base branch rather than from the pull request, because a pull request ` +
-        `must not define the gate that approves it. Run \`git fetch origin ${baseBranch}\` and retry.`,
-    );
-  }
-  // GITHUB'S BASE TIP WINS OVER THE LOCAL REMOTE-TRACKING REF.
-  //
-  // Reading only the local ref made the policy as stale as the last fetch,
-  // silently: a base branch that had STRENGTHENED its list since I fetched
-  // would be enforced at its old, weaker version, and nothing downstream ever
-  // re-read it. The snapshot's base sha comes from GitHub in the same capture
-  // as every other piece of evidence here, so binding to it puts the policy
-  // under the same freshness cap as the evidence it judges -- rather than
-  // under no cap at all. (Codex, PR #7 round 3.)
-  //
-  // The local ref is still required, and still has to CONTAIN that commit:
-  // the policy is read with `git show`, which can only read what this
-  // checkout has. A missing one is a fetch, and says so.
-  if (reportedBaseSha) {
-    if (!/^[0-9a-f]{40}$/i.test(reportedBaseSha)) {
-      throw fail(`snapshot.pr.base.sha must be a full 40-character sha -- the policy is read at it`);
-    }
-    if (git(["cat-file", "-e", `${reportedBaseSha}^{commit}`], cwd) === null) {
-      throw fail(
-        `the base branch is at ${reportedBaseSha.slice(0, 7)} on GitHub, which this checkout does not ` +
-          `have -- so the required-checks policy in force cannot be read. Run \`git fetch origin ` +
-          `${baseBranch}\` and retry.`,
-      );
-    }
-    return { sha: reportedBaseSha, ref, baseBranch, local };
-  }
-  return { sha: local, ref, baseBranch, local };
-}
-
-/**
- * The machinery configuration as the TRUSTED BASE COMMIT declares it.
- *
- * Identity and the required-checks list are read from one place, at one
- * commit, because reading them from different places is the defect this PR
- * produced eleven times. `assertSnapshot` used to compare the snapshot's
- * repository against `repoSlug()` -- the working tree -- while the checks
- * list came from the base branch, so an uncommitted edit could mint a READY
- * receipt for a repository the trusted config never named. (Codex, PR #7
- * round 8.)
- *
- * The base branch is trusted for both: changing anything here requires
- * merging a pull request, which requires passing the gate this defines.
- */
-export function machineryConfigAt(policySha, cwd = join(HERE, "..")) {
-  const howto =
-    `Declare "repo" and "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch. Shape: ` +
-    `{"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
-  if (typeof policySha !== "string" || !/^[0-9a-f]{40}$/i.test(policySha)) {
-    throw fail(`the machinery configuration must be read at a resolved base commit, not "${policySha}". ${howto}`);
-  }
-  const raw = git(["show", `${policySha}:${MACHINERY_CONFIG_FILE}`], cwd);
-  if (raw === null) {
-    throw fail(
-      `${MACHINERY_CONFIG_FILE} is not committed at ${policySha.slice(0, 7)} on the base branch, so this ` +
-        `gate does not know which repository it is for or which checks it is waiting for. ${howto}`,
-    );
-  }
+export function localConfig(cwd = join(HERE, "..")) {
   try {
-    return JSON.parse(raw);
-  } catch {
-    throw fail(`${MACHINERY_CONFIG_FILE} is not valid JSON at ${policySha.slice(0, 7)}. ${howto}`);
+    return machineryConfig(nodeIo(resolve(cwd)));
+  } catch (err) {
+    throw fail(err.message);
   }
 }
 
-export function requiredChecks(policySha, cwd = join(HERE, "..")) {
-  const howto =
-    `Declare "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch, naming the CI jobs that ` +
-    `must be PRESENT before a readiness receipt is honest -- every job that can appear late, not just ` +
-    `the ones that must pass. Shape: {"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
-  const list = machineryConfigAt(policySha, cwd)?.requiredChecks;
-  if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n.trim() === "")) {
-    throw fail(`${MACHINERY_CONFIG_FILE} must carry "requiredChecks" as an array of non-empty job names. ${howto}`);
-  }
-  if (list.length === 0) {
-    throw fail(
-      `${MACHINERY_CONFIG_FILE} declares an empty "requiredChecks". A gate that requires nothing is ` +
-        `satisfied by any green set, which is the fail-open direction this list exists to prevent. ${howto}`,
-    );
-  }
-  return list;
+export function requiredChecks(cwd = join(HERE, "..")) {
+  return localConfig(cwd).requiredChecks;
 }
 
 /**
@@ -973,51 +882,20 @@ function validateAdjudicationRecord(prNumber, recordPath, headSha, cwd, { floor 
   if (record.pr !== prNumber) return { ok: false, detail: `${recordPath} describes PR ${record.pr}, not ${prNumber}` };
 
   // A PR NUMBER DOES NOT IDENTIFY A LOOP. Every repository has a #7, so a
-  // record generated in repository B and committed into A -- with the same
-  // number and a resolvable shared baseline -- was accepted here as A's own
-  // evidence, and B's rounds and findings could grant A extra rounds or a
-  // READY verdict. `review-loop-record.mjs` has recorded `repo` since round 9
-  // and a repo-wide search found the field only at the writer: written, never
-  // read. (Codex, PR #7 round 9.)
-  //
-  // Compared against THE BUDGET IN THE SAME COMMIT, not against a resolved
-  // identity. That is deliberate and follows `checkRail`'s note below: the
-  // record's `repo` was copied out of `budgetState.budget.repo` at generation
-  // time, so the budget is the artifact it must agree with, and resolving a
-  // second identity here is what produced the mismatches rounds 3 through 5
-  // each found in turn.
-  const budgetRaw = git(["show", `${headSha}:${LOOP_RECEIPTS_DIR}/loop-budget-${prNumber}.json`], cwd);
-  if (budgetRaw === null) {
-    return {
-      ok: false,
-      detail: `${recordPath} cites a loop with no committed budget receipt at ${headSha.slice(0, 7)} -- there is nothing to bind it to a repository`,
-    };
-  }
-  let budgetRepo = null;
-  try {
-    budgetRepo = JSON.parse(budgetRaw)?.repo ?? null;
-  } catch {
-    budgetRepo = null;
-  }
-  if (typeof budgetRepo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(budgetRepo)) {
-    return {
-      ok: false,
-      detail: `the committed budget for PR #${prNumber} records no usable repository, so ${recordPath} cannot be bound to one`,
-    };
-  }
-  // No grandfathering, for the same reason round 4 refused it on budgets: a
-  // record predating the field is one this check cannot bind, and "cannot
-  // bind" must not read as "fine". Regenerating a record is one command.
-  if (typeof record.repo !== "string" || record.repo.toLowerCase() !== budgetRepo.toLowerCase()) {
+  // record captured for the wrong one -- same number, different repository --
+  // must not be read as this loop's evidence. Compared to the configured
+  // identity, like every other artifact. No grandfathering: a record with no
+  // `repo` cannot be bound and is refused; regenerating one is one command.
+  // (Codex, PR #7 round 9.)
+  const configured = localConfig(cwd).repo;
+  if (typeof record.repo !== "string" || record.repo.toLowerCase() !== configured.toLowerCase()) {
     return {
       ok: false,
       detail:
-        `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this PR's committed budget ` +
-        `records ${budgetRepo}. Regenerate the record in a checkout of ${budgetRepo}: a PR number alone does ` +
-        "not identify a loop",
+        `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this repository is ` +
+        `${configured}. Regenerate the record here: a PR number alone does not identify a loop`,
     };
   }
-
   if (record.budget?.problem) {
     return {
       ok: false,
@@ -1546,8 +1424,25 @@ function countDelivered(snapshot) {
 }
 
 /** The full verdict for a validated snapshot. */
-export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, required = null) {
+export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, config = null) {
   const headSha = snapshot.pr.head.sha;
+  // IDENTITY FIRST, before any item runs -- every item below reads receipts
+  // and records from this checkout, so whose snapshot this is must be settled
+  // before any of them is consulted. (Codex, PR #7 round 10.)
+  // ONE config read. `config` is the test seam (an explicit {repo,
+  // requiredChecks}); production reads the working tree through the same
+  // reader every other consumer in this file uses.
+  const cfg = config ?? localConfig(adjudicationOpts.cwd);
+  // WHOSE SNAPSHOT THIS IS. Every repository has a #7, so a snapshot captured
+  // for the wrong one would be judged against this repository's receipts and
+  // mint a receipt the merge gate accepts. GitHub's word against the config.
+  if (snapshot.repo.toLowerCase() !== cfg.repo.toLowerCase()) {
+    throw fail(
+      `this snapshot is for ${snapshot.repo}, but ${MACHINERY_CONFIG_FILE} declares ${cfg.repo}. Run the ` +
+        `gate from a checkout of ${snapshot.repo}, or capture a snapshot of a PR in ${cfg.repo}.`,
+    );
+  }
+  const policy = cfg.requiredChecks;
   const directCodex = checkCodex(snapshot.issueComments, snapshot.reviews, headSha);
   // A closed review-loop adjudication (see checkAdjudicatedCodex) is a
   // fallback, never a replacement: it is only even attempted when a live
@@ -1571,47 +1466,6 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
       : adjudicated
         ? { ...directCodex, detail: `${directCodex.detail} | adjudication fallback also failed: ${adjudicated.detail}` }
         : directCodex;
-  // Resolved from the BASE BRANCH, not from `headSha` -- the head is the pull
-  // request under review, and a pull request that supplies its own gate has
-  // not passed one. An explicit list (tests) wins; production supplies none
-  // and reads the trusted base. `policySource` goes into the receipt so a
-  // reader can see which commit the policy came from.
-  let policy = required;
-  let policySource = null;
-  if (!policy) {
-    // GITHUB NAMES THE BRANCH; no configuration is consulted. `assertSnapshot`
-    // has already required base.ref, so the equality check against a declared
-    // value that used to sit here has nothing left to compare -- the branch
-    // the policy is read from IS the branch this PR merges into, by
-    // construction rather than by assertion.
-    const at = policyCommit(adjudicationOpts.cwd, snapshot.pr.base.ref, snapshot.pr.base.sha);
-    const trusted = machineryConfigAt(at.sha, adjudicationOpts.cwd);
-
-    // WHOSE SNAPSHOT THIS IS, decided by the trusted base commit.
-    //
-    // A receipt is minted from this repository's policy and its adjudication
-    // receipts, so it can only speak for this repository -- and "this
-    // repository" has to come from somewhere an uncommitted edit cannot
-    // move. It came from the working tree until round 8, which meant a
-    // spoofed identity plus a same-numbered fork or mirror could mint a READY
-    // receipt the merge gate would then accept. (Codex, PR #7 round 8.)
-    if (typeof trusted?.repo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(trusted.repo)) {
-      throw fail(
-        `${MACHINERY_CONFIG_FILE} at ${at.sha.slice(0, 7)} on ${at.baseBranch} does not declare "repo" as ` +
-          `"owner/name", so there is no trusted identity to bind this receipt to`,
-      );
-    }
-    if (snapshot.repo.toLowerCase() !== trusted.repo.toLowerCase()) {
-      throw fail(
-        `this snapshot is for ${snapshot.repo}, but ${MACHINERY_CONFIG_FILE} on ${at.baseBranch} declares ` +
-          `${trusted.repo}. A readiness receipt is minted from this repository's policy and its ` +
-          `adjudication receipts, so it can only speak for this repository. Run the gate from a checkout ` +
-          `of ${snapshot.repo}.`,
-      );
-    }
-    policy = requiredChecks(at.sha, adjudicationOpts.cwd);
-    policySource = { ref: at.ref, sha: at.sha };
-  }
   const items = {
     ci: checkCi(snapshot.checkRuns, headSha, policy),
     codex,
@@ -1635,10 +1489,6 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
     // The policy this verdict was reached under, recorded so a receipt cannot
     // be read without seeing what it actually demanded. (Codex, PR #7 round 1.)
     requiredChecks: policy,
-    // ...and WHERE it was read from, so a reader can tell a policy taken from
-    // the trusted base apart from one an explicit caller supplied, and can
-    // see whether the base commit was current. (Codex, PR #7 round 2.)
-    requiredChecksFrom: policySource,
     items,
   };
 }
@@ -1670,14 +1520,18 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
   }
   // The guard's own validation, not a bare tier read: an unvalidated budget
   // (wrong PR, tier/number mismatch) must not anchor a rail decision.
-  //
-  // Shape only. The budget's repository is compared against the snapshot's
-  // in `assertSnapshot`, which is where the value to compare it to exists;
-  // resolving a second identity here is what produced the mismatch the rail
-  // tests surfaced.
   const budgetError = validateBudget(prNumber, budget);
   if (budgetError) {
     return { pass: false, detail: `committed budget receipt is invalid (${budgetError}) -- cannot rule out the rail` };
+  }
+  // ...and it must be THIS repository's budget, compared to the configured
+  // identity like every other artifact. Every repository has a #7.
+  const configured = localConfig(cwd).repo;
+  if (typeof budget.repo !== "string" || budget.repo.toLowerCase() !== configured.toLowerCase()) {
+    return {
+      pass: false,
+      detail: `committed budget receipt was declared for ${budget.repo ?? "an unrecorded repository"}, not ${configured} -- cannot rule out the rail`,
+    };
   }
   const tier = budget.tier;
 
@@ -1967,50 +1821,8 @@ function main() {
       );
       return 1;
     }
-    // THE SAME POLICY CHECK THE MERGE GATE MAKES.
-    //
-    // `--show` is the surface a readiness claim is quoted from, and for a PR
-    // David merges it is the ONLY control -- no hook sees his click. It
-    // checked the receipt's age and the PR head and stopped there, so it
-    // would print READY under a required-check policy the base branch had
-    // already replaced. A gate and the human-readable view of that gate
-    // disagreeing about the same receipt is the defect this repo has already
-    // fixed once, for the staleness window. (Codex, PR #7 round 4.)
-    const recordedPolicy = receipt.requiredChecksFrom?.sha;
-    if (typeof recordedPolicy === "string") {
-      let currentPolicy = null;
-      try {
-        const branch = policyBranchOf(receipt);
-        currentPolicy = branch ? remoteTip(branch) : null;
-      } catch {
-        currentPolicy = null;
-      }
-      // UNRESOLVABLE BLOCKS, the same as the merge gate. Abstaining here while
-      // the hook denies would put the looser check on the surface a readiness
-      // claim is actually quoted from -- and for a PR David merges, this is
-      // the ONLY control, because no hook sees his click. That is the third
-      // time in this PR a check has been fixed on one path and not its twin,
-      // which is why this one is written to mirror `checkMerge` line for line
-      // rather than to be independently reasonable. (Codex, PR #7 round 6.)
-      if (!currentPolicy) {
-        process.stderr.write(
-          `pr-ready: this receipt was minted under the required-check policy at ${recordedPolicy.slice(0, 7)}, ` +
-            `but the policy in force cannot be resolved, so there is no way to tell whether it is still the ` +
-            `gate. Re-run with a fresh snapshot\n`,
-        );
-        return 1;
-      }
-      if (currentPolicy !== recordedPolicy) {
-        process.stderr.write(
-          `pr-ready: this receipt was minted under the required-check policy at ${recordedPolicy.slice(0, 7)}, ` +
-            `but the base branch is now at ${currentPolicy.slice(0, 7)} -- the gate that approved this PR is ` +
-            `not the gate in force. Re-run with a fresh snapshot\n`,
-        );
-        return 1;
-      }
-    }
     // Everything above passed, so this receipt describes the commit that would
-    // merge, under the policy in force, within the freshness window.
+    // merge, within the freshness window.
     process.stdout.write(`${formatReceipt(receipt)}\n`);
     return receipt.verdict === "READY" ? 0 : 1;
   }

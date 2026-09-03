@@ -1,7 +1,9 @@
 {
   "_README": "Seeded once by the AI-Handbook sync, then owned by this repository. EDIT BOTH FIELDS BEFORE USE. Left as-is, the machinery refuses rather than guesses: the placeholder below is rejected by name and every review request blocks with a message naming this file. That is the intended failure -- it announces itself instead of silently protecting nothing.",
   "repo": "OWNER/REPO",
-  "_repo": "This repository's GitHub owner/name, exactly as the API spells it. Read only when a review budget is declared, where it is stamped into the budget receipt. A wrong value can only strand a loop -- the stamped repository is compared against the repository each outgoing review request names, so a budget declared under the wrong identity authorizes nothing anywhere.",
-  "requiredChecks": ["REPLACE-WITH-A-REQUIRED-CI-JOB-NAME"],
-  "_requiredChecks": "The CI jobs that must be PRESENT before a readiness receipt is honest -- every job that can appear late, not only the ones that must pass. A job gated on an earlier one is created late, so a snapshot taken too early sees a complete green set without it. Use the jobs.*.name values from this repo's workflows. Read from the branch a pull request merges into, never from the pull request itself."
+  "_repo": "This repository's GitHub owner/name, exactly as the API spells it. Read from this file, stamped into every receipt and record the machinery writes, and compared back on every one it reads -- and against every GitHub snapshot, so a snapshot of the wrong PR is refused. A wrong value is a mistake the machinery catches by refusing, with a message naming both values. It is not a security boundary: the person who can edit this file is the person running the scripts.",
+  "requiredChecks": [
+    "REPLACE-WITH-A-REQUIRED-CI-JOB-NAME"
+  ],
+  "_requiredChecks": "The CI jobs that must be PRESENT before a readiness receipt is honest -- every job that can appear late, not only the ones that must pass. A job gated on an earlier one is created late, so a snapshot taken too early sees a complete green set without it. Use the jobs.*.name values from this repo's workflows. Read from this file; a pull request that changes it is judged by what it commits, and that change is in the diff. An empty list is refused."
 }

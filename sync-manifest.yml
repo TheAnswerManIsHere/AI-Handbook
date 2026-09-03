@@ -713,6 +713,38 @@ groups:
           pr-ready.mjs's error text points a human at a memory entry for
           background. A dangling pointer if memory is absent, not a broken
           code path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/review-budget.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          review-budget.mjs's identity-reader header cites the threat-model entry as the reason the read is from the working tree. A dangling pointer if memory is absent, not a broken code
+          path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/pr-ready.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          pr-ready.mjs's config-adapter header cites the same entry for the same reason. A dangling pointer if memory is absent, not a broken code
+          path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/__tests__/review-budget.test.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 2
+        why: >
+          Two test comments cite the entry as the design rationale they assert. Comments, not imports. A dangling pointer if memory is absent, not a broken code
+          path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/__tests__/pr-ready.test.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          One test comment cites the entry as the design rationale it asserts. A comment, not an import. A dangling pointer if memory is absent, not a broken code
+          path.
       - group: guard
         ref: core/scripts/guard-decision.mjs
         from: core/scripts/review-budget.mjs
@@ -839,17 +871,16 @@ groups:
       spend", and the budget receipt already answers that: it records the
       repository it was declared for, read from the durable ref, and is
       compared against the repository the outgoing request names. No
-      configuration is read, so there is no second source to drift. The
-      declared config survives in exactly two places, each reading it from a
-      source the working tree cannot move: pr-ready.mjs's required-checks list
-      and snapshot binding, read at the BASE COMMIT; and review-budget.mjs's
-      `declare`, stamping the identity into a budget receipt, read from the
-      DURABLE REF -- the same ref the budget itself is later read from, so one
-      commit-and-push is the price of both. A tenth round found `declare`
-      still reading the working tree here and five other call sites the prose
-      had not counted, which is why that property is now enumerated in
-      identity-sources.yml and checked in CI rather than described. A future
-      audit should read the check's output, not this paragraph.
+      configuration is read there, so there is no second source to drift.
+      Everywhere else, the config is read from the WORKING TREE through one
+      function, stamped into every artifact, and compared back on every
+      consume. Ten rounds built a trust hierarchy over that read -- base
+      commit, durable ref, budget-in-the-same-commit -- against an actor who
+      can edit this checkout, who is the person running the scripts. The
+      threat model is a mistake, not an adversary
+      (.agents/memory/machinery-threat-model-is-my-own-mistakes.md), and every
+      touchpoint is enumerated in identity-sources.yml by what it reads. A
+      future audit should read that file's check output, not this paragraph.
       (2) PARTLY resolved by issue #2 — the two corpus-wide gates
       (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
       with `claude-core`, because they were never standalone machinery: each

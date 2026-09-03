@@ -143,104 +143,80 @@ const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
 // nobody makes -- changing the placeholder's case while leaving its letters.
 const PLACEHOLDER_SLUG = "OWNER/REPO";
 
-// Memoized per (root, ref): the durable ref cannot change inside one process,
-// and this is read on paths that run per command.
+// Memoized per root: a checkout's configuration cannot change inside one
+// process, and this is read on paths that run per command.
 const CONFIG_CACHE = new Map();
 
 /**
- * This repository's declared identity, read from the DURABLE REF.
+ * This repository's declared identity, read from the working tree.
  *
- * NO PATH IN THIS FILE READS IDENTITY FROM THE WORKING TREE. That is checked,
- * not asserted: in the handbook that vendors this payload,
- * `check-identity-sources.mjs` walks every identity touchpoint here and
- * requires each to be classified in `identity-sources.yml`, so a working-tree
- * read fails that build instead of being described away. When this comment
- * and that file disagree, the file is right.
+ * THE THREAT MODEL IS MY OWN MISTAKES, NOT AN ADVERSARY. Ten review rounds
+ * on PR #7 moved this read from the working tree to the durable ref to the
+ * base commit and back, each time defending against an actor who can edit
+ * files in this checkout -- who is the person running the script. That actor
+ * needs no exploit; it can simply not run the guard. The controls against
+ * deliberate action are David's merge and the server-side ruleset, and no
+ * local script can add to them. What this read has to do is catch a
+ * MISTAKE: declaring a budget in the wrong checkout, or running with the seed
+ * placeholder still in place. It does that by failing closed on absent,
+ * malformed, or placeholder, and by being the ONE place identity is read.
+ * (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  *
- * The history is why the check exists. Identity started DERIVED from the
- * remote URL (six ways to parse it wrongly), became DECLARED and read
- * everywhere (three more ways for two sources to disagree), then left the
- * guard path entirely when the budget receipt turned out to answer the
- * guard's real question by itself. Even after that, SIX call sites still
- * reached back here -- two live, one dead, three latent default parameters --
- * while this header said "exactly one purpose". The enumeration found them;
- * prose had not, across nine rounds of people looking. The count in the first
- * draft of this very paragraph was wrong too, and was corrected by running
- * the grep rather than by reading it again.
- *
- * WHY THE DURABLE REF AND NOT THE WORKING TREE. The last version read from
- * disk and recorded the gap honestly: an edit before `declare` mints a budget
- * naming another repository, and requests to that repository then match it.
- * Round 9 found that gap and named the fix, which is this. The trust level is
- * chosen to equal the artifact being stamped: `loadLoop` reads the budget out
- * of `refs/remotes/<remote>/<branch>`, so reading the identity that goes INTO
- * that budget from the same ref means one commit-and-push is the price of
- * both, and neither can be moved without the other being visible in a diff.
- * Reading it from the base commit would be stronger still, but `declare` has
- * no snapshot and so cannot know which branch the PR merges into -- and a
- * config field naming it is exactly the `baseBranch` this PR deleted for
- * letting the working tree pick its own trust anchor.
- *
- * A missing durable ref REFUSES rather than falling back to disk. A fallback
- * is the whole defect: it makes the untrusted read reachable by arranging for
- * the trusted one to fail.
- *
- * It follows that this must not grow consumers. Anything that reads identity
- * on a path where a wrong value could ALLOW rather than refuse is the bug
- * this file has already produced eleven times; take it from the artifact that
- * path already trusts -- the budget receipt, or the snapshot -- as
- * `judgeReviewRequest`, `check` and `pr-ready.mjs` now do.
+ * It is configuration, and configuration lives in the working tree. Every
+ * artifact the machinery mints is stamped from here; every artifact it
+ * consumes is compared to it, or -- on the guard path, which cannot afford a
+ * throw -- to the budget receipt that was stamped from it. The required-
+ * checks policy comes from the same read, so pr-ready.mjs has no reader of
+ * its own.
  */
 export function machineryConfig(io = nodeIo()) {
-  const ref = typeof io.durableRef === "function" ? io.durableRef() : null;
-  if (!ref) {
-    throw new Error(
-      "this branch has no REMOTE-tracking upstream, so there is no durable ref to read " +
-        `${MACHINERY_CONFIG_FILE} from. Push the branch (\`git push -u origin <branch>\`) before declaring a ` +
-        "budget: the identity a budget records is read from the ref, never from the working tree, so that " +
-        "changing it costs a commit and a push rather than a local edit.",
-    );
-  }
-  const key = `${io.root ?? ""}\u0000${ref}`;
+  const key = io.root ?? "";
   if (!CONFIG_CACHE.has(key)) {
-    const shown = readDurableJson(io, ref, MACHINERY_CONFIG_FILE);
-    if (shown.state === "absent") {
+    // `io.read` returns null only for ENOENT; a permissions or I/O fault
+    // throws rather than being collapsed into "absent".
+    const raw = io.read(MACHINERY_CONFIG_FILE);
+    if (raw === null) {
       throw new Error(
-        `${MACHINERY_CONFIG_FILE} is not in ${ref}, so this branch cannot say which repository it is. ` +
-          `If it exists locally, commit and push it. ${MACHINERY_CONFIG_HOWTO}`,
+        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which repository it is. ` +
+          MACHINERY_CONFIG_HOWTO,
       );
     }
-    if (shown.state === "malformed") {
-      throw new Error(`${MACHINERY_CONFIG_FILE} in ${ref} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
     }
-    if (shown.state !== "ok") {
-      throw new Error(
-        `${MACHINERY_CONFIG_FILE} could not be read from ${ref} (${shown.error}). ${MACHINERY_CONFIG_HOWTO}`,
-      );
-    }
-    const parsed = shown.value;
     const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
     if (!SLUG_RE.test(repo)) {
-      throw new Error(
-        `${MACHINERY_CONFIG_FILE} in ${ref} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`,
-      );
+      throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`);
     }
     // The seed's placeholder is SHAPED like an identity, so every structural
     // check passed it and an unedited template produced a working config
-    // naming a repository that does not exist. The template promises the
-    // opposite. (Codex, PR #7 round 6.)
-    //
-    // Compared EXACTLY, not case-folded: "Owner/Repo" is a plausible real
-    // repository name, and a check that rejected it would refuse a legitimate
-    // consumer to catch an edit nobody makes -- changing the placeholder's
-    // case while leaving its letters.
+    // naming a repository that does not exist. (Codex, PR #7 round 6.)
     if (repo === PLACEHOLDER_SLUG) {
       throw new Error(
         `${MACHINERY_CONFIG_FILE} still carries the template's placeholder "${repo}". Replace it with ` +
           `this repository's real owner/name -- the seed is a form to fill in, not a default.`,
       );
     }
-    CONFIG_CACHE.set(key, { repo });
+    // The required-checks list, validated here so pr-ready.mjs reads it
+    // through the same function that reads identity -- one reader, one
+    // memo, one set of refusals.
+    const list = parsed?.requiredChecks;
+    if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n.trim() === "")) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} must carry "requiredChecks" as an array of non-empty job names. ${MACHINERY_CONFIG_HOWTO}`,
+      );
+    }
+    if (list.length === 0) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} declares an empty "requiredChecks". A gate that requires nothing is ` +
+          `satisfied by any green set, which is the fail-open direction this list exists to prevent. ` +
+          MACHINERY_CONFIG_HOWTO,
+      );
+    }
+    CONFIG_CACHE.set(key, { repo, requiredChecks: list });
   }
   return CONFIG_CACHE.get(key);
 }
@@ -1922,16 +1898,10 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
 async function check(flags, io) {
   const pr = requirePr(flags);
 
-  // THE BUDGET IS LOADED FIRST BECAUSE IT IS WHERE IDENTITY COMES FROM.
-  //
-  // This used to open with `repoSlug(io)` -- a working-tree read -- and thread
-  // that into both the snapshot assertion and the minted receipt. It was
-  // refuse-only, since `judgeReviewRequest` re-validates the minted receipt
-  // against the durable budget, but it was a second source of identity for a
-  // value the durable receipt already holds, and every defect in this file has
-  // been two sources of identity. So there is one: the budget receipt, out of
-  // the branch's committed upstream, which is the same value the guard
-  // compares each outgoing request against.
+  // The budget is loaded first because the round-check receipt is minted
+  // AGAINST it: `judgeReviewRequest` validates the receipt's repository
+  // against the budget's, so stamping it from the same value is what makes
+  // that comparison pass in honest operation.
   const state = loadLoop(pr, io);
   if (state.problem === "no-budget") throw new Error(`no budget declared for PR #${pr} -- declare first`);
   if (state.problem) throw new Error(`cannot check: ${state.detail}`);

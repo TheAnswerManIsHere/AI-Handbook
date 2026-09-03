@@ -187,24 +187,27 @@ readiness, not link resolution.
    }
    ```
 
-   - **`repo`** is this repository's `owner/name`, and it is read in exactly
-     one place: when a review budget is declared, where it is stamped into the
-     budget receipt. From then on the guard compares that recorded repository
-     against the repository each outgoing review request names — neither of
-     which any local edit can move. A wrong value here can therefore only
-     **strand** a loop, never open one, which is why this is the one remaining
-     working-tree read in the machinery. Getting to that took two withdrawn
-     designs: deriving it from `origin` (six ways to parse a URL wrongly) and
-     reading the declaration on every path (three more ways for two sources to
-     disagree).
+   - **`repo`** is this repository's `owner/name`. It is read through one
+     function, from the working tree, and stamped into every artifact the
+     machinery mints — budgets, round-check receipts, readiness receipts,
+     adjudication records. Every artifact the machinery consumes is compared
+     back to it, and so is every GitHub snapshot, so a snapshot of the wrong
+     PR (every repository has a #7) is refused rather than counted. A wrong
+     value here is a **mistake the machinery catches**: it refuses with a
+     message naming both values. It is not a security boundary and does not
+     try to be one — the person who can edit this file is the person running
+     the scripts, and the controls against deliberate action are the merge
+     click and the server-side ruleset. Ten review rounds spent defending it
+     against its own operator are why that sentence is written down
+     (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`).
    - **`requiredChecks`** names the CI jobs that must be PRESENT before a
      readiness receipt is honest — every job that can appear **late**, not only
      the ones that must pass. A job gated on an earlier one is created late, so
-     a snapshot taken too early sees a complete green set without it. It is
-     read from the branch a pull request **merges into**, per GitHub, never
-     from the pull request itself — so a pull request cannot commit a shorter
-     list and mint a receipt against the gate it just weakened. There is no
-     `baseBranch` to declare: the branch comes from the snapshot.
+     a snapshot taken too early sees a complete green set without it. Read
+     from the same file, the same way: a pull request that changes this list
+     is judged by the list it commits, and that change is in the diff the
+     merge reviews. An empty list is refused — a gate that requires nothing is
+     satisfied by any green set.
 
    **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
    a real slug, so every structural check passed it and an unedited template

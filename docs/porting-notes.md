@@ -99,22 +99,24 @@ exists.)
 
 What replaced it, in one line each:
 
-- **The guard reads no configuration at all.** It compares the repository the
-  budget receipt records — out of the durable ref — against the repository the
-  outgoing review request names. Neither side can be moved by editing a file
-  in this checkout.
-- **Identity is declared** in `.agents/machinery.json` (`machinery-config`,
-  mode `seed`) and read from the **durable ref**, never the working tree.
-- **The required-checks policy** is read at the commit the pull request merges
-  into, so a PR cannot weaken the gate that approves it.
-- **Receipts, snapshots and adjudication records are each bound** to a
-  repository, and every one of those bindings is enumerated in
-  `identity-sources.yml` and checked by `scripts/check-identity-sources.mjs`
-  in CI — a new identity read fails the build until someone classifies it.
+- **Identity and policy are declared** in `.agents/machinery.json`
+  (`machinery-config`, mode `seed`), read from the working tree through one
+  function, and stamped into every artifact the machinery mints.
+- **Every artifact it consumes is compared back** — to the config, or on the
+  guard path (which cannot afford a throw) to the budget that was stamped
+  from it. GitHub snapshots are compared to config too, so the wrong PR's
+  snapshot is refused.
+- **There is no trust hierarchy.** Ten rounds built one — base commit over
+  durable ref over working tree — defending against the person running the
+  scripts. The threat model is a mistake, not an adversary
+  (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`).
+- **Every touchpoint is enumerated** in `identity-sources.yml` by what it
+  reads, and `scripts/check-identity-sources.mjs` fails CI on any new or
+  vanished one until a human classifies it.
 
-The fail-closed requirement still holds and is now tested in every direction: a
-missing config, a missing durable ref, an unedited template placeholder and an
-unbindable record all refuse rather than default.
+The fail-closed requirement still holds and is tested in every direction: a
+missing config, a malformed one, an empty checks list, an unedited template
+placeholder and an unbindable record all refuse rather than default.
 `.agents/memory/ci-guard-must-fail-loud-on-missing-inputs.md` is the entry that
 says why, and it came across in this port.
 

@@ -37,33 +37,20 @@ test("a classification for code that no longer exists fails", () => {
   // leaves behind prose describing code that is gone -- which is the exact
   // failure mode the check was built to end, reproduced in the check's own
   // input file.
-  const classified = parseClassification(entry("gone.mjs :: f :: x.repo", { source: "snapshot", why: WHY }));
+  const classified = parseClassification(entry("gone.mjs :: f :: x.repo", { source: "github", why: WHY }));
   const problems = check([], classified);
   assert.equal(problems.length, 1);
   assert.match(problems[0], /STALE classification/);
 });
 
-test("a working-tree read MUST say what it decides", () => {
-  const h = hit("a.mjs", "declare", "repo: repoSlug(io),");
-  const without = parseClassification(entry(keyOf(h), { source: "working-tree", why: WHY }));
-  const problems = check([h], without);
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /must state `decides:`/);
-
-  const with_ = parseClassification(
-    entry(keyOf(h), { source: "working-tree", decides: "which repository the budget authorizes", why: WHY }),
-  );
-  assert.deepEqual(check([h], with_), []);
-});
-
-test("a trusted source needs no `decides`", () => {
+test("a classified touchpoint with a recognised source passes", () => {
   const h = hit("a.mjs", "f", "const slug = state.budget.repo;");
-  const classified = parseClassification(entry(keyOf(h), { source: "durable-receipt", why: WHY }));
+  const classified = parseClassification(entry(keyOf(h), { source: "artifact", why: WHY }));
   assert.deepEqual(check([h], classified), []);
 });
 
 test("an invented source is refused, not silently accepted", () => {
-  // "probably fine" is not one of the seven, and a source the check does not
+  // "probably fine" is not one of the five, and a source the check does not
   // recognise is the shape a new untrusted read would arrive in.
   const h = hit("a.mjs", "f", "x.repo");
   const classified = parseClassification(entry(keyOf(h), { source: "probably-fine", why: WHY }));
@@ -74,24 +61,24 @@ test("an invented source is refused, not silently accepted", () => {
 
 test("a `why` that says nothing fails", () => {
   const h = hit("a.mjs", "f", "x.repo");
-  const classified = parseClassification(entry(keyOf(h), { source: "snapshot", why: "trusted" }));
+  const classified = parseClassification(entry(keyOf(h), { source: "github", why: "trusted" }));
   const problems = check([h], classified);
   assert.equal(problems.length, 1);
   assert.match(problems[0], /needs a `why`/);
 });
 
 test("block scalars fill EVERY field, not just `why`", () => {
-  // The bug this test exists for: the first parser special-cased `why`, so
-  // `decides: >-` parsed as the literal string ">-" -- truthy, and therefore
-  // enough to satisfy the one rule the whole check exists to enforce. A
-  // working-tree read would have passed with its blast radius unstated.
+  // The first parser special-cased `why`, so any other folded field parsed
+  // as the literal ">-" -- a truthy value that satisfied whatever rule read
+  // it. Kept as a parser property even though the field that exposed it is
+  // gone: a classification file that silently drops a field is worse than
+  // one that refuses.
   const parsed = parseClassification(
-    `- key: "a.mjs :: f :: x.repo"\n  source: working-tree\n  decides: >-\n    which repository the budget authorizes\n  why: >-\n    ${WHY}`,
+    `- key: "a.mjs :: f :: x.repo"\n  source: >-\n    artifact\n  why: >-\n    ${WHY}`,
   );
   const e = parsed.get("a.mjs :: f :: x.repo");
-  assert.equal(e.source, "working-tree");
-  assert.match(e.decides, /^which repository the budget authorizes\s*$/);
-  assert.doesNotMatch(e.decides, /[>|]/);
+  assert.equal(e.source.trim(), "artifact");
+  assert.doesNotMatch(e.source, /[>|]/);
 });
 
 test("an unquoted key is refused rather than half-parsed", () => {

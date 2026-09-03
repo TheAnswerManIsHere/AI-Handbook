@@ -54,7 +54,7 @@ export function fakeIo(files = {}, { slug = TEST_SLUG, config } = {}) {
       ? { [MACHINERY_CONFIG_FILE]: config }
       : slug === null
         ? {}
-        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug }) };
+        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug, requiredChecks: ["Test"] }) };
   const store = { ...declared, ...files };
   return {
     store,
@@ -1805,14 +1805,16 @@ test("a standing terminal verdict refuses even a pending-round retry (Codex, #55
 
 
 // ---------------------------------------------------------------------------
-// Repository identity: derived from origin, never declared
+// Repository identity: declared in the working tree, read once, compared
+// everywhere. The threat model is a MISTAKE (wrong checkout, unedited seed),
+// not an adversary -- .agents/memory/machinery-threat-model-is-my-own-mistakes.md
 // ---------------------------------------------------------------------------
 
 test("the declared identity is what every check binds to", () => {
   __resetRepoSlugCache();
   const io = fakeIo({}, { slug: "Owner/Repo" });
   assert.equal(repoSlug(io), "Owner/Repo");
-  assert.deepEqual(Object.keys(machineryConfig(io)), ["repo"], "identity, and nothing else");
+  assert.deepEqual(Object.keys(machineryConfig(io)), ["repo", "requiredChecks"], "identity and policy, one read");
   __resetRepoSlugCache();
 });
 
@@ -1821,39 +1823,26 @@ test("REFUSES to operate when no identity is declared", () => {
   // check binds to this identity, so guessing it would validate a receipt
   // minted somewhere else.
   __resetRepoSlugCache();
-  assert.throws(() => repoSlug(fakeIo({}, { slug: null })), /is not in origin\/fake/);
+  assert.throws(() => repoSlug(fakeIo({}, { slug: null })), /is missing/);
   __resetRepoSlugCache();
 });
 
-test("a branch with no durable ref REFUSES rather than falling back to disk", () => {
-  // The fallback is the whole defect. If an unreadable ref dropped through to
-  // the working tree, the untrusted read would be reachable by arranging for
-  // the trusted one to fail -- which is easier than editing the ref, not
-  // harder.
+test("identity is read from the WORKING TREE, by design", () => {
+  // Ten rounds moved this read to the durable ref and the base commit to
+  // defend against an actor who can edit this checkout -- the person running
+  // the script, who needs no exploit. The controls against deliberate action
+  // are David's merge and the server-side ruleset; this read exists to catch
+  // MISTAKES, and it is configuration, so it lives where configuration lives.
+  // (.agents/memory/machinery-threat-model-is-my-own-mistakes.md)
   __resetRepoSlugCache();
   const base = fakeIo({}, { slug: "Real/Repo" });
-  const noUpstream = { ...base, durableRef: () => null };
-  assert.throws(() => repoSlug(noUpstream), /no REMOTE-tracking upstream/);
-  __resetRepoSlugCache();
-});
-
-test("a working-tree edit does NOT move the declared identity", () => {
-  // Round 9's P1, as a test. `declare` stamped identity from disk, so an edit
-  // before declaring minted a budget naming another repository -- and requests
-  // to THAT repository then matched it. The identity now comes out of the ref,
-  // so changing it costs a commit and a push, which is visible in a diff.
-  //
-  // This is the one io in the suite where the working tree and the ref
-  // disagree, because it is the one property that needs them to.
-  __resetRepoSlugCache();
-  const base = fakeIo({}, { slug: "Real/Repo" });
-  const spoofed = {
+  const edited = {
     ...base,
-    root: "/test/spoofed",
+    root: "/test/edited",
     read: (rel) =>
-      rel === MACHINERY_CONFIG_FILE ? JSON.stringify({ repo: "Evil/Spoof" }) : base.read(rel),
+      rel === MACHINERY_CONFIG_FILE ? JSON.stringify({ repo: "Other/Repo", requiredChecks: ["Test"] }) : base.read(rel),
   };
-  assert.equal(repoSlug(spoofed), "Real/Repo", "the ref decides, not the file on disk");
+  assert.equal(repoSlug(edited), "Other/Repo", "the file on disk is the declaration");
   __resetRepoSlugCache();
 });
 
@@ -1867,6 +1856,8 @@ test("REFUSES a malformed declaration rather than reading past it", () => {
     '{"repo":"Owner/Repo/extra"}': /must declare "repo"/,
     '{"repo":"   "}': /must declare "repo"/,
     '{"repo":"OWNER/REPO"}': /still carries the template's placeholder/,
+    '{"repo":"Owner/Repo"}': /array of non-empty job names/,
+    '{"repo":"Owner/Repo","requiredChecks":[]}': /satisfied by any green set/,
   };
   for (const [config, expected] of Object.entries(bad)) {
     __resetRepoSlugCache();
@@ -1885,9 +1876,9 @@ test("identity is read ONCE per checkout, not per call", () => {
   const io = {
     ...base,
     root: "/test/counted",
-    readDurable: (ref, rel) => {
+    read: (rel) => {
       if (rel === MACHINERY_CONFIG_FILE) reads++;
-      return base.readDurable(ref, rel);
+      return base.read(rel);
     },
   };
   assert.equal(repoSlug(io), "A/B");

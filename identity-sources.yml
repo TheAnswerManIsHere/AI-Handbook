@@ -1,52 +1,35 @@
-# Where every repository identity in the machinery comes from.
+# Where every repository identity in the machinery comes from, by WHAT IT READS.
 #
-# GENERATED-BY-HAND, CHECKED BY MACHINE. `scripts/check-identity-sources.mjs`
-# walks the payload for identity touchpoints and fails unless each one appears
+# CHECKED BY MACHINE, CLASSIFIED BY HAND. `scripts/check-identity-sources.mjs`
+# walks the payload for identity touchpoints and fails unless each appears
 # here with a `source` it recognises. A NEW touchpoint fails the build until
-# someone answers the question; a classified touchpoint that disappears fails
-# too, so this file cannot rot into a description of code that no longer
-# exists.
+# someone answers for it; a vanished one fails too.
 #
-# WHY IT EXISTS. Across nine review rounds on PR #7 I wrote six confident
-# claims about where identity comes from -- "compared on both sides", "one
-# working-tree read, fail-closed", "the only working-tree read left in the
-# machinery" -- and every one was disproved, two of them after I had measured
-# before publishing. The measurements were real and narrower than the
-# sentences hung on them. Prose has no way to say so; this file does, because
-# the check reads the code rather than the description.
+# THE RULE THIS FILE MAKES CHECKABLE. Identity comes from ONE config read
+# (.agents/machinery.json, working tree), is STAMPED into every artifact the
+# machinery mints, and is COMPARED on every artifact it consumes -- to the
+# config, or on the guard path (which cannot afford a throw) to the budget
+# that was stamped from it. GitHub's word is compared to config too, so a
+# snapshot of the wrong PR is refused. That is the whole design.
 #
-# SOURCES, most trusted first:
+# THE THREAT MODEL IS A MISTAKE, NOT AN ADVERSARY. The first version of this
+# file graded each read by trust -- base commit over durable ref over working
+# tree -- defending against an actor who can edit this checkout. That actor
+# is the person running the script, who needs no exploit. The controls
+# against deliberate action are David's merge and the server-side ruleset.
+# (.agents/memory/machinery-threat-model-is-my-own-mistakes.md)
 #
-#   base-commit      read at the commit the PR merges into. Changing it means
-#                    merging a PR, so a branch cannot rewrite the policy that
-#                    judges it.
-#   durable-ref      read from the branch's committed upstream ref. Changing
-#                    it means committing and pushing, so it shows in a diff.
-#   durable-receipt  a receipt read out of that same ref.
-#   tool-input       the repository the outgoing call itself names. Not a
-#                    claim about the target -- it IS the target.
-#   snapshot         GitHub's own word, captured with the evidence and bound
-#                    to one of the above before it decides anything.
-#   argument         supplied by the caller, which one of the above sourced.
-#   working-tree     MUTABLE. An uncommitted edit changes it. Requires an
-#                    explicit `decides:` saying what a wrong value can cause.
-#                    THERE ARE CURRENTLY NONE, and that is the point of the
-#                    rule rather than a reason to relax it: the last one was
-#                    `declare`, which sat here classified honestly for exactly
-#                    one round before round 9 named the fix.
-#   message-only     appears in text a human reads. Decides nothing.
+# SOURCES:
+#   config      .agents/machinery.json, through the one reader
+#   artifact    a receipt, budget or record the machinery itself wrote
+#   github      GitHub's own word: a captured snapshot, or an Actions env var
+#   tool-input  the repository the outgoing call itself names
+#   message     text a human reads; decides nothing
 #
-# WHAT THE CHECK DOES NOT CATCH, demonstrated by the very change that
-# reclassified these five entries: a touchpoint whose SOURCE changes while its
-# line of code stays the same. `machineryConfig` moved from the working tree to
-# the durable ref without either key changing, so the check still passed while
-# every one of its classifications had gone stale. The key is the line, not the
-# behaviour behind it. Hashing each enclosing function's body would close it and
-# was rejected: a big function like `evaluate` would invalidate a dozen entries
-# on any unrelated edit, and churn is how a classification file becomes a
-# rubber stamp. So this half stays human, as it does in sync-manifest.yml --
-# what the machine guarantees is that nobody can ADD or REMOVE a touchpoint
-# without answering for it.
+# WHAT THE CHECK CANNOT DO. It keys on the line, so a touchpoint whose
+# behaviour changes while its text stays the same does not fail. It matches
+# the spellings in PATTERNS, so an identity arriving some other way is
+# invisible. Neither is a trust boundary and neither is claimed as one.
 #
 # Keys are JSON-encoded because they quote lines of source containing `:: `,
 # `"` and `'`. That keeps this file a strict subset of valid YAML.
@@ -59,318 +42,335 @@
 - key: "guard-decision.mjs :: checkMerge :: const target = `${toolInput?.owner ?? \"\"}/${toolInput?.repo ?? \"\"}`;"
   source: tool-input
   why: >-
-    The repository the merge call itself names. It is not a claim ABOUT the
-    target -- it IS the target, so there is nothing for it to disagree with.
+    The repository the outgoing call itself names. Not a claim about the
+    target -- it IS the target.
 
 - key: "guard-decision.mjs :: checkMerge :: if (!toolInput?.owner || !toolInput?.repo) {"
   source: tool-input
   why: >-
-    Refuses a merge whose input names no repository, rather than comparing
-    the receipt against an empty string that any unrecorded receipt would
-    match.
+    The repository the outgoing call itself names. Not a claim about the
+    target -- it IS the target.
 
 - key: "guard-decision.mjs :: checkMerge :: if (typeof receipt.repo !== \"string\" || receipt.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: durable-receipt
+  source: artifact
   why: >-
-    The readiness receipt is minted by pr-ready.mjs from the base commit and
-    committed; this compares it to the tool input. Both sides are outside
-    the working tree, so no local edit can make them agree.
+    A field on a receipt, budget or record the machinery itself wrote,
+    stamped from config at mint time and compared here on consume. On the
+    guard path the budget is the anchor because a hook cannot afford a
+    throw.
 
 - key: "guard-decision.mjs :: checkMerge :: `merge blocked: the receipt for PR #${pr} was minted for ${receipt.repo ?? \"an unrecorded repository\"}, ` +"
-  source: message-only
+  source: message
   why: >-
-    Refusal text naming both values. Read by a human and by me; decides
-    nothing.
+    Refusal or guidance text. Decides nothing.
 
 # --------------------------------------------------------------------------
 # pr-ready.mjs
 # --------------------------------------------------------------------------
 
-- key: "pr-ready.mjs :: machineryConfigAt :: export function machineryConfigAt(policySha, cwd = join(HERE, \"..\")) {"
-  source: base-commit
+- key: "pr-ready.mjs :: localConfig :: export function localConfig(cwd = join(HERE, \"..\")) {"
+  source: config
   why: >-
-    Reads .agents/machinery.json at the commit the PR merges INTO, via git
-    show. Changing it requires merging a PR, which is the property the
-    readiness gate needs: a branch cannot rewrite the policy that judges it.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
-- key: "pr-ready.mjs :: requiredChecks :: const list = machineryConfigAt(policySha, cwd)?.requiredChecks;"
-  source: base-commit
+- key: "pr-ready.mjs :: localConfig :: return machineryConfig(nodeIo(resolve(cwd)));"
+  source: config
   why: >-
-    The required-checks list comes from the same base-commit read as the
-    identity, so a branch cannot shorten the list of checks it must pass.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
+
+- key: "pr-ready.mjs :: requiredChecks :: return localConfig(cwd).requiredChecks;"
+  source: config
+  why: >-
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
 - key: "pr-ready.mjs :: assertSnapshot :: if (typeof snapshot.repo !== \"string\" || !/^[^/\\s]+\\/[^/\\s]+$/.test(snapshot.repo)) {"
-  source: snapshot
+  source: github
   why: >-
-    Shape check on GitHub's own answer, captured with the evidence. A
-    snapshot that cannot say which repository it describes is refused rather
-    than defaulted.
+    GitHub's word in a captured snapshot -- shape-checked, then compared to
+    config (pr-ready) or to the budget (guard path).
 
 - key: "pr-ready.mjs :: assertSnapshot :: throw fail('snapshot.repo must be \"owner/name\" -- the receipt is bound to a repository, not just a number');"
-  source: message-only
+  source: message
   why: >-
-    The refusal text for the shape check above. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
 - key: "pr-ready.mjs :: assertSnapshot :: if (typeof pr.head?.repo !== \"string\" || !/^[^/\\s]+\\/[^/\\s]+$/.test(pr.head.repo)) {"
-  source: snapshot
+  source: github
   why: >-
-    Shape check on head.repo.full_name as GitHub returned it. Required
-    because the merge gate resolves the branch in this checkout, so a head
-    in another repository must be caught here.
+    GitHub's word in a captured snapshot -- shape-checked, then compared to
+    config (pr-ready) or to the budget (guard path).
 
 - key: "pr-ready.mjs :: assertSnapshot :: 'snapshot.pr.head.repo must be \"owner/name\" (pull_request_read method:\"get\", head.repo.full_name) ' +"
-  source: message-only
+  source: message
   why: >-
-    Refusal text naming the exact API field to capture. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
 - key: "pr-ready.mjs :: assertSnapshot :: if (pr.head.repo.toLowerCase() !== snapshot.repo.toLowerCase()) {"
-  source: snapshot
+  source: github
   why: >-
-    Snapshot self-consistency: the PR's head must be in the repository the
-    snapshot claims to describe. Both sides are GitHub's word in the same
-    capture, so this catches a mis-assembled snapshot, not a spoofed one --
-    the spoofing case is caught by the base-commit comparison in evaluate.
+    GitHub's word in a captured snapshot -- shape-checked, then compared to
+    config (pr-ready) or to the budget (guard path).
 
 - key: "pr-ready.mjs :: assertSnapshot :: `this PR's head is in ${pr.head.repo}, not ${snapshot.repo}. The merge gate resolves the branch ` +"
-  source: message-only
+  source: message
   why: >-
-    Refusal text for the self-consistency check above. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
-- key: "pr-ready.mjs :: evaluate :: const trusted = machineryConfigAt(at.sha, adjudicationOpts.cwd);"
-  source: base-commit
+- key: "pr-ready.mjs :: validateAdjudicationRecord :: const configured = localConfig(cwd).repo;"
+  source: config
   why: >-
-    The single trusted read for this path: identity and required checks
-    together, at the base commit, so they cannot come from different eras of
-    the policy.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
-- key: "pr-ready.mjs :: evaluate :: if (typeof trusted?.repo !== \"string\" || !/^[^/\\s]+\\/[^/\\s]+$/.test(trusted.repo)) {"
-  source: base-commit
+- key: "pr-ready.mjs :: validateAdjudicationRecord :: if (typeof record.repo !== \"string\" || record.repo.toLowerCase() !== configured.toLowerCase()) {"
+  source: config
   why: >-
-    Refuses a base commit that declares no usable identity rather than
-    proceeding with an unverifiable snapshot.
+    Compares an artifact or snapshot against the configured identity.
+    Mismatch refuses: minted for X, you are in Y.
 
-- key: "pr-ready.mjs :: evaluate :: if (snapshot.repo.toLowerCase() !== trusted.repo.toLowerCase()) {"
-  source: base-commit
+- key: "pr-ready.mjs :: validateAdjudicationRecord :: `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this repository is ` +"
+  source: message
   why: >-
-    THE load-bearing comparison on this path: GitHub's word about the
-    snapshot against the base commit's declaration. A snapshot captured
-    elsewhere is refused here, which is what lets the minted receipt carry
-    snapshot.repo below.
+    Refusal or guidance text. Decides nothing.
 
-- key: "pr-ready.mjs :: evaluate :: `this snapshot is for ${snapshot.repo}, but ${MACHINERY_CONFIG_FILE} on ${at.baseBranch} declares ` +"
-  source: message-only
+- key: "pr-ready.mjs :: evaluate :: const cfg = config ?? localConfig(adjudicationOpts.cwd);"
+  source: config
   why: >-
-    Refusal text for the comparison above. Decides nothing.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
-- key: "pr-ready.mjs :: evaluate :: `${trusted.repo}. A readiness receipt is minted from this repository's policy and its ` +"
-  source: message-only
+- key: "pr-ready.mjs :: evaluate :: if (snapshot.repo.toLowerCase() !== cfg.repo.toLowerCase()) {"
+  source: config
   why: >-
-    Continuation of the same refusal text. Decides nothing.
+    Compares an artifact or snapshot against the configured identity.
+    Mismatch refuses: minted for X, you are in Y.
 
-- key: "pr-ready.mjs :: evaluate :: `of ${snapshot.repo}.`,"
-  source: message-only
+- key: "pr-ready.mjs :: evaluate :: `this snapshot is for ${snapshot.repo}, but ${MACHINERY_CONFIG_FILE} declares ${cfg.repo}. Run the ` +"
+  source: message
   why: >-
-    Continuation of the same refusal text. Decides nothing.
+    Refusal or guidance text. Decides nothing.
+
+- key: "pr-ready.mjs :: evaluate :: `gate from a checkout of ${snapshot.repo}, or capture a snapshot of a PR in ${cfg.repo}.`,"
+  source: message
+  why: >-
+    Refusal or guidance text. Decides nothing.
 
 - key: "pr-ready.mjs :: evaluate :: repo: snapshot.repo,"
-  source: snapshot
+  source: github
   why: >-
-    Stamped into the readiness receipt the merge guard later checks. Safe
-    because the comparison three lines above has already proven this equals
-    the base commit's declaration; reaching this line means the two agree.
+    Stamped into the readiness receipt. Proven equal to the configured
+    identity a few lines above, before any item ran.
+
+- key: "pr-ready.mjs :: checkRail :: const configured = localConfig(cwd).repo;"
+  source: config
+  why: >-
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
+
+- key: "pr-ready.mjs :: checkRail :: if (typeof budget.repo !== \"string\" || budget.repo.toLowerCase() !== configured.toLowerCase()) {"
+  source: config
+  why: >-
+    Compares an artifact or snapshot against the configured identity.
+    Mismatch refuses: minted for X, you are in Y.
+
+- key: "pr-ready.mjs :: checkRail :: detail: `committed budget receipt was declared for ${budget.repo ?? \"an unrecorded repository\"}, not ${configured} -- cannot rule out the rail`,"
+  source: message
+  why: >-
+    Refusal or guidance text. Decides nothing.
 
 # --------------------------------------------------------------------------
 # review-budget.mjs
-
-- key: "pr-ready.mjs :: validateAdjudicationRecord :: budgetRepo = JSON.parse(budgetRaw)?.repo ?? null;"
-  source: durable-receipt
-  why: >-
-    The budget receipt read from git at the same headSha the record is read
-    from. Not a separately-resolved identity: the record's own `repo` was
-    copied out of this budget at generation time, so the budget is the
-    artifact it must agree with. `checkRail` carries the same note, for the
-    same reason.
-
-- key: "pr-ready.mjs :: validateAdjudicationRecord :: if (typeof record.repo !== \"string\" || record.repo.toLowerCase() !== budgetRepo.toLowerCase()) {"
-  source: durable-receipt
-  why: >-
-    Binds the cited mechanical record to the budget in the same commit.
-    Without it a record from another repository, committed here with a
-    matching PR number, was accepted as this PR's evidence and its rounds
-    could grant a READY verdict. No grandfathering: a record with no `repo`
-    is refused rather than read as bound.
-
-- key: "pr-ready.mjs :: validateAdjudicationRecord :: `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this PR's committed budget ` +"
-  source: message-only
-  why: >-
-    Refusal text naming both values and the checkout to regenerate in.
-    Decides nothing.
-
 # --------------------------------------------------------------------------
 
 - key: "review-budget.mjs :: machineryConfig :: export function machineryConfig(io = nodeIo()) {"
-  source: durable-ref
+  source: config
   why: >-
-    Reads .agents/machinery.json out of the branch's committed upstream
-    (`io.durableRef()`), never from disk. Changing it costs a commit and a
-    push, so it is visible in a diff. A missing ref REFUSES rather than
-    falling back to the working tree: a fallback would make the untrusted
-    read reachable by arranging for the trusted one to fail, which is easier
-    than editing the ref rather than harder.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
 - key: "review-budget.mjs :: machineryConfig :: const repo = typeof parsed?.repo === \"string\" ? parsed.repo.trim() : \"\";"
-  source: durable-ref
+  source: config
   why: >-
-    The parse and validation half of the durable read above -- same source,
-    and the place the placeholder rejection lives so an unedited seed cannot
-    produce a working identity naming a repository that does not exist.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
 - key: "review-budget.mjs :: repoSlug :: export function repoSlug(io = nodeIo()) {"
-  source: durable-ref
+  source: config
   why: >-
-    A one-field accessor over machineryConfig, carrying its trust exactly.
-    Kept as a named function because the check counts callers, and a named
-    accessor makes a new one visible in a diff.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
 - key: "review-budget.mjs :: repoSlug :: return machineryConfig(io).repo;"
-  source: durable-ref
+  source: config
   why: >-
-    The body of the accessor above. Same source, same trust.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
 - key: "review-budget.mjs :: validateBudget :: if (typeof receipt.repo !== \"string\" || !SLUG_RE.test(receipt.repo.trim())) {"
-  source: durable-receipt
+  source: artifact
   why: >-
-    A shape check on the committed budget, so a budget that cannot say which
-    repository it is for is refused rather than compared against as an empty
-    value.
+    A field on a receipt, budget or record the machinery itself wrote,
+    stamped from config at mint time and compared here on consume. On the
+    guard path the budget is the anchor because a hook cannot afford a
+    throw.
+
+- key: "review-budget.mjs :: validateRecordReference :: if (typeof parsed.value?.repo !== \"string\" || parsed.value.repo.toLowerCase() !== slug.toLowerCase()) {"
+  source: artifact
+  why: >-
+    A field on a receipt, budget or record the machinery itself wrote,
+    stamped from config at mint time and compared here on consume. On the
+    guard path the budget is the anchor because a hook cannot afford a
+    throw.
+
+- key: "review-budget.mjs :: validateRecordReference :: `${recordPath} was generated for ${JSON.stringify(parsed.value?.repo ?? null)}, but this loop's budget ` +"
+  source: message
+  why: >-
+    Refusal or guidance text. Decides nothing.
+
+- key: "review-budget.mjs :: loadLoop :: const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions, slug: budget.value.repo });"
+  source: artifact
+  why: >-
+    Threads the loaded budget's repository into record validation on the
+    guard path, which reads no config.
 
 - key: "review-budget.mjs :: validateCheckReceipt :: if (typeof receipt.repo !== \"string\" || receipt.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: durable-receipt
+  source: artifact
   why: >-
-    The ephemeral round-check receipt is compared against a slug the caller
-    sources from the committed budget. `slug` is now a REQUIRED parameter:
-    its default used to call repoSlug(), a working-tree read that decided
-    nothing only because every live caller happened to pass a value.
+    A field on a receipt, budget or record the machinery itself wrote,
+    stamped from config at mint time and compared here on consume. On the
+    guard path the budget is the anchor because a hook cannot afford a
+    throw.
 
 - key: "review-budget.mjs :: validateCheckReceipt :: return `round-check receipt was minted for ${receipt.repo ?? \"an unrecorded repository\"}, not ${target}`;"
-  source: message-only
+  source: message
   why: >-
-    Refusal text for the comparison above. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
 - key: "review-budget.mjs :: judgeReviewRequest :: const target = `${toolInput?.owner ?? \"?\"}/${toolInput?.repo ?? \"?\"}`;"
   source: tool-input
   why: >-
-    The repository the outgoing review request names. As in checkMerge, this
-    is the thing being judged, not a claim about it.
+    The repository the outgoing call itself names. Not a claim about the
+    target -- it IS the target.
 
 - key: "review-budget.mjs :: judgeReviewRequest :: if (state.budget.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: durable-receipt
+  source: artifact
   why: >-
-    THE load-bearing comparison on the guard path: the committed budget
-    against the request's own target. The guard reads no configuration at
-    all, so a working-tree edit cannot move either side. A mismatch REFUSES
-    -- it does not skip, which is the defect that produced this whole line
-    of findings.
+    A field on a receipt, budget or record the machinery itself wrote,
+    stamped from config at mint time and compared here on consume. On the
+    guard path the budget is the anchor because a hook cannot afford a
+    throw.
 
 - key: "review-budget.mjs :: judgeReviewRequest :: `the budget for PR #${pr} in this checkout was declared for ${state.budget.repo}, but this ` +"
-  source: message-only
+  source: message
   why: >-
-    Refusal text for the comparison above. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
 - key: "review-budget.mjs :: judgeReviewRequest :: const slug = state.budget.repo;"
-  source: durable-receipt
+  source: artifact
   why: >-
     Carried downstream so the round-check receipt is validated against the
-    same value the request was judged against. Threading one value is the
-    fix for the defect class this file kept reproducing: two sources of
-    identity, with a consumer bound to one and its counterpart bound to the
-    other.
+    same value the request was judged against: one value threaded, not two
+    sources.
 
 - key: "review-budget.mjs :: declare :: repo: repoSlug(io),"
-  source: durable-ref
+  source: config
   why: >-
-    Stamps the identity into the budget receipt. Round 9 found this reading
-    the working tree, where an edit before `declare` minted a budget naming
-    another repository and requests to THAT repository then matched it. The
-    trust level is now chosen to EQUAL the artifact being stamped: `loadLoop`
-    reads the budget out of the same ref, so one commit-and-push is the price
-    of both and neither can move without the other showing in a diff. The
-    base commit would be stronger still, but `declare` has no snapshot and so
-    cannot know the branch the PR merges into -- and a config field naming it
-    is exactly the `baseBranch` this PR deleted for letting the working tree
-    pick its own trust anchor.
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
+    Working tree, by design: it is configuration, and the threat model is a
+    mistake, not an adversary.
 
 - key: "review-budget.mjs :: assertCountingSnapshot :: if (typeof snapshot.repo !== \"string\" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: snapshot
+  source: github
   why: >-
-    GitHub's word about the counting snapshot, against a slug the caller
-    sources from the committed budget. Every repository has a #503, so a
-    snapshot captured elsewhere would otherwise launder a lower round count
-    into an unearned round. `slug` is required here for the same reason as
-    validateCheckReceipt.
+    GitHub's word in a captured snapshot -- shape-checked, then compared to
+    config (pr-ready) or to the budget (guard path).
 
 - key: "review-budget.mjs :: assertCountingSnapshot :: `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,"
-  source: message-only
+  source: message
   why: >-
-    Refusal text for the comparison above. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
 - key: "review-budget.mjs :: check :: const slug = state.budget.repo;"
-  source: durable-receipt
+  source: artifact
   why: >-
-    The round-check command's identity, sourced from the committed budget it
-    has just loaded. This line used to be `repoSlug(io)` -- refuse-only,
-    since judgeReviewRequest re-validates the minted receipt against the
-    budget anyway, but a second source for a value the budget already held.
-    It was found by the enumeration, not by review.
+    The round-check receipt is minted against the budget it will be
+    validated against.
 
 # --------------------------------------------------------------------------
 # review-loop-record.mjs
-
-- key: "review-budget.mjs :: validateRecordReference :: if (typeof parsed.value?.repo !== \"string\" || parsed.value.repo.toLowerCase() !== slug.toLowerCase()) {"
-  source: durable-receipt
-  why: >-
-    The guard's half of the same binding, against a slug `loadLoop` sources
-    from the committed budget it has already loaded. `slug` has no working
-    default and a missing one REFUSES: an unbound record must not read as a
-    bound one.
-
-- key: "review-budget.mjs :: validateRecordReference :: `${recordPath} was generated for ${JSON.stringify(parsed.value?.repo ?? null)}, but this loop's budget ` +"
-  source: message-only
-  why: >-
-    Refusal text for the comparison above. Decides nothing.
-
-- key: "review-budget.mjs :: loadLoop :: const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions, slug: budget.value.repo });"
-  source: durable-receipt
-  why: >-
-    The only production call site, threading the loaded budget's repository
-    explicitly. Threading one value from the artifact already trusted is what
-    makes the no-default rule above enforceable rather than aspirational.
-
 # --------------------------------------------------------------------------
 
 - key: "review-loop-record.mjs :: buildRecord :: repo: budgetState.budget.repo,"
-  source: durable-receipt
+  source: artifact
   why: >-
-    Recorded into the adjudication record so the record names the repository
-    its verdict is about. Sourced from the committed budget, the same value
-    every other consumer uses.
+    Stamped into the adjudication record from the budget it was generated
+    against; both validators compare it back.
 
 - key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: if (typeof snapshot.repo !== \"string\" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: snapshot
+  source: github
   why: >-
-    GitHub's word against an explicitly-passed slug. The parameter has no
-    default: an earlier revision let it fall back, which meant the
-    adjudicator could be handed a record assembled from another repository's
-    PR.
+    GitHub's word in a captured snapshot -- shape-checked, then compared to
+    config (pr-ready) or to the budget (guard path).
 
 - key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,"
-  source: message-only
+  source: message
   why: >-
-    Refusal text for the comparison above. Decides nothing.
+    Refusal or guidance text. Decides nothing.
 
 - key: "review-loop-record.mjs :: main :: assertAdjudicationSnapshot(pr, snapshot, budgetState.budget.repo);"
-  source: durable-receipt
+  source: artifact
   why: >-
-    The only production call site, passing the committed budget's value
-    explicitly. This is what makes the no-default rule above enforceable
-    rather than aspirational.
+    The only production call site, passing the budget's value explicitly;
+    the parameter has no default.
+
+# --------------------------------------------------------------------------
+# sync-project-fields.mjs
+# --------------------------------------------------------------------------
+
+- key: "sync-project-fields.mjs :: main :: const repository = process.env.GITHUB_REPOSITORY;"
+  source: github
+  why: >-
+    GitHub Actions' own statement of the repository the workflow runs in,
+    used to address the REST API for that repository.
+
+- key: "sync-project-fields.mjs :: main :: GITHUB_REPOSITORY: repository,"
+  source: github
+  why: >-
+    GitHub Actions' own statement of the repository the workflow runs in,
+    used to address the REST API for that repository.
+
+- key: "sync-project-fields.mjs :: main :: ? [await rest(`/repos/${repository}/issues/${only}`, githubToken)]"
+  source: github
+  why: >-
+    GitHub Actions' own statement of the repository the workflow runs in,
+    used to address the REST API for that repository.
+
+- key: "sync-project-fields.mjs :: main :: : (await restAll(`/repos/${repository}/issues?state=open&per_page=100`, githubToken)).filter("
+  source: github
+  why: >-
+    GitHub Actions' own statement of the repository the workflow runs in,
+    used to address the REST API for that repository.
