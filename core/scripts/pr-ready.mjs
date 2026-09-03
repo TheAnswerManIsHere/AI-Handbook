@@ -1881,7 +1881,18 @@ function main() {
       return 1;
     }
     const receipt = JSON.parse(readFileSync(p, "utf8"));
-    process.stdout.write(`${formatReceipt(receipt)}\n`);
+    // NOTHING IS PRINTED UNTIL EVERY LIVE CHECK HAS PASSED.
+    //
+    // The formatted receipt used to go to stdout here, before the checks
+    // below could reject it. Each refusal did return 1 and write to stderr,
+    // but this is the surface a readiness claim is QUOTED from -- an
+    // stdout-only capture, or a reader taking the first result, still saw
+    // READY under a verdict this path had already decided was stale. A
+    // control that prints the wrong answer and then corrects it on another
+    // stream is not a control. (Codex, PR #7 round 8.)
+    //
+    // Every check that follows therefore precedes the write, and the emit is
+    // the last statement in this branch.
     // `--show` is the manual-merge path: for a PR David merges, quoting this
     // output IS the control, because no hook sees his click. Printing a stored
     // verdict without re-applying the age check would present an hours-old
@@ -1952,6 +1963,9 @@ function main() {
         return 1;
       }
     }
+    // Everything above passed, so this receipt describes the commit that would
+    // merge, under the policy in force, within the freshness window.
+    process.stdout.write(`${formatReceipt(receipt)}\n`);
     return receipt.verdict === "READY" ? 0 : 1;
   }
 
