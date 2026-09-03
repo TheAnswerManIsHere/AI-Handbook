@@ -207,6 +207,18 @@ readiness, not link resolution.
      the ones that must pass. A job gated on an earlier one is created late, so
      a snapshot taken too early sees a complete green set without it.
 
+   **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
+   a real slug, so every structural check passed it and an unedited template
+   produced a working configuration naming a repository that does not exist.
+   It is now rejected explicitly, which is what makes the promise above true.
+   If a budget was already declared under it — or under the previous schema,
+   which recorded no repository at all — correct just that field, without
+   disturbing the tier or the loop history:
+
+   ```
+   node scripts/review-budget.mjs declare --pr <n> --repair
+   ```
+
    Every failure here is loud. `pr-ready.mjs` refuses when the file is absent
    from the base branch, malformed, or declares an empty list — an empty list
    is refused rather than read as "nothing required", because a gate that

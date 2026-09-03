@@ -137,6 +137,12 @@ export const MACHINERY_CONFIG_HOWTO =
 
 const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
 
+// The exact value `machinery.template.json` ships. Compared EXACTLY, not
+// case-folded: "Owner/Repo" is a plausible real repository name, and a check
+// that rejected it would refuse a legitimate consumer to catch an edit
+// nobody makes -- changing the placeholder’s case while leaving its letters.
+const PLACEHOLDER_SLUG = "OWNER/REPO";
+
 // Memoized per root: a checkout's configuration cannot change inside one
 // process, and this runs on the guard's hot path -- every tool call -- so it
 // must not re-read and re-parse each time.
@@ -152,6 +158,20 @@ function parseConfig(raw, where) {
   const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
   if (!SLUG_RE.test(repo)) {
     throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name" ${where}. ${MACHINERY_CONFIG_HOWTO}`);
+  }
+  // THE SEED'S PLACEHOLDER IS NOT AN IDENTITY.
+  //
+  // It is shaped like one, so every structural check passed it and a consumer
+  // that committed the template unedited got a working configuration naming a
+  // repository that does not exist -- and a budget declared for it. The
+  // template promises the opposite: that leaving it produces a loud refusal
+  // naming the file. Making that true takes rejecting the sentinel by name.
+  // (Codex, PR #7 round 6.)
+  if (repo === PLACEHOLDER_SLUG) {
+    throw new Error(
+      `${MACHINERY_CONFIG_FILE} still carries the template's placeholder "${repo}" ${where}. Replace it ` +
+        `with this repository's real owner/name -- the seed is a form to fill in, not a default.`,
+    );
   }
   const baseBranch = typeof parsed?.baseBranch === "string" ? parsed.baseBranch.trim() : "";
   if (baseBranch === "") {
@@ -1704,6 +1724,12 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
 // deliberately, not a file created as a side effect of being blocked.
 // ---------------------------------------------------------------------------
 
+// Flags that are switches rather than settings. Kept as a named set rather
+// than "any flag may omit its value", because the general rule catches typos:
+// a value-taking flag that silently swallowed the next flag would be worse
+// than the error it replaces.
+const BOOLEAN_FLAGS = new Set(["repair"]);
+
 export function parseArgs(argv) {
   const [command, ...rest] = argv;
   const flags = {};
@@ -1711,6 +1737,10 @@ export function parseArgs(argv) {
     const token = rest[i];
     if (!token.startsWith("--")) throw new Error(`unexpected argument: ${token}`);
     const key = token.slice(2);
+    if (BOOLEAN_FLAGS.has(key)) {
+      flags[key] = true;
+      continue;
+    }
     const value = rest[i + 1];
     if (value === undefined || value.startsWith("--")) throw new Error(`--${key} needs a value`);
     flags[key] = value;
@@ -1721,6 +1751,7 @@ export function parseArgs(argv) {
 
 const USAGE = `usage:
   review-budget.mjs declare --pr <n> --tier <product|sensitive|internal> --criticality <1-100> --artifact "<text>"
+  review-budget.mjs declare --pr <n> --repair          (corrects only the recorded repository)
   review-budget.mjs check   --pr <n> --mcp-snapshot <file>
   review-budget.mjs status  --pr <n> [--mcp-snapshot <file>]
 
@@ -1735,8 +1766,54 @@ const requirePr = (flags) => {
   return pr;
 };
 
-function declare(flags, io) {
+/**
+ * Correct the repository a budget records, and nothing else.
+ *
+ * This exists because refusing to re-declare left no way out of two states
+ * this PR can create: a budget written by the previous schema has no `repo`,
+ * and a consumer that committed the seed unedited has one naming the
+ * template's placeholder. Both now refuse every review request, and both
+ * diagnostics said "re-declare it" while `declare` made that impossible. A
+ * diagnostic naming a recovery no command can perform is worse than none.
+ * (Codex, PR #7 round 6.)
+ *
+ * BOUNDED, so it cannot become a general overwrite: tier, budget,
+ * criticality, artifact and declaredAt are carried across untouched -- moving
+ * the tier under a loop in flight is exactly what the refusal protects
+ * against -- and it refuses when there is nothing to repair.
+ */
+function repairBudget(pr, flags, io) {
+  if (!io.exists(budgetPath(pr))) {
+    throw new Error(`--repair needs an existing ${budgetPath(pr)} to repair`);
+  }
+  const existing = readJson(io, budgetPath(pr));
+  if (existing.state !== "ok") {
+    throw new Error(`${budgetPath(pr)} could not be read (${existing.state}), so it cannot be repaired`);
+  }
+  const repo = repoSlug(io);
+  if (existing.value.repo === repo) {
+    throw new Error(
+      `${budgetPath(pr)} already records ${repo}, so there is nothing to repair. --repair corrects a ` +
+        `budget's repository; it is not a way to re-declare a tier.`,
+    );
+  }
+  const repaired = { ...existing.value, repo, repairedAt: io.now() };
+  const error = validateBudget(pr, repaired);
+  if (error) throw new Error(`the repaired budget is still invalid: ${error}`);
+  io.write(budgetPath(pr), `${JSON.stringify(repaired, null, 2)}\n`);
+  return (
+    `repaired: PR #${pr} budget now records ${repo} (was ${existing.value.repo ?? "unrecorded"}); tier ` +
+    `"${existing.value.tier}" and its round history are unchanged. COMMIT AND PUSH it -- a budget is read ` +
+    `from the branch's remote-tracking ref.`
+  );
+}
+
+export function declare(flags, io) {
   const pr = requirePr(flags);
+  // REPAIR FIRST, because it preserves the tier rather than taking one, so
+  // demanding --tier here would make the recovery command require the very
+  // field it must not change.
+  if (flags.repair) return repairBudget(pr, flags, io);
   if (!Object.hasOwn(TIERS, flags.tier)) {
     throw new Error(`--tier must be one of: ${Object.keys(TIERS).join(", ")}`);
   }
@@ -1764,9 +1841,14 @@ function declare(flags, io) {
   const error = validateBudget(pr, receipt);
   if (error) throw new Error(error);
   // Never silently replace a live budget: overwriting one mid-loop could move
-  // the tier under a loop already in flight.
+  // the tier under a loop already in flight. `--repair` above is the ONE
+  // exception, and it changes only the repository field.
   if (io.exists(budgetPath(pr))) {
-    throw new Error(`${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop`);
+    throw new Error(
+      `${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop. If it names ` +
+        `the wrong repository or none at all, repair just that field:\n  node scripts/review-budget.mjs ` +
+        `declare --pr ${pr} --repair`,
+    );
   }
   io.write(budgetPath(pr), `${JSON.stringify(receipt, null, 2)}\n`);
   const cap = tierCap(flags.tier);

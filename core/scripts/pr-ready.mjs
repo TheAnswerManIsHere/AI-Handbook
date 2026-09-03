@@ -1870,7 +1870,22 @@ function main() {
       } catch {
         currentPolicy = null;
       }
-      if (currentPolicy && currentPolicy !== recordedPolicy) {
+      // UNRESOLVABLE BLOCKS, the same as the merge gate. Abstaining here while
+      // the hook denies would put the looser check on the surface a readiness
+      // claim is actually quoted from -- and for a PR David merges, this is
+      // the ONLY control, because no hook sees his click. That is the third
+      // time in this PR a check has been fixed on one path and not its twin,
+      // which is why this one is written to mirror `checkMerge` line for line
+      // rather than to be independently reasonable. (Codex, PR #7 round 6.)
+      if (!currentPolicy) {
+        process.stderr.write(
+          `pr-ready: this receipt was minted under the required-check policy at ${recordedPolicy.slice(0, 7)}, ` +
+            `but the policy in force cannot be resolved, so there is no way to tell whether it is still the ` +
+            `gate. Re-run with a fresh snapshot\n`,
+        );
+        return 1;
+      }
+      if (currentPolicy !== recordedPolicy) {
         process.stderr.write(
           `pr-ready: this receipt was minted under the required-check policy at ${recordedPolicy.slice(0, 7)}, ` +
             `but the base branch is now at ${currentPolicy.slice(0, 7)} -- the gate that approved this PR is ` +

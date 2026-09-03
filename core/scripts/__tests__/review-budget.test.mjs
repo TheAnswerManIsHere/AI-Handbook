@@ -25,6 +25,7 @@ import {
   judgeReviewRequest,
   MAX_CHECK_AGE_MS,
   repoSlug,
+  declare,
   machineryConfig,
   MACHINERY_CONFIG_FILE,
   __resetRepoSlugCache,
@@ -1464,6 +1465,59 @@ test("the identity a budget is judged against comes from the REF, not the workin
   };
   const state = loadLoop(32, io);
   assert.equal(state.problem, undefined, "the budget validates from the ref alone");
+});
+
+
+test("the seed's placeholder is refused, so an unedited template fails loudly", () => {
+  // It is SHAPED like a slug, so every structural check passed it: a consumer
+  // that committed the template unedited got a working configuration naming a
+  // repository that does not exist. The template promises the opposite.
+  // (Codex, PR #7 round 6.)
+  __resetRepoSlugCache();
+  assert.throws(
+    () => repoSlug(fakeIo({}, { config: JSON.stringify({ repo: "OWNER/REPO", baseBranch: "main" }) })),
+    /still carries the template's placeholder/,
+  );
+  // Matched EXACTLY: "Owner/Repo" is a plausible real name and must pass.
+  __resetRepoSlugCache();
+  assert.equal(repoSlug(fakeIo({}, { slug: "Owner/Repo" })), "Owner/Repo");
+  __resetRepoSlugCache();
+});
+
+test("a budget's repository can be repaired, and only its repository", () => {
+  // Without this there was no way out of the two states this PR creates: a
+  // budget from the previous schema with no `repo`, and one declared for the
+  // placeholder. Both refuse every review request, and both said "re-declare
+  // it" while `declare` refused to overwrite. (Codex, PR #7 round 6.)
+  const legacy = JSON.parse(budget(60));
+  delete legacy.repo;
+  const io = fakeIo({ [budgetPath(60)]: json(legacy) });
+
+  // Stranded before: the guard refuses, and declare will not overwrite.
+  assert.match(
+    judgeReviewRequest(post(60), io, NOW).reason,
+    /must record "repo"/,
+  );
+  assert.throws(
+    () => declare({ pr: "60", tier: "product", criticality: "30", artifact: "x" }, io),
+    /already exists/,
+  );
+
+  // Repaired: identity corrected, everything else carried across untouched.
+  const out = declare({ pr: "60", repair: true }, io);
+  assert.match(out, /now records TestOwner\/TestRepo/);
+  const after = JSON.parse(io.store[budgetPath(60)]);
+  assert.equal(after.repo, TEST_SLUG);
+  assert.equal(after.tier, legacy.tier, "the tier is preserved -- repair is not a re-declaration");
+  assert.equal(after.budget, legacy.budget);
+  assert.equal(after.criticality, legacy.criticality);
+  assert.equal(after.declaredAt, legacy.declaredAt, "and the loop's history is untouched");
+});
+
+test("repair refuses when there is nothing to repair, so it cannot become an overwrite", () => {
+  const io = fakeIo({ [budgetPath(61)]: budget(61) });
+  assert.throws(() => declare({ pr: "61", repair: true }, io), /nothing to repair/);
+  assert.throws(() => declare({ pr: "62", repair: true }, io), /needs an existing/);
 });
 
 test("only what is in the ref grants rounds, whatever the working tree says", () => {
