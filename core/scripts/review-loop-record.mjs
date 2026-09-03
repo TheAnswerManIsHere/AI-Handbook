@@ -61,7 +61,7 @@ import {
   REVIEWER_LOGINS,
   normalizeLogin,
 } from "./review-counting.mjs";
-import { loadLoop, allowance, countRounds, tierCap, nodeIo, TIERS, repoSlug } from "./review-budget.mjs";
+import { loadLoop, allowance, countRounds, tierCap, nodeIo, TIERS } from "./review-budget.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -368,6 +368,14 @@ export function buildRecord({ pr, snapshot, derived, budgetState, changes, artif
     // `generatedAt`. (Codex, #539 round 3.)
     evidenceCapturedAt: snapshot.capturedAt.issueComments,
     pr,
+    // WHICH REPOSITORY, out of the durable budget rather than the working
+    // tree. Every repository has a #503, so a PR number alone does not
+    // identify a loop -- and this record is the adjudicator's ONLY input, so
+    // a foreign loop's rounds and findings reaching it would be ruled on as
+    // if they were this one's. The record carried no repository at all until
+    // round 8, which left the downstream validators nothing to check.
+    // (Codex, PR #7 round 8.)
+    repo: budgetState.budget.repo,
     title: snapshot.pr?.title ?? null,
     // Counted, never recalled. Every number below comes from GitHub's records
     // via review-counting.mjs's own counting functions.
@@ -497,7 +505,13 @@ export function parseArgs(argv) {
  *
  * (Both: Codex, round 1.)
  */
-export function assertAdjudicationSnapshot(pr, snapshot, slug = repoSlug()) {
+export function assertAdjudicationSnapshot(pr, snapshot, slug) {
+  if (typeof slug !== "string" || slug.trim() === "") {
+    throw new Error(
+      "the repository this record is for must be supplied by the caller, from the durable budget -- " +
+        "defaulting it to the working tree is what let a spoofed identity pair with a foreign snapshot",
+    );
+  }
   if (snapshot?.pr?.number !== pr) {
     throw new Error(`snapshot describes PR ${snapshot?.pr?.number}, but --pr says ${pr}`);
   }
@@ -568,9 +582,20 @@ function main() {
   // live, and a partial snapshot understates rounds and findings on exactly
   // the long loops this record exists to characterise -- so nothing else may
   // read the raw snapshot before it has passed.
-  assertAdjudicationSnapshot(pr, snapshot);
-  const derived = fromMcp(snapshot);
+  // The budget FIRST, because it carries the trusted identity the snapshot is
+  // then checked against. This does not weaken the "validate before anything
+  // reads the snapshot" rule below: `loadLoop` reads committed receipts out of
+  // the durable ref and never touches the snapshot.
   const budgetState = loadLoop(pr, nodeIo());
+  if (budgetState.problem) {
+    throw new Error(
+      `cannot build a record for PR #${pr}: its budget is unusable (${budgetState.problem}` +
+        `${budgetState.detail ? `: ${budgetState.detail}` : ""}), so there is no trusted identity to ` +
+        `bind this record to`,
+    );
+  }
+  assertAdjudicationSnapshot(pr, snapshot, budgetState.budget.repo);
+  const derived = fromMcp(snapshot);
   const changes = changesSince(
     lastReviewedCommit(reviewerPasses(derived.reviews, derived.issueComments)),
     snapshot.pr?.head?.sha ?? null,

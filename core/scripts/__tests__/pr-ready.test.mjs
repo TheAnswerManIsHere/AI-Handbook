@@ -1964,25 +1964,48 @@ test("a PR CANNOT weaken the gate that approves it", () => {
 });
 
 
-test("a snapshot for ANOTHER repository is refused, however self-consistent", () => {
-  // The both-sides check. A foreign snapshot passes its own internal
-  // consistency (repo == head.repo) and would otherwise be judged against
-  // THIS repo's policy and receipts, minting a receipt that names the foreign
-  // repo -- which checkMerge accepts, because it compares against the merge
-  // tool's own owner/repo. Same defect as the guard's skipped foreign target,
-  // in the other file. (Codex, PR #7 round 3.)
-  const snap = goodSnapshot();
-  snap.repo = "someone-else/Mirror";
-  snap.pr.head.repo = "someone-else/Mirror";
+test("a snapshot for ANOTHER repository is refused, by the TRUSTED base config", () => {
+  // The both-sides check, and the source it reads from is the point. A
+  // foreign snapshot passes its own internal consistency (repo == head.repo)
+  // and would otherwise be judged against this repository's policy and
+  // adjudication receipts, minting a receipt checkMerge accepts because it
+  // compares against the merge tool's own owner/repo.
+  //
+  // Until round 8 the comparison read `repoSlug()` -- the working tree -- so
+  // an uncommitted edit plus a same-numbered fork or mirror defeated it. It
+  // now reads the repository the BASE COMMIT declares, at the same commit the
+  // required-checks list comes from. (Codex, PR #7 rounds 3 and 8.)
+  const { root, sha } = policyRepo(declared(["Test", "Manifest"]));
+
+  const foreign = goodSnapshot();
+  foreign.repo = "someone-else/Mirror";
+  foreign.pr.head.repo = "someone-else/Mirror";
+  foreign.pr.base.sha = sha;
   assert.throws(
-    () => assertSnapshot(snap, 500, SNAP_SLUG),
-    /this snapshot is for someone-else\/Mirror, but this checkout is/,
+    () => evaluate(foreign, Date.now(), { cwd: root }),
+    /this snapshot is for someone-else\/Mirror, but .* declares Owner\/Repo/,
+    "a foreign snapshot must not be judged against this repository's config",
   );
-  // And the identity comparison is case-insensitive, like every other one.
+
+  // Case-insensitive on both sides, like every other identity comparison
+  // here: it gets past the identity gate and fails later, on evidence.
   const cased = goodSnapshot();
-  cased.repo = SNAP_SLUG.toUpperCase();
-  cased.pr.head.repo = SNAP_SLUG.toUpperCase();
-  assert.doesNotThrow(() => assertSnapshot(cased, 500, SNAP_SLUG));
+  cased.repo = "OWNER/REPO";
+  cased.pr.head.repo = "OWNER/REPO";
+  cased.pr.base.sha = sha;
+  assert.doesNotThrow(
+    () => evaluate(cased, Date.now(), { cwd: root }),
+    "a case-differing identity is the same repository",
+  );
+});
+
+test("a base commit that declares no repository is refused, not read past", () => {
+  // The trusted source has to actually name one; otherwise there is nothing
+  // to bind the receipt to and the check would silently pass.
+  const { root, sha } = policyRepo(JSON.stringify({ requiredChecks: ["Test"] }));
+  const snap = goodSnapshot();
+  snap.pr.base.sha = sha;
+  assert.throws(() => evaluate(snap, Date.now(), { cwd: root }), /does not declare "repo"/);
 });
 
 test("a snapshot with no base sha is refused -- the policy is read at it", () => {

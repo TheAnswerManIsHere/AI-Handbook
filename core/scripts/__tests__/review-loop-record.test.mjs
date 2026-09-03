@@ -124,3 +124,24 @@ test("buildRecord: budget.ambiguous is threaded through from countRounds, not si
   });
   assert.equal(clean.budget.ambiguous, false);
 });
+
+test("the record's repository must be supplied by the caller, never defaulted", () => {
+  // It defaulted to `repoSlug()` -- the working tree -- and the record itself
+  // carried no repository at all, so a spoofed identity paired with a
+  // same-numbered fork or mirror produced evidence the adjudicator would rule
+  // on as if it were this loop's. The caller now passes the identity out of
+  // the durable budget, and the record records it. (Codex, PR #7 round 8.)
+  assert.throws(
+    () => assertAdjudicationSnapshot(500, validSnapshot()),
+    /must be supplied by the caller, from the durable budget/,
+    "no working-tree fallback",
+  );
+  for (const bad of [null, "", "   "]) {
+    assert.throws(() => assertAdjudicationSnapshot(500, validSnapshot(), bad), /must be supplied by the caller/);
+  }
+  // And a snapshot for a different repository is refused against it.
+  assert.throws(
+    () => assertAdjudicationSnapshot(500, validSnapshot(), "Someone/Else"),
+    /Someone\/Else/,
+  );
+});

@@ -54,7 +54,6 @@ import {
   machineryConfig,
   nodeIo,
   railFor,
-  repoSlug,
   validateBudget,
   validateExtension,
 } from "./review-budget.mjs";
@@ -216,28 +215,47 @@ export function policyCommit(cwd = join(HERE, ".."), baseBranch = null, reported
   return { sha: local, ref, baseBranch, local };
 }
 
-export function requiredChecks(policySha, cwd = join(HERE, "..")) {
+/**
+ * The machinery configuration as the TRUSTED BASE COMMIT declares it.
+ *
+ * Identity and the required-checks list are read from one place, at one
+ * commit, because reading them from different places is the defect this PR
+ * produced eleven times. `assertSnapshot` used to compare the snapshot's
+ * repository against `repoSlug()` -- the working tree -- while the checks
+ * list came from the base branch, so an uncommitted edit could mint a READY
+ * receipt for a repository the trusted config never named. (Codex, PR #7
+ * round 8.)
+ *
+ * The base branch is trusted for both: changing anything here requires
+ * merging a pull request, which requires passing the gate this defines.
+ */
+export function machineryConfigAt(policySha, cwd = join(HERE, "..")) {
   const howto =
-    `Declare "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch, naming the CI jobs that ` +
-    `must be PRESENT before a readiness receipt is honest -- every job that can appear late, not just ` +
-    `the ones that must pass. Shape: {"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
+    `Declare "repo" and "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch. Shape: ` +
+    `{"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
   if (typeof policySha !== "string" || !/^[0-9a-f]{40}$/i.test(policySha)) {
-    throw fail(`required-checks policy must be read at a resolved base commit, not "${policySha}". ${howto}`);
+    throw fail(`the machinery configuration must be read at a resolved base commit, not "${policySha}". ${howto}`);
   }
   const raw = git(["show", `${policySha}:${MACHINERY_CONFIG_FILE}`], cwd);
   if (raw === null) {
     throw fail(
       `${MACHINERY_CONFIG_FILE} is not committed at ${policySha.slice(0, 7)} on the base branch, so this ` +
-        `gate does not know which checks it is waiting for. ${howto}`,
+        `gate does not know which repository it is for or which checks it is waiting for. ${howto}`,
     );
   }
-  let parsed;
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
     throw fail(`${MACHINERY_CONFIG_FILE} is not valid JSON at ${policySha.slice(0, 7)}. ${howto}`);
   }
-  const list = parsed?.requiredChecks;
+}
+
+export function requiredChecks(policySha, cwd = join(HERE, "..")) {
+  const howto =
+    `Declare "requiredChecks" in ${MACHINERY_CONFIG_FILE} on the base branch, naming the CI jobs that ` +
+    `must be PRESENT before a readiness receipt is honest -- every job that can appear late, not just ` +
+    `the ones that must pass. Shape: {"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
+  const list = machineryConfigAt(policySha, cwd)?.requiredChecks;
   if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n.trim() === "")) {
     throw fail(`${MACHINERY_CONFIG_FILE} must carry "requiredChecks" as an array of non-empty job names. ${howto}`);
   }
@@ -367,7 +385,7 @@ const MCP_METHOD_FOR = {
   reviews: "get_reviews",
 };
 
-export function assertSnapshot(snapshot, prNumber, declared = undefined) {
+export function assertSnapshot(snapshot, prNumber) {
   if (!snapshot || typeof snapshot !== "object") throw fail("snapshot is not an object");
 
   // A PR number alone does not name a pull request -- every repository has a
@@ -397,14 +415,10 @@ export function assertSnapshot(snapshot, prNumber, declared = undefined) {
   // other file: identity checked on one side only. Refusing here is the
   // both-sides check the rest of this PR's argument assumes exists.
   // (Codex, PR #7 round 3.)
-  const ours = declared ?? repoSlug();
-  if (snapshot.repo.toLowerCase() !== ours.toLowerCase()) {
-    throw fail(
-      `this snapshot is for ${snapshot.repo}, but this checkout is ${ours}. A readiness receipt is minted ` +
-        `from this repository's policy and its adjudication receipts, so it can only speak for this ` +
-        `repository. Run the gate from a checkout of ${snapshot.repo}.`,
-    );
-  }
+  // The identity comparison lives in `evaluate`, against the repository the
+  // TRUSTED BASE COMMIT declares -- not here against the working tree, which
+  // an uncommitted edit could move. This function validates shape; it is not
+  // the place that decides whose snapshot this is. (Codex, PR #7 round 8.)
   const pr = snapshot.pr;
   if (!pr || typeof pr !== "object") throw fail('snapshot is missing "pr"');
   if (pr.number !== prNumber) {
@@ -1525,6 +1539,30 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, requ
     // the policy is read from IS the branch this PR merges into, by
     // construction rather than by assertion.
     const at = policyCommit(adjudicationOpts.cwd, snapshot.pr.base.ref, snapshot.pr.base.sha);
+    const trusted = machineryConfigAt(at.sha, adjudicationOpts.cwd);
+
+    // WHOSE SNAPSHOT THIS IS, decided by the trusted base commit.
+    //
+    // A receipt is minted from this repository's policy and its adjudication
+    // receipts, so it can only speak for this repository -- and "this
+    // repository" has to come from somewhere an uncommitted edit cannot
+    // move. It came from the working tree until round 8, which meant a
+    // spoofed identity plus a same-numbered fork or mirror could mint a READY
+    // receipt the merge gate would then accept. (Codex, PR #7 round 8.)
+    if (typeof trusted?.repo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(trusted.repo)) {
+      throw fail(
+        `${MACHINERY_CONFIG_FILE} at ${at.sha.slice(0, 7)} on ${at.baseBranch} does not declare "repo" as ` +
+          `"owner/name", so there is no trusted identity to bind this receipt to`,
+      );
+    }
+    if (snapshot.repo.toLowerCase() !== trusted.repo.toLowerCase()) {
+      throw fail(
+        `this snapshot is for ${snapshot.repo}, but ${MACHINERY_CONFIG_FILE} on ${at.baseBranch} declares ` +
+          `${trusted.repo}. A readiness receipt is minted from this repository's policy and its ` +
+          `adjudication receipts, so it can only speak for this repository. Run the gate from a checkout ` +
+          `of ${snapshot.repo}.`,
+      );
+    }
     policy = requiredChecks(at.sha, adjudicationOpts.cwd);
     policySource = { ref: at.ref, sha: at.sha };
   }
