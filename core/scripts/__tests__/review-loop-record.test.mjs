@@ -2,7 +2,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { assertAdjudicationSnapshot, buildRecord } from "../review-loop-record.mjs";
+import {
+  assertAdjudicationSnapshot,
+  artifactDiff,
+  buildRecord,
+  cappedDiff,
+  PATCH_CAP_CHARS,
+} from "../review-loop-record.mjs";
 
 // The payload no longer knows one repo's name; tests declare their own.
 const TEST_SLUG = "TestOwner/TestRepo";
@@ -144,4 +150,261 @@ test("the record's repository must be supplied by the caller, never defaulted", 
     () => assertAdjudicationSnapshot(500, validSnapshot(), "Someone/Else"),
     /Someone\/Else/,
   );
+});
+
+// ---------------------------------------------------------------------------
+// cappedDiff / artifactDiff: the adjudicator's view of the artifact.
+//
+// None of this had a test before #12, which is how the defect below survived:
+// the cap is applied to a lexicographically-ordered diff, `.agents/` sorts
+// ahead of almost every implementation path, and a loop commits its own
+// records AS IT RUNS. So by the time an adjudication is dispatched -- which
+// only happens after several rounds -- the retained prefix is the loop's own
+// bookkeeping and the code the findings are about has fallen off the end.
+// Measured on PR #10: a 242,289-char diff capped to 60,000, with
+// `+++ b/.claude/settings.json` absent entirely, and two verdicts withdrawn
+// because of it.
+// ---------------------------------------------------------------------------
+
+const EXCLUDE_PREFIX = ":(exclude,literal)";
+
+/**
+ * A git stand-in that actually honours exclude pathspecs, so these tests
+ * prove the implementation ASKS for the right thing rather than merely
+ * post-filtering text it already fetched.
+ */
+function fakeGit(files) {
+  const names = files.map((f) => f.name);
+  return (args) => {
+    if (args.includes("--name-only")) return `${names.join("\0")}\0`;
+    const excluded = new Set(
+      args.filter((a) => a.startsWith(EXCLUDE_PREFIX)).map((a) => a.slice(EXCLUDE_PREFIX.length)),
+    );
+    return files
+      .filter((f) => !excluded.has(f.name))
+      .map((f) => `diff --git a/${f.name} b/${f.name}\n+++ b/${f.name}\n${f.body}\n`)
+      .join("");
+  };
+}
+
+/** A record big enough to consume the whole cap on its own. */
+const fatRecord = (name) => ({ name, body: "R".repeat(PATCH_CAP_CHARS + 5_000) });
+
+test("a record large enough to fill the cap no longer hides the implementation", () => {
+  const runGit = fakeGit([
+    fatRecord(".agents/adjudications/10-1.json"),
+    { name: ".claude/settings.json", body: "-  relative\n+  absolute" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  // The regression, stated as the thing that actually went wrong.
+  assert.ok(
+    patch.includes("+++ b/.claude/settings.json"),
+    "the implementation file must survive a record that would otherwise eat the entire cap",
+  );
+  assert.ok(patch.includes("+  absolute"), "and its hunk body, not just its header");
+  assert.ok(
+    !patch.includes(".agents/adjudications/10-1.json\n+++"),
+    "while the record's own content is gone rather than merely reordered",
+  );
+});
+
+test("excluded records are announced -- never silently dropped", () => {
+  const runGit = fakeGit([
+    { name: ".agents/adjudications/10-1.json", body: "x" },
+    { name: ".agents/receipts/loop-budget-10.json", body: "y" },
+    { name: "core/scripts/pr-ready.mjs", body: "z" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.match(patch, /excluded 2 generated record file/);
+  assert.ok(patch.includes("+++ b/core/scripts/pr-ready.mjs"));
+});
+
+test("a diff with no records is untouched, and gains no spurious note", () => {
+  const runGit = fakeGit([{ name: "core/scripts/pr-ready.mjs", body: "z" }]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(!/excluded \d+ generated record/.test(patch), "no note when nothing was excluded");
+  assert.ok(!patch.includes("TRUNCATED"), "and no truncation note when it fits");
+  assert.ok(patch.includes("+++ b/core/scripts/pr-ready.mjs"));
+});
+
+test("truncation is still announced when the filtered diff is itself over the cap", () => {
+  const runGit = fakeGit([
+    { name: ".agents/receipts/loop-budget-10.json", body: "r" },
+    { name: "core/big.mjs", body: "C".repeat(PATCH_CAP_CHARS + 100) },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.match(patch, /TRUNCATED at 60000 chars/, "the existing truncation notice still fires");
+  assert.match(patch, /excluded 1 generated record file/, "and both notices coexist");
+});
+
+test("records are excluded even when the diff would have fit -- they are not the artifact", () => {
+  const runGit = fakeGit([
+    { name: ".agents/adjudications/10-1.json", body: "x" },
+    { name: "CLAUDE.md", body: "y" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(
+    !patch.includes("+++ b/.agents/adjudications/10-1.json"),
+    "its hunk is gone regardless of size -- the notice still names it, which is the point",
+  );
+  assert.ok(patch.includes("+++ b/CLAUDE.md"));
+});
+
+test("a git failure still reports unavailable rather than throwing", () => {
+  const patch = cappedDiff(() => {
+    throw new Error("no such ref");
+  }, "base...head");
+  assert.match(patch, /\[unavailable/);
+});
+
+test("artifactDiff still refuses without both endpoints", () => {
+  assert.match(artifactDiff(null, "head"), /\[unavailable/);
+  assert.match(artifactDiff("base", null), /\[unavailable/);
+});
+
+test("artifactDiff passes the three-dot range through and filters records", () => {
+  let seenRange = null;
+  const inner = fakeGit([
+    { name: ".agents/receipts/loop-budget-10.json", body: "r" },
+    { name: "core/scripts/pr-ready.mjs", body: "z" },
+  ]);
+  const runGit = (args) => {
+    if (!args.includes("--name-only")) seenRange = args.find((a) => a.includes("..."));
+    return inner(args);
+  };
+
+  const patch = artifactDiff("base", "head", { runGit });
+
+  assert.equal(seenRange, "base...head", "three-dot, so a base-branch merge is not dragged in");
+  assert.match(patch, /excluded 1 generated record file/);
+  assert.ok(patch.includes("+++ b/core/scripts/pr-ready.mjs"));
+});
+
+// --- Round 1 of #14: two ways the first cut of this filter was too coarse ---
+
+test("tracked scaffolding is NOT excluded -- it is synced payload, not a generated record", () => {
+  // classifyPath calls every file under .agents/receipts and
+  // .agents/adjudications a "record", but the sync DELIVERS three tracked
+  // files into those directories. Excluding them would hide real contract
+  // changes from the adjudicator and mislabel them as bookkeeping -- the same
+  // blindness this filter exists to remove, pointed at a different target.
+  // (Codex, #14 round 1.)
+  const runGit = fakeGit([
+    { name: ".agents/adjudications/README.md", body: "docs change" },
+    { name: ".agents/receipts/README.md", body: "docs change" },
+    { name: ".agents/receipts/.gitignore", body: "+loop-new-shape-*.json" },
+    { name: ".agents/receipts/loop-budget-10.json", body: "generated" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(patch.includes("+++ b/.agents/receipts/.gitignore"), "the ignore rules are reviewable");
+  assert.ok(patch.includes("+loop-new-shape-*.json"), "including their content");
+  assert.ok(patch.includes("+++ b/.agents/receipts/README.md"));
+  assert.ok(patch.includes("+++ b/.agents/adjudications/README.md"));
+  assert.ok(
+    !patch.includes("+++ b/.agents/receipts/loop-budget-10.json"),
+    "while the generated receipt beside them still goes",
+  );
+  assert.match(patch, /excluded 1 generated record file/);
+});
+
+test("every shape the receipts README documents is recognised as generated", () => {
+  const generated = [
+    ".agents/receipts/pr-10.json",
+    ".agents/receipts/loop-round-check-10.json",
+    ".agents/receipts/loop-budget-10.json",
+    ".agents/receipts/loop-extension-10-3.json",
+    ".agents/adjudications/10-7.json",
+  ];
+  const runGit = fakeGit([
+    ...generated.map((name) => ({ name, body: "g" })),
+    { name: "core/scripts/pr-ready.mjs", body: "code" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  for (const name of generated) {
+    assert.ok(!patch.includes(`+++ b/${name}`), `${name} should be excluded`);
+  }
+  assert.match(patch, /excluded 5 generated record files/);
+  assert.ok(patch.includes("+++ b/core/scripts/pr-ready.mjs"));
+});
+
+test("a renamed record is excluded on BOTH sides, not just its destination", () => {
+  // Discovery must disable rename detection. With it on, `--name-only`
+  // reports only the destination; the old path then survives as a deletion
+  // hunk and a large renamed record can consume the cap all over again.
+  // (Codex, #14 round 1 -- verified against real git.)
+  let sawNoRenames = false;
+  const inner = fakeGit([
+    { name: ".agents/adjudications/10-1.json", body: "old" },
+    { name: ".agents/adjudications/10-2.json", body: "new" },
+    { name: "CLAUDE.md", body: "code" },
+  ]);
+  const runGit = (args) => {
+    if (args.includes("--name-only")) {
+      sawNoRenames = args.includes("--no-renames");
+      // Model git's DEFAULT behaviour if the flag is absent: destination only.
+      if (!sawNoRenames) return ".agents/adjudications/10-2.json\0";
+    }
+    return inner(args);
+  };
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(sawNoRenames, "discovery must pass --no-renames");
+  assert.ok(
+    !patch.includes("+++ b/.agents/adjudications/10-1.json"),
+    "the rename SOURCE is excluded too",
+  );
+  assert.ok(
+    !patch.includes("+++ b/.agents/adjudications/10-2.json"),
+    "as is the destination",
+  );
+  assert.ok(patch.includes("+++ b/CLAUDE.md"));
+});
+
+test("the exclusion notice NAMES what it withheld, so the omission is auditable", () => {
+  // An earlier draft pointed at "the numstat fields" for the list. `artifact`
+  // carries only counts, and `sinceLastReview.files` covers a different range
+  // and is empty exactly when the judge is dispatched -- so the notice was
+  // sending a fresh-context reader somewhere there was nothing to find, in the
+  // register of an assurance. (Codex, #14 round 1.)
+  const runGit = fakeGit([
+    { name: ".agents/receipts/loop-budget-10.json", body: "g" },
+    { name: ".agents/adjudications/10-7.json", body: "g" },
+    { name: "CLAUDE.md", body: "code" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(patch.includes(".agents/receipts/loop-budget-10.json"), "named, not merely counted");
+  assert.ok(patch.includes(".agents/adjudications/10-7.json"));
+  assert.ok(!/numstat/.test(patch), "and no longer points at a list that does not exist");
+});
+
+test("a pathological number of records is summarised rather than dumped", () => {
+  const many = Array.from({ length: 20 }, (_, i) => ({
+    name: `.agents/adjudications/10-${i + 1}.json`,
+    body: "g",
+  }));
+  const runGit = fakeGit([...many, { name: "CLAUDE.md", body: "code" }]);
+
+  const patch = cappedDiff(runGit, "base...head");
+  const notice = patch.split("\n")[0];
+
+  assert.match(notice, /excluded 20 generated record files/);
+  assert.match(notice, /and 8 more/, "12 named, the remainder counted");
+  assert.ok(patch.includes("+++ b/CLAUDE.md"));
 });

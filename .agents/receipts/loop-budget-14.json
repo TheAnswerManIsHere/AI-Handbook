@@ -1,0 +1,9 @@
+{
+  "pr": 14,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 60,
+  "artifact": "adjudicator diff: exclude generated records before capping",
+  "declaredAt": "2026-09-04T22:27:56.743Z"
+}
