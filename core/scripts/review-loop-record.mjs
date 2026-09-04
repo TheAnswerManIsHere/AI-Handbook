@@ -163,6 +163,23 @@ const GENERATED_RECORD_SHAPES = [
 
 export const isGeneratedRecord = (file) => GENERATED_RECORD_SHAPES.some((re) => re.test(file));
 
+/** How many excluded paths the notice names before it summarises the rest. */
+const EXCLUSION_LIST_CAP = 12;
+
+/**
+ * The notice that goes above a filtered patch, naming what was withheld so the
+ * adjudicator can audit the omission rather than take it on trust.
+ */
+function exclusionNote(records) {
+  const shown = records.slice(0, EXCLUSION_LIST_CAP);
+  const rest = records.length - shown.length;
+  return (
+    `[excluded ${records.length} generated record file${records.length === 1 ? "" : "s"} -- ` +
+    `this machinery's own receipts and adjudication records, which are bookkeeping rather than ` +
+    `the artifact under review: ${shown.join(", ")}${rest ? `, and ${rest} more` : ""}]\n`
+  );
+}
+
 /**
  * The generated-record paths changed in `range`.
  *
@@ -221,11 +238,15 @@ export function cappedDiff(runGit, range) {
     ]);
     // Prepended, not appended: an exclusion notice that the cap could itself
     // truncate would be missing exactly when it matters most.
-    const note = records.length
-      ? `[excluded ${records.length} generated record file${records.length === 1 ? "" : "s"} -- ` +
-        `this machinery's own receipts and adjudication records, which are bookkeeping rather than ` +
-        `the artifact under review; the full file list is in the numstat fields]\n`
-      : "";
+    //
+    // It NAMES what it withheld. An earlier draft pointed at "the numstat
+    // fields" instead, which was simply untrue -- `artifact` carries counts
+    // (files/added/removed), not a list, and `sinceLastReview.files` covers a
+    // different range and is empty exactly when the judge is dispatched. A
+    // notice that tells a fresh-context reader to go look somewhere there is
+    // nothing to find is worse than one that admits the gap, because it reads
+    // as an assurance. (Codex, #14 round 1.)
+    const note = records.length ? exclusionNote(records) : "";
     if (raw.length <= PATCH_CAP_CHARS) return note + raw;
     return (
       note +

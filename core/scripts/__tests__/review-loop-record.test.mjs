@@ -253,7 +253,10 @@ test("records are excluded even when the diff would have fit -- they are not the
 
   const patch = cappedDiff(runGit, "base...head");
 
-  assert.ok(!patch.includes("10-1.json"), "consistent regardless of size");
+  assert.ok(
+    !patch.includes("+++ b/.agents/adjudications/10-1.json"),
+    "its hunk is gone regardless of size -- the notice still names it, which is the point",
+  );
   assert.ok(patch.includes("+++ b/CLAUDE.md"));
 });
 
@@ -309,7 +312,10 @@ test("tracked scaffolding is NOT excluded -- it is synced payload, not a generat
   assert.ok(patch.includes("+loop-new-shape-*.json"), "including their content");
   assert.ok(patch.includes("+++ b/.agents/receipts/README.md"));
   assert.ok(patch.includes("+++ b/.agents/adjudications/README.md"));
-  assert.ok(!patch.includes("loop-budget-10.json"), "while the generated receipt beside them still goes");
+  assert.ok(
+    !patch.includes("+++ b/.agents/receipts/loop-budget-10.json"),
+    "while the generated receipt beside them still goes",
+  );
   assert.match(patch, /excluded 1 generated record file/);
 });
 
@@ -358,7 +364,47 @@ test("a renamed record is excluded on BOTH sides, not just its destination", () 
   const patch = cappedDiff(runGit, "base...head");
 
   assert.ok(sawNoRenames, "discovery must pass --no-renames");
-  assert.ok(!patch.includes("10-1.json"), "the rename SOURCE is excluded too");
-  assert.ok(!patch.includes("10-2.json"), "as is the destination");
+  assert.ok(
+    !patch.includes("+++ b/.agents/adjudications/10-1.json"),
+    "the rename SOURCE is excluded too",
+  );
+  assert.ok(
+    !patch.includes("+++ b/.agents/adjudications/10-2.json"),
+    "as is the destination",
+  );
+  assert.ok(patch.includes("+++ b/CLAUDE.md"));
+});
+
+test("the exclusion notice NAMES what it withheld, so the omission is auditable", () => {
+  // An earlier draft pointed at "the numstat fields" for the list. `artifact`
+  // carries only counts, and `sinceLastReview.files` covers a different range
+  // and is empty exactly when the judge is dispatched -- so the notice was
+  // sending a fresh-context reader somewhere there was nothing to find, in the
+  // register of an assurance. (Codex, #14 round 1.)
+  const runGit = fakeGit([
+    { name: ".agents/receipts/loop-budget-10.json", body: "g" },
+    { name: ".agents/adjudications/10-7.json", body: "g" },
+    { name: "CLAUDE.md", body: "code" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(patch.includes(".agents/receipts/loop-budget-10.json"), "named, not merely counted");
+  assert.ok(patch.includes(".agents/adjudications/10-7.json"));
+  assert.ok(!/numstat/.test(patch), "and no longer points at a list that does not exist");
+});
+
+test("a pathological number of records is summarised rather than dumped", () => {
+  const many = Array.from({ length: 20 }, (_, i) => ({
+    name: `.agents/adjudications/10-${i + 1}.json`,
+    body: "g",
+  }));
+  const runGit = fakeGit([...many, { name: "CLAUDE.md", body: "code" }]);
+
+  const patch = cappedDiff(runGit, "base...head");
+  const notice = patch.split("\n")[0];
+
+  assert.match(notice, /excluded 20 generated record files/);
+  assert.match(notice, /and 8 more/, "12 named, the remainder counted");
   assert.ok(patch.includes("+++ b/CLAUDE.md"));
 });
