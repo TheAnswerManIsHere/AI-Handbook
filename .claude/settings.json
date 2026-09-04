@@ -13,15 +13,28 @@
     "                        Read(**/.env*) is kept, because it applies everywhere.",
     "  model                 kept as opus: this repo is almost entirely payload code.",
     "",
-    "THE GUARD HOOKS POINT AT THE PAYLOAD, NOT AT A COPY. `core/.claude/guard.sh`",
-    "is named directly rather than symlinked to `.claude/guard.sh`, and that is",
-    "load-bearing: guard.sh locates its decision script as",
+    "THE HOOK PATH IS ABSOLUTE, VIA ${CLAUDE_PROJECT_DIR}, AND BOTH HALVES MATTER.",
+    "",
+    "Absolute, because a hook command is resolved against the CURRENT WORKING",
+    "DIRECTORY, not the project root -- Claude Code's hooks reference says so and",
+    "says to prefer path placeholders. The earlier relative form",
+    "`bash core/.claude/guard.sh` worked only while the cwd happened to be the repo",
+    "root: from core/ it resolved core/core/.claude/guard.sh and bash exited 127,",
+    "and PreToolUse treats every non-zero exit OTHER than 2 as non-blocking. So one",
+    "`cd core` silently disarmed the merge gate, the review-round budget and the",
+    "destructive-command guard at once. Measured: exit 127 then, exit 2 now, from",
+    "core/scripts and from /tmp alike. (Codex, PR #10 round 4, P1.)",
+    "",
+    "...and it points at the PAYLOAD, `core/.claude/guard.sh`, rather than a symlink",
+    "at `.claude/guard.sh`, because guard.sh locates its decision script as",
     "`dirname($BASH_SOURCE)/../scripts/guard-decision.mjs`, and $BASH_SOURCE is the",
-    "path AS INVOKED, not the resolved target. Through a symlink at .claude/guard.sh",
-    "that resolves to <repo>/scripts/guard-decision.mjs, which does not exist here --",
-    "node would exit 1, the harness would read that as a hook error, and the tool",
-    "call would PROCEED. A broken guard that fails open is worse than no guard, so",
-    "the hook names the payload path where the relative lookup is correct.",
+    "path AS INVOKED, not the resolved target. Through a symlink that resolves to",
+    "<repo>/scripts/guard-decision.mjs, which does not exist here -- node would exit",
+    "1, and by the same non-blocking rule the tool call would PROCEED.",
+    "",
+    "Both failure modes are the same shape and it is the one that matters here: a",
+    "guard that cannot launch does not refuse, it waves the call through. A broken",
+    "guard that fails open is worse than no guard.",
     "",
     "KNOWN GAP AT THE TIME OF WRITING, tracked as issue #11: guard-decision.mjs",
     "decides whether it was invoked directly by comparing import.meta.url against a",
@@ -61,19 +74,19 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash core/.claude/guard.sh", "timeout": 5 }
+          { "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh\"", "timeout": 5 }
         ]
       },
       {
         "matcher": "mcp__github__add_issue_comment|mcp__github__add_reply_to_pull_request_comment|mcp__github__pull_request_review_write",
         "hooks": [
-          { "type": "command", "command": "bash core/.claude/guard.sh", "timeout": 5 }
+          { "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh\"", "timeout": 5 }
         ]
       },
       {
         "matcher": "mcp__github__merge_pull_request",
         "hooks": [
-          { "type": "command", "command": "bash core/.claude/guard.sh", "timeout": 20 }
+          { "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh\"", "timeout": 20 }
         ]
       }
     ]

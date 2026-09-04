@@ -1,0 +1,10 @@
+{
+  "pr": 10,
+  "kind": "adjudication",
+  "verdict": "continue",
+  "grant": 1,
+  "risk": ".claude/settings.json invoked all three PreToolUse guards as the cwd-relative command `bash core/.claude/guard.sh`. Whenever the session's cwd is not the repo root -- a persisting `cd core` is enough -- bash exits 127 before guard.sh runs, and PreToolUse treats any non-2 exit as non-blocking, so merge_pull_request, review-request posts and force pushes proceed with no receipt, budget or lease check. The merge gate and destructive-command guard silently fail open.",
+  "recordPath": ".agents/adjudications/10-6.json",
+  "decidedAt": "2026-09-04T05:20:00.000Z",
+  "reasoning": "Internal tier, allowance 4 after David's 1-round grant, roundsSpent 4, trend 3/1/4/1. The rubric's bar is a very high chance of a CRITICAL flaw and this clears both halves: the flaw is in the critical class (a merge gate passing work it should refuse, and a bypassPermissions session widening to an unguarded one), and it was read directly in the guard-wiring code rather than inferred. One round is priced correctly -- three identical one-line edits plus the mandatory review, landing at allowance 5, under the David gate at 6. Two earlier verdicts on this same round are withdrawn: the first was reached without seeing the settings.json hunk at all, because the adjudicator's reader truncated a 60k-character artifact.patch dominated by this loop's own committed adjudication records, and it also inherited a now-stale premise from those records that the agent cannot write this file."
+}

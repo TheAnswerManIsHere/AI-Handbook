@@ -107,9 +107,22 @@ only while this repository is checked out to a path with no escaped characters.
 Measured, not inferred: from a path containing a space, a bare
 `git push -f origin main` returned 0 where an ordinary path returns 2.
 
-The guard hooks name `core/.claude/guard.sh` **directly**
-rather than through a link at `.claude/guard.sh`. `guard.sh` finds its decision script relative to
-`$BASH_SOURCE`, which is the path as invoked, not the resolved target — so
-through a link it would look for `scripts/guard-decision.mjs` at the root,
-`node` would exit 1, the harness would read that as a hook error, and **the
-tool call would proceed**. A guard that fails open is worse than no guard.
+The hooks invoke the guard as
+`bash "${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh"`, and **every part of that
+is load-bearing.**
+
+**Absolute, via the placeholder**, because a hook command resolves against the
+*current working directory*, not the project root. A relative
+`bash core/.claude/guard.sh` works only while the cwd happens to be the root:
+from `core/` it resolves `core/core/.claude/guard.sh`, bash exits 127, and
+`PreToolUse` treats every non-zero exit **other than 2** as non-blocking. One
+`cd core` silently disarmed all three guards at once.
+
+**Pointing at the payload** rather than a link at `.claude/guard.sh`, because
+`guard.sh` finds its decision script relative to `$BASH_SOURCE` — the path as
+invoked, not the resolved target — so through a link it would look for
+`scripts/guard-decision.mjs` at the root, and `node` would exit 1.
+
+Both are the same shape, and it is the shape that matters: **a guard that
+cannot launch does not refuse, it waves the call through.** A guard that fails
+open is worse than no guard. Issue #11 above is a third instance of it.
