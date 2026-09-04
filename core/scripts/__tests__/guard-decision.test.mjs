@@ -960,6 +960,19 @@ test("merge gate: a receipt minted under a DIFFERENT required-checks policy bloc
   assert.match(mergeReason({ ...READY, requiredChecks: undefined }), /records no required-checks policy/);
 });
 
+test("merge gate: a configuration for ANOTHER repository blocks -- the merge is being run from the wrong checkout", () => {
+  // A receipt for B, minted while the config mistakenly said B; config
+  // corrected to A; merge of B attempted from A's checkout. Receipt-to-target
+  // passes (both B), and B's policy would be judged against A's list. The
+  // mistake is the checkout, and that is what the refusal names.
+  // (Codex, PR #7 round 13.)
+  assert.match(
+    mergeReason(READY, { config: { repo: "Other/Repo", requiredChecks: READY.requiredChecks } }),
+    /configured as Other\/Repo, but the merge targets TheAnswerManIsHere\/Overhypeme/,
+  );
+  assert.equal(mergeReason(READY, { config: { repo: READY.repo.toUpperCase(), requiredChecks: READY.requiredChecks } }), null, "case-insensitive");
+});
+
 test("merge gate: an UNREADABLE configuration blocks rather than throwing out of the hook", () => {
   // The hook cannot let a throw escape: exit 1 lets the tool call proceed.
   assert.match(mergeReason(READY, { config: new Error("machinery.json is missing") }), /configuration could not be read \(machinery.json is missing\)/);

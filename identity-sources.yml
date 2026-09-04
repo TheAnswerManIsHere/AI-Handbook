@@ -64,6 +64,15 @@
   why: >-
     Refusal or guidance text. Decides nothing.
 
+- key: "guard-decision.mjs :: checkMerge :: if (typeof cfg?.repo !== \"string\" || cfg.repo.toLowerCase() !== target.toLowerCase()) {"
+  source: config
+  why: >-
+    The merge hook checks that the configuration it is about to consult is THIS target's, so a merge run from the wrong checkout is named as such.
+- key: "guard-decision.mjs :: checkMerge :: `merge blocked: this checkout is configured as ${cfg?.repo ?? \"no repository\"}, but the merge targets ` +"
+  source: config
+  why: >-
+    The merge hook checks that the configuration it is about to consult is THIS target's, so a merge run from the wrong checkout is named as such.
+
 # --------------------------------------------------------------------------
 # pr-ready.mjs
 # --------------------------------------------------------------------------

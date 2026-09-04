@@ -1685,6 +1685,18 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
     } catch (e) {
       return `merge blocked: the machinery configuration could not be read (${e.message}), so the policy the receipt for PR #${pr} was minted under cannot be checked against the policy in force. ${RECEIPT_HOWTO}`;
     }
+    // ...and the configuration consulted must be THIS target's. A receipt for
+    // B minted while the config mistakenly said B, then the config corrected
+    // to A, then a merge of B attempted from A's checkout: receipt-to-target
+    // passes (both B) and B's recorded policy would be judged against A's
+    // list. The mistake is merging B from A's checkout, and that is what this
+    // names. (Codex, PR #7 round 13.)
+    if (typeof cfg?.repo !== "string" || cfg.repo.toLowerCase() !== target.toLowerCase()) {
+      return (
+        `merge blocked: this checkout is configured as ${cfg?.repo ?? "no repository"}, but the merge targets ` +
+        `${target} -- run the merge from a checkout of ${target}. ${RECEIPT_HOWTO}`
+      );
+    }
     const policy = receiptPolicyReason(receipt, cfg.requiredChecks);
     if (policy) return `merge blocked: ${policy}. ${RECEIPT_HOWTO}`;
   }

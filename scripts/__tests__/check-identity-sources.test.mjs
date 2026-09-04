@@ -112,6 +112,23 @@ test("scan finds identity touchpoints and ignores comments about them", () => {
   fs.rmSync(dir, { recursive: true });
 });
 
+test("a line copied verbatim within one function is a SECOND touchpoint, not a free ride", () => {
+  // The `seen` set collapsed identical keys, so a new identity consumer that
+  // was a copy of an existing line needed no classification of its own.
+  // Each repeat now carries an occurrence suffix. (Codex, PR #7 round 13.)
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ids-dup-"));
+  fs.writeFileSync(path.join(dir, "z.mjs"), ["function f() {", "  const a = x.repo;", "  const a = x.repo;", "}"].join("\n"));
+  const hits = scan(dir);
+  assert.equal(hits.length, 2);
+  assert.notEqual(keyOf(hits[0]), keyOf(hits[1]));
+  assert.match(keyOf(hits[1]), / #2$/);
+  const one = parseClassification(entry(keyOf(hits[0]), { source: "artifact", why: WHY }));
+  const problems = check(hits, one);
+  assert.equal(problems.length, 1, "the copy must be classified on its own");
+  assert.match(problems[0], /UNCLASSIFIED/);
+  fs.rmSync(dir, { recursive: true });
+});
+
 test("the real payload is fully classified", () => {
   // The live assertion. Everything above proves the check works; this proves
   // it currently passes, so a change that adds an identity read fails here.

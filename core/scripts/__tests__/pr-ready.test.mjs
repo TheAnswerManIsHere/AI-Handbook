@@ -637,6 +637,16 @@ test("capture ordering: the REQUEST SET must also be read after the response", (
   assert.match(receipt.items.capture.detail, /issueComments/);
 });
 
+test("a snapshot with NO base metadata is accepted -- nothing reads it any more", () => {
+  // `pr.base.sha` and `pr.base.ref` were required by the base-branch policy
+  // design. That design is gone; the requirement outlived its reader and
+  // rejected snapshots assembled from the inputs the gate actually uses.
+  // (Codex, PR #7 round 13.)
+  const snap = goodSnapshot();
+  delete snap.pr.base;
+  assert.doesNotThrow(() => assertSnap(snap, snap.pr.number));
+});
+
 test("--show: a stale stored receipt is not presentable as READY", () => {
   // The manual-merge path: for a PR David merges, quoting this output IS the
   // control, because no hook sees his click. (Codex, #490 round 3.)

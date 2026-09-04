@@ -142,8 +142,9 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * chose which committed copy to trust -- and the self-consistency check that
  * closed it deadlocked a legitimate base-branch rename: the config change
  * that would fix it could not pass the gate it needed. Both are gone with the
- * field. `evaluate` passes `snapshot.pr.base.ref`, which is GitHub's word for
- * where this PR merges, captured with the rest of the evidence.
+ * field. `pr.base` is not required either: nothing has read it since the
+ * policy moved to the working tree, and round 13 removed the check that
+ * outlived its reader.
  *
  * A pull request retargeted at a branch it controls therefore reads THAT
  * branch's policy -- which is correct rather than a hole: the gate's question
@@ -425,21 +426,6 @@ export function assertSnapshot(snapshot, prNumber) {
   // the head fields, because the required-checks policy is read from the base
   // branch and a snapshot that cannot name its base cannot be gated against
   // the right policy. (Codex, PR #7 round 2.)
-  // The base branch's TIP, which is what the required-checks policy is read
-  // at. Captured from GitHub with the rest of the evidence so the policy is
-  // no staler than the checks it judges. (Codex, PR #7 round 3.)
-  if (typeof pr.base?.sha !== "string" || !/^[0-9a-f]{40}$/i.test(pr.base.sha)) {
-    throw fail(
-      'snapshot.pr.base.sha must be a full 40-character sha (pull_request_read method:"get", base.sha) ' +
-        "-- the required-checks policy is read at that commit",
-    );
-  }
-  if (typeof pr.base?.ref !== "string" || pr.base.ref.trim() === "") {
-    throw fail(
-      'snapshot.pr.base.ref is required (pull_request_read method:"get", base.ref) -- the required-checks ' +
-        "policy is read from the base branch, never from this pull request",
-    );
-  }
   const complete = snapshot.complete ?? {};
   const capturedAt = snapshot.capturedAt ?? {};
   for (const key of Object.keys(MCP_METHOD_FOR)) {

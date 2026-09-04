@@ -79,6 +79,18 @@ export function scan(dir = PAYLOAD) {
       found.push({ file: name, fn: enclosing(lines, i), text: line.trim() });
     });
   }
+  // A line copied verbatim within one function produced the same key twice,
+  // and the check's `seen` set collapsed them -- so a second identity consumer
+  // that was a copy of the first needed no classification of its own. Each
+  // repeat now carries an occurrence suffix and must be classified separately.
+  // (Codex, PR #7 round 13.)
+  const counts = new Map();
+  for (const hit of found) {
+    const base = `${hit.file} :: ${hit.fn} :: ${hit.text}`;
+    const n = (counts.get(base) ?? 0) + 1;
+    counts.set(base, n);
+    if (n > 1) hit.text = `${hit.text} #${n}`;
+  }
   return found;
 }
 
