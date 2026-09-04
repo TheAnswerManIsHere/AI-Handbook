@@ -15,7 +15,7 @@ const TEST_SLUG = "TestOwner/TestRepo";
 // ---------------------------------------------------------------------------
 
 const validSnapshot = () => ({
-  pr: { number: 500 },
+  pr: { number: 500, head: { repo: TEST_SLUG } },
   repo: TEST_SLUG,
   issueComments: [],
   complete: { issueComments: true },
@@ -46,7 +46,7 @@ test("assertAdjudicationSnapshot: a well-formed snapshot passes", () => {
 // ---------------------------------------------------------------------------
 
 const minimalSnapshot = ({ issueComments = [], reviews = [] } = {}) => ({
-  pr: { number: 500, title: "test", created_at: "2026-08-01T00:00:00Z", closed_at: null, head: { sha: null } },
+  pr: { number: 500, title: "test", created_at: "2026-08-01T00:00:00Z", closed_at: null, head: { sha: null, repo: TEST_SLUG } },
   repo: TEST_SLUG,
   reviews,
   files: [],

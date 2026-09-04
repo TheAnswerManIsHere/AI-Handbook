@@ -111,20 +111,11 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * `.agents/machinery.json`, alongside the identity, so a consumer bootstraps
  * the machinery by filling in one file rather than remembering two.
  *
- * READ FROM THE BASE BRANCH, never from the pull request under review. It was
- * read at the PR's own head commit, which meant a pull request could commit a
- * shorter list and mint a READY receipt against the gate it had just
- * weakened: a pull request cannot be allowed to define the gate that approves
- * it. (Codex, PR #7 round 2.) The base branch is the trusted side of that
- * boundary -- changing the policy there requires merging a pull request,
- * which requires passing the policy already in force.
- *
- * The commit is resolved from the remote-tracking ref rather than a local
- * branch, because a local `main` can be anything I checked out, and it is
- * RECORDED in the receipt so a reader can see which policy a verdict was
- * minted under. A stale remote-tracking ref yields a stale policy; that is
- * visible in the receipt and costs a fetch, where the alternative was
- * invisible and cost the gate.
+ * READ FROM THE WORKING TREE, through the one config reader, and RECORDED
+ * in the receipt so a reader can see which list a verdict was minted under.
+ * An earlier revision read it from the base branch so "a pull request cannot
+ * weaken the gate that approves it" -- defending the gate against the person
+ * who runs it. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  *
  * FAILS CLOSED, deliberately and in every direction: absent ref, absent file,
  * unreadable file, malformed contents, or an empty list all refuse. An empty
@@ -132,30 +123,6 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * exactly the fail-OPEN reading -- any green set would satisfy a gate that
  * demands nothing, which is the failure this constant was introduced to
  * prevent.
- */
-/**
- * The commit the required-checks policy is read from: the tip of the branch
- * this pull request actually merges into.
- *
- * THE BRANCH IS NAMED BY THE CALLER, not by configuration. It used to come
- * from a `baseBranch` field, which created a bootstrap -- the working tree
- * chose which committed copy to trust -- and the self-consistency check that
- * closed it deadlocked a legitimate base-branch rename: the config change
- * that would fix it could not pass the gate it needed. Both are gone with the
- * field. `pr.base` is not required either: nothing has read it since the
- * policy moved to the working tree, and round 13 removed the check that
- * outlived its reader.
- *
- * A pull request retargeted at a branch it controls therefore reads THAT
- * branch's policy -- which is correct rather than a hole: the gate's question
- * is "what does the branch you are merging into require", and `main`'s policy
- * was never the relevant one for a PR that does not merge there. What such a
- * PR cannot do is merge into `main` on a receipt minted elsewhere, because
- * the receipt records the ref its policy came from. (Codex, PR #7 round 7.)
- *
- * Separate from `requiredChecks` so the resolved sha can be recorded in the
- * receipt without resolving it twice, and so the "which ref" failure reads
- * differently from the "what is in the file" ones.
  */
 /**
  * This checkout's machinery configuration -- identity and required checks --

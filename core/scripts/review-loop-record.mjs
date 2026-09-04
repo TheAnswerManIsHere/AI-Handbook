@@ -527,6 +527,15 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
         `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,
     );
   }
+  // `snapshot.repo` is the operator's transcription; `pr.head.repo` is
+  // GitHub's word and must agree too. (Codex, PR #7 round 14.)
+  const head = snapshot.pr?.head?.repo;
+  if (typeof head !== "string" || head.toLowerCase() !== target.toLowerCase()) {
+    throw new Error(
+      `snapshot.pr.head.repo must be "${target}" (pull_request_read get, head.repo.full_name) -- it says ` +
+        `${JSON.stringify(head ?? null)}. The collections were captured from a different pull request than the budget covers`,
+    );
+  }
   if (!Array.isArray(snapshot.issueComments) || snapshot.complete?.issueComments !== true) {
     throw new Error(
       "an adjudication snapshot must carry issueComments with complete.issueComments === true. " +

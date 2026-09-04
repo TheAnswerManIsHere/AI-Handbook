@@ -229,6 +229,15 @@
   why: >-
     The --show surface's identity and policy comparisons, from one config read.
 
+- key: "review-budget.mjs :: assertCountingSnapshot :: const head = snapshot.pr?.head?.repo;"
+  source: github
+  why: >-
+    GitHub's word for where the head lives (pull_request_read get, head.repo.full_name), compared to the budget so a snapshot captured from another PR is refused even when the operator transcribed the right `repo`.
+- key: "review-budget.mjs :: assertCountingSnapshot :: `snapshot.pr.head.repo must be \"${target}\" (pull_request_read get, head.repo.full_name) -- it says ` +"
+  source: message
+  why: >-
+    Refusal text naming both values. Decides nothing.
+
 # --------------------------------------------------------------------------
 # review-budget.mjs
 # --------------------------------------------------------------------------
@@ -340,10 +349,9 @@
     mistake, not an adversary.
 
 - key: "review-budget.mjs :: assertCountingSnapshot :: if (typeof snapshot.repo !== \"string\" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: github
+  source: config
   why: >-
-    GitHub's word in a captured snapshot -- shape-checked, then compared to
-    config (pr-ready) or to the budget (guard path).
+    The operator's transcription of the configured identity into the snapshot (the skill says to copy it from config), compared to the budget. NOT GitHub's word: that is `pr.head.repo`, compared beside it.
 
 - key: "review-budget.mjs :: assertCountingSnapshot :: `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,"
   source: message
@@ -356,6 +364,15 @@
     The round-check receipt is minted against the budget it will be
     validated against.
 
+- key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: const head = snapshot.pr?.head?.repo;"
+  source: github
+  why: >-
+    GitHub's word for where the head lives (pull_request_read get, head.repo.full_name), compared to the budget so a snapshot captured from another PR is refused even when the operator transcribed the right `repo`.
+- key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: `snapshot.pr.head.repo must be \"${target}\" (pull_request_read get, head.repo.full_name) -- it says ` +"
+  source: message
+  why: >-
+    Refusal text naming both values. Decides nothing.
+
 # --------------------------------------------------------------------------
 # review-loop-record.mjs
 # --------------------------------------------------------------------------
@@ -367,10 +384,9 @@
     against; both validators compare it back.
 
 - key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: if (typeof snapshot.repo !== \"string\" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {"
-  source: github
+  source: config
   why: >-
-    GitHub's word in a captured snapshot -- shape-checked, then compared to
-    config (pr-ready) or to the budget (guard path).
+    The operator's transcription of the configured identity into the snapshot (the skill says to copy it from config), compared to the budget. NOT GitHub's word: that is `pr.head.repo`, compared beside it.
 
 - key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,"
   source: message

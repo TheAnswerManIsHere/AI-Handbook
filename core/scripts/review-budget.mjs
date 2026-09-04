@@ -852,8 +852,9 @@ export function validateBudget(pr, receipt) {
     return (
       'budget receipt must record "repo" as the "owner/name" it was declared for, so it cannot be ' +
       "mistaken for another repository's budget for the same PR number. This is where a budget written " +
-      "before that field existed lands: remove it and declare again -- the round count comes from GitHub " +
-      "and extension receipts are separate files, so nothing is lost"
+      "before that field existed lands: remove it and declare again -- the round count comes from GitHub and extension receipts are " +
+      "separate files, so nothing is lost (unless an extension cites a record written before records carried " +
+      "`repo`, which is refused at load: regenerate that record, or retire the extension)"
     );
   }
   return null;
@@ -1752,19 +1753,18 @@ export function declare(flags, io) {
   // budget receipt holds only `tier`, `repo` and `criticality`: the round
   // count is computed fresh from GitHub, and extensions are separate files
   // keyed by sequence. So removing the file and declaring again reproduces
-  // the loop exactly, and the grant history survives untouched -- there was
-  // never anything for a mutator to preserve that deletion would lose.
-  //
-  // The mutator was wrong twice in the two rounds it existed, the second time
-  // by carrying working-tree edits into a durable receipt. Deleting it
-  // removes a write path into that receipt altogether, and four deliberate
-  // git operations are a better audit trail than a flag. (Codex, PR #7
-  // rounds 6 and 7.)
+  // the loop, and the extension files are untouched by the deletion. ONE
+  // CAVEAT, found in round 14: an extension that cites a record written
+  // before records carried `repo` is refused at load, since a record with no
+  // repository cannot be bound. That is the fleet-upgrade case, not the
+  // wrong-repository case; the recovery there is to regenerate the record
+  // (one command) or retire that extension, and the refusal says which.
   if (io.exists(budgetPath(pr))) {
     throw new Error(
       `${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop. If it names the ` +
-        `wrong repository or none at all, remove it and declare again; the round count comes from GitHub ` +
-        `and extension receipts are separate files, so nothing is lost:\n  git rm ${budgetPath(pr)} && git ` +
+        `wrong repository or none at all, remove it and declare again; the round count comes from GitHub and extension receipts are ` +
+        `separate files, so nothing is lost (unless an extension cites a record written before records ` +
+        `carried \`repo\`, which is refused at load: regenerate that record, or retire the extension):\n  git rm ${budgetPath(pr)} && git ` +
         `commit -m "drop stale budget for #${pr}" && git push\n  node scripts/review-budget.mjs declare ` +
         `--pr ${pr} --tier <tier> --criticality <1-100> --artifact "<what is under review>"`,
     );
@@ -1819,6 +1819,18 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
     throw new Error(
       `snapshot must name its source repository as "repo": "${target}" -- it says ` +
         `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,
+    );
+  }
+  // `snapshot.repo` is the OPERATOR'S word -- the skill says to transcribe it
+  // from config -- so it can agree with the budget while the collections
+  // were captured from another repository's PR. `pr.head.repo` is GitHub's
+  // word (pull_request_read get, head.repo.full_name) and must agree too.
+  // (Codex, PR #7 round 14. pr-ready.mjs's assertSnapshot already did this.)
+  const head = snapshot.pr?.head?.repo;
+  if (typeof head !== "string" || head.toLowerCase() !== target.toLowerCase()) {
+    throw new Error(
+      `snapshot.pr.head.repo must be "${target}" (pull_request_read get, head.repo.full_name) -- it says ` +
+        `${JSON.stringify(head ?? null)}. The collections were captured from a different pull request than the budget covers`,
     );
   }
   // FRESHNESS IS A PROPERTY OF THE EVIDENCE, NOT OF THE COMMAND.

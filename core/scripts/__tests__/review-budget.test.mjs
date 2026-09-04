@@ -1072,7 +1072,7 @@ test("a review request at another repo is REFUSED, where it used to be skipped",
 const SNAPSHOT_NOW = Date.parse("2026-08-17T10:40:00Z");
 
 const snapshot = (pr, extra = {}) => ({
-  pr: { number: pr },
+  pr: { number: pr, head: { repo: TEST_SLUG } },
   repo: TEST_SLUG,
   capturedAt: "2026-08-17T10:35:00Z",
   reviews: [
@@ -1531,6 +1531,7 @@ test("a stale budget is recovered by deleting it, and nothing is lost", () => {
   const io = fakeIo({
     [budgetPath(60)]: json(legacy),
     [extensionPath(60, 1)]: json(adjudication(60)),
+    [RECORD(60)]: recordFile(60),
   });
 
   // Stranded: the guard refuses, and the refusal names the way out.
@@ -1550,6 +1551,25 @@ test("a stale budget is recovered by deleting it, and nothing is lost", () => {
   assert.equal(after.repo, TEST_SLUG);
   assert.equal(after.tier, legacy.tier);
   assert.ok(io.store[extensionPath(60, 1)], "the grant history is untouched by the deletion");
+  // ...and the loop LOADS with it: presence of the file is not survival if
+  // loadLoop then refuses the chain. (Codex, PR #7 round 14.)
+  const reloaded = loadLoop(60, io);
+  assert.equal(reloaded.problem, undefined, reloaded.detail);
+  assert.equal(reloaded.extensions.length, 1, "the extension is part of the reloaded loop");
+});
+
+test("a pre-upgrade extension citing a record with no `repo` is refused at load, and the refusal says so", () => {
+  // The fleet-upgrade case. Not grandfathered -- a record with no repository
+  // cannot be bound -- but the refusal names the recovery rather than
+  // reading as a corrupt loop. (Codex, PR #7 round 14.)
+  const io = fakeIo({
+    [budgetPath(61)]: budget(61),
+    [extensionPath(61, 1)]: json(adjudication(61)),
+    [RECORD(61)]: recordFile(61, 5, { repo: null }),
+  });
+  const state = loadLoop(61, io);
+  assert.equal(state.problem, "bad-receipt");
+  assert.match(state.detail, /was generated for null/);
 });
 
 test("only what is in the ref grants rounds, whatever the working tree says", () => {
