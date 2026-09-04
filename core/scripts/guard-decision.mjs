@@ -228,9 +228,17 @@
  */
 
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { staleReason, remoteTip, receiptPolicyReason } from "./pr-ready.mjs";
-import { REVIEW_REQUEST_TOOLS, judgeReviewRequest, machineryConfig, nodeIo } from "./review-budget.mjs";
+import {
+  REVIEW_REQUEST_TOOLS,
+  RECEIPTS_DIR,
+  REPO_ROOT,
+  judgeReviewRequest,
+  machineryConfig,
+  nodeIo,
+} from "./review-budget.mjs";
 
 const ALLOW = 0;
 const BLOCK = 2;
@@ -1751,8 +1759,8 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
 
 function readReceiptFromDisk(pr) {
   try {
-    const path = new URL(`../.agents/receipts/pr-${pr}.json`, import.meta.url);
-    return JSON.parse(readFileSync(path, "utf8"));
+    const file = join(REPO_ROOT, RECEIPTS_DIR, `pr-${pr}.json`);
+    return JSON.parse(readFileSync(file, "utf8"));
   } catch {
     return null;
   }
