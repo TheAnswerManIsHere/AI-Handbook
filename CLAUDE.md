@@ -86,8 +86,17 @@ Two things are deliberately NOT symlinks:
   patterns would never apply and every ephemeral receipt would be committed.
   The root-wiring check compares the two copies' pattern lines.
 
-The guard hooks name `core/.claude/guard.sh` **directly** rather than through a
-link at `.claude/guard.sh`. `guard.sh` finds its decision script relative to
+**Enrollment is not finished: `.claude/settings.json` does not exist yet**, so
+none of the `PreToolUse` hooks are installed and **the merge, review-budget and
+destructive-command guards are inactive in an AI-Handbook session.** The
+machinery mints receipts; nothing consumes them at the hook level. The file is
+David's to add — writing it is refused by the harness classifier, which is that
+rule working, since it widens the agent's own guardrails. Its content is in
+PR #10. Until it lands, treat every guarantee below as describing the shape the
+wiring takes, not a control that is running.
+
+When it does land, the guard hooks name `core/.claude/guard.sh` **directly**
+rather than through a link at `.claude/guard.sh`. `guard.sh` finds its decision script relative to
 `$BASH_SOURCE`, which is the path as invoked, not the resolved target — so
 through a link it would look for `scripts/guard-decision.mjs` at the root,
 `node` would exit 1, the harness would read that as a hook error, and **the

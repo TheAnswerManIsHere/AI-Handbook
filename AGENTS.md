@@ -22,10 +22,17 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
 - **Every change is a fleet change.** A diff to `core/` alters how agents
   behave in every consumer repository, on every future session. Judge it at
   that scope, not at the scope of the lines shown.
-- **`core/` is data.** Files under it do not take effect in this repository —
-  the guard there guards nothing here, the settings template configures
-  nothing here. They are what other repositories will receive. Review them for
-  what they will do *there*.
+- **`core/` is data, with two deliberate exceptions.** Files under it are what
+  other repositories will receive, so review them for what they will do
+  *there*. The settings template still configures nothing here — it is a seed
+  for the next consumer, and this repo's own `.claude/settings.json` is
+  separate. But two things under `core/` now DO take effect here, by reference
+  and never by copy: the skills and agents, which `.claude/skills/<name>` and
+  `.claude/agents/<name>.md` reach by per-entry symlink, and `guard.sh`, which
+  this repo's hooks will name directly once those hooks are installed. So a
+  diff to either is a change to this repository's own behaviour as well as to
+  every consumer's. See *How this repo reaches its own payload* in
+  [`CLAUDE.md`](CLAUDE.md).
 - **Coverage is part of correctness.** A file added under `core/` that no group
   in `sync-manifest.yml` claims will never reach a consumer, and the sync will
   still report success. `node scripts/check-manifest.mjs` detects this and runs
@@ -46,9 +53,17 @@ No install step; the machinery is dependency-free Node.
 
 ```
 node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-manifest.mjs    # every payload file is actually routed
+node scripts/check-manifest.mjs          # every payload file is actually routed
+node scripts/check-identity-sources.mjs  # every identity touchpoint classified
+node scripts/check-root-wiring.mjs       # this repo actually reaches its payload
 ```
 
-Both are required checks on every pull request to `main`. There is no build,
+These run in the two required checks on every pull request to `main` — `Test`
+and `Manifest`, which are the job names `.agents/machinery.json` lists. The
+number of *commands* is not the number of *checks*: the last three all run in
+`Manifest`, so adding one here adds no new required check and needs no branch-
+protection change. Run all four locally; a change that adds payload without a
+manifest entry, adds an identity touchpoint without classifying it, or adds a
+skill without wiring it to the root is incomplete and one of them will say so. There is no build,
 no typecheck and no database in this repository — if you are looking for them,
 you are in the wrong repo.

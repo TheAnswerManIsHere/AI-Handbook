@@ -186,9 +186,12 @@ The block carries these seven, in order:
    > Attach the repo before anything else: call
    > `mcp__Claude_Code_Remote__add_repo` with owner `<owner>`, repo `<repo>`,
    > access `<read|push>`. Run the clone command it returns, then call
-   > `register_repo_root` with the clone path. Do NOT pre-check the repo with
-   > `git ls-remote` or `curl` first — an unauthenticated probe returns 404
-   > for a repo you do have access to, and sends you down the wrong path.
+   > `mcp__Claude_Code_Remote__register_repo_root` with the clone path. If that
+   > tool does not resolve in your session, read the repo's `CLAUDE.md`
+   > directly — registration only triggers the automatic load. Do NOT pre-check
+   > the repo with `git ls-remote` or `curl` first — an unauthenticated probe
+   > returns 404 for a repo you do have access to, and sends you down the wrong
+   > path.
 
    **This is a required line, not a reminder.** A session is scoped to its
    own repository, so every GitHub call against another one fails until it
