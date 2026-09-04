@@ -119,8 +119,6 @@ import { fileURLToPath } from "node:url";
 
 import { REVIEWER_LOGINS, normalizeLogin } from "./review-counting.mjs";
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
 export const RECEIPTS_DIR = ".agents/receipts";
 
 // The canonical value lives in review-loop-record.mjs, which already imports
@@ -130,6 +128,53 @@ export const RECEIPTS_DIR = ".agents/receipts";
 // a value expected to drift.
 const ADJUDICATIONS_DIR = ".agents/adjudications";
 export const MACHINERY_CONFIG_FILE = ".agents/machinery.json";
+
+/**
+ * The root of the repository this machinery governs: the nearest enclosing
+ * directory that declares a machinery configuration.
+ *
+ * WHY NOT `dirname(script)/..`, WHICH THIS REPLACES. That form assumes the
+ * scripts sit exactly one level below the root. True in a consumer, where the
+ * sync lands them at `<repo>/scripts/`; false in the handbook, where they are
+ * payload at `<repo>/core/scripts/` and `..` is `core/`. So the handbook read
+ * a configuration that is not there -- `core/.agents/machinery.json` does not
+ * exist -- and wrote its receipts INSIDE its own payload, where a sync would
+ * carry one repository's review history to every other.
+ *
+ * THE MARKER IS THE CONFIGURATION ITSELF, because "which root?" and "whose
+ * configuration?" have to have one answer. Any other marker can disagree with
+ * the file that declares identity, and a root disagreeing with its own
+ * configuration is the bug being replaced, not a variant of it.
+ *
+ * BOUNDED BY THE ENCLOSING REPOSITORY. The walk stops at a `.git`, so a
+ * checkout that declares nothing fails closed with `machineryConfig`'s own
+ * message instead of silently binding to a PARENT directory's configuration
+ * -- a wrong-repo mistake in its most confusing form, since every artifact
+ * would then be stamped with a repository the operator never chose.
+ *
+ * TOTAL BY CONSTRUCTION: it cannot throw. `existsSync` reports false rather
+ * than raising, and an unfound marker falls back to the previous resolution,
+ * so an unconfigured checkout behaves exactly as it did and fails with the
+ * same message. That matters because this value is read on the guard path,
+ * where an escaping exception exits 1 and lets the tool call through.
+ *
+ * A CONSUMER SEES NO CHANGE. From `<repo>/scripts`, the first directory up
+ * carrying `.agents/machinery.json` is `<repo>` -- the answer `..` gave.
+ */
+function findRepoRoot(startDir) {
+  let dir = startDir;
+  for (;;) {
+    if (fs.existsSync(path.join(dir, MACHINERY_CONFIG_FILE))) return dir;
+    if (fs.existsSync(path.join(dir, ".git"))) return null;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+export const REPO_ROOT = findRepoRoot(SCRIPT_DIR) ?? path.resolve(SCRIPT_DIR, "..");
 
 export const MACHINERY_CONFIG_HOWTO =
   `Commit ${MACHINERY_CONFIG_FILE} declaring this repository's machinery configuration. Shape: ` +

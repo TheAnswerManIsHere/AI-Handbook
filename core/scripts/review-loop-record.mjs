@@ -50,7 +50,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 import {
   fromMcp,
@@ -61,9 +60,15 @@ import {
   REVIEWER_LOGINS,
   normalizeLogin,
 } from "./review-counting.mjs";
-import { loadLoop, allowance, countRounds, tierCap, nodeIo, TIERS } from "./review-budget.mjs";
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+import {
+  loadLoop,
+  allowance,
+  countRounds,
+  tierCap,
+  nodeIo,
+  REPO_ROOT,
+  TIERS,
+} from "./review-budget.mjs";
 
 export const ADJUDICATIONS_DIR = ".agents/adjudications";
 

@@ -1,0 +1,17 @@
+{
+  "pr": 10,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/10-4.json",
+  "decidedAt": "2026-09-04T04:52:00.000Z",
+  "reasoning": "Internal tier at cap (3 of 3, criticality 55), trend 3/1/4, with all four unresolved findings landing on one 192-line CI check and one documentation paragraph. All four verified real against the patch; none is in the critical class. Buying a fix plus its mandatory review round is not worth any of them on this artifact. Two earlier records for this loop were built from snapshots that were wrong -- the first carried one timestamp for every thread, making round 3 read as clean; the second carried two of round 3's four findings because it was built from webhook deliveries rather than the live thread list. Both verdicts were withdrawn rather than relied on. This verdict is the first taken on a complete record.",
+  "gaps": [
+    "T3930906775 check-root-wiring.mjs: the reverse-direction loop skips non-symlink root entries, so a real directory under .claude/skills or a real .md under .claude/agents with no payload counterpart passes; the handbook could load a skill consumers never receive.",
+    "T3930906783 AGENTS.md: the local verification list omits `node --test core/scripts/__tests__/*.test.mjs` and the excluded-test oracle, so all listed commands can pass locally while the required Test check fails.",
+    "T3930906784 check-root-wiring.mjs: patternLines() trims each line, so a leading-whitespace pattern in one .gitignore copy compares equal to the other while git treats them as different patterns.",
+    "T3930906789 check-root-wiring.mjs: invokedDirectly compares percent-encoded import.meta.url against an unencoded template string, so in a checkout path containing a space or # the documented command exits 0 having run nothing. Fix is pathToFileURL(process.argv[1]).href.",
+    "OUT OF TERRITORY, routed to its own issue: the identical invokedDirectly idiom in core/scripts/guard-decision.mjs and eight other payload scripts. On the guard path it makes the decision engine no-op and the hook fail OPEN, which IS the critical class -- measured here, where a force push at main returned exit 0 instead of 2 from a path containing a space. Pre-existing code this PR does not touch, so it needs its own PR rather than another round on this one."
+  ]
+}

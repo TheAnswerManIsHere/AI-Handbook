@@ -1,0 +1,14 @@
+{
+  "pr": 10,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/10-7.json",
+  "decidedAt": "2026-09-04T16:10:00.000Z",
+  "reasoning": "Internal tier, roundsSpent 5 of allowance 7, all 11 findings in-diff, round 5's two P1s arriving after a clean round 4. Neither meets the critical bar. Finding 1 is WRONGLY-BLOCKING, not fail-open, and that distinction is the whole ruling: the hooks name core/.claude/guard.sh absolutely and guard.sh resolves its decision script inside core/, so the guards still refuse; the instructed command dies loudly with MODULE_NOT_FOUND rather than silently permitting anything. Finding 2 degrades the adjudicator's evidence but announces itself as truncation, mints no false receipt, passes no merge gate and widens no authority; it is pre-existing payload logic this PR touched only for the REPO_ROOT import, so it is a fleet fix for its own issue rather than a round on a 66-file bootstrap. The adjudicator verified both against the working tree rather than the record's patch field, which is itself what finding 2 is about.",
+  "gaps": [
+    "Path mismatch between live instructions and the tree: .claude/skills/pr-watch/SKILL.md (lines 81, 101, 209, 417) and the imported core rules name `scripts/review-budget.mjs`, `scripts/review-loop-record.mjs`, `scripts/pr-ready.mjs`; in this repo those live only under core/scripts/, so the advertised declare/check/record/ready commands exit MODULE_NOT_FOUND from the root. Failure mode is wrongly-blocking (guard still resolves core/scripts/guard-decision.mjs and refuses). Follow-up: either root shims/symlinks for the four data-path scripts, or a handbook-specific note in CLAUDE.md naming the core/scripts/ prefix.",
+    "core/scripts/review-loop-record.mjs artifactDiff/cappedDiff: the base...head diff is truncated at PATCH_CAP_CHARS without excluding `.agents/adjudications/` and `.agents/receipts/` first, so once a loop has committed records their JSON (which nests earlier patches) sorts ahead of every implementation file and consumes the retained prefix -- this record's patch shows 10-1.json, not the code. Payload defect affecting every consumer with a multi-round loop; file its own issue and fix by filtering record-class paths (classifyPath === 'record') out of the diff before capping."
+  ]
+}

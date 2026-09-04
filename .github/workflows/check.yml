@@ -120,3 +120,15 @@ jobs:
       # code instead.
       - name: Check identity sources
         run: node scripts/check-identity-sources.mjs
+
+      # Does this repo actually reach its own payload?
+      #
+      # The skills under core/.claude/ are written to be vendored into a
+      # consumer; in the handbook they sit one directory too deep, so a session
+      # working ON the handbook had the core rules but none of the skills those
+      # rules invoke. Per-entry symlinks fix that with ONE copy, and adding a
+      # skill to the payload is then only half the change -- the same failure
+      # `check-manifest` exists for on the sync side, which is why this sits
+      # beside it rather than in Test.
+      - name: Check root wiring
+        run: node scripts/check-root-wiring.mjs

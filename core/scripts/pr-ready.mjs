@@ -43,11 +43,12 @@
  */
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import {
   MACHINERY_CONFIG_FILE,
+  RECEIPTS_DIR,
+  REPO_ROOT,
   RECEIPTS_DIR as LOOP_RECEIPTS_DIR,
   TIERS,
   allowance,
@@ -60,8 +61,7 @@ import {
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
 import { reviewerPasses } from "./review-counting.mjs";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-export const RECEIPT_DIR = join(HERE, "..", ".agents", "receipts");
+export const RECEIPT_DIR = join(REPO_ROOT, RECEIPTS_DIR);
 
 export const CODEX_BOT = "chatgpt-codex-connector[bot]";
 
@@ -133,7 +133,7 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * this read catches MISTAKES, by failing closed on absent, malformed, empty
  * or placeholder. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  */
-export function localConfig(cwd = join(HERE, "..")) {
+export function localConfig(cwd = REPO_ROOT) {
   try {
     return machineryConfig(nodeIo(resolve(cwd)));
   } catch (err) {
@@ -141,7 +141,7 @@ export function localConfig(cwd = join(HERE, "..")) {
   }
 }
 
-export function requiredChecks(cwd = join(HERE, "..")) {
+export function requiredChecks(cwd = REPO_ROOT) {
   return localConfig(cwd).requiredChecks;
 }
 

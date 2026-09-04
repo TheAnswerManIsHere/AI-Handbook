@@ -22,10 +22,17 @@ risk. So:
   `claude-core.md` changes how I behave in every repo, on every future session.
   Weigh it as such — the internal tier's low ceremony is about *review rounds*,
   not about care.
-- **The payload is data, not this repo's own configuration.** Editing
+- **The payload is data, with three named exceptions.** Editing
   `core/.claude/settings.template.json` does not change this repo's settings; it
-  changes what the next repo is seeded with. Same for the guard and the skills.
-  Nothing under `core/` takes effect here except by import.
+  changes what the next repo is seeded with, and this repo's own
+  `.claude/settings.json` is a separate file. But `core/` is no longer inert
+  here, and the activation model has to be stated exactly or a reviewer will
+  judge a change to it as consumer-only when it also changes this repo:
+  **skills** and **agents** are live here, reached by per-entry symlink from
+  `.claude/`, and **`guard.sh`** is named directly by this repo's hooks once
+  those hooks are installed. Everything else under `core/` still reaches this
+  repo only by import — the `@core/.agents/core/claude-core.md` line at the top
+  of this file. See *How this repo reaches its own payload* below.
 - **Adding a file to `core/` is only half the change.** If it is not in
   `sync-manifest.yml` it never travels, and the sync reports success anyway.
   `node scripts/check-manifest.mjs` is what makes that loud; it runs in CI and
@@ -54,16 +61,68 @@ widens authority, it does.
 
 ```
 node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-manifest.mjs    # every payload file is actually routed
+node scripts/check-manifest.mjs      # every payload file is actually routed
+node scripts/check-identity-sources.mjs  # every identity touchpoint classified
+node scripts/check-root-wiring.mjs   # this repo actually reaches its payload
 ```
 
 Both run in CI on every PR. There is no product build here and no database.
 
-## Known rough edge
+## How this repo reaches its own payload
 
-The skills in `core/.claude/skills/` are payload, not active skills in this
-repo — Claude Code loads skills from `.claude/skills/`, and duplicating them
-here to get slash commands would create exactly the second source of truth this
-repo exists to eliminate. So a session working *on* the handbook has the core
-rules (via the import above) but not the skill commands. Live with it, or fix
-it properly with a mechanism that keeps one copy.
+`.claude/skills/<name>` and `.claude/agents/<name>.md` are **symlinks into
+`core/`**, one per entry. That keeps one copy — duplicating the payload here to
+get slash commands would create exactly the second source of truth this repo
+exists to eliminate — while still letting Claude Code load them, since a
+`<skill-name>` entry being a symlink is documented behaviour. A symlink at the
+`skills` *directory* is not documented, and would fail silently as "no skills
+here", so the wiring only uses the shape that is specified.
+
+`node scripts/check-root-wiring.mjs` fails in both directions: a payload entry
+with no root link, and a root link that dangles, duplicates, or points outside
+`core/`. **Adding a skill to the payload is only half the change**, the same
+way adding a file to `core/` is only half a sync change.
+
+Two things are deliberately NOT symlinks:
+
+- **`.claude/settings.json`** is this repo's own, adapted from
+  `core/.claude/settings.template.json` — which is a seed for the next
+  consumer, not configuration that takes effect here.
+- **`.agents/receipts/.gitignore`** is a real file, mirrored rather than
+  pointed at, because **git does not follow a symlinked `.gitignore`** — its
+  patterns would never apply and every ephemeral receipt would be committed.
+  The root-wiring check compares the two copies' pattern lines.
+
+**Enrollment is complete: `.claude/settings.json` exists**, so the three
+`PreToolUse` hooks are installed and the merge, review-budget and
+destructive-command guards run in an AI-Handbook session. The machinery mints
+receipts *and* something consumes them.
+
+**One condition on that, until issue #11 lands.** `guard-decision.mjs` decides
+whether it was invoked directly by comparing `import.meta.url` against a
+hand-built `file://` string. Those differ when the checkout path contains a
+space or another URL-escaped character, and the script then exits 0 having
+evaluated nothing — which `guard.sh` reads as **allow**. So the guard is live
+only while this repository is checked out to a path with no escaped characters.
+Measured, not inferred: from a path containing a space, a bare
+`git push -f origin main` returned 0 where an ordinary path returns 2.
+
+The hooks invoke the guard as
+`bash "${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh"`, and **every part of that
+is load-bearing.**
+
+**Absolute, via the placeholder**, because a hook command resolves against the
+*current working directory*, not the project root. A relative
+`bash core/.claude/guard.sh` works only while the cwd happens to be the root:
+from `core/` it resolves `core/core/.claude/guard.sh`, bash exits 127, and
+`PreToolUse` treats every non-zero exit **other than 2** as non-blocking. One
+`cd core` silently disarmed all three guards at once.
+
+**Pointing at the payload** rather than a link at `.claude/guard.sh`, because
+`guard.sh` finds its decision script relative to `$BASH_SOURCE` — the path as
+invoked, not the resolved target — so through a link it would look for
+`scripts/guard-decision.mjs` at the root, and `node` would exit 1.
+
+Both are the same shape, and it is the shape that matters: **a guard that
+cannot launch does not refuse, it waves the call through.** A guard that fails
+open is worse than no guard. Issue #11 above is a third instance of it.

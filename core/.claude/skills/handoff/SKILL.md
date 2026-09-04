@@ -179,7 +179,26 @@ The block carries these seven, in order:
 2. **Read first** — `issue #N`, its State of Play and the handoff comment
    dated `<date>`.
 3. **Setup** — the branch and how to get on it, which PR to re-subscribe to,
-   what to verify live rather than trust.
+   what to verify live rather than trust, and — **whenever the work is in a
+   repository other than the new session's primary one** — the attach step,
+   named as the FIRST action and by its full tool name:
+
+   > Attach the repo before anything else: call
+   > `mcp__Claude_Code_Remote__add_repo` with owner `<owner>`, repo `<repo>`,
+   > access `<read|push>`. Run the clone command it returns, then call
+   > `mcp__Claude_Code_Remote__register_repo_root` with the clone path. If that
+   > tool does not resolve in your session, read the repo's `CLAUDE.md`
+   > directly — registration only triggers the automatic load. Do NOT pre-check
+   > the repo with `git ls-remote` or `curl` first — an unauthenticated probe
+   > returns 404 for a repo you do have access to, and sends you down the wrong
+   > path.
+
+   **This is a required line, not a reminder.** A session is scoped to its
+   own repository, so every GitHub call against another one fails until it
+   attaches — and a denied call is indistinguishable from "the issue does not
+   exist", so the new session concludes the handoff pointed it at something
+   imaginary. Name the tool with its server prefix: a bare `add_repo` does not
+   resolve, and the session then has to guess.
 4. **Mode and tier** — feature or bugfix, the ceremony tier, and which skill
    to invoke on entry (`/status` is the safe default first move).
 5. **Settled — do not re-open** — the inline list from the handoff comment.

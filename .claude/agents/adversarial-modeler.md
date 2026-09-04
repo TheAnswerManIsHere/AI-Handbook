@@ -1,0 +1,1 @@
+../../core/.claude/agents/adversarial-modeler.md
