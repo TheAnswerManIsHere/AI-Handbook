@@ -1,0 +1,8 @@
+{
+  "pr": 10,
+  "kind": "david",
+  "grant": 1,
+  "asOf": 3,
+  "authorization": "Option 1 -- answering a numbered ask whose option 1 was: \"Grant one review round for the new file. Codex looks at the highest-authority file in the PR before it merges.\" Asked because .claude/settings.json landed in 8731847 AFTER the loop closed at its cap on 6be42be with a terminal ship-with-gaps-recorded verdict, so only a david-kind receipt could reopen it. The alternative he declined was merging on his own read without a round.",
+  "createdAt": "2026-09-04T05:06:00.000Z"
+}
