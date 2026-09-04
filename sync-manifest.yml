@@ -760,6 +760,91 @@ groups:
           the cap, and the implementation file that used to fall off the end.
           Fixture strings compared against fake git output — nothing is read
           from disk, and the suite passes with the group absent.
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/scripts/review-loop-record.mjs
+        form: ".agents/receipts/.gitignore"
+        count: 1
+        why: >
+          cappedDiff's record filter must NOT exclude this file, and the header
+          names it to say so. The first cut of that filter reused classifyPath,
+          which calls every path under the receipt directories a record, and
+          would have hidden this synced file from the adjudicator while
+          announcing it as generated bookkeeping. Named as the counter-example
+          the shape list exists to protect; nothing opens it, and the module
+          runs identically with the group absent. (Codex, #14 round 1.)
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/scripts/review-loop-record.mjs
+        form: ".gitignore"
+        count: 2
+        why: >
+          cappedDiff's record filter must NOT exclude this file, and the header
+          names it to say so. The first cut of that filter reused classifyPath,
+          which calls every path under the receipt directories a record, and
+          would have hidden this synced file from the adjudicator while
+          announcing it as generated bookkeeping. Named as the counter-example
+          the shape list exists to protect; nothing opens it, and the module
+          runs identically with the group absent. (Codex, #14 round 1.)
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/README.md
+        from: core/scripts/review-loop-record.mjs
+        form: ".agents/receipts/README.md"
+        count: 1
+        why: >
+          cappedDiff's record filter must NOT exclude this file, and the header
+          names it to say so. The first cut of that filter reused classifyPath,
+          which calls every path under the receipt directories a record, and
+          would have hidden this synced file from the adjudicator while
+          announcing it as generated bookkeeping. Named as the counter-example
+          the shape list exists to protect; nothing opens it, and the module
+          runs identically with the group absent. (Codex, #14 round 1.)
+      - group: receipt-scaffolding
+        ref: core/.agents/adjudications/README.md
+        from: core/scripts/review-loop-record.mjs
+        form: ".agents/adjudications/README.md"
+        count: 1
+        why: >
+          cappedDiff's record filter must NOT exclude this file, and the header
+          names it to say so. The first cut of that filter reused classifyPath,
+          which calls every path under the receipt directories a record, and
+          would have hidden this synced file from the adjudicator while
+          announcing it as generated bookkeeping. Named as the counter-example
+          the shape list exists to protect; nothing opens it, and the module
+          runs identically with the group absent. (Codex, #14 round 1.)
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: ".agents/receipts/.gitignore"
+        count: 2
+        why: >
+          The regression test asserts this synced file SURVIVES the record
+          filter — it is the counter-example, so it has to be named literally
+          for the assertion to mean anything. A fixture string compared against
+          fake git output; nothing is read from disk, and the suite passes with
+          the group absent. (Codex, #14 round 1.)
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/README.md
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: ".agents/receipts/README.md"
+        count: 2
+        why: >
+          The regression test asserts this synced file SURVIVES the record
+          filter — it is the counter-example, so it has to be named literally
+          for the assertion to mean anything. A fixture string compared against
+          fake git output; nothing is read from disk, and the suite passes with
+          the group absent. (Codex, #14 round 1.)
+      - group: receipt-scaffolding
+        ref: core/.agents/adjudications/README.md
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: ".agents/adjudications/README.md"
+        count: 2
+        why: >
+          The regression test asserts this synced file SURVIVES the record
+          filter — it is the counter-example, so it has to be named literally
+          for the assertion to mean anything. A fixture string compared against
+          fake git output; nothing is read from disk, and the suite passes with
+          the group absent. (Codex, #14 round 1.)
       - group: memory
         ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
         from: core/scripts/__tests__/pr-ready.test.mjs

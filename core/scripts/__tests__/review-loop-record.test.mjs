@@ -286,3 +286,79 @@ test("artifactDiff passes the three-dot range through and filters records", () =
   assert.match(patch, /excluded 1 generated record file/);
   assert.ok(patch.includes("+++ b/core/scripts/pr-ready.mjs"));
 });
+
+// --- Round 1 of #14: two ways the first cut of this filter was too coarse ---
+
+test("tracked scaffolding is NOT excluded -- it is synced payload, not a generated record", () => {
+  // classifyPath calls every file under .agents/receipts and
+  // .agents/adjudications a "record", but the sync DELIVERS three tracked
+  // files into those directories. Excluding them would hide real contract
+  // changes from the adjudicator and mislabel them as bookkeeping -- the same
+  // blindness this filter exists to remove, pointed at a different target.
+  // (Codex, #14 round 1.)
+  const runGit = fakeGit([
+    { name: ".agents/adjudications/README.md", body: "docs change" },
+    { name: ".agents/receipts/README.md", body: "docs change" },
+    { name: ".agents/receipts/.gitignore", body: "+loop-new-shape-*.json" },
+    { name: ".agents/receipts/loop-budget-10.json", body: "generated" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(patch.includes("+++ b/.agents/receipts/.gitignore"), "the ignore rules are reviewable");
+  assert.ok(patch.includes("+loop-new-shape-*.json"), "including their content");
+  assert.ok(patch.includes("+++ b/.agents/receipts/README.md"));
+  assert.ok(patch.includes("+++ b/.agents/adjudications/README.md"));
+  assert.ok(!patch.includes("loop-budget-10.json"), "while the generated receipt beside them still goes");
+  assert.match(patch, /excluded 1 generated record file/);
+});
+
+test("every shape the receipts README documents is recognised as generated", () => {
+  const generated = [
+    ".agents/receipts/pr-10.json",
+    ".agents/receipts/loop-round-check-10.json",
+    ".agents/receipts/loop-budget-10.json",
+    ".agents/receipts/loop-extension-10-3.json",
+    ".agents/adjudications/10-7.json",
+  ];
+  const runGit = fakeGit([
+    ...generated.map((name) => ({ name, body: "g" })),
+    { name: "core/scripts/pr-ready.mjs", body: "code" },
+  ]);
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  for (const name of generated) {
+    assert.ok(!patch.includes(`+++ b/${name}`), `${name} should be excluded`);
+  }
+  assert.match(patch, /excluded 5 generated record files/);
+  assert.ok(patch.includes("+++ b/core/scripts/pr-ready.mjs"));
+});
+
+test("a renamed record is excluded on BOTH sides, not just its destination", () => {
+  // Discovery must disable rename detection. With it on, `--name-only`
+  // reports only the destination; the old path then survives as a deletion
+  // hunk and a large renamed record can consume the cap all over again.
+  // (Codex, #14 round 1 -- verified against real git.)
+  let sawNoRenames = false;
+  const inner = fakeGit([
+    { name: ".agents/adjudications/10-1.json", body: "old" },
+    { name: ".agents/adjudications/10-2.json", body: "new" },
+    { name: "CLAUDE.md", body: "code" },
+  ]);
+  const runGit = (args) => {
+    if (args.includes("--name-only")) {
+      sawNoRenames = args.includes("--no-renames");
+      // Model git's DEFAULT behaviour if the flag is absent: destination only.
+      if (!sawNoRenames) return ".agents/adjudications/10-2.json\0";
+    }
+    return inner(args);
+  };
+
+  const patch = cappedDiff(runGit, "base...head");
+
+  assert.ok(sawNoRenames, "discovery must pass --no-renames");
+  assert.ok(!patch.includes("10-1.json"), "the rename SOURCE is excluded too");
+  assert.ok(!patch.includes("10-2.json"), "as is the destination");
+  assert.ok(patch.includes("+++ b/CLAUDE.md"));
+});

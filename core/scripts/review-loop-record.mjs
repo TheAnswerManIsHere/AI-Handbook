@@ -132,18 +132,54 @@ function git(args, { cwd = REPO_ROOT } = {}) {
 export const PATCH_CAP_CHARS = 60_000;
 
 /**
- * The record-class paths changed in `range`, classified rather than pattern-
- * matched here so "what counts as a record" keeps ONE definition.
+ * The filename shapes this machinery GENERATES: the five the receipts README
+ * documents, plus the adjudication records `nextRecordPath` writes.
+ *
+ * NOT `classifyPath(file) === "record"`, which is the obvious shortcut and is
+ * wrong here. That function answers a different question -- is this file
+ * behavioural -- and to answer it, it calls every path under these directories
+ * a record. But the sync DELIVERS tracked scaffolding into them:
+ * `.agents/receipts/README.md`, `.agents/receipts/.gitignore` and
+ * `.agents/adjudications/README.md`. Excluding those would hide real contract
+ * changes from the adjudicator and announce them as bookkeeping -- the same
+ * blindness this filter exists to remove, aimed at a different target. The
+ * receipts `.gitignore` is the sharpest case: it decides which receipts are
+ * committed at all, and a PR changing it is exactly one the judge must see.
+ * (Codex, #14 round 1.)
+ *
+ * A new record shape has to be added here -- and the maintenance story is that
+ * it has to be added to that README and that `.gitignore` in the same change
+ * anyway, so this list travels with them. `.agents/metrics/` is deliberately
+ * absent: the loop ledger is a maintained document, not a per-run artifact.
+ */
+const GENERATED_RECORD_SHAPES = [
+  /^\.agents\/receipts\/pr-\d+\.json$/,
+  /^\.agents\/receipts\/loop-round-check-\d+\.json$/,
+  /^\.agents\/receipts\/loop-round-check-\d+\.json(\..+)?\.claim$/,
+  /^\.agents\/receipts\/loop-budget-\d+\.json$/,
+  /^\.agents\/receipts\/loop-extension-\d+-\d+\.json$/,
+  /^\.agents\/adjudications\/\d+-\d+\.json$/,
+];
+
+export const isGeneratedRecord = (file) => GENERATED_RECORD_SHAPES.some((re) => re.test(file));
+
+/**
+ * The generated-record paths changed in `range`.
+ *
+ * `--no-renames` because rename detection reports only the DESTINATION of a
+ * rename, which would leave the source to survive as a deletion hunk and
+ * consume the cap by itself -- the very failure this filter exists to stop,
+ * reintroduced by a default. Verified against real git. (Codex, #14 round 1.)
  *
  * `-z` because the paths become pathspecs below: git's default output quotes
  * anything with a space, quote or newline in it, and a quoted path excludes
  * nothing.
  */
 function recordPathsIn(runGit, range) {
-  return runGit(["diff", "--name-only", "-z", range])
+  return runGit(["diff", "--name-only", "--no-renames", "-z", range])
     .split("\0")
     .filter(Boolean)
-    .filter((file) => classifyPath(file) === "record");
+    .filter(isGeneratedRecord);
 }
 
 /**
