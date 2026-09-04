@@ -77,13 +77,16 @@
 # pr-ready.mjs
 # --------------------------------------------------------------------------
 
-- key: "pr-ready.mjs :: localConfig :: export function localConfig(cwd = join(HERE, \"..\")) {"
+- key: "pr-ready.mjs :: localConfig :: export function localConfig(cwd = REPO_ROOT) {"
   source: config
   why: >-
     Reads .agents/machinery.json through the one reader (review-budget.mjs
     machineryConfig; pr-ready.mjs localConfig is a cwd adapter over it).
     Working tree, by design: it is configuration, and the threat model is a
-    mistake, not an adversary.
+    mistake, not an adversary. The default is review-budget.mjs REPO_ROOT --
+    the directory that DECLARES the configuration -- rather than the script's
+    own parent, which was only the root by coincidence of where the sync
+    lands the payload.
 
 - key: "pr-ready.mjs :: localConfig :: return machineryConfig(nodeIo(resolve(cwd)));"
   source: config

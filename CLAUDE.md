@@ -54,16 +54,41 @@ widens authority, it does.
 
 ```
 node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-manifest.mjs    # every payload file is actually routed
+node scripts/check-manifest.mjs      # every payload file is actually routed
+node scripts/check-identity-sources.mjs  # every identity touchpoint classified
+node scripts/check-root-wiring.mjs   # this repo actually reaches its payload
 ```
 
 Both run in CI on every PR. There is no product build here and no database.
 
-## Known rough edge
+## How this repo reaches its own payload
 
-The skills in `core/.claude/skills/` are payload, not active skills in this
-repo — Claude Code loads skills from `.claude/skills/`, and duplicating them
-here to get slash commands would create exactly the second source of truth this
-repo exists to eliminate. So a session working *on* the handbook has the core
-rules (via the import above) but not the skill commands. Live with it, or fix
-it properly with a mechanism that keeps one copy.
+`.claude/skills/<name>` and `.claude/agents/<name>.md` are **symlinks into
+`core/`**, one per entry. That keeps one copy — duplicating the payload here to
+get slash commands would create exactly the second source of truth this repo
+exists to eliminate — while still letting Claude Code load them, since a
+`<skill-name>` entry being a symlink is documented behaviour. A symlink at the
+`skills` *directory* is not documented, and would fail silently as "no skills
+here", so the wiring only uses the shape that is specified.
+
+`node scripts/check-root-wiring.mjs` fails in both directions: a payload entry
+with no root link, and a root link that dangles, duplicates, or points outside
+`core/`. **Adding a skill to the payload is only half the change**, the same
+way adding a file to `core/` is only half a sync change.
+
+Two things are deliberately NOT symlinks:
+
+- **`.claude/settings.json`** is this repo's own, adapted from
+  `core/.claude/settings.template.json` — which is a seed for the next
+  consumer, not configuration that takes effect here.
+- **`.agents/receipts/.gitignore`** is a real file, mirrored rather than
+  pointed at, because **git does not follow a symlinked `.gitignore`** — its
+  patterns would never apply and every ephemeral receipt would be committed.
+  The root-wiring check compares the two copies' pattern lines.
+
+The guard hooks name `core/.claude/guard.sh` **directly** rather than through a
+link at `.claude/guard.sh`. `guard.sh` finds its decision script relative to
+`$BASH_SOURCE`, which is the path as invoked, not the resolved target — so
+through a link it would look for `scripts/guard-decision.mjs` at the root,
+`node` would exit 1, the harness would read that as a hook error, and **the
+tool call would proceed**. A guard that fails open is worse than no guard.
