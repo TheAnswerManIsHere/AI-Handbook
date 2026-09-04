@@ -176,7 +176,65 @@ readiness, not link resolution.
    invokes it**. That failure is silent: the guard is present, the hooks are
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
-6. Flip `enrolled: true`. **This is the last step before the sync, and it comes
+6. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
+   self-documenting template. Two values, both facts about the consumer that
+   the handbook cannot know:
+
+   ```json
+   {
+     "repo": "OWNER/REPO",
+     "requiredChecks": ["Classify changed paths", "Build", "Test"]
+   }
+   ```
+
+   - **`repo`** is this repository's `owner/name`. It is read through one
+     function, from the working tree, and stamped into every artifact the
+     machinery mints — budgets, round-check receipts, readiness receipts,
+     adjudication records. Every artifact the machinery consumes is compared
+     back to it, and so is every GitHub snapshot, so a snapshot of the wrong
+     PR (every repository has a #7) is refused rather than counted. A wrong
+     value here is a **mistake the machinery catches**: it refuses with a
+     message naming both values. It is not a security boundary and does not
+     try to be one — the person who can edit this file is the person running
+     the scripts, and the controls against deliberate action are the merge
+     click and the server-side ruleset. Ten review rounds spent defending it
+     against its own operator are why that sentence is written down
+     (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`).
+   - **`requiredChecks`** names the CI jobs that must be PRESENT before a
+     readiness receipt is honest — every job that can appear **late**, not only
+     the ones that must pass. A job gated on an earlier one is created late, so
+     a snapshot taken too early sees a complete green set without it. Read
+     from the same file, the same way: a pull request that changes this list
+     is judged by the list it commits, and that change is in the diff the
+     merge reviews. An empty list is refused — a gate that requires nothing is
+     satisfied by any green set.
+
+   **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
+   a real slug, so every structural check passed it and an unedited template
+   produced a working configuration naming a repository that does not exist.
+   It is now rejected explicitly, which is what makes the promise above true.
+   If a budget was already declared under the placeholder — or under an earlier
+   schema that recorded no repository at all — delete the receipt and declare
+   again. Nothing is lost: a budget holds only the tier, the repository and the
+   criticality, the round count is computed fresh from GitHub, and extension
+   receipts are separate files that the deletion does not touch.
+
+   ```
+   git rm .agents/receipts/loop-budget-<n>.json
+   git commit -m "drop stale budget for #<n>" && git push
+   node scripts/review-budget.mjs declare --pr <n> --tier <tier> \
+        --criticality <1-100> --artifact "<what is under review>"
+   ```
+
+   Every failure here is loud.
+   `pr-ready.mjs` refuses when the file is absent,
+   malformed, or declares an empty list — an empty list is refused rather than
+   read as "nothing required", because a gate that requires nothing is
+   satisfied by any green set. Declaring a budget refuses while `repo` is
+   still the template's placeholder, naming this file. So a consumer that
+   skips this step gets a closed gate that says why, never an open one that
+   says nothing.
+7. Flip `enrolled: true`. **This is the last step before the sync, and it comes
    after every prerequisite above — not before them.** An earlier version put
    the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
    repo into the sync's target set while the controls those steps install were
@@ -184,14 +242,14 @@ readiness, not link resolution.
    "ready" have to be the same moment: a repo flipped early can receive
    `bypassPermissions` before the ruleset that constrains it exists, and an
    inert guard before the hooks that invoke it are merged.
-7. Run the sync, review the pull request it opens, merge.
+8. Run the sync, review the pull request it opens, merge.
 
 `enrolled` means "every prerequisite is in place, so send it the core" — not
 "the core has arrived." A vendored core that nothing imports is inert: the
 files are present, the rules are not loaded, and the repo looks governed
 without being governed, which is the worst of the three states. Steps 2 and 3
 prevent that; steps 4 and 5 prevent the security equivalent, where a repo holds
-the bypass without the controls. **The flip goes last because the flip is what
+the bypass without the controls; step 6 keeps its merge gate usable. **The flip goes last because the flip is what
 makes the sync fire** — anything that must be true before delivery has to be
 true before the flip, and a step added to this list later belongs above it, not
 below.

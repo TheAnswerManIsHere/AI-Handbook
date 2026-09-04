@@ -17,15 +17,17 @@ import {
   nodeIo,
   mentionsReviewRequest,
   prNumberFrom,
-  targetsThisRepo,
   validateBudget,
   validateExtension,
   validateCheckReceipt,
   assertCountingSnapshot,
   judgeReviewRequest,
   MAX_CHECK_AGE_MS,
-  REPO_OWNER,
-  REPO_NAME,
+  repoSlug,
+  declare,
+  machineryConfig,
+  MACHINERY_CONFIG_FILE,
+  __resetRepoSlugCache,
 } from "../review-budget.mjs";
 
 // ---------------------------------------------------------------------------
@@ -36,10 +38,29 @@ import {
 
 const NOW = Date.parse("2026-08-17T12:00:00.000Z");
 
-export function fakeIo(files = {}) {
-  const store = { ...files };
+export const TEST_SLUG = "TestOwner/TestRepo";
+export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
+
+export function fakeIo(files = {}, { slug = TEST_SLUG, config } = {}) {
+  // The declared identity is seeded as a file rather than injected as a
+  // method: production reads it through `readDurable`, which in this fake is
+  // the same store, so a test that stubbed a separate seam would be testing a
+  // path production does not take. Pass `slug: null` to declare nothing, or
+  // `config` to declare something malformed. (It no longer carries a
+  // `baseBranch` field: that was deleted from the config in round 8, and a
+  // fixture seeding a field nothing reads is the rot this PR keeps finding.)
+  const declared =
+    config !== undefined
+      ? { [MACHINERY_CONFIG_FILE]: config }
+      : slug === null
+        ? {}
+        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug, requiredChecks: ["Test"] }) };
+  const store = { ...declared, ...files };
   return {
     store,
+    // A distinct root per fake io, so the production slug cache -- which is
+    // keyed by root -- cannot leak one test's identity into another's.
+    root: `/test/${Math.random().toString(36).slice(2)}`,
     now: () => new Date(NOW).toISOString(),
     read: (rel) => (rel in store ? store[rel] : null),
     exists: (rel) => rel in store,
@@ -84,6 +105,10 @@ const budget = (pr, tier = "product", extra = {}) =>
   json({
     pr,
     tier,
+    // The repository the budget was declared for. Defaults to the fixture
+    // identity so the common case reads as it always did; the tests that care
+    // override it via `extra`.
+    repo: TEST_SLUG,
     budget: TIERS[tier].budget,
     criticality: 30,
     artifact: "a thing under review",
@@ -98,7 +123,7 @@ const budget = (pr, tier = "product", extra = {}) =>
 const check = (pr, spent, extra = {}) =>
   json({
     pr,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: TEST_SLUG,
     capturedAt: new Date(NOW - 60_000).toISOString(),
     delivered: spent,
     pending: 0,
@@ -111,10 +136,15 @@ const check = (pr, spent, extra = {}) =>
  * The mechanical record an adjudication cites. It must show the loop AT its
  * cap, which is what proves the adjudication followed a fired tripwire.
  */
-const recordFile = (pr, passes = 5) =>
+const recordFile = (pr, passes = 5, { repo = TEST_SLUG } = {}) =>
   json({
     generator: "scripts/review-loop-record.mjs",
     pr,
+    // The repository this record's loop belongs to, compared against the
+    // budget's. Omitted here until round 9, which is exactly how a record
+    // from another repository could be committed in and spend this loop's
+    // rounds -- the field existed at the writer and nothing read it.
+    ...(repo === null ? {} : { repo }),
     rounds: { completedReviewerPasses: passes },
   });
 const RECORD = (pr) => `.agents/adjudications/${pr}-1.json`;
@@ -134,7 +164,7 @@ const adjudication = (pr, extra = {}) => ({
 
 const post = (pr, body = "@codex review") => ({
   toolName: "mcp__github__add_issue_comment",
-  toolInput: { owner: REPO_OWNER, repo: REPO_NAME, issue_number: pr, body },
+  toolInput: { owner: TEST_OWNER, repo: TEST_REPO, issue_number: pr, body },
 });
 
 // ---------------------------------------------------------------------------
@@ -161,11 +191,6 @@ test("the PR number is read from either resource's parameter name", () => {
   assert.equal(prNumberFrom({ pullNumber: "502" }), 502);
   assert.equal(prNumberFrom({}), null);
   assert.equal(prNumberFrom({ pullNumber: 0 }), null);
-});
-
-test("only this repo's loops are budgeted", () => {
-  assert.equal(targetsThisRepo({ owner: REPO_OWNER, repo: REPO_NAME }), true);
-  assert.equal(targetsThisRepo({ owner: "someone", repo: "else" }), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -261,11 +286,11 @@ test("an ordinary comment after the last pass is not a pending round", () => {
 
 test("a budget cannot declare a number its tier does not have", () => {
   const receipt = JSON.parse(budget(1, "product"));
-  assert.equal(validateBudget(1, receipt), null);
+  assert.equal(validateBudget(1, receipt, TEST_SLUG), null);
 
   receipt.budget = 20;
   assert.match(
-    validateBudget(1, receipt),
+    validateBudget(1, receipt, TEST_SLUG),
     /declares budget 20 but tier "product" is 5/,
     "a free-text budget field is the no-stopping-rule state wearing a receipt",
   );
@@ -326,6 +351,39 @@ test("a non-continue verdict with no recordPath is rejected", () => {
     validateExtension(1, "product", shipped, { adjudicationsAlreadySeen: 0, io: null }),
     /must cite the mechanical record/,
   );
+});
+
+test("ANOTHER repository's record cannot grant this loop an extension", () => {
+  // Round 9's second P1, on the guard's side of it. The record has recorded
+  // `repo` since that round and neither validator read it, so a record
+  // generated in repository B and committed here -- same PR number, same
+  // shape -- was accepted as this loop's evidence and its rounds could open
+  // an extension that repository never granted. (Codex, PR #7 round 9.)
+  __resetRepoSlugCache();
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json(adjudication(1, { grant: 2, recordPath: RECORD(1) })),
+    [RECORD(1)]: recordFile(1, 5, { repo: "Someone/Else" }),
+  });
+  const state = loadLoop(1, io);
+  assert.equal(state.problem, "bad-receipt");
+  assert.match(state.detail, /was generated for "Someone\/Else", but this loop's budget records TestOwner\/TestRepo/);
+  __resetRepoSlugCache();
+});
+
+test("a record predating the `repo` field is refused, not grandfathered", () => {
+  // Round 4 settled no-grandfathering for budgets and the reason carries: a
+  // record this check cannot bind must not read as one it has bound.
+  __resetRepoSlugCache();
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json(adjudication(1, { grant: 2, recordPath: RECORD(1) })),
+    [RECORD(1)]: recordFile(1, 5, { repo: null }),
+  });
+  const state = loadLoop(1, io);
+  assert.equal(state.problem, "bad-receipt");
+  assert.match(state.detail, /was generated for null/);
+  __resetRepoSlugCache();
 });
 
 test("a recordPath outside .agents/adjudications/ is rejected -- pr-ready.mjs's merge gate would never accept it (Codex, #539 round 3)", () => {
@@ -672,24 +730,24 @@ test("allowance refuses a nonsense spent count rather than defaulting", () => {
 // ---------------------------------------------------------------------------
 
 test("a round-check receipt must be bound to this PR and repo", () => {
-  assert.match(validateCheckReceipt(1, JSON.parse(check(2, 0)), NOW), /names PR 2, not 1/);
+  assert.match(validateCheckReceipt(1, JSON.parse(check(2, 0)), NOW, TEST_SLUG), /names PR 2, not 1/);
   assert.match(
-    validateCheckReceipt(1, { ...JSON.parse(check(1, 0)), repo: "someone/else" }, NOW),
+    validateCheckReceipt(1, { ...JSON.parse(check(1, 0)), repo: "someone/else" }, NOW, TEST_SLUG),
     /minted for someone\/else/,
   );
 });
 
 test("a stale round-check receipt is refused", () => {
   const old = { ...JSON.parse(check(1, 0)), capturedAt: new Date(NOW - MAX_CHECK_AGE_MS - 1000).toISOString() };
-  assert.match(validateCheckReceipt(1, old, NOW), /no longer current/);
+  assert.match(validateCheckReceipt(1, old, NOW, TEST_SLUG), /no longer current/);
 
   const future = { ...JSON.parse(check(1, 0)), capturedAt: new Date(NOW + 60_000).toISOString() };
-  assert.match(validateCheckReceipt(1, future, NOW), /no longer current/, "a future capture is not evidence either");
+  assert.match(validateCheckReceipt(1, future, NOW, TEST_SLUG), /no longer current/, "a future capture is not evidence either");
 });
 
 test("a consumed round-check receipt cannot authorize a second post", () => {
   const used = { ...JSON.parse(check(1, 0)), consumedAt: "2026-08-17T11:00:00.000Z" };
-  assert.match(validateCheckReceipt(1, used, NOW), /already consumed/);
+  assert.match(validateCheckReceipt(1, used, NOW, TEST_SLUG), /already consumed/);
 });
 
 // ---------------------------------------------------------------------------
@@ -966,31 +1024,45 @@ test("the sensitive tier runs the same two-tier tripwire: Fable at 5, David at 8
 test("a review request with no readable PR number is refused, not waved through", () => {
   const call = {
     toolName: "mcp__github__add_issue_comment",
-    toolInput: { owner: REPO_OWNER, repo: REPO_NAME, body: "@codex review" },
+    toolInput: { owner: TEST_OWNER, repo: TEST_REPO, body: "@codex review" },
   };
   assert.match(judgeReviewRequest(call, fakeIo(), NOW).reason, /no readable PR number/);
 });
 
-test("ordinary comments, other repos, and other tools are untouched", () => {
+test("ordinary comments and unguarded tools are untouched", () => {
+  // The complement of the guard: everything that is NOT a review request at
+  // this repository passes without a receipt and without a write.
   const io = fakeIo();
+  const before = { ...io.store };
   assert.equal(judgeReviewRequest(post(1, "Fixed in abc123 — thanks."), io, NOW).blocked, false);
-  assert.equal(
-    judgeReviewRequest(
-      {
-        toolName: "mcp__github__add_issue_comment",
-        toolInput: { owner: "other", repo: "repo", issue_number: 1, body: "@codex review" },
-      },
-      io,
-      NOW,
-    ).blocked,
-    false,
-  );
   assert.equal(
     judgeReviewRequest({ toolName: "mcp__github__create_pull_request", toolInput: { body: "@codex review" } }, io, NOW)
       .blocked,
     false,
   );
-  assert.deepEqual(io.store, {}, "nothing is written for a call that is not a review request");
+  assert.deepEqual(io.store, before, "nothing is written for a call that is not a review request");
+});
+
+test("a review request at another repo is REFUSED, where it used to be skipped", () => {
+  // This assertion is inverted from what it was, deliberately. Skipping a
+  // foreign target made identity decide whether the guard ran at all, so
+  // every way of getting the identity wrong became a silent bypass rather
+  // than a visible refusal. (Codex, PR #7 rounds 1 and 2.)
+  const io = fakeIo();
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "other", repo: "repo", issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  assert.equal(verdict.blocked, true);
+  // The refusal now comes from the BUDGET, not from a declared identity: this
+  // checkout has no budget for other/repo#1, so there is nothing authorizing
+  // a round there. Either way it refuses; the difference is that this reason
+  // cannot be produced by a wrong config, because no config is read.
+  assert.match(verdict.reason, /no round budget declared for PR #1/);
 });
 
 // ---------------------------------------------------------------------------
@@ -1000,8 +1072,8 @@ test("ordinary comments, other repos, and other tools are untouched", () => {
 const SNAPSHOT_NOW = Date.parse("2026-08-17T10:40:00Z");
 
 const snapshot = (pr, extra = {}) => ({
-  pr: { number: pr },
-  repo: "TheAnswerManIsHere/Overhypeme",
+  pr: { number: pr, head: { repo: TEST_SLUG } },
+  repo: TEST_SLUG,
   capturedAt: "2026-08-17T10:35:00Z",
   reviews: [
     {
@@ -1016,7 +1088,7 @@ const snapshot = (pr, extra = {}) => ({
   ...extra,
 });
 
-const assertSnapshot = (pr, snap) => assertCountingSnapshot(pr, snap, SNAPSHOT_NOW);
+const assertSnapshot = (pr, snap) => assertCountingSnapshot(pr, snap, SNAPSHOT_NOW, TEST_SLUG);
 
 test("a counting snapshot must describe this PR and be attested complete", () => {
   assert.doesNotThrow(() => assertSnapshot(1, snapshot(1)));
@@ -1062,7 +1134,7 @@ test("the trigger is refused on any surface the count cannot see", () => {
     "mcp__github__pull_request_review_write",
   ]) {
     const verdict = judgeReviewRequest(
-      { toolName, toolInput: { owner: REPO_OWNER, repo: REPO_NAME, pullNumber: 7, body: "@codex review" } },
+      { toolName, toolInput: { owner: TEST_OWNER, repo: TEST_REPO, pullNumber: 7, body: "@codex review" } },
       io,
       NOW,
     );
@@ -1083,7 +1155,7 @@ test("a reply that does not carry the trigger is untouched by the surface rule",
   const verdict = judgeReviewRequest(
     {
       toolName: "mcp__github__add_reply_to_pull_request_comment",
-      toolInput: { owner: REPO_OWNER, repo: REPO_NAME, pullNumber: 7, body: "Fixed in abc1234." },
+      toolInput: { owner: TEST_OWNER, repo: TEST_REPO, pullNumber: 7, body: "Fixed in abc1234." },
     },
     io,
     NOW,
@@ -1096,7 +1168,7 @@ test("a counting snapshot is bound to the repository, not just the PR number", (
   // laundered into a lower count while `check` stamped this repo's name on it.
   assert.throws(() => assertSnapshot(1, snapshot(1, { repo: undefined })), /must name its source repository/);
   assert.throws(() => assertSnapshot(1, snapshot(1, { repo: "someone/else" })), /must name its source repository/);
-  assert.doesNotThrow(() => assertSnapshot(1, snapshot(1, { repo: "theanswermanishere/overhypeme" })));
+  assert.doesNotThrow(() => assertSnapshot(1, snapshot(1, { repo: TEST_SLUG.toLowerCase() })));
 });
 
 test("freshness is a property of the evidence, not of the command", () => {
@@ -1363,6 +1435,143 @@ test("the real git adapter lists a directory from a ref, and reports an unreadab
   );
 });
 
+
+test("a budget cannot be relabelled onto another repository by a local edit", () => {
+  // THE BOTH-SIDES CLAIM, made true. The identity moved with a working-tree
+  // edit but the BUDGET did not: `loadLoop` found it by PR number out of this
+  // checkout's durable ref and never compared it to anything, so editing one
+  // local file let this repo's budget authorize a round in another repo with
+  // the same PR number. (Codex, PR #7 round 4.)
+  const files = {
+    [budgetPath(30)]: budget(30),
+    [checkPath(30)]: check(30, 1),
+  };
+  // Honest baseline: with the declaration untouched, the post is allowed.
+  assert.equal(judgeReviewRequest(post(30), fakeIo(files), NOW).blocked, false);
+
+  // Now the working tree claims to be somewhere else, and the request follows
+  // it. The budget in the ref still says what it always said.
+  __resetRepoSlugCache();
+  const spoofed = fakeIo(files, { slug: "Someone/Else" });
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "Someone", repo: "Else", issue_number: 30, body: "@codex review" },
+    },
+    spoofed,
+    NOW,
+  );
+  assert.equal(verdict.blocked, true, "a relabelled checkout must not spend another repo's budget");
+  // The comparison is budget-to-TARGET now. Relabelling the checkout changes
+  // neither side: the budget still says TestOwner/TestRepo out of the ref, and
+  // the request still names Someone/Else. There is no third value to move.
+  assert.match(verdict.reason, /declared for TestOwner\/TestRepo, but this review request targets Someone\/Else/);
+  __resetRepoSlugCache();
+});
+
+test("a budget that records no repository is refused, not grandfathered", () => {
+  // Tolerating an absent field would leave the hole open on exactly the loops
+  // already in flight, which are the ones that have a budget. Re-declaring is
+  // one command.
+  const stripped = JSON.parse(budget(31));
+  delete stripped.repo;
+  const files = { [budgetPath(31)]: json(stripped), [checkPath(31)]: check(31, 1) };
+  const verdict = judgeReviewRequest(post(31), fakeIo(files), NOW);
+  assert.equal(verdict.blocked, true);
+  assert.match(verdict.reason, /must record "repo" as the "owner\/name" it was declared for/);
+});
+
+test("the identity a budget is judged against comes from the REF, not the working tree", () => {
+  // The first version of this fix read `repoSlug(io)` here, which put a
+  // working-tree read on the durable decision path -- the one thing loadLoop
+  // exists to prevent. Same shape as the test above it: blow up the
+  // filesystem readers and the decision must still be reachable.
+  const files = {
+    [budgetPath(32)]: budget(32),
+    [checkPath(32)]: check(32, 1),
+  };
+  const io = fakeIo(files);
+  io.read = () => {
+    throw new Error("the working tree must not be consulted for a durable decision");
+  };
+  io.listReceipts = () => {
+    throw new Error("the working tree must not be listed for durable decisions");
+  };
+  const state = loadLoop(32, io);
+  assert.equal(state.problem, undefined, "the budget validates from the ref alone");
+});
+
+
+test("the seed's placeholder is refused, so an unedited template fails loudly", () => {
+  // It is SHAPED like a slug, so every structural check passed it: a consumer
+  // that committed the template unedited got a working configuration naming a
+  // repository that does not exist. The template promises the opposite.
+  // (Codex, PR #7 round 6.)
+  __resetRepoSlugCache();
+  assert.throws(
+    () => repoSlug(fakeIo({}, { config: JSON.stringify({ repo: "OWNER/REPO" }) })),
+    /still carries the template's placeholder/,
+  );
+  // Matched EXACTLY: "Owner/Repo" is a plausible real name and must pass.
+  __resetRepoSlugCache();
+  assert.equal(repoSlug(fakeIo({}, { slug: "Owner/Repo" })), "Owner/Repo");
+  __resetRepoSlugCache();
+});
+
+test("a stale budget is recovered by deleting it, and nothing is lost", () => {
+  // An earlier revision grew a `--repair` mutator here, because the refusal
+  // said "re-declare it" while `declare` made that impossible. The mutator was
+  // wrong in both rounds it existed -- the second time by carrying working-tree
+  // edits into a durable receipt -- and it was never needed: a budget holds
+  // only tier, repo and criticality. The round count is computed fresh from
+  // GitHub and extensions are separate files, so deleting and re-declaring
+  // reproduces the loop exactly. (Codex, PR #7 rounds 6 and 7.)
+  const legacy = JSON.parse(budget(60));
+  delete legacy.repo;
+  const io = fakeIo({
+    [budgetPath(60)]: json(legacy),
+    [extensionPath(60, 1)]: json(adjudication(60)),
+    [RECORD(60)]: recordFile(60),
+  });
+
+  // Stranded: the guard refuses, and the refusal names the way out.
+  const before = judgeReviewRequest(post(60), io, NOW);
+  assert.match(before.reason, /must record "repo"/);
+  assert.match(before.reason, /remove it and declare again/, "the refusal names a recovery that exists");
+  assert.throws(
+    () => declare({ pr: "60", tier: "product", criticality: "30", artifact: "x" }, io),
+    /already exists/,
+  );
+
+  // Delete, declare: the budget is rebuilt and the extension survives, which
+  // is the whole reason a mutator was never required.
+  delete io.store[budgetPath(60)];
+  declare({ pr: "60", tier: legacy.tier, criticality: "30", artifact: "x" }, io);
+  const after = JSON.parse(io.store[budgetPath(60)]);
+  assert.equal(after.repo, TEST_SLUG);
+  assert.equal(after.tier, legacy.tier);
+  assert.ok(io.store[extensionPath(60, 1)], "the grant history is untouched by the deletion");
+  // ...and the loop LOADS with it: presence of the file is not survival if
+  // loadLoop then refuses the chain. (Codex, PR #7 round 14.)
+  const reloaded = loadLoop(60, io);
+  assert.equal(reloaded.problem, undefined, reloaded.detail);
+  assert.equal(reloaded.extensions.length, 1, "the extension is part of the reloaded loop");
+});
+
+test("a pre-upgrade extension citing a record with no `repo` is refused at load, and the refusal says so", () => {
+  // The fleet-upgrade case. Not grandfathered -- a record with no repository
+  // cannot be bound -- but the refusal names the recovery rather than
+  // reading as a corrupt loop. (Codex, PR #7 round 14.)
+  const io = fakeIo({
+    [budgetPath(61)]: budget(61),
+    [extensionPath(61, 1)]: json(adjudication(61)),
+    [RECORD(61)]: recordFile(61, 5, { repo: null }),
+  });
+  const state = loadLoop(61, io);
+  assert.equal(state.problem, "bad-receipt");
+  assert.match(state.detail, /was generated for null/);
+});
+
 test("only what is in the ref grants rounds, whatever the working tree says", () => {
   // This replaces the old extensionDurability matrix. That function existed
   // only because decisions were read from the filesystem and then compared to
@@ -1417,23 +1626,23 @@ test("a round-check receipt must carry a coherent delivered/pending split", () =
   // The gate reads these directly now, so neither may be absent or wrong.
   const base = {
     pr: 1,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: TEST_SLUG,
     capturedAt: new Date(NOW - 60_000).toISOString(),
     nonce: "0123456789abcdef",
   };
   assert.match(
-    validateCheckReceipt(1, { ...base, spent: 2, pending: 0 }, NOW),
+    validateCheckReceipt(1, { ...base, spent: 2, pending: 0 }, NOW, TEST_SLUG),
     /no usable delivered count/,
   );
   assert.match(
-    validateCheckReceipt(1, { ...base, spent: 2, delivered: 2, pending: 2 }, NOW),
+    validateCheckReceipt(1, { ...base, spent: 2, delivered: 2, pending: 2 }, NOW, TEST_SLUG),
     /at most one round can be in flight/,
   );
   assert.match(
-    validateCheckReceipt(1, { ...base, spent: 5, delivered: 2, pending: 1 }, NOW),
+    validateCheckReceipt(1, { ...base, spent: 5, delivered: 2, pending: 1 }, NOW, TEST_SLUG),
     /does not add up/,
   );
-  assert.equal(validateCheckReceipt(1, { ...base, spent: 3, delivered: 2, pending: 1 }, NOW), null);
+  assert.equal(validateCheckReceipt(1, { ...base, spent: 3, delivered: 2, pending: 1 }, NOW, TEST_SLUG), null);
 });
 
 // ---------------------------------------------------------------------------
@@ -1488,7 +1697,7 @@ test("a snapshot must be strictly newer than the evidence already on file", () =
   // for a whole hour.
   const receipt = {
     pr: 1,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: TEST_SLUG,
     capturedAt: "2026-08-17T10:35:00Z",
     delivered: 1,
     pending: 0,
@@ -1614,3 +1823,186 @@ test("a standing terminal verdict refuses even a pending-round retry (Codex, #55
   assert.match(reason, /TERMINAL adjudication verdict is standing/);
 });
 
+
+// ---------------------------------------------------------------------------
+// Repository identity: declared in the working tree, read once, compared
+// everywhere. The threat model is a MISTAKE (wrong checkout, unedited seed),
+// not an adversary -- .agents/memory/machinery-threat-model-is-my-own-mistakes.md
+// ---------------------------------------------------------------------------
+
+test("the declared identity is what every check binds to", () => {
+  __resetRepoSlugCache();
+  const io = fakeIo({}, { slug: "Owner/Repo" });
+  assert.equal(repoSlug(io), "Owner/Repo");
+  assert.deepEqual(Object.keys(machineryConfig(io)), ["repo", "requiredChecks"], "identity and policy, one read");
+  __resetRepoSlugCache();
+});
+
+test("REFUSES to operate when no identity is declared", () => {
+  // The fail-closed direction is the whole point: every receipt and snapshot
+  // check binds to this identity, so guessing it would validate a receipt
+  // minted somewhere else.
+  __resetRepoSlugCache();
+  assert.throws(() => repoSlug(fakeIo({}, { slug: null })), /is missing/);
+  __resetRepoSlugCache();
+});
+
+test("identity is read from the WORKING TREE, by design", () => {
+  // Ten rounds moved this read to the durable ref and the base commit to
+  // defend against an actor who can edit this checkout -- the person running
+  // the script, who needs no exploit. The controls against deliberate action
+  // are David's merge and the server-side ruleset; this read exists to catch
+  // MISTAKES, and it is configuration, so it lives where configuration lives.
+  // (.agents/memory/machinery-threat-model-is-my-own-mistakes.md)
+  __resetRepoSlugCache();
+  const base = fakeIo({}, { slug: "Real/Repo" });
+  const edited = {
+    ...base,
+    root: "/test/edited",
+    read: (rel) =>
+      rel === MACHINERY_CONFIG_FILE ? JSON.stringify({ repo: "Other/Repo", requiredChecks: ["Test"] }) : base.read(rel),
+  };
+  assert.equal(repoSlug(edited), "Other/Repo", "the file on disk is the declaration");
+  __resetRepoSlugCache();
+});
+
+test("REFUSES a malformed declaration rather than reading past it", () => {
+  // Each of these is a different way to arrive at "no usable identity", and
+  // every one of them must refuse rather than fall through to a default.
+  const bad = {
+    "not json at all": /not valid JSON/,
+    "{}": /must declare "repo"/,
+    '{"repo":"onlyone"}': /must declare "repo"/,
+    '{"repo":"Owner/Repo/extra"}': /must declare "repo"/,
+    '{"repo":"   "}': /must declare "repo"/,
+    '{"repo":"OWNER/REPO"}': /still carries the template's placeholder/,
+    '{"repo":"Owner/Repo"}': /array of non-empty job names/,
+    '{"repo":"Owner/Repo","requiredChecks":[]}': /satisfied by any green set/,
+  };
+  for (const [config, expected] of Object.entries(bad)) {
+    __resetRepoSlugCache();
+    assert.throws(() => repoSlug(fakeIo({}, { config })), expected, config);
+  }
+  __resetRepoSlugCache();
+});
+
+test("identity is read ONCE per checkout, not per call", () => {
+  // The memo predates the guard giving up configuration reads entirely, so
+  // this is now a cheap property rather than a hot-path one. Kept because the
+  // cache is still what makes a single checkout's identity a single value.
+  __resetRepoSlugCache();
+  let reads = 0;
+  const base = fakeIo({}, { slug: "A/B" });
+  const io = {
+    ...base,
+    root: "/test/counted",
+    read: (rel) => {
+      if (rel === MACHINERY_CONFIG_FILE) reads++;
+      return base.read(rel);
+    },
+  };
+  assert.equal(repoSlug(io), "A/B");
+  assert.equal(repoSlug(io), "A/B");
+  assert.equal(repoSlug(io), "A/B");
+  assert.equal(reads, 1);
+  __resetRepoSlugCache();
+});
+
+test("identity comparison is case-insensitive on both sides", () => {
+  // A budget commonly spells the name in a different case than the GitHub API
+  // returns -- `ai-handbook` against `AI-Handbook` -- and they are the same
+  // repository. Asserted where the comparison now lives: a request that
+  // matches the budget only case-insensitively must be ALLOWED, or the loop
+  // is unusable in every repo whose declaration disagrees with the API.
+  __resetRepoSlugCache();
+  const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: "Owner/Repo" });
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: TEST_OWNER.toUpperCase(), repo: TEST_REPO.toUpperCase(), issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  // It gets past IDENTITY -- it is refused for a missing round-check receipt,
+  // the next gate, not for naming another repository.
+  assert.doesNotMatch(verdict.reason ?? "", /targets/, "case alone must not read as a different repository");
+  __resetRepoSlugCache();
+});
+
+test("a review request at ANOTHER repository is REFUSED, not skipped", () => {
+  // The root of every identity finding in this PR. Skipping made "which
+  // repository is this" decide whether the guard ran at all, so each way of
+  // getting the identity wrong became a silent bypass.
+  //
+  // The refusal is now the budget's, not a declared identity's: this
+  // checkout's budget for #1 was declared for TestOwner/TestRepo and the
+  // request names Someone/Else. Both values come from outside the working
+  // tree, so no edit here can make them agree.
+  __resetRepoSlugCache();
+  const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: "Owner/Repo" });
+  const verdict = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "Someone", repo: "Else", issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  assert.equal(verdict.blocked, true, "a foreign review request must block, not skip");
+  assert.match(verdict.reason, /declared for TestOwner\/TestRepo, but this review request targets Someone\/Else/);
+  __resetRepoSlugCache();
+});
+
+test("the guard governs a review request with NO configuration present at all", () => {
+  // Replaces "an undeclared identity BLOCKS...", which asserted a property
+  // this path no longer has and no longer needs. The guard reads no
+  // configuration, so a missing one cannot wedge it -- and cannot weaken it
+  // either, because the budget is what authorizes a round and the budget is
+  // read from the durable ref.
+  //
+  // The old test's real subject survives in the two below it: an exception
+  // escaping this function exits 1, which the hook reads as an error and lets
+  // the call through (.agents/memory/hook-uncaught-throw-fails-open.md). With
+  // no config on this path there is nothing left here to throw.
+  __resetRepoSlugCache();
+  const io = fakeIo({ [budgetPath(1)]: budget(1) }, { slug: null });
+  const mismatched = judgeReviewRequest(
+    {
+      toolName: "mcp__github__add_issue_comment",
+      toolInput: { owner: "A", repo: "B", issue_number: 1, body: "@codex review" },
+    },
+    io,
+    NOW,
+  );
+  assert.equal(mismatched.blocked, true, "the budget still governs with no config present");
+  assert.match(mismatched.reason, /declared for TestOwner\/TestRepo, but this review request targets A\/B/);
+
+  // And an ordinary comment is untouched, as ever.
+  const ordinary = judgeReviewRequest(post(1, "Thanks, fixed."), io, NOW);
+  assert.equal(ordinary.blocked, false);
+  __resetRepoSlugCache();
+});
+
+test("an undeclared identity does NOT block calls that are not review requests", () => {
+  // Resolving identity before establishing relevance refused every call the
+  // guard sees -- an ordinary PR comment, a `get_me` -- whenever the
+  // declaration was missing. Wrong direction for a check about review
+  // requests, and it would wedge a whole session. (Codex, PR #7 round 2.)
+  __resetRepoSlugCache();
+  const io = fakeIo({}, { slug: null });
+  for (const toolInput of [
+    { owner: "A", repo: "B", issue_number: 1, body: "Thanks, fixed in a1b2c3d." },
+    { owner: "A", repo: "B", issue_number: 1, body: "" },
+  ]) {
+    const verdict = judgeReviewRequest(
+      { toolName: "mcp__github__add_issue_comment", toolInput },
+      io,
+      NOW,
+    );
+    assert.equal(verdict.blocked, false, `an ordinary comment must pass: ${toolInput.body}`);
+  }
+  const unrelated = judgeReviewRequest({ toolName: "mcp__github__get_me", toolInput: {} }, io, NOW);
+  assert.equal(unrelated.blocked, false, "an unrelated tool must pass");
+  __resetRepoSlugCache();
+});

@@ -733,8 +733,8 @@ const reviewPayload = (body, overrides = {}) =>
   JSON.stringify({
     tool_name: REVIEW_TOOL,
     tool_input: {
-      owner: "TheAnswerManIsHere",
-      repo: "Overhypeme",
+      owner: TEST_OWNER,
+      repo: TEST_REPO,
       issue_number: 991,
       body,
       ...overrides,
@@ -742,10 +742,20 @@ const reviewPayload = (body, overrides = {}) =>
   });
 
 /** An in-memory receipt store, so these tests never touch .agents/receipts. */
+// The payload no longer hardcodes one repository's identity, so the fake io
+// supplies it -- a test must not depend on which repo it runs inside.
+const TEST_OWNER = "TestOwner";
+const TEST_REPO = "TestRepo";
+const TEST_SLUG = `${TEST_OWNER}/${TEST_REPO}`;
+
 const memoryIo = (files = {}) => {
-  const store = { ...files };
+  // The identity is a seeded FILE, not an injected method: production reads
+  // it through `read`, so stubbing a separate seam would exercise a path
+  // production never takes.
+  const store = { ".agents/machinery.json": JSON.stringify({ repo: TEST_SLUG, baseBranch: "main" }), ...files };
   return {
     store,
+    root: `/test/${Math.random().toString(36).slice(2)}`,
     now: () => NOW_ISO,
     read: (rel) => (rel in store ? store[rel] : null),
     exists: (rel) => rel in store,
@@ -779,6 +789,9 @@ const budgetFile = (pr, tier, cap) =>
   JSON.stringify({
     pr,
     tier,
+    // The repository the budget was declared for, matched against the
+    // identity in the DURABLE ref -- the fake serves the same store for both.
+    repo: TEST_SLUG,
     budget: cap,
     criticality: 30,
     artifact: "x",
@@ -789,7 +802,7 @@ const budgetFile = (pr, tier, cap) =>
 const checkFile = (pr, spent) =>
   JSON.stringify({
     pr,
-    repo: "TheAnswerManIsHere/Overhypeme",
+    repo: TEST_SLUG,
     capturedAt: "2026-08-17T11:59:00.000Z",
     delivered: spent,
     pending: 0,
@@ -827,8 +840,10 @@ test("an @codex review post past its budget is refused at tripwire 1", () => {
 
 test("an ordinary PR comment is unaffected by the budget", () => {
   const io = memoryIo();
+  // The seeded declaration, which the guard READS and must not modify.
+  const before = { ...io.store };
   assert.equal(decide(reviewPayload("Fixed in abc1234 — resolving this thread."), { io, now: NOW_MS }).blocked, false);
-  assert.deepEqual(io.store, {}, "and nothing is written");
+  assert.deepEqual(io.store, before, "and nothing is written");
 });
 
 test("the three judgements do not leak into each other", () => {
@@ -912,6 +927,7 @@ const READY = {
   verdict: "READY",
   pr: 500,
   repo: "TheAnswerManIsHere/Overhypeme",
+  requiredChecks: ["Build", "Test"],
   headSha: "a".repeat(40),
   branch: "claude/x",
   generatedAt: new Date(Date.now() - 60_000).toISOString(),
@@ -924,8 +940,43 @@ const READY = {
 
 const MERGE_INPUT = { pullNumber: 500, owner: "TheAnswerManIsHere", repo: "Overhypeme" };
 
-const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT } = {}) =>
-  checkMerge(input, { readReceipt: () => receipt, resolveSha: () => tip });
+const CONFIG = { repo: READY.repo, requiredChecks: READY.requiredChecks };
+const mergeReason = (receipt, { tip = READY.headSha, input = MERGE_INPUT, config = CONFIG } = {}) =>
+  checkMerge(input, {
+    readReceipt: () => receipt,
+    resolveSha: () => tip,
+    resolveConfig: () => {
+      if (config instanceof Error) throw config;
+      return config;
+    },
+  });
+
+test("merge gate: a receipt minted under a DIFFERENT required-checks policy blocks", () => {
+  // Stamp on mint, compare on consume -- for requiredChecks as for repo.
+  // (Codex, PR #7 round 12.)
+  const weaker = { ...READY, requiredChecks: ["Build"] };
+  assert.match(mergeReason(weaker), /minted under required checks \[Build\], but .* now declares \[Build, Test\]/);
+  assert.equal(mergeReason({ ...READY, requiredChecks: ["Test", "Build"] }), null, "order-insensitive");
+  assert.match(mergeReason({ ...READY, requiredChecks: undefined }), /records no required-checks policy/);
+});
+
+test("merge gate: a configuration for ANOTHER repository blocks -- the merge is being run from the wrong checkout", () => {
+  // A receipt for B, minted while the config mistakenly said B; config
+  // corrected to A; merge of B attempted from A's checkout. Receipt-to-target
+  // passes (both B), and B's policy would be judged against A's list. The
+  // mistake is the checkout, and that is what the refusal names.
+  // (Codex, PR #7 round 13.)
+  assert.match(
+    mergeReason(READY, { config: { repo: "Other/Repo", requiredChecks: READY.requiredChecks } }),
+    /configured as Other\/Repo, but the merge targets TheAnswerManIsHere\/Overhypeme/,
+  );
+  assert.equal(mergeReason(READY, { config: { repo: READY.repo.toUpperCase(), requiredChecks: READY.requiredChecks } }), null, "case-insensitive");
+});
+
+test("merge gate: an UNREADABLE configuration blocks rather than throwing out of the hook", () => {
+  // The hook cannot let a throw escape: exit 1 lets the tool call proceed.
+  assert.match(mergeReason(READY, { config: new Error("machinery.json is missing") }), /configuration could not be read \(machinery.json is missing\)/);
+});
 
 test("merge gate: a current, passing receipt allows the merge", () => {
   assert.equal(mergeReason(READY), null);

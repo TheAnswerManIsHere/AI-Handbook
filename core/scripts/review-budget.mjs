@@ -129,8 +129,106 @@ export const RECEIPTS_DIR = ".agents/receipts";
 // posture as RECEIPTS_DIR above: a stable, well-known repo-relative path, not
 // a value expected to drift.
 const ADJUDICATIONS_DIR = ".agents/adjudications";
-export const REPO_OWNER = "TheAnswerManIsHere";
-export const REPO_NAME = "Overhypeme";
+export const MACHINERY_CONFIG_FILE = ".agents/machinery.json";
+
+export const MACHINERY_CONFIG_HOWTO =
+  `Commit ${MACHINERY_CONFIG_FILE} declaring this repository's machinery configuration. Shape: ` +
+  `{"repo": "owner/name", "requiredChecks": ["Job Name", ...]}.`;
+
+const SLUG_RE = /^[^/\s]+\/[^/\s]+$/;
+
+// The exact value `machinery.template.json` ships. Compared EXACTLY, not
+// case-folded: "Owner/Repo" is a plausible real repository name, and a check
+// that rejected it would refuse a legitimate consumer to catch an edit
+// nobody makes -- changing the placeholder's case while leaving its letters.
+const PLACEHOLDER_SLUG = "OWNER/REPO";
+
+// Memoized per root: a checkout's configuration cannot change inside one
+// process, and this is read on paths that run per command.
+const CONFIG_CACHE = new Map();
+
+/**
+ * This repository's declared identity, read from the working tree.
+ *
+ * THE THREAT MODEL IS MY OWN MISTAKES, NOT AN ADVERSARY. Ten review rounds
+ * on PR #7 moved this read from the working tree to the durable ref to the
+ * base commit and back, each time defending against an actor who can edit
+ * files in this checkout -- who is the person running the script. That actor
+ * needs no exploit; it can simply not run the guard. The controls against
+ * deliberate action are David's merge and the server-side ruleset, and no
+ * local script can add to them. What this read has to do is catch a
+ * MISTAKE: declaring a budget in the wrong checkout, or running with the seed
+ * placeholder still in place. It does that by failing closed on absent,
+ * malformed, or placeholder, and by being the ONE place identity is read.
+ * (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
+ *
+ * It is configuration, and configuration lives in the working tree. Every
+ * artifact the machinery mints is stamped from here; every artifact it
+ * consumes is compared to it, or -- on the guard path, which cannot afford a
+ * throw -- to the budget receipt that was stamped from it. The required-
+ * checks policy comes from the same read, so pr-ready.mjs has no reader of
+ * its own.
+ */
+export function machineryConfig(io = nodeIo()) {
+  const key = io.root ?? "";
+  if (!CONFIG_CACHE.has(key)) {
+    // `io.read` returns null only for ENOENT; a permissions or I/O fault
+    // throws rather than being collapsed into "absent".
+    const raw = io.read(MACHINERY_CONFIG_FILE);
+    if (raw === null) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} is missing, so this checkout cannot say which repository it is. ` +
+          MACHINERY_CONFIG_HOWTO,
+      );
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error(`${MACHINERY_CONFIG_FILE} is not valid JSON. ${MACHINERY_CONFIG_HOWTO}`);
+    }
+    const repo = typeof parsed?.repo === "string" ? parsed.repo.trim() : "";
+    if (!SLUG_RE.test(repo)) {
+      throw new Error(`${MACHINERY_CONFIG_FILE} must declare "repo" as "owner/name". ${MACHINERY_CONFIG_HOWTO}`);
+    }
+    // The seed's placeholder is SHAPED like an identity, so every structural
+    // check passed it and an unedited template produced a working config
+    // naming a repository that does not exist. (Codex, PR #7 round 6.)
+    if (repo === PLACEHOLDER_SLUG) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} still carries the template's placeholder "${repo}". Replace it with ` +
+          `this repository's real owner/name -- the seed is a form to fill in, not a default.`,
+      );
+    }
+    // The required-checks list, validated here so pr-ready.mjs reads it
+    // through the same function that reads identity -- one reader, one
+    // memo, one set of refusals.
+    const list = parsed?.requiredChecks;
+    if (!Array.isArray(list) || list.some((n) => typeof n !== "string" || n.trim() === "")) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} must carry "requiredChecks" as an array of non-empty job names. ${MACHINERY_CONFIG_HOWTO}`,
+      );
+    }
+    if (list.length === 0) {
+      throw new Error(
+        `${MACHINERY_CONFIG_FILE} declares an empty "requiredChecks". A gate that requires nothing is ` +
+          `satisfied by any green set, which is the fail-open direction this list exists to prevent. ` +
+          MACHINERY_CONFIG_HOWTO,
+      );
+    }
+    CONFIG_CACHE.set(key, { repo, requiredChecks: list });
+  }
+  return CONFIG_CACHE.get(key);
+}
+
+export function repoSlug(io = nodeIo()) {
+  return machineryConfig(io).repo;
+}
+
+/** Test seam: forget any parsed configuration. Never called in production. */
+export function __resetRepoSlugCache() {
+  CONFIG_CACHE.clear();
+}
 
 /**
  * How old a round-check receipt's evidence may be. Same figure as
@@ -379,13 +477,6 @@ export function prNumberFrom(toolInput) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/** True when the call targets this repo. Anything else is not our loop. */
-export function targetsThisRepo(toolInput) {
-  const owner = String(toolInput?.owner ?? "").toLowerCase();
-  const repo = String(toolInput?.repo ?? "").toLowerCase();
-  return owner === REPO_OWNER.toLowerCase() && repo === REPO_NAME.toLowerCase();
-}
-
 // ---------------------------------------------------------------------------
 // Receipt paths. Budget and extensions are committed (decisions); the round
 // check is ephemeral (evidence) and covered by .gitignore.
@@ -451,6 +542,7 @@ function extensionSequence(pr, name) {
 export function nodeIo(root = REPO_ROOT) {
   const abs = (rel) => path.join(root, rel);
   return {
+    root,
     now: () => new Date().toISOString(),
     /**
      * `null` means the file is ABSENT. Anything else -- a permissions error, a
@@ -749,6 +841,22 @@ export function validateBudget(pr, receipt) {
   if (typeof receipt.artifact !== "string" || !receipt.artifact.trim()) {
     return "budget receipt needs a non-empty `artifact` naming what is under review";
   }
+  // The budget must NAME its repository. It is not compared here: this
+  // function validates the receipt's own shape, and the comparison that
+  // matters -- against the repository the outgoing request names -- belongs
+  // where that value exists. Absent is REFUSED rather than tolerated, because
+  // a budget that names no repository cannot be told apart from another
+  // repository's budget for the same PR number, which is the whole defect.
+  // (Codex, PR #7 round 4.)
+  if (typeof receipt.repo !== "string" || !SLUG_RE.test(receipt.repo.trim())) {
+    return (
+      'budget receipt must record "repo" as the "owner/name" it was declared for, so it cannot be ' +
+      "mistaken for another repository's budget for the same PR number. This is where a budget written " +
+      "before that field existed lands: remove it and declare again -- the round count comes from GitHub and extension receipts are " +
+      "separate files, so nothing is lost (unless an extension cites a record written before records carried " +
+      "`repo`, which is refused at load: regenerate that record, or retire the extension)"
+    );
+  }
   return null;
 }
 
@@ -769,7 +877,7 @@ export function validateBudget(pr, receipt) {
  * likelier failures than the fabrication this module's header declines to
  * defend against.
  */
-function validateRecordReference(pr, tier, recordPath, io, ref, preceding = []) {
+function validateRecordReference(pr, tier, recordPath, io, ref, preceding = [], slug = null) {
   // pr-ready.mjs's merge-gate fallback requires every recordPath to live
   // under ADJUDICATIONS_DIR (never trusting an arbitrary path), so a
   // receipt this guard accepts as closing the loop must be one that gate
@@ -795,6 +903,27 @@ function validateRecordReference(pr, tier, recordPath, io, ref, preceding = []) 
     return `${recordPath} was not produced by review-loop-record.mjs (generator: ${JSON.stringify(parsed.value?.generator)})`;
   }
   if (parsed.value?.pr !== pr) return `${recordPath} describes PR ${parsed.value?.pr}, not ${pr}`;
+  // A PR NUMBER DOES NOT IDENTIFY A LOOP. Every repository has a #7, so a
+  // record generated in repository B and committed here -- same number,
+  // same shape -- was accepted as this loop's evidence, and B's rounds and
+  // findings could grant an extension here. The record has recorded `repo`
+  // since round 9 and nothing read it: written at the writer, consumed
+  // nowhere. (Codex, PR #7 round 9.)
+  //
+  // Compared against the BUDGET this loop was loaded from, which is where
+  // the record's own `repo` was copied from at generation time. Not against
+  // a separately-resolved identity: two sources of identity with a consumer
+  // bound to one and its counterpart bound to the other is the defect this
+  // file has produced eleven times.
+  if (!slug) {
+    return `${recordPath} cannot be bound to a repository -- no budget identity was supplied to validate it against`;
+  }
+  if (typeof parsed.value?.repo !== "string" || parsed.value.repo.toLowerCase() !== slug.toLowerCase()) {
+    return (
+      `${recordPath} was generated for ${JSON.stringify(parsed.value?.repo ?? null)}, but this loop's budget ` +
+      `records ${slug}. Regenerate the record in a checkout of ${slug} -- a PR number alone does not identify a loop`
+    );
+  }
   const passes = parsed.value?.rounds?.completedReviewerPasses;
   // AGAINST THE ALLOWANCE THIS RECEIPT'S OWN STAGE STARTS AT, never the base
   // tier cap. Repeat adjudications are valid as of 2026-08-20, and the base cap
@@ -817,7 +946,7 @@ function validateRecordReference(pr, tier, recordPath, io, ref, preceding = []) 
   return null;
 }
 
-export function validateExtension(pr, tier, receipt, { io, ref, preceding = [] }) {
+export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], slug = null }) {
   if (!receipt || typeof receipt !== "object") return "extension receipt is not an object";
   if (receipt.pr !== pr) return `extension receipt names PR ${receipt.pr}, not ${pr}`;
 
@@ -877,7 +1006,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [] }
     if (!Array.isArray(receipt.gaps)) {
       return "adjudication receipt must carry the adjudicator's `gaps` array, verbatim (empty is valid for a verdict with no known gaps)";
     }
-    const recordError = validateRecordReference(pr, tier, receipt.recordPath, io, ref, preceding);
+    const recordError = validateRecordReference(pr, tier, receipt.recordPath, io, ref, preceding, slug);
     if (recordError) return recordError;
     if (receipt.verdict !== "continue") return null; // ship-with-gaps-recorded / split / escalate grant nothing further
     // The adjudicator owns the SIZE of an extension (David, 2026-08-20); the
@@ -983,6 +1112,23 @@ export function loadLoop(pr, io) {
   if (budget.state !== "ok") {
     return { problem: "bad-receipt", detail: `${budgetPath(pr)} could not be read from ${ref} (${budget.state}: ${budget.error})` };
   }
+  // NO IDENTITY LOOKUP HERE, deliberately, and this is the change that ends
+  // the class rather than shrinking it.
+  //
+  // Every previous version compared the budget against "this repository's
+  // identity" resolved from somewhere -- the working tree, then the durable
+  // ref -- and every one left a consumer bound to the other source, which is
+  // what rounds 3, 4 and 5 each found in turn. The fix is not a better source.
+  // It is noticing that this decision never needed one: the budget receipt
+  // ALREADY records the repository it was declared for, out of the same ref
+  // its rounds come from, and the guard already knows the repository the
+  // outgoing request names. Comparing those two is the whole question, and
+  // neither side can be moved by editing a file in this checkout.
+  //
+  // So the comparison moves to `judgeReviewRequest`, where both values are in
+  // hand, and this path keeps the invariant the tests above pin: the bytes
+  // that grant rounds are the durable bytes, and the working tree is not read
+  // at all. (Codex, PR #7 round 5; David's option 1.)
   const budgetError = validateBudget(pr, budget.value);
   if (budgetError) return { problem: "bad-receipt", detail: `${budgetPath(pr)} (in ${ref}): ${budgetError}` };
 
@@ -1033,7 +1179,7 @@ export function loadLoop(pr, io) {
     }
     // Only the extensions already accepted, in sequence order: this receipt
     // must answer the tripwire THEY establish, not an earlier one.
-    const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions });
+    const error = validateExtension(pr, tier, parsed.value, { io, ref, preceding: extensions, slug: budget.value.repo });
     if (error) return { problem: "bad-receipt", detail: `${rel} (in ${ref}): ${error}` };
     extensions.push({ seq, ...parsed.value });
   }
@@ -1162,10 +1308,13 @@ export function countRounds({ reviewerPasses, issueComments }) {
 }
 
 /** What the round-check CLI writes and the guard demands. */
-export function validateCheckReceipt(pr, receipt, now) {
+export function validateCheckReceipt(pr, receipt, now, slug) {
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+    throw new Error("validateCheckReceipt requires an explicit repository slug -- pass the one the caller already trusts");
+  }
   if (!receipt || typeof receipt !== "object") return "round-check receipt is not an object";
   if (receipt.pr !== pr) return `round-check receipt names PR ${receipt.pr}, not ${pr}`;
-  const target = `${REPO_OWNER}/${REPO_NAME}`;
+  const target = slug;
   if (typeof receipt.repo !== "string" || receipt.repo.toLowerCase() !== target.toLowerCase()) {
     return `round-check receipt was minted for ${receipt.repo ?? "an unrecorded repository"}, not ${target}`;
   }
@@ -1207,10 +1356,10 @@ export function validateCheckReceipt(pr, receipt, now) {
 // The decision
 // ---------------------------------------------------------------------------
 
-const CHECK_HOWTO = (pr) =>
+const CHECK_HOWTO = (pr, slug) =>
   `Capture pull_request_read (get, get_reviews, get_comments) into a snapshot and run ` +
   `\`node scripts/review-budget.mjs check --pr ${pr} --mcp-snapshot <file>\`. The snapshot must carry ` +
-  `repo: "${REPO_OWNER}/${REPO_NAME}", pr.number, a capturedAt timestamp from when GitHub was actually ` +
+  `repo: "${slug}", pr.number, a capturedAt timestamp from when GitHub was actually ` +
   `read, complete.reviews/complete.issueComments attestations, a body on every issue comment and on every ` +
   `reviewer-authored review, and must be re-captured rather than reused once it is an hour old.`;
 
@@ -1320,9 +1469,32 @@ function refusal(pr, state, spent, tiedCount = false) {
  * one post.
  */
 export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now = Date.now()) {
+  // RELEVANCE FIRST, IDENTITY SECOND, and the order is load-bearing in both
+  // directions. Resolving identity up here refused every call the guard sees
+  // -- an ordinary PR comment, a `get_me` -- whenever the declaration was
+  // missing, because the refusal fired before anything had established that
+  // this call was even a review request. (Codex, PR #7 round 2.) Below these
+  // two lines, every remaining path IS a review request, so a refusal there
+  // is about the thing being guarded.
   if (!REVIEW_REQUEST_TOOLS.has(toolName)) return { blocked: false, reason: null };
   if (!mentionsReviewRequest(toolInput?.body)) return { blocked: false, reason: null };
-  if (!targetsThisRepo(toolInput)) return { blocked: false, reason: null };
+
+  // NO IDENTITY LOOKUP ON THIS PATH AT ALL.
+  //
+  // A declared-identity comparison used to sit here, and before that a skip.
+  // Both are gone, and the deletion is the point: the budget comparison below
+  // asks a strictly stronger question using only values this checkout cannot
+  // edit. "Is this my repository?" can be answered wrongly by a bad
+  // declaration -- which is what rounds 3, 4 and 5 each found a new way to do.
+  // "Is this the loop whose rounds I am about to spend?" cannot: the budget
+  // records the repository it was declared for, read out of the durable ref,
+  // and the tool input names the repository about to be posted to. Nothing in
+  // between, so there is no second source to drift from a first.
+  //
+  // A request aimed at another repository still refuses -- on that comparison,
+  // or on "no budget declared" when this checkout has no budget for that PR
+  // number at all. Neither can be switched off by editing a file here.
+  // (Codex, PR #7 round 5; David's option 1.)
 
   // Refuse the trigger on any surface the count cannot see. This is what makes
   // `issueComments` a complete pending surface -- see REVIEW_REQUEST_SURFACE.
@@ -1377,23 +1549,53 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
       reason: `round-budget receipt is unusable, so the budget cannot be checked: ${state.detail}`,
     };
   }
+  // THE COMPARISON THAT ENDS THE IDENTITY CLASS.
+  //
+  // Both sides are beyond the reach of anything in this working tree: the
+  // budget's repository comes out of the durable ref, and the target is the
+  // repository this call is about to post to. No configuration is consulted,
+  // so there is no second source to drift from a first -- which is what every
+  // one of rounds 3, 4 and 5's findings turned out to be.
+  //
+  // This subsumes the declared-identity check above rather than duplicating
+  // it: that one answers "is this my repository", which a wrong declaration
+  // can get wrong; this one answers "is this the loop whose rounds I am
+  // about to spend", which it cannot. (Codex, PR #7 round 5.)
+  const target = `${toolInput?.owner ?? "?"}/${toolInput?.repo ?? "?"}`;
+  if (state.budget.repo.toLowerCase() !== target.toLowerCase()) {
+    return {
+      blocked: true,
+      reason:
+        `the budget for PR #${pr} in this checkout was declared for ${state.budget.repo}, but this ` +
+        `review request targets ${target}. A budget authorizes rounds in the repository it was ` +
+        `declared for and no other, so spending it here would let a round go uncounted against the ` +
+        `loop it belongs to. Post the request from a checkout of ${target}, whose own budget and ` +
+        `round count cover it.`,
+    };
+  }
+
+  // THE LOOP'S REPOSITORY, for everything downstream: the round-check receipt
+  // it validates and the how-to text it prints. Taken from the budget rather
+  // than resolved again, so the receipt is checked against the same value the
+  // request was -- one source, carried, never re-derived.
+  const slug = state.budget.repo;
 
   const check = readJson(io, checkPath(pr));
   if (check.state === "absent") {
     return {
       blocked: true,
-      reason: `no round-check receipt for PR #${pr} -- the round count is evidence, not recollection. ${CHECK_HOWTO(pr)}`,
+      reason: `no round-check receipt for PR #${pr} -- the round count is evidence, not recollection. ${CHECK_HOWTO(pr, slug)}`,
     };
   }
   if (check.state !== "ok") {
     return {
       blocked: true,
-      reason: `round-check receipt for PR #${pr} could not be read (${check.state}: ${check.error}). ${CHECK_HOWTO(pr)}`,
+      reason: `round-check receipt for PR #${pr} could not be read (${check.state}: ${check.error}). ${CHECK_HOWTO(pr, slug)}`,
     };
   }
-  const checkError = validateCheckReceipt(pr, check.value, now);
+  const checkError = validateCheckReceipt(pr, check.value, now, slug);
   if (checkError) {
-    return { blocked: true, reason: `${checkError}. ${CHECK_HOWTO(pr)}` };
+    return { blocked: true, reason: `${checkError}. ${CHECK_HOWTO(pr, slug)}` };
   }
 
   // A RETRY OF A STALLED ROUND IS NOT A NEW ROUND, and refusing it was a real
@@ -1455,7 +1657,7 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
         blocked: true,
         reason:
           `the round-check receipt for PR #${pr} has already been claimed by another post in flight -- one ` +
-          `check authorizes one request. ${CHECK_HOWTO(pr)}`,
+          `check authorizes one request. ${CHECK_HOWTO(pr, slug)}`,
       };
     }
     // Consume the receipt: one check, one post. Written before the post goes
@@ -1471,7 +1673,7 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
       reason:
         `the round-check receipt for PR #${pr} could not be claimed or consumed (${err.message}), so this ` +
         `post cannot be recorded as spending its round. Refusing rather than proceeding on an unrecorded ` +
-        `round. ${CHECK_HOWTO(pr)}`,
+        `round. ${CHECK_HOWTO(pr, slug)}`,
     };
   }
   return { blocked: false, reason: null };
@@ -1514,7 +1716,7 @@ const requirePr = (flags) => {
   return pr;
 };
 
-function declare(flags, io) {
+export function declare(flags, io) {
   const pr = requirePr(flags);
   if (!Object.hasOwn(TIERS, flags.tier)) {
     throw new Error(`--tier must be one of: ${Object.keys(TIERS).join(", ")}`);
@@ -1523,6 +1725,18 @@ function declare(flags, io) {
   const receipt = {
     pr,
     tier: flags.tier,
+    // WHICH REPOSITORY THIS BUDGET IS FOR.
+    //
+    // Without it the budget was found by PR NUMBER alone, out of this
+    // checkout's durable ref, and never compared to anything. So an
+    // uncommitted edit of the declared identity pointed the guard at another
+    // repository while `loadLoop` went on serving THIS repository's budget --
+    // letting one local file relabel another repo's loop and spend a round
+    // that repo never budgeted. Recording it here is what makes the
+    // both-sides claim in the identity header actually true: move the
+    // declaration and the budget stops matching, instead of quietly coming
+    // along. (Codex, PR #7 round 4.)
+    repo: repoSlug(io),
     budget: TIERS[flags.tier].budget,
     criticality,
     artifact: flags.artifact ?? "",
@@ -1532,8 +1746,28 @@ function declare(flags, io) {
   if (error) throw new Error(error);
   // Never silently replace a live budget: overwriting one mid-loop could move
   // the tier under a loop already in flight.
+  //
+  // THE RECOVERY IS DELETE-THEN-DECLARE, and naming it correctly is the whole
+  // fix. An earlier revision grew a `--repair` mutator here, because the
+  // refusal said "re-declare it" while this line made that impossible. But a
+  // budget receipt holds only `tier`, `repo` and `criticality`: the round
+  // count is computed fresh from GitHub, and extensions are separate files
+  // keyed by sequence. So removing the file and declaring again reproduces
+  // the loop, and the extension files are untouched by the deletion. ONE
+  // CAVEAT, found in round 14: an extension that cites a record written
+  // before records carried `repo` is refused at load, since a record with no
+  // repository cannot be bound. That is the fleet-upgrade case, not the
+  // wrong-repository case; the recovery there is to regenerate the record
+  // (one command) or retire that extension, and the refusal says which.
   if (io.exists(budgetPath(pr))) {
-    throw new Error(`${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop`);
+    throw new Error(
+      `${budgetPath(pr)} already exists -- a declared budget is not re-declared mid-loop. If it names the ` +
+        `wrong repository or none at all, remove it and declare again; the round count comes from GitHub and extension receipts are ` +
+        `separate files, so nothing is lost (unless an extension cites a record written before records ` +
+        `carried \`repo\`, which is refused at load: regenerate that record, or retire the extension):\n  git rm ${budgetPath(pr)} && git ` +
+        `commit -m "drop stale budget for #${pr}" && git push\n  node scripts/review-budget.mjs declare ` +
+        `--pr ${pr} --tier <tier> --criticality <1-100> --artifact "<what is under review>"`,
+    );
   }
   io.write(budgetPath(pr), `${JSON.stringify(receipt, null, 2)}\n`);
   const cap = tierCap(flags.tier);
@@ -1566,7 +1800,10 @@ const hasStableId = (record) =>
   (typeof record?.id === "number" && Number.isFinite(record.id)) ||
   (typeof record?.id === "string" && record.id.length > 0);
 
-export function assertCountingSnapshot(pr, snapshot, now = Date.now()) {
+export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+    throw new Error("assertCountingSnapshot requires an explicit repository slug -- pass the one the caller already trusts");
+  }
   if (!snapshot || typeof snapshot !== "object") throw new Error("snapshot is not an object");
   if (snapshot.pr?.number !== pr) {
     throw new Error(`snapshot describes PR ${snapshot.pr?.number}, but --pr says ${pr}`);
@@ -1577,11 +1814,23 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now()) {
   // while `check` stamped the receipt with THIS repo's name regardless of
   // where the data came from. (Codex, #503 round 4. `pr-ready.mjs` already
   // binds its readiness snapshot this way; this path did not.)
-  const target = `${REPO_OWNER}/${REPO_NAME}`;
+  const target = slug;
   if (typeof snapshot.repo !== "string" || snapshot.repo.toLowerCase() !== target.toLowerCase()) {
     throw new Error(
       `snapshot must name its source repository as "repo": "${target}" -- it says ` +
         `${JSON.stringify(snapshot.repo ?? null)}, and a PR number alone does not identify a pull request`,
+    );
+  }
+  // `snapshot.repo` is the OPERATOR'S word -- the skill says to transcribe it
+  // from config -- so it can agree with the budget while the collections
+  // were captured from another repository's PR. `pr.head.repo` is GitHub's
+  // word (pull_request_read get, head.repo.full_name) and must agree too.
+  // (Codex, PR #7 round 14. pr-ready.mjs's assertSnapshot already did this.)
+  const head = snapshot.pr?.head?.repo;
+  if (typeof head !== "string" || head.toLowerCase() !== target.toLowerCase()) {
+    throw new Error(
+      `snapshot.pr.head.repo must be "${target}" (pull_request_read get, head.repo.full_name) -- it says ` +
+        `${JSON.stringify(head ?? null)}. The collections were captured from a different pull request than the budget covers`,
     );
   }
   // FRESHNESS IS A PROPERTY OF THE EVIDENCE, NOT OF THE COMMAND.
@@ -1660,13 +1909,19 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now()) {
 
 async function check(flags, io) {
   const pr = requirePr(flags);
-  if (!flags["mcp-snapshot"]) throw new Error(`--mcp-snapshot <file> is required. ${CHECK_HOWTO(pr)}`);
-  const snapshot = JSON.parse(fs.readFileSync(flags["mcp-snapshot"], "utf8"));
-  assertCountingSnapshot(pr, snapshot, Date.parse(io.now()));
 
+  // The budget is loaded first because the round-check receipt is minted
+  // AGAINST it: `judgeReviewRequest` validates the receipt's repository
+  // against the budget's, so stamping it from the same value is what makes
+  // that comparison pass in honest operation.
   const state = loadLoop(pr, io);
   if (state.problem === "no-budget") throw new Error(`no budget declared for PR #${pr} -- declare first`);
   if (state.problem) throw new Error(`cannot check: ${state.detail}`);
+  const slug = state.budget.repo;
+
+  if (!flags["mcp-snapshot"]) throw new Error(`--mcp-snapshot <file> is required. ${CHECK_HOWTO(pr, slug)}`);
+  const snapshot = JSON.parse(fs.readFileSync(flags["mcp-snapshot"], "utf8"));
+  assertCountingSnapshot(pr, snapshot, Date.parse(io.now()), slug);
 
   // EACH CHECK NEEDS STRICTLY NEWER EVIDENCE THAN THE LAST ONE.
   //
@@ -1701,7 +1956,7 @@ async function check(flags, io) {
 
   const receipt = {
     pr,
-    repo: `${REPO_OWNER}/${REPO_NAME}`,
+    repo: slug,
     // The snapshot's own capture time, NOT `io.now()`. See the freshness note
     // in assertCountingSnapshot: stamping the command time lets a stale
     // snapshot mint an indefinitely-renewable receipt.

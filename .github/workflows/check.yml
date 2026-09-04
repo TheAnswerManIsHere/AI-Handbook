@@ -109,3 +109,14 @@ jobs:
           node-version: '22'
       - name: Check payload coverage
         run: node scripts/check-manifest.mjs
+
+      # Every place a repository identity enters a decision, classified.
+      #
+      # This runs in the Manifest job rather than Test because it is the same
+      # kind of check: a claim about the payload that a human would otherwise
+      # be asked to make from memory. Across nine review rounds on PR #7, six
+      # confident descriptions of where identity comes from were published and
+      # disproved — two of them measured before publishing. This reads the
+      # code instead.
+      - name: Check identity sources
+        run: node scripts/check-identity-sources.mjs

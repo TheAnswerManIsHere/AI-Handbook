@@ -631,12 +631,15 @@ groups:
       # not have. (Codex, round 7 of PR #3; issue #4.)
       - memory
     blocker: >
-      guard.sh and guard-decision.mjs carry the repo identity used to verify
-      that a merge or review action targets the repo the receipt was minted
-      for. That identity is currently a hardcoded literal (see the `machinery`
-      group's blocker — the same change covers both). Syncing this group
-      before that lands would install a guard in DojoOS that authorizes
-      against Overhype's identity, which is worse than no guard. Round 6 added a
+      The repo-identity condition is RESOLVED and is no longer a reason this
+      group cannot ship. guard-decision.mjs carried a hardcoded literal; it now
+      consults no configuration at all, because the merge and review gates
+      compare artifacts that already name their repository -- the budget
+      receipt against the outgoing request, and the readiness receipt against
+      the merge tool's own owner/repo. There is no identity for a consumer to
+      get wrong here, and nothing to restore: an audit finding this paragraph
+      should check that property rather than look for the mechanism it used to
+      describe. Round 6 added a
       second condition: guard-decision.mjs deliberately does NOT enforce
       PR-only-changes or passing-checks locally, delegating both to a
       server-side branch ruleset. That delegation is sound where the ruleset
@@ -660,6 +663,17 @@ groups:
   - id: machinery
     mode: sync
     status: staged
+    requires:
+      # MUTUAL with machinery-config, and deliberately so. review-budget.mjs
+      # and pr-ready.mjs OPEN .agents/machinery.json -- they refuse without
+      # it, which is the instruction end of the instruction-vs-evidence test,
+      # not a sentence about where something lives. The reverse holds too: the
+      # seeded file is inert with nothing to read it. They are one thing split
+      # across two groups for exactly one reason -- a group carries a single
+      # mode, and the scripts are sync (the handbook owns them) while the
+      # config is seed (the consumer owns it after the first write). So the
+      # two flip in one commit, the way claude-core and planning already do.
+      - machinery-config
     mentions:
       - group: skills
         ref: core/.claude/skills/uat/SKILL.md
@@ -699,6 +713,39 @@ groups:
           pr-ready.mjs's error text points a human at a memory entry for
           background. A dangling pointer if memory is absent, not a broken
           code path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/review-budget.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          review-budget.mjs's identity-reader header cites the threat-model entry as the reason the read is from the working tree. A dangling pointer if memory is absent, not a broken code
+          path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/pr-ready.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 2
+        why: >
+          pr-ready.mjs's config-adapter header and its required-checks header
+          each cite the same entry for the same reason. A dangling pointer if
+          memory is absent, not a broken code path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/__tests__/review-budget.test.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 2
+        why: >
+          Two test comments cite the entry as the design rationale they assert. Comments, not imports. A dangling pointer if memory is absent, not a broken code
+          path.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/__tests__/pr-ready.test.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          One test comment cites the entry as the design rationale it asserts. A comment, not an import. A dangling pointer if memory is absent, not a broken code
+          path.
       - group: guard
         ref: core/scripts/guard-decision.mjs
         from: core/scripts/review-budget.mjs
@@ -771,8 +818,20 @@ groups:
         form: "known-failure-patterns.md"
         count: 1
         why: >
-          A comment citing where a failure pattern is recorded, explaining why
-          two checks fail open. Rationale.
+          One comment citing where a failure pattern is recorded, explaining
+          why two checks fail open. Rationale, not a route: the code is
+          correct whether or not the reader ever opens the file. Was 2 — the
+          second cited the divergent-pushurl configuration, and went with the
+          remote-URL derivation it justified.
+      - group: memory
+        ref: core/.agents/memory/hook-uncaught-throw-fails-open.md
+        from: core/scripts/__tests__/review-budget.test.mjs
+        form: ".agents/memory/hook-uncaught-throw-fails-open.md"
+        count: 1
+        why: >
+          The same citation in the test that pins the behaviour, so a reader
+          who wonders why a blocked verdict is asserted rather than a throw can
+          find the incident. Evidence.
       - group: guard
         ref: core/.claude/guard.sh
         from: core/scripts/review-budget.mjs
@@ -799,52 +858,69 @@ groups:
           A third script pointing a human at the same memory entry. Advice in
           a comment.
     blocker: >
-      Two couplings, both needing the same reviewed change. (1) review-budget.mjs
-      hardcodes REPO_OWNER/REPO_NAME, and six call sites across review-budget.mjs
-      and review-loop-record.mjs use them to verify a snapshot came from the
-      expected repo. (2) PARTLY resolved by issue #2 — the two corpus-wide gates
+      BOTH configurability couplings are now RESOLVED; what remains is the
+      per-group audit, not a coupling. (1) review-budget.mjs hardcoded
+      REPO_OWNER/REPO_NAME, used across review-budget.mjs and
+      review-loop-record.mjs to verify a snapshot came from the expected repo.
+      That comparison no longer exists on the guard path, and this item is
+      resolved by DELETING it rather than by re-sourcing it. Two intermediate
+      designs were tried and withdrawn under review: derivation from
+      `git ls-remote --get-url origin` (six ways to parse a URL wrongly), then
+      a declared identity in .agents/machinery.json (three more ways for two
+      sources to disagree). What the guard actually needs is not "which
+      repository is this" but "is this the loop whose rounds I am about to
+      spend", and the budget receipt already answers that: it records the
+      repository it was declared for, read from the durable ref, and is
+      compared against the repository the outgoing request names. No
+      configuration is read there, so there is no second source to drift.
+      Everywhere else, the config is read from the WORKING TREE through one
+      function, stamped into every artifact, and compared back on every
+      consume. Ten rounds built a trust hierarchy over that read -- base
+      commit, durable ref, budget-in-the-same-commit -- against an actor who
+      can edit this checkout, who is the person running the scripts. The
+      threat model is a mistake, not an adversary
+      (.agents/memory/machinery-threat-model-is-my-own-mistakes.md), and every
+      touchpoint is enumerated in identity-sources.yml by what it reads. A
+      future audit should read that file's check output, not this paragraph.
+      (2) PARTLY resolved by issue #2 — the two corpus-wide gates
       (check-contract-consistency.mjs and check-docs-accuracy.mjs) now travel
       with `claude-core`, because they were never standalone machinery: each
       scans the ASSEMBLED contract, so filing them here made the group that
-      everything waits on depend on contracts, skills and planning. What was
-      recorded as a portability defect in the scripts was the scripts being in
-      the wrong group — but only partly, and the distinction matters: the
-      GROUPING is fixed, the INVENTORIES are not. Neither gate scans
-      .agents/core/, which is now a condition on the `claude-core` blocker
-      instead. Retained for the record: check-contract-consistency.mjs assumes CLAUDE.md sits at
-      the root of the corpus it scans — true in a consumer, false once the
-      contract is split into a vendored core plus an overlay; its own test fails
-      in this repo for exactly that reason, which is how the assumption was
-      found. The same assumption is in check-docs-accuracy.mjs and is worse
-      there, because it fails in the CONSUMER rather than here: its inventory
-      omits .agents/core/, so a broken relative link in the vendored
-      claude-core.md or agents-core.md — the two files every consumer's overlay
-      routes through — passes the docs-accuracy gate reporting zero files
-      checked. Both scripts need their corpus defined in terms of the
-      core-plus-overlay layout rather than a single root, which is one change
-      and is why this stays one item. Making repo identity and contract-surface paths configurable is a
-      security-relevant change to the receipt and guard machinery, and gets its
-      own reviewed PR rather than riding along with a file move. Until then
-      these scripts are correct for Overhype's layout only. (3) A third coupling,
-      found in round 6 and distinct from the owner/name constants in (1):
-      pr-ready.mjs hardcodes REQUIRED_CHECKS to five job names from one repo's
-      CI, and checkCi counts every absent name as a failure — so in a consumer
-      whose workflow exposes different jobs, no PR can ever mint a READY
-      receipt. The readiness gate would be permanently closed rather than
-      wrongly open, which is the safer direction but still unusable; required
-      checks come from each consumer's CI contract. Items (4), (5) and (6) named
+      everything waits on depend on contracts, skills and planning. The GROUPING
+      is fixed; the INVENTORIES are not, and that half is now a condition on the
+      `claude-core` blocker rather than this one — neither gate scans
+      .agents/core/, so a broken relative link in the vendored claude-core.md or
+      agents-core.md passes the docs-accuracy gate reporting zero files checked.
+      (3) pr-ready.mjs hardcoded REQUIRED_CHECKS to five job names from one
+      repo's CI, and review-budget.mjs hardcoded one repo's owner and name, so
+      in any other consumer no PR could ever mint a READY receipt and every
+      identity comparison was against the wrong constant. Both are now
+      DECLARED, together, in .agents/machinery.json — seeded by the
+      machinery-config group, which is why these two groups require each other.
+      An earlier revision of this item said identity, unlike the checks list,
+      could be DERIVED from origin and needed no configuration. That was
+      tried and withdrawn: two review rounds found six ways to parse a remote
+      URL wrongly, and under the skip semantics the guard had then, each one
+      meant the guard silently did not run. Both fail closed in every direction
+      — absent, unreadable, malformed, or empty all refuse — because a gate
+      that requires nothing is satisfied by any green set, which is the
+      fail-OPEN reading the list exists to prevent. Both are read from the
+      WORKING TREE through one function; an earlier revision read the checks
+      list from the base branch so "a pull request cannot weaken the gate
+      that approves it", which is defending the gate against the person who
+      runs it -- see item (1). Items (4), (5) and (6) named
       clean-stale-git-locks.sh: a script nothing invoked, a script silently
       disabled in a linked worktree, and a script that could delete a LIVE lock.
       All three are gone with the script itself. The Replit sandbox constraint it
       worked around no longer exists — probed live, the agent can now delete under
       .git/ — it had never once removed a real lock, and its check-then-act gap
       made its one possible failure destructive. Removed from Overhype in PR #604
-      and from this payload here rather than hardened: a hardened design was
+      and from this payload rather than hardened: a hardened design was
       prototyped and works, but hardening a tool with no remaining job only buys
       maintenance and a second repo to port it to. The reasoning and that design
       are recorded in Overhype's .agents/memory/, so this is a deletion with a way
       back rather than a loss.
-      The ownership comment this group owed is DONE: all 14 files it delivers now carry the notice docs/consuming-repos.md promises, placed after the shebang so nothing loses executability. Only the two configurability items above remain.
+      The ownership comment this group owed is DONE: all 14 files it delivers now carry the notice docs/consuming-repos.md promises, placed after the shebang so nothing loses executability. WHAT STILL BLOCKS THE FLIP is no longer a coupling but the per-group unstaging audit itself — the instruction-vs-evidence test applied file by file, reference canonicalization, and the runtime-import audit, per docs/porting-notes.md. Those are a reading of all 14 files, not a code change, and they are this group's next and last step.
     paths:
       - from: core/scripts/
         to: scripts/
@@ -861,6 +937,43 @@ groups:
       # file sits rather than by what it needs.
       - from: core/.claude/agents/review-loop-adjudicator.md
         to: .claude/agents/review-loop-adjudicator.md
+
+  - id: machinery-config
+    mode: seed
+    status: staged
+    requires:
+      - machinery
+    blocker: >
+      Seeded alone this file is inert -- nothing reads it until the scripts
+      that do are present -- and seeded with the machinery it is the one thing
+      standing between those scripts and a repository they cannot name. Travels
+      with the machinery. The seed's own failure mode is deliberate and does
+      not block unstaging: the template's placeholder is rejected by name the
+      moment a budget is declared, with a message naming this file, so no
+      budget -- and therefore no review round -- can exist under it. A review
+      request posted before any budget exists refuses for lack of a budget and
+      says to declare one, which is where the placeholder is caught. (The guard
+      itself reads no configuration, for the fail-open reason recorded in
+      hook-uncaught-throw-fails-open.md, so it is `declare` that names the
+      file, not the refusal.) Loud and one edit from fixed. Second
+      condition, inherited from settings-template's round-6 finding: seed mode
+      writes only when the file is ABSENT, so a consumer that already has
+      .agents/machinery.json keeps it and this group delivers nothing --
+      correct here, since the existing file is that repo's own identity and
+      overwriting it is precisely what seed mode exists to prevent.
+    description: >
+      Which repository this is, and which CI jobs must be present before a
+      readiness receipt is honest. Seeded once, then owned by the consumer --
+      these two values are the only per-repo configuration the machinery has,
+      and both are facts about the consumer that the handbook cannot know. A
+      third, `baseBranch`, was removed in round 7: the branch a pull request
+      merges into comes from the snapshot, so there was nothing to declare. The file
+      documents itself through _-prefixed sibling keys, which is also how it
+      carries the ownership warning every synced non-Markdown file owes: JSON
+      has no comment syntax.
+    paths:
+      - from: core/.agents/machinery.template.json
+        to: .agents/machinery.json
 
   - id: settings-template
     mode: seed

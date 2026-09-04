@@ -89,30 +89,42 @@ source directly. They would fail on any other repo.
 
 **The machinery and guard groups are `staged` — they do not sync.**
 
-`review-budget.mjs` declares the repo identity as two hardcoded literals:
+**The identity coupling is RESOLVED** — PR #7, over ten review rounds. This
+paragraph described `REPO_OWNER`/`REPO_NAME` literals in `review-budget.mjs`
+and six call sites verifying snapshots against them; none of that exists any
+more, and a maintainer reading the old text got two contradictory accounts of
+what remains before unstaging. (Codex, PR #7 round 9 — the ninth instance in
+this repo of prose outliving the change it described, which is why issue #6
+exists.)
 
-```js
-export const REPO_OWNER = "TheAnswerManIsHere";
-export const REPO_NAME  = "Overhypeme";
-```
+What replaced it, in one line each:
 
-Six call sites across `review-budget.mjs` and `review-loop-record.mjs` use them
-to verify that a snapshot, receipt or merge actually targets the expected repo
-— a real check, not decoration: it is what stops a receipt minted for one repo
-from authorizing an action in another. `guard-decision.mjs` carries the same
-identity for the merge guard.
+- **Identity and policy are declared** in `.agents/machinery.json`
+  (`machinery-config`, mode `seed`), read from the working tree through one
+  function, and stamped into every artifact the machinery mints.
+- **Every artifact it consumes is compared back** — to the config, or on the
+  guard path (which cannot afford a throw) to the budget that was stamped
+  from it. GitHub snapshots are compared to config too, so the wrong PR's
+  snapshot is refused.
+- **There is no trust hierarchy.** Ten rounds built one — base commit over
+  durable ref over working tree — defending against the person running the
+  scripts. The threat model is a mistake, not an adversary
+  (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`).
+- **Every touchpoint is enumerated** in `identity-sources.yml` by what it
+  reads, and `scripts/check-identity-sources.mjs` fails CI on any new or
+  vanished one until a human classifies it.
 
-Making that per-repo is a **security-relevant change to the receipt and guard
-machinery**, and under the internal tier's own rubric that is precisely the
-category that earns a careful, separately reviewed change. It gets its own PR
-rather than riding along inside a 180-file move, where nobody would see it.
+The fail-closed requirement still holds and is tested in every direction: a
+missing config, a malformed one, an empty checks list, an unedited template
+placeholder and an unbindable record all refuse rather than default.
+`.agents/memory/ci-guard-must-fail-loud-on-missing-inputs.md` is the entry that
+says why, and it came across in this port.
 
-Until that lands, these scripts are correct for Overhype and would be actively
-wrong in DojoOS — hence `staged`, which the sync skips and the manifest check
-requires a stated blocker for. The identity resolution must **fail closed**: a
-guard that cannot determine which repo it is protecting has to refuse, not
-default. `.agents/memory/ci-guard-must-fail-loud-on-missing-inputs.md` is the
-entry that says why, and it came across in this port.
+**What still blocks `machinery` and `guard` from `ready`** is no longer
+identity. It is the per-group **unstaging audit**: the instruction-vs-evidence
+test applied file by file, reference canonicalization, and the runtime-import
+audit — a reading of all 14 files that has not happened — plus the
+`check-contract-consistency` corpus-layout assertion below.
 
 **A second coupling, found by running the payload's own tests here.** Of the
 599 machinery tests, 598 pass in this repo; the one that fails is
@@ -311,10 +323,23 @@ Earlier versions of this section were written by hand, corrected by hand four
 times, and wrong every time — including in the specific way that matters most:
 three of them opened with "machinery first, it depends on nothing," which was
 false, because two corpus-wide gates were filed under `machinery` and dragged
-contracts, skills and planning in behind them. That is fixed (issue #2), and
-"machinery first" is true again for the first time since it was written.
+contracts, skills and planning in behind them.
 
-1. **`machinery`** — depends on nothing.
+Make that **five** hand-corrections. The sentence "machinery — depends on
+nothing" was true again for one PR, and PR #7 falsified it the same day by
+adding `machinery-config`. A paragraph whose whole subject is having got this
+wrong four times got it wrong a fifth, which is the argument for
+[issue #6](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/6) in a
+sentence: this ordering is DERIVABLE from the manifest, and every version of it
+written by hand has been wrong. Until the check generates it, treat what
+follows as commentary and `node scripts/check-manifest.mjs` as the authority —
+it is the thing that actually refuses a bad order.
+
+1. **`machinery` + `machinery-config`, in ONE PR.** A two-group cycle: the
+   scripts open `.agents/machinery.json`, and the seeded file is inert with
+   nothing to read it. They are two groups only because a group carries a
+   single mode, and the scripts are `sync` while the config is `seed`. Neither
+   flips alone — the check rejects the first step if you try.
 2. **`agent-definitions` + `contracts` + `engineering` + `memory` + `planning` +
    `skills`, in ONE PR.** Six groups, one dependency cycle, ~151 files. Not a
    sequence and not decomposable: each member carries mandatory references into

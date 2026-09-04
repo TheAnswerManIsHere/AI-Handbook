@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 
 import { assertAdjudicationSnapshot, buildRecord } from "../review-loop-record.mjs";
 
+// The payload no longer knows one repo's name; tests declare their own.
+const TEST_SLUG = "TestOwner/TestRepo";
+
 // ---------------------------------------------------------------------------
 // assertAdjudicationSnapshot: the evidence-freshness gate added in PR #539
 // round 3 -- a record's own analysis is only as current as the issueComments
@@ -12,8 +15,8 @@ import { assertAdjudicationSnapshot, buildRecord } from "../review-loop-record.m
 // ---------------------------------------------------------------------------
 
 const validSnapshot = () => ({
-  pr: { number: 500 },
-  repo: "TheAnswerManIsHere/Overhypeme",
+  pr: { number: 500, head: { repo: TEST_SLUG } },
+  repo: TEST_SLUG,
   issueComments: [],
   complete: { issueComments: true },
   capturedAt: { issueComments: "2026-08-19T21:00:00Z" },
@@ -22,17 +25,17 @@ const validSnapshot = () => ({
 test("assertAdjudicationSnapshot: a snapshot with no capturedAt.issueComments is rejected", () => {
   const snap = validSnapshot();
   delete snap.capturedAt;
-  assert.throws(() => assertAdjudicationSnapshot(500, snap), /parseable capturedAt\.issueComments/);
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /parseable capturedAt\.issueComments/);
 });
 
 test("assertAdjudicationSnapshot: an unparseable capturedAt.issueComments is rejected", () => {
   const snap = validSnapshot();
   snap.capturedAt.issueComments = "not a date";
-  assert.throws(() => assertAdjudicationSnapshot(500, snap), /parseable capturedAt\.issueComments/);
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /parseable capturedAt\.issueComments/);
 });
 
 test("assertAdjudicationSnapshot: a well-formed snapshot passes", () => {
-  assert.doesNotThrow(() => assertAdjudicationSnapshot(500, validSnapshot()));
+  assert.doesNotThrow(() => assertAdjudicationSnapshot(500, validSnapshot(), TEST_SLUG));
 });
 
 // ---------------------------------------------------------------------------
@@ -43,8 +46,8 @@ test("assertAdjudicationSnapshot: a well-formed snapshot passes", () => {
 // ---------------------------------------------------------------------------
 
 const minimalSnapshot = ({ issueComments = [], reviews = [] } = {}) => ({
-  pr: { number: 500, title: "test", created_at: "2026-08-01T00:00:00Z", closed_at: null, head: { sha: null } },
-  repo: "TheAnswerManIsHere/Overhypeme",
+  pr: { number: 500, title: "test", created_at: "2026-08-01T00:00:00Z", closed_at: null, head: { sha: null, repo: TEST_SLUG } },
+  repo: TEST_SLUG,
   reviews,
   files: [],
   reviewThreads: [],
@@ -120,4 +123,25 @@ test("buildRecord: budget.ambiguous is threaded through from countRounds, not si
     now: "2026-08-19T22:00:00Z",
   });
   assert.equal(clean.budget.ambiguous, false);
+});
+
+test("the record's repository must be supplied by the caller, never defaulted", () => {
+  // It defaulted to `repoSlug()` -- the working tree -- and the record itself
+  // carried no repository at all, so a spoofed identity paired with a
+  // same-numbered fork or mirror produced evidence the adjudicator would rule
+  // on as if it were this loop's. The caller now passes the identity out of
+  // the durable budget, and the record records it. (Codex, PR #7 round 8.)
+  assert.throws(
+    () => assertAdjudicationSnapshot(500, validSnapshot()),
+    /must be supplied by the caller, from the durable budget/,
+    "no working-tree fallback",
+  );
+  for (const bad of [null, "", "   "]) {
+    assert.throws(() => assertAdjudicationSnapshot(500, validSnapshot(), bad), /must be supplied by the caller/);
+  }
+  // And a snapshot for a different repository is refused against it.
+  assert.throws(
+    () => assertAdjudicationSnapshot(500, validSnapshot(), "Someone/Else"),
+    /Someone\/Else/,
+  );
 });

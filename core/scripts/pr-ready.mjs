@@ -43,13 +43,16 @@
  */
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  MACHINERY_CONFIG_FILE,
   RECEIPTS_DIR as LOOP_RECEIPTS_DIR,
   TIERS,
   allowance,
+  machineryConfig,
+  nodeIo,
   railFor,
   validateBudget,
   validateExtension,
@@ -92,7 +95,55 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * a follow-on to the same finding, which is why the rule here is now the
  * *scheduling shape* rather than a list of examples.)
  */
-const REQUIRED_CHECKS = ["Classify changed paths", "Build", "Test", "Frontend Test", "E2E Smoke"];
+/**
+ * ...and WHERE that list comes from, which is the half that could not travel.
+ *
+ * These were five job names from one repository's `build.yml`. In any other
+ * consumer every one of them is absent, `checkCi` counts each absence as a
+ * failure, and NO pull request can ever mint a READY receipt -- the readiness
+ * gate permanently closed rather than wrongly open. Safer of the two
+ * directions, and still unusable. (Found in round 6 of AI-Handbook #3, on a
+ * real merge this gate refused.)
+ *
+ * Unlike the repository's identity, this cannot be observed. "Which jobs must
+ * be present before a receipt is honest" is a POLICY each consumer states
+ * about its own CI, so it is declared, in a file the repository owns --
+ * `.agents/machinery.json`, alongside the identity, so a consumer bootstraps
+ * the machinery by filling in one file rather than remembering two.
+ *
+ * READ FROM THE WORKING TREE, through the one config reader, and RECORDED
+ * in the receipt so a reader can see which list a verdict was minted under.
+ * An earlier revision read it from the base branch so "a pull request cannot
+ * weaken the gate that approves it" -- defending the gate against the person
+ * who runs it. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
+ *
+ * FAILS CLOSED, deliberately and in every direction: absent ref, absent file,
+ * unreadable file, malformed contents, or an empty list all refuse. An empty
+ * list is refused rather than treated as "nothing required" because that is
+ * exactly the fail-OPEN reading -- any green set would satisfy a gate that
+ * demands nothing, which is the failure this constant was introduced to
+ * prevent.
+ */
+/**
+ * This checkout's machinery configuration -- identity and required checks --
+ * through the ONE reader the payload has, in review-budget.mjs. Working tree,
+ * on purpose: the base-commit and durable-ref readers this replaced defended
+ * against the person running the gate, who needs no exploit. The controls
+ * against deliberate action are David's merge and the server-side ruleset;
+ * this read catches MISTAKES, by failing closed on absent, malformed, empty
+ * or placeholder. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
+ */
+export function localConfig(cwd = join(HERE, "..")) {
+  try {
+    return machineryConfig(nodeIo(resolve(cwd)));
+  } catch (err) {
+    throw fail(err.message);
+  }
+}
+
+export function requiredChecks(cwd = join(HERE, "..")) {
+  return localConfig(cwd).requiredChecks;
+}
 
 /**
  * How stale the underlying evidence may be when a receipt is minted.
@@ -196,6 +247,53 @@ function fail(message) {
 }
 
 /**
+ * Why a stored receipt cannot be shown as THIS repository's, or null.
+ *
+ * The merge hook binds a receipt to the merge tool's own owner/repo. `--show`
+ * has no tool input, so it binds to the configured identity -- the same
+ * comparison every other consume site makes. Without it a receipt minted in
+ * another checkout, for a branch at the same tip, printed READY with nothing
+ * on the line to say it was foreign. (Codex, PR #7 round 11.)
+ */
+/**
+ * Why a stored receipt's recorded policy is not the policy in force, or null.
+ *
+ * The receipt records the `requiredChecks` it was minted under. "Stamp on
+ * mint, compare on consume" applies to that field exactly as it does to
+ * `repo`; the first version applied it to one and not the other. A receipt
+ * minted under a mistakenly weakened list -- then the file restored without a
+ * new head -- passed age, tip and identity and printed READY. Order-
+ * insensitive: the list is a set of job names. No grandfathering: a receipt
+ * that records no policy cannot be compared and is refused. (Codex, PR #7
+ * round 12.)
+ */
+export function receiptPolicyReason(receipt, configuredChecks) {
+  const recorded = receipt?.requiredChecks;
+  if (!Array.isArray(recorded)) {
+    return "this receipt records no required-checks policy, so it cannot be compared to the policy in force -- re-run the gate with a fresh snapshot";
+  }
+  const a = [...new Set(recorded)].sort();
+  const b = [...new Set(configuredChecks)].sort();
+  if (a.length !== b.length || a.some((x, i) => x !== b[i])) {
+    return (
+      `this receipt was minted under required checks [${a.join(", ")}], but ${MACHINERY_CONFIG_FILE} now ` +
+      `declares [${b.join(", ")}] -- the gate that approved this PR is not the gate in force; re-run with a fresh snapshot`
+    );
+  }
+  return null;
+}
+
+export function receiptIdentityReason(receipt, configured) {
+  if (typeof receipt?.repo !== "string" || receipt.repo.toLowerCase() !== configured.toLowerCase()) {
+    return (
+      `this receipt was minted for ${receipt?.repo ?? "an unrecorded repository"}, but this repository ` +
+      `is ${configured} -- re-run the gate here with a fresh snapshot`
+    );
+  }
+  return null;
+}
+
+/**
  * Refuse a snapshot that hasn't been paginated to completion.
  *
  * Same reasoning as `review-counting.mjs`'s equivalent: this process cannot page
@@ -223,6 +321,28 @@ export function assertSnapshot(snapshot, prNumber) {
     throw fail('snapshot.repo must be "owner/name" -- the receipt is bound to a repository, not just a number');
   }
 
+  // ...AND IT MUST BE THIS ONE.
+  //
+  // The line above proves the snapshot names *a* repository; this proves it
+  // names *ours*. Without it the declared identity was never applied on the
+  // readiness path at all -- `machineryConfig` was read once, to locate the
+  // base branch, and nowhere else. A snapshot for another repository
+  // therefore passed on its own internal consistency (repo == head.repo),
+  // was judged against THIS repo's required-check policy and adjudication
+  // receipts, and minted a receipt naming the foreign repository -- which
+  // `checkMerge` then accepts, because it compares the receipt against the
+  // merge tool's own owner/repo and finds them equal. Where the two repos
+  // share a branch name and commit, as a fork or mirror does, the sha
+  // binding matches too and every remaining check passes.
+  //
+  // This is the same defect as the guard's skipped foreign target, in the
+  // other file: identity checked on one side only. Refusing here is the
+  // both-sides check the rest of this PR's argument assumes exists.
+  // (Codex, PR #7 round 3.)
+  // The identity comparison lives in `evaluate`, against the repository the
+  // TRUSTED BASE COMMIT declares -- not here against the working tree, which
+  // an uncommitted edit could move. This function validates shape; it is not
+  // the place that decides whose snapshot this is. (Codex, PR #7 round 8.)
   const pr = snapshot.pr;
   if (!pr || typeof pr !== "object") throw fail('snapshot is missing "pr"');
   if (pr.number !== prNumber) {
@@ -269,6 +389,10 @@ export function assertSnapshot(snapshot, prNumber) {
         "after checking the bar, or extend remoteTip to resolve against the head repository.",
     );
   }
+  // WHICH BRANCH this pull request merges into. Validated at capture, beside
+  // the head fields, because the required-checks policy is read from the base
+  // branch and a snapshot that cannot name its base cannot be gated against
+  // the right policy. (Codex, PR #7 round 2.)
   const complete = snapshot.complete ?? {};
   const capturedAt = snapshot.capturedAt ?? {};
   for (const key of Object.keys(MCP_METHOD_FOR)) {
@@ -323,7 +447,7 @@ export function assertSnapshot(snapshot, prNumber) {
  * described the old one -- and the branch-tip comparison would then agree,
  * because it too is looking at the new commit. (Codex, #490.)
  */
-export function checkCi(checkRuns, headSha = null) {
+export function checkCi(checkRuns, headSha = null, required = requiredChecks()) {
   if (checkRuns.length === 0) {
     return { pass: false, detail: "no check runs reported for the head commit -- CI has not started" };
   }
@@ -348,15 +472,16 @@ export function checkCi(checkRuns, headSha = null) {
     }
   }
   const names = new Set(checkRuns.map((r) => r.name));
-  const missing = REQUIRED_CHECKS.filter((n) => !names.has(n));
+  const missing = required.filter((n) => !names.has(n));
   if (missing.length) {
     return {
       pass: false,
       detail:
         `${missing.join(" and ")} ${missing.length > 1 ? "are" : "is"} absent from the check runs. ` +
         `A nonempty set of passing checks is not the bar -- ${names.size} check(s) can all be green ` +
-        `while a mandatory job has not been created yet (Test depends on Classify changed paths, so it ` +
-        `appears late). Re-read get_check_runs once the workflow has fanned out.`,
+        `while a mandatory job has not been created yet -- a job gated on an earlier one appears late. ` +
+        `Re-read get_check_runs once the workflow has fanned out, or correct ${MACHINERY_CONFIG_FILE} if ` +
+        `the job was renamed.`,
     };
   }
 
@@ -756,6 +881,21 @@ function validateAdjudicationRecord(prNumber, recordPath, headSha, cwd, { floor 
   }
   if (record.pr !== prNumber) return { ok: false, detail: `${recordPath} describes PR ${record.pr}, not ${prNumber}` };
 
+  // A PR NUMBER DOES NOT IDENTIFY A LOOP. Every repository has a #7, so a
+  // record captured for the wrong one -- same number, different repository --
+  // must not be read as this loop's evidence. Compared to the configured
+  // identity, like every other artifact. No grandfathering: a record with no
+  // `repo` cannot be bound and is refused; regenerating one is one command.
+  // (Codex, PR #7 round 9.)
+  const configured = localConfig(cwd).repo;
+  if (typeof record.repo !== "string" || record.repo.toLowerCase() !== configured.toLowerCase()) {
+    return {
+      ok: false,
+      detail:
+        `${recordPath} was generated for ${JSON.stringify(record.repo ?? null)}, but this repository is ` +
+        `${configured}. Regenerate the record here: a PR number alone does not identify a loop`,
+    };
+  }
   if (record.budget?.problem) {
     return {
       ok: false,
@@ -1284,8 +1424,25 @@ function countDelivered(snapshot) {
 }
 
 /** The full verdict for a validated snapshot. */
-export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}) {
+export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, config = null) {
   const headSha = snapshot.pr.head.sha;
+  // IDENTITY FIRST, before any item runs -- every item below reads receipts
+  // and records from this checkout, so whose snapshot this is must be settled
+  // before any of them is consulted. (Codex, PR #7 round 10.)
+  // ONE config read. `config` is the test seam (an explicit {repo,
+  // requiredChecks}); production reads the working tree through the same
+  // reader every other consumer in this file uses.
+  const cfg = config ?? localConfig(adjudicationOpts.cwd);
+  // WHOSE SNAPSHOT THIS IS. Every repository has a #7, so a snapshot captured
+  // for the wrong one would be judged against this repository's receipts and
+  // mint a receipt the merge gate accepts. GitHub's word against the config.
+  if (snapshot.repo.toLowerCase() !== cfg.repo.toLowerCase()) {
+    throw fail(
+      `this snapshot is for ${snapshot.repo}, but ${MACHINERY_CONFIG_FILE} declares ${cfg.repo}. Run the ` +
+        `gate from a checkout of ${snapshot.repo}, or capture a snapshot of a PR in ${cfg.repo}.`,
+    );
+  }
+  const policy = cfg.requiredChecks;
   const directCodex = checkCodex(snapshot.issueComments, snapshot.reviews, headSha);
   // A closed review-loop adjudication (see checkAdjudicatedCodex) is a
   // fallback, never a replacement: it is only even attempted when a live
@@ -1310,7 +1467,7 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}) {
         ? { ...directCodex, detail: `${directCodex.detail} | adjudication fallback also failed: ${adjudicated.detail}` }
         : directCodex;
   const items = {
-    ci: checkCi(snapshot.checkRuns, headSha),
+    ci: checkCi(snapshot.checkRuns, headSha, policy),
     codex,
     threads: checkThreads(snapshot.reviewThreads),
     capture: checkCapture(snapshot.capturedAt, codex.acceptedAt, now),
@@ -1329,6 +1486,9 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}) {
     // When the EVIDENCE was read, which is what the merge gate ages against.
     // `generatedAt` only says when this process ran. (Codex, #490.)
     evidenceAt: oldest.length ? new Date(Math.min(...oldest)).toISOString() : null,
+    // The policy this verdict was reached under, recorded so a receipt cannot
+    // be read without seeing what it actually demanded. (Codex, PR #7 round 1.)
+    requiredChecks: policy,
     items,
   };
 }
@@ -1363,6 +1523,15 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
   const budgetError = validateBudget(prNumber, budget);
   if (budgetError) {
     return { pass: false, detail: `committed budget receipt is invalid (${budgetError}) -- cannot rule out the rail` };
+  }
+  // ...and it must be THIS repository's budget, compared to the configured
+  // identity like every other artifact. Every repository has a #7.
+  const configured = localConfig(cwd).repo;
+  if (typeof budget.repo !== "string" || budget.repo.toLowerCase() !== configured.toLowerCase()) {
+    return {
+      pass: false,
+      detail: `committed budget receipt was declared for ${budget.repo ?? "an unrecorded repository"}, not ${configured} -- cannot rule out the rail`,
+    };
   }
   const tier = budget.tier;
 
@@ -1540,7 +1709,7 @@ const LABEL = {
 
 export function formatReceipt(receipt) {
   const lines = [
-    `PR #${receipt.pr} @ ${receipt.headSha.slice(0, 7)} -- ${receipt.verdict}`,
+    `${receipt.repo ?? "(no repository recorded)"} PR #${receipt.pr} @ ${receipt.headSha.slice(0, 7)} -- ${receipt.verdict}`,
     ...Object.entries(receipt.items).map(
       ([key, item]) => `  ${item.pass ? "PASS" : "FAIL"}  ${LABEL[key]}: ${item.detail}`,
     ),
@@ -1612,7 +1781,30 @@ function main() {
       return 1;
     }
     const receipt = JSON.parse(readFileSync(p, "utf8"));
-    process.stdout.write(`${formatReceipt(receipt)}\n`);
+    let cfg;
+    try {
+      cfg = localConfig();
+    } catch (e) {
+      process.stderr.write(`pr-ready: ${e.message}\n`);
+      return 2;
+    }
+    const foreign = receiptIdentityReason(receipt, cfg.repo) ?? receiptPolicyReason(receipt, cfg.requiredChecks);
+    if (foreign) {
+      process.stderr.write(`pr-ready: ${foreign}\n`);
+      return 1;
+    }
+    // NOTHING IS PRINTED UNTIL EVERY LIVE CHECK HAS PASSED.
+    //
+    // The formatted receipt used to go to stdout here, before the checks
+    // below could reject it. Each refusal did return 1 and write to stderr,
+    // but this is the surface a readiness claim is QUOTED from -- an
+    // stdout-only capture, or a reader taking the first result, still saw
+    // READY under a verdict this path had already decided was stale. A
+    // control that prints the wrong answer and then corrects it on another
+    // stream is not a control. (Codex, PR #7 round 8.)
+    //
+    // Every check that follows therefore precedes the write, and the emit is
+    // the last statement in this branch.
     // `--show` is the manual-merge path: for a PR David merges, quoting this
     // output IS the control, because no hook sees his click. Printing a stored
     // verdict without re-applying the age check would present an hours-old
@@ -1641,6 +1833,9 @@ function main() {
       );
       return 1;
     }
+    // Everything above passed, so this receipt describes the commit that would
+    // merge, within the freshness window.
+    process.stdout.write(`${formatReceipt(receipt)}\n`);
     return receipt.verdict === "READY" ? 0 : 1;
   }
 
@@ -1658,7 +1853,18 @@ function main() {
     return 2;
   }
 
-  const receipt = evaluate(snapshot);
+  // A throw here is NO VERDICT -- a missing or malformed config, a snapshot
+  // for another repository -- and the exit code has to say so. 1 means the
+  // gate ran and answered NOT READY; conflating the two made an onboarding
+  // mistake look like a readiness decision, with a stack trace and no
+  // receipt. (Codex, PR #7 round 11.)
+  let receipt;
+  try {
+    receipt = evaluate(snapshot);
+  } catch (e) {
+    process.stderr.write(`pr-ready: ${e.message}\n`);
+    return 2;
+  }
   mkdirSync(RECEIPT_DIR, { recursive: true });
   writeFileSync(receiptPath(args.pr), `${JSON.stringify(receipt, null, 2)}\n`);
   process.stdout.write(`${formatReceipt(receipt)}\n`);

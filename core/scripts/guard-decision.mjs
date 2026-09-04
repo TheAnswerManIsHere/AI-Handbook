@@ -229,8 +229,8 @@
 
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { staleReason, remoteTip } from "./pr-ready.mjs";
-import { REVIEW_REQUEST_TOOLS, judgeReviewRequest, nodeIo } from "./review-budget.mjs";
+import { staleReason, remoteTip, receiptPolicyReason } from "./pr-ready.mjs";
+import { REVIEW_REQUEST_TOOLS, judgeReviewRequest, machineryConfig, nodeIo } from "./review-budget.mjs";
 
 const ALLOW = 0;
 const BLOCK = 2;
@@ -1639,7 +1639,7 @@ const RECEIPT_HOWTO =
  * word -- no hook sees his click -- which is why the receipt is also what
  * CLAUDE.md now requires a readiness claim to quote.
  */
-export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSha } = {}) {
+export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSha, resolveConfig } = {}) {
   const pr = toolInput?.pullNumber;
   if (!Number.isInteger(pr)) {
     return `merge blocked: no pullNumber in the tool input, so no readiness receipt could be checked. ${RECEIPT_HOWTO}`;
@@ -1672,6 +1672,33 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
       `merge blocked: the receipt for PR #${pr} was minted for ${receipt.repo ?? "an unrecorded repository"}, ` +
       `but the merge targets ${target}. ${RECEIPT_HOWTO}`
     );
+  }
+  // THE POLICY THE RECEIPT WAS MINTED UNDER MUST BE THE POLICY IN FORCE.
+  // Stamp on mint, compare on consume -- for `requiredChecks` as for `repo`.
+  // This path is the hook, which cannot let a throw escape (exit 1 lets the
+  // tool call proceed), so the config read is caught and an unreadable
+  // config BLOCKS with a reason rather than throwing. (Codex, PR #7 round 12.)
+  if (typeof resolveConfig === "function") {
+    let cfg;
+    try {
+      cfg = resolveConfig();
+    } catch (e) {
+      return `merge blocked: the machinery configuration could not be read (${e.message}), so the policy the receipt for PR #${pr} was minted under cannot be checked against the policy in force. ${RECEIPT_HOWTO}`;
+    }
+    // ...and the configuration consulted must be THIS target's. A receipt for
+    // B minted while the config mistakenly said B, then the config corrected
+    // to A, then a merge of B attempted from A's checkout: receipt-to-target
+    // passes (both B) and B's recorded policy would be judged against A's
+    // list. The mistake is merging B from A's checkout, and that is what this
+    // names. (Codex, PR #7 round 13.)
+    if (typeof cfg?.repo !== "string" || cfg.repo.toLowerCase() !== target.toLowerCase()) {
+      return (
+        `merge blocked: this checkout is configured as ${cfg?.repo ?? "no repository"}, but the merge targets ` +
+        `${target} -- run the merge from a checkout of ${target}. ${RECEIPT_HOWTO}`
+      );
+    }
+    const policy = receiptPolicyReason(receipt, cfg.requiredChecks);
+    if (policy) return `merge blocked: ${policy}. ${RECEIPT_HOWTO}`;
   }
   if (receipt.verdict !== "READY") {
     const failing = Object.entries(receipt.items ?? {})
@@ -1746,6 +1773,7 @@ export function decide(raw, options = {}) {
     const reason = checkMerge(payload.tool_input, {
       readReceipt: readReceiptFromDisk,
       resolveSha: remoteTip,
+      resolveConfig: () => machineryConfig(nodeIo()),
       ...options,
     });
     return reason ? { blocked: true, reason } : { blocked: false, reason: null };

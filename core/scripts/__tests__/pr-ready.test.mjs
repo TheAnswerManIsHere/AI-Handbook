@@ -11,6 +11,7 @@ import {
   checkCapture,
   codeReviewOutage,
   checkCi,
+  requiredChecks,
   checkCodex,
   checkAdjudicatedCodex,
   checkRail,
@@ -18,8 +19,11 @@ import {
   checkThreads,
   evaluate,
   staleReason,
+  receiptIdentityReason,
+  receiptPolicyReason,
   CODEX_BOT,
 } from "../pr-ready.mjs";
+import { __resetRepoSlugCache } from "../review-budget.mjs";
 
 // ---------------------------------------------------------------------------
 // Item 1: CI.
@@ -31,6 +35,11 @@ import {
 // ---------------------------------------------------------------------------
 
 const HEAD = "a".repeat(40);
+const BASE_SHA = "b".repeat(40);
+// The identity these snapshots claim, passed explicitly so no test depends on
+// which repository it happens to run inside.
+const SNAP_SLUG = "TheAnswerManIsHere/Overhypeme";
+const assertSnap = (snap, pr) => assertSnapshot(snap, pr, SNAP_SLUG);
 const STARTED = "2026-08-17T03:30:00Z";
 const run = (name, status, conclusion, head_sha = HEAD, started_at = STARTED) => ({ name, status, conclusion, head_sha, started_at });
 
@@ -40,42 +49,48 @@ const run = (name, status, conclusion, head_sha = HEAD, started_at = STARTED) =>
  * required job has not been created yet. (Codex, #490.)
  */
 const REQUIRED = ["Classify changed paths", "Build", "Test", "Frontend Test", "E2E Smoke"];
+
+// checkCi now takes its required list as an argument -- the payload cannot know
+// one repo's job names. Every call here supplies REQUIRED so these tests keep
+// asserting the same behaviour without depending on a config file.
+const checkCiWith = (runs, headSha = null) => checkCi(runs, headSha, REQUIRED);
+const evaluateWith = (snap, now, opts = {}) => evaluate(snap, now, opts, { repo: snap.repo, requiredChecks: REQUIRED });
 const allRequired = (status = "completed", conclusion = "success", head_sha = HEAD) =>
   REQUIRED.map((n) => run(n, status, conclusion, head_sha));
 
 test("CI: all completed and successful passes", () => {
-  assert.equal(checkCi(allRequired()).pass, true);
+  assert.equal(checkCiWith(allRequired()).pass, true);
 });
 
 test("CI: skipped and neutral are passes, not failures", () => {
   // This repo's CI classifier skips whole jobs for inert paths by design.
   // Treating a skip as a failure would make every docs-only PR un-mergeable.
-  const res = checkCi([...allRequired("completed", "skipped"), run("e2e", "completed", "neutral")]);
+  const res = checkCiWith([...allRequired("completed", "skipped"), run("e2e", "completed", "neutral")]);
   assert.equal(res.pass, true);
 });
 
 test("CI: a queued or in-progress run is not green", () => {
-  const res = checkCi([...allRequired(), run("e2e", "in_progress", null)]);
+  const res = checkCiWith([...allRequired(), run("e2e", "in_progress", null)]);
   assert.equal(res.pass, false);
   assert.match(res.detail, /still running/);
 });
 
 test("CI: a failure is named, not just counted", () => {
-  const res = checkCi([...allRequired(), run("e2e", "completed", "failure")]);
+  const res = checkCiWith([...allRequired(), run("e2e", "completed", "failure")]);
   assert.equal(res.pass, false);
   assert.match(res.detail, /e2e \(failure\)/);
 });
 
 test("CI: cancelled and timed_out are failures, not neutral outcomes", () => {
-  assert.equal(checkCi([...allRequired(), run("e2e", "completed", "cancelled")]).pass, false);
-  assert.equal(checkCi([...allRequired(), run("e2e", "completed", "timed_out")]).pass, false);
+  assert.equal(checkCiWith([...allRequired(), run("e2e", "completed", "cancelled")]).pass, false);
+  assert.equal(checkCiWith([...allRequired(), run("e2e", "completed", "timed_out")]).pass, false);
 });
 
 test("CI: a green set missing a MANDATORY job is not green", () => {
   // The bar is not "some checks exist and none failed". A snapshot taken after
   // Classify succeeds but before Test is created reports exactly that, and the
   // receipt it mints stays usable for an hour. (Codex, #490.)
-  const res = checkCi([run("Classify changed paths", "completed", "success"), run("Build", "completed", "success")], HEAD);
+  const res = checkCiWith([run("Classify changed paths", "completed", "success"), run("Build", "completed", "success")], HEAD);
   assert.equal(res.pass, false);
   assert.match(res.detail, /absent from the check runs/);
 });
@@ -87,7 +102,7 @@ test("CI: every classifier-dependent job is required, not just Test", () => {
   // that could still turn up — and fail — after a receipt was minted.
   // (Codex, #490.)
   for (const missing of ["Frontend Test", "E2E Smoke"]) {
-    const res = checkCi(allRequired().filter((r) => r.name !== missing), HEAD);
+    const res = checkCiWith(allRequired().filter((r) => r.name !== missing), HEAD);
     assert.equal(res.pass, false, `${missing} must be required`);
     assert.match(res.detail, new RegExp(`${missing} is absent`));
   }
@@ -95,7 +110,7 @@ test("CI: every classifier-dependent job is required, not just Test", () => {
 
 test("CI: no runs at all is not green -- it is CI that has not started", () => {
   // An empty array would otherwise satisfy `every()` and read as a pass.
-  assert.equal(checkCi([]).pass, false);
+  assert.equal(checkCiWith([]).pass, false);
 });
 
 test("CI: green checks from ANOTHER commit do not count", () => {
@@ -103,19 +118,19 @@ test("CI: green checks from ANOTHER commit do not count", () => {
   // a push with the PR metadata read after it would bind a receipt to the new
   // commit while its CI item described the old one -- and the branch-tip
   // comparison would agree, because it too sees the new commit. (Codex, #490.)
-  const res = checkCi([run("build", "completed", "success", "b".repeat(40))], HEAD);
+  const res = checkCiWith([run("build", "completed", "success", "b".repeat(40))], HEAD);
   assert.equal(res.pass, false);
   assert.match(res.detail, /belong to another commit/);
 });
 
 test("CI: a run with no head_sha cannot be tied to the head", () => {
-  const res = checkCi([{ name: "build", status: "completed", conclusion: "success", started_at: STARTED }], HEAD);
+  const res = checkCiWith([{ name: "build", status: "completed", conclusion: "success", started_at: STARTED }], HEAD);
   assert.equal(res.pass, false);
   assert.match(res.detail, /no head_sha/);
 });
 
 test("CI: runs on the head commit pass the binding", () => {
-  assert.equal(checkCi(allRequired(), HEAD).pass, true);
+  assert.equal(checkCiWith(allRequired(), HEAD).pass, true);
 });
 
 // ---------------------------------------------------------------------------
@@ -380,7 +395,7 @@ test("outage: the receipt verdict names it, not a generic NOT READY", () => {
     comment("me", "@codex review", "2026-08-17T04:00:00Z"),
     comment(CODEX_BOT, "You have reached your Codex usage limits for code reviews.", "2026-08-17T04:01:00Z"),
   ];
-  assert.equal(evaluate(snap, NOW).verdict, "BLOCKED -- CODEX UNAVAILABLE");
+  assert.equal(evaluateWith(snap, NOW).verdict, "BLOCKED -- CODEX UNAVAILABLE");
 });
 
 test("Codex: the bot's own comments never count as review requests", () => {
@@ -424,6 +439,9 @@ const goodSnapshot = () => ({
   pr: {
     number: 500,
     head: { sha: HEAD, ref: "claude/x", repo: "TheAnswerManIsHere/Overhypeme" },
+    // The branch the PR merges into: the required-checks policy is read from
+    // there, never from this PR, so a snapshot must name it.
+    base: { ref: "main", sha: BASE_SHA },
   },
   capturedAt: { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER },
   checkRuns: allRequired(),
@@ -435,8 +453,8 @@ const goodSnapshot = () => ({
 
 test("snapshot: a well-formed snapshot validates and evaluates READY", () => {
   const snap = goodSnapshot();
-  assertSnapshot(snap, 500);
-  const receipt = evaluate(snap, NOW);
+  assertSnap(snap, 500);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "READY");
   assert.equal(receipt.headSha, HEAD);
   assert.equal(receipt.branch, "claude/x");
@@ -453,7 +471,7 @@ test("snapshot: a fork head is refused rather than resolved through origin", () 
   // (Codex, #490 round 6.)
   const snap = goodSnapshot();
   snap.pr.head.repo = "someone-else/Overhypeme";
-  assert.throws(() => assertSnapshot(snap, 500), /head is in someone-else\/Overhypeme/);
+  assert.throws(() => assertSnap(snap, 500), /head is in someone-else\/Overhypeme/);
 });
 
 test("snapshot: a missing head repo is rejected, not assumed to be ours", () => {
@@ -461,7 +479,7 @@ test("snapshot: a missing head repo is rejected, not assumed to be ours", () => 
   // this whole file exists to stop.
   const snap = goodSnapshot();
   delete snap.pr.head.repo;
-  assert.throws(() => assertSnapshot(snap, 500), /head\.repo/);
+  assert.throws(() => assertSnap(snap, 500), /head\.repo/);
 });
 
 test("snapshot: the head repo comparison ignores case", () => {
@@ -469,7 +487,7 @@ test("snapshot: the head repo comparison ignores case", () => {
   // differs only in case is the same repository, not a fork.
   const snap = goodSnapshot();
   snap.pr.head.repo = "theanswermanishere/overhypeme";
-  assert.doesNotThrow(() => assertSnapshot(snap, 500));
+  assert.doesNotThrow(() => assertSnap(snap, 500));
 });
 
 test("snapshot: a missing or malformed repo is rejected", () => {
@@ -477,24 +495,24 @@ test("snapshot: a missing or malformed repo is rejected", () => {
   // merge gate keys receipts by number. (Codex, #490.)
   const snap = goodSnapshot();
   delete snap.repo;
-  assert.throws(() => assertSnapshot(snap, 500), /snapshot\.repo must be "owner\/name"/);
+  assert.throws(() => assertSnap(snap, 500), /snapshot\.repo must be "owner\/name"/);
   const bare = goodSnapshot();
   bare.repo = "Overhypeme";
-  assert.throws(() => assertSnapshot(bare, 500), /snapshot\.repo must be "owner\/name"/);
+  assert.throws(() => assertSnap(bare, 500), /snapshot\.repo must be "owner\/name"/);
 });
 
 test("snapshot: a PR number mismatch is rejected", () => {
   // Guards against validating one PR and merging another.
-  assert.throws(() => assertSnapshot(goodSnapshot(), 501), /snapshot is for PR #500/);
+  assert.throws(() => assertSnap(goodSnapshot(), 501), /snapshot is for PR #500/);
 });
 
 test("snapshot: a missing or abbreviated head sha is rejected", () => {
   const snap = goodSnapshot();
   delete snap.pr.head.sha;
-  assert.throws(() => assertSnapshot(snap, 500), /full 40-character sha/);
+  assert.throws(() => assertSnap(snap, 500), /full 40-character sha/);
   const short = goodSnapshot();
   short.pr.head.sha = "abc1234";
-  assert.throws(() => assertSnapshot(short, 500), /full 40-character sha/);
+  assert.throws(() => assertSnap(short, 500), /full 40-character sha/);
 });
 
 test("snapshot: a missing head ref is rejected", () => {
@@ -503,13 +521,13 @@ test("snapshot: a missing head ref is rejected", () => {
   // still-fresh receipt. (Codex, #490.)
   const snap = goodSnapshot();
   delete snap.pr.head.ref;
-  assert.throws(() => assertSnapshot(snap, 500), /head\.ref is required/);
+  assert.throws(() => assertSnap(snap, 500), /head\.ref is required/);
 });
 
 test("snapshot: a missing capture time is rejected", () => {
   const snap = goodSnapshot();
   delete snap.capturedAt.reviewThreads;
-  assert.throws(() => assertSnapshot(snap, 500), /capturedAt\.reviewThreads/);
+  assert.throws(() => assertSnap(snap, 500), /capturedAt\.reviewThreads/);
 });
 
 test("snapshot: an unattested collection is rejected", () => {
@@ -517,19 +535,19 @@ test("snapshot: an unattested collection is rejected", () => {
   // item 3 into a rubber stamp on exactly the busy PRs where it matters.
   const snap = goodSnapshot();
   snap.complete.reviewThreads = false;
-  assert.throws(() => assertSnapshot(snap, 500), /complete\.reviewThreads must be explicitly true/);
+  assert.throws(() => assertSnap(snap, 500), /complete\.reviewThreads must be explicitly true/);
 });
 
 test("snapshot: a missing collection is rejected even when attested", () => {
   const snap = goodSnapshot();
   delete snap.checkRuns;
-  assert.throws(() => assertSnapshot(snap, 500), /snapshot\.checkRuns must be an array/);
+  assert.throws(() => assertSnap(snap, 500), /snapshot\.checkRuns must be an array/);
 });
 
 test("snapshot: a thread with no isResolved flag is rejected, not read as resolved", () => {
   const snap = goodSnapshot();
   snap.reviewThreads = [{ id: "t1" }];
-  assert.throws(() => assertSnapshot(snap, 500), /no boolean isResolved/);
+  assert.throws(() => assertSnap(snap, 500), /no boolean isResolved/);
 });
 
 test("snapshot: a comment with no timestamp is rejected", () => {
@@ -537,7 +555,7 @@ test("snapshot: a comment with no timestamp is rejected", () => {
   // silently sort as the epoch and could make an outstanding round look old.
   const snap = goodSnapshot();
   snap.issueComments = [{ user: { login: "me" }, body: "@codex review" }];
-  assert.throws(() => assertSnapshot(snap, 500), /missing or unparseable/);
+  assert.throws(() => assertSnap(snap, 500), /missing or unparseable/);
 });
 
 test("snapshot: a non-empty but UNPARSEABLE timestamp is rejected", () => {
@@ -545,7 +563,7 @@ test("snapshot: a non-empty but UNPARSEABLE timestamp is rejected", () => {
   // and any older valid response appears to answer it. (Codex, #490.)
   const snap = goodSnapshot();
   snap.issueComments[0].created_at = "sometime tuesday";
-  assert.throws(() => assertSnapshot(snap, 500), /missing or unparseable/);
+  assert.throws(() => assertSnap(snap, 500), /missing or unparseable/);
 });
 
 test("capture ordering: threads read BEFORE the accepted response fail", () => {
@@ -554,7 +572,7 @@ test("capture ordering: threads read BEFORE the accepted response fail", () => {
   // existed. (Codex, #490.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = "2026-08-17T04:09:00Z"; // before the 04:10 pass
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.equal(receipt.items.threads.pass, true);
   assert.match(receipt.items.capture.detail, /read before the Codex response/);
@@ -567,7 +585,7 @@ test("capture ordering: a read inside the response's reported second is stale", 
   // the end of the reported second. (Codex, #490 round 5.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = "2026-08-17T04:10:00.500Z";
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /read before the Codex response/);
 });
@@ -579,7 +597,7 @@ test("capture ordering: a SAME-SECOND read is stale, not fresh", () => {
   // reason. (Codex, #490.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = "2026-08-17T04:10:00Z"; // exactly the pass time
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /read before the Codex response/);
 });
@@ -590,7 +608,7 @@ test("capture recency: a saved snapshot cannot mint a fresh receipt", () => {
   // for an hour as long as the branch tip had not moved -- past a reopened
   // thread or a re-run that went red. (Codex, #490.)
   const snap = goodSnapshot();
-  const receipt = evaluate(snap, NOW + 3 * 60 * 60 * 1000);
+  const receipt = evaluateWith(snap, NOW + 3 * 60 * 60 * 1000);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /outside the 60-minute window/);
 });
@@ -602,7 +620,7 @@ test("capture recency: ONE future timestamp is enough to reject", () => {
   // while the read had actually happened first. (Codex, #490 round 3.)
   const snap = goodSnapshot();
   snap.capturedAt.reviewThreads = new Date(NOW + 60 * 60 * 1000).toISOString();
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /is in the future/);
 });
@@ -614,9 +632,19 @@ test("capture ordering: the REQUEST SET must also be read after the response", (
   // (Codex, #490 round 3.)
   const snap = goodSnapshot();
   snap.capturedAt.issueComments = "2026-08-17T04:09:00Z"; // before the 04:10 pass
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.match(receipt.items.capture.detail, /issueComments/);
+});
+
+test("a snapshot with NO base metadata is accepted -- nothing reads it any more", () => {
+  // `pr.base.sha` and `pr.base.ref` were required by the base-branch policy
+  // design. That design is gone; the requirement outlived its reader and
+  // rejected snapshots assembled from the inputs the gate actually uses.
+  // (Codex, PR #7 round 13.)
+  const snap = goodSnapshot();
+  delete snap.pr.base;
+  assert.doesNotThrow(() => assertSnap(snap, snap.pr.number));
 });
 
 test("--show: a stale stored receipt is not presentable as READY", () => {
@@ -629,6 +657,26 @@ test("--show: a stale stored receipt is not presentable as READY", () => {
   assert.match(staleReason({ verdict: "READY" }, NOW), /records no evidenceAt/);
 });
 
+test("--show: a receipt for ANOTHER repository is not presentable as READY", () => {
+  // The same manual-merge path. A receipt minted in another checkout, for a
+  // branch at the same tip, passed the age and tip checks and printed READY
+  // with nothing on the line to say it was foreign. Bound to the configured
+  // identity now, like every other consume site. (Codex, PR #7 round 11.)
+  assert.equal(receiptIdentityReason({ repo: SNAP_SLUG }, SNAP_SLUG), null);
+  assert.equal(receiptIdentityReason({ repo: SNAP_SLUG.toUpperCase() }, SNAP_SLUG), null, "case-insensitive");
+  assert.match(receiptIdentityReason({ repo: "someone-else/Mirror" }, SNAP_SLUG), /minted for someone-else\/Mirror, but this repository is/);
+  assert.match(receiptIdentityReason({}, SNAP_SLUG), /an unrecorded repository/);
+});
+
+test("--show: a receipt minted under a DIFFERENT required-checks policy is not presentable as READY", () => {
+  // Stamp on mint, compare on consume -- for requiredChecks as for repo. A
+  // receipt minted under a mistakenly weakened list, then the file restored
+  // without a new head, passed age, tip and identity. (Codex, PR #7 round 12.)
+  assert.equal(receiptPolicyReason({ requiredChecks: ["Build", "Test"] }, ["Test", "Build"]), null, "order-insensitive");
+  assert.match(receiptPolicyReason({ requiredChecks: ["Build"] }, ["Build", "Test"]), /minted under required checks \[Build\], but .* now declares \[Build, Test\]/);
+  assert.match(receiptPolicyReason({}, ["Build"]), /records no required-checks policy/);
+});
+
 test("outage: a limit on a LATER round is still a STOP", () => {
   // Round 1 announced, round 2 hit the limit: the outage branch used to be
   // skipped because some announcement existed, so the verdict came back as a
@@ -639,7 +687,7 @@ test("outage: a limit on a LATER round is still a STOP", () => {
     comment("me", "@codex review\n\nRound 2.", "2026-08-17T04:20:00Z"),
     comment(CODEX_BOT, "You have reached your Codex usage limits for code reviews.", "2026-08-17T04:21:00Z"),
   ];
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "BLOCKED -- CODEX UNAVAILABLE");
   assert.match(receipt.items.codex.detail, /^STOP --/);
 });
@@ -672,7 +720,7 @@ test("Codex: an exact timestamp tie reads as unanswered, not answered", () => {
 test("evaluate: one failing item is enough for NOT READY", () => {
   const snap = goodSnapshot();
   snap.reviewThreads = [{ id: "t1", isResolved: false }];
-  const receipt = evaluate(snap, NOW);
+  const receipt = evaluateWith(snap, NOW);
   assert.equal(receipt.verdict, "NOT READY");
   assert.equal(receipt.items.ci.pass, true);
   assert.equal(receipt.items.threads.pass, false);
@@ -704,6 +752,14 @@ function tempRepo() {
   run(["init", "-q"]);
   run(["config", "user.email", "test@example.com"]);
   run(["config", "user.name", "Test"]);
+  // A repo running this machinery HAS a machinery config -- the scripts read
+  // their identity from the checkout they are pointed at, so a temp repo
+  // without one is not a realistic fixture, it is a repo the gate refuses.
+  mkdirSync(join(dir, ".agents"), { recursive: true });
+  writeFileSync(
+    join(dir, ".agents/machinery.json"),
+    JSON.stringify({ repo: SNAP_SLUG, requiredChecks: ["Test"] }),
+  );
   const commit = (files, message) => {
     for (const [path, content] of Object.entries(files)) {
       const full = join(dir, path);
@@ -724,6 +780,35 @@ function tempRepo() {
  * analysis actually covers, and (since Codex #539 round 2) the sole source
  * of the diff baseline this fallback trusts.
  */
+// The same identity tempRepo() declares in .agents/machinery.json: records and
+// budgets are compared to the CONFIG now, so a fixture record must name the
+// repository the fixture checkout declares.
+const TEST_REPO_SLUG = SNAP_SLUG;
+
+/**
+ * The committed budget receipt every adjudication record is bound to.
+ *
+ * Production cannot reach `validateAdjudicationRecord` without one: a record
+ * is generated FROM a loaded budget, and its `repo` is copied out of that
+ * budget. These fixtures used to omit it, which is why a record from another
+ * repository could be committed into this one and accepted as its own
+ * evidence -- the tests modelled a state production never produces.
+ * (Codex, PR #7 round 9.)
+ */
+function loopBudget(pr, { repo = TEST_REPO_SLUG, tier = TIER } = {}) {
+  const path = `.agents/receipts/loop-budget-${pr}.json`;
+  const body = JSON.stringify({
+    pr,
+    tier,
+    repo,
+    budget: TIER_CAP,
+    criticality: 30,
+    artifact: "a thing under review",
+    declaredAt: "2026-08-17T00:00:00.000Z",
+  });
+  return { path, files: { [path]: body } };
+}
+
 function record(pr, seq, {
   passes = TIER_CAP,
   generatedAt = "2026-08-17T04:30:00Z",
@@ -737,18 +822,29 @@ function record(pr, seq, {
   extensions = [],
   baseline,
   resolved = true,
+  repo = TEST_REPO_SLUG,
+  // A record from before the field existed. `repo: undefined` cannot express
+  // this -- a destructuring default fills it back in -- and `repo: null`
+  // models a present-but-null key, which is a different thing.
+  omitRepo = false,
+  budgetRepo = TEST_REPO_SLUG,
 } = {}) {
   const path = `.agents/adjudications/${pr}-${seq}.json`;
   const body = JSON.stringify({
     generator,
     pr: recordPr,
+    // Which repository's loop this record describes. `budgetRepo` is a
+    // separate knob so a test can make the two DISAGREE, which is the whole
+    // point of the binding.
+    // JSON.stringify drops an undefined value, so this omits the key.
+    repo: omitRepo ? undefined : repo,
     generatedAt,
     evidenceCapturedAt,
     budget: { tier, pendingRequest, ambiguous, allowance: allowanceValue, extensions },
     rounds: { completedReviewerPasses: passes },
     sinceLastReview: { resolved, head: baseline },
   });
-  return { path, files: { [path]: body } };
+  return { path, files: { [path]: body }, budget: loopBudget(pr, { repo: budgetRepo, tier }) };
 }
 
 function extension(pr, seq, {
@@ -773,7 +869,13 @@ function extension(pr, seq, {
  * bookkeeping since" test needs.
  */
 function closedLoop(commit, pr, { seq = 1, recordOpts = {}, extOpts = {} } = {}) {
-  const baseline = commit({ "docs/x.md": "content" }, `c1 -- the reviewed commit for #${pr}`);
+  // The budget lands in the BASELINE commit, as it does in life: it is
+  // declared at loop start, long before any record cites it. It must not ride
+  // in the record's own commit -- the fallback's diff bound allows exactly the
+  // record and receipt to have changed since the baseline, and a third file
+  // there is a real content change.
+  const bud = loopBudget(pr, { repo: recordOpts.budgetRepo ?? TEST_REPO_SLUG, tier: recordOpts.tier ?? TIER });
+  const baseline = commit({ "docs/x.md": "content", ...bud.files }, `c1 -- the reviewed commit for #${pr}`);
   const rec = record(pr, seq, { baseline, ...recordOpts });
   const ext = extension(pr, seq, { recordPath: rec.path, ...extOpts });
   const head = commit({ ...rec.files, ...ext.files }, "c2 -- record + receipt land together");
@@ -964,7 +1066,7 @@ test("adjudication: the record's own embedded extension history showing a termin
   // loadLoop's validated chain at generation time -- ending in a terminal
   // verdict means only David may follow.
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1 -- the reviewed commit");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1 -- the reviewed commit");
   const rec = record(999, 1, {
     baseline,
     extensions: [{ kind: "adjudication", verdict: "escalate", grant: null }],
@@ -1014,7 +1116,7 @@ test("adjudication: a record from the wrong generator is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { generator: "scripts/some-other-tool.mjs", baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /was not produced by review-loop-record\.mjs/);
@@ -1024,7 +1126,7 @@ test("adjudication: a record describing a different PR is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { recordPr: 111, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /describes PR 111/);
@@ -1036,12 +1138,13 @@ test("adjudication: a broken budget state (record.budget.problem) is rejected", 
   const body = JSON.stringify({
     generator: "scripts/review-loop-record.mjs",
     pr: 999,
+    repo: TEST_REPO_SLUG,
     generatedAt: "2026-08-17T04:30:00Z",
     budget: { problem: "bad-receipt", detail: "loop-budget-999.json: unreadable" },
     rounds: { completedReviewerPasses: TIER_CAP },
   });
   const ext = extension(999, 1, { recordPath: path });
-  const head = commit({ [path]: body, ...ext.files }, "c1");
+  const head = commit({ [path]: body, ...ext.files, ...loopBudget(999).files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /broken budget state/);
@@ -1051,7 +1154,7 @@ test("adjudication: an unknown tier in the record is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { tier: "not-a-real-tier", baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /unknown tier/);
@@ -1075,7 +1178,7 @@ test("adjudication: a record generated below the loop's active allowance is reje
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { passes: TIER_CAP - 1, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /below the loop's active allowance of 5/);
@@ -1089,7 +1192,7 @@ test("adjudication: a David-granted allowance ABOVE the base tier cap is honored
   const { dir, commit } = tempRepo();
   const belowActive = record(999, 1, { passes: TIER_CAP + 1, allowanceValue: 8, baseline: "a".repeat(40) });
   const ext1 = extension(999, 1, { recordPath: belowActive.path });
-  const head1 = commit({ ...belowActive.files, ...ext1.files }, "c1");
+  const head1 = commit({ ...belowActive.files, ...ext1.files, ...belowActive.budget.files }, "c1");
   const res1 = checkAdjudicatedCodex(999, head1, { cwd: dir });
   assert.equal(res1.pass, false);
   assert.match(res1.detail, /below the loop's active allowance of 8/);
@@ -1104,6 +1207,7 @@ test("adjudication: a non-finite (uncapped) allowance is rejected, not treated a
   const body = JSON.stringify({
     generator: "scripts/review-loop-record.mjs",
     pr: 999,
+    repo: TEST_REPO_SLUG,
     generatedAt: "2026-08-17T04:30:00Z",
     evidenceCapturedAt: "2026-08-17T04:28:00Z",
     budget: { tier: "product", pendingRequest: false, ambiguous: false, allowance: null, extensions: [] },
@@ -1111,7 +1215,7 @@ test("adjudication: a non-finite (uncapped) allowance is rejected, not treated a
     sinceLastReview: { resolved: true, head: "a".repeat(40) },
   });
   const ext = extension(999, 1, { recordPath: path });
-  const head = commit({ [path]: body, ...ext.files }, "c1");
+  const head = commit({ [path]: body, ...ext.files, ...loopBudget(999).files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /below the loop's active allowance of null/);
@@ -1121,7 +1225,7 @@ test("adjudication: a record generated with a request still pending is rejected 
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { pendingRequest: true, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /pendingRequest is true/);
@@ -1135,7 +1239,7 @@ test("adjudication: a record with an AMBIGUOUS request/pass tie is rejected -- p
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { pendingRequest: false, ambiguous: true, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /budget\.ambiguous is true/);
@@ -1185,6 +1289,7 @@ test("adjudication: a record with no parseable evidenceCapturedAt is rejected (C
   const body = JSON.stringify({
     generator: "scripts/review-loop-record.mjs",
     pr: 999,
+    repo: TEST_REPO_SLUG,
     generatedAt: "2026-08-17T04:30:00Z",
     // evidenceCapturedAt omitted entirely
     budget: { tier: "product", pendingRequest: false, ambiguous: false, allowance: TIER_CAP, extensions: [] },
@@ -1192,7 +1297,7 @@ test("adjudication: a record with no parseable evidenceCapturedAt is rejected (C
     sinceLastReview: { resolved: true, head: "a".repeat(40) },
   });
   const ext = extension(999, 1, { recordPath: path });
-  const head = commit({ [path]: body, ...ext.files }, "c1");
+  const head = commit({ [path]: body, ...ext.files, ...loopBudget(999).files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /evidenceCapturedAt is missing or unparseable/);
@@ -1206,7 +1311,7 @@ test("adjudication: sinceLastReview.resolved !== true is rejected", () => {
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { resolved: false, baseline: "a".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /sinceLastReview\.resolved is not true/);
@@ -1216,7 +1321,7 @@ test("adjudication: a malformed or abbreviated sinceLastReview.head is rejected"
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { baseline: "a".repeat(7) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /full 40-character/);
@@ -1226,7 +1331,7 @@ test("adjudication: a sinceLastReview.head that doesn't resolve to a real commit
   const { dir, commit } = tempRepo();
   const rec = record(999, 1, { baseline: "f".repeat(40) });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ ...rec.files, ...ext.files }, "c1");
+  const head = commit({ ...rec.files, ...ext.files, ...rec.budget.files }, "c1");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /does not resolve to a commit/);
@@ -1279,6 +1384,67 @@ test("adjudication: an unrelated file added under .agents/receipts/ (e.g. a READ
   assert.match(res.detail, /README\.md/);
 });
 
+test("adjudication: ANOTHER repository's record, committed here, is refused", () => {
+  // Round 9's second P1. `review-loop-record.mjs` had recorded `repo` since
+  // that round, and a repo-wide search found the field only at the writer:
+  // written, never read. So a record generated in repository B and committed
+  // into A -- same PR number, resolvable shared baseline -- was accepted as
+  // A's own evidence, and B's rounds and findings could grant A extra rounds
+  // or a READY verdict. (Codex, PR #7 round 9.)
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
+  const rec = record(999, 1, { baseline, repo: "Someone/Else" });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /was generated for "Someone\/Else", but this repository is TheAnswerManIsHere\/Overhypeme/);
+});
+
+test("adjudication: an internally-consistent budget+record pair from ANOTHER repository is refused", () => {
+  // Round 10's P1. The round-9 fix compared the record to the budget beside
+  // it, so a pair that agreed with EACH OTHER -- both naming another
+  // repository -- passed. Both are compared to the configured identity now,
+  // and identity is resolved before any item runs. (Codex, PR #7 round 10.)
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999, { repo: "Someone/Else" }).files }, "c1");
+  const rec = record(999, 1, { baseline, repo: "Someone/Else" });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /was generated for "Someone\/Else", but this repository is TheAnswerManIsHere\/Overhypeme/);
+  const rail = checkRail(999, head, dir, 0);
+  assert.equal(rail.pass, false);
+  assert.match(rail.detail, /declared for Someone\/Else, not TheAnswerManIsHere\/Overhypeme/);
+});
+
+test("adjudication: a record predating the `repo` field is refused, not grandfathered", () => {
+  // Round 4 settled no-grandfathering for budgets and the reason carries: a
+  // record this check cannot bind must not read as one it has bound.
+  // Regenerating a record is one command.
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
+  const rec = record(999, 1, { baseline, omitRepo: true });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /was generated for null/);
+});
+
+test("adjudication: identity binding is case-insensitive, as everywhere else", () => {
+  // A declaration commonly spells the name in a different case than the API
+  // returns. It gets past the binding and fails on nothing.
+  const { dir, commit } = tempRepo();
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
+  const rec = record(999, 1, { baseline, repo: TEST_REPO_SLUG.toUpperCase() });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, true, res.detail);
+});
+
 test("adjudication: a baseline that is NOT an ancestor of the current head (history rewritten) is refused", () => {
   const { dir, commit, run } = tempRepo();
   const baseline = commit({ "a.txt": "1" }, "c1 -- the reviewed commit");
@@ -1287,7 +1453,7 @@ test("adjudication: a baseline that is NOT an ancestor of the current head (hist
   run(["rm", "-rq", "--cached", "."]);
   const rec = record(999, 1, { baseline });
   const ext = extension(999, 1, { recordPath: rec.path });
-  const head = commit({ "b.txt": "2", ...rec.files, ...ext.files }, "unrelated history");
+  const head = commit({ "b.txt": "2", ...rec.files, ...ext.files, ...rec.budget.files }, "unrelated history");
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /not an ancestor/);
@@ -1295,7 +1461,7 @@ test("adjudication: a baseline that is NOT an ancestor of the current head (hist
 
 test("adjudication: one real file mixed in with the receipt+record still fails the whole check", () => {
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
   const rec = record(999, 1, { baseline });
   const ext = extension(999, 1, { recordPath: rec.path });
   const head = commit({ ...rec.files, ...ext.files, "docs/x.md": "content changed too" }, "c2 -- record+receipt AND real content");
@@ -1383,7 +1549,7 @@ test("adjudication: a request landing in the SAME SECOND as the record's evidenc
 });
 
 // ---------------------------------------------------------------------------
-// evaluate()-level integration.
+// evaluateWith()-level integration.
 // ---------------------------------------------------------------------------
 
 test("evaluate: a failed live Codex check falls back to a qualifying adjudication and reaches READY", () => {
@@ -1400,7 +1566,7 @@ test("evaluate: a failed live Codex check falls back to a qualifying adjudicatio
   // enforces against the adjudication's own acceptedAt.
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, true);
   assert.match(receipt.items.codex.detail, /adjudicated ship-with-gaps-recorded/);
   assert.equal(receipt.items.capture.pass, true);
@@ -1420,7 +1586,7 @@ test("evaluate: reviewThreads captured BEFORE the adjudication's record fails ca
   // it cannot be shown to reflect the loop's final state.
   snap.capturedAt = { checkRuns: LATER, reviewThreads: "2026-08-17T04:00:00Z", issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, true);
   assert.equal(receipt.items.capture.pass, false);
   assert.equal(receipt.verdict, "NOT READY");
@@ -1433,7 +1599,7 @@ test("evaluate: a failed live Codex check AND a non-qualifying adjudication stay
   snap.issueComments = [];
   snap.reviews = [];
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, false);
   assert.match(receipt.items.codex.detail, /review loop was never started/);
   assert.match(receipt.items.codex.detail, /adjudication fallback also failed/);
@@ -1441,11 +1607,11 @@ test("evaluate: a failed live Codex check AND a non-qualifying adjudication stay
 });
 
 test("evaluate: a PASSING live Codex check never even looks for an adjudication receipt", () => {
-  // Confirms the fallback is a fallback -- a normal green PR's evaluate()
+  // Confirms the fallback is a fallback -- a normal green PR's evaluateWith()
   // must not depend on .agents/receipts existing at all, let alone on git
   // ancestry succeeding for an unrelated cwd.
   const snap = goodSnapshot();
-  const receipt = evaluate(snap, NOW, { cwd: "/nonexistent" });
+  const receipt = evaluateWith(snap, NOW, { cwd: "/nonexistent" });
   assert.equal(receipt.items.codex.pass, true);
   assert.equal(receipt.verdict, "READY");
 });
@@ -1464,7 +1630,7 @@ test("evaluate: a live Codex outage is never overridden by a qualifying adjudica
   snap.reviews = [];
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, false);
   assert.ok(receipt.items.codex.outage, "directCodex must report an outage");
   assert.equal(receipt.verdict, "BLOCKED -- CODEX UNAVAILABLE");
@@ -1482,7 +1648,7 @@ test("evaluate: a fresh @codex review request in the snapshot after adjudication
   snap.reviews = [];
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
-  const receipt = evaluate(snap, NOW, { cwd: dir });
+  const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, false);
   assert.match(receipt.items.codex.detail, /a fresh review may have been asked for since the loop closed/);
   assert.equal(receipt.verdict, "NOT READY");
@@ -1493,7 +1659,7 @@ test("evaluate: a fresh @codex review request in the snapshot after adjudication
 // ---------------------------------------------------------------------------
 
 const railBudget = (pr) =>
-  JSON.stringify({ pr, tier: "product", budget: 5, criticality: 40, artifact: "x", declaredAt: "2026-08-17T00:00:00Z" });
+  JSON.stringify({ pr, tier: "product", repo: SNAP_SLUG, budget: 5, criticality: 40, artifact: "x", declaredAt: "2026-08-17T00:00:00Z" });
 const railExt = (pr, seq, fields) => {
   const path = `.agents/receipts/loop-extension-${pr}-${seq}.json`;
   // checkRail now runs validateExtension over every receipt (pure mode), so
@@ -1723,7 +1889,7 @@ test("rail: with NO David authorization beneath it, a trailing ship receipt stil
   const { dir, commit } = tempRepo();
   const budgetFile = {
     ".agents/receipts/loop-budget-999.json": JSON.stringify({
-      pr: 999, tier: "product", budget: 5, criticality: 30, artifact: "test", declaredAt: "2026-08-21T00:00:00Z",
+      pr: 999, tier: "product", repo: SNAP_SLUG, budget: 5, criticality: 30, artifact: "test", declaredAt: "2026-08-21T00:00:00Z",
     }),
   };
   const rec = record(999, 1, { tier: "product", passes: 5, allowanceValue: 5, baseline: "a".repeat(40) });
@@ -1799,7 +1965,7 @@ test("adjudication: a DIRECT David stop citing its own record is honored, mid-st
   // its own mechanical record; the record's baseline bounds the bookkeeping
   // diff and the tripwire floor is waived (passes 4 < allowance 5 here).
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1 -- the reviewed commit");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1 -- the reviewed commit");
   const rec = record(999, 1, { passes: 4, allowanceValue: 5, baseline });
   const head = commit(
     {
@@ -1817,7 +1983,7 @@ test("adjudication: a DIRECT David stop citing its own record is honored, mid-st
 
 test("adjudication: a direct stop still refuses when real content changed since its record's baseline", () => {
   const { dir, commit } = tempRepo();
-  const baseline = commit({ "docs/x.md": "content" }, "c1");
+  const baseline = commit({ "docs/x.md": "content", ...loopBudget(999).files }, "c1");
   const rec = record(999, 1, { passes: 4, allowanceValue: 5, baseline });
   const head = commit(
     {
@@ -1872,4 +2038,118 @@ test("adjudication: the internal tier gets the merge-gate fallback like every ti
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, true);
   assert.match(res.detail, /bookkeeping-only/);
+});
+
+// ---------------------------------------------------------------------------
+// Machinery config: declared per consumer, read from the WORKING TREE, and
+// fail-closed in every direction
+// ---------------------------------------------------------------------------
+
+/**
+ * A repository whose working tree carries a machinery declaration. Still a
+ * git repo, because `evaluate` reads receipts and records from it.
+ */
+const policyRepo = (config, { baseBranch = "main" } = {}) => {
+  const root = mkdtempSync(join(tmpdir(), "policy-"));
+  const g = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  g("init", "-q", "-b", baseBranch, ".");
+  g("config", "user.email", "t@example.test");
+  g("config", "user.name", "T");
+  mkdirSync(join(root, ".agents"), { recursive: true });
+  if (config !== null) writeFileSync(join(root, ".agents/machinery.json"), config);
+  else writeFileSync(join(root, "seed.txt"), "x");
+  g("add", "-A");
+  g("commit", "-q", "-m", "base");
+  const sha = g("rev-parse", "HEAD").trim();
+  g("update-ref", `refs/remotes/origin/${baseBranch}`, sha);
+  return { root, sha, g };
+};
+
+const declared = (checks, extra = {}) => JSON.stringify({ repo: "Owner/Repo", requiredChecks: checks, ...extra });
+
+test("required checks come from the consumer's own declaration", () => {
+  const { root, sha } = policyRepo(declared(["Manifest", "Test"]));
+  assert.deepEqual(requiredChecks(root), ["Manifest", "Test"]);
+});
+
+test("the policy is the working tree's declaration, by design", () => {
+  // The base-commit read this replaced defended against a PR that commits a
+  // weaker list at its own head -- authored by the person running the gate,
+  // who could as easily not run it. A changed policy shows in the diff David
+  // merges, which is the control. What this read has to catch is a MISTAKE:
+  // an unedited seed, an empty list, a malformed file -- all refused below.
+  // (.agents/memory/machinery-threat-model-is-my-own-mistakes.md)
+  const { root } = policyRepo(declared(["Build", "Test"]));
+  assert.deepEqual(requiredChecks(root), ["Build", "Test"]);
+  writeFileSync(join(root, ".agents/machinery.json"), declared(["Build"]));
+  __resetRepoSlugCache();
+  assert.deepEqual(requiredChecks(root), ["Build"], "the file on disk is the declaration");
+});
+
+test("a snapshot for ANOTHER repository is refused, by the declared config", () => {
+  // Every repository has a #7. A foreign snapshot passes its own internal
+  // consistency (repo == head.repo) and would otherwise be judged against
+  // this repository's receipts and records, minting a receipt checkMerge
+  // accepts. GitHub's word against the declared config, before any item
+  // runs. (Codex, PR #7 rounds 3, 8 and 10.)
+  const { root, sha } = policyRepo(declared(["Test", "Manifest"]));
+
+  const foreign = goodSnapshot();
+  foreign.repo = "someone-else/Mirror";
+  foreign.pr.head.repo = "someone-else/Mirror";
+  foreign.pr.base.sha = sha;
+  assert.throws(
+    () => evaluate(foreign, Date.now(), { cwd: root }),
+    /this snapshot is for someone-else\/Mirror, but .* declares Owner\/Repo/,
+    "a foreign snapshot must not be judged against this repository's config",
+  );
+
+  // Case-insensitive on both sides, like every other identity comparison
+  // here: it gets past the identity gate and fails later, on evidence.
+  const cased = goodSnapshot();
+  cased.repo = "OWNER/REPO";
+  cased.pr.head.repo = "OWNER/REPO";
+  cased.pr.base.sha = sha;
+  assert.doesNotThrow(
+    () => evaluate(cased, Date.now(), { cwd: root }),
+    "a case-differing identity is the same repository",
+  );
+});
+
+test("a declaration with no repository is refused, not read past", () => {
+  // The declaration has to actually name one; otherwise there is nothing to
+  // bind the receipt to and the check would silently pass.
+  const { root, sha } = policyRepo(JSON.stringify({ requiredChecks: ["Test"] }));
+  const snap = goodSnapshot();
+  snap.pr.base.sha = sha;
+  assert.throws(() => evaluate(snap, Date.now(), { cwd: root }), /must declare "repo"/);
+});
+
+test("REFUSES an empty list -- a gate that requires nothing is satisfied by anything", () => {
+  // The fail-OPEN reading, and the one this whole constant exists to prevent.
+  const { root, sha } = policyRepo(declared([]));
+  assert.throws(() => requiredChecks(root), /satisfied by any green set/);
+});
+
+test("REFUSES a malformed declaration rather than reading past it", () => {
+  const bad = {
+    "{ not json": /not valid JSON/,
+    [JSON.stringify({ repo: "Owner/Repo", baseBranch: "main" })]: /array of non-empty job names/,
+    [declared("Test")]: /array of non-empty/,
+    [declared(["ok", ""])]: /array of non-empty/,
+  };
+  for (const [config, expected] of Object.entries(bad)) {
+    const { root, sha } = policyRepo(config);
+    assert.throws(() => requiredChecks(root), expected, config);
+  }
+});
+
+test("a declared job that never appears keeps the gate closed", () => {
+  // The behaviour the hardcoded list protected, now protecting whatever the
+  // consumer declares instead of one repo's five job names.
+  const declared = ["Manifest", "Test"];
+  const present = [run("Manifest", "completed", "success", HEAD)];
+  const res = checkCi(present, HEAD, declared);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /Test is absent/);
 });
