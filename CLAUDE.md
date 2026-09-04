@@ -22,10 +22,17 @@ risk. So:
   `claude-core.md` changes how I behave in every repo, on every future session.
   Weigh it as such — the internal tier's low ceremony is about *review rounds*,
   not about care.
-- **The payload is data, not this repo's own configuration.** Editing
+- **The payload is data, with three named exceptions.** Editing
   `core/.claude/settings.template.json` does not change this repo's settings; it
-  changes what the next repo is seeded with. Same for the guard and the skills.
-  Nothing under `core/` takes effect here except by import.
+  changes what the next repo is seeded with, and this repo's own
+  `.claude/settings.json` is a separate file. But `core/` is no longer inert
+  here, and the activation model has to be stated exactly or a reviewer will
+  judge a change to it as consumer-only when it also changes this repo:
+  **skills** and **agents** are live here, reached by per-entry symlink from
+  `.claude/`, and **`guard.sh`** is named directly by this repo's hooks once
+  those hooks are installed. Everything else under `core/` still reaches this
+  repo only by import — the `@core/.agents/core/claude-core.md` line at the top
+  of this file. See *How this repo reaches its own payload* below.
 - **Adding a file to `core/` is only half the change.** If it is not in
   `sync-manifest.yml` it never travels, and the sync reports success anyway.
   `node scripts/check-manifest.mjs` is what makes that loud; it runs in CI and
