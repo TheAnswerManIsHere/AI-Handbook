@@ -132,16 +132,67 @@ function git(args, { cwd = REPO_ROOT } = {}) {
 export const PATCH_CAP_CHARS = 60_000;
 
 /**
+ * The record-class paths changed in `range`, classified rather than pattern-
+ * matched here so "what counts as a record" keeps ONE definition.
+ *
+ * `-z` because the paths become pathspecs below: git's default output quotes
+ * anything with a space, quote or newline in it, and a quoted path excludes
+ * nothing.
+ */
+function recordPathsIn(runGit, range) {
+  return runGit(["diff", "--name-only", "-z", range])
+    .split("\0")
+    .filter(Boolean)
+    .filter((file) => classifyPath(file) === "record");
+}
+
+/**
  * A capped, git-derived unified diff for `range`, or a stated reason it is
- * absent. Never silent: truncation and failure both say so, because the
- * adjudicator is told to weigh missing evidence as uncertainty rather than
+ * absent. Never silent: truncation, exclusion and failure all say so, because
+ * the adjudicator is told to weigh missing evidence as uncertainty rather than
  * fill it by inference. (Codex, #553 rounds 2 and 4.)
+ *
+ * RECORDS ARE EXCLUDED BEFORE THE CAP IS APPLIED, and that ordering is the
+ * whole fix. A diff is emitted in lexicographic path order, `.agents/` sorts
+ * ahead of almost every implementation path, and a loop commits its own
+ * receipts and adjudication records AS IT RUNS -- records which themselves
+ * embed the previous record's patch, so they grow with every dispatch. Capping
+ * first therefore retained this machinery's own bookkeeping and dropped the
+ * code the round's findings were about, on exactly the long loops that reach
+ * an adjudicator at all.
+ *
+ * Measured on PR #10 before this: a 242,289-character diff capped to 60,000
+ * with `+++ b/.claude/settings.json` absent entirely. Two verdicts were
+ * returned on that evidence and both had to be withdrawn -- one of them had
+ * waved through a P1 that silently disarmed every guard. A truncation notice
+ * did not save it: a fresh-context judge cannot know that the one file it
+ * needed is the one that fell off the end. (Codex, #12.)
+ *
+ * Excluding regardless of size is deliberate. Records are not the artifact
+ * under review at any length, and a rule that only applies over some threshold
+ * is one nobody can reason about at the moment it matters.
  */
 export function cappedDiff(runGit, range) {
   try {
-    const raw = runGit(["diff", "--no-color", range]);
-    if (raw.length <= PATCH_CAP_CHARS) return raw;
+    const records = recordPathsIn(runGit, range);
+    const raw = runGit([
+      "diff",
+      "--no-color",
+      range,
+      // Exclude-only pathspecs need no positive counterpart; git applies them
+      // to the whole result set. Verified rather than assumed.
+      ...(records.length ? ["--", ...records.map((file) => `:(exclude,literal)${file}`)] : []),
+    ]);
+    // Prepended, not appended: an exclusion notice that the cap could itself
+    // truncate would be missing exactly when it matters most.
+    const note = records.length
+      ? `[excluded ${records.length} generated record file${records.length === 1 ? "" : "s"} -- ` +
+        `this machinery's own receipts and adjudication records, which are bookkeeping rather than ` +
+        `the artifact under review; the full file list is in the numstat fields]\n`
+      : "";
+    if (raw.length <= PATCH_CAP_CHARS) return note + raw;
     return (
+      note +
       raw.slice(0, PATCH_CAP_CHARS) +
       `\n[TRUNCATED at ${PATCH_CAP_CHARS} chars of ${raw.length} -- the full diff exceeds the record cap; ` +
       `weigh the truncation itself as uncertainty]`

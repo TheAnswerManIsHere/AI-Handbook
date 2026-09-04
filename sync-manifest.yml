@@ -738,6 +738,28 @@ groups:
         why: >
           Two test comments cite the entry as the design rationale they assert. Comments, not imports. A dangling pointer if memory is absent, not a broken code
           path.
+      - group: settings-template
+        ref: core/.claude/settings.template.json
+        from: core/scripts/review-loop-record.mjs
+        form: ".claude/settings.json"
+        count: 1
+        why: >
+          cappedDiff's header cites the measurement that produced it — the
+          PR #10 diff in which `+++ b/.claude/settings.json` was absent from
+          the retained prefix. A historical example naming the file the
+          adjudicator failed to see, not a route to open it. The code never
+          reads that path, and runs identically where the group is absent.
+      - group: settings-template
+        ref: core/.claude/settings.template.json
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: ".claude/settings.json"
+        count: 3
+        why: >
+          The regression fixtures use the real path from the incident so the
+          test reads as the scenario it pins: a record large enough to fill
+          the cap, and the implementation file that used to fall off the end.
+          Fixture strings compared against fake git output — nothing is read
+          from disk, and the suite passes with the group absent.
       - group: memory
         ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
         from: core/scripts/__tests__/pr-ready.test.mjs
