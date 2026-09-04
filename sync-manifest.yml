@@ -725,10 +725,11 @@ groups:
         ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
         from: core/scripts/pr-ready.mjs
         form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
-        count: 1
+        count: 2
         why: >
-          pr-ready.mjs's config-adapter header cites the same entry for the same reason. A dangling pointer if memory is absent, not a broken code
-          path.
+          pr-ready.mjs's config-adapter header and its required-checks header
+          each cite the same entry for the same reason. A dangling pointer if
+          memory is absent, not a broken code path.
       - group: memory
         ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
         from: core/scripts/__tests__/review-budget.test.mjs
