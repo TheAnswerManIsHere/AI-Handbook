@@ -26,6 +26,8 @@
  * ordinary GITHUB_TOKEN so the PAT never needs `repo`.
  */
 
+import { pathToFileURL } from "node:url";
+
 const GRAPHQL = "https://api.github.com/graphql";
 
 /** Label prefix -> project field name. Order is the order fields are written. */
@@ -351,7 +353,7 @@ async function main() {
   console.log(`\n✓ ${issues.length} issue(s) in sync with the board.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error(`✗ ${err.message}`);
     process.exitCode = 1;
