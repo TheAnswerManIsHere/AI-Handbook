@@ -56,14 +56,16 @@ node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
 node scripts/check-manifest.mjs          # every payload file is actually routed
 node scripts/check-identity-sources.mjs  # every identity touchpoint classified
 node scripts/check-root-wiring.mjs       # this repo actually reaches its payload
+node scripts/check-settings-fields.mjs   # no settings field Claude Code would refuse
 ```
 
 These run in the two required checks on every pull request to `main` — `Test`
 and `Manifest`, which are the job names `.agents/machinery.json` lists. The
-number of *commands* is not the number of *checks*: the last three all run in
+number of *commands* is not the number of *checks*: the last four all run in
 `Manifest`, so adding one here adds no new required check and needs no branch-
-protection change. Run all four locally; a change that adds payload without a
-manifest entry, adds an identity touchpoint without classifying it, or adds a
-skill without wiring it to the root is incomplete and one of them will say so. There is no build,
+protection change. Run all five locally; a change that adds payload without a
+manifest entry, adds an identity touchpoint without classifying it, adds a
+skill without wiring it to the root, or puts a field in a settings file that
+Claude Code refuses to load is incomplete and one of them will say so. There is no build,
 no typecheck and no database in this repository — if you are looking for them,
 you are in the wrong repo.

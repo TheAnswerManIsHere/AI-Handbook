@@ -89,11 +89,12 @@ Two things are deliberately NOT symlinks:
 - **`.claude/settings.json`** is this repo's own, adapted from
   `core/.claude/settings.template.json` — which is a seed for the next
   consumer, not configuration that takes effect here. What was adapted:
-  `env.DATABASE_URL` dropped (no database), `hooks.SessionStart` dropped (it
-  points at a `setup-test-db.sh` this repo does not have), the `drizzle-kit`
-  deny entries dropped (no Drizzle) while `Read(**/.env*)` is kept because it
-  applies everywhere, and `model` kept as `opus` since this repo is almost
-  entirely payload code.
+  `env.DATABASE_URL` dropped (no database), the `drizzle-kit` deny entries
+  dropped (no Drizzle) while `Read(**/.env*)` is kept because it applies
+  everywhere, and `model` kept as `opus` since this repo is almost entirely
+  payload code. The hook paths also differ and must: a consumer's guard lands
+  at `.claude/guard.sh`, while here it stays in the payload at
+  `core/.claude/guard.sh` — see above.
 
   **Neither settings file may carry a field Claude Code does not recognise**,
   and that is stricter than the published schema — which declares

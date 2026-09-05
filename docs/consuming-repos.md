@@ -188,7 +188,6 @@ readiness, not link resolution.
    | Field | Decision |
    |---|---|
    | `env.DATABASE_URL` | Point it at the repo's own test database, or drop the key entirely until the repo has one. |
-   | `hooks.SessionStart` | Points at `scripts/setup-test-db.sh`. Drop the hook until that script exists, or every session opens with a failing hook. |
    | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. `Read(**/.env*)` applies everywhere; keep it. |
    | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The three spellings of the remote server are listed **on purpose**: the id varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. |
 

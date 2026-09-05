@@ -10,6 +10,7 @@ import {
   unrecognisedFields,
   checkFile,
   run,
+  relativeHookCommands,
 } from "../check-settings-fields.mjs";
 
 // ---------------------------------------------------------------------------
@@ -73,21 +74,37 @@ const withTree = (files, fn) => {
 
 test("checkFile reports the offending field with its file", () => {
   withTree({ ".claude/settings.json": JSON.stringify({ _comment: [], model: "opus" }) }, (dir) => {
-    assert.deepEqual(checkFile(".claude/settings.json", dir), {
-      file: ".claude/settings.json",
-      bad: ["_comment"],
-    });
+    const r = checkFile(".claude/settings.json", dir);
+    // Assert the fields that carry meaning, not the whole object: an exact
+    // deepEqual here broke the moment `relativeHooks` was added, which is a
+    // test coupled to the result's shape rather than to its behaviour.
+    assert.equal(r.file, ".claude/settings.json");
+    assert.deepEqual(r.bad, ["_comment"]);
+    assert.ok(!r.missing && !r.parseError);
   });
 });
 
-test("a missing file is not a failure — it is reported as absent", () => {
-  // The template exists in the handbook but a consumer running this check may
-  // legitimately not have one of these paths. Absence must not read as a
-  // violation, or the check cries wolf where there is nothing to validate.
+test("a missing file is a failure, not a skip", () => {
+  // Both listed files must exist: this repo's own settings file installs its
+  // three guard hooks, and the template seeds a consumer's. An earlier version
+  // excluded a missing file from `problems`, so deleting or renaming
+  // .claude/settings.json printed OK while every local guard had vanished —
+  // and nothing else in CI covers that, since check-root-wiring explicitly
+  // excludes this file and check-manifest only sees the payload.
   withTree({}, (dir) => {
     const r = checkFile("core/.claude/settings.template.json", dir);
-    assert.equal(r.missing, true);
-    assert.deepEqual(r.bad, []);
+    assert.equal(r.missing, true, "absence must be recorded");
+  });
+});
+
+test("main() treats absence as a problem — regression on the OK path", () => {
+  // The bug was not in checkFile, which always reported `missing`. It was that
+  // main() filtered on `parseError || bad.length`, so `missing` never reached
+  // the problem list. Assert on the predicate main() actually uses.
+  withTree({}, (dir) => {
+    const results = run(dir);
+    const problems = results.filter((r) => r.missing || r.parseError || r.bad.length > 0);
+    assert.equal(problems.length, results.length, "every absent file must be a problem");
   });
 });
 
@@ -131,5 +148,62 @@ test("the accepted set stays small and deliberate", () => {
   );
   for (const key of ["model", "permissions", "hooks"]) {
     assert.ok(ACCEPTED_TOP_LEVEL.has(key), `${key} must stay accepted — the files use it`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Hook commands must be able to launch (#23 round 1, P1)
+// ---------------------------------------------------------------------------
+
+const hooksWith = (command) => ({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ command }] }] } });
+
+test("a relative hook command is caught — the form that shipped in the template", () => {
+  // Not hypothetical: core/.claude/settings.template.json carried exactly this
+  // on all three PreToolUse entries, while this repo's own file had been fixed
+  // in #10 and Overhype.me's in #611. The template is the one that seeds every
+  // consumer, so it is the one place the mistake ships.
+  assert.deepEqual(relativeHookCommands(hooksWith("bash .claude/guard.sh")), [
+    "PreToolUse: bash .claude/guard.sh",
+  ]);
+});
+
+test("the rooted form is accepted", () => {
+  assert.deepEqual(
+    relativeHookCommands(hooksWith('bash "${CLAUDE_PROJECT_DIR}/.claude/guard.sh"')),
+    [],
+  );
+  // The handbook's own shape — the script lives in the payload, one level down.
+  assert.deepEqual(
+    relativeHookCommands(hooksWith('bash "${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh"')),
+    [],
+  );
+});
+
+test("a command naming no script is not flagged", () => {
+  // A hook that shells something off PATH has no path to root, so demanding a
+  // placeholder there would be noise.
+  assert.deepEqual(relativeHookCommands(hooksWith("echo hello")), []);
+  assert.deepEqual(relativeHookCommands(hooksWith("npm test")), []);
+});
+
+test("every hook event is walked, not just PreToolUse", () => {
+  // SessionStart hooks resolve the same way and fail the same way; a walk that
+  // only knew about PreToolUse would pass a broken SessionStart silently.
+  const parsed = {
+    hooks: {
+      PreToolUse: [{ hooks: [{ command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/guard.sh"' }] }],
+      SessionStart: [{ hooks: [{ command: "bash scripts/setup-test-db.sh" }] }],
+    },
+  };
+  assert.deepEqual(relativeHookCommands(parsed), ["SessionStart: bash scripts/setup-test-db.sh"]);
+});
+
+test("both real settings files root every hook command", () => {
+  for (const r of run()) {
+    assert.deepEqual(
+      r.relativeHooks ?? [],
+      [],
+      `${r.file} has a hook command that cannot launch from a subdirectory`,
+    );
   }
 });
