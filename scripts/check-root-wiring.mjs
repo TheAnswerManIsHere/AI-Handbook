@@ -35,7 +35,7 @@
 
 import { readFileSync, readdirSync, existsSync, lstatSync, readlinkSync, statSync } from "node:fs";
 import { join, resolve, dirname, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -175,7 +175,7 @@ export function run(root = ROOT) {
   return problems;
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) {
   const problems = run();
   if (problems.length) {
