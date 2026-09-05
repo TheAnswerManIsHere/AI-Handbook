@@ -1,0 +1,18 @@
+{
+  "pr": 28,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/28-1.json",
+  "decidedAt": "2026-09-05T15:40:00.000Z",
+  "reasoning": "Confirmed from the record: budget.tier is internal, declaredBudget 3 / roundsSpent 3 / extensions [] (this is an extension decision), sinceLastReview.noChange is true with head == lastReviewedCommit e47116e, and artifact.patch is the [PLAN REVIEW] plan file itself, so the round's findings are on the artifact despite territory reporting 17 outsideDiff / 0 inDiff against artifact.files 0 -- a record counting quirk I am not reading as reviewer drift. Round 3's five findings are all P2 and none meets the internal critical bar: a ':'-in-path serialization gap and a malformed-registry test bullet that contradicts Settled Decision 3 / Must Not Change 5 both fail toward refusal (wrongly-blocking, which announces itself), the two-candidate test case is a stale bullet the design already made unrepresentable, the runner-3 failure oracle and the pr-ready.mjs:1959 remoteTip caller are test-spec precision items -- no destructive action, no false-receipt or gate-bypass path, no authority widening, and the trend 6/6/5 is flat against a document whose implementation PR is flagged David-merge-only and will carry its own review loop. The dispatch message carried a short framing paragraph about the artifact; it matched the record but the verdict rests on the record alone (/home/user/ai-handbook/.agents/adjudications/28-1.json).",
+  "gaps": [
+    "PRRT_kwDOUKOPKc6fkdX1 (P2, line 514): runner 3's expected failure is not pinned to check.yml's oracle ('exactly one failure containing not scanned: CLAUDE.md'); the plan's Definition of Done should cite that assertion rather than a bare Node invocation.",
+    "PRRT_kwDOUKOPKc6fkdX2 (P2, line 550): the Testing Plan still lists 'two candidates matching the target -> blocked, naming both', a case the slug-keyed registry contract makes unrepresentable; drop the bullet at implementation.",
+    "PRRT_kwDOUKOPKc6fkdX3 (P2, line 239): the HANDBOOK_ATTACHED_ROOTS serialization uses ':' as entry delimiter on POSIX, where ':' is a legal path character; a checkout path containing ':' would parse as malformed and refuse (fail-closed). Pick an unambiguous encoding at implementation.",
+    "PRRT_kwDOUKOPKc6fkdX5 (P2, line 543): the test bullet 'blocked for every target' on a malformed registry contradicts Settled Decision 3 ('every foreign target refuses; local work is unaffected') and Must Not Change 5; the contract text is the intended behaviour and the test bullet should say 'every foreign target'.",
+    "PRRT_kwDOUKOPKc6fkdX7 (P2, line 569): giving remoteTip an explicit root parameter must keep pr-ready.mjs:1959's direct --show caller working; the suite does not unit-test it, so the implementation step should name that caller.",
+    "PRRT_kwDOUKOPKc6fgI4Y (round 2, thread still open, not outdated): 'a registered alternate stamped for a local target may allow a call the project root refused' -- the plan's 'One residual case' section states this as checked-not-prevented; the thread's open state is thread state only and its cause is not classified by the record."
+  ]
+}

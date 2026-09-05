@@ -1,0 +1,245 @@
+{
+  "generator": "scripts/review-loop-record.mjs",
+  "generatedAt": "2026-09-05T15:39:28.559Z",
+  "evidenceCapturedAt": "2026-09-05T15:36:00Z",
+  "pr": 28,
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "title": "[PLAN REVIEW] Resolve a guard judgement's evidence by the call's target - DO NOT MERGE",
+  "artifact": {
+    "files": 0,
+    "added": 0,
+    "removed": 0,
+    "patch": "[excluded 1 generated record file -- this machinery's own receipts and adjudication records, which are bookkeeping rather than the artifact under review: .agents/receipts/loop-budget-28.json]\ndiff --git a/docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md b/docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md\nnew file mode 100644\nindex 0000000..0a9feca\n--- /dev/null\n+++ b/docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md\n@@ -0,0 +1,614 @@\n+# Resolve a guard judgement's evidence by the call's target, not by the project root\n+\n+Issue: [#27](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/27).\n+Workstream: [#9](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/9).\n+\n+**Ceremony:** `internal` tier, budget 3 rounds, criticality 85.\n+**🛑 DAVID-MERGE-ONLY** — the implementation PR changes gate scripts on the\n+guard path, which is a named carve-out. Flagged at open, not at close.\n+\n+**Scope authorized by David, 2026-09-05**, option 1 of three: both\n+target-taking judgements in one increment, one mechanism.\n+\n+---\n+\n+## Preflight\n+\n+**Increment test.** No universal quantifier: the scope is the two judgements\n+the oracle below finds, not \"every guard judgement\". No *Phases* section —\n+the two judgements share one root-resolution mechanism, and shipping either\n+alone leaves `machinery` unstageable, so they are not independently\n+shippable in any useful sense. One plan.\n+\n+**Affected-surface inventory.** The class is *a guard judgement that takes a\n+repository target but reads its evidence from the project root.* Mechanical\n+oracle, run against `6feabb6`:\n+\n+```\n+$ git grep -n 'toolInput?\\.owner\\|toolInput?\\.repo' -- core/scripts/*.mjs\n+core/scripts/guard-decision.mjs:1675:  const target = `${toolInput?.owner ?? \"\"}/${toolInput?.repo ?? \"\"}`;\n+core/scripts/guard-decision.mjs:1676:  if (!toolInput?.owner || !toolInput?.repo) {\n+core/scripts/review-budget.mjs:1609:  const target = `${toolInput?.owner ?? \"?\"}/${toolInput?.repo ?? \"?\"}`;\n+\n+$ git grep -n 'tool_name ===\\|REVIEW_REQUEST_TOOLS.has(payload' -- core/scripts/guard-decision.mjs\n+core/scripts/guard-decision.mjs:1781:  if (payload?.tool_name === MERGE_TOOL) {\n+core/scripts/guard-decision.mjs:1795:  if (typeof payload?.tool_name === \"string\" && REVIEW_REQUEST_TOOLS.has(payload.tool_name)) {\n+```\n+\n+Two judgements — `checkMerge` and `judgeReviewRequest` — and both are in\n+scope. The third `decide()` branch is the Bash path, which judges a command\n+string against the current working directory and takes no repository target;\n+it is out of scope for that reason, not by omission.\n+\n+**How the oracle maps to the claim.** A tool input can name a repository\n+only through `owner`/`repo`; there is no other channel. So a grep for those\n+two reads over the payload scripts is the complete set of places a target\n+can enter a judgement, and the hit list is the scope.\n+\n+**That oracle is necessary and was not sufficient** (Codex round 1, P1). It\n+finds the judgements that *take* a target; it says nothing about what each\n+one *consults* to answer. The scope is the dependency closure, so a second\n+oracle enumerates every evidence dependency injected at the `decide()` call\n+sites (`core/scripts/guard-decision.mjs:1783-1801`):\n+\n+```\n+readReceipt   -> readReceiptFromDisk        -> join(REPO_ROOT, …)   working tree\n+resolveSha    -> remoteTip                  -> NO cwd, inherited    <-- missed by oracle 1\n+resolveConfig -> machineryConfig(nodeIo())  -> REPO_ROOT\n+options.io    -> nodeIo()                   -> REPO_ROOT\n+```\n+\n+Four dependencies, not two. `remoteTip` is the one the first oracle could\n+not see: it takes a branch name and no root\n+(`core/scripts/pr-ready.mjs:1881`), so it resolves against whatever `origin`\n+the hook process inherited. Routing only the receipt and config reads\n+through a foreign root would leave a cross-repo merge resolving the\n+**primary** repository's origin — blocking a valid merge when no same-named\n+branch exists there, and, worse, authorizing a stale foreign head when one\n+coincidentally does. The lesson generalizes past this plan: for a\n+judgement, the affected surface is everything it consults, never only the\n+inputs it names.\n+\n+**Claim-oracle rule.** Two completeness claims are made in this plan, and\n+each names what enforces it:\n+\n+| Claim | Enforced by |\n+|---|---|\n+| Exactly two judgements take a repository target | The oracle above, executed and transcribed |\n+| `nodeIo(root)` carries `root` into git reads, not only file reads | **Construct** — `cwd: root` is passed to every `execFileSync` in `nodeIo`; verified by reading `durableRef` at `core/scripts/review-budget.mjs:655-740` |\n+\n+**Specification test.** Call-site lists and test assertions are left out —\n+the diff and the suite catch those. What is kept is the resolution rule, the\n+refusal semantics, the failure direction, and the source-of-truth boundary,\n+none of which a compiler or a test would catch if this document never said\n+them.\n+\n+## Problem\n+\n+Every guard judgement decides from evidence rooted at the **project root**,\n+because the `PreToolUse` hook that fires belongs to the session's primary\n+repo. This workstream is worked with Overhype.me as the project root and\n+AI-Handbook attached, so a call aimed at AI-Handbook is judged against\n+Overhype.me's receipts.\n+\n+Two symptoms, on opposite sides of the `machinery` unstaging:\n+\n+- **Today**, the deployed Overhype.me copy is pre-#7 and carries a\n+  `targetsThisRepo` early return that *allows* a foreign target\n+  (`scripts/review-budget.mjs:1324`). Measured: every review request posted\n+  on an AI-Handbook PR in this workstream ran unguarded. The budget\n+  discipline held because the contract was followed by hand.\n+- **After the unstaging**, the payload has no such skip — #7 deleted it — so\n+  both judgements refuse a foreign target outright:\n+\n+```\n+$ judgeReviewRequest, payload at 6feabb6, from the handbook checkout\n+own repo, undeclared PR       -> BLOCKED | no round budget declared for PR #999 …\n+FOREIGN repo, undeclared PR   -> BLOCKED | no round budget declared for PR #611 …\n+```\n+\n+That refusal is correct in isolation and unusable in practice: there is no\n+AI-Handbook environment, so \"post the request from a checkout of the target\"\n+— which is what the existing refusal text tells the operator to do — cannot\n+be satisfied.\n+\n+So the `machinery` group cannot unstage without making the handbook's own\n+review loops unrunnable, and cannot stay staged without leaving cross-repo\n+work unguarded. This plan removes that dilemma.\n+\n+## Direction\n+\n+[#9](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/9) — make the\n+handbook payload portable, then unstage it group by group.\n+\n+**What this increment makes true that was not true before:** a guard\n+judgement resolves whose loop it is from the **target of the call**, so a\n+session can hold more than one repository without either losing the guard or\n+being refused by it — which is the precondition for unstaging `machinery`.\n+\n+## Product Intent\n+\n+The guard protects the same things it protects today, from a session that\n+has more than one repository attached. Nothing about the merge bar, the\n+round budget, or the receipt discipline changes; only *which checkout's\n+evidence answers the question* changes.\n+\n+**In an Overhype-rooted session, this PR changes no running guard's\n+behaviour on the day it merges.** That session's guard is Overhype.me's, and\n+Overhype.me's copy is pre-#7. The deliverable is that unstaging `machinery`\n+stops being blocked — stated plainly because it is the most likely reason to\n+re-scope.\n+\n+**The claim is narrower than the first draft asserted** (Codex round 1, P1).\n+This repository's own `.claude/settings.json` invokes\n+`${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh`, which executes the adjacent\n+`core/scripts/guard-decision.mjs` — the payload copy itself, not a vendored\n+duplicate. So **in an AI-Handbook-rooted session the edits are live the\n+moment they merge.** No such session runs today (the account has no\n+AI-Handbook environment), which is why the effect is invisible in practice —\n+but \"invisible in practice\" is not \"no running guard changes\", and the\n+handbook-rooted guard therefore gets its own verification rather than being\n+assumed inert.\n+\n+## Must Not Change\n+\n+1. **The comparison itself.** Stamped on mint, compared on consume. A\n+   receipt's repository comes from the receipt — the durable ref for a\n+   budget, the working tree for a readiness receipt (Settled Decision 2) —\n+   and the target comes from the tool input; nothing sits between them.\n+2. **The review-request path reads no configuration for identity.** Rounds\n+   3, 4 and 5 of #7 each found a new way for a declared identity to be\n+   wrong. That deletion stays deleted.\n+\n+   **This is per-path, and the plan must not blur it.** `judgeReviewRequest`\n+   reads no configuration at all. `checkMerge` *does* read one — the\n+   required-checks policy, through `resolveConfig` — deliberately and by\n+   existing design, stamped on mint and compared on consume. The invariant\n+   is \"no configuration read to establish **identity**\", not \"no\n+   configuration read\".\n+3. **Refusal, never skip.** An unanswerable question blocks. There is no\n+   path on which \"I could not tell\" becomes \"allowed\".\n+4. **The guard path stays total.** An escaping exception exits 1, which the\n+   harness reads as a hook error and lets the tool call through. Everything\n+   fallible is wrapped and returns a blocking verdict.\n+5. **The local-repo path is unchanged**, byte-for-byte in behaviour —\n+   including the `no-budget` and `no readiness receipt` refusals for a local\n+   PR that has neither. The project root is always tried *first*, so a local\n+   call reaches exactly the decision it reaches today; nothing detects that\n+   it is local.\n+6. **Fork PRs stay out of scope on the readiness path.** That refusal is the\n+   fork gate; #8 is a different question at a different layer.\n+7. **Budgets stay non-transferable.** A budget authorizes rounds in the\n+   repository it was declared for and no other.\n+\n+## Settled Decisions\n+\n+1. **Locating is not trusting, and that is the whole safety argument.** The\n+   resolution mechanism only says *where to look*. Every gram of authority\n+   still comes from the located checkout's own receipts, compared to the\n+   tool's target exactly as today. A wrong location can therefore only\n+   produce a refusal — it can never manufacture an allow, because a receipt\n+   that does not name the target is rejected by the comparison that already\n+   exists. This is what keeps the change compatible with Must Not Change 2:\n+   the identity answer still comes from the receipt, never from a config.\n+2. **`nodeIo(root)` is the right seam for the reads that go through it.**\n+   `cwd: root` is threaded through every `execFileSync` in `nodeIo`, so\n+   `nodeIo(foreignRoot)` reads the foreign checkout's durable ref, not the\n+   local one. Verified by reading `durableRef` rather than assumed. It is\n+   not, however, the *only* seam — see Settled Decision 8 for the two\n+   dependencies that do not flow through it.\n+\n+   **Receipts are not uniformly durable, and the implementation must not\n+   treat them as one kind** (Codex round 1, P1). The two judgements read\n+   two different sorts of evidence:\n+\n+   | Receipt | Where it lives | Why |\n+   |---|---|---|\n+   | Budget, extension decisions | Durable ref (`origin/<branch>`) | They authorize rounds, so they must survive the container |\n+   | **Round-check (`loop-round-check-*.json`, `.claim`)** | **Working tree, gitignored** | Evidence of a count just taken; it is generated and consumed inside one request |\n+   | **Readiness (`pr-*.json`)** | **Working tree, gitignored** | Minted and consumed inside one close-out; committing it would make a stale one authoritative |\n+\n+   The draft put the round-check on the durable side (Codex round 2, P1).\n+   `.agents/receipts/.gitignore` lists `loop-round-check-*.json` and\n+   `loop-round-check-*.claim` alongside `pr-*.json`, and\n+   `judgeReviewRequest` reads and writes it through `io.read`/`io.write`.\n+   **Only budgets and extension decisions come from the durable ref.**\n+   Implementing the draft's table literally would make a freshly generated\n+   round check invisible and refuse every guarded review request.\n+\n+   `.agents/receipts/.gitignore` lists `pr-*.json`, and\n+   `readReceiptFromDisk` reads it with `readFileSync` from `REPO_ROOT` — so\n+   a readiness receipt is *never* in a durable ref by design. Rooting it at\n+   a resolved checkout must preserve working-tree semantics; reading it\n+   from a durable ref instead would make a freshly minted receipt invisible\n+   and could substitute stale committed evidence.\n+3. **The registry is a slug-keyed map, environment-provided, not committed**\n+   (revised, Codex round 2 P2 — the draft named no variable and defined no\n+   representation, which left ambiguity, duplicates and malformed values\n+   undefined and put an unspecified parse on the guard path).\n+\n+   **Contract:**\n+\n+   | | |\n+   |---|---|\n+   | Variable | `HANDBOOK_ATTACHED_ROOTS` |\n+   | Serialization | `owner/name=/abs/path`, entries separated by the platform path delimiter (`:` on POSIX) — no JSON, so a malformed value cannot throw a parser |\n+   | Keys | A repository slug, matched case-insensitively, exactly as the receipt comparison matches |\n+   | Values | Must be **absolute**; normalized before use. A relative path is invalid, not resolved against cwd — the hook's cwd is the thing this plan exists to stop depending on |\n+   | Duplicate keys | The entry is **invalid**, not last-wins: a duplicate means the operator holds two beliefs and the machinery must not pick one |\n+   | Malformed entry | The **whole variable** is treated as unusable and every foreign target refuses. Not \"skip the bad entry\" — a partly-parsed registry silently resolves some targets and not others |\n+   | Unset | Every foreign target refuses; local work is unaffected |\n+\n+   **Keying by slug, rather than scanning a list of roots, dissolves the\n+   ambiguity problem by construction**: a target resolves to at most one\n+   root, so there is never a set of candidates to disambiguate. This is why\n+   the draft's \"two candidates match → refuse as ambiguous\" rule is gone\n+   rather than refined — the state it adjudicated cannot arise.\n+\n+   Parsing stays total: splitting a string on two delimiters and rejecting\n+   anything that does not match cannot throw, and every rejection is a\n+   refusal.\n+\n+   **Why environment and not committed:** an attached checkout's absolute\n+   path is a property of the container, not of the repository, so committing\n+   it into `.agents/machinery.json` would put a container fact in a synced\n+   file. `process.env` is also the only read available on the guard path\n+   that cannot throw.\n+4. **Rejected: scanning the filesystem for candidate roots.** It replaces an\n+   explicit declaration with a guess over an arbitrary domain (\"siblings of\n+   the project root\"), puts a directory walk on the hook path, and can match\n+   a stale clone. Explicitness costs one environment variable and buys a\n+   refusal message that names exactly what is missing.\n+5. **Rejected: carrying a receipt into the local tree.** Minting a portable\n+   cross-repo receipt in the foreign checkout and consuming it locally\n+   needs no discovery, but it gives up the property that makes receipts\n+   worth anything — a working-tree copy is not the durable ref, and its\n+   authority would rest on the mint rather than on what survives the\n+   container.\n+6. **Rejected: widening to #8.** Adjacency, not dependency; it would reopen\n+   the settled fork-PR boundary.\n+7. **#13 is not folded in.** `node scripts/…` is *correct* for a consumer,\n+   where the sync lands the payload at `<repo>/scripts/`; it is wrong only\n+   in the handbook, where the scripts are payload at `core/scripts/`. The\n+   honest fix is root wiring — the mechanism `check-root-wiring.mjs`\n+   already polices for skills and agents — not editing payload text that is\n+   right for its destination. Separate PR, sequenced **next**.\n+8. **Two dependencies do not flow through `nodeIo`, and both must be\n+   rooted explicitly** (Codex round 1, P1). `readReceiptFromDisk` joins\n+   `REPO_ROOT` directly, and `remoteTip` takes no root at all. Routing only\n+   the `nodeIo`-mediated reads would leave the readiness receipt and the\n+   remote-tip lookup answering from the primary repository while the rest of\n+   the judgement answers from the resolved one — a split-brain that fails\n+   *open* in the `remoteTip` case, since a coincidentally same-named branch\n+   in the primary repo resolves a tip that then authorizes a stale foreign\n+   head. All four dependencies in oracle 3 are routed, or none is.\n+9. **A registered candidate inherits the project root's staleness semantics\n+   and no more.** The known fail-open in [#31](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/31)\n+   — a lagging remote-tracking ref hides a terminal extension, and\n+   `terminalVerdictStanding` reads an empty list as \"no stop standing\" — is\n+   **accepted, not fixed here** (David, 2026-09-05: next). What this plan\n+   owes is that it does not make it *worse*: the implementation adds no new\n+   caching, no longer-lived read, and no path on which a candidate's evidence\n+   is treated as fresher than the project root's would be. Anything widening\n+   the window beyond today's is out of scope and belongs to #31.\n+\n+## Repo Context Inspected\n+\n+- `core/scripts/review-budget.mjs` — `findRepoRoot`/`REPO_ROOT` (120–177),\n+  `machineryConfig` (217), `nodeIo` including `durableRef` (587–740),\n+  `loadLoop` (1121), `judgeReviewRequest` and its early returns and identity\n+  comparison (1516–1680).\n+- `core/scripts/guard-decision.mjs` — `checkMerge` (1651–1700),\n+  `readReceiptFromDisk` (1761), `decide` (1772–1808).\n+- `core/scripts/pr-ready.mjs` — `localConfig`/`requiredChecks` (137–150), the\n+  `cwd` adapter over `machineryConfig`.\n+- `core/.agents/PLANS.md` (Preflight and template), `.agents/machinery.json`,\n+  `sync-manifest.yml` (13 groups, 0 ready).\n+- Issues #27, #8, #13, #16; the 2026-09-05 handoff comment and its addendum\n+  on #9.\n+- `core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.\n+\n+## Current Behavior\n+\n+`decide()` routes a hook payload to one of three judgements. Two take a\n+repository target and read evidence via `nodeIo()` — defaulted to\n+`REPO_ROOT`, the nearest enclosing directory declaring\n+`.agents/machinery.json`:\n+\n+| Judgement | Evidence | Foreign target today (payload) |\n+|---|---|---|\n+| `judgeReviewRequest` | budget + round-check receipts, durable ref | refuses: \"no round budget declared for PR #N\" |\n+| `checkMerge` | readiness receipt on disk, `requiredChecks` from config | refuses: \"no readiness receipt for PR #N\" |\n+\n+Both already compare the receipt's stamped repository against the target and\n+refuse on mismatch. Neither can reach the target repository's evidence.\n+\n+## Source-of-Truth Analysis\n+\n+| Concept | Source of truth | Changed? |\n+|---|---|---|\n+| Which repository a loop belongs to | The receipt's stamped `repo` — durable ref for the budget, working tree for the readiness receipt | No |\n+| Which repository this checkout is | `.agents/machinery.json`, read by `machineryConfig` alone | No |\n+| Required-checks policy | Same config read, stamped into the readiness receipt on mint | No |\n+| **Where a given repository's checkout lives** | **New — the registry** | New concept, no existing owner |\n+\n+The registry answers a question nothing answers today: *given a repository\n+slug, which directory on this machine holds its checkout?* It is\n+deliberately not an answer to \"which repository is this?\" — that stays with\n+`machineryConfig` for the local repo and with the receipt for a loop. No\n+existing source of truth gains a second voice.\n+\n+**No guard-path step consults `machinery.json` to establish identity**, and\n+the revised resolution order is what guarantees it: there is no local/foreign\n+discriminator to need one. `machineryConfig` keeps its existing roles — the\n+mint paths, and `checkMerge`'s required-checks policy — and gains none.\n+\n+## Proposed Design\n+\n+**The invariant.** A call naming a repository target is judged against\n+evidence belonging to *that* repository, or it is refused. There is no third\n+outcome.\n+\n+**Resolution order — try-local-first, with no local/foreign discriminator\n+at all** (revised, Codex round 1 P1):\n+\n+1. **Always try the project root first**, exactly as today, and take its\n+   answer whenever it yields evidence stamped with the target.\n+2. **Only if that produces no matching evidence**, look the target up in the\n+   registry — a single keyed lookup, not a scan. If it resolves, read the\n+   evidence with `nodeIo(thatRoot)` and accept it only if the receipt it\n+   yields is stamped with the target.\n+3. **If no candidate yields matching evidence, return the project root's own\n+   refusal** — the existing message, not a foreign-flavoured one.\n+\n+**Why there is no \"is this my repository?\" step.** The first draft opened\n+with one, and it was a real defect: answering it needs an identity read,\n+which Must Not Change 2 forbids on the review-request path, and which no\n+receipt can supply for a *local* PR that has no budget yet — precisely the\n+case whose refusal must not change. Trying the local root unconditionally\n+dissolves the question. The local path is not \"detected\", it is simply\n+first, so:\n+\n+- A local target with a valid budget is answered at step 1, as today.\n+- A local target with **no** budget falls through step 2 (no foreign\n+  candidate is stamped for it either) and returns the existing local\n+  `no-budget` refusal at step 3 — byte-identical to today's behaviour.\n+- A foreign target is answered at step 2 only because a registered checkout\n+  holds a receipt stamped for it.\n+\n+No step reads a configuration to decide *whose* call this is. This is\n+strictly simpler than the draft it replaces, which is the tell that the\n+draft was wrong rather than merely under-specified.\n+\n+**Ambiguity cannot arise** (revised, Codex round 2 P1). The registry is\n+keyed by slug, so a target resolves to at most one root; there is never a\n+set of candidates to pick between. The draft's \"refuse as ambiguous\" rule is\n+deleted rather than refined, because the state it adjudicated is\n+unrepresentable.\n+\n+**One residual case, stated rather than claimed away.** A registry key naming\n+the *project root's own* repository is out of contract — the registry is for\n+attached checkouts — but the plan cannot **prevent** it, because detecting it\n+requires knowing the project root's identity, which Must Not Change 2\n+forbids on this path. Its effect is bounded and worth naming exactly: such a\n+key is consulted only when the project root yielded no evidence, and what it\n+then supplies is the *same repository's* durable budget from another\n+checkout. That is not a privilege escalation — it is the same loop's real\n+budget — but it **is** a departure from Must Not Change 5, since the local\n+call would have refused with `no-budget`. So this is written as *checked*,\n+not as *cannot*: a test asserts the behaviour, and `docs/consuming-repos.md`\n+states the key is invalid, rather than the plan pretending the state is\n+unreachable.\n+\n+**Failure direction is uniform.** Registry unset, registry naming a\n+directory that does not exist, candidate with no receipts, candidate whose\n+receipts name another repository, foreign checkout sitting on a branch whose\n+upstream lacks the loop's budget receipt, candidate whose working tree holds\n+no readiness receipt: every one of these refuses. The change adds no path on\n+which an unanswerable question resolves to \"allowed\".\n+\n+**Totality.** The registry read is `process.env`, which cannot throw. Every\n+filesystem and git touch reached through `nodeIo` is already ENOENT-tolerant\n+or wrapped; the new resolution code adds no unwrapped fallible call, and the\n+guard's existing catch-and-block posture covers what remains.\n+\n+## Data Model and Migration Impact\n+\n+None. No schema, no stored data, no backfill. Receipts keep their current\n+shape and location; nothing already minted is reinterpreted.\n+\n+## Runtime Behavior\n+\n+Local-repo work is untouched — same judgements, same messages, same\n+receipts. Cross-repo work becomes possible and guarded: a review request or\n+merge aimed at an attached repository is judged against that repository's\n+own budget, round count and readiness receipt.\n+\n+Edge cases and their outcomes:\n+\n+The first row is the **allow-capable** case and is deliberately not a\n+negative: a local target reaches today's decision, which may legitimately be\n+*allowed*. Every row below it is a negative case and refuses.\n+\n+| Situation | Outcome |\n+|---|---|\n+| Target is the project root's repo | **Today's decision, unchanged — allow or refuse exactly as now** |\n+| Registry unset, foreign target | Refuse; message names the variable and the target |\n+| Registry names a missing directory | Refuse |\n+| Registry value malformed, relative, or a duplicate key | Refuse — the whole variable is unusable, never partly parsed |\n+| Target absent from the registry | Refuse |\n+| Candidate's receipt names another repository | Refuse, on the existing comparison |\n+| Candidate on a branch whose upstream lacks the receipts | Refuse — fail-closed, and the same condition that already applies to local work |\n+| Registry key names the project root's own repository | Out of contract; consulted only if the project root yielded nothing. Behaviour asserted by test, not prevented — see Proposed Design |\n+\n+## Admin/User UX Impact\n+\n+None — the observable surface is a hook refusal message in my own session.\n+No product UI, no async status surface. **No UAT doc is owed** for that\n+reason; the exercise-in-the-product criterion is met by the guard behaving\n+as specified from a real cross-repo session.\n+\n+## Security, Permissions, and Validation\n+\n+This *is* the security surface, so the analysis is the point rather than a\n+section to fill.\n+\n+**The threat model is my own mistakes, not an adversary** — settled, and not\n+reopened here. The person who can edit these files is the person running the\n+guard; the controls against deliberate action are David's merge and the\n+server-side ruleset.\n+\n+**The fail-open question, asked directly.** The class this workstream keeps\n+meeting is *a guard that cannot launch does not refuse, it waves the call\n+through.* Three properties keep this change out of that class:\n+\n+1. The only new input is a location. Authority stays with the receipt\n+   comparison that already exists, so a wrong location degrades to a\n+   refusal — **provided every dependency in oracle 3 is routed to the same\n+   resolved root.** That proviso is load-bearing, not decorative: leave\n+   `remoteTip` inheriting the hook's cwd and a coincidentally same-named\n+   branch in the primary repository resolves a tip that authorizes a stale\n+   foreign head. It is the one place in this plan where a wrong root\n+   produces an *allow*, which is why Settled Decision 8 makes the routing\n+   all-or-nothing and the Testing Plan asserts it with distinct origins.\n+2. Every **negative** case in Runtime Behavior resolves to blocked. The\n+   table's first row is the local target, which reaches today's decision and\n+   is legitimately allow-capable; it is unchanged behaviour rather than a\n+   new failure mode.\n+3. The new code adds no unwrapped fallible call to the guard path.\n+\n+**What this change does not do**, stated as two accepted gaps rather than\n+left to be discovered:\n+\n+1. It does not make cross-repo work guarded in a session running the stale\n+   consumer copy. That arrives with the `machinery` unstaging, and #27 stays\n+   open until it does.\n+2. **It does not close [#31](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/31).**\n+   A registered checkout whose tracking ref predates a terminal extension\n+   reads the loop as open. This is a genuine fail-open, it pre-exists for the\n+   project root, and this plan widens exposure to it without fixing it —\n+   accepted deliberately, bounded by Settled Decision 9, and tracked. The\n+   plan does not claim the class is closed; three of its instances are, and\n+   this one is not.\n+\n+## Testing Plan\n+\n+**Runners, transcribed from `.github/workflows/check.yml` rather than\n+recalled** (Codex round 1, P2 — the draft named\n+`node --test core/scripts/__tests__/`, which Node resolves as a *module*\n+path and kills with `MODULE_NOT_FOUND` before running anything, reported as\n+\"1 test, 1 failed\" so it reads like a real failure):\n+\n+```sh\n+# 1. This repo's own suite — omitted entirely from the draft\n+node --test scripts/__tests__/*.test.mjs\n+\n+# 2. The payload suite. The glob is required, and one file is excluded BY NAME:\n+#    check-contract-consistency.test.mjs asserts the corpus contains CLAUDE.md\n+#    at its root — true in a consumer, false in the handbook's split layout.\n+node --test $(ls core/scripts/__tests__/*.test.mjs \\\n+  | grep -v 'check-contract-consistency.test.mjs')\n+\n+# 3. The exclusion's expiry oracle: assert it still fails for the documented\n+#    reason, so a temporary carve-out cannot become permanent.\n+node --test core/scripts/__tests__/check-contract-consistency.test.mjs\n+\n+# 4. The repo checks, at their real paths — the first four at the root,\n+#    check-contract-consistency under core/.\n+node scripts/check-manifest.mjs\n+node scripts/check-identity-sources.mjs\n+node scripts/check-root-wiring.mjs\n+node scripts/check-settings-fields.mjs\n+node core/scripts/check-contract-consistency.mjs\n+```\n+\n+Runner 3 is an **expected failure**, not a green check: the Definition of\n+Done is \"runners 1, 2 and 4 green, and runner 3 still failing on exactly the\n+documented corpus-layout assertion.\" A plan whose Definition of Done demands\n+all-green would be unsatisfiable here by construction.\n+\n+Tests prove the general invariant, not the reported example, and every\n+negative case asserts **blocked**:\n+\n+- Local target resolves to the project root and behaves identically to\n+  today — the regression guard on Must Not Change 5, asserted for both\n+  judgements.\n+- Foreign target with a registered checkout whose receipts are stamped for\n+  it: allowed when the loop genuinely authorizes it, refused when it does\n+  not — proving the foreign path runs the *same* decision matrix rather than\n+  a permissive copy of it.\n+- Foreign target, registry unset → blocked.\n+- Foreign target, registry names a nonexistent directory → blocked.\n+- Registry malformed, relative-path, or duplicate-key values → blocked, and\n+  blocked for **every** target, proving the variable is not partly parsed.\n+- A registry key for the project root's own repository, asserted in **both**\n+  local-root states: with a local budget present (step 1 answers, the key is\n+  never consulted) and absent (the key answers, departing from local parity\n+  as documented).\n+- Foreign target, candidate's receipt stamped for a third repository →\n+  blocked.\n+- Two candidates matching the target → blocked, naming both.\n+- A throw raised from inside the resolution path surfaces as a blocking\n+  verdict, not as an escape — the totality property, asserted rather than\n+  argued.\n+- **Distinct local and foreign origins**: a cross-repo merge whose foreign\n+  branch name also exists in the primary repository resolves the *foreign*\n+  tip. The test fails if the local tip is used — which is the fail-open case\n+  in Settled Decision 8, and the only one in this plan where a wrong root\n+  produces an allow rather than a refusal.\n+- **No machinery-config identity read on either path**: asserted for both a\n+  local and a foreign review request, so the discriminator cannot creep back\n+  in as an implementation convenience.\n+\n+## Implementation Steps\n+\n+1. Add the registry read and the target-to-root resolver in\n+   `review-budget.mjs`, beside `nodeIo`, injectable for tests.\n+2. Route `judgeReviewRequest` through it, project root tried first.\n+3. Give `remoteTip` an explicit root parameter — it has none today, and it\n+   is the dependency that fails *open* if left inheriting the hook's cwd.\n+4. Route all four of oracle 3's dependencies for `checkMerge` through the\n+   resolved root, via `guard-decision.mjs`'s injection points, preserving\n+   the readiness receipt's **working-tree** semantics.\n+5. Tests, negative cases first, including one with **distinct local and\n+   foreign origins** that fails unless the foreign tip is used.\n+6. Documentation: the registry in `docs/consuming-repos.md`, and the\n+   cross-repo session step the handbook currently omits.\n+\n+Each step is the smallest change that keeps the suite green.\n+\n+## Risks and Mitigations\n+\n+| Risk | Mitigation |\n+|---|---|\n+| The registry becomes a second identity source by drift | It is consulted only for location; the receipt comparison is what admits evidence, and a test asserts a mismatched receipt refuses |\n+| **A stale registered checkout answers for a repository** | **NOT MITIGATED — accepted, tracked as [#31](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/31).** `durableRef` reads the candidate's remote-tracking ref without fetching, and `terminalVerdictStanding` returns `false` on an empty extension list — so a checkout that has not fetched a terminal or David-stop extension sees an *open* loop and allows a round the remote has closed. Staleness pre-exists for the project root; this plan widens exposure to it. **David's now/next/never call, 2026-09-05: next.** A freshness proof is a new mechanism on the guard path, and this plan's job is the resolution rule, not the durability predicate (Codex round 2, P1) |\n+| The guard path gains a way to throw | Registry read is `process.env`; a test asserts a throw inside resolution surfaces as blocked |\n+| Scope creep into #8 or the unstaging audit | Both named out of scope in Settled Decisions |\n+\n+## Questions for David\n+\n+None. The one genuine fork — whether the merge gate rides along — was the\n+scope gate, and it is answered: option 1.\n+\n+## Definition of Done\n+\n+- [ ] Both judgements resolve their evidence root from the call's target,\n+      and all four dependencies in oracle 3 are routed through it.\n+- [ ] Every **negative** case in the Runtime Behavior table refuses,\n+      asserted by test. (Not the first row, which is allow-capable —\n+      requiring it to refuse would contradict Must Not Change 5.)\n+- [ ] **Local allow/refuse parity**: the local path returns the same verdict\n+      and the same message it returns today, on both an authorized call and\n+      an unauthorized one, asserted by test for both judgements.\n+- [ ] Payload and handbook suites green; all five repo checks green.\n+- [ ] The behaviour is exercised against **this repository's own live\n+      guard**, which runs the payload directly — the only guard this\n+      increment actually changes.\n+- [ ] **Deferred to the `machinery` unstaging, not owed here:** the\n+      Overhype-rooted end-to-end check. That session runs the pre-#7\n+      consumer copy and no step in this plan syncs or rewires it, so\n+      requiring it would make this PR unable to satisfy its own Definition\n+      of Done (Codex round 2, P2).\n+- [ ] PR flagged David-merge-only at open, with the `internal` budget\n+      declared and the receipt committed and pushed.",
+    "patchNote": "base...head: the artifact this round's findings are about. This is the diff to read when the rubric asks whether a finding describes a critical flaw. `sinceLastReview.patch` is separate and is normally empty under the write-gate rule, since the judge rules on an already-reviewed head."
+  },
+  "budget": {
+    "tier": "internal",
+    "tierMeaning": "internal tooling (strict write-gate adjudication rubric)",
+    "declaredBudget": 3,
+    "cap": 3,
+    "criticality": 85,
+    "artifactDeclaredAtRoundZero": "Plan for #27: resolve a guard judgement's evidence root by the call's target",
+    "roundsSpent": 3,
+    "pendingRequest": false,
+    "ambiguous": false,
+    "allowance": 3,
+    "extensions": []
+  },
+  "rounds": {
+    "completedReviewerPasses": 3,
+    "byRound": [
+      {
+        "round": 1,
+        "submitted_at": "2026-09-05T03:59:15Z",
+        "source": "review",
+        "findings": 6
+      },
+      {
+        "round": 2,
+        "submitted_at": "2026-09-05T04:18:29Z",
+        "source": "review",
+        "findings": 6
+      },
+      {
+        "round": 3,
+        "submitted_at": "2026-09-05T15:33:34Z",
+        "source": "review",
+        "findings": 5
+      }
+    ],
+    "trend": [
+      6,
+      6,
+      5
+    ],
+    "totalFindings": 17
+  },
+  "findings": {
+    "unresolved": 17,
+    "resolved": 0,
+    "resolutionUnknown": 0,
+    "note": "unresolved/resolved is THREAD state, not code state. An unresolved thread may already be fixed and awaiting a reply; isOutdated only tracks whether the anchored hunk moved. Treat these as 'what the reviewer has not yet been told is closed', never as 'what is still broken'.",
+    "items": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgBSn",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 342,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T03:59:16Z",
+        "excerpt": "P1 Run remote-tip lookup from the resolved checkout. [Required Revision] decide() supplies remoteTip as resolveSha, while remoteTip runs git ls-remote in the hook process's inherited working directory."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgBSr",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 234,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T03:59:16Z",
+        "excerpt": "P1 Define a config-free local-target discriminator. [Required Revision] The first resolution step requires deciding the target is the project root's repository, but the plan does not specify how."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgBSw",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 315,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T03:59:16Z",
+        "excerpt": "P2 Use the repository's executable payload-test commands. [Required Revision] The stated runner fails with MODULE_NOT_FOUND."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgBSz",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 121,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T03:59:16Z",
+        "excerpt": "P1 Preserve the readiness receipt's working-tree source. [Required Revision] readReceiptFromDisk reads merge readiness from the working tree; pr-*.json is deliberately ignored."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgBS5",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 367,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T03:59:16Z",
+        "excerpt": "P2 Limit the blocking checklist to negative cases. [Required Revision] The Runtime Behavior table includes the local-target case, which may legitimately be allowed."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgBS9",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 115,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T03:59:16Z",
+        "excerpt": "P1 Account for the handbook's live guard wiring. [Required Revision] .claude/settings.json invokes core/.claude/guard.sh, so edits are live in an AI-Handbook-rooted session."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgI4Y",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 375,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-05T04:18:29Z",
+        "excerpt": "P1 Handle alternate checkouts before preserving local parity. [Reconciliation - Still Open] A registered alternate stamped for a local target may allow a call the project root refused."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgI4b",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 377,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T04:18:29Z",
+        "excerpt": "P2 Reconcile the configuration-free witness rule. [Required Revision] Using .agents/machinery.json presence as a trust predicate conflicts with Must Not Change 2."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgI4d",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 529,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T04:18:29Z",
+        "excerpt": "P2 Make the cross-repo exercise achievable in this increment. [Reconciliation - Still Open] The DoD requires an Overhype-rooted session this PR does not rewire."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgI4f",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 208,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T04:18:29Z",
+        "excerpt": "P1 Preserve round-check receipts in the working tree. [Required Revision] .gitignore ignores loop-round-check-*.json; only budgets and extension decisions come from the durable ref."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgI4g",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 507,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T04:18:29Z",
+        "excerpt": "P1 Reject a single stale registered checkout. [Required Revision] durableRef reads the candidate's remote-tracking ref without fetching; a sole stale candidate can omit a terminal extension."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fgI4j",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 220,
+        "resolved": false,
+        "outdated": true,
+        "createdAt": "2026-09-05T04:18:29Z",
+        "excerpt": "P2 Specify the registry's environment contract. [Required Revision] The plan never names its environment variable or defines its representation."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fkdX1",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 514,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-05T15:33:34Z",
+        "excerpt": "P2 Reinstate the excluded test's failure oracle. check.yml asserts exactly one failure containing 'not scanned: CLAUDE.md', whereas this runner merely invokes Node."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fkdX2",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 550,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-05T15:33:34Z",
+        "excerpt": "P2 Remove the impossible two-candidate test case. The registry contract permits at most one value per slug, so no parsed state reaches 'two candidates matching the target'."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fkdX3",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 239,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-05T15:33:34Z",
+        "excerpt": "P2 Use a serialization that can encode valid checkout paths. On POSIX ':' is both entry delimiter and a legal directory-name character."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fkdX5",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 543,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-05T15:33:34Z",
+        "excerpt": "P2 Keep malformed registries from changing local decisions. The test requires malformed registries to block 'every target', which contradicts try-local-first and Must Not Change 5."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fkdX7",
+        "path": "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md",
+        "line": 569,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-05T15:33:34Z",
+        "excerpt": "P2 Preserve the remote-tip caller used by --show. pr-ready.mjs:1959 calls remoteTip directly and the suite says it is not unit-tested."
+      }
+    ]
+  },
+  "territory": {
+    "inDiff": 0,
+    "outsideDiff": 17,
+    "unknown": 0,
+    "outsideDiffPaths": [
+      "docs/plans/PLAN_CROSS_REPO_GUARD_RESOLUTION.md"
+    ],
+    "note": "Territory is mechanical (finding path vs. this PR's changed files). CAUSE (new-ground / propagation / wrong-fix / re-raised) is NOT derivable -- it has no machine-readable marker, and is deliberately left unclassified rather than guessed."
+  },
+  "sinceLastReview": {
+    "lastReviewedCommit": "e47116e8f1f41658e71118e3f71ca76e92caa1c3",
+    "resolved": true,
+    "since": "e47116e8f1f41658e71118e3f71ca76e92caa1c3",
+    "head": "e47116e8f1f41658e71118e3f71ca76e92caa1c3",
+    "commits": 0,
+    "files": [],
+    "patch": "",
+    "behavioralFiles": 0,
+    "proseOnly": false,
+    "noChange": true,
+    "note": "Branch movement since the last reviewed commit -- NOT the PR's diff. After a merge from the base branch this includes files already reviewed and merged there. Use `artifact` for the size of what is actually under review here."
+  },
+  "provenance": {
+    "githubVia": "mcp-snapshot (no bash transport reaches the GitHub API in this container)",
+    "countingLogic": "scripts/review-counting.mjs",
+    "caveat": "This record contains no narration from the loop it measures. If a field is unknown it says so; nothing here is inferred from the session's own account of its rounds."
+  }
+}
