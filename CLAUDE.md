@@ -64,6 +64,7 @@ node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
 node scripts/check-manifest.mjs      # every payload file is actually routed
 node scripts/check-identity-sources.mjs  # every identity touchpoint classified
 node scripts/check-root-wiring.mjs   # this repo actually reaches its payload
+node scripts/check-settings-fields.mjs   # no settings field Claude Code would refuse
 ```
 
 Both run in CI on every PR. There is no product build here and no database.
@@ -87,7 +88,23 @@ Two things are deliberately NOT symlinks:
 
 - **`.claude/settings.json`** is this repo's own, adapted from
   `core/.claude/settings.template.json` — which is a seed for the next
-  consumer, not configuration that takes effect here.
+  consumer, not configuration that takes effect here. What was adapted:
+  `env.DATABASE_URL` dropped (no database), `hooks.SessionStart` dropped (it
+  points at a `setup-test-db.sh` this repo does not have), the `drizzle-kit`
+  deny entries dropped (no Drizzle) while `Read(**/.env*)` is kept because it
+  applies everywhere, and `model` kept as `opus` since this repo is almost
+  entirely payload code.
+
+  **Neither settings file may carry a field Claude Code does not recognise**,
+  and that is stricter than the published schema — which declares
+  `"additionalProperties": {}` and would permit unknown keys. Both files once
+  documented themselves in a `_comment` array; the validator refuses the file
+  over exactly that, and a refused file installs no `hooks`, which means no
+  guard with nothing saying so. `node scripts/check-settings-fields.mjs` is
+  what makes that loud. The prose those blocks held now lives where whoever
+  adapts the file will actually read it: the adaptation record above, and
+  [`docs/consuming-repos.md`](docs/consuming-repos.md) step 6 for a consumer's
+  copy.
 - **`.agents/receipts/.gitignore`** is a real file, mirrored rather than
   pointed at, because **git does not follow a symlinked `.gitignore`** — its
   patterns would never apply and every ephemeral receipt would be committed.

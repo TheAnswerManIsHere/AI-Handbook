@@ -176,7 +176,31 @@ readiness, not link resolution.
    invokes it**. That failure is silent: the guard is present, the hooks are
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
-6. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
+6. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
+   `core/.claude/settings.template.json` and is yours from then on — the sync
+   never rewrites it. Four fields need a decision, and the guidance lives here
+   rather than inside the file because **Claude Code refuses a settings file
+   carrying an unrecognised top-level field**, so the template cannot document
+   itself. (It once tried, with a `_comment` array, and that field is exactly
+   what the validator rejects. `node scripts/check-settings-fields.mjs` now
+   catches the class.)
+
+   | Field | Decision |
+   |---|---|
+   | `env.DATABASE_URL` | Point it at the repo's own test database, or drop the key entirely until the repo has one. |
+   | `hooks.SessionStart` | Points at `scripts/setup-test-db.sh`. Drop the hook until that script exists, or every session opens with a failing hook. |
+   | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. `Read(**/.env*)` applies everywhere; keep it. |
+   | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The three spellings of the remote server are listed **on purpose**: the id varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. |
+
+   **The three `PreToolUse` guard hooks are not adaptable.** They are the local
+   half of the branch-protection story and the reason a force push needs an
+   explicit refspec. Keep all three, keep the longer timeout on the merge
+   matcher — that guard reads live GitHub state and 5s is not enough — and keep
+   the path absolute via `${CLAUDE_PROJECT_DIR}`. A relative path resolves
+   against the current working directory, so one persisting `cd` makes every
+   hook exit 127, which `PreToolUse` treats as *allow*.
+
+7. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
    self-documenting template. Two values, both facts about the consumer that
    the handbook cannot know:
 
@@ -234,7 +258,7 @@ readiness, not link resolution.
    still the template's placeholder, naming this file. So a consumer that
    skips this step gets a closed gate that says why, never an open one that
    says nothing.
-7. Flip `enrolled: true`. **This is the last step before the sync, and it comes
+8. Flip `enrolled: true`. **This is the last step before the sync, and it comes
    after every prerequisite above — not before them.** An earlier version put
    the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
    repo into the sync's target set while the controls those steps install were
@@ -242,7 +266,7 @@ readiness, not link resolution.
    "ready" have to be the same moment: a repo flipped early can receive
    `bypassPermissions` before the ruleset that constrains it exists, and an
    inert guard before the hooks that invoke it are merged.
-8. Run the sync, review the pull request it opens, merge.
+9. Run the sync, review the pull request it opens, merge.
 
 `enrolled` means "every prerequisite is in place, so send it the core" — not
 "the core has arrived." A vendored core that nothing imports is inert: the
