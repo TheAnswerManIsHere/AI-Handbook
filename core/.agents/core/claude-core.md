@@ -519,7 +519,14 @@ Codex catch *broken*; David's UAT catches *wrong*, after the sync.
    `ask_question` that the checked-out SHA matches the new `main` commit **and**
    the worktree is clean. Neither check substitutes for the other. If it hasn't
    landed, retry at ~15-second intervals up to 4 tries, then report a sync
-   problem rather than waiting longer.
+   problem rather than waiting longer. **Every merge, with no exception I
+   reason my way into** — not "the project is paused", not "this change has no
+   product surface", not "the Repl will pick it up on its next sync anyway".
+   Each of those is a judgement about *this* commit; drift is the sum of all of
+   them, and a Repl left far enough behind stops being a sync and becomes a pile
+   of merge conflicts. Syncing a commit that did not need it costs nothing, so
+   the asymmetry is not close. (David, 2026-09-04, after I skipped it on a
+   settings-only merge to a paused repo and told him why.)
 4. **Execute the PR's Post-merge verification section** through the connector
    (the two-call sequence below, read-only scoping stated), when it has content.
 5. **Post the harvest-notes comment** on the workstream issue (product PRs).
