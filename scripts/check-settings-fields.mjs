@@ -3,10 +3,12 @@
  * check-settings-fields — every shipped settings file is one Claude Code will
  * actually load, and whose hooks will actually launch.
  *
- * Two rules, both learned the hard way: no unrecognised top-level field (the
- * file is refused outright), and every hook command rooted at
- * ${CLAUDE_PROJECT_DIR} (a relative one cannot launch, and a guard that cannot
- * launch waves the call through).
+ * Three rules, each learned the hard way, and all three failing the same way:
+ * no unrecognised top-level field (the file is refused outright), every hook
+ * script path rooted at ${CLAUDE_PROJECT_DIR} (a relative one cannot launch),
+ * and all three guards actually installed (a `hooks` block that lost them
+ * loads fine and guards nothing). Every one of them ends with a session that
+ * looks configured and has no guard.
  *
  * WHY THIS EXISTS. Both this repo's `.claude/settings.json` and the payload
  * template carried a `_comment` array holding their own documentation. Claude
@@ -47,7 +49,8 @@
  *   node scripts/check-settings-fields.mjs
  *
  * Exit 0 when every file is clean, 1 when a file is missing, unparseable,
- * carries an unrecognised field, or has a hook command that is not rooted.
+ * carries an unrecognised field, names a hook script path that is not rooted,
+ * or fails to install one of the three guards.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -90,8 +93,29 @@ export function unrecognisedFields(parsed, accepted = ACCEPTED_TOP_LEVEL) {
 }
 
 /**
- * Hook commands that invoke a script without rooting it at
- * ${CLAUDE_PROJECT_DIR}.
+ * Every script path a hook command names, one entry per path.
+ *
+ * PER PATH, NOT PER COMMAND. A command-wide substring test for the placeholder
+ * calls `bash "${CLAUDE_PROJECT_DIR}/first.sh" && bash scripts/second.sh`
+ * clean, because the placeholder occurs *somewhere*. The second script still
+ * stops resolving after a persisted `cd`, so a single rooted path was enough
+ * to vouch for an unrooted one. (Codex, #23 round 2.)
+ *
+ * The token runs to the first shell delimiter, so quotes and `&&` bound it and
+ * the placeholder stays part of the path it roots.
+ */
+const SCRIPT_TOKEN = /[^\s"'`;|&()]*\.(?:sh|mjs|js|py)\b/g;
+
+export function scriptPaths(command) {
+  // Only commands that actually name a script file. A hook that shells
+  // something off PATH has no path to root.
+  return String(command).match(SCRIPT_TOKEN) ?? [];
+}
+
+/**
+ * Hook script paths that are neither rooted at ${CLAUDE_PROJECT_DIR} nor
+ * absolute. Returns `{ event, path, command }` rather than a formatted string,
+ * so a test asserts on which path was rejected and not on how it is printed.
  *
  * FIFTH INSTANCE OF ONE SHAPE, which is why this is a check and not a note. A
  * hook command resolves against the CURRENT WORKING DIRECTORY, not the project
@@ -112,15 +136,68 @@ export function relativeHookCommands(parsed) {
       for (const hook of entry?.hooks ?? []) {
         const cmd = hook?.command;
         if (typeof cmd !== "string") continue;
-        // Only commands that actually name a script file. A hook that shells
-        // something off PATH has no path to root.
-        if (!/[\w./-]+\.(sh|mjs|js|py)\b/.test(cmd)) continue;
-        if (cmd.includes("${CLAUDE_PROJECT_DIR}")) continue;
-        bad.push(`${event}: ${cmd}`);
+        for (const path of scriptPaths(cmd)) {
+          if (path.includes("${CLAUDE_PROJECT_DIR}")) continue;
+          if (path.startsWith("/")) continue; // already absolute
+          bad.push({ event, path, command: cmd });
+        }
       }
     }
   }
   return bad;
+}
+
+/**
+ * The three `PreToolUse` guards every handbook settings file must install.
+ *
+ * Matched by substring against the entry's `matcher`, because the matcher for
+ * two of them is a long alternation of MCP tool names and pinning it exactly
+ * would fail on an addition rather than on a removal.
+ */
+export const REQUIRED_GUARD_MATCHERS = [
+  { name: "Bash", needle: "Bash", covers: "destructive commands and force pushes" },
+  {
+    name: "GitHub comment/review writes",
+    needle: "add_issue_comment",
+    covers: "the review-request and thread-reply guards",
+  },
+  { name: "merge", needle: "merge_pull_request", covers: "the merge readiness gate" },
+];
+
+/**
+ * Required guards a settings file does not actually install.
+ *
+ * WHY THIS IS NOT COVERED BY THE PATH CHECK ABOVE. That one walks the hooks
+ * that are present, so a file whose `hooks` object was deleted outright — or
+ * which kept two of the three entries, or kept an entry whose command no
+ * longer names the guard — walks an empty or partial collection and reports
+ * nothing. The end state is identical to the one the missing-file branch
+ * exists to prevent: the settings file loads, and no guard runs. Reporting OK
+ * there is the same fail-open this whole check was written against. (Codex,
+ * #23 round 2.)
+ *
+ * An entry counts only when it BOTH matches and invokes `guard.sh` — a matcher
+ * pointing at something else is not a guard, however well-named.
+ *
+ * This does deliberately hard-code a policy, unlike the accepted-field set,
+ * which refuses to mirror Claude Code's schema. The difference is ownership:
+ * the accepted fields are Claude Code's and drift out from under a copy, while
+ * the guard set is this repo's own. Adding a fourth guard does not fail this;
+ * REMOVING one does, and that friction is the point.
+ */
+export function missingGuardHooks(parsed) {
+  const covered = new Set();
+  for (const entry of parsed?.hooks?.PreToolUse ?? []) {
+    const matcher = typeof entry?.matcher === "string" ? entry.matcher : "";
+    const invokesGuard = (entry?.hooks ?? []).some(
+      (h) => typeof h?.command === "string" && /\bguard\.sh\b/.test(h.command),
+    );
+    if (!invokesGuard) continue;
+    for (const req of REQUIRED_GUARD_MATCHERS) {
+      if (matcher.includes(req.needle)) covered.add(req.name);
+    }
+  }
+  return REQUIRED_GUARD_MATCHERS.filter((r) => !covered.has(r.name)).map((r) => r.name);
 }
 
 export function checkFile(relPath, root = ROOT) {
@@ -145,6 +222,7 @@ export function checkFile(relPath, root = ROOT) {
     file: relPath,
     bad: unrecognisedFields(parsed),
     relativeHooks: relativeHookCommands(parsed),
+    missingGuards: missingGuardHooks(parsed),
   };
 }
 
@@ -155,13 +233,19 @@ export function run(root = ROOT, files = SETTINGS_FILES) {
 function main() {
   const results = run();
   const problems = results.filter(
-    (r) => r.missing || r.parseError || r.bad.length > 0 || (r.relativeHooks ?? []).length > 0,
+    (r) =>
+      r.missing ||
+      r.parseError ||
+      r.bad.length > 0 ||
+      (r.relativeHooks ?? []).length > 0 ||
+      (r.missingGuards ?? []).length > 0,
   );
 
   if (problems.length === 0) {
     console.log(
       `check-settings-fields: OK — ${results.length} settings file(s), no unrecognised top-level fields ` +
-        `(${ACCEPTED_TOP_LEVEL.size} accepted).`,
+        `(${ACCEPTED_TOP_LEVEL.size} accepted), all hook paths rooted, ` +
+        `all ${REQUIRED_GUARD_MATCHERS.length} guards installed.`,
     );
     return;
   }
@@ -180,27 +264,52 @@ function main() {
       console.error(`  - ${p.file}: unrecognised top-level field(s): ${p.bad.join(", ")}`);
     }
     for (const h of p.relativeHooks ?? []) {
-      console.error(`  - ${p.file}: hook command is not rooted at \${CLAUDE_PROJECT_DIR} — ${h}`);
+      console.error(
+        `  - ${p.file}: ${h.event} hook path is not rooted at \${CLAUDE_PROJECT_DIR} — ${h.path}\n` +
+          `      in: ${h.command}`,
+      );
+    }
+    for (const g of p.missingGuards ?? []) {
+      const req = REQUIRED_GUARD_MATCHERS.find((r) => r.name === g);
+      console.error(
+        `  - ${p.file}: no PreToolUse hook installs the ${g} guard (covers ${req?.covers}).`,
+      );
     }
   }
-  console.error(
-    "\nA hook command resolves against the CURRENT WORKING DIRECTORY, not the project root, so a\n" +
-      "relative path works only while the cwd happens to be the root. From anywhere else bash exits\n" +
-      "127, and PreToolUse treats every non-zero exit other than 2 as non-blocking — the guard waves\n" +
-      "the call through. Root every hook script at ${CLAUDE_PROJECT_DIR}.\n",
-  );
-  console.error(
-    "\nClaude Code refuses a settings file carrying an unrecognised top-level field, and it is\n" +
+  if (problems.some((p) => (p.missingGuards ?? []).length > 0)) {
+    console.error(
+      "\nA settings file that loads but installs no guard is the same end state as one Claude Code\n" +
+        "refuses: the file is present, and nothing invokes ${CLAUDE_PROJECT_DIR}/.claude/guard.sh.\n" +
+        "Each of the three PreToolUse entries must both match and run the guard. If a guard is being\n" +
+        "removed on purpose, remove it from REQUIRED_GUARD_MATCHERS in the same change, where the\n" +
+        "removal is visible in the diff.\n",
+    );
+  }
+  // Each explainer prints only for the rule that actually failed. Printing all
+  // three every time buries the one that applies in advice about two problems
+  // the file does not have.
+  if (problems.some((p) => (p.relativeHooks ?? []).length > 0)) {
+    console.error(
+      "\nA hook command resolves against the CURRENT WORKING DIRECTORY, not the project root, so a\n" +
+        "relative path works only while the cwd happens to be the root. From anywhere else bash exits\n" +
+        "127, and PreToolUse treats every non-zero exit other than 2 as non-blocking — the guard waves\n" +
+        "the call through. Root every hook script at ${CLAUDE_PROJECT_DIR}.\n",
+    );
+  }
+  if (problems.some((p) => (p.bad ?? []).length > 0)) {
+    console.error(
+      "\nClaude Code refuses a settings file carrying an unrecognised top-level field, and it is\n" +
       "stricter than its own published schema — so a key can be valid JSON, permitted by the\n" +
       'schema\'s "additionalProperties", and still rejected. A refused file installs no hooks,\n' +
-      "which means no guard, with nothing saying so.\n\n" +
-      "Fix one of two ways:\n" +
-      "  - The field is documentation or a stray key: remove it. Prose belongs in\n" +
-      "    docs/consuming-repos.md or CLAUDE.md, which are read by whoever adapts the file.\n" +
-      "  - The field is a real Claude Code setting this repo needs: add it to\n" +
-      "    ACCEPTED_TOP_LEVEL in scripts/check-settings-fields.mjs, having confirmed the\n" +
-      "    validator accepts it.\n",
-  );
+        "which means no guard, with nothing saying so.\n\n" +
+        "Fix one of two ways:\n" +
+        "  - The field is documentation or a stray key: remove it. Prose belongs in\n" +
+        "    docs/consuming-repos.md or CLAUDE.md, which are read by whoever adapts the file.\n" +
+        "  - The field is a real Claude Code setting this repo needs: add it to\n" +
+        "    ACCEPTED_TOP_LEVEL in scripts/check-settings-fields.mjs, having confirmed the\n" +
+        "    validator accepts it.\n",
+    );
+  }
   process.exitCode = 1;
 }
 

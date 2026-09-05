@@ -177,16 +177,27 @@ readiness, not link resolution.
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
 6. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
-   `core/.claude/settings.template.json` and is yours from then on — the sync
-   never rewrites it. Four fields need a decision, and the guidance lives here
-   rather than inside the file because **Claude Code refuses a settings file
-   carrying an unrecognised top-level field**, so the template cannot document
-   itself. (It once tried, with a `_comment` array, and that field is exactly
-   what the validator rejects. `node scripts/check-settings-fields.mjs` now
-   catches the class.)
+   `core/.claude/settings.template.json` and is **yours from the moment it
+   lands** — the sync never rewrites it, and no "do not edit this vendored
+   file" rule applies to it. Four fields need a decision, and the guidance
+   lives here rather than inside the file because **Claude Code refuses a
+   settings file carrying an unrecognised top-level field**, so the template
+   cannot document itself. (It once tried, with a `_comment` array, and that
+   field is exactly what the validator rejects. `node
+   scripts/check-settings-fields.mjs` now catches the class.)
+
+   **When you do this depends on which repo you have.** A repo that *already*
+   had a settings file never receives the seed at all — `mode: seed` writes
+   only when the file is absent — so this table is the checklist for the
+   by-hand merge in step 5, and it applies now. A repo that had *none* does
+   not receive the file until the sync runs at **step 9**, so its adaptation
+   happens while reviewing that sync pull request, before merging it. The
+   decisions are identical either way, which is why they are one step and not
+   two.
 
    | Field | Decision |
    |---|---|
+   | `model` | The template pins `opus`. Keep it for a repo whose sessions mostly write payload or product code; a repo that is mostly prose or ops should set its own default rather than inherit this one. |
    | `env.DATABASE_URL` | Point it at the repo's own test database, or drop the key entirely until the repo has one. |
    | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. `Read(**/.env*)` applies everywhere; keep it. |
    | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The three spellings of the remote server are listed **on purpose**: the id varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. |
@@ -265,14 +276,17 @@ readiness, not link resolution.
    "ready" have to be the same moment: a repo flipped early can receive
    `bypassPermissions` before the ruleset that constrains it exists, and an
    inert guard before the hooks that invoke it are merged.
-9. Run the sync, review the pull request it opens, merge.
+9. Run the sync, review the pull request it opens, merge. **On a clean
+   enrollment this is where step 6 actually happens**: the seeded
+   `.claude/settings.json` appears in that pull request, and adapting it there
+   is the last moment before a session runs under it.
 
 `enrolled` means "every prerequisite is in place, so send it the core" — not
 "the core has arrived." A vendored core that nothing imports is inert: the
 files are present, the rules are not loaded, and the repo looks governed
 without being governed, which is the worst of the three states. Steps 2 and 3
 prevent that; steps 4 and 5 prevent the security equivalent, where a repo holds
-the bypass without the controls; step 6 keeps its merge gate usable. **The flip goes last because the flip is what
+the bypass without the controls; step 7 keeps its merge gate usable. **The flip goes last because the flip is what
 makes the sync fire** — anything that must be true before delivery has to be
 true before the flip, and a step added to this list later belongs above it, not
 below.
@@ -286,8 +300,15 @@ below.
   carries the notice too, placed after the shebang. Skill helper executables and
   `guard.sh` do **not** yet, which is why the groups containing them stay
   staged: each one's blocker requires the ownership comment before it can
-  travel. `core/.claude/settings.template.json` is a third case and already
-  carries its own notice, worded for a seed rather than a sync.
+  travel. `core/.claude/settings.template.json` is a third case and **is the
+  one payload file that cannot carry a notice at all**: JSON has no comments,
+  and Claude Code refuses a settings file over any unrecognised top-level key —
+  which is what a notice would have to be. It once carried one anyway, in the
+  `_comment` array that `node scripts/check-settings-fields.mjs` now rejects.
+  It does not need one: `mode: seed` means the delivered
+  `.claude/settings.json` is **consumer-owned from the moment it lands**, so
+  the rule this bullet states does not apply to it. That ownership is stated in
+  enrollment step 6 instead, where whoever adapts the file is already reading.
 - **Change the handbook, let the sync carry it.** One edit, every repo, each
   through review.
 - **A `staged` group does not sync.** It is in the payload with a named blocker
