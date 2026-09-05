@@ -204,8 +204,17 @@ assumed inert.
 
    | Receipt | Where it lives | Why |
    |---|---|---|
-   | Budget, round-check | Durable ref (`origin/<branch>`) | It authorizes rounds, so it must survive the container |
-   | **Readiness (`pr-*.json`)** | **Working tree, deliberately gitignored** | It is minted and consumed inside one close-out; committing it would make a stale one authoritative |
+   | Budget, extension decisions | Durable ref (`origin/<branch>`) | They authorize rounds, so they must survive the container |
+   | **Round-check (`loop-round-check-*.json`, `.claim`)** | **Working tree, gitignored** | Evidence of a count just taken; it is generated and consumed inside one request |
+   | **Readiness (`pr-*.json`)** | **Working tree, gitignored** | Minted and consumed inside one close-out; committing it would make a stale one authoritative |
+
+   The draft put the round-check on the durable side (Codex round 2, P1).
+   `.agents/receipts/.gitignore` lists `loop-round-check-*.json` and
+   `loop-round-check-*.claim` alongside `pr-*.json`, and
+   `judgeReviewRequest` reads and writes it through `io.read`/`io.write`.
+   **Only budgets and extension decisions come from the durable ref.**
+   Implementing the draft's table literally would make a freshly generated
+   round check invisible and refuse every guarded review request.
 
    `.agents/receipts/.gitignore` lists `pr-*.json`, and
    `readReceiptFromDisk` reads it with `readFileSync` from `REPO_ROOT` — so
@@ -213,11 +222,38 @@ assumed inert.
    a resolved checkout must preserve working-tree semantics; reading it
    from a durable ref instead would make a freshly minted receipt invisible
    and could substitute stale committed evidence.
-3. **The registry is environment-provided, not committed.** An attached
-   checkout's absolute path is a property of the container, not of the
-   repository, so committing it into `.agents/machinery.json` would put a
-   container fact in a synced file. `process.env` is also the only read
-   available on the guard path that cannot throw.
+3. **The registry is a slug-keyed map, environment-provided, not committed**
+   (revised, Codex round 2 P2 — the draft named no variable and defined no
+   representation, which left ambiguity, duplicates and malformed values
+   undefined and put an unspecified parse on the guard path).
+
+   **Contract:**
+
+   | | |
+   |---|---|
+   | Variable | `HANDBOOK_ATTACHED_ROOTS` |
+   | Serialization | `owner/name=/abs/path`, entries separated by the platform path delimiter (`:` on POSIX) — no JSON, so a malformed value cannot throw a parser |
+   | Keys | A repository slug, matched case-insensitively, exactly as the receipt comparison matches |
+   | Values | Must be **absolute**; normalized before use. A relative path is invalid, not resolved against cwd — the hook's cwd is the thing this plan exists to stop depending on |
+   | Duplicate keys | The entry is **invalid**, not last-wins: a duplicate means the operator holds two beliefs and the machinery must not pick one |
+   | Malformed entry | The **whole variable** is treated as unusable and every foreign target refuses. Not "skip the bad entry" — a partly-parsed registry silently resolves some targets and not others |
+   | Unset | Every foreign target refuses; local work is unaffected |
+
+   **Keying by slug, rather than scanning a list of roots, dissolves the
+   ambiguity problem by construction**: a target resolves to at most one
+   root, so there is never a set of candidates to disambiguate. This is why
+   the draft's "two candidates match → refuse as ambiguous" rule is gone
+   rather than refined — the state it adjudicated cannot arise.
+
+   Parsing stays total: splitting a string on two delimiters and rejecting
+   anything that does not match cannot throw, and every rejection is a
+   refusal.
+
+   **Why environment and not committed:** an attached checkout's absolute
+   path is a property of the container, not of the repository, so committing
+   it into `.agents/machinery.json` would put a container fact in a synced
+   file. `process.env` is also the only read available on the guard path
+   that cannot throw.
 4. **Rejected: scanning the filesystem for candidate roots.** It replaces an
    explicit declaration with a guess over an arbitrary domain ("siblings of
    the project root"), puts a directory walk on the hook path, and can match
@@ -309,10 +345,10 @@ at all** (revised, Codex round 1 P1):
 
 1. **Always try the project root first**, exactly as today, and take its
    answer whenever it yields evidence stamped with the target.
-2. **Only if that produces no matching evidence**, consult the registry for
-   candidate roots. For each candidate, read the evidence with
-   `nodeIo(candidate)` and accept it only if the receipt it yields is
-   stamped with the target.
+2. **Only if that produces no matching evidence**, look the target up in the
+   registry — a single keyed lookup, not a scan. If it resolves, read the
+   evidence with `nodeIo(thatRoot)` and accept it only if the receipt it
+   yields is stamped with the target.
 3. **If no candidate yields matching evidence, return the project root's own
    refusal** — the existing message, not a foreign-flavoured one.
 
@@ -335,9 +371,25 @@ No step reads a configuration to decide *whose* call this is. This is
 strictly simpler than the draft it replaces, which is the tell that the
 draft was wrong rather than merely under-specified.
 
-**Ambiguity refuses.** Two candidates both yielding evidence stamped with
-the target is a mistake — two checkouts of one repository, one of them
-stale — and picking either is picking one at random. Refuse and say both.
+**Ambiguity cannot arise** (revised, Codex round 2 P1). The registry is
+keyed by slug, so a target resolves to at most one root; there is never a
+set of candidates to pick between. The draft's "refuse as ambiguous" rule is
+deleted rather than refined, because the state it adjudicated is
+unrepresentable.
+
+**One residual case, stated rather than claimed away.** A registry key naming
+the *project root's own* repository is out of contract — the registry is for
+attached checkouts — but the plan cannot **prevent** it, because detecting it
+requires knowing the project root's identity, which Must Not Change 2
+forbids on this path. Its effect is bounded and worth naming exactly: such a
+key is consulted only when the project root yielded no evidence, and what it
+then supplies is the *same repository's* durable budget from another
+checkout. That is not a privilege escalation — it is the same loop's real
+budget — but it **is** a departure from Must Not Change 5, since the local
+call would have refused with `no-budget`. So this is written as *checked*,
+not as *cannot*: a test asserts the behaviour, and `docs/consuming-repos.md`
+states the key is invalid, rather than the plan pretending the state is
+unreachable.
 
 **Failure direction is uniform.** Registry unset, registry naming a
 directory that does not exist, candidate with no receipts, candidate whose
@@ -374,10 +426,11 @@ negative: a local target reaches today's decision, which may legitimately be
 | Target is the project root's repo | **Today's decision, unchanged — allow or refuse exactly as now** |
 | Registry unset, foreign target | Refuse; message names the variable and the target |
 | Registry names a missing directory | Refuse |
-| Candidate has no `.agents/machinery.json` | Refuse — an unconfigured checkout is not a witness |
+| Registry value malformed, relative, or a duplicate key | Refuse — the whole variable is unusable, never partly parsed |
+| Target absent from the registry | Refuse |
 | Candidate's receipt names another repository | Refuse, on the existing comparison |
 | Candidate on a branch whose upstream lacks the receipts | Refuse — fail-closed, and the same condition that already applies to local work |
-| Two candidates match the target | Refuse as ambiguous, naming both |
+| Registry key names the project root's own repository | Out of contract; consulted only if the project root yielded nothing. Behaviour asserted by test, not prevented — see Proposed Design |
 
 ## Admin/User UX Impact
 
@@ -467,6 +520,12 @@ negative case asserts **blocked**:
   a permissive copy of it.
 - Foreign target, registry unset → blocked.
 - Foreign target, registry names a nonexistent directory → blocked.
+- Registry malformed, relative-path, or duplicate-key values → blocked, and
+  blocked for **every** target, proving the variable is not partly parsed.
+- A registry key for the project root's own repository, asserted in **both**
+  local-root states: with a local budget present (step 1 answers, the key is
+  never consulted) and absent (the key answers, departing from local parity
+  as documented).
 - Foreign target, candidate's receipt stamped for a third repository →
   blocked.
 - Two candidates matching the target → blocked, naming both.
@@ -504,7 +563,7 @@ Each step is the smallest change that keeps the suite green.
 | Risk | Mitigation |
 |---|---|
 | The registry becomes a second identity source by drift | It is consulted only for location; the receipt comparison is what admits evidence, and a test asserts a mismatched receipt refuses |
-| A stale second checkout answers for a repository | Ambiguity refuses rather than picks; a single stale checkout still has to produce a receipt stamped for the target from its durable ref |
+| **A stale registered checkout answers for a repository** | **NOT MITIGATED — open scope question, escalated to David.** `durableRef` reads the candidate's remote-tracking ref without fetching, and `terminalVerdictStanding` returns `false` on an empty extension list — so a checkout that has not fetched a terminal or David-stop extension sees an *open* loop and allows a round the remote has closed. Staleness pre-exists for the project root; this plan widens exposure to it. A freshness proof is a new mechanism on the guard path, so it is a now/next/never call, not the loop's to add (Codex round 2, P1) |
 | The guard path gains a way to throw | Registry read is `process.env`; a test asserts a throw inside resolution surfaces as blocked |
 | Scope creep into #8 or the unstaging audit | Both named out of scope in Settled Decisions |
 
@@ -524,8 +583,13 @@ scope gate, and it is answered: option 1.
       and the same message it returns today, on both an authorized call and
       an unauthorized one, asserted by test for both judgements.
 - [ ] Payload and handbook suites green; all five repo checks green.
-- [ ] The behaviour is exercised from a real cross-repo session: a review
-      request aimed at an AI-Handbook PR is judged against the handbook's
-      own budget, from an Overhype-rooted session running the payload copy.
+- [ ] The behaviour is exercised against **this repository's own live
+      guard**, which runs the payload directly — the only guard this
+      increment actually changes.
+- [ ] **Deferred to the `machinery` unstaging, not owed here:** the
+      Overhype-rooted end-to-end check. That session runs the pre-#7
+      consumer copy and no step in this plan syncs or rewires it, so
+      requiring it would make this PR unable to satisfy its own Definition
+      of Done (Codex round 2, P2).
 - [ ] PR flagged David-merge-only at open, with the `internal` budget
       declared and the receipt committed and pushed.
