@@ -279,10 +279,16 @@ readiness, not link resolution.
    that guard cannot reach the target's evidence and refuses — correctly, but
    it makes cross-repo work impossible rather than merely guarded.
 
-   ```
-   HANDBOOK_ATTACHED_ROOTS="owner/name=/abs/path/to/checkout
+   ```sh
+   export HANDBOOK_ATTACHED_ROOTS="owner/name=/abs/path/to/checkout
    other/repo=/abs/path/to/other"
    ```
+
+   **`export`, not a bare assignment.** Only exported names reach subsequently
+   executed commands, and the guard runs as a subprocess of the session — a
+   plain `HANDBOOK_ATTACHED_ROOTS=...` sets a shell variable the hook never
+   sees, so cross-repository calls stay blocked with nothing explaining why.
+   Setting it in the environment's own configuration has the same effect.
 
    - **Newline-separated**, one `owner/name=/absolute/path` per line. Newline
      rather than `:`, because `:` is a legal character in a POSIX directory
@@ -292,6 +298,9 @@ readiness, not link resolution.
    - Paths must be **absolute**. A relative path is refused rather than
      resolved against the hook's working directory — that directory is
      precisely what this mechanism exists to stop depending on.
+   - **Whitespace in a path is significant**, because it is legal in a POSIX
+     directory name. Only a trailing carriage return is stripped, as a
+     line-ending artifact.
    - **One bad or duplicated entry invalidates the whole variable.** A
      partly-parsed registry would resolve some targets and not others, which
      is the kind of partial success that reads as correct.

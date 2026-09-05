@@ -2188,3 +2188,24 @@ test("neither path reads the machinery config to establish identity", () => {
     );
   }
 });
+
+test("whitespace in a checkout path is preserved, because it is legal on POSIX", () => {
+  // Trimming the whole entry rewrote such a path before any evidence was read,
+  // so a legitimately-registered checkout fell back and refused. (Codex, PR #33
+  // round 1.)
+  const padded = "/checkouts/trailing space ";
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=${padded}`));
+  assert.equal(problem, null);
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), padded, "the operator's path, byte for byte");
+});
+
+test("a trailing carriage return is stripped, being a line-ending artifact", () => {
+  const { map } = attachedRoots(registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}\r`));
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), FOREIGN_ROOT);
+});
+
+test("leading indentation before a slug key is dropped, since a slug has no whitespace", () => {
+  const { map, problem } = attachedRoots(registry(`  ${FOREIGN_SLUG}=${FOREIGN_ROOT}`));
+  assert.equal(problem, null);
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), FOREIGN_ROOT);
+});

@@ -1183,12 +1183,12 @@ const reg = (v) => ({ HANDBOOK_ATTACHED_ROOTS: v });
 test("merge routing: an unregistered foreign target falls back to the project root", () => {
   // Which makes checkMerge produce its OWN refusal, byte-for-byte what it says
   // today, rather than a registry-flavoured one.
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), {}), MACHINERY_ROOT);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), {}).root, MACHINERY_ROOT);
 });
 
 test("merge routing: a registered checkout whose receipt names the target answers", () => {
   const dir = checkoutWithReceipt("Other/Repo", 7);
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)), dir);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, dir);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -1196,13 +1196,13 @@ test("merge routing: a registered checkout whose receipt names ANOTHER repo does
   // Locating is not trusting: a wrong entry degrades to the project root, and
   // checkMerge then refuses. It can never manufacture an allow.
   const dir = checkoutWithReceipt("Third/Party", 7);
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)), MACHINERY_ROOT);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, MACHINERY_ROOT);
   rmSync(dir, { recursive: true, force: true });
 });
 
 test("merge routing: a registered checkout with no receipt at all does not answer", () => {
   const dir = checkoutWithReceipt(null, 7);
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)), MACHINERY_ROOT);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, MACHINERY_ROOT);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -1210,11 +1210,25 @@ test("merge routing: a malformed registry falls back rather than throwing", () =
   // The hook cannot afford a throw: exit 1 is read as a hook error and the
   // tool call proceeds.
   assert.doesNotThrow(() => rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage")));
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage")), MACHINERY_ROOT);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage")).root, MACHINERY_ROOT);
 });
 
 test("merge routing: an input with no usable target never consults the registry", () => {
   for (const input of [{}, { pullNumber: 7 }, { owner: "a", pullNumber: 7 }, { owner: "a", repo: "b" }]) {
-    assert.equal(rootForMergeTarget(input, reg("Other/Repo=/tmp/x")), MACHINERY_ROOT);
+    assert.equal(rootForMergeTarget(input, reg("Other/Repo=/tmp/x")).root, MACHINERY_ROOT);
   }
+});
+
+test("merge routing: a malformed registry is REPORTED, not silently discarded", () => {
+  // Without this, a foreign merge refused with only "no readiness receipt",
+  // so an operator would re-capture a good receipt forever while the actual
+  // cause -- a registry typo -- was never named. (Codex, PR #33 round 1.)
+  const { root, registryProblem } = rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage"));
+  assert.equal(root, MACHINERY_ROOT, "still fails closed");
+  assert.match(registryProblem, /not "owner\/name=\/absolute\/path"/);
+});
+
+test("merge routing: a well-formed registry reports no problem", () => {
+  const { registryProblem } = rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("Some/Where=/tmp/x"));
+  assert.equal(registryProblem, null, "a valid registry that simply lacks the key is not a problem to report");
 });

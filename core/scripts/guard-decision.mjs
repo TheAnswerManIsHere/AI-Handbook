@@ -1803,16 +1803,25 @@ export function rootForMergeTarget(toolInput, env = process.env) {
   const owner = toolInput?.owner;
   const repo = toolInput?.repo;
   if (!Number.isInteger(pr) || typeof owner !== "string" || typeof repo !== "string" || !owner || !repo) {
-    return REPO_ROOT;
+    return { root: REPO_ROOT, registryProblem: null };
   }
   const target = `${owner}/${repo}`.toLowerCase();
   const names = (receipt) => typeof receipt?.repo === "string" && receipt.repo.toLowerCase() === target;
 
-  if (names(readReceiptAt(REPO_ROOT, pr))) return REPO_ROOT;
+  if (names(readReceiptAt(REPO_ROOT, pr))) return { root: REPO_ROOT, registryProblem: null };
 
-  const root = attachedRoots(env).map?.get(target) ?? null;
-  if (root === null) return REPO_ROOT;
-  return names(readReceiptAt(root, pr)) ? root : REPO_ROOT;
+  // THE PARSE PROBLEM IS CARRIED, NOT DISCARDED. Dropping it left a foreign
+  // merge refused with only "no readiness receipt for PR #N" -- so an operator
+  // would re-capture a perfectly good receipt in the target checkout over and
+  // over while a registry typo, the actual cause, was never named. The review
+  // path already reports this; the merge path now matches it. (Codex, PR #33
+  // round 1.)
+  const registry = attachedRoots(env);
+  const root = registry.map?.get(target) ?? null;
+  if (root === null) return { root: REPO_ROOT, registryProblem: registry.problem };
+  return names(readReceiptAt(root, pr))
+    ? { root, registryProblem: null }
+    : { root: REPO_ROOT, registryProblem: registry.problem };
 }
 
 const MERGE_TOOL = "mcp__github__merge_pull_request";
@@ -1832,14 +1841,23 @@ export function decide(raw, options = {}) {
     // and missed what each one CONSULTS; `remoteTip` in particular took no
     // root at all. Routing only some of these produces a split brain that
     // fails OPEN on the tip lookup. (Codex, PR #28 round 1.)
-    const root = rootForMergeTarget(payload.tool_input);
+    const { root, registryProblem } = rootForMergeTarget(payload.tool_input);
     const reason = checkMerge(payload.tool_input, {
       readReceipt: (pr) => readReceiptAt(root, pr),
       resolveSha: (branch) => remoteTip(branch, root),
       resolveConfig: () => machineryConfig(nodeIo(root)),
       ...options,
     });
-    return reason ? { blocked: true, reason } : { blocked: false, reason: null };
+    if (!reason) return { blocked: false, reason: null };
+    // Appended only when the registry is actually broken, so every refusal a
+    // well-formed or unset registry produces is unchanged.
+    const hint =
+      registryProblem == null
+        ? ""
+        : `\nSeparately, HANDBOOK_ATTACHED_ROOTS could not be read, so no registered checkout could ` +
+          `answer for this target either: ${registryProblem}. Entries are newline-separated ` +
+          `"owner/name=/absolute/path"; one bad entry invalidates the whole variable rather than being skipped.`;
+    return { blocked: true, reason: reason + hint };
   }
 
   // The third judgement behind this hook: the review-round budget. Taken ONLY

@@ -867,14 +867,25 @@ export function attachedRoots(env = process.env) {
 
   const map = new Map();
   for (const line of raw.split("\n")) {
-    const entry = line.trim();
-    if (entry === "") continue;
+    // A trailing CR is a line-ending artifact, not part of the path; anything
+    // else in the value is the operator's.
+    const entry = line.replace(/\r$/, "");
+    if (entry.trim() === "") continue;
     const eq = entry.indexOf("=");
     if (eq <= 0) {
-      return { map: null, problem: `entry ${JSON.stringify(entry)} is not "owner/name=/absolute/path"` };
+      return { map: null, problem: `entry ${JSON.stringify(entry.trim())} is not "owner/name=/absolute/path"` };
     }
     const slug = entry.slice(0, eq).trim();
-    const root = entry.slice(eq + 1).trim();
+    // THE VALUE IS NOT TRIMMED. Trailing (and leading) whitespace is legal in a
+    // POSIX directory name, and trimming the whole entry silently rewrote such
+    // a path before any evidence was read -- so a legitimately-registered
+    // checkout fell back and refused, with nothing saying why. The documented
+    // contract excludes only literal newlines and preserves every other legal
+    // character, and this is what makes that true rather than aspirational.
+    // The key is still trimmed: a slug cannot contain whitespace, so leading
+    // indentation on a continuation line is safe to drop. (Codex, PR #33
+    // round 1.)
+    const root = entry.slice(eq + 1);
     if (!SLUG_RE.test(slug)) {
       return { map: null, problem: `${JSON.stringify(slug)} is not a repository slug of the form "owner/name"` };
     }
