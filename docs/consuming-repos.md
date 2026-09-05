@@ -301,6 +301,10 @@ readiness, not link resolution.
    - **Whitespace in a path is significant**, because it is legal in a POSIX
      directory name. Only a trailing carriage return is stripped, as a
      line-ending artifact.
+   - **No `..` segments.** Give the resolved path. `/mount/current/../repo` is
+     refused rather than collapsed: POSIX applies `..` *after* resolving a
+     preceding symlink, so collapsing it here would name a directory you did
+     not.
    - **One bad or duplicated entry invalidates the whole variable.** A
      partly-parsed registry would resolve some targets and not others, which
      is the kind of partial success that reads as correct.

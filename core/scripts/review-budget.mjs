@@ -899,6 +899,23 @@ export function attachedRoots(env = process.env) {
     if (map.has(key)) {
       return { map: null, problem: `${slug} is declared more than once, so which checkout it names is undecided` };
     }
+    // A `..` SEGMENT IS REFUSED, NOT COLLAPSED. POSIX resolves a symlink
+    // before applying `..`, while `path.normalize` collapses lexically -- so
+    // for `/mount/current/../repo` where `current` is a symlink, the two
+    // disagree and the guard would read receipts, refs and config from a
+    // directory the operator never named. Canonicalizing properly means
+    // `realpathSync`, a fallible filesystem call, and this parser runs on the
+    // hook path where it must not throw. Refusing the form is the honest third
+    // option: loud, total, and documented. (Codex, PR #33 round 2.)
+    if (root.split(/[\\/]+/).includes("..")) {
+      return {
+        map: null,
+        problem:
+          `the root for ${slug} contains a ".." segment (${JSON.stringify(root)}). Give the path with no ` +
+          `".." components: resolving it here would collapse it lexically, which disagrees with the ` +
+          `filesystem whenever a symlink precedes the "..".`,
+      };
+    }
     // Trailing separators stripped so two spellings of one root are one root
     // -- and so a joined path never contains a doubled separator in a refusal
     // message. `path.parse(x).root` guards the filesystem root itself, which
@@ -1617,7 +1634,10 @@ function refusal(pr, state, spent, tiedCount = false) {
 /**
  * Does this loop state carry a usable budget stamped for `target`?
  *
- * The one question that decides whether a checkout may answer for a call.
+ * Asked of the PROJECT ROOT only, to decide whether the registry needs
+ * consulting at all. It is deliberately NOT the test for adopting a registered
+ * checkout: selection is by key, and authorization is by the checks that
+ * follow.
  * Deliberately strict: a `no-budget` or `bad-receipt` state is not an answer,
  * and a budget for another repository is not an answer either. Used to pick
  * the root, and then the same comparison is made again below on the chosen
@@ -1729,17 +1749,23 @@ export function judgeReviewRequest(
     registryProblem = registry.problem;
     const root = registry.map?.get(target.toLowerCase()) ?? null;
     if (root !== null) {
+      // SELECTION IS NOT AUTHORIZATION, and the two must not share a test.
+      // An earlier version adopted the registered checkout only when its
+      // budget already authorized the call, so a checkout with a MALFORMED
+      // budget was silently discarded and the operator was shown the project
+      // root's unrelated "no budget declared" -- sent to repair the wrong
+      // checkout while the real, fixable error stayed hidden. The registry key
+      // decides WHICH checkout answers; the checks below decide whether it
+      // authorizes anything, and they refuse a bad receipt or a mismatched
+      // repository exactly as they would locally. (Codex, PR #33 round 2.)
+      //
       // Same decision matrix, same freshness rules, a different root. Settled
       // Decision 9: a registered candidate inherits the project root's
       // staleness semantics AND NO MORE -- no caching, no longer-lived read,
       // nothing treating this evidence as fresher than the root's would be.
       // The known gap that leaves open is issue #31, accepted deliberately.
-      const foreignIo = makeIo(root);
-      const foreignState = loadLoop(pr, foreignIo);
-      if (budgetNames(foreignState, target)) {
-        state = foreignState;
-        io = foreignIo;
-      }
+      io = makeIo(root);
+      state = loadLoop(pr, io);
     }
   }
 

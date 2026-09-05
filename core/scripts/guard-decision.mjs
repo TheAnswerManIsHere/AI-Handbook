@@ -1819,9 +1819,16 @@ export function rootForMergeTarget(toolInput, env = process.env) {
   const registry = attachedRoots(env);
   const root = registry.map?.get(target) ?? null;
   if (root === null) return { root: REPO_ROOT, registryProblem: registry.problem };
-  return names(readReceiptAt(root, pr))
-    ? { root, registryProblem: null }
-    : { root: REPO_ROOT, registryProblem: registry.problem };
+
+  // SELECTION IS NOT AUTHORIZATION. An earlier version returned the registered
+  // root only when its receipt already named the target, which pre-empted the
+  // very check the comment above promises `checkMerge` would make: a receipt
+  // with a missing or wrong `repo` stamp fell back here, so `checkMerge` never
+  // saw it and reported "no readiness receipt" against the project root while
+  // the actual repair sat in the registered checkout. The key decides which
+  // checkout answers; `checkMerge`'s own identity, freshness and policy checks
+  // decide whether it may. (Codex, PR #33 round 2.)
+  return { root, registryProblem: null };
 }
 
 const MERGE_TOOL = "mcp__github__merge_pull_request";

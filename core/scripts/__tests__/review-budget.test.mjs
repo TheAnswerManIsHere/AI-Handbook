@@ -2111,13 +2111,35 @@ test("the foreign path runs the SAME decision matrix, not a permissive copy", ()
   assert.equal(blocked, true, "an exhausted foreign loop must refuse exactly as a local one would");
 });
 
-test("a registered checkout whose receipt names a THIRD repository is refused", () => {
+test("a registered checkout whose receipt names a THIRD repository is refused, naming both", () => {
   const impostor = fakeIo(
     { [budgetPath(1)]: budget(1, "product", { repo: "Third/Party" }), [checkPath(1)]: check(1, 2, { repo: "Third/Party" }) },
     { slug: "Third/Party" },
   );
-  const { blocked } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => impostor);
+  const { blocked, reason } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => impostor);
   assert.equal(blocked, true, "locating is not trusting -- the receipt still has to name the target");
+  assert.match(reason, /declared for Third\/Party/, "the refusal must name what it actually found");
+  assert.match(reason, new RegExp(`targets ${FOREIGN_SLUG}`));
+});
+
+test("a registered checkout with a MALFORMED budget reports ITS error, not the project root's", () => {
+  // Selection is not authorization. Rejecting the foreign state because its
+  // budget was unusable left the operator reading the project root's unrelated
+  // "no budget declared" and repairing the wrong checkout, while the real,
+  // fixable error stayed hidden. (Codex, PR #33 round 2.)
+  const corrupt = fakeIo({ [budgetPath(1)]: "{ not json" }, { slug: FOREIGN_SLUG });
+  const { blocked, reason } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => corrupt);
+  assert.equal(blocked, true);
+  assert.match(reason, /receipt is unusable/, "the registered checkout's own diagnosis reaches the operator");
+  assert.doesNotMatch(reason, /no round budget declared/, "not the project root's unrelated complaint");
+});
+
+test("a '..' segment is refused rather than collapsed lexically", () => {
+  // POSIX resolves a symlink before applying '..'; path.normalize collapses
+  // lexically, and the two disagree. (Codex, PR #33 round 2.)
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=/mount/current/../repo`));
+  assert.equal(map, null);
+  assert.match(problem, /"\.\." segment/);
 });
 
 test("a registered checkout holding no budget at all is refused", () => {

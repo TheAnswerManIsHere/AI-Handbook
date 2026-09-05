@@ -1192,17 +1192,32 @@ test("merge routing: a registered checkout whose receipt names the target answer
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("merge routing: a registered checkout whose receipt names ANOTHER repo does not answer", () => {
-  // Locating is not trusting: a wrong entry degrades to the project root, and
-  // checkMerge then refuses. It can never manufacture an allow.
+test("merge routing: a registered checkout is SELECTED even when its receipt is wrong", () => {
+  // Selection is not authorization. Falling back here pre-empted checkMerge's
+  // own receipt-vs-target refusal, so the operator was told no receipt existed
+  // locally while the actual repair sat in the registered checkout. (Codex,
+  // PR #33 round 2.)
   const dir = checkoutWithReceipt("Third/Party", 7);
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, MACHINERY_ROOT);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, dir);
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("merge routing: a registered checkout with no receipt at all does not answer", () => {
+test("merge routing: and checkMerge then refuses it on the identity comparison", () => {
+  // The half that makes the above safe: selecting a wrongly-stamped checkout
+  // hands checkMerge a receipt it rejects, naming both repositories.
+  const reason = checkMerge(mergeInput("Other", "Repo", 7), {
+    readReceipt: () => ({ pr: 7, repo: "Third/Party", verdict: "READY" }),
+    resolveSha: () => "deadbeef",
+    resolveConfig: () => ({ repo: "Other/Repo", requiredChecks: ["Test"] }),
+  });
+  assert.match(reason, /minted for Third\/Party/);
+  assert.match(reason, /merge targets Other\/Repo/);
+});
+
+test("merge routing: a registered checkout with no receipt is still selected", () => {
+  // So the refusal points at the checkout the operator must actually fix.
   const dir = checkoutWithReceipt(null, 7);
-  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, MACHINERY_ROOT);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, dir);
   rmSync(dir, { recursive: true, force: true });
 });
 
