@@ -60,6 +60,7 @@ import {
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
 import { reviewerPasses, summaryCodeReviewPasses, summaryRows } from "./review-counting.mjs";
+import { pathToFileURL } from "node:url";
 
 export const RECEIPT_DIR = join(REPO_ROOT, RECEIPTS_DIR);
 
@@ -1974,5 +1975,5 @@ function main() {
   return receipt.verdict === "READY" ? 0 : 1;
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) process.exit(main());

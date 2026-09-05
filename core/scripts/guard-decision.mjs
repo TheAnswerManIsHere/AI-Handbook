@@ -230,6 +230,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { staleReason, remoteTip, receiptPolicyReason } from "./pr-ready.mjs";
 import {
   REVIEW_REQUEST_TOOLS,
@@ -1819,7 +1820,7 @@ async function main() {
 }
 
 const invokedDirectly =
-  process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (invokedDirectly) {
   main().then((code) => process.exit(code));

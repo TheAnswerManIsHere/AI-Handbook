@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -1090,4 +1092,72 @@ test("merge gate: the merge tool routes to the gate, not the Bash parser", () =>
   });
   assert.equal(isBlocked, true);
   assert.match(reason, /no readiness receipt/);
+});
+
+// ---------------------------------------------------------------------------
+// #11: the guard must still guard when the checkout path needs URL escaping.
+//
+// Every script here decided "was I run directly?" by comparing
+// `import.meta.url` against a hand-built `file://${process.argv[1]}`. The
+// first is percent-encoded; the second is not. In a checkout whose path
+// contains a space or `#` they differ, `main()` never runs, and the process
+// exits 0 -- which PreToolUse treats as non-blocking, because only exit 2
+// blocks. So the merge gate, the review-round budget and the destructive-
+// command guard all stopped running at once, with a directory name as the
+// entire trigger.
+//
+// This runs the real hook from a real directory with a space in it, because
+// the defect lives in process wiring and no unit test of the decision module
+// could have seen it.
+// ---------------------------------------------------------------------------
+
+test("the hook blocks a force push from a checkout path containing a space", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "guard has space-"));
+  try {
+    mkdirSync(path.join(dir, ".claude"), { recursive: true });
+    mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    cpSync(path.join(REPO_ROOT, ".claude/guard.sh"), path.join(dir, ".claude/guard.sh"));
+    for (const f of readdirSync(path.join(REPO_ROOT, "scripts")).filter((f) => f.endsWith(".mjs"))) {
+      cpSync(path.join(REPO_ROOT, "scripts", f), path.join(dir, "scripts", f));
+    }
+
+    assert.ok(dir.includes(" "), "the fixture only means anything if the path really has a space");
+
+    let status = 0;
+    try {
+      execFileSync("bash", [path.join(dir, ".claude/guard.sh")], {
+        cwd: dir,
+        input: payload("git push -f origin main"),
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (error) {
+      status = error.status;
+    }
+
+    assert.equal(
+      status,
+      2,
+      "a directory name must not disarm the guard -- exit 0 here means every judgement was skipped and the call would proceed",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("no payload script reintroduces the raw-string entry-point comparison", () => {
+  // The behavioural test above covers guard.sh's path. The same idiom was in
+  // ten scripts, and only one of them is reachable through a hook -- so a
+  // static check is what actually closes the class. `pathToFileURL` is the
+  // only correct comparison: it percent-encodes exactly as `import.meta.url`
+  // does.
+  const dir = path.join(REPO_ROOT, "scripts");
+  const offenders = readdirSync(dir)
+    .filter((f) => f.endsWith(".mjs"))
+    .filter((f) => readFileSync(path.join(dir, f), "utf8").includes("file://${process.argv[1]}"));
+
+  assert.deepEqual(
+    offenders,
+    [],
+    "compare against pathToFileURL(process.argv[1]).href -- a hand-built file:// URL silently no-ops on any path needing escaping, and a script that never runs exits 0, which PreToolUse reads as allow",
+  );
 });
