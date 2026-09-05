@@ -1,0 +1,14 @@
+{
+  "pr": 33,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/33-1.json",
+  "decidedAt": "2026-09-05T16:34:00.000Z",
+  "reasoning": "Confirmed from the record: budget.tier is internal, declaredBudget 3, roundsSpent 3, extensions [] -- so this is an extension decision, and the internal rubric requires a very high chance of a CRITICAL flaw. sinceLastReview shows noChange: true with head == lastReviewedCommit (703b230), consistent with a dispatch on a reviewed head. The trend is 3, 3, 1 and findings.unresolved is 1 of 7 (thread state, per the record's own caveat). The single open finding (review-budget.mjs:924, `/[\\\\/]+$/` stripping a trailing backslash on POSIX) is a real doc-vs-code contract mismatch, but artifact.patch shows it can only make the guard read a different directory than the operator named, which under the patch's own design yields a receipt that fails checkMerge's identity/freshness checks or no receipt at all -- a refusal, not a destructive action, a false receipt, or an authority widening; it therefore fails the critical bar. Two record caveats: artifact.files/added/removed are all 0 while artifact.patch is plainly non-empty, so territory's 'inDiff 0 / outsideDiff 7' is a stat-generation artifact (every finding path appears in the patch), not evidence the reviewer left the diff; and the dispatch message added framing about consumer sync that is not a record field -- I ruled on the record, and that framing would not change the outcome since the gap fails closed on every consumer too.",
+  "gaps": [
+    "core/scripts/review-budget.mjs:924 (round 3, unresolved): attachedRoots strips trailing backslashes via /[\\\\/]+$/ on POSIX, so a registered path like /checkouts/repo\\ is rewritten to /checkouts/repo, contradicting docs/consuming-repos.md's statement that only a trailing carriage return is stripped. Fails closed (wrong directory produces a refusal, never an allow); fix is to strip only path.sep after path.normalize. Same over-broad character class appears in the '..' segment check (root.split(/[\\\\/]+/)), which is also fail-closed.",
+    "Record anomaly worth a follow-up on review-loop-record.mjs: artifact.files/added/removed reported 0 despite a non-empty artifact.patch, which makes the territory classification unreliable for this loop."
+  ]
+}
