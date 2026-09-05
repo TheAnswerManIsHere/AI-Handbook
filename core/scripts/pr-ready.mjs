@@ -59,7 +59,7 @@ import {
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
-import { reviewerPasses } from "./review-counting.mjs";
+import { reviewerPasses, summaryCodeReviewPasses, summaryRows } from "./review-counting.mjs";
 
 export const RECEIPT_DIR = join(REPO_ROOT, RECEIPTS_DIR);
 
@@ -563,6 +563,70 @@ export function checkCi(checkRuns, headSha = null, required = requiredChecks()) 
  * David, with that observation as the evidence. Fail-closed here costs one
  * blocked merge; fail-open costs the failure this file exists to prevent.
  */
+/**
+ * WHY a pass could not be read, when the connector plainly said something.
+ *
+ * "The review loop was never started" and "the connector answered in a shape I
+ * cannot parse" are different problems with different fixes, and until now
+ * they produced the same sentence. Only the first is the #487 failure; the
+ * second is a parser that has fallen behind the source.
+ *
+ * `known-failure-patterns.md` predicted exactly this and is worth quoting,
+ * because it is the reason this note exists rather than a fourth accepted
+ * format: **"the collector keys on a convention the source never promised to
+ * keep, so the gap list is open-ended and will grow again whenever the
+ * connector changes its output shape."** Three clean-pass shapes carrying no
+ * marker are already on the record -- 👍-only (#414, #415, #416), the
+ * `## Review Result` format (#465), and the summary row (#15). Teaching the
+ * reader a fourth will not be the last time.
+ *
+ * So this changes NO verdict. The gate still fails closed; it just stops
+ * misdiagnosing itself, and hands whoever reads the receipt the one sentence
+ * that says where to look.
+ */
+export function codexEvidenceNote(issueComments = [], reviews = [], headSha = null) {
+  const fromBot = [...reviews, ...issueComments].filter((c) => authorOf(c) === CODEX_BOT);
+  if (fromBot.length === 0) return null;
+
+  const rows = fromBot
+    .flatMap((c) => summaryRows(bodyOf(c)))
+    .filter((r) => r.review === "code review");
+  const onHead = headSha ? rows.filter((r) => sameCommit(r.commit, headSha)) : [];
+  const short = headSha ? headSha.slice(0, 7) : "the head";
+
+  const unfinished = onHead.find((r) => r.status !== "completed");
+  if (unfinished) {
+    return `the connector's summary row for ${short} reads "${unfinished.status}", not "completed" -- the round is still in flight, so this is a WAIT rather than a gap`;
+  }
+  // ANNOUNCED, BUT NOT FOR THIS HEAD -- and "announced" has to mean BOTH
+  // shapes. An earlier version read only the summary rows here, so a marker
+  // naming an older commit fell through to the unreadable-format branch below
+  // and was described as a format this file cannot parse. It parses that one
+  // perfectly; the commit is just wrong, which is the ordinary push-past-a-pass
+  // case and the one thing this gate has always been able to say precisely.
+  // Caught by the existing #487 test rather than by me.
+  const announced = [
+    ...new Set(
+      [
+        ...fromBot.map((c) => (bodyOf(c).match(REVIEWED_COMMIT_MARKER) ?? [])[1]).filter(Boolean),
+        ...rows.map((r) => r.commit),
+      ].map((sha) => String(sha).toLowerCase()),
+    ),
+  ];
+  const covering = headSha ? announced.filter((sha) => sameCommit(sha, headSha)) : [];
+  if (announced.length > 0 && covering.length === 0) {
+    return `the connector announced ${announced.join(", ")}, not ${short} -- something was pushed after that review, and the new head needs its own round`;
+  }
+  if (onHead.length > 0) {
+    return `a completed summary row for ${short} is present but carries no parseable timestamp, so it cannot be ordered against anything and is not accepted`;
+  }
+  return (
+    `${fromBot.length} connector message(s) are present, and none carries a \`**Reviewed commit:**\` marker ` +
+    `or a readable review-summary row. That is the open-ended parser gap in known-failure-patterns.md, ` +
+    `not proof that no review ran -- read the PR before concluding the loop never started`
+  );
+}
+
 export function checkCodex(issueComments, reviews, headSha = null) {
   const requests = issueComments
     .filter((c) => authorOf(c) !== CODEX_BOT && REVIEW_REQUEST.test(bodyOf(c)))
@@ -599,17 +663,56 @@ export function checkCodex(issueComments, reviews, headSha = null) {
     // posts were never guard-gated, so a no-budget pass-on-head could
     // already mint READY before this path existed. The declare-before-round-1
     // contract still binds the agent's OWN requests via the guard.
-    const automatic = headSha ? passes.filter((p) => sameCommit(p.sha, headSha)) : [];
+    //
+    // TWO SHAPES ARE ACCEPTED HERE, and only here (#17). The marker is the
+    // primary. The connector's summary comment is the second, because on #15
+    // a clean automatic round emitted NO marker at all -- only that comment,
+    // and a 👍 -- and this gate refused a PR whose review had returned. That
+    // was this function's own pre-registered flip condition firing, and
+    // CLAUDE.md's close-out bar already names the summary row as sufficient
+    // evidence, so the gate was stricter than the rule it enforces.
+    //
+    // THE 👍 IS STILL NOT ACCEPTED, and the distinction is the whole design.
+    // A reaction arrives as a COUNT -- `{"total_count":1,"+1":1}` -- with no
+    // actor, no time and no commit, so it cannot say WHAT it approved. #15's
+    // reaction read identically before and after a push to a new head; taking
+    // it as proof would have certified a commit no longer on the branch, which
+    // is PR #458. The summary row carries all three: a bot author, the row's
+    // own datetime, and the commit. It is admitted for what it can prove.
+    //
+    // ONLY ON THIS PATH. The summary comment is current state, not a log --
+    // one comment per PR, rewritten each round -- so it cannot establish that
+    // a pass came AFTER a particular request. Requested rounds below still
+    // require the marker, where that ordering is the whole question.
+    const summary = headSha
+      ? summaryCodeReviewPasses(issueComments)
+          .filter((p) => sameCommit(p.commit, headSha))
+          .map((p) => ({ at: Date.parse(p.at), sha: p.commit, source: "summary" }))
+      : [];
+    const automatic = headSha
+      ? [...passes.filter((p) => sameCommit(p.sha, headSha)).map((p) => ({ ...p, source: "marker" })), ...summary]
+      : [];
     if (automatic.length > 0) {
+      const via = automatic.some((p) => p.source === "marker")
+        ? "`**Reviewed commit:**` marker"
+        : "the connector's review-summary row";
       return {
         pass: true,
-        detail: `automatic pass on ${headSha.slice(0, 7)} (no request -- the connector reviews on PR open); nothing pushed past it`,
+        detail: `automatic pass on ${headSha.slice(0, 7)} via ${via} (no request -- the connector reviews on PR open); nothing pushed past it`,
         acceptedAt: Math.max(...automatic.map((p) => p.at)),
       };
     }
+    // The note REPLACES the generic sentence rather than being appended to it.
+    // Two diagnoses in one string is how a receipt becomes unreadable, and the
+    // #487 wording is only true when the connector said nothing at all.
+    const note = codexEvidenceNote(issueComments, reviews, headSha);
     return {
       pass: false,
-      detail: "no `@codex review` request found and no automatic pass covers the head -- the review loop was never started (this is the PR #487 failure)",
+      detail: note
+        ? `no review request found, and no pass covers the head -- ${note}`
+        : "no review request found, and neither a `**Reviewed commit:**` marker nor a completed " +
+          "review-summary row covers the head -- the review loop was never started " +
+          "(this is the PR #487 failure)",
     };
   }
 
