@@ -282,6 +282,15 @@ assumed inert.
    *open* in the `remoteTip` case, since a coincidentally same-named branch
    in the primary repo resolves a tip that then authorizes a stale foreign
    head. All four dependencies in oracle 3 are routed, or none is.
+9. **A registered candidate inherits the project root's staleness semantics
+   and no more.** The known fail-open in [#31](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/31)
+   — a lagging remote-tracking ref hides a terminal extension, and
+   `terminalVerdictStanding` reads an empty list as "no stop standing" — is
+   **accepted, not fixed here** (David, 2026-09-05: next). What this plan
+   owes is that it does not make it *worse*: the implementation adds no new
+   caching, no longer-lived read, and no path on which a candidate's evidence
+   is treated as fresher than the project root's would be. Anything widening
+   the window beyond today's is out of scope and belongs to #31.
 
 ## Repo Context Inspected
 
@@ -468,9 +477,19 @@ through.* Three properties keep this change out of that class:
    new failure mode.
 3. The new code adds no unwrapped fallible call to the guard path.
 
-**What this change does not do:** it does not make cross-repo work guarded
-in a session running the stale Overhype.me copy. That arrives with the
-`machinery` unstaging, and #27 stays open until it does.
+**What this change does not do**, stated as two accepted gaps rather than
+left to be discovered:
+
+1. It does not make cross-repo work guarded in a session running the stale
+   consumer copy. That arrives with the `machinery` unstaging, and #27 stays
+   open until it does.
+2. **It does not close [#31](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/31).**
+   A registered checkout whose tracking ref predates a terminal extension
+   reads the loop as open. This is a genuine fail-open, it pre-exists for the
+   project root, and this plan widens exposure to it without fixing it —
+   accepted deliberately, bounded by Settled Decision 9, and tracked. The
+   plan does not claim the class is closed; three of its instances are, and
+   this one is not.
 
 ## Testing Plan
 
@@ -563,7 +582,7 @@ Each step is the smallest change that keeps the suite green.
 | Risk | Mitigation |
 |---|---|
 | The registry becomes a second identity source by drift | It is consulted only for location; the receipt comparison is what admits evidence, and a test asserts a mismatched receipt refuses |
-| **A stale registered checkout answers for a repository** | **NOT MITIGATED — open scope question, escalated to David.** `durableRef` reads the candidate's remote-tracking ref without fetching, and `terminalVerdictStanding` returns `false` on an empty extension list — so a checkout that has not fetched a terminal or David-stop extension sees an *open* loop and allows a round the remote has closed. Staleness pre-exists for the project root; this plan widens exposure to it. A freshness proof is a new mechanism on the guard path, so it is a now/next/never call, not the loop's to add (Codex round 2, P1) |
+| **A stale registered checkout answers for a repository** | **NOT MITIGATED — accepted, tracked as [#31](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/31).** `durableRef` reads the candidate's remote-tracking ref without fetching, and `terminalVerdictStanding` returns `false` on an empty extension list — so a checkout that has not fetched a terminal or David-stop extension sees an *open* loop and allows a round the remote has closed. Staleness pre-exists for the project root; this plan widens exposure to it. **David's now/next/never call, 2026-09-05: next.** A freshness proof is a new mechanism on the guard path, and this plan's job is the resolution rule, not the durability predicate (Codex round 2, P1) |
 | The guard path gains a way to throw | Registry read is `process.env`; a test asserts a throw inside resolution surfaces as blocked |
 | Scope creep into #8 or the unstaging audit | Both named out of scope in Settled Decisions |
 
