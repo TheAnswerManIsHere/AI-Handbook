@@ -2198,8 +2198,10 @@ test("checkCodex accepts a clean automatic pass delivered as a summary row", () 
   assert.equal(r.pass, true);
   assert.match(r.detail, /review-summary row/);
   // Dated from the row, not the comment: the comment was created at 00:22:57,
-  // when the PR was opened.
-  assert.equal(r.acceptedAt, Date.parse("2026-09-05T00:25:53.728619Z"));
+  // when the PR was opened. Floored to its second -- see the capture-boundary
+  // test below for why the sub-second part must not survive. This assertion
+  // originally expected the unfloored value and so encoded the bug.
+  assert.equal(r.acceptedAt, Date.parse("2026-09-05T00:25:53.000Z"));
 });
 
 test("checkCodex refuses a summary row that does not cover the head", () => {
@@ -2273,4 +2275,53 @@ test("codexEvidenceNote separates an unreadable pass from a review that never ra
   const note = codexEvidenceNote([reviewResultFormat], [], PR15_HEAD);
   assert.match(note, /none carries a/);
   assert.match(note, /not proof that no review ran/);
+});
+
+// ---------------------------------------------------------------------------
+// Round 1 findings (#18). Both were real and both are mine.
+// ---------------------------------------------------------------------------
+
+test("a summary row's acceptedAt is floored to its second, or it moves the capture boundary", () => {
+  // checkCapture compares captures against `acceptedAt + 999`, because every
+  // other source reports to the second: a pass GitHub shows as 04:10:00 may
+  // really be 04:10:00.900, so the boundary must be the END of that second.
+  // The summary row is the only source carrying real milliseconds. Unfloored,
+  // it pushes the boundary a further 999ms out and rejects captures that
+  // genuinely postdate the review -- falsely blocking a receipt whenever the
+  // snapshot is taken within a second of a clean automatic pass.
+  const accepted = checkCodex([codexComment(summaryBody())], [], PR15_HEAD).acceptedAt;
+  assert.equal(accepted % 1000, 0, "acceptedAt must carry no sub-second component");
+  assert.equal(new Date(accepted).toISOString(), "2026-09-05T00:25:53.000Z");
+
+  const now = Date.parse("2026-09-05T00:26:00Z");
+  const at = (t) => ({ reviewThreads: t, checkRuns: t, issueComments: t });
+
+  // 372ms after the review completed: genuinely later, must be accepted.
+  assert.equal(checkCapture(at("2026-09-05T00:25:54.100Z"), accepted, now).pass, true);
+
+  // And the guard this protects still fires: a capture inside the reported
+  // second cannot be shown to postdate the response, and one before it plainly
+  // does not. Flooring must not buy the fix by disarming that.
+  assert.equal(checkCapture(at("2026-09-05T00:25:53.900Z"), accepted, now).pass, false);
+  assert.equal(checkCapture(at("2026-09-05T00:25:53.100Z"), accepted, now).pass, false);
+});
+
+test("a completed SECURITY review is not reported as an unreadable code review", () => {
+  // The row parses perfectly and proves the separately-metered security review
+  // ran. Calling that an "open-ended parser gap" and saying no conclusion is
+  // safe would be wrong twice over, and would send a reader off to inspect and
+  // wait instead of asking for the code review that is actually missing.
+  const note = codexEvidenceNote(
+    [codexComment(summaryBody({ type: "**Security Review**" }))],
+    [],
+    PR15_HEAD,
+  );
+  assert.match(note, /parsed cleanly/);
+  assert.match(note, /no code-review row/);
+  assert.match(note, /ask for the code review/);
+  assert.doesNotMatch(note, /parser gap/);
+
+  // A genuinely unreadable body still reports as the parser gap.
+  const unreadable = codexEvidenceNote([codexComment("## Review Result\n\nLooks good.")], [], PR15_HEAD);
+  assert.match(unreadable, /parser gap/);
 });

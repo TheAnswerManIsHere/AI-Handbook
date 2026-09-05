@@ -1,0 +1,9 @@
+{
+  "pr": 18,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 75,
+  "artifact": "checkCodex's acceptance of the connector review-summary row, the reviewerPasses fallback, codexEvidenceNote's diagnoses, and the claude-core.md contract reconciliation",
+  "declaredAt": "2026-09-05T01:28:07.378Z"
+}

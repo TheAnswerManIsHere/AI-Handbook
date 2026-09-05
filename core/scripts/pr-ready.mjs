@@ -589,9 +589,8 @@ export function codexEvidenceNote(issueComments = [], reviews = [], headSha = nu
   const fromBot = [...reviews, ...issueComments].filter((c) => authorOf(c) === CODEX_BOT);
   if (fromBot.length === 0) return null;
 
-  const rows = fromBot
-    .flatMap((c) => summaryRows(bodyOf(c)))
-    .filter((r) => r.review === "code review");
+  const allRows = fromBot.flatMap((c) => summaryRows(bodyOf(c)));
+  const rows = allRows.filter((r) => r.review === "code review");
   const onHead = headSha ? rows.filter((r) => sameCommit(r.commit, headSha)) : [];
   const short = headSha ? headSha.slice(0, 7) : "the head";
 
@@ -620,6 +619,24 @@ export function codexEvidenceNote(issueComments = [], reviews = [], headSha = nu
   }
   if (onHead.length > 0) {
     return `a completed summary row for ${short} is present but carries no parseable timestamp, so it cannot be ordered against anything and is not accepted`;
+  }
+  // PARSED FINE, BUT IT IS NOT A CODE REVIEW. A completed Security Review row
+  // is the live case: `rows` filters it out, so every branch above falls
+  // through and the parser-gap message below would claim the output was
+  // unreadable and that no conclusion about a review is safe. Both halves
+  // would be wrong -- the row read perfectly, and it establishes precisely
+  // that the separately-metered security review ran and the code review did
+  // not. The verdict is closed either way; the DIAGNOSIS is what sends a
+  // reader to inspect and wait instead of asking for the code review that is
+  // actually missing, which is the failure this whole function exists to
+  // stop. (Codex, #18 round 1.)
+  const otherKinds = [...new Set(allRows.filter((r) => r.status === "completed").map((r) => r.review))];
+  if (otherKinds.length > 0) {
+    return (
+      `the connector's summary parsed cleanly and reports a completed ${otherKinds.join(" and ")}, ` +
+      `but no code-review row at all. CLAUDE.md meters those separately, so this is not evidence ` +
+      `about the code review either way -- ask for the code review`
+    );
   }
   return (
     `${fromBot.length} connector message(s) are present, and none carries a \`**Reviewed commit:**\` marker ` +
@@ -685,10 +702,25 @@ export function checkCodex(issueComments, reviews, headSha = null) {
     // one comment per PR, rewritten each round -- so it cannot establish that
     // a pass came AFTER a particular request. Requested rounds below still
     // require the marker, where that ordering is the whole question.
+    // FLOORED TO ITS SECOND, and that is not cosmetic. `checkCapture` compares
+    // a capture time against `acceptedAt + 999`, because every other source
+    // here reports to the second: a pass GitHub reports as 04:10:00 may really
+    // have landed at 04:10:00.900, so the boundary has to be the END of the
+    // reported second. The summary row is the one source carrying real
+    // milliseconds, and feeding those in unfloored shifts that boundary a
+    // further 999ms into the future -- rejecting a capture at 00:25:54.100 as
+    // predating a review that finished at 00:25:53.728. Measured: it fails,
+    // and floored it passes. That would falsely block a receipt whenever the
+    // snapshot is taken within a second of a clean automatic pass, in every
+    // consumer. (Codex, #18 round 1.)
     const summary = headSha
       ? summaryCodeReviewPasses(issueComments)
           .filter((p) => sameCommit(p.commit, headSha))
-          .map((p) => ({ at: Date.parse(p.at), sha: p.commit, source: "summary" }))
+          .map((p) => ({
+            at: Math.floor(Date.parse(p.at) / 1000) * 1000,
+            sha: p.commit,
+            source: "summary",
+          }))
       : [];
     const automatic = headSha
       ? [...passes.filter((p) => sameCommit(p.sha, headSha)).map((p) => ({ ...p, source: "marker" })), ...summary]
