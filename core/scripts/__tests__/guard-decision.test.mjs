@@ -1,13 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+import { REPO_ROOT as MACHINERY_ROOT } from "../review-budget.mjs";
 import {
   decide,
+  rootForMergeTarget,
   tokenize,
   segments,
   checkCommand,
@@ -1160,4 +1162,88 @@ test("no payload script reintroduces the raw-string entry-point comparison", () 
     [],
     "compare against pathToFileURL(process.argv[1]).href -- a hand-built file:// URL silently no-ops on any path needing escaping, and a script that never runs exits 0, which PreToolUse reads as allow",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Which checkout answers for a merge (#27)
+// ---------------------------------------------------------------------------
+
+function checkoutWithReceipt(repo, pr) {
+  const dir = mkdtempSync(path.join(tmpdir(), "merge-root-"));
+  mkdirSync(path.join(dir, ".agents/receipts"), { recursive: true });
+  if (repo !== null) {
+    writeFileSync(path.join(dir, ".agents/receipts", `pr-${pr}.json`), JSON.stringify({ pr, repo, verdict: "READY" }));
+  }
+  return dir;
+}
+
+const mergeInput = (owner, repo, pullNumber) => ({ owner, repo, pullNumber });
+const reg = (v) => ({ HANDBOOK_ATTACHED_ROOTS: v });
+
+test("merge routing: an unregistered foreign target falls back to the project root", () => {
+  // Which makes checkMerge produce its OWN refusal, byte-for-byte what it says
+  // today, rather than a registry-flavoured one.
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), {}).root, MACHINERY_ROOT);
+});
+
+test("merge routing: a registered checkout whose receipt names the target answers", () => {
+  const dir = checkoutWithReceipt("Other/Repo", 7);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, dir);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("merge routing: a registered checkout is SELECTED even when its receipt is wrong", () => {
+  // Selection is not authorization. Falling back here pre-empted checkMerge's
+  // own receipt-vs-target refusal, so the operator was told no receipt existed
+  // locally while the actual repair sat in the registered checkout. (Codex,
+  // PR #33 round 2.)
+  const dir = checkoutWithReceipt("Third/Party", 7);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, dir);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("merge routing: and checkMerge then refuses it on the identity comparison", () => {
+  // The half that makes the above safe: selecting a wrongly-stamped checkout
+  // hands checkMerge a receipt it rejects, naming both repositories.
+  const reason = checkMerge(mergeInput("Other", "Repo", 7), {
+    readReceipt: () => ({ pr: 7, repo: "Third/Party", verdict: "READY" }),
+    resolveSha: () => "deadbeef",
+    resolveConfig: () => ({ repo: "Other/Repo", requiredChecks: ["Test"] }),
+  });
+  assert.match(reason, /minted for Third\/Party/);
+  assert.match(reason, /merge targets Other\/Repo/);
+});
+
+test("merge routing: a registered checkout with no receipt is still selected", () => {
+  // So the refusal points at the checkout the operator must actually fix.
+  const dir = checkoutWithReceipt(null, 7);
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg(`Other/Repo=${dir}`)).root, dir);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("merge routing: a malformed registry falls back rather than throwing", () => {
+  // The hook cannot afford a throw: exit 1 is read as a hook error and the
+  // tool call proceeds.
+  assert.doesNotThrow(() => rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage")));
+  assert.equal(rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage")).root, MACHINERY_ROOT);
+});
+
+test("merge routing: an input with no usable target never consults the registry", () => {
+  for (const input of [{}, { pullNumber: 7 }, { owner: "a", pullNumber: 7 }, { owner: "a", repo: "b" }]) {
+    assert.equal(rootForMergeTarget(input, reg("Other/Repo=/tmp/x")).root, MACHINERY_ROOT);
+  }
+});
+
+test("merge routing: a malformed registry is REPORTED, not silently discarded", () => {
+  // Without this, a foreign merge refused with only "no readiness receipt",
+  // so an operator would re-capture a good receipt forever while the actual
+  // cause -- a registry typo -- was never named. (Codex, PR #33 round 1.)
+  const { root, registryProblem } = rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("garbage"));
+  assert.equal(root, MACHINERY_ROOT, "still fails closed");
+  assert.match(registryProblem, /not "owner\/name=\/absolute\/path"/);
+});
+
+test("merge routing: a well-formed registry reports no problem", () => {
+  const { registryProblem } = rootForMergeTarget(mergeInput("Other", "Repo", 7), reg("Some/Where=/tmp/x"));
+  assert.equal(registryProblem, null, "a valid registry that simply lacks the key is not a problem to report");
 });

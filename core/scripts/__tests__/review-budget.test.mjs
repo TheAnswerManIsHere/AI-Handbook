@@ -22,6 +22,7 @@ import {
   validateCheckReceipt,
   assertCountingSnapshot,
   judgeReviewRequest,
+  attachedRoots,
   MAX_CHECK_AGE_MS,
   repoSlug,
   declare,
@@ -2005,4 +2006,228 @@ test("an undeclared identity does NOT block calls that are not review requests",
   const unrelated = judgeReviewRequest({ toolName: "mcp__github__get_me", toolInput: {} }, io, NOW);
   assert.equal(unrelated.blocked, false, "an unrelated tool must pass");
   __resetRepoSlugCache();
+});
+
+// ---------------------------------------------------------------------------
+// Cross-repo resolution: which checkout answers for a call (#27)
+// ---------------------------------------------------------------------------
+
+const FOREIGN_SLUG = "OtherOwner/OtherRepo";
+const [FOREIGN_OWNER, FOREIGN_REPO] = FOREIGN_SLUG.split("/");
+const FOREIGN_ROOT = "/checkouts/other";
+
+/** A review request aimed at a repository that is NOT the fixture identity. */
+const foreignPost = (pr, body = "@codex review") => ({
+  toolName: "mcp__github__add_issue_comment",
+  toolInput: { owner: FOREIGN_OWNER, repo: FOREIGN_REPO, issue_number: pr, body },
+});
+
+/** A checkout of FOREIGN_SLUG holding an authorized loop for `pr`. */
+const foreignIo = (pr) =>
+  fakeIo(
+    { [budgetPath(pr)]: budget(pr, "product", { repo: FOREIGN_SLUG }), [checkPath(pr)]: check(pr, 2, { repo: FOREIGN_SLUG }) },
+    { slug: FOREIGN_SLUG },
+  );
+
+const registry = (value) => ({ HANDBOOK_ATTACHED_ROOTS: value });
+const judge = (call, io, env, makeIo = () => fakeIo()) => judgeReviewRequest(call, io, NOW, { env, makeIo });
+
+// --- the registry's own contract -------------------------------------------
+
+test("an unset registry leaves a foreign target refused", () => {
+  const { blocked } = judge(foreignPost(1), fakeIo(), {});
+  assert.equal(blocked, true, "with nowhere to look, a foreign target cannot be authorized");
+});
+
+test("attachedRoots parses newline-separated entries and normalizes the root", () => {
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}/`));
+  assert.equal(problem, null);
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), FOREIGN_ROOT);
+});
+
+test("a path containing the OLD ':' delimiter is a legal root, not a parse error", () => {
+  // The first design split on the platform path delimiter, which made a real
+  // POSIX checkout at /workspace/team:archive/repo unusable. (Codex, PR #28
+  // round 3; gap 3 in issue #32.) This is the regression that keeps it fixed.
+  const weird = "/workspace/team:archive/repo";
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=${weird}`));
+  assert.equal(problem, null, "':' is legal in a POSIX directory name and must not end an entry");
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), weird);
+});
+
+test("a path containing '=' survives, because only the FIRST '=' separates", () => {
+  const weird = "/checkouts/a=b/repo";
+  const { map } = attachedRoots(registry(`${FOREIGN_SLUG}=${weird}`));
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), weird);
+});
+
+test("a relative root is refused rather than resolved against the process cwd", () => {
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=relative/path`));
+  assert.equal(map, null);
+  assert.match(problem, /absolute path/);
+});
+
+test("a duplicate key invalidates the variable rather than picking one", () => {
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=/a\n${FOREIGN_SLUG}=/b`));
+  assert.equal(map, null, "a duplicate means the operator holds two beliefs; the machinery must not choose");
+  assert.match(problem, /declared more than once/);
+});
+
+test("one malformed entry invalidates the WHOLE variable, never just itself", () => {
+  // A partly-parsed registry resolves some targets and not others, which is
+  // the kind of partial success that reads as correct.
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}\nnot-a-slug=/x`));
+  assert.equal(map, null);
+  assert.match(problem, /not a repository slug/);
+});
+
+test("attachedRoots never throws, whatever the variable holds", () => {
+  for (const value of ["", "   ", "=", "=/x", "a/b=", "\n\n", "a/b=/x\n\n\n"]) {
+    assert.doesNotThrow(() => attachedRoots(registry(value)), `threw on ${JSON.stringify(value)}`);
+  }
+  assert.doesNotThrow(() => attachedRoots({}));
+  assert.doesNotThrow(() => attachedRoots(undefined));
+});
+
+// --- resolution ------------------------------------------------------------
+
+test("a foreign target is authorized by the REGISTERED checkout's own budget", () => {
+  const foreign = foreignIo(1);
+  const { blocked } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => foreign);
+  assert.equal(blocked, false, "the target repository's own loop authorizes the round");
+});
+
+test("the foreign path runs the SAME decision matrix, not a permissive copy", () => {
+  // Same registered checkout, but its loop is exhausted. If the foreign branch
+  // were a shortcut rather than the same judgement, this would pass.
+  const spent = fakeIo(
+    {
+      [budgetPath(1)]: budget(1, "product", { repo: FOREIGN_SLUG }),
+      [checkPath(1)]: check(1, TIERS.product.budget, { repo: FOREIGN_SLUG }),
+    },
+    { slug: FOREIGN_SLUG },
+  );
+  const { blocked } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => spent);
+  assert.equal(blocked, true, "an exhausted foreign loop must refuse exactly as a local one would");
+});
+
+test("a registered checkout whose receipt names a THIRD repository is refused, naming both", () => {
+  const impostor = fakeIo(
+    { [budgetPath(1)]: budget(1, "product", { repo: "Third/Party" }), [checkPath(1)]: check(1, 2, { repo: "Third/Party" }) },
+    { slug: "Third/Party" },
+  );
+  const { blocked, reason } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => impostor);
+  assert.equal(blocked, true, "locating is not trusting -- the receipt still has to name the target");
+  assert.match(reason, /declared for Third\/Party/, "the refusal must name what it actually found");
+  assert.match(reason, new RegExp(`targets ${FOREIGN_SLUG}`));
+});
+
+test("a registered checkout with a MALFORMED budget reports ITS error, not the project root's", () => {
+  // Selection is not authorization. Rejecting the foreign state because its
+  // budget was unusable left the operator reading the project root's unrelated
+  // "no budget declared" and repairing the wrong checkout, while the real,
+  // fixable error stayed hidden. (Codex, PR #33 round 2.)
+  const corrupt = fakeIo({ [budgetPath(1)]: "{ not json" }, { slug: FOREIGN_SLUG });
+  const { blocked, reason } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => corrupt);
+  assert.equal(blocked, true);
+  assert.match(reason, /receipt is unusable/, "the registered checkout's own diagnosis reaches the operator");
+  assert.doesNotMatch(reason, /no round budget declared/, "not the project root's unrelated complaint");
+});
+
+test("a '..' segment is refused rather than collapsed lexically", () => {
+  // POSIX resolves a symlink before applying '..'; path.normalize collapses
+  // lexically, and the two disagree. (Codex, PR #33 round 2.)
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=/mount/current/../repo`));
+  assert.equal(map, null);
+  assert.match(problem, /"\.\." segment/);
+});
+
+test("a registered checkout holding no budget at all is refused", () => {
+  const empty = fakeIo({}, { slug: FOREIGN_SLUG });
+  const { blocked } = judge(foreignPost(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), () => empty);
+  assert.equal(blocked, true);
+});
+
+test("a registry that resolves no key for this target is refused", () => {
+  const { blocked } = judge(foreignPost(1), fakeIo(), registry(`Someone/Else=${FOREIGN_ROOT}`), () => foreignIo(1));
+  assert.equal(blocked, true);
+});
+
+// --- local parity, which is the invariant most at risk ----------------------
+
+test("an authorized LOCAL call is unaffected by a malformed registry", () => {
+  // Gap 4 in issue #32: an earlier test spec demanded a malformed registry
+  // block "every target", which would have broken authorized local work for an
+  // irrelevant environment variable.
+  const io = fakeIo({ [budgetPath(1)]: budget(1), [checkPath(1)]: check(1, 2) });
+  const { blocked } = judge(post(1), io, registry("total nonsense"));
+  assert.equal(blocked, false, "the registry is consulted only when the project root did not answer");
+});
+
+test("an authorized local call never consults the registry at all", () => {
+  const io = fakeIo({ [budgetPath(1)]: budget(1), [checkPath(1)]: check(1, 2) });
+  let consulted = false;
+  const env = new Proxy(registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), {
+    get(t, k) {
+      if (k === "HANDBOOK_ATTACHED_ROOTS") consulted = true;
+      return t[k];
+    },
+  });
+  judge(post(1), io, env);
+  assert.equal(consulted, false, "step 1 answered, so nothing else may be read");
+});
+
+test("a local call with no budget refuses with the message it has today", () => {
+  const withRegistry = judge(post(1), fakeIo(), registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`)).reason;
+  const without = judge(post(1), fakeIo(), {}).reason;
+  assert.equal(withRegistry, without, "a well-formed registry changes no local refusal, byte for byte");
+  assert.match(withRegistry, /no round budget declared/);
+});
+
+test("a malformed registry adds a diagnostic sentence but never changes the verdict", () => {
+  const { blocked, reason } = judge(post(1), fakeIo(), registry("garbage"));
+  assert.equal(blocked, true);
+  assert.match(reason, /no round budget declared/, "the original refusal survives intact");
+  assert.match(reason, /HANDBOOK_ATTACHED_ROOTS could not be read/);
+});
+
+test("neither path reads the machinery config to establish identity", () => {
+  // The discriminator this design deleted would have needed one. Asserted for
+  // a local and a foreign request so it cannot creep back as an implementation
+  // convenience. (Codex, PR #28 round 1.)
+  for (const [label, call, makeIo] of [
+    ["local", post(1), () => fakeIo()],
+    ["foreign", foreignPost(1), () => foreignIo(1)],
+  ]) {
+    const reads = [];
+    const io = fakeIo({ [budgetPath(1)]: budget(1), [checkPath(1)]: check(1, 2) });
+    const watched = { ...io, read: (rel) => (reads.push(rel), io.read(rel)) };
+    judge(call, watched, registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}`), makeIo);
+    assert.equal(
+      reads.includes(MACHINERY_CONFIG_FILE),
+      false,
+      `${label}: judgeReviewRequest read ${MACHINERY_CONFIG_FILE}`,
+    );
+  }
+});
+
+test("whitespace in a checkout path is preserved, because it is legal on POSIX", () => {
+  // Trimming the whole entry rewrote such a path before any evidence was read,
+  // so a legitimately-registered checkout fell back and refused. (Codex, PR #33
+  // round 1.)
+  const padded = "/checkouts/trailing space ";
+  const { map, problem } = attachedRoots(registry(`${FOREIGN_SLUG}=${padded}`));
+  assert.equal(problem, null);
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), padded, "the operator's path, byte for byte");
+});
+
+test("a trailing carriage return is stripped, being a line-ending artifact", () => {
+  const { map } = attachedRoots(registry(`${FOREIGN_SLUG}=${FOREIGN_ROOT}\r`));
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), FOREIGN_ROOT);
+});
+
+test("leading indentation before a slug key is dropped, since a slug has no whitespace", () => {
+  const { map, problem } = attachedRoots(registry(`  ${FOREIGN_SLUG}=${FOREIGN_ROOT}`));
+  assert.equal(problem, null);
+  assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), FOREIGN_ROOT);
 });

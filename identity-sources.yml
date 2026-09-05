@@ -219,10 +219,12 @@
   why: >-
     The printed receipt line now names the repository so a quoted READY is never anonymous.
 
-- key: "guard-decision.mjs :: decide :: resolveConfig: () => machineryConfig(nodeIo()),"
+- key: "guard-decision.mjs :: decide :: resolveConfig: () => machineryConfig(nodeIo(root)),"
   source: config
   why: >-
     The merge hook's config read, wrapped so an unreadable config BLOCKS rather than throwing out of the hook.
+    Now rooted at the checkout that answered for the target, so a cross-repo merge is gated against that
+    repository's required-checks policy rather than the primary repository's.
 - key: "pr-ready.mjs :: main :: cfg = localConfig();"
   source: config
   why: >-
@@ -331,10 +333,11 @@
     guard path the budget is the anchor because a hook cannot afford a
     throw.
 
-- key: "review-budget.mjs :: judgeReviewRequest :: `the budget for PR #${pr} in this checkout was declared for ${state.budget.repo}, but this ` +"
+- key: "review-budget.mjs :: judgeReviewRequest :: `the budget for PR #${pr} in the checkout that answered was declared for ${state.budget.repo}, ` +"
   source: message
   why: >-
-    Refusal or guidance text. Decides nothing.
+    Refusal or guidance text. Decides nothing. Reworded because the checkout that answers may now be a
+    registered one rather than the project root.
 
 - key: "review-budget.mjs :: judgeReviewRequest :: const slug = state.budget.repo;"
   source: artifact
@@ -429,3 +432,21 @@
   why: >-
     GitHub Actions' own statement of the repository the workflow runs in,
     used to address the REST API for that repository.
+
+- key: "guard-decision.mjs :: rootForMergeTarget :: const repo = toolInput?.repo;"
+  source: tool-input
+  why: >-
+    The repository the merge is about to be posted to. Read to pick which checkout answers, and compared
+    downstream by checkMerge against the receipt found there -- so it selects a directory and decides nothing.
+- key: "guard-decision.mjs :: rootForMergeTarget :: const names = (receipt) => typeof receipt?.repo === \"string\" && receipt.repo.toLowerCase() === target;"
+  source: artifact
+  why: >-
+    The readiness receipt's stamped repository, read from a candidate checkout's working tree to decide whether
+    that checkout may answer for this target. Locating, not trusting: checkMerge repeats the comparison, so a
+    wrongly-registered root fails there rather than being taken on this one's word.
+- key: "review-budget.mjs :: budgetNames :: const repo = state?.budget?.repo;"
+  source: artifact
+  why: >-
+    The budget receipt's stamped repository, read from the durable ref to decide whether a checkout may answer
+    for this target. The same comparison is made again on the chosen state, so this picks the root and the
+    refusal message still comes from the comparison itself.
