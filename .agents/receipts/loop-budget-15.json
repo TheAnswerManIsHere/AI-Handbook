@@ -1,0 +1,9 @@
+{
+  "pr": 15,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 70,
+  "artifact": "The entry-point comparison across all ten machinery scripts, the guard.sh behavioural test, the two static class-closing checks, and the CLAUDE.md / .claude/settings.json statements about issue #11 that this PR makes false",
+  "declaredAt": "2026-09-05T00:51:03.154Z"
+}

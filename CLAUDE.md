@@ -98,14 +98,15 @@ Two things are deliberately NOT symlinks:
 destructive-command guards run in an AI-Handbook session. The machinery mints
 receipts *and* something consumes them.
 
-**One condition on that, until issue #11 lands.** `guard-decision.mjs` decides
+**The condition on that is closed** (issue #11). `guard-decision.mjs` decided
 whether it was invoked directly by comparing `import.meta.url` against a
-hand-built `file://` string. Those differ when the checkout path contains a
-space or another URL-escaped character, and the script then exits 0 having
-evaluated nothing — which `guard.sh` reads as **allow**. So the guard is live
-only while this repository is checked out to a path with no escaped characters.
-Measured, not inferred: from a path containing a space, a bare
-`git push -f origin main` returned 0 where an ordinary path returns 2.
+hand-built `file://` string. Those differ whenever the checkout path needs
+escaping — a space, a `#` — and the script then exited 0 having evaluated
+nothing, which `guard.sh` reads as **allow**. It now compares
+`pathToFileURL(process.argv[1]).href`, which encodes exactly as
+`import.meta.url` does, and a static check in each suite refuses the old form.
+Measured both ways from a directory whose name contains a space: a bare
+`git push -f origin main` returned 0 before and returns 2 now.
 
 The hooks invoke the guard as
 `bash "${CLAUDE_PROJECT_DIR}/core/.claude/guard.sh"`, and **every part of that
@@ -125,4 +126,10 @@ invoked, not the resolved target — so through a link it would look for
 
 Both are the same shape, and it is the shape that matters: **a guard that
 cannot launch does not refuse, it waves the call through.** A guard that fails
-open is worse than no guard. Issue #11 above is a third instance of it.
+open is worse than no guard. The escaping defect above was a third instance,
+and closing it closed a route rather than the shape: `guard.sh` still reads
+**any** non-2 exit as allow, so the next way a verdict fails to be produced
+fails open the same way. That is issue #16, and it wants the hook protocol
+changed — a sentinel on the allow path, so "ran and allowed" is
+distinguishable from "never ran". It should land before the `guard` group
+unstages.
