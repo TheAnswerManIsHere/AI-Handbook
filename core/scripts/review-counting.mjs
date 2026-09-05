@@ -53,6 +53,94 @@ function sameCommit(a, b) {
   return x.startsWith(y) || y.startsWith(x);
 }
 
+/**
+ * The connector's REVIEW-SUMMARY comment: a second way a completed pass
+ * announces itself, and on some triggers the only way.
+ *
+ * Measured on #15, whose round 1 ran automatically on PR open, found nothing,
+ * and posted NO `**Reviewed commit:**` marker at all — only this comment, plus
+ * a 👍 on the pull request. `get_reviews` was empty. On #14's clean round,
+ * triggered by hand, the marker comment DID appear, one second before this
+ * comment was edited. So the marker is not emitted on every completed pass,
+ * and a gate keyed on it alone refuses a PR whose review has returned.
+ *
+ * THIS COMMENT IS CURRENT STATE, NOT AN EVENT LOG, and every use of it has to
+ * respect that. It says so itself — "the latest Codex review activity" — and
+ * it is edited in place: one comment per PR, rewritten each round. Watched
+ * live on #15, its table went from Completed on `7861351` to Running on
+ * `cf1787f` when round 2 started; round 1's row is simply gone. So it can
+ * answer "has the latest review completed, and on which commit" and it cannot
+ * answer "how many rounds have run".
+ *
+ * WHICH TIMESTAMP. The row's own `<relative-time datetime="...">`, never the
+ * comment's `created_at` — that is when the comment was first posted, which
+ * for a PR-open review is when the PR was opened. Dating a round to before its
+ * own review request is how an ordering check gets quietly inverted, so a row
+ * with no parseable datetime is not a pass here.
+ */
+export const SUMMARY_COMMENT_MARKER = "<!-- codex-pull-request-review-summary -->";
+
+/**
+ * The rows of that comment's table, normalised. Returns [] for any other body.
+ *
+ * Both the review type and the status are emitted **bold**, which is the
+ * anchor this parses on: it survives the emoji in the same cell, and it skips
+ * the header and separator rows without having to recognise them, since
+ * neither is bold. A row this cannot read fully is dropped rather than
+ * guessed at.
+ */
+export function summaryRows(body = "") {
+  const text = String(body ?? "");
+  if (!text.includes(SUMMARY_COMMENT_MARKER)) return [];
+  const rows = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line.startsWith("|") || !line.endsWith("|")) continue;
+    const cells = line.slice(1, -1).split("|").map((c) => c.trim());
+    if (cells.length !== 4) continue;
+    const review = (cells[0].match(/\*\*([^*]+)\*\*/) ?? [])[1]?.trim().toLowerCase();
+    const status = (cells[1].match(/\*\*([^*]+)\*\*/) ?? [])[1]?.trim().toLowerCase();
+    const commit = (cells[2].match(/`([0-9a-f]{7,40})`/i) ?? [])[1]?.toLowerCase();
+    if (!review || !status || !commit) continue;
+    rows.push({
+      review,
+      status,
+      commit,
+      at: (cells[1].match(/datetime="([^"]+)"/) ?? [])[1] ?? null,
+      trigger: cells[3].toLowerCase(),
+    });
+  }
+  return rows;
+}
+
+/**
+ * Completed CODE-review rows across the connector's summary comments.
+ *
+ * Security-review rows are deliberately excluded: CLAUDE.md meters the two
+ * separately ("the security-review usage bounce is metered separately: ask for
+ * code review"), so a completed security review must not satisfy a bar about
+ * code review. A renamed review type therefore stops matching and this fails
+ * CLOSED, which is the direction this file chooses everywhere.
+ */
+export function summaryCodeReviewPasses(issueComments = []) {
+  const out = [];
+  const seen = new Set();
+  for (const comment of issueComments) {
+    if (!REVIEWER_LOGINS.has(comment.user?.login)) continue;
+    if (comment.id !== undefined) {
+      if (seen.has(comment.id)) continue;
+      seen.add(comment.id);
+    }
+    for (const row of summaryRows(comment.body)) {
+      if (row.review !== "code review") continue;
+      if (row.status !== "completed") continue;
+      if (!Number.isFinite(Date.parse(row.at ?? ""))) continue;
+      out.push({ commit: row.commit, at: row.at, source: "summary" });
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Pure derivation — no I/O. This is the part that is tested.
 // ---------------------------------------------------------------------------
@@ -179,6 +267,28 @@ export function reviewerPasses(reviews, issueComments = []) {
       records: 0,
       source: "comment",
     });
+  }
+
+  // The summary comment, as a FALLBACK ONLY — added for a commit no marker
+  // announcement already names. Two facts force that shape:
+  //
+  //  - It is one comment per PR, rewritten each round, so it can contribute at
+  //    most one pass no matter how many rounds ran. Counting it unconditionally
+  //    would OVERCOUNT a marker-bearing round by restating it.
+  //  - It is the only trace a clean automatic round leaves, so ignoring it
+  //    UNDERCOUNTS that round to zero — which is what #15 measured: a real
+  //    completed round reported as `0 completed reviewer pass(es)`.
+  //
+  // Keying on "no marker names this commit" resolves both: a round that
+  // announced properly is counted once from its marker, and a round that did
+  // not is counted once from here. The residual is honest and worth naming:
+  // two clean automatic rounds on DIFFERENT commits leave only the later one,
+  // because the earlier row was overwritten. An automatic review fires on PR
+  // open and on draft-to-ready, so that caps at one lost round, and it is lost
+  // in the direction that spends budget more slowly rather than faster.
+  for (const s of summaryCodeReviewPasses(issueComments)) {
+    if (passes.some((p) => sameCommit(p.commit, s.commit))) continue;
+    passes.push({ commit: s.commit, at: s.at, reviewIds: [], records: 0, source: "summary" });
   }
 
   return passes.sort((a, b) => new Date(a.at) - new Date(b.at));

@@ -13,6 +13,7 @@ import {
   checkCi,
   requiredChecks,
   checkCodex,
+  codexEvidenceNote,
   checkAdjudicatedCodex,
   checkRail,
   isAncestor,
@@ -1868,7 +1869,11 @@ test("Codex: zero requests and a pass on an EARLIER commit stays the #487 failur
     HEAD,
   );
   assert.equal(res.pass, false);
-  assert.match(res.detail, /no automatic pass covers the head/);
+  // The verdict is unchanged; the sentence is sharper than it was. It used to
+  // read "no automatic pass covers the head", which is true but says nothing
+  // about WHY -- and the same sentence was also emitted when the connector had
+  // answered in a shape the gate cannot parse. Those are different problems.
+  assert.match(res.detail, /something was pushed after that review/);
 });
 
 test("Codex: zero requests with no head sha to bind to stays failed -- the automatic path never fails open", () => {
@@ -2152,4 +2157,171 @@ test("a declared job that never appears keeps the gate closed", () => {
   const res = checkCi(present, HEAD, declared);
   assert.equal(res.pass, false);
   assert.match(res.detail, /Test is absent/);
+});
+
+
+// ---------------------------------------------------------------------------
+// The connector's review-summary row as proof a pass returned (#17)
+//
+// Fixtures are real bodies from PR #15, not reconstructions. Round 1 ran
+// automatically on PR open, came back CLEAN, and emitted no
+// `**Reviewed commit:**` marker at all -- so this gate refused a mergeable PR
+// with "the review loop was never started", which is a completed review
+// reported as a missing one. That was checkCodex's own pre-registered flip
+// condition firing, and David ruled on the fix.
+// ---------------------------------------------------------------------------
+
+const SUMMARY_MARKER = "<!-- codex-pull-request-review-summary -->";
+const PR15_HEAD = "786135141803e77d834fe0e46e17b1fe34feab09";
+
+const summaryBody = ({ status = "✅ **Completed**", commit = "7861351", stamped = true, type = "**Code Review**" } = {}) =>
+  `${SUMMARY_MARKER}
+
+## Codex Review Summary
+
+This comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 ${type} | ${status}${stamped ? ' <relative-time datetime="2026-09-05T00:25:53.728619Z">2026-09-05T00:25:53.728619Z</relative-time>' : ""} | \`${commit}\` | PR opened |
+`;
+
+const codexComment = (body) => ({
+  id: 5548018053,
+  user: { login: CODEX_BOT },
+  created_at: "2026-09-05T00:22:57Z",
+  body,
+});
+
+test("checkCodex accepts a clean automatic pass delivered as a summary row", () => {
+  const r = checkCodex([codexComment(summaryBody())], [], PR15_HEAD);
+  assert.equal(r.pass, true);
+  assert.match(r.detail, /review-summary row/);
+  // Dated from the row, not the comment: the comment was created at 00:22:57,
+  // when the PR was opened. Floored to its second -- see the capture-boundary
+  // test below for why the sub-second part must not survive. This assertion
+  // originally expected the unfloored value and so encoded the bug.
+  assert.equal(r.acceptedAt, Date.parse("2026-09-05T00:25:53.000Z"));
+});
+
+test("checkCodex refuses a summary row that does not cover the head", () => {
+  // A pass on an earlier commit means something was pushed on top of it, and
+  // that is the PR #458 failure this gate exists for.
+  const r = checkCodex([codexComment(summaryBody({ commit: "44b4445" }))], [], PR15_HEAD);
+  assert.equal(r.pass, false);
+  assert.match(r.detail, /announced 44b4445/);
+});
+
+test("checkCodex refuses a summary row that is still running", () => {
+  const r = checkCodex([codexComment(summaryBody({ status: "🔄 **Running** since" }))], [], PR15_HEAD);
+  assert.equal(r.pass, false);
+  assert.match(r.detail, /still in flight/);
+});
+
+test("checkCodex refuses a summary row written by anyone but the connector", () => {
+  const mine = { id: 1, user: { login: "TheAnswerManIsHere" }, created_at: "2026-09-05T00:30:00Z", body: summaryBody() };
+  assert.equal(checkCodex([mine], [], PR15_HEAD).pass, false);
+});
+
+test("checkCodex refuses a completed SECURITY review as proof of a code review", () => {
+  const r = checkCodex([codexComment(summaryBody({ type: "**Security Review**" }))], [], PR15_HEAD);
+  assert.equal(r.pass, false);
+});
+
+test("checkCodex refuses a summary row with no parseable timestamp", () => {
+  const r = checkCodex([codexComment(summaryBody({ stamped: false }))], [], PR15_HEAD);
+  assert.equal(r.pass, false);
+  assert.match(r.detail, /no parseable timestamp/);
+});
+
+test("checkCodex requires a headSha to bind a summary row to", () => {
+  // With nothing to compare against, a row proves a review happened somewhere
+  // and not that it covers what would merge. That stays the #487 failure.
+  assert.equal(checkCodex([codexComment(summaryBody())], [], null).pass, false);
+});
+
+test("a REQUESTED round still requires the marker -- the summary row is not admitted there", () => {
+  // The summary comment is rewritten in place, so it cannot establish that a
+  // pass came AFTER a particular request. On the requested path that ordering
+  // is the entire question, so only the marker counts.
+  const request = {
+    id: 2,
+    user: { login: "TheAnswerManIsHere" },
+    created_at: "2026-09-05T00:54:21Z",
+    body: "@" + "codex review",
+  };
+  const r = checkCodex([codexComment(summaryBody()), request], [], PR15_HEAD);
+  assert.equal(r.pass, false);
+});
+
+test("the 👍 reaction is still not proof, and cannot become proof", () => {
+  // Deliberately narrow, kept from #490 round 2. A reaction arrives as a COUNT
+  // -- {"total_count":1,"+1":1} -- with no actor, no time and no commit, so it
+  // reads identically before and after a push. Nothing in a snapshot's comment
+  // payload can make it say WHAT it approved.
+  const reactedOn = { ...codexComment("Some prose with no marker and no table."), reactions: { total_count: 1, "+1": 1 } };
+  assert.equal(checkCodex([reactedOn], [], PR15_HEAD).pass, false);
+});
+
+test("codexEvidenceNote separates an unreadable pass from a review that never ran", () => {
+  // The distinction that generalises. known-failure-patterns.md records three
+  // clean-pass shapes carrying no marker already, so "I cannot parse this" is
+  // a standing condition and must not keep reporting itself as "#487".
+  assert.equal(codexEvidenceNote([], [], PR15_HEAD), null);
+
+  const reviewResultFormat = codexComment(
+    "## Review Result\n\nLooks good. Testing checklist:\n- [x] ran the suite\n",
+  );
+  const note = codexEvidenceNote([reviewResultFormat], [], PR15_HEAD);
+  assert.match(note, /none carries a/);
+  assert.match(note, /not proof that no review ran/);
+});
+
+// ---------------------------------------------------------------------------
+// Round 1 findings (#18). Both were real and both are mine.
+// ---------------------------------------------------------------------------
+
+test("a summary row's acceptedAt is floored to its second, or it moves the capture boundary", () => {
+  // checkCapture compares captures against `acceptedAt + 999`, because every
+  // other source reports to the second: a pass GitHub shows as 04:10:00 may
+  // really be 04:10:00.900, so the boundary must be the END of that second.
+  // The summary row is the only source carrying real milliseconds. Unfloored,
+  // it pushes the boundary a further 999ms out and rejects captures that
+  // genuinely postdate the review -- falsely blocking a receipt whenever the
+  // snapshot is taken within a second of a clean automatic pass.
+  const accepted = checkCodex([codexComment(summaryBody())], [], PR15_HEAD).acceptedAt;
+  assert.equal(accepted % 1000, 0, "acceptedAt must carry no sub-second component");
+  assert.equal(new Date(accepted).toISOString(), "2026-09-05T00:25:53.000Z");
+
+  const now = Date.parse("2026-09-05T00:26:00Z");
+  const at = (t) => ({ reviewThreads: t, checkRuns: t, issueComments: t });
+
+  // 372ms after the review completed: genuinely later, must be accepted.
+  assert.equal(checkCapture(at("2026-09-05T00:25:54.100Z"), accepted, now).pass, true);
+
+  // And the guard this protects still fires: a capture inside the reported
+  // second cannot be shown to postdate the response, and one before it plainly
+  // does not. Flooring must not buy the fix by disarming that.
+  assert.equal(checkCapture(at("2026-09-05T00:25:53.900Z"), accepted, now).pass, false);
+  assert.equal(checkCapture(at("2026-09-05T00:25:53.100Z"), accepted, now).pass, false);
+});
+
+test("a completed SECURITY review is not reported as an unreadable code review", () => {
+  // The row parses perfectly and proves the separately-metered security review
+  // ran. Calling that an "open-ended parser gap" and saying no conclusion is
+  // safe would be wrong twice over, and would send a reader off to inspect and
+  // wait instead of asking for the code review that is actually missing.
+  const note = codexEvidenceNote(
+    [codexComment(summaryBody({ type: "**Security Review**" }))],
+    [],
+    PR15_HEAD,
+  );
+  assert.match(note, /parsed cleanly/);
+  assert.match(note, /no code-review row/);
+  assert.match(note, /ask for the code review/);
+  assert.doesNotMatch(note, /parser gap/);
+
+  // A genuinely unreadable body still reports as the parser gap.
+  const unreadable = codexEvidenceNote([codexComment("## Review Result\n\nLooks good.")], [], PR15_HEAD);
+  assert.match(unreadable, /parser gap/);
 });

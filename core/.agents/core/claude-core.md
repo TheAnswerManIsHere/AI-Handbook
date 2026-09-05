@@ -474,10 +474,17 @@ Codex catch *broken*; David's UAT catches *wrong*, after the sync.
 - **Every PR gets a Codex review and none merges before it returns.** A round I
   requested but haven't received is not convergence. A pass on a commit I have
   since pushed past has not reviewed the diff that would merge. What counts as
-  the review returning is the `**Reviewed commit:**` announcement and only
-  that — a 👍 reaction carries no identity or commit, so it cannot prove the
-  pass covers this commit. If a clean pass ever arrives as a reaction with no
-  announcement, that goes to David.
+  the review returning is the `**Reviewed commit:**` announcement — or, on a
+  round nobody requested, the connector's review-summary row reading
+  **Completed against this exact commit**, which is admitted only there because
+  that comment is rewritten in place each round and so cannot establish that a
+  pass came after a request. **A 👍 never counts**: it arrives as a count, with
+  no actor, no time and no commit, so it cannot say what it approved, and it
+  reads the same before and after a push. The connector has emitted at least
+  three clean-pass shapes carrying no announcement, so a pass I cannot read is
+  a parser that has fallen behind the source, not proof no review ran — I read
+  the PR before saying the loop never started, and a genuinely new shape goes
+  to David rather than into a guess.
 - **A Codex code-review outage is a FULL STOP.** Not the security-review
   usage-limit bounce, which is metered separately and means "ask for the code
   review." A genuine code-review outage means: stop building, tell David

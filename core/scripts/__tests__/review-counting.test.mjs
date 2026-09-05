@@ -175,6 +175,9 @@ import {
   fromMcp,
   assertMcpSnapshotComplete,
   normalizeLogin,
+  summaryRows,
+  summaryCodeReviewPasses,
+  SUMMARY_COMMENT_MARKER,
 } from "../review-counting.mjs";
 
 const MCP_REVIEW = {
@@ -398,3 +401,138 @@ test("fromMcp accepts a comment with a stable thread id even without a discussio
 // ---------------------------------------------------------------------------
 
 
+
+
+// ---------------------------------------------------------------------------
+// The connector's review-summary comment (#17)
+//
+// EVERY FIXTURE BELOW IS A REAL BODY, copied from the live API, not a
+// plausible reconstruction. That is the same rule the MCP-shape fixtures
+// above were written under and for the same reason: the defect this closes
+// was a parser keyed on a convention the source never promised to keep, so a
+// fixture I invented would be testing my belief about the format rather than
+// the format.
+//
+// SUMMARY_R1 is PR #15's summary comment as it read after round 1 -- the
+// clean automatic pass that emitted no `**Reviewed commit:**` marker at all
+// and so was reported by the merge gate as a review that never started.
+// SUMMARY_RUNNING is the same comment three minutes later, mid round 2: one
+// comment, rewritten in place, which is why it can say what the LATEST round
+// did and can never say how many rounds there were.
+// ---------------------------------------------------------------------------
+
+const SUMMARY_R1 = `${SUMMARY_COMMENT_MARKER}
+
+## Codex Review Summary
+
+This comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** <relative-time datetime="2026-09-05T00:25:53.728619Z">2026-09-05T00:25:53.728619Z</relative-time> | \`7861351\` | PR opened |
+`;
+
+const SUMMARY_RUNNING = `${SUMMARY_COMMENT_MARKER}
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | 🔄 **Running** since <relative-time datetime="2026-09-05T00:54:34.668184Z">2026-09-05T00:54:34.668184Z</relative-time> | \`cf1787f\` | Manual request |
+`;
+
+// PR #15 round 2's marker comment, verbatim.
+const MARKER_R2 = {
+  id: 5548241759,
+  user: { login: "chatgpt-codex-connector[bot]" },
+  created_at: "2026-09-05T00:58:08Z",
+  body: "Codex Review: Didn't find any major issues. Breezy!\n\n**Reviewed commit:** `cf1787f7bf`\n",
+};
+
+const botComment = (id, body, created_at = "2026-09-05T00:22:57Z") => ({
+  id,
+  user: { login: "chatgpt-codex-connector[bot]" },
+  created_at,
+  body,
+});
+
+test("summaryRows reads the real completed row, skipping header and separator", () => {
+  assert.deepEqual(summaryRows(SUMMARY_R1), [
+    {
+      review: "code review",
+      status: "completed",
+      commit: "7861351",
+      at: "2026-09-05T00:25:53.728619Z",
+      trigger: "pr opened",
+    },
+  ]);
+});
+
+test("summaryRows reads a running row as running, not as a pass", () => {
+  assert.equal(summaryRows(SUMMARY_RUNNING)[0].status, "running");
+});
+
+test("summaryRows ignores a table that is not in the connector's summary comment", () => {
+  // The HTML marker is the identity. A table of the same shape in anyone's
+  // comment -- including one of mine quoting the connector -- is not evidence
+  // that Codex said anything.
+  const impostor = SUMMARY_R1.replace(SUMMARY_COMMENT_MARKER, "## My notes on the review");
+  assert.deepEqual(summaryRows(impostor), []);
+});
+
+test("summaryCodeReviewPasses accepts only completed CODE reviews from the bot", () => {
+  assert.equal(summaryCodeReviewPasses([botComment(1, SUMMARY_R1)]).length, 1);
+  assert.equal(summaryCodeReviewPasses([botComment(1, SUMMARY_RUNNING)]).length, 0);
+
+  // Authored by a human: the row is only as good as who wrote it.
+  const mine = { id: 1, user: { login: "TheAnswerManIsHere" }, created_at: "x", body: SUMMARY_R1 };
+  assert.equal(summaryCodeReviewPasses([mine]).length, 0);
+
+  // A security review completing says nothing about the code review --
+  // CLAUDE.md meters the two separately.
+  const security = SUMMARY_R1.replace("**Code Review**", "**Security Review**");
+  assert.equal(summaryCodeReviewPasses([botComment(1, security)]).length, 0);
+});
+
+test("summaryCodeReviewPasses dates the pass from the ROW, never the comment", () => {
+  // The comment's created_at is when the PR was opened -- three minutes before
+  // the review finished, and on a requested round it would fall BEFORE the
+  // request that triggered it. A row with no parseable datetime is therefore
+  // not a pass at all rather than one dated from the wrong clock.
+  const [pass] = summaryCodeReviewPasses([botComment(1, SUMMARY_R1, "2026-09-05T00:22:57Z")]);
+  assert.equal(pass.at, "2026-09-05T00:25:53.728619Z");
+
+  const noStamp = SUMMARY_R1.replace(/ <relative-time[^>]*>[^<]*<\/relative-time>/, "");
+  assert.equal(summaryCodeReviewPasses([botComment(1, noStamp)]).length, 0);
+});
+
+test("reviewerPasses counts a clean automatic round that left only a summary row", () => {
+  // The measured regression: PR #15 round 1 completed, and the round check
+  // reported `0 completed reviewer pass(es)` because no marker was emitted.
+  const passes = reviewerPasses([], [botComment(1, SUMMARY_R1)]);
+  assert.equal(passes.length, 1);
+  assert.equal(passes[0].source, "summary");
+  assert.equal(passes[0].commit, "7861351");
+});
+
+test("reviewerPasses does not double-count a round that also announced", () => {
+  // One comment per PR, rewritten each round: once round 2 finished, the
+  // summary named cf1787f and so did the marker. Counting both would inflate
+  // every marker-bearing round by one.
+  const summaryR2 = SUMMARY_R1.replace("`7861351`", "`cf1787f`");
+  const passes = reviewerPasses([], [botComment(1, summaryR2), MARKER_R2]);
+  assert.equal(passes.length, 1);
+  assert.equal(passes[0].source, "comment");
+});
+
+test("reviewerPasses counts both when the summary names a commit no marker does", () => {
+  // Round 1 clean with no marker, round 2 clean with one, and the summary has
+  // since been overwritten to name round 2's commit. The marker carries round
+  // 2; round 1 is simply gone from the record, which is the documented
+  // residual -- undercounting in the direction that spends budget slower.
+  const summaryR1Kept = SUMMARY_R1;
+  const passes = reviewerPasses([], [botComment(1, summaryR1Kept), MARKER_R2]);
+  assert.equal(passes.length, 2);
+  assert.deepEqual(
+    passes.map((p) => p.source),
+    ["summary", "comment"],
+  );
+});

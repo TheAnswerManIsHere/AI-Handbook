@@ -675,6 +675,31 @@ groups:
       # two flip in one commit, the way claude-core and planning already do.
       - machinery-config
     mentions:
+      - group: contracts
+        ref: core/docs/ai-context/known-failure-patterns.md
+        from: core/scripts/pr-ready.mjs
+        form: "known-failure-patterns.md"
+        count: 2
+        why: >
+          Both occurrences cite the entry "a derived metric that silently
+          undercounts because its collector only reads one delivery channel"
+          as the reason `codexEvidenceNote` exists — the connector has emitted
+          at least three clean-pass shapes carrying no marker, so an unreadable
+          pass is a parser that has fallen behind rather than a review that
+          never ran. The citation is evidence for a design decision, not a
+          route the gate follows: `pr-ready.mjs` never opens the file, and it
+          reaches the same verdict in a consumer that has no copy of it.
+      - group: contracts
+        ref: core/docs/ai-context/known-failure-patterns.md
+        from: core/scripts/__tests__/pr-ready.test.mjs
+        form: "known-failure-patterns.md"
+        count: 1
+        why: >
+          One comment on the test that pins `codexEvidenceNote`, naming the
+          entry that records three clean-pass shapes carrying no marker — the
+          evidence for why that distinction earns a test at all. Same shape as
+          the citation in the file under test, and the test passes whether or
+          not the referenced document was delivered.
       - group: skills
         ref: core/.claude/skills/uat/SKILL.md
         from: core/scripts/check-uat-format.mjs
