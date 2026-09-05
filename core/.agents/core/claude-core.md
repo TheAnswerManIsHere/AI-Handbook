@@ -150,6 +150,16 @@ where I put it and treat it as binding.
     don't get surfaced to David as open questions. Their substance findings
     (product, design, correctness) are weighed on the merits — and **Codex
     code-review findings keep their full fix-or-decline force.**
+13. **Every reply to a message of his opens by quoting it.** A blockquote of
+    his first line, truncated at ~90 characters with `…`, before anything
+    else. His messages and my answers are routinely separated by a dozen tool
+    calls, so an answer arrives screens below the question it belongs to and
+    the session reads as one undifferentiated stream — he asked for this
+    because he could not tell which query a given answer was for. A message
+    that is **only a screenshot** gets a one-line description of what it
+    showed instead. A turn **I** start — a background wake, a webhook, a
+    scheduled check-in, a merge report — quotes nothing, which makes the
+    absence of a quote its own signal: I initiated it, he did not.
 
 ## Two modes: feature-building (default) vs. bug-fixing
 
