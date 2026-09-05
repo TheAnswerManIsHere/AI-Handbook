@@ -23,6 +23,7 @@ import {
   receiptIdentityReason,
   receiptPolicyReason,
   CODEX_BOT,
+  remoteTip,
 } from "../pr-ready.mjs";
 import { __resetRepoSlugCache } from "../review-budget.mjs";
 
@@ -2324,4 +2325,56 @@ test("a completed SECURITY review is not reported as an unreadable code review",
   // A genuinely unreadable body still reports as the parser gap.
   const unreadable = codexEvidenceNote([codexComment("## Review Result\n\nLooks good.")], [], PR15_HEAD);
   assert.match(unreadable, /parser gap/);
+});
+
+// ---------------------------------------------------------------------------
+// remoteTip resolves the origin of the root it is GIVEN (#27, #28 round 1)
+// ---------------------------------------------------------------------------
+
+test("remoteTip resolves the given checkout's origin, not the process's", () => {
+  // THE ONE FAIL-OPEN THIS CHANGE COULD HAVE INTRODUCED. `remoteTip` took no
+  // root and shelled to `git ls-remote origin` in whatever cwd it inherited.
+  // Routing the receipt and config reads to a resolved checkout while leaving
+  // this one behind means a cross-repo merge resolves the PRIMARY repo's
+  // origin -- and a coincidentally same-named branch there yields a tip that
+  // authorizes a stale foreign head. Two real repos with the SAME branch name
+  // at DIFFERENT commits is the only fixture that can catch it.
+  const upstreamA = tempRepo();
+  const upstreamB = tempRepo();
+  const shaA = upstreamA.commit({ "a.txt": "local" }, "local");
+  const shaB = upstreamB.commit({ "b.txt": "foreign" }, "foreign");
+  assert.notEqual(shaA, shaB, "the fixture is only meaningful if the tips differ");
+
+  const localName = upstreamA.run(["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+  const foreignName = upstreamB.run(["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+  assert.equal(localName, foreignName, "both checkouts must share a branch name for this to bite");
+
+  const localCheckout = tempRepo();
+  const foreignCheckout = tempRepo();
+  localCheckout.run(["remote", "add", "origin", upstreamA.dir]);
+  foreignCheckout.run(["remote", "add", "origin", upstreamB.dir]);
+
+  assert.equal(remoteTip(localName, localCheckout.dir), shaA);
+  assert.equal(
+    remoteTip(foreignName, foreignCheckout.dir),
+    shaB,
+    "asking the foreign checkout must return the FOREIGN tip, never the local one",
+  );
+
+  try {
+    rmSync(upstreamA.dir, { recursive: true, force: true });
+    rmSync(upstreamB.dir, { recursive: true, force: true });
+    rmSync(localCheckout.dir, { recursive: true, force: true });
+    rmSync(foreignCheckout.dir, { recursive: true, force: true });
+  } catch {
+    // Cleanup is best-effort; a leaked temp dir must not fail the suite.
+  }
+});
+
+test("remoteTip keeps working for the direct --show caller, which passes no root", () => {
+  // Gap 5 in issue #32: `pr-ready.mjs`'s --show path calls remoteTip(branch)
+  // directly and has no unit test, so a REQUIRED root parameter would have
+  // broken it silently. The default is what keeps that caller correct.
+  assert.equal(remoteTip.length, 1, "the root parameter must be optional, so arity stays 1");
+  assert.equal(remoteTip(""), null, "the single-argument shape still behaves");
 });

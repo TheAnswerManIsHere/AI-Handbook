@@ -239,6 +239,7 @@ import {
   judgeReviewRequest,
   machineryConfig,
   nodeIo,
+  attachedRoots,
 } from "./review-budget.mjs";
 
 const ALLOW = 0;
@@ -1758,13 +1759,60 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
   return null;
 }
 
-function readReceiptFromDisk(pr) {
+/**
+ * The readiness receipt for `pr`, from `root`'s WORKING TREE.
+ *
+ * Working-tree, not durable ref, and that is deliberate rather than an
+ * oversight: `.agents/receipts/.gitignore` ignores `pr-*.json`, because a
+ * readiness receipt is minted and consumed inside one close-out and a
+ * committed one would let stale evidence authorize a merge. Only budgets and
+ * extension decisions are durable. Rooting this at a resolved checkout must
+ * preserve those semantics -- reading it from a ref instead would make a
+ * freshly minted receipt invisible. (Codex, PR #28 rounds 1-2.)
+ */
+function readReceiptAt(root, pr) {
   try {
-    const file = join(REPO_ROOT, RECEIPTS_DIR, `pr-${pr}.json`);
+    const file = join(root, RECEIPTS_DIR, `pr-${pr}.json`);
     return JSON.parse(readFileSync(file, "utf8"));
   } catch {
     return null;
   }
+}
+
+/**
+ * Which checkout answers for a merge aimed at `toolInput`'s repository.
+ *
+ * SAME SHAPE AS THE REVIEW-REQUEST PATH: the project root is tried first with
+ * no local/foreign discriminator, a registered checkout is consulted only when
+ * the root's receipt does not name the target, and if none answers we return
+ * the project root so `checkMerge` produces its OWN refusal -- byte-for-byte
+ * what it says today.
+ *
+ * LOCATING IS NOT TRUSTING. This picks a directory; `checkMerge` still runs
+ * every check it runs now, including the receipt-vs-target comparison that a
+ * wrongly-registered root would fail. A bad entry therefore degrades to a
+ * refusal and can never manufacture an allow.
+ *
+ * TOTAL BY CONSTRUCTION. `readReceiptAt` swallows to null, `attachedRoots`
+ * cannot throw, and the path operations are pure -- required, because this
+ * runs on the hook path where an escaping exception exits 1 and lets the tool
+ * call through.
+ */
+export function rootForMergeTarget(toolInput, env = process.env) {
+  const pr = toolInput?.pullNumber;
+  const owner = toolInput?.owner;
+  const repo = toolInput?.repo;
+  if (!Number.isInteger(pr) || typeof owner !== "string" || typeof repo !== "string" || !owner || !repo) {
+    return REPO_ROOT;
+  }
+  const target = `${owner}/${repo}`.toLowerCase();
+  const names = (receipt) => typeof receipt?.repo === "string" && receipt.repo.toLowerCase() === target;
+
+  if (names(readReceiptAt(REPO_ROOT, pr))) return REPO_ROOT;
+
+  const root = attachedRoots(env).map?.get(target) ?? null;
+  if (root === null) return REPO_ROOT;
+  return names(readReceiptAt(root, pr)) ? root : REPO_ROOT;
 }
 
 const MERGE_TOOL = "mcp__github__merge_pull_request";
@@ -1779,10 +1827,16 @@ export function decide(raw, options = {}) {
   }
 
   if (payload?.tool_name === MERGE_TOOL) {
+    // ALL FOUR EVIDENCE DEPENDENCIES ARE ROUTED TO ONE ROOT, OR NONE IS.
+    // The first inventory found the judgements that TAKE a repository target
+    // and missed what each one CONSULTS; `remoteTip` in particular took no
+    // root at all. Routing only some of these produces a split brain that
+    // fails OPEN on the tip lookup. (Codex, PR #28 round 1.)
+    const root = rootForMergeTarget(payload.tool_input);
     const reason = checkMerge(payload.tool_input, {
-      readReceipt: readReceiptFromDisk,
-      resolveSha: remoteTip,
-      resolveConfig: () => machineryConfig(nodeIo()),
+      readReceipt: (pr) => readReceiptAt(root, pr),
+      resolveSha: (branch) => remoteTip(branch, root),
+      resolveConfig: () => machineryConfig(nodeIo(root)),
       ...options,
     });
     return reason ? { blocked: true, reason } : { blocked: false, reason: null };

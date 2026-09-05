@@ -630,6 +630,21 @@ groups:
       # would have shipped every consumer a refusal pointing at a file it does
       # not have. (Codex, round 7 of PR #3; issue #4.)
       - memory
+    mentions:
+      - group: receipt-scaffolding
+        ref: core/.agents/receipts/.gitignore
+        from: core/scripts/guard-decision.mjs
+        form: ".agents/receipts/.gitignore"
+        count: 1
+        why: >
+          readReceiptAt's comment says the readiness receipt is read from the
+          WORKING TREE and names the ignore file as the evidence for why --
+          `pr-*.json` is ignored there, so a committed one could let stale
+          evidence authorize a merge. It describes where a fact lives; it does
+          not hand the reader a route to open. The guard's behaviour does not
+          depend on the file existing: without receipt-scaffolding the guard
+          finds no receipt and refuses, which is the same fail-closed outcome
+          it has today. Evidence, not instruction.
     blocker: >
       The repo-identity condition is RESOLVED and is no longer a reason this
       group cannot ship. guard-decision.mjs carried a hardcoded literal; it now

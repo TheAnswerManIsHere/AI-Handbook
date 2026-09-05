@@ -268,7 +268,44 @@ readiness, not link resolution.
    still the template's placeholder, naming this file. So a consumer that
    skips this step gets a closed gate that says why, never an open one that
    says nothing.
-8. Flip `enrolled: true`. **This is the last step before the sync, and it comes
+8. **If a session will hold more than one enrolled repository at once, set
+   `HANDBOOK_ATTACHED_ROOTS` in that session's environment.** This is a
+   *session* prerequisite rather than a repo one, and it is the step the
+   handbook previously had nowhere to state.
+
+   A `PreToolUse` hook belongs to the session's **project root**, so a review
+   request or a merge aimed at an attached repository is judged by the project
+   root's guard, against the project root's receipts. Without this variable
+   that guard cannot reach the target's evidence and refuses — correctly, but
+   it makes cross-repo work impossible rather than merely guarded.
+
+   ```
+   HANDBOOK_ATTACHED_ROOTS="owner/name=/abs/path/to/checkout
+   other/repo=/abs/path/to/other"
+   ```
+
+   - **Newline-separated**, one `owner/name=/absolute/path` per line. Newline
+     rather than `:`, because `:` is a legal character in a POSIX directory
+     name and a checkout at `/workspace/team:archive/repo` would otherwise be
+     unparseable. A path containing a literal newline is unsupported.
+   - Only the **first `=`** separates, so a path containing `=` is fine.
+   - Paths must be **absolute**. A relative path is refused rather than
+     resolved against the hook's working directory — that directory is
+     precisely what this mechanism exists to stop depending on.
+   - **One bad or duplicated entry invalidates the whole variable.** A
+     partly-parsed registry would resolve some targets and not others, which
+     is the kind of partial success that reads as correct.
+   - **Do not add a key for the session's own project root.** It is not needed
+     — the project root is always tried first — and it is out of contract. It
+     cannot be *prevented*, because detecting it would need the identity read
+     the review-request path deliberately does not make, so it is documented
+     here instead.
+
+   The variable says only **where** a repository's checkout is. It is never
+   asked *which* repository something is: that answer always comes from the
+   receipt found there, compared against the call's target. So a wrong entry
+   can only cause a refusal, never an unearned approval.
+9. Flip `enrolled: true`. **This is the last step before the sync, and it comes
    after every prerequisite above — not before them.** An earlier version put
    the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
    repo into the sync's target set while the controls those steps install were
@@ -286,7 +323,7 @@ readiness, not link resolution.
 files are present, the rules are not loaded, and the repo looks governed
 without being governed, which is the worst of the three states. Steps 2 and 3
 prevent that; steps 4 and 5 prevent the security equivalent, where a repo holds
-the bypass without the controls; step 7 keeps its merge gate usable. **The flip goes last because the flip is what
+the bypass without the controls; step 7 keeps its merge gate usable; step 8 is what lets a session hold more than one of them at once. **The flip goes last because the flip is what
 makes the sync fire** — anything that must be true before delivery has to be
 true before the flip, and a step added to this list later belongs above it, not
 below.

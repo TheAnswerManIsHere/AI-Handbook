@@ -1878,10 +1878,24 @@ const REMOTE_TIP_TIMEOUT_MS = 8000;
  * capture time, so the failure is one explicit message rather than a confusing
  * unresolvable-tip denial an hour later.
  */
-export function remoteTip(branch) {
+export function remoteTip(branch, root = REPO_ROOT) {
   if (typeof branch !== "string" || branch.trim() === "") return null;
   try {
+    // `cwd` IS THE WHOLE POINT OF THE SECOND PARAMETER. Without it this
+    // resolved whatever `origin` the calling process inherited, so a
+    // cross-repo merge check would resolve the PRIMARY repository's origin:
+    // a missing same-named branch blocks a valid merge, and -- the dangerous
+    // direction -- a coincidentally same-named branch resolves a tip that
+    // then authorizes a stale foreign head. It is the one dependency in this
+    // change where a wrong root produces an ALLOW rather than a refusal.
+    // (Codex, PR #28 round 1.)
+    //
+    // DEFAULTED, NOT REQUIRED, so the direct `--show` caller below keeps
+    // working unchanged. That caller runs from the local checkout and has no
+    // unit test, so a required parameter would have broken it silently.
+    // (Codex, PR #28 round 3; gap 5 in issue #32.)
     const out = execFileSync("git", ["ls-remote", "--heads", "origin", `refs/heads/${branch}`], {
+      cwd: root,
       encoding: "utf8",
       timeout: REMOTE_TIP_TIMEOUT_MS,
       stdio: ["ignore", "pipe", "ignore"],

@@ -809,6 +809,96 @@ export function nodeIo(root = REPO_ROOT) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// The attached-checkout registry.
+// ---------------------------------------------------------------------------
+
+export const ATTACHED_ROOTS_ENV = "HANDBOOK_ATTACHED_ROOTS";
+
+/**
+ * Where a given repository's checkout lives on this machine.
+ *
+ * LOCATING IS NOT TRUSTING, and that is the whole safety argument. This map
+ * says only WHERE to look. Every gram of authority still comes from the
+ * receipt found there, compared against the call's target by the comparison
+ * that already exists -- so a wrong entry can only produce a refusal. It can
+ * never manufacture an allow, because a receipt that does not name the target
+ * is rejected downstream regardless of which directory produced it. That is
+ * what keeps this compatible with "the review-request path reads no
+ * configuration for IDENTITY": this is a location, and identity still comes
+ * from the receipt.
+ *
+ * ENVIRONMENT, NOT COMMITTED. A checkout's absolute path is a property of the
+ * container, not of the repository, so committing it into
+ * `.agents/machinery.json` would put a container fact in a synced file.
+ * `process.env` is also the only read available on the guard path that cannot
+ * throw.
+ *
+ * KEYED BY SLUG, so a target resolves to at most one root and ambiguity is
+ * unrepresentable. An earlier design scanned a list of roots and refused when
+ * two matched; keying removes the state that rule adjudicated.
+ *
+ * NEWLINE-SEPARATED, NOT `:`-SEPARATED. The first draft used the platform path
+ * delimiter; `:` is a legal character in a POSIX directory name, so a real
+ * checkout at `/workspace/team:archive/repo` parsed as two broken entries and
+ * made the whole registry unusable. (Codex, PR #28 round 3; recorded as gap 3
+ * in issue #32.) A newline cannot appear inside an entry by construction -- it
+ * is what ends one -- so nothing needs escaping and no legitimate path is
+ * refused for containing the delimiter. A checkout path containing a literal
+ * newline is unsupported, and documented as such.
+ *
+ * SPLIT ON THE FIRST `=` ONLY, so a path containing `=` survives. A slug key
+ * cannot contain `=`, so the first occurrence is always the separator.
+ *
+ * FAILS CLOSED AS A WHOLE, never partly. A malformed or duplicate entry makes
+ * the ENTIRE variable unusable rather than being skipped: a partly-parsed
+ * registry resolves some targets and not others, which is the kind of partial
+ * success that reads as correct. A duplicate key is invalid rather than
+ * last-wins, because a duplicate means the operator holds two beliefs and the
+ * machinery must not pick one.
+ *
+ * TOTAL: splitting a string and rejecting what does not match cannot throw,
+ * which matters because this is read on the guard path, where an escaping
+ * exception exits 1 and lets the tool call through.
+ */
+export function attachedRoots(env = process.env) {
+  const raw = env?.[ATTACHED_ROOTS_ENV];
+  if (typeof raw !== "string" || raw.trim() === "") return { map: new Map(), problem: null };
+
+  const map = new Map();
+  for (const line of raw.split("\n")) {
+    const entry = line.trim();
+    if (entry === "") continue;
+    const eq = entry.indexOf("=");
+    if (eq <= 0) {
+      return { map: null, problem: `entry ${JSON.stringify(entry)} is not "owner/name=/absolute/path"` };
+    }
+    const slug = entry.slice(0, eq).trim();
+    const root = entry.slice(eq + 1).trim();
+    if (!SLUG_RE.test(slug)) {
+      return { map: null, problem: `${JSON.stringify(slug)} is not a repository slug of the form "owner/name"` };
+    }
+    if (root === "" || !path.isAbsolute(root)) {
+      // NOT resolved against cwd. The hook's working directory is the thing
+      // this whole change exists to stop depending on, so silently resolving a
+      // relative path against it would reintroduce the bug one level down.
+      return { map: null, problem: `the root for ${slug} must be an absolute path (got ${JSON.stringify(root)})` };
+    }
+    const key = slug.toLowerCase();
+    if (map.has(key)) {
+      return { map: null, problem: `${slug} is declared more than once, so which checkout it names is undecided` };
+    }
+    // Trailing separators stripped so two spellings of one root are one root
+    // -- and so a joined path never contains a doubled separator in a refusal
+    // message. `path.parse(x).root` guards the filesystem root itself, which
+    // must keep its separator.
+    const normalized = path.normalize(root);
+    const bare = normalized.length > path.parse(normalized).root.length ? normalized.replace(/[\\/]+$/, "") : normalized;
+    map.set(key, bare);
+  }
+  return { map, problem: null };
+}
+
 /** Read + parse, distinguishing "absent" from "present but unreadable". */
 function readJson(io, rel) {
   let text;
@@ -1513,7 +1603,48 @@ function refusal(pr, state, spent, tiedCount = false) {
  * On allow, the receipt is marked consumed, so one check authorizes exactly
  * one post.
  */
-export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now = Date.now()) {
+/**
+ * Does this loop state carry a usable budget stamped for `target`?
+ *
+ * The one question that decides whether a checkout may answer for a call.
+ * Deliberately strict: a `no-budget` or `bad-receipt` state is not an answer,
+ * and a budget for another repository is not an answer either. Used to pick
+ * the root, and then the same comparison is made again below on the chosen
+ * state -- kept rather than skipped, so the refusal message stays the one the
+ * comparison itself produces.
+ */
+/**
+ * A trailing sentence naming a broken registry, or nothing at all.
+ *
+ * APPENDED ONLY WHEN THE REGISTRY IS ACTUALLY MALFORMED, which is what keeps
+ * the local path's refusals byte-for-byte what they are today. A malformed
+ * registry cannot change a VERDICT -- the fallback only ever adds a way to
+ * find evidence, never a way to refuse -- but a request that was going to be
+ * refused anyway should still say why the fallback could not have helped,
+ * because "no round budget declared" with a typo'd registry is otherwise an
+ * unsolvable puzzle. With the variable unset or well-formed, every message
+ * here is unchanged.
+ */
+function registryHint(problem) {
+  return problem === null || problem === undefined
+    ? ""
+    : `\nSeparately, ${ATTACHED_ROOTS_ENV} could not be read, so no registered checkout could answer ` +
+        `for this target either: ${problem}. Entries are newline-separated "owner/name=/absolute/path"; ` +
+        `one bad entry invalidates the whole variable rather than being skipped.`;
+}
+
+function budgetNames(state, target) {
+  if (state?.problem) return false;
+  const repo = state?.budget?.repo;
+  return typeof repo === "string" && repo.toLowerCase() === target.toLowerCase();
+}
+
+export function judgeReviewRequest(
+  { toolName, toolInput },
+  io = nodeIo(),
+  now = Date.now(),
+  { env = process.env, makeIo = nodeIo } = {},
+) {
   // RELEVANCE FIRST, IDENTITY SECOND, and the order is load-bearing in both
   // directions. Resolving identity up here refused every call the guard sees
   // -- an ordinary PR comment, a `get_me` -- whenever the declaration was
@@ -1565,7 +1696,41 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
     };
   }
 
-  const state = loadLoop(pr, io);
+  const target = `${toolInput?.owner ?? "?"}/${toolInput?.repo ?? "?"}`;
+
+  // TRY THE PROJECT ROOT FIRST, WITH NO LOCAL/FOREIGN DISCRIMINATOR.
+  //
+  // An earlier design opened with "is the target this repository?", which
+  // needs an identity answer that this path forbids -- and that no receipt can
+  // supply for a local PR with no budget, which is exactly the case whose
+  // refusal must not change. Trying the project root unconditionally dissolves
+  // the question: the local path is not DETECTED, it is simply first.
+  //
+  // If the root's evidence names the target, we are done and nothing else is
+  // read. Otherwise a registered checkout for that target may answer -- and if
+  // none does, we fall through to the project root's OWN refusal below,
+  // byte-for-byte what it says today. (Codex, PR #28 rounds 1-2.)
+  let state = loadLoop(pr, io);
+  let registryProblem = null;
+
+  if (!budgetNames(state, target)) {
+    const registry = attachedRoots(env);
+    registryProblem = registry.problem;
+    const root = registry.map?.get(target.toLowerCase()) ?? null;
+    if (root !== null) {
+      // Same decision matrix, same freshness rules, a different root. Settled
+      // Decision 9: a registered candidate inherits the project root's
+      // staleness semantics AND NO MORE -- no caching, no longer-lived read,
+      // nothing treating this evidence as fresher than the root's would be.
+      // The known gap that leaves open is issue #31, accepted deliberately.
+      const foreignIo = makeIo(root);
+      const foreignState = loadLoop(pr, foreignIo);
+      if (budgetNames(foreignState, target)) {
+        state = foreignState;
+        io = foreignIo;
+      }
+    }
+  }
 
   if (state.problem === "no-budget") {
     return {
@@ -1585,13 +1750,13 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
         `Tiers: product=5 rounds; sensitive=5 (auth/payments/migrations); internal=3, strict ` +
         `adjudication rubric. Every tier runs the two-tier tripwire: Fable adjudication from the ` +
         `budget, self-serve leash of ${LEASH} rounds past it, then the David gate. ` +
-        `Commit the receipt and state the budget in the PR body too.`,
+        `Commit the receipt and state the budget in the PR body too.` + registryHint(registryProblem),
     };
   }
   if (state.problem === "bad-receipt") {
     return {
       blocked: true,
-      reason: `round-budget receipt is unusable, so the budget cannot be checked: ${state.detail}`,
+      reason: `round-budget receipt is unusable, so the budget cannot be checked: ${state.detail}` + registryHint(registryProblem),
     };
   }
   // THE COMPARISON THAT ENDS THE IDENTITY CLASS.
@@ -1606,16 +1771,15 @@ export function judgeReviewRequest({ toolName, toolInput }, io = nodeIo(), now =
   // it: that one answers "is this my repository", which a wrong declaration
   // can get wrong; this one answers "is this the loop whose rounds I am
   // about to spend", which it cannot. (Codex, PR #7 round 5.)
-  const target = `${toolInput?.owner ?? "?"}/${toolInput?.repo ?? "?"}`;
   if (state.budget.repo.toLowerCase() !== target.toLowerCase()) {
     return {
       blocked: true,
       reason:
-        `the budget for PR #${pr} in this checkout was declared for ${state.budget.repo}, but this ` +
-        `review request targets ${target}. A budget authorizes rounds in the repository it was ` +
+        `the budget for PR #${pr} in the checkout that answered was declared for ${state.budget.repo}, ` +
+        `but this review request targets ${target}. A budget authorizes rounds in the repository it was ` +
         `declared for and no other, so spending it here would let a round go uncounted against the ` +
-        `loop it belongs to. Post the request from a checkout of ${target}, whose own budget and ` +
-        `round count cover it.`,
+        `loop it belongs to. Declare the budget in a checkout of ${target} and register that checkout ` +
+        `in ${ATTACHED_ROOTS_ENV}, whose own budget and round count cover it.` + registryHint(registryProblem),
     };
   }
 
