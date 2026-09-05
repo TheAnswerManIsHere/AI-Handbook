@@ -132,3 +132,22 @@ jobs:
       # beside it rather than in Test.
       - name: Check root wiring
         run: node scripts/check-root-wiring.mjs
+
+      # Would Claude Code actually load these settings files?
+      #
+      # Its validator refuses a settings file carrying an unrecognised
+      # top-level field, and is stricter than its own published schema -- which
+      # declares "additionalProperties": {} and would permit unknown keys. So a
+      # field can be valid JSON, allowed by the schema, and still rejected.
+      #
+      # A refused file installs no `hooks` block, which means no guard, with
+      # nothing saying so. `settings-template` is mode: seed and lands as a
+      # consumer's real .claude/settings.json, so the template is the file that
+      # carries that cost. Both settings files once documented themselves in a
+      # `_comment` array -- exactly the field the validator rejects.
+      #
+      # Sits in Manifest beside the other two for the reason they do: it is a
+      # claim about the payload a human would otherwise make from memory, and
+      # this reads the files instead.
+      - name: Check settings fields
+        run: node scripts/check-settings-fields.mjs

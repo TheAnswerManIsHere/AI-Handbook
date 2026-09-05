@@ -1,30 +1,4 @@
 {
-  "_comment": [
-    "SEEDED FILE — copied here once by the AI-Handbook sync, then owned by this repo.",
-    "Unlike the synced contract files, this one is yours to edit: permission allowlists",
-    "and env legitimately differ per product, and a sync that overwrote them would clobber",
-    "grants the repo needs. Delete this _comment block once the file is adapted.",
-    "",
-    "Adapt before use:",
-    "  env.DATABASE_URL   — the repo's own test database URL, or drop the key entirely",
-    "                       until the repo has a database.",
-    "  hooks.SessionStart — points at scripts/setup-test-db.sh. Drop this hook until that",
-    "                       script exists, or the first session of every day opens with a",
-    "                       failing hook.",
-    "  permissions.deny   — the drizzle-kit entries assume Drizzle. Keep the shape (deny the",
-    "                       command that can push schema straight at a live database) and",
-    "                       swap the tool. Read(**/.env*) applies to every repo — keep it.",
-    "  permissions.allow  — the MCP server id in the first block is per-environment and will",
-    "                       differ here. The three spellings of the remote server are all",
-    "                       listed on purpose: the id varies by how the session was started,",
-    "                       and a missing spelling shows up as a permission prompt that stalls",
-    "                       an autonomous session.",
-    "",
-    "The guard hooks are NOT optional. They are the local half of the branch-protection",
-    "story and the reason a force push needs an explicit refspec. Keep all three PreToolUse",
-    "entries, including the longer timeout on the merge matcher — the merge guard reads live",
-    "GitHub state and 5s is not enough for it."
-  ],
   "model": "opus",
   "env": {
     "DATABASE_URL": "postgres://REPLACE:REPLACE@localhost:5432/REPLACE_test"
@@ -59,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/guard.sh",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/guard.sh\"",
             "timeout": 5
           }
         ]
@@ -69,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/guard.sh",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/guard.sh\"",
             "timeout": 5
           }
         ]
@@ -79,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/guard.sh",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/guard.sh\"",
             "timeout": 20
           }
         ]
