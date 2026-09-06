@@ -714,14 +714,26 @@ groups:
         ref: core/.agents/core/claude-core.md
         form: "claude-core.md"
         from: core/scripts/review-loop-record.mjs
+        count: 2
+        why: >
+          Cited twice as the contract that specifies the THREE approved-plan
+          provenance forms, line-ranged: once on the public/split matchers
+          (round 7 found the split form matched nothing) and once on the
+          private-path matcher (round 8 found it accepted `shasum` without
+          `-a 256`). Evidence for where the shapes are defined; the generator
+          parses the PR body and never opens this file.
+      - group: guard
+        ref: core/.claude/guard.sh
+        form: ".claude/guard.sh"
+        from: core/scripts/__tests__/review-loop-record.test.mjs
         count: 1
         why: >
-          Cited as the contract that specifies the THREE approved-plan
-          provenance forms, line-ranged, because round 7 found the split-loop
-          form ("Plan-review PRs #701 and #702, combined plan commit … on
-          plan-review/<slug>-combined") matched nothing — a seventh matcher
-          written from a remembered format. Evidence for where the shapes are
-          defined; the generator parses the PR body and never opens this file.
+          Appears inside a test FIXTURE — the verbatim bugfix-oracle block of
+          Overhypeme #611, the first real bugfix body the execution bar was
+          run against, whose reported symptom happens to quote the guard's
+          path. The test exercises the oracle matcher against that text; it
+          never opens the guard, and a consumer without the `guard` group
+          runs it identically.
       - group: claude-core
         ref: core/.agents/core/claude-core.md
         form: "claude-core.md"

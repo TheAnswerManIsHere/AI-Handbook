@@ -586,6 +586,14 @@ export function assertMcpSnapshotComplete(snapshot) {
  * time that covers only some of them covers none of them, as far as the round
  * check is concerned.
  */
+/**
+ * How old a capture may be and still authorise a post or a record. ONE number
+ * for both gates: the round check refuses anything older, so a record built
+ * from an older capture would rest on evidence the guard itself would not
+ * accept.
+ */
+export const MAX_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
+
 export const COUNTED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThreads"];
 
 /**

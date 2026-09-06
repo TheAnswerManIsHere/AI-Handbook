@@ -2311,6 +2311,22 @@ test("the stamp comparison consults the record, never current configuration", ()
   assert.equal(validateDispatchStamps({}, {}), null, "no dispatch in the record: nothing to compare");
 });
 
+test("a null dispatch block is an edited record, not a legacy one", () => {
+  // `if (!dispatch) return null` read `dispatch: null` as pre-schema and
+  // skipped both stamp comparisons. Only an ABSENT key predates the schema;
+  // a null block is a record something edited after generation.
+  // (Codex, #38 round 8.)
+  for (const dispatch of [null, false, 0, "best"]) {
+    assert.match(
+      String(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, { dispatch })),
+      /carries `dispatch: /,
+      JSON.stringify(dispatch),
+    );
+    assert.match(String(validateDispatchStamps({}, { dispatch })), /carries `dispatch: /);
+  }
+  assert.equal(validateDispatchStamps({}, { pr: 1 }), null, "an absent key is still legacy");
+});
+
 test("a dispatch block with no model is corruption, and fails closed", () => {
   // `dispatchDeclaration` throws on a definition with no frontmatter `model`,
   // so the generator cannot write this record. Treating its missing model like

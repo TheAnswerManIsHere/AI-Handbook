@@ -60,6 +60,8 @@ import {
   artifactSize,
   REVIEWER_LOGINS,
   normalizeLogin,
+  MAX_SNAPSHOT_AGE_MS,
+  capturedAtDetail,
   capturedAtOf,
   headRepoOf,
 } from "./review-counting.mjs";
@@ -734,7 +736,13 @@ export function sectionOf(markdown, heading) {
  */
 export function planReviewSignals(pr) {
   const title = typeof pr?.title === "string" && /^\[PLAN REVIEW\]/i.test(pr.title.trim());
-  const body = typeof pr?.body === "string" && /^##\s+Review mode\s*$[\s\S]{0,400}?plan review only/im.test(pr.body);
+  // THE SAME FENCE-AWARE SCAN `sectionOf` USES. A body-wide regex took a
+  // fenced `## Review mode` example -- which a process PR documenting the
+  // template legitimately shows -- as the declaration, and with an ordinary
+  // title the generator then refused the PR as half-declared: a deadlock on a
+  // documentation PR. (Codex, #38 round 8.)
+  const section = typeof pr?.body === "string" ? sectionOf(pr.body, "Review mode") : null;
+  const body = typeof section === "string" && /plan review only/i.test(section.slice(0, 400));
   return { title, body, isPlanReview: title && body, disagree: title !== body };
 }
 
@@ -777,11 +785,14 @@ const BUGFIX_ORACLE_FIELDS = {
 BUGFIX_ORACLE_FIELDS.B = BUGFIX_ORACLE_FIELDS.A;
 
 /** The tier letter, from the `**Fix tier:**` line the schemas open with. */
-const FIX_TIER_RE = /^\s*\*{0,2}Fix tier:?\*{0,2}\s*["'`]?([A-Za-z])\b/im;
+// Tolerates `**Fix tier:** **B** —` (the letter itself emphasised) and a
+// period in place of the colon: both appear in the first real bugfix body the
+// execution bar was run against (Overhypeme #611), and neither is a field.
+const FIX_TIER_RE = /^\s*\*{0,2}Fix tier[:.]?\*{0,2}\s*["'`*]{0,3}([A-Za-z])\b/im;
 
 /** A labelled field carrying SOMETHING -- the label alone is not the field. */
 const fieldPresent = (body, field) =>
-  new RegExp(`^\\s*\\*{0,2}${field.pattern}:?\\*{0,2}\\s*\\S`, "im").test(body);
+  new RegExp(`^\\s*\\*{0,2}${field.pattern}[:.]?\\*{0,2}\\s*\\S`, "im").test(body);
 
 /**
  * The permitted no-plan forms, each a POSITIVE match rather than an absence.
@@ -819,8 +830,14 @@ const TEXTUAL_NO_PLAN_FORMS = [
     // so accepting "Approved-plan source: shasum" would treat a placeholder as
     // proof of an approved plan, in exactly the field whose absence is
     // otherwise a refusal. (Codex, #38 round 4.)
+    // `claude-core.md:453-457`: "the filename plus a `shasum -a 256` and the
+    // date". SHA-256 is 64 hex characters, so `-a 256` and a 64-char digest
+    // are both required -- accepting `shasum` with a 16-char digest let a
+    // placeholder stand for the one field the private path can be checked on.
+    // The form documents no "approved" statement; the date IS the approval
+    // date, so none is demanded. (Codex, #38 round 8.)
     reason: "private path",
-    re: /^[^\n]*?[\w.-]+\.md[^\n]*?\bshasum\b[^\n]*?\b[0-9a-f]{16,64}\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?[\w.-]+\.md[^\n]*?\bshasum\s+-a\s+256\b[^\n]*?\b[0-9a-f]{64}\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
   },
 ];
 
@@ -907,8 +924,11 @@ const PLAN_COMMIT_FORMS = [
     re: /^[^\n]*?\bPR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
   },
   {
+    // "naming EVERY subsystem PR" -- a split loop has at least two, so the
+    // plural with one number is an incomplete provenance, not a variant.
+    // (Codex, #38 round 8.)
     reason: "split loop (combined plan)",
-    re: /^[^\n]*?\bPRs?\s*#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?\bPRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
   },
 ];
 
@@ -1827,10 +1847,27 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
   // process running would show pendingRequest: false and compare as
   // "already known" against a boundary that never actually saw it.
   // (Codex, #539 round 3.)
-  if (!Number.isFinite(Date.parse(capturedAtOf(snapshot, "issueComments") ?? ""))) {
+  // EVERY counted collection, not just issueComments -- the same rule the
+  // budget check adopted in round 7 and this sibling consumer did not. A
+  // fresh issueComments timestamp beside undated reviews and threads made an
+  // incomplete history look current to the one reader. And the same age
+  // bound: a record generated from a capture older than the guard would
+  // accept is a record the guard's own receipt could not have been minted
+  // from. (Codex, #38 round 8.)
+  const captured = capturedAtDetail(snapshot);
+  if (captured.missing.length) {
     throw new Error(
-      "an adjudication snapshot must carry a parseable capturedAt.issueComments -- the record's " +
-        "evidence-freshness boundary is the moment issueComments were actually read, not this process's run time",
+      `an adjudication snapshot must carry a parseable capture time for every counted collection; ` +
+        `missing ${captured.missing.join(", ")}. The record's evidence-freshness boundary is the moment ` +
+        `each collection was actually read, not this process's run time`,
+    );
+  }
+  const age = Date.now() - Date.parse(captured.at);
+  if (age < 0 || age > MAX_SNAPSHOT_AGE_MS) {
+    throw new Error(
+      `the adjudication snapshot's oldest capture time is ${captured.at}, ${Math.round(age / 60000)} minutes ` +
+        `old -- outside the ${MAX_SNAPSHOT_AGE_MS / 60000}-minute bound. Re-capture rather than ruling on ` +
+        `evidence the round check would itself refuse`,
     );
   }
 }

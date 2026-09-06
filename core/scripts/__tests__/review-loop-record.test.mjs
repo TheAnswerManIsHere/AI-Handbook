@@ -37,24 +37,46 @@ const TEST_SLUG = "TestOwner/TestRepo";
 // before anything downstream trusts it.
 // ---------------------------------------------------------------------------
 
+// Dated NOW, in every counted collection: the gate requires all four and
+// applies the same age bound as the round check. (Codex, #38 round 8.)
+const freshCapturedAt = () => {
+  const now = new Date().toISOString();
+  return { pr: now, reviews: now, issueComments: now, reviewThreads: now };
+};
 const validSnapshot = () => ({
   pr: { number: 500, head: { repo: TEST_SLUG } },
   repo: TEST_SLUG,
   issueComments: [],
   complete: { issueComments: true },
-  capturedAt: { issueComments: "2026-08-19T21:00:00Z" },
+  capturedAt: freshCapturedAt(),
 });
 
-test("assertAdjudicationSnapshot: a snapshot with no capturedAt.issueComments is rejected", () => {
+test("assertAdjudicationSnapshot: a snapshot with no capture time is rejected", () => {
   const snap = validSnapshot();
   delete snap.capturedAt;
-  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /parseable capturedAt\.issueComments/);
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /missing capturedAt/);
 });
 
-test("assertAdjudicationSnapshot: an unparseable capturedAt.issueComments is rejected", () => {
+test("assertAdjudicationSnapshot: every counted collection must be dated, not just issueComments", () => {
+  // Round 7 closed this in the budget check and left this sibling consumer
+  // on a single-collection check: a fresh issueComments beside undated reviews
+  // and threads made an incomplete history look current. (Codex, #38 round 8.)
   const snap = validSnapshot();
   snap.capturedAt.issueComments = "not a date";
-  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /parseable capturedAt\.issueComments/);
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /missing issueComments/);
+  const partial = validSnapshot();
+  partial.capturedAt = { issueComments: new Date().toISOString() };
+  assert.throws(() => assertAdjudicationSnapshot(500, partial, TEST_SLUG), /missing pr, reviews, reviewThreads/);
+});
+
+test("assertAdjudicationSnapshot: a capture older than the round check would accept is refused", () => {
+  const stale = validSnapshot();
+  stale.capturedAt = { ...stale.capturedAt, reviews: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() };
+  assert.throws(() => assertAdjudicationSnapshot(500, stale, TEST_SLUG), /oldest capture time .* outside the 60-minute bound/);
+  // The scalar form covers every collection with one time.
+  const scalar = validSnapshot();
+  scalar.capturedAt = new Date().toISOString();
+  assert.doesNotThrow(() => assertAdjudicationSnapshot(500, scalar, TEST_SLUG));
 });
 
 test("assertAdjudicationSnapshot: a well-formed snapshot passes", () => {
@@ -698,7 +720,7 @@ test("each permitted no-plan form yields a stated null", () => {
     [TIER_C_ORACLE, "bugfix oracle (tier C)"],
     ["**Approved-plan source:** n/a — no plan (trivial change)", "trivial change"],
     [
-      "**Approved-plan source:** PLAN_X.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06",
+      "**Approved-plan source:** PLAN_X.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e, approved 2026-09-06",
       "private path",
     ],
   ];
@@ -770,6 +792,66 @@ test("both documented approved-plan provenance forms are accepted", () => {
   );
   // The two forms are not interchangeable adjectives.
   assert.equal(approvedPlanCommit("Plan-review PR #37, combined plan commit abcdef1, approved by David on 2026-09-06"), null);
+  // "naming EVERY subsystem PR": the plural with one number is incomplete
+  // provenance, not a variant. (Codex, #38 round 8.)
+  assert.equal(
+    approvedPlanCommit("Plan-review PRs #701, combined plan commit abcdef1 on plan-review/foo-combined, approved by David on 2026-09-01"),
+    null,
+  );
+});
+
+test("a fenced Review-mode example does not declare plan review", () => {
+  // A process PR documenting the template shows `## Review mode / Plan review
+  // only` inside a fence. Body-wide, that set the body signal, the ordinary
+  // title left the title signal false, and the generator refused the PR as
+  // half-declared -- a deadlock on a documentation PR. (Codex, #38 round 8.)
+  const documenting = [
+    "## Summary",
+    "This documents the plan-review template:",
+    "",
+    "```markdown",
+    "## Review mode",
+    "Plan review only. Never merge.",
+    "```",
+  ].join("\n");
+  assert.deepEqual(planReviewSignals({ title: "Document the template", body: documenting }).body, false);
+  // The real declaration, outside a fence, still counts -- and it is the shape
+  // #37 actually wrote.
+  assert.equal(
+    planReviewSignals({ title: "[PLAN REVIEW] x", body: "## Review mode\nPlan review only. Never merge. Do not implement." }).isPlanReview,
+    true,
+  );
+});
+
+test("the first real bugfix body: typography is tolerated, a missing field is named", () => {
+  // Overhypeme #611, the first real bugfix body the execution bar was run
+  // against, writes `**Fix tier:** **B** —` (the letter emphasised) and
+  // `**Reported symptom.**` (a period, not a colon) -- and omits `Blast
+  // radius` entirely. The first two are typography and must not read as
+  // missing fields; the third is a missing field and must be named.
+  const real611 = [
+    "## Bugfix oracle",
+    "",
+    "**Fix tier:** **B** — the guard path is the sensitive subsystem by definition.",
+    "",
+    "**Reported symptom.** All three `PreToolUse` hooks invoked the guard as `bash .claude/guard.sh`.",
+    "",
+    "**Root cause.** A hook command resolves against the **current working directory**, not the project root.",
+    "",
+    "**Intended correct behavior.** A guard must refuse, or fail to run *loudly*.",
+    "",
+    "**Must not change.** The guard's exit-code contract (2 blocks, 0 allows).",
+  ].join("\n");
+  assert.throws(
+    () => planOracleFor({ title: "Make the guard hook path absolute", body: real611 }, "head", { runGit: planGit([PLAN]) }),
+    /declares Tier B but its bugfix oracle is missing `Blast radius`\./,
+  );
+  // With the one missing field supplied, the same typography is a complete oracle.
+  const completed = real611 + "\n\n**Blast radius.** Three hooks, all checked.";
+  assert.equal(
+    planOracleFor({ title: "Make the guard hook path absolute", body: completed }, "head", { runGit: planGit([PLAN]) }).reason,
+    "bugfix oracle (tier B)",
+  );
 });
 
 test("a captured entry must come from THIS pull request, not just agree with itself", () => {
@@ -1231,15 +1313,20 @@ test("artifact endpoints must be immutable object ids, not names", () => {
 });
 
 test("the private path must carry its whole provenance, not the word shasum", () => {
-  const complete = "**Approved-plan source:** PLAN_THING.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06";
+  const complete = "**Approved-plan source:** PLAN_THING.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e, approved 2026-09-06";
   assert.equal(
     planOracleFor({ title: "Implement it", body: complete }, "head", { runGit: planGit([PLAN]) }).reason,
     "private path",
   );
   for (const placeholder of [
     "**Approved-plan source:** shasum",
+    // The contract says `shasum -a 256`: a bare `shasum` with a short digest
+    // let a placeholder stand for the one field the private path can be
+    // checked on. (Codex, #38 round 8.)
+    "**Approved-plan source:** PLAN_THING.md, shasum 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06",
+    "**Approved-plan source:** PLAN_THING.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06",
     "**Approved-plan source:** PLAN_THING.md, shasum -a 256 <digest>, approved <date>",
-    "**Approved-plan source:** shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e",
+    "**Approved-plan source:** shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e",
   ]) {
     assert.throws(
       () => planOracleFor({ title: "Implement it", body: placeholder }, "head", { runGit: planGit([PLAN]) }),

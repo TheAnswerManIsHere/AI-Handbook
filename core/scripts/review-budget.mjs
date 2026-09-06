@@ -118,7 +118,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { REVIEWER_LOGINS, capturedAtDetail, capturedAtOf, headRepoOf, normalizeLogin } from "./review-counting.mjs";
+import {
+  MAX_SNAPSHOT_AGE_MS,
+  REVIEWER_LOGINS,
+  capturedAtDetail,
+  capturedAtOf,
+  headRepoOf,
+  normalizeLogin,
+} from "./review-counting.mjs";
 
 export const RECEIPTS_DIR = ".agents/receipts";
 
@@ -284,7 +291,7 @@ export function __resetRepoSlugCache() {
  * two guards must be free to diverge deliberately -- but a change to either
  * should look at the other.
  */
-export const MAX_CHECK_AGE_MS = 60 * 60 * 1000;
+export const MAX_CHECK_AGE_MS = MAX_SNAPSHOT_AGE_MS; // one bound, shared with the record generator
 
 /**
  * Blast-radius tiers (David, 2026-08-17, issue #501; revised 2026-08-20 and
@@ -1062,8 +1069,22 @@ export function validateBudget(pr, receipt) {
  * (Codex, #37 round 2.)
  */
 export function validateDispatchStamps(receipt, record) {
-  const dispatch = record?.dispatch;
-  if (!dispatch) return null; // legacy record, by schema -- not by date
+  // LEGACY IS THE KEY BEING ABSENT, not the value being falsy. A record with
+  // `dispatch: null` (or `false`) is not pre-schema -- the generator has
+  // written `dispatch` on every record since the field existed -- it is a
+  // record something else has edited. Reading it as legacy skipped both stamp
+  // comparisons, so a hand-nulled block was a quieter bypass than the
+  // missing-model case below, which does refuse. (Codex, #38 round 8.)
+  if (!record || typeof record !== "object" || !("dispatch" in record)) return null; // legacy, by schema
+  const dispatch = record.dispatch;
+  if (!dispatch || typeof dispatch !== "object") {
+    return (
+      `the adjudication record this receipt cites carries \`dispatch: ${JSON.stringify(dispatch)}\`. A ` +
+      `generated record either has no \`dispatch\` key (pre-schema) or a block with a model; a null or ` +
+      `non-object block is a record something edited after generation, and the stamps cannot be checked ` +
+      `against it. Regenerate the record and re-run the adjudication`
+    );
+  }
   // A `dispatch` WITHOUT A MODEL IS CORRUPTION, NOT A DECLARATION.
   // `dispatchDeclaration` refuses to emit one -- a definition with no
   // frontmatter `model` throws there -- so this shape cannot arise from a
