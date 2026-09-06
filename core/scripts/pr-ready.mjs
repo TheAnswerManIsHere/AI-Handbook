@@ -1385,6 +1385,25 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
       return { pass: false, detail: `${path}: unreadable or malformed JSON (${e.message}) -- the chain under the terminal receipt cannot be validated` };
     }
   }
+  // EVERY adjudication receipt in the chain gets the stamp check, not just
+  // the terminal candidate. `loadLoop` rejects a malformed earlier receipt
+  // and so rejects the whole loop, but this gate honours the terminal receipt
+  // through its own path -- so a chain containing an earlier receipt whose
+  // stamps disagree with its own cited record could still produce readiness
+  // here while the refusal layer refuses it. Two gates, one answer.
+  // (Codex, #38 round 5.)
+  for (const earlier of preceding) {
+    if (earlier?.kind !== "adjudication") continue;
+    const earlierRecord = validateAdjudicationRecord(prNumber, earlier.recordPath, headSha, cwd);
+    if (!earlierRecord.ok) {
+      return { pass: false, detail: `${candidate.path}: an earlier receipt cites ${earlier.recordPath}, which ${earlierRecord.detail}` };
+    }
+    const earlierStamps = validateDispatchStamps(earlier, earlierRecord.record);
+    if (earlierStamps) {
+      return { pass: false, detail: `an earlier adjudication receipt in this chain is invalid: ${earlierStamps}` };
+    }
+  }
+
   for (const chain of [[...preceding, receipt], [...recordCheck.extensions, receipt]]) {
     for (let i = 1; i < chain.length; i++) {
       const prev = chain[i - 1];

@@ -2415,3 +2415,34 @@ test("the merge gate refuses a terminal receipt whose stamps disagree with its r
     "a receipt citing a pre-dispatch record stays honourable -- no committed receipt is invalidated",
   );
 });
+
+test("the merge gate validates stamps on EVERY adjudication receipt in the chain", () => {
+  // The terminal candidate was checked; an earlier receipt whose stamps
+  // disagree with its own cited record was only parsed for verdict ordering.
+  // `loadLoop` rejects that chain, but this gate honours the terminal receipt
+  // through its own path — so the refusal layer and the merge gate could
+  // disagree about the same committed chain. (Codex, #38 round 5.)
+  const { dir, commit } = tempRepo();
+  const dispatch = { model: "best", effort: "xhigh", source: ".claude/agents/review-loop-adjudicator.md", sha: "abc123" };
+  const pr = 931;
+
+  const bud = loopBudget(pr);
+  const baseline = commit({ "docs/x.md": "content", ...bud.files }, "c1 -- the reviewed commit");
+  const rec1 = record(pr, 1, { baseline, dispatch });
+  // An earlier continue receipt whose model stamp disagrees with its record.
+  const ext1 = extension(pr, 1, {
+    recordPath: rec1.path,
+    verdict: "continue",
+    grant: 1,
+    risk: "a named behavioural risk",
+    modelRequested: "sonnet",
+    effortRequested: "xhigh",
+  });
+  const rec2 = record(pr, 2, { baseline, dispatch });
+  const ext2 = extension(pr, 2, { recordPath: rec2.path, modelRequested: "best", effortRequested: "xhigh" });
+  const head = commit({ ...rec1.files, ...ext1.files, ...rec2.files, ...ext2.files }, "c2 -- records + receipts");
+
+  const res = checkAdjudicatedCodex(pr, head, { cwd: dir });
+  assert.equal(res.pass, false, "a bad earlier receipt must not be honoured through a good terminal one");
+  assert.match(res.detail, /an earlier adjudication receipt in this chain is invalid/);
+});

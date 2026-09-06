@@ -232,6 +232,13 @@ export function cappedDiff(runGit, range) {
     const raw = runGit([
       "diff",
       "--no-color",
+      // THE SAME RENAME SETTING AS THE NUMSTAT SOURCE. `artifactFileList`
+      // disables rename detection so both sides of a rename land in the set;
+      // leaving it on here emitted the same rename as one zero-line rename
+      // hunk while `artifact` reported two files and every line added and
+      // removed. The judge weighs size and patch together, so the two must
+      // describe the same thing. (Codex, #38 round 5.)
+      "--no-renames",
       range,
       // Exclude-only pathspecs need no positive counterpart; git applies them
       // to the whole result set. Verified rather than assumed.
@@ -726,7 +733,21 @@ const NO_PLAN_FORMS = [
  * judge as this PR's approved oracle. The contract puts the provenance on its
  * own line for exactly this reason. (Codex, #38 round 1.)
  */
-const PLAN_COMMIT_RE = /^[^\n]*Approved-plan source[^\n]*?\b(?:final|combined) plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?/im;
+/**
+ * The public path's WHOLE provenance, in the shape the contract specifies:
+ * `Plan-review PR #<N>, final plan commit <sha>, approved by David on <date>`.
+ *
+ * Requiring only the sha accepted a line naming no plan-review PR and no
+ * approval date, so any resolvable commit could be presented to the judge as
+ * approved. The sha is what makes the ORACLE trustworthy -- the plan text
+ * comes from that commit -- but the PR number and the date are what make the
+ * APPROVAL checkable by a person, and this record's job is to refuse a claim
+ * it cannot see the evidence for. My round-1 reply argued the opposite and
+ * was wrong on the bar: unverifiable-by-machine is not the same as
+ * not-worth-requiring. (Codex, #38 round 5.)
+ */
+const PLAN_COMMIT_RE =
+  /^[^\n]*Approved-plan source[^\n]*?\bPR\s*#\d+[^\n]*?\b(?:final|combined) plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im;
 /**
  * An explicit plan path, read ONLY from the provenance line -- the same
  * anchoring the commit sha gets, and for the same reason. A body-wide match
@@ -756,7 +777,7 @@ const PLAN_PATH_LINE_RE = /^[^\n]*Approved-plan source[^\n]*?["'`]?(docs\/plans\
  * conformance rubric exists to catch. `null` is produced only on a positive
  * match against one of the permitted no-plan forms, with its reason stated.
  */
-export function planOracleFor(pr, headSha, { runGit = git } = {}) {
+export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
   const body = typeof pr?.body === "string" ? pr.body : "";
   const signals = planReviewSignals(pr);
   if (signals.disagree) {
@@ -769,7 +790,7 @@ export function planOracleFor(pr, headSha, { runGit = git } = {}) {
   if (signals.isPlanReview) {
     // On a plan loop the plan file IS the artifact -- which is why
     // `classifyPath` already gives `docs/plans/` its own behavioral class.
-    const introduced = planFilesIntroducedBy(headSha, { runGit });
+    const introduced = planFilesIntroducedBy(headSha, { runGit, base });
     if (introduced.length !== 1) {
       throw new Error(
         `a [PLAN REVIEW] PR must introduce exactly one docs/plans/PLAN_*.md at its head ${headSha}; ` +
@@ -804,7 +825,9 @@ export function planOracleFor(pr, headSha, { runGit = git } = {}) {
     throw new Error(`the approved-plan commit ${sha} is not present in this clone (fetch the plan-review branch, then re-run)`);
   }
   const explicit = PLAN_PATH_LINE_RE.exec(body)?.[1];
-  const introduced = planFilesIntroducedBy(sha, { runGit });
+  // The cited plan commit lives on a plan-review branch cut from the same
+  // base this PR was, so the PR's base is the right range endpoint for it too.
+  const introduced = planFilesIntroducedBy(sha, { runGit, base });
   if (explicit && !introduced.includes(explicit)) {
     // An explicit path is a disambiguator among what the commit introduced,
     // never an override of it. Trusting it unchecked would let the body name
@@ -843,7 +866,19 @@ export function planOracleFor(pr, headSha, { runGit = git } = {}) {
  * would carry the retained file plus its own and the check would refuse
  * forever. (Codex, #37 round 2.)
  */
-export function planFilesIntroducedBy(sha, { runGit = git } = {}) {
+export function planFilesIntroducedBy(sha, { runGit = git, base = null } = {}) {
+  if (base) {
+    // FROM THE RANGE, not from one commit. `-m` fixed a merge head reporting
+    // nothing, but left a second merge shape wrong: when a plan-review branch
+    // introducing PLAN_A merges a `main` that independently introduced
+    // PLAN_B, `-m` emits PLAN_B against one parent and PLAN_A against the
+    // other, so two candidates survive deduplication and the oracle refuses a
+    // loop that plainly contains one plan. A three-dot range against the PR's
+    // base asks the question that was always meant: which plans does THIS
+    // BRANCH contribute, relative to where it left main. (Codex, #38 round 5.)
+    const ranged = runGit(["diff", "--name-only", "-z", "--no-renames", `${base}...${sha}`]);
+    return [...new Set(ranged.split("\0").filter(Boolean).filter(isPlanPath))];
+  }
   // `-m` because a MERGE COMMIT otherwise reports nothing at all. This
   // repository requires merging newly-landed `main` into an already-pushed
   // branch rather than rebasing it, so a plan-review head IS routinely a
@@ -854,16 +889,13 @@ export function planFilesIntroducedBy(sha, { runGit = git } = {}) {
   //
   // `-m` emits one diff per parent, so the same path can appear twice; the
   // set is deduplicated.
+  // No base available (a cited commit with no range to measure against): fall
+  // back to the single commit, with `-m` so a merge reports something at all.
   const out = runGit(["diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "-m", "--no-renames", sha]);
-  return [
-    ...new Set(
-      out
-        .split("\0")
-        .filter(Boolean)
-        .filter((f) => /^docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md$/.test(f)),
-    ),
-  ];
+  return [...new Set(out.split("\0").filter(Boolean).filter(isPlanPath))];
 }
+
+const isPlanPath = (f) => /^docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md$/.test(f);
 
 /**
  * The reviewer-authored root comments, one per thread — the same population
@@ -1550,7 +1582,7 @@ function main() {
   );
   const artifactPatch = artifactDiff(base, head);
   const dispatch = dispatchDeclaration(head);
-  const planOracle = planOracleFor(snapshot.pr, head);
+  const planOracle = planOracleFor(snapshot.pr, head, { base });
   const declineCitation = declineCitationFor(budgetState.tier, head);
 
   const record = applyCaps(

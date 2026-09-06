@@ -832,7 +832,7 @@ test("an explicit plan path is read from the provenance line, and must be one th
 
   // And an explicit path IS a disambiguator among what the commit introduced,
   // never an override of it.
-  const overriding = "**Approved-plan source:** final plan commit abc1234, docs/plans/PLAN_ELSEWHERE.md";
+  const overriding = "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, docs/plans/PLAN_ELSEWHERE.md, approved by David on 2026-09-06";
   assert.throws(
     () => planOracleFor({ title: "x", body: overriding }, "head", { runGit: planGit([PLAN]) }),
     /refusing rather than reading a plan the cited commit did not deliver/,
@@ -856,9 +856,9 @@ test("the approved-plan pointer is read in the shape this repository actually wr
 
   // Quoted and bare forms keep working, and a backticked PATH resolves too.
   for (const variant of [
-    "**Approved-plan source:** final plan commit 972b60d",
-    "**Approved-plan source:** final plan commit \"972b60d\"",
-    "**Approved-plan source:** final plan commit `972b60d`, `docs/plans/PLAN_NEW.md`",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit \"972b60d\", approved by David on 2026-09-06",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit `972b60d`, `docs/plans/PLAN_NEW.md`, approved by David on 2026-09-06",
   ]) {
     assert.equal(planOracleFor({ title: "x", body: variant }, "head", { runGit: planGit([PLAN]) }).sha, "972b60d");
   }
@@ -965,4 +965,56 @@ test("the private path must carry its whole provenance, not the word shasum", ()
       `placeholder provenance must refuse: ${placeholder}`,
     );
   }
+});
+
+test("a merge of two branches that each introduced a plan resolves to this branch's plan", () => {
+  // `-m` fixed a merge head reporting nothing, and left a second merge shape
+  // wrong: a plan-review branch introducing PLAN_A merges a main that
+  // independently introduced PLAN_B, and `-m` emits one against each parent —
+  // two candidates survive deduplication and the oracle refuses a loop that
+  // plainly contains one plan. The range asks the question that was meant:
+  // which plans does THIS BRANCH contribute. (Codex, #38 round 5.)
+  const runGit = (args) => {
+    if (args[0] === "diff" && args.includes("--name-only")) {
+      // base...head — only the branch's own contribution
+      return "docs/plans/PLAN_A.md\0";
+    }
+    if (args[0] === "diff-tree") {
+      // what the commit-only view would have said: both plans
+      return "docs/plans/PLAN_A.md\0docs/plans/PLAN_B.md\0";
+    }
+    return "";
+  };
+  assert.deepEqual(planFilesIntroducedBy("head", { runGit, base: "base" }), ["docs/plans/PLAN_A.md"]);
+  // Without a base there is no range to ask, and the commit-only view stands.
+  assert.deepEqual(planFilesIntroducedBy("head", { runGit }), ["docs/plans/PLAN_A.md", "docs/plans/PLAN_B.md"]);
+});
+
+test("the public approved-plan provenance must be complete, not just a resolvable sha", () => {
+  const complete = "**Approved-plan source:** Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06";
+  assert.equal(planOracleFor({ title: "x", body: complete }, "head", { runGit: planGit([PLAN]) }).sha, "972b60d");
+  for (const partial of [
+    "**Approved-plan source:** final plan commit 972b60d",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit 972b60d",
+    "**Approved-plan source:** final plan commit 972b60d, approved by David on 2026-09-06",
+  ]) {
+    assert.throws(
+      () => planOracleFor({ title: "x", body: partial }, "head", { runGit: planGit([PLAN]) }),
+      /names no approved-plan source/,
+      `incomplete provenance must refuse: ${partial}`,
+    );
+  }
+});
+
+test("the patch and the artifact counts describe the same rename", () => {
+  // numstat disables rename detection so both sides land in the set; leaving
+  // it on for the patch emitted one zero-line rename hunk against two files
+  // and every line counted. The judge weighs both.
+  let patchFlags = null;
+  const runGit = (args) => {
+    if (args[0] === "diff" && args.includes("--no-color")) { patchFlags = args; return ""; }
+    return "";
+  };
+  cappedDiff(runGit, "base...head");
+  assert.ok(patchFlags.includes("--no-renames"), "the patch must use the same rename setting as the file list");
 });
