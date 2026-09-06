@@ -225,15 +225,24 @@ under a stated input budget. No rubric, role, or dispatch point changes.
     Thread replies are excluded whoever wrote them — the builder's replies
     are prose the issue's *Never* list forbids, and the reviewer's
     follow-ups add nothing a triage needs. Reviewer identity is the
-    existing `REVIEWER_LOGINS` set. Because a long loop can carry many
-    findings, the finding text has a **total** budget: bodies are emitted in
-    full while the budget lasts, spending it on unresolved findings first
-    and then most-recent-first, and any body that does not fit is truncated
-    with an explicit per-item marker and counted in a record-level
-    `findingsTextTruncated` field. Truncation is therefore always visible
-    to the judge and never silent. A refusal was rejected in favour of
-    degradation: refusing to build a record is refusing to adjudicate, which
-    on a long loop is the worst moment to have no judge.
+    existing `REVIEWER_LOGINS` set. The budget that bounds this text is
+    decision 12a's, not a per-field one, because the finding bodies are not
+    the only variable-length content in the record.
+12a. **Every variable-length field in the record is bounded, and any
+    truncation is visible.** (Round 1. The finding bodies were the reported
+    instance; the class is "content in the judge's single input whose size
+    is set by something other than this plan".) That content is exactly
+    `artifact.patch` (already capped), `findings.items[].body`, and
+    `planOracle`'s four sections — a plan file has no size limit either, so
+    capping only the finding text would move the same defect one field over.
+    Each has a stated cap, and the record carries one `truncation` object
+    naming every field that was cut and by how much. Within the finding text
+    the cap is spent on unresolved findings first, then most-recent-first;
+    within `planOracle` an over-long section is cut at its end with an
+    explicit marker, never dropped silently. `declineCitation` is a fixed
+    repository file, bounded by that file. Refusal was rejected in favour of
+    visible degradation: refusing to build a record is refusing to
+    adjudicate, which on a long loop is the worst moment to have no judge.
 13. **Measurement counters are *next*, not now.** #36 asks for counters of
     findings pre-empted by B1, defects caught by B2, checks synthesized by
     B3, David decisions changed by a D-role. None of those roles exists
@@ -251,17 +260,29 @@ under a stated input budget. No rubric, role, or dispatch point changes.
     round 1):
     - Class 1: 8 lines across 5 files. Post-change, exactly one declarative
       pin remains — the definition's own frontmatter — and it names `best`.
-    - Class 2: the broadened case-insensitive sweep adds live routing
-      instructions the `model:` oracle missed, confirmed at
-      `plan-review-loop/SKILL.md:224` ("dispatch one
-      `review-loop-adjudicator` on Fable") and `model-routing/SKILL.md:239`
-      ("All adjudication subagents dispatch on Fable — no exceptions"), plus
-      the guard's two refusal messages. Every *live routing* hit is rewritten
-      to name the definition file rather than a tier; every *historical
-      record* hit (a dated decision entry explaining a past choice) is left
-      alone, since rewriting history to match present configuration is how a
-      decision log stops being evidence. The implementation quotes the
-      post-change classification of every hit.
+    - Class 2: `git grep -n -i 'fable' -- core/ .claude/` returns **111**
+      hits; narrowed to the adjudicator-dispatch class (the same grep
+      filtered to lines also naming *adjudicat*/*judge*, since a mention of
+      the tier in a session-routing rule is a different subject) it returns
+      **35**. The `model:` oracle of class 1 missed most of them, including
+      the two live instructions Codex named — `plan-review-loop/SKILL.md:224`
+      ("dispatch one `review-loop-adjudicator` on Fable") and
+      `model-routing/SKILL.md:239-241` ("All adjudication subagents dispatch
+      on Fable — no exceptions") — plus `pr-watch/SKILL.md:212`,
+      `claude-core.md:650,665`, and the guard's two refusal messages at
+      `review-budget.mjs:1575-1576,1607`. Every hit is classified at
+      implementation time as **live routing** (an agent would act on it →
+      rewritten to name the definition file rather than a tier),
+      **historical record** (a dated decision entry explaining a past
+      choice → left alone, because rewriting history to match present
+      configuration is how a decision log stops being evidence), or
+      **coupled assertion**. The third category is a round-1 discovery worth
+      naming: `scripts/check-contract-consistency.mjs:141,150` asserts the
+      literal phrase "internal: budget 3, Fable-adjudicated leash to 6"
+      against the contract text, so a live-routing rewrite that ignored it
+      would turn a passing CI check red for a reason unrelated to the
+      change. It is in scope, and the implementation quotes the post-change
+      classification of all 35 hits.
     - Class 3: 6 lines across 2 files (one definition, one comment, one
       import, two call sites, one territory definition).
     - Class 4: 6 lines across 2 files, of which exactly one
@@ -446,10 +467,10 @@ Tests prove the invariants, with negatives:
   changes the note → the PR's text, not the base branch's; `product` tier →
   `null`.
 - `body` is the root comment in full; a thread with a builder reply carries
-  none of the reply's text; a high-volume fixture (findings whose combined
-  text exceeds the budget) truncates deterministically, marks every
-  truncated item, sets `findingsTextTruncated`, and never exceeds the
-  budget.
+  none of the reply's text.
+- Every variable-length field is bounded: a high-volume finding fixture and
+  an oversized plan file each truncate deterministically, name themselves in
+  the record's `truncation` object, and never exceed their cap.
 - `dispatch` is parsed from the definition at the reviewed head, not the
   working tree.
 - Receipt validator: a stamp that disagrees with the cited record refuses,
@@ -484,8 +505,8 @@ and confirm the numbers above.
   the judge still runs, at the best tier that exists. `dispatch` records
   what was declared, so an audit can see which alias was in force.
 - **A wider record costs tokens.** Plan oracle sections and the threat model
-  add perhaps 10–20k tokens; decision 12's budget bounds the finding text.
-  The patch cap is unchanged.
+  add perhaps 10–20k tokens; decision 12a bounds every variable-length
+  field. The patch cap is unchanged.
 - **`xhigh` costs more per verdict.** Perhaps 1.5–2x the judge's own tokens,
   on a dispatch that is ~0.1% of the loop. Accepted; visible at
   `/maintenance` alongside verdict counts.
@@ -512,8 +533,8 @@ proposed.
       decision 2.
 - [ ] `planOracle`, `declineCitation`, `dispatch`, `findings.items[].body`
       present, with refusals where a decision requires one.
-- [ ] The finding-text budget holds on a high-volume fixture, with
-      truncation marked.
+- [ ] Every variable-length field's cap holds — finding text and plan
+      oracle alike — with truncation named in the record.
 - [ ] The definition declares model and effort; class-1 and class-2 oracles
       re-run and quoted in the PR body.
 - [ ] New adjudication receipts refuse on a stamp that disagrees with the
