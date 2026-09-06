@@ -780,8 +780,12 @@ export function planReviewSignals(pr) {
   // template legitimately shows -- as the declaration, and with an ordinary
   // title the generator then refused the PR as half-declared: a deadlock on a
   // documentation PR. (Codex, #38 round 8.)
+  // LIVE TEXT: a quoted or indented example of the declaration under a live
+  // `## Review mode` heading on a documentation PR set the body signal, and
+  // with an ordinary title the generator refused the PR as half-declared --
+  // a deadlock, the one class the bounded round wrote for. (Codex, #38 round 13.)
   const section = typeof pr?.body === "string" ? sectionOf(pr.body, "Review mode") : null;
-  const body = typeof section === "string" && /plan review only/i.test(section.slice(0, 400));
+  const body = typeof section === "string" && /plan review only/i.test(outsideFences(section).slice(0, 400));
   return { title, body, isPlanReview: title && body, disagree: title !== body };
 }
 
@@ -1963,6 +1967,17 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
       throw new Error(
         `snapshot reviews[${i}] carries an unparseable submitted_at (${JSON.stringify(r?.submitted_at ?? null)}); ` +
           `passes are ordered by it and the capture-order check anchors on it`,
+      );
+    }
+  });
+  // The same rule for the OTHER pass channel: a clean pass arrives as an
+  // issue comment, and an undated one was counted toward completed passes
+  // with the ordering anchored on a later dated entry. (Codex, #38 round 13.)
+  (snapshot.issueComments ?? []).forEach((c, i) => {
+    if (!Number.isFinite(Date.parse(c?.created_at ?? ""))) {
+      throw new Error(
+        `snapshot issueComments[${i}] carries an unparseable created_at (${JSON.stringify(c?.created_at ?? null)}); ` +
+          `clean passes are counted and ordered by it`,
       );
     }
   });

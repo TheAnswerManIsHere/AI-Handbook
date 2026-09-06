@@ -124,6 +124,13 @@ test("threads and the request set must be captured after the latest completed pa
   );
 });
 
+test("assertAdjudicationSnapshot: every issue comment's created_at must parse", () => {
+  // The other pass channel. (Codex, #38 round 13.)
+  const snap = validSnapshot();
+  snap.issueComments = [{ id: 1, user: { login: "x" }, body: "y", created_at: "whenever" }];
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /issueComments\[0\] carries an unparseable created_at/);
+});
+
 test("assertAdjudicationSnapshot: every review's submitted_at must parse", () => {
   const snap = validSnapshot();
   snap.reviews = [{ id: 1, user: { login: "x" }, submitted_at: "not a time" }];
@@ -866,6 +873,12 @@ test("a fenced Review-mode example does not declare plan review", () => {
     "```",
   ].join("\n");
   assert.deepEqual(planReviewSignals({ title: "Document the template", body: documenting }).body, false);
+  // A quoted or indented example under a LIVE `## Review mode` heading is not
+  // a declaration either. (Codex, #38 round 13.)
+  for (const example of ["> Plan review only. Never merge.", "    Plan review only. Never merge."]) {
+    const body = ["## Review mode", "", "The template opens with:", "", example].join("\n");
+    assert.equal(planReviewSignals({ title: "Document the template", body }).disagree, false, example);
+  }
   // The real declaration, outside a fence, still counts -- and it is the shape
   // #37 actually wrote.
   assert.equal(

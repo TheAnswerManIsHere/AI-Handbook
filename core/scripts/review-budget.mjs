@@ -2311,9 +2311,16 @@ async function check(flags, io) {
   const previous = readJson(io, checkPath(pr));
   if (previous.state === "ok") {
     const before = Date.parse(previous.value?.capturedAt ?? "");
-    if (Number.isFinite(before) && Date.parse(capturedAtOf(snapshot)) <= before) {
+    // THE SAME COLLECTION SET AS THE ACCEPTANCE CHECK ABOVE. With the default
+    // set this returned null for a recipe-shaped snapshot, `Date.parse(null)`
+    // is NaN, the comparison was false, and re-running `check` on the same
+    // still-fresh evidence overwrote a consumed receipt -- one observation
+    // authorising several posts, which is exactly what this guard exists to
+    // refuse. Third site for this set in one round. (Codex, #38 round 13.)
+    const thisCapture = capturedAtOf(snapshot, null, { require: ROUND_CHECK_COLLECTIONS });
+    if (Number.isFinite(before) && Date.parse(thisCapture) <= before) {
       throw new Error(
-        `this snapshot was captured at ${capturedAtOf(snapshot)}, which is not newer than the evidence behind ` +
+        `this snapshot was captured at ${thisCapture}, which is not newer than the evidence behind ` +
           `the current receipt (${previous.value.capturedAt}). Re-capture the snapshot: re-presenting an ` +
           "observation that has already authorized a post is how one evidence state authorizes several.",
       );
