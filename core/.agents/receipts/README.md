@@ -105,18 +105,26 @@ simply one of the passes.
 { "pr": 503, "tier": "internal", "budget": 3, "criticality": 45,
   "artifact": "review-round budget guard", "declaredAt": "…" }
 
-// loop-extension-<pr>-1.json — COMMITTED. Tripwire 1, from the Fable adjudicator.
+// loop-extension-<pr>-1.json — COMMITTED. Tripwire 1, from the adjudicator.
 // recordPath must cite a mechanical record generated AT the cap, which is how
 // the guard knows the adjudication followed its tripwire rather than preceding it.
+// modelRequested/effortRequested are COPIED FROM THAT RECORD's `dispatch` block —
+// which the generator read from the agent definition at the reviewed commit — and
+// both the guard and pr-ready.mjs's merge gate compare them back against it. They
+// are required exactly when the cited record carries `dispatch`; a receipt citing
+// an older record is legacy and valid without them. Compatibility is keyed on the
+// record's schema, never on a date.
 { "pr": 503, "kind": "adjudication", "verdict": "continue", "grant": 2,
   "risk": "<the named unaddressed behavioral risk>",
+  "modelRequested": "<record.dispatch.model>", "effortRequested": "<record.dispatch.effort>",
   "recordPath": ".agents/adjudications/503-1.json", "createdAt": "…" }
 
 // loop-extension-<pr>-2.json — COMMITTED. Tripwire 2 (the David gate), step one:
-// the fresh Fable recommendation, committed as an ordinary adjudication receipt.
+// the fresh recommendation, committed as an ordinary adjudication receipt.
 // At the gate it grants nothing by itself — it is what David reviews.
 { "pr": 503, "kind": "adjudication", "verdict": "ship-with-gaps-recorded", "grant": 0,
   "risk": "", "recordPath": ".agents/adjudications/503-2.json",
+  "modelRequested": "<record.dispatch.model>", "effortRequested": "<record.dispatch.effort>",
   "decidedAt": "…", "reasoning": "…", "gaps": ["…"] }
 
 // loop-extension-<pr>-3.json — COMMITTED. Tripwire 2, step two: David's decision
@@ -150,7 +158,7 @@ simply one of the passes.
 
 Tiers: `internal` = 3 rounds, `product` = 5, `sensitive` = 5
 (auth/payments/migrations). Every tier runs the same two-tier tripwire
-(David, 2026-08-26): Fable adjudication from the budget, a 3-round self-serve
+(David, 2026-08-26): adjudication from the budget, a 3-round self-serve
 leash past it, then the David gate — repeating wherever a David grant runs out.
 
 ## Fail-closed, everywhere

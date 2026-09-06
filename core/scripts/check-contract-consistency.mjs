@@ -100,7 +100,7 @@ export const RETIRED = [
     phrase: "outer rail",
     retired: "2026-08-26",
     why: "retired tier-2 tripwire shape (a 2x-budget hard stop) — replaced by the David gate under the two-tier tripwire",
-    instead: "the David gate: budget + 3-round self-serve leash, repeating with each David grant, entered with a fresh Fable recommendation",
+    instead: "the David gate: budget + 3-round self-serve leash, repeating with each David grant, entered with a fresh adjudication",
   },
   {
     phrase: "2x the declared budget",
@@ -117,8 +117,8 @@ export const RETIRED = [
   {
     phrase: "no self-serve",
     retired: "2026-08-26",
-    why: "retired tier property — every tier now self-serves the leash via the Fable adjudicator",
-    instead: "the two-tier tripwire on every tier: Fable at the budget, the David gate at budget + 3",
+    why: "retired tier property — every tier now self-serves the leash via the adjudicator",
+    instead: "the two-tier tripwire on every tier: adjudication at the budget, the David gate at budget + 3",
   },
   {
     phrase: "mandatory 🛑 at 5",
@@ -138,7 +138,7 @@ export const RETIRED = [
     phrase: "hard cap 3",
     retired: "2026-08-26",
     why: "retired internal-tier shape (straight to David at 3, no extension of any kind)",
-    instead: "internal: budget 3, Fable-adjudicated leash to 6, the David gate at 6",
+    instead: "internal: budget 3, adjudicated leash to 6, the David gate at 6",
   },
   {
     // The same retired rule's attested prose wording (docs/engineering/
@@ -147,7 +147,7 @@ export const RETIRED = [
     phrase: "hard cap of 3",
     retired: "2026-08-26",
     why: "retired internal-tier shape (straight to David at 3, no extension of any kind)",
-    instead: "internal: budget 3, Fable-adjudicated leash to 6, the David gate at 6",
+    instead: "internal: budget 3, adjudicated leash to 6, the David gate at 6",
   },
   {
     // "no second self-serve extension, ever" — the one-extension rule, whose

@@ -839,7 +839,9 @@ test("an @codex review post past its budget is refused at tripwire 1", () => {
   const { blocked: isBlocked, reason } = decide(reviewPayload("@codex review"), { io, now: NOW_MS });
   assert.equal(isBlocked, true);
   assert.match(reason, /TRIPWIRE 1/);
-  assert.match(reason, /ON FABLE/);
+  // The tier is declared in the agent definition, not named at the dispatch
+  // site, so the refusal points at the agent instead of a model.
+  assert.match(reason, /review-loop-adjudicator/);
 });
 
 test("an ordinary PR comment is unaffected by the budget", () => {

@@ -690,6 +690,134 @@ groups:
       # two flip in one commit, the way claude-core and planning already do.
       - machinery-config
     mentions:
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        from: core/scripts/review-loop-record.mjs
+        form: "bugfix/SKILL.md"
+        count: 2
+        why: >
+          A citation in a comment, naming where the bugfix oracle's shape is
+          specified so the next reader can check the matcher against it. The
+          generator never opens the skill: it matches the PR BODY an author
+          wrote from that skill, and a consumer without the `skills` group
+          still classifies every bugfix PR correctly.
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: "bugfix/SKILL.md"
+        count: 3
+        why: >
+          The same citation in the test that pins the matcher to the
+          documented block. The test builds the body it matches; it never
+          reads the skill.
+      - group: claude-core
+        ref: core/.agents/core/claude-core.md
+        form: "claude-core.md"
+        from: core/scripts/review-loop-record.mjs
+        count: 2
+        why: >
+          Cited twice as the contract that specifies the THREE approved-plan
+          provenance forms, line-ranged: once on the public/split matchers
+          (round 7 found the split form matched nothing) and once on the
+          private-path matcher (round 8 found it accepted `shasum` without
+          `-a 256`). Evidence for where the shapes are defined; the generator
+          parses the PR body and never opens this file.
+      - group: skills
+        ref: core/.claude/skills/pr-watch/SKILL.md
+        form: "pr-watch/SKILL.md"
+        from: core/scripts/review-budget.mjs
+        count: 1
+        why: >
+          Cited on `ROUND_CHECK_COLLECTIONS` as the recipe the round check's
+          required capture set is transcribed from (get, get_reviews,
+          get_comments) — round 12 found the check demanding a threads
+          timestamp the recipe never captures. Evidence for where the set
+          comes from; the guard reads the snapshot, never the skill.
+      - group: guard
+        ref: core/.claude/guard.sh
+        form: ".claude/guard.sh"
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        count: 1
+        why: >
+          Appears inside a test FIXTURE — the verbatim bugfix-oracle block of
+          Overhypeme #611, the first real bugfix body the execution bar was
+          run against, whose reported symptom happens to quote the guard's
+          path. The test exercises the oracle matcher against that text; it
+          never opens the guard, and a consumer without the `guard` group
+          runs it identically.
+      - group: claude-core
+        ref: core/.agents/core/claude-core.md
+        form: "claude-core.md"
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        count: 1
+        why: >
+          The same line-citation over the test that pins both provenance forms
+          to the contract, so a change to either form fails a test rather than
+          silently parting the matcher from what authors are told to write. The
+          test builds the lines it matches; it never reads the contract.
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        form: ".claude/skills/bugfix/SKILL.md"
+        from: core/scripts/review-loop-record.mjs
+        count: 2
+        why: >
+          The same citation in its fully-qualified spelling: once line-cited
+          on the field table transcribed from the schema, once in the refusal
+          that names the schema a malformed oracle failed. Round 6 tightened
+          the matcher from "the block opens with a Fix tier line" to "the
+          block carries every field the schema lists", and a matcher written
+          from a format has to say WHICH format so the next reader can check
+          it. Still evidence: the generator opens the PR body, never the
+          skill.
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        form: ".claude/skills/bugfix/SKILL.md"
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        count: 1
+        why: >
+          The same line-citation over the two oracle blocks the test
+          transcribes whole, so a schema change fails a test rather than
+          silently parting the matcher from the contract. The test builds the
+          bodies it matches; it never reads the skill.
+      - group: engineering
+        ref: core/docs/engineering/code-review.md
+        form: "code-review.md"
+        from: core/scripts/review-loop-record.mjs
+        count: 1
+        why: >
+          Cited as the document that specifies the Approved-plan source
+          field's CONTENT and, deliberately, not its typography — the reason
+          the provenance is now read from the declared source region in either
+          the heading or the inline-label shape. Evidence for why the matcher
+          is written the way it is; the generator reads the PR body, never
+          this contract, and a consumer without the `engineering` group
+          resolves provenance identically.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/review-loop-record.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          On an internal-tier loop the record carries this note as
+          `declineCitation` — the basis that tier's rubric declines against.
+          Evidence, not instruction: the generator states a null with its
+          reason when the note is absent in both payload layouts, and every
+          other field of the record is unaffected. Requiring `memory` here
+          would drag `contracts`, `planning` and `skills` into machinery's
+          closure through memory's own requires, coupling a consumer that
+          wants the review machinery to most of the handbook — a far larger
+          claim than one optional citation earns.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          The test names the same path as a FIXTURE, to prove the layout-aware
+          resolver retries under `core/` when the consumer path is absent —
+          which is how this file is stored in the handbook. It builds the tree
+          it reads; it never opens the real note, and it passes in a consumer
+          that has no `memory` group at all.
       - group: contracts
         ref: core/docs/ai-context/known-failure-patterns.md
         from: core/scripts/pr-ready.mjs

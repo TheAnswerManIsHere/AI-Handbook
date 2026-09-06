@@ -18,12 +18,14 @@ import {
   mentionsReviewRequest,
   prNumberFrom,
   validateBudget,
+  validateDispatchStamps,
   validateExtension,
   validateCheckReceipt,
   assertCountingSnapshot,
   judgeReviewRequest,
   attachedRoots,
   MAX_CHECK_AGE_MS,
+  ROUND_CHECK_COLLECTIONS,
   repoSlug,
   declare,
   machineryConfig,
@@ -38,6 +40,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const NOW = Date.parse("2026-08-17T12:00:00.000Z");
+const NOW_ISO = new Date(NOW).toISOString();
 
 export const TEST_SLUG = "TestOwner/TestRepo";
 export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
@@ -137,10 +140,15 @@ const check = (pr, spent, extra = {}) =>
  * The mechanical record an adjudication cites. It must show the loop AT its
  * cap, which is what proves the adjudication followed a fired tripwire.
  */
-const recordFile = (pr, passes = 5, { repo = TEST_SLUG } = {}) =>
+const recordFile = (pr, passes = 5, { repo = TEST_SLUG, dispatch = undefined } = {}) =>
   json({
     generator: "scripts/review-loop-record.mjs",
     pr,
+    // The dispatch declaration the generator read from the agent definition at
+    // the reviewed commit. A record without it is pre-`dispatch` and its
+    // receipts are legacy -- compatibility is keyed on this field's presence,
+    // never on a date.
+    ...(dispatch === undefined ? {} : { dispatch }),
     // The repository this record's loop belongs to, compared against the
     // budget's. Omitted here until round 9, which is exactly how a record
     // from another repository could be committed in and spend this loop's
@@ -730,6 +738,35 @@ test("allowance refuses a nonsense spent count rather than defaulting", () => {
 // The round-check receipt: fresh evidence, one post
 // ---------------------------------------------------------------------------
 
+test("the round check requires capture times only for the collections it reads", () => {
+  // The documented recipe captures get, get_reviews and get_comments -- no
+  // threads. Requiring a reviewThreads time refused a truthful snapshot until
+  // the operator invented one. (Codex, #38 round 12.)
+  assert.deepEqual(ROUND_CHECK_COLLECTIONS, ["pr", "reviews", "issueComments"]);
+  const t = "2026-08-17T10:35:00Z"; // the snapshot fixture's own clock
+  assert.doesNotThrow(() => assertSnapshot(1, snapshot(1, { capturedAt: { pr: t, reviews: t, issueComments: t } })));
+  // And a collection the check DOES read is still required.
+  assert.throws(
+    () => assertSnapshot(1, snapshot(1, { capturedAt: { pr: t, issueComments: t } })),
+    /dates some collections but not reviews/,
+  );
+});
+
+test("a round-check receipt's capturedAt must be a scalar the guard can parse", () => {
+  // `check()` stored `snapshot.capturedAt` raw. Once the per-collection OBJECT
+  // form was accepted at the door, that receipt carried an object;
+  // `validateCheckReceipt` does `Date.parse(receipt.capturedAt)`, gets NaN, and
+  // refuses the next review request as stale — so the compatibility fix minted
+  // a receipt the guard could never consume, breaking the very workflow it was
+  // for. (Codex, #38 round 7, on this same round's change.)
+  const objectForm = {
+    ...JSON.parse(check(1, 0)),
+    capturedAt: { pr: NOW_ISO, reviews: NOW_ISO, issueComments: NOW_ISO, reviewThreads: NOW_ISO },
+  };
+  assert.ok(validateCheckReceipt(1, objectForm, NOW, TEST_SLUG), "an object capturedAt is not consumable");
+  assert.equal(validateCheckReceipt(1, JSON.parse(check(1, 0)), NOW, TEST_SLUG), null, "the scalar form is");
+});
+
 test("a round-check receipt must be bound to this PR and repo", () => {
   assert.match(validateCheckReceipt(1, JSON.parse(check(2, 0)), NOW, TEST_SLUG), /names PR 2, not 1/);
   assert.match(
@@ -796,13 +833,19 @@ test("an in-budget round is allowed, and consumes its receipt", () => {
   );
 });
 
-test("the round at the budget is refused, and the refusal names tripwire 1 and Fable", () => {
+test("the round at the budget is refused, and the refusal names tripwire 1 and how to dispatch", () => {
   const io = fakeIo({ [budgetPath(1)]: budget(1), [checkPath(1)]: check(1, 5) });
   const { blocked, reason } = judgeReviewRequest(post(1), io, NOW);
   assert.equal(blocked, true);
   assert.match(reason, /TRIPWIRE 1/);
-  assert.match(reason, /ON FABLE/);
-  assert.match(reason, /model: "fable"/);
+  // The recipe names the AGENT and forbids overriding its declaration -- it no
+  // longer names a model tier, because the tier is declared once in the agent
+  // definition and a per-invocation model would outrank and re-pin it.
+  assert.match(reason, /review-loop-adjudicator/);
+  assert.match(reason, /NO per-invocation model or effort/i);
+  assert.doesNotMatch(reason, /model: "fable"/, "the dispatch must not re-pin the tier the definition names");
+  assert.match(reason, /modelRequested/, "the recipe teaches the stamps the validator requires");
+  assert.match(reason, /effortRequested/);
   assert.match(reason, /review-loop-record\.mjs/, "the record is script-generated, never the loop's prose");
   assert.match(reason, /counted from GitHub's own record/);
   assert.equal(JSON.parse(io.store[checkPath(1)]).consumedAt, undefined, "a refused round consumes nothing");
@@ -2230,4 +2273,106 @@ test("leading indentation before a slug key is dropped, since a slug has no whit
   const { map, problem } = attachedRoots(registry(`  ${FOREIGN_SLUG}=${FOREIGN_ROOT}`));
   assert.equal(problem, null);
   assert.equal(map.get(FOREIGN_SLUG.toLowerCase()), FOREIGN_ROOT);
+});
+
+// ---------------------------------------------------------------------------
+// The verdict receipt's model/effort stamps
+//
+// "Carries a non-empty string" accepts fiction: the session writes the receipt
+// by hand after the dispatch. The stamps are checked against the RECORD THEY
+// CITE, whose `dispatch` block the generator read from the agent definition at
+// the reviewed commit -- evidence fixed before the verdict existed.
+// (Codex, #37 round 2.)
+// ---------------------------------------------------------------------------
+
+const DISPATCH = { model: "best", effort: "xhigh", source: ".claude/agents/review-loop-adjudicator.md", sha: "abc123" };
+const stamped = (extra = {}) => adjudication(1, { modelRequested: "best", effortRequested: "xhigh", ...extra });
+
+test("a receipt whose stamps disagree with its cited record is refused", () => {
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [RECORD(1)]: recordFile(1, 5, { dispatch: DISPATCH }),
+  });
+  const bad = validateExtension(1, "internal", stamped({ modelRequested: "sonnet" }), { io, slug: TEST_SLUG });
+  assert.match(String(bad), /modelRequested is "sonnet", but the record it cites declares "best"/);
+  const badEffort = validateExtension(1, "internal", stamped({ effortRequested: "low" }), { io, slug: TEST_SLUG });
+  assert.match(String(badEffort), /effortRequested is "low"/);
+  assert.equal(validateExtension(1, "internal", stamped(), { io, slug: TEST_SLUG }), null, "matching stamps pass");
+});
+
+test("compatibility is keyed on the record's schema, not on a date", () => {
+  // A cutoff date cannot work here: the plan-review PR that specified this
+  // never merges, and an implementation PR cannot know its own merge date --
+  // so every receipt written while it was under review would read as legacy.
+  const legacyIo = fakeIo({ [budgetPath(1)]: budget(1), [RECORD(1)]: recordFile(1, 5) });
+  assert.equal(
+    validateExtension(1, "internal", adjudication(1), { io: legacyIo, slug: TEST_SLUG }),
+    null,
+    "a receipt citing a pre-dispatch record is legacy and valid without stamps",
+  );
+  const modernIo = fakeIo({ [budgetPath(1)]: budget(1), [RECORD(1)]: recordFile(1, 5, { dispatch: DISPATCH }) });
+  const backdated = adjudication(1, { decidedAt: "2020-01-01T00:00:00Z" });
+  assert.match(
+    String(validateExtension(1, "internal", backdated, { io: modernIo, slug: TEST_SLUG })),
+    /modelRequested/,
+    "backdating cannot buy legacy treatment when the cited record carries dispatch",
+  );
+});
+
+test("the stamp comparison consults the record, never current configuration", () => {
+  // Config is mutable and may legitimately change between a dispatch and a
+  // later read; the record is not.
+  assert.equal(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, { dispatch: DISPATCH }), null);
+  assert.equal(validateDispatchStamps({}, {}), null, "no dispatch in the record: nothing to compare");
+});
+
+test("a null dispatch block is an edited record, not a legacy one", () => {
+  // `if (!dispatch) return null` read `dispatch: null` as pre-schema and
+  // skipped both stamp comparisons. Only an ABSENT key predates the schema;
+  // a null block is a record something edited after generation.
+  // (Codex, #38 round 8.)
+  for (const dispatch of [null, false, 0, "best"]) {
+    assert.match(
+      String(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, { dispatch })),
+      /carries `dispatch: /,
+      JSON.stringify(dispatch),
+    );
+    assert.match(String(validateDispatchStamps({}, { dispatch })), /carries `dispatch: /);
+  }
+  assert.equal(validateDispatchStamps({}, { pr: 1 }), null, "an absent key is still legacy");
+});
+
+test("a dispatch block with no model is corruption, and fails closed", () => {
+  // `dispatchDeclaration` throws on a definition with no frontmatter `model`,
+  // so the generator cannot write this record. Treating its missing model like
+  // the legitimately-absent `effort` of an older definition turned OFF the one
+  // check that proves the verdict came from the declared judge, for any
+  // receipt citing such a record. (Codex, #38 round 6.)
+  for (const dispatch of [
+    { effort: "xhigh", source: "def.md", sha: "abc123" },
+    { model: null, effort: "xhigh" },
+    { model: "   ", effort: "xhigh" },
+  ]) {
+    assert.match(
+      String(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, { dispatch })),
+      /carries a `dispatch` block with no `model`/,
+      JSON.stringify(dispatch),
+    );
+    // Omitting the stamp does not buy past it either -- that was the bypass.
+    assert.match(String(validateDispatchStamps({}, { dispatch })), /no `model`/);
+  }
+});
+
+test("a null-valued dispatch field is still an expectation", () => {
+  // Skipping the comparison when the record's value is null let any invented
+  // effortRequested through on a record read from an older definition that
+  // declared no effort -- the "carries a string" acceptance this check exists
+  // to remove, one field deeper. Legacy is keyed on NO dispatch block at all.
+  const record = { dispatch: { model: "best", effort: null, source: "def.md", sha: "abc123" } };
+  assert.match(
+    String(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, record)),
+    /declares no effort/,
+  );
+  assert.equal(validateDispatchStamps({ modelRequested: "best" }, record), null, "absent matches absent");
+  assert.equal(validateDispatchStamps({ modelRequested: "best", effortRequested: null }, record), null);
 });

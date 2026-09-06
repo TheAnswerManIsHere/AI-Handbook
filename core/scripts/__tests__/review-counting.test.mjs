@@ -167,6 +167,9 @@ function stub(pages) {
 // ---------------------------------------------------------------------------
 
 import {
+  capturedAtDetail,
+  capturedAtOf,
+  headRepoOf,
   countFindings,
   findingsByRound,
   reviewerPasses,
@@ -308,7 +311,11 @@ test("fromMcp refuses a snapshot with no completeness attestation at all", () =>
   assert.throws(() => fromMcp(noAttestation), /complete\.reviews/);
 });
 
-for (const key of ["reviews", "files", "reviewThreads"]) {
+// `files` is deliberately absent from both loops below: the artifact's file
+// list now comes from git over base...head, one source shared with the patch
+// and territory, so the snapshot no longer attests to it (see
+// review-loop-record.mjs's artifactFileList).
+for (const key of ["reviews", "reviewThreads"]) {
   test(`fromMcp refuses a snapshot where complete.${key} is explicitly false`, () => {
     assert.throws(
       () => fromMcp(realSnapshot({ complete: { reviews: true, files: true, reviewThreads: true, [key]: false } })),
@@ -331,11 +338,32 @@ test("fromMcp refuses complete:true attesting to a collection that is not actual
   assert.throws(() => fromMcp(malformed), /"reviewThreads" must be an array/);
 });
 
-for (const key of ["reviews", "files", "reviewThreads"]) {
+for (const key of ["reviews", "reviewThreads"]) {
   test(`fromMcp refuses ${key} when it is present but not an array`, () => {
     assert.throws(() => fromMcp(realSnapshot({ [key]: "not-an-array" })), new RegExp(`"${key}" must be an array`));
   });
 }
+
+test("the snapshot's retired `files` field is ignored in every shape it can arrive in", () => {
+  // Absent, empty, and old-shape all pass, and none of them can influence a
+  // derived value any more. #28 and #33 both carried `files: []` with
+  // `complete.files: true`, which is how a 50 KB patch was reported as an
+  // artifact of zero files (#34 gap 2). The field is gone from the contract
+  // rather than validated harder.
+  const { files: _drop, ...noFiles } = realSnapshot();
+  const shapes = [
+    noFiles,
+    realSnapshot({ files: [] }),
+    realSnapshot({ files: [{ filename: "a.ts", additions: 1, deletions: 0 }] }),
+  ];
+  const derived = shapes.map((snap) => fromMcp(snap));
+  for (const d of derived) {
+    assert.deepEqual(
+      { reviews: d.reviews.length, threads: d.reviewThreads?.length ?? null },
+      { reviews: derived[0].reviews.length, threads: derived[0].reviewThreads?.length ?? null },
+    );
+  }
+});
 
 test("fromMcp refuses a thread whose comments field is missing", () => {
   const threadWithNoComments = { id: "PRRT_broken" };
@@ -535,4 +563,136 @@ test("reviewerPasses counts both when the summary names a commit no marker does"
     passes.map((p) => p.source),
     ["summary", "comment"],
   );
+});
+
+test("a review comment belongs to the review it was written FOR, not the previous one", () => {
+  // GitHub creates a review's comments moments before the review is
+  // submitted. Matching "latest review at or before the comment" therefore
+  // attributed every comment to the PREVIOUS round, shifting `rounds.trend`
+  // — the field the adjudicator's rubric weighs directly. Timestamps are
+  // this repository's own PR #38: the round-4 comments landed at 16:53:30Z,
+  // four seconds before the round-4 review at 16:53:34Z, and were counted
+  // into round 3. (Codex found the fix; the adjudicator found the defect,
+  // from the record's own numbers.)
+  const reviews = [
+    { id: 1, user: { login: "chatgpt-codex-connector[bot]" }, submitted_at: "2026-09-06T16:10:38Z" },
+    { id: 2, user: { login: "chatgpt-codex-connector[bot]" }, submitted_at: "2026-09-06T16:53:34Z" },
+  ];
+  const threads = [
+    {
+      id: "PRRT_round4",
+      comments: [
+        {
+          author: "chatgpt-codex-connector",
+          created_at: "2026-09-06T16:53:30Z",
+          body: "a round-4 finding",
+          html_url: "https://github.com/o/r/pull/38#discussion_r99",
+        },
+      ],
+    },
+  ];
+  const [comment] = flattenMcpThreads(threads, reviews);
+  assert.equal(comment.pull_request_review_id, 2, "the comment belongs to the review submitted just after it");
+
+  // A reply posted after the last pass still attaches to that pass.
+  const later = flattenMcpThreads(
+    [{ id: "PRRT_after", comments: [{ author: "chatgpt-codex-connector", created_at: "2026-09-06T17:30:00Z", body: "later", html_url: "https://github.com/o/r/pull/38#discussion_r100" }] }],
+    reviews,
+  );
+  assert.equal(later[0].pull_request_review_id, 2);
+});
+
+// ---------------------------------------------------------------------------
+// The two shapes the same snapshot file has to satisfy in two different gates
+// ---------------------------------------------------------------------------
+
+test("the head repository is read in either documented shape", () => {
+  // Every validator demanded the bare string while its own refusal message
+  // told the operator to take the value from `head.repo.full_name` — so a
+  // capture copied in the API's own shape was refused by a message reading as
+  // though the wrong field had been copied. (Round 7.)
+  assert.equal(headRepoOf({ head: { repo: "TheAnswerManIsHere/AI-Handbook" } }), "TheAnswerManIsHere/AI-Handbook");
+  assert.equal(
+    headRepoOf({ head: { repo: { full_name: "TheAnswerManIsHere/AI-Handbook" } } }),
+    "TheAnswerManIsHere/AI-Handbook",
+  );
+  assert.equal(headRepoOf({ head: {} }), null);
+  assert.equal(headRepoOf({}), null);
+  assert.equal(headRepoOf(null), null);
+});
+
+test("capturedAt is read in either shape, and the whole-snapshot view takes the oldest", () => {
+  // `review-budget.mjs check` required a parseable TIMESTAMP here;
+  // `review-loop-record.mjs` required an OBJECT keyed by collection. No single
+  // file satisfied both, so the documented workflow — capture once, run the
+  // budget check, generate the record from that same capture — could not be
+  // executed. Found by running it. (Round 7.)
+  const scalar = { capturedAt: "2026-09-06T17:00:00Z" };
+  assert.equal(capturedAtOf(scalar), "2026-09-06T17:00:00Z");
+  assert.equal(capturedAtOf(scalar, "issueComments"), "2026-09-06T17:00:00Z");
+
+  const perCollection = {
+    capturedAt: {
+      pr: "2026-09-06T17:50:00Z",
+      reviews: "2026-09-06T17:20:00Z",
+      issueComments: "2026-09-06T17:40:00Z",
+      reviewThreads: "2026-09-06T17:45:00Z",
+    },
+  };
+  assert.equal(capturedAtOf(perCollection, "issueComments"), "2026-09-06T17:40:00Z");
+  // Freshness is a property of the STALEST evidence in the file.
+  assert.equal(capturedAtOf(perCollection), "2026-09-06T17:20:00Z");
+
+  assert.equal(capturedAtOf({}), null);
+  assert.equal(capturedAtOf({ capturedAt: {} }), null);
+  assert.equal(capturedAtOf({ capturedAt: { reviews: "not a date" } }), null);
+  assert.equal(capturedAtOf(perCollection, "files"), null);
+
+  // A PARTIAL capture time covers nothing. Taking the oldest VALID entry and
+  // shrugging at the rest let a snapshot with stale, undated `reviews` and a
+  // fresh `issueComments` pass the freshness bound and mint a round-check
+  // receipt from evidence nothing had dated — undercounting spent rounds in
+  // the guard's own favour. (Codex, #38 round 7, on this same round's change.)
+  assert.deepEqual(capturedAtDetail({ capturedAt: { issueComments: "2026-09-06T18:00:00Z" } }), {
+    at: null,
+    missing: ["pr", "reviews", "reviewThreads"],
+    future: [],
+  });
+  const now = Date.parse("2026-09-06T19:00:00Z");
+  assert.deepEqual(capturedAtDetail(perCollection, { now }), { at: "2026-09-06T17:20:00Z", missing: [], future: [] });
+  assert.deepEqual(capturedAtDetail(scalar, { now }), { at: "2026-09-06T17:00:00Z", missing: [], future: [] });
+  assert.deepEqual(capturedAtDetail({}), { at: null, missing: ["capturedAt"], future: [] });
+  // Bounded on BOTH sides: a future collection is named, not averaged away by
+  // the oldest. (Codex, #38 round 9.)
+  assert.deepEqual(
+    capturedAtDetail({ capturedAt: { ...perCollection.capturedAt, issueComments: "2026-09-06T20:00:00Z" } }, { now }),
+    { at: null, missing: [], future: ["issueComments"] },
+  );
+  assert.deepEqual(capturedAtDetail({ capturedAt: "2026-09-06T20:00:00Z" }, { now }), { at: null, missing: [], future: ["capturedAt"] });
+  // An invalid timestamp is missing, not merely skipped.
+  assert.deepEqual(
+    capturedAtDetail({ capturedAt: { ...perCollection.capturedAt, reviews: "whenever" } }).missing,
+    ["reviews"],
+  );
+});
+
+test("a comment created a second after its review still belongs to that review", () => {
+  // GitHub writes the review row, then its comments; `gap >= 0` sent a
+  // comment created one second after the review to the NEXT pass. Two of
+  // #38's round-12 findings did exactly that on a real capture. (#38 round 13.)
+  const reviews = [
+    { id: 1, user: BOT, submitted_at: "2026-09-06T19:46:22Z" },
+    { id: 2, user: BOT, submitted_at: "2026-09-06T21:43:02Z" },
+  ];
+  const flat = flattenMcpThreads(
+    [{ id: "PRRT_x", comments: [{ author: "chatgpt-codex-connector", created_at: "2026-09-06T19:46:23Z", body: "f", html_url: "https://github.com/o/r/pull/38#discussion_r1" }] }],
+    reviews,
+  );
+  assert.equal(flat[0].pull_request_review_id, 1);
+  // Well outside the skew it is still the later review's comment.
+  const later = flattenMcpThreads(
+    [{ id: "PRRT_y", comments: [{ author: "chatgpt-codex-connector", created_at: "2026-09-06T19:50:00Z", body: "f", html_url: "https://github.com/o/r/pull/38#discussion_r2" }] }],
+    reviews,
+  );
+  assert.equal(later[0].pull_request_review_id, 2);
 });

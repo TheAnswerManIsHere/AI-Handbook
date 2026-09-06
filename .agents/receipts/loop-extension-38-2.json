@@ -1,0 +1,9 @@
+{
+  "pr": 38,
+  "kind": "david",
+  "grant": 5,
+  "asOf": 3,
+  "authorization": "I'd like you to run up to 5 more rounds to reach convergence. This needs to be completely correct before it's implemented.",
+  "createdAt": "2026-09-06T16:30:00.000Z",
+  "note": "A terminal ship-with-gaps-recorded verdict was standing on this loop (loop-extension-38-1.json). Only a david-kind receipt reopens it, which this is: rounds 4-8 are authorized, from asOf 3. The recorded gaps in #39 become work rather than follow-ups, except the plan-review oracle question, which changes an approved-plan settled decision and is David's to answer."
+}

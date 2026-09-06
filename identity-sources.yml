@@ -115,24 +115,18 @@
   why: >-
     Refusal or guidance text. Decides nothing.
 
-- key: "pr-ready.mjs :: assertSnapshot :: if (typeof pr.head?.repo !== \"string\" || !/^[^/\\s]+\\/[^/\\s]+$/.test(pr.head.repo)) {"
-  source: github
-  why: >-
-    GitHub's word in a captured snapshot -- shape-checked, then compared to
-    config (pr-ready) or to the budget (guard path).
-
 - key: "pr-ready.mjs :: assertSnapshot :: 'snapshot.pr.head.repo must be \"owner/name\" (pull_request_read method:\"get\", head.repo.full_name) ' +"
   source: message
   why: >-
     Refusal or guidance text. Decides nothing.
 
-- key: "pr-ready.mjs :: assertSnapshot :: if (pr.head.repo.toLowerCase() !== snapshot.repo.toLowerCase()) {"
+- key: "pr-ready.mjs :: assertSnapshot :: if (headRepo.toLowerCase() !== snapshot.repo.toLowerCase()) {"
   source: github
   why: >-
     GitHub's word in a captured snapshot -- shape-checked, then compared to
     config (pr-ready) or to the budget (guard path).
 
-- key: "pr-ready.mjs :: assertSnapshot :: `this PR's head is in ${pr.head.repo}, not ${snapshot.repo}. The merge gate resolves the branch ` +"
+- key: "pr-ready.mjs :: assertSnapshot :: `this PR's head is in ${headRepo}, not ${snapshot.repo}. The merge gate resolves the branch ` +"
   source: message
   why: >-
     Refusal or guidance text. Decides nothing.
@@ -234,10 +228,27 @@
   why: >-
     The --show surface's identity and policy comparisons, from one config read.
 
-- key: "review-budget.mjs :: assertCountingSnapshot :: const head = snapshot.pr?.head?.repo;"
+- key: "review-loop-record.mjs :: assertCapturedProvenance :: const repo = typeof snapshot?.repo === \"string\" ? snapshot.repo.toLowerCase() : null;"
+  source: config
+  why: >-
+    The operator's transcription of the identity into the snapshot, used here
+    as the target every captured html_url's own path must match. Compared
+    against GitHub's word inside each URL, so a foreign entry is refused even
+    when the transcription is right.
+
+- key: "review-loop-record.mjs :: assertCapturedProvenance :: `${where} was captured from ${m[1]}, not ${snapshot.repo}. A snapshot's collections must all come ` +"
+  source: message
+  why: >-
+    Refusal or guidance text. Decides nothing.
+
+- key: "review-counting.mjs :: headRepoOf :: const repo = pr?.head?.repo;"
   source: github
   why: >-
-    GitHub's word for where the head lives (pull_request_read get, head.repo.full_name), compared to the budget so a snapshot captured from another PR is refused even when the operator transcribed the right `repo`.
+    GitHub's word for where the head lives, read from the captured snapshot in
+    either shape the API and the snapshot contract produce (a bare
+    "owner/name" string, or the `{ full_name }` object `pull_request_read`
+    returns). Reads only; every comparison is at the three call sites.
+
 - key: "review-budget.mjs :: assertCountingSnapshot :: `snapshot.pr.head.repo must be \"${target}\" (pull_request_read get, head.repo.full_name) -- it says ` +"
   source: message
   why: >-
@@ -370,10 +381,6 @@
     The round-check receipt is minted against the budget it will be
     validated against.
 
-- key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: const head = snapshot.pr?.head?.repo;"
-  source: github
-  why: >-
-    GitHub's word for where the head lives (pull_request_read get, head.repo.full_name), compared to the budget so a snapshot captured from another PR is refused even when the operator transcribed the right `repo`.
 - key: "review-loop-record.mjs :: assertAdjudicationSnapshot :: `snapshot.pr.head.repo must be \"${target}\" (pull_request_read get, head.repo.full_name) -- it says ` +"
   source: message
   why: >-

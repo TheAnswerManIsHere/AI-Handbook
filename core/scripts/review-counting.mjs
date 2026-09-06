@@ -407,10 +407,24 @@ export function artifactSize(files) {
  *    our own workflow (one reviewer opens a thread, one author replies) and
  *    is not a general GitHub guarantee for arbitrarily-authored threads.
  *  - `pull_request_review_id`: not present in this MCP shape at all. It is
- *    approximated as the id of the latest `reviews` entry, **by the same
- *    author**, submitted at or before the comment's `created_at` — the same
- *    correlation a human would do by reading timestamps, made explicit and
- *    testable instead of implicit.
+ *    approximated from `reviews` **by the same author**, by timestamp.
+ *
+ *    THE DIRECTION OF THAT COMPARISON IS THE WHOLE THING. GitHub creates a
+ *    review's comments moments BEFORE the review itself is submitted --
+ *    measured on this repo's own PR #38, four seconds before -- so matching
+ *    "the latest review submitted at or before the comment" attributes every
+ *    comment to the PREVIOUS round, and `rounds.trend` (which the
+ *    adjudicator's rubric weighs directly) comes out shifted: 6/3/3/4 was
+ *    reported as 6/3/7/0. Found by an adjudicator reading the record's own
+ *    numbers, which is the arrangement working.
+ *
+ *    So a comment belongs to the EARLIEST review by that author submitted at
+ *    or after it, WITHIN A BOUNDED WINDOW -- the review it was written for.
+ *    The window matters: without it, a comment predating every review by
+ *    years would attach to the first one that happens to follow it, which is
+ *    a different confidently-wrong answer. Outside the window it falls back
+ *    to the latest earlier review (a reply posted after the last pass), and
+ *    failing that carries no review id at all.
  */
 /**
  * Same bot, two spellings: `get_reviews` returns
@@ -421,6 +435,23 @@ export function artifactSize(files) {
  * silently finds nothing for every one of the bot's own comments, which is
  * exactly the kind of confidently-wrong result this file exists to prevent.
  */
+/**
+ * How long before its submission a review's comments may have been created.
+ * A single reviewer pass is minutes; six hours is generous for any pass this
+ * transport produces and far short of the gap between separate loops.
+ */
+export const REVIEW_AUTHORING_WINDOW_MS = 6 * 60 * 60 * 1000;
+/**
+ * How far AFTER a review's submitted_at one of its comments may be created.
+ * GitHub writes the review row and then its comments, so a comment can carry
+ * a created_at one or two seconds later than the review it belongs to.
+ * Round 5's rule (`gap >= 0`) read those as belonging to the NEXT pass:
+ * on #38's own capture two of round 12's four findings were created one
+ * second after the review and moved the trend from [..,4,4,3] to [..,2,5].
+ * Found by the execution bar on a real capture. (#38 round 13.)
+ */
+export const REVIEW_COMMENT_SKEW_MS = 60 * 1000;
+
 export const normalizeLogin = (login) => (login ?? "").replace(/\[bot\]$/, "");
 
 export function flattenMcpThreads(reviewThreads, reviews) {
@@ -444,7 +475,11 @@ export function flattenMcpThreads(reviewThreads, reviews) {
       const login = c.author ?? c.user?.login;
       const createdAt = new Date(c.created_at);
       const candidates = byAuthor.get(normalizeLogin(login)) ?? [];
-      const review = candidates.filter((r) => new Date(r.submitted_at) <= createdAt).pop();
+      const review =
+        candidates.find((r) => {
+          const gap = new Date(r.submitted_at) - createdAt;
+          return gap >= -REVIEW_COMMENT_SKEW_MS && gap <= REVIEW_AUTHORING_WINDOW_MS;
+        }) ?? candidates.filter((r) => new Date(r.submitted_at) <= createdAt).pop();
 
       out.push({
         id,
@@ -489,7 +524,9 @@ export function assertMcpSnapshotComplete(snapshot) {
   // already warns loudly when it is absent — but a snapshot that DOES carry it
   // must attest to it like any other paginated collection, or a truncated
   // first page would silently drop the clean passes it was added to find.
-  const required = ["reviews", "files", "reviewThreads"];
+  // `files` is deliberately ABSENT: the artifact's file list now comes from
+  // git over base...head, one source shared with the patch and territory.
+  const required = ["reviews", "reviewThreads"];
   if (snapshot.issueComments !== undefined) required.push("issueComments");
   for (const key of required) {
     if (complete[key] !== true) {
@@ -526,6 +563,117 @@ export function assertMcpSnapshotComplete(snapshot) {
  * that JSON-serializes as a legitimate-looking `hours: null` (with
  * `opened_at` silently omitted) instead of failing loudly.
  */
+/**
+ * The head repository's `owner/name`, accepted in EITHER of the two shapes an
+ * operator can honestly produce: the bare string the snapshot contract asks
+ * for, or the `{ full_name }` object `pull_request_read` actually returns.
+ *
+ * All three validators demanded the string while their own refusal messages
+ * told the operator to take the value from `head.repo.full_name` — so copying
+ * the API's shape, which is what the message names, was refused by a message
+ * that reads as though the wrong field had been copied. That is the same
+ * defect this round fixed in the plan-provenance matchers, one field over: a
+ * matcher written against a shape the documented source does not emit.
+ * (Round 7.)
+ */
+/**
+ * A snapshot's capture time, in EITHER documented shape, for one collection or
+ * for the snapshot as a whole.
+ *
+ * The two gates that read the same snapshot file disagreed about this field.
+ * `review-budget.mjs check` required `snapshot.capturedAt` to be a parseable
+ * TIMESTAMP; `review-loop-record.mjs` required `snapshot.capturedAt.issueComments`,
+ * an OBJECT. No single file satisfied both, so the documented workflow —
+ * capture once, run the budget check, then generate the record from that same
+ * capture — could not be executed at all. Found by running it, not by reading
+ * it. (Round 7.)
+ *
+ * With no collection named, an object form yields its OLDEST entry: freshness
+ * is a property of the stalest evidence in the file, never of the newest.
+ */
+/**
+ * The collections a whole-snapshot freshness view is answering FOR. A capture
+ * time that covers only some of them covers none of them, as far as the round
+ * check is concerned.
+ */
+/**
+ * How old a capture may be and still authorise a post or a record. ONE number
+ * for both gates: the round check refuses anything older, so a record built
+ * from an older capture would rest on evidence the guard itself would not
+ * accept.
+ */
+export const MAX_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * The collections that were read BEFORE an accepted response -- and so
+ * describe a state that predates it. ONE rule for both gates: pr-ready's
+ * `checkCapture` orders its collections against the Codex response it
+ * honours; the record generator now orders the same collections against the
+ * latest completed reviewer pass. A threads capture taken before a
+ * findings-bearing review lands, beside a reviews capture taken after it,
+ * reported that pass as clean: every collection present, fresh and attested,
+ * and the round's findings simply absent. (Codex, #38 round 9; the rule
+ * itself is #490's.)
+ *
+ * `<=` against the END of the response's reported second: GitHub reports
+ * events to the second and a capture time carries milliseconds, so a read
+ * genuinely before a 04:10:00.900 response is reported as after 04:10:00.000.
+ */
+export function collectionsReadBefore(capturedAt, acceptedAt, keys) {
+  if (!Number.isFinite(acceptedAt)) return [];
+  const at = typeof capturedAt === "string" ? Object.fromEntries(keys.map((k) => [k, capturedAt])) : (capturedAt ?? {});
+  return keys.filter((key) => Date.parse(at?.[key] ?? "") <= acceptedAt + 999);
+}
+
+export const COUNTED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThreads"];
+
+/**
+ * A snapshot's capture time, with the collections it FAILS to date.
+ *
+ * Taking the oldest VALID entry and shrugging at the rest let a snapshot with
+ * stale, undated `reviews` and a fresh `issueComments` pass the freshness
+ * bound and mint a round-check receipt from evidence nothing had dated --
+ * undercounting spent rounds in the guard's own favour, which is the direction
+ * this bound exists to close. A missing collection is now a refusal that names
+ * it. (Codex, #38 round 7, on a normalizer added in the same round.)
+ */
+export function capturedAtDetail(snapshot, { require = COUNTED_COLLECTIONS, now = Date.now() } = {}) {
+  const at = snapshot?.capturedAt;
+  if (typeof at === "string") {
+    if (!Number.isFinite(Date.parse(at))) return { at: null, missing: ["capturedAt"], future: [] };
+    return Date.parse(at) > now ? { at: null, missing: [], future: ["capturedAt"] } : { at, missing: [], future: [] };
+  }
+  if (!at || typeof at !== "object") return { at: null, missing: ["capturedAt"], future: [] };
+  const missing = require.filter((k) => !Number.isFinite(Date.parse(at[k] ?? "")));
+  if (missing.length) return { at: null, missing, future: [] };
+  // EVERY collection is bounded on BOTH sides. Reporting only the oldest let
+  // a collection dated in the future pass: the oldest looked fine, the future
+  // one became `evidenceCapturedAt`, and the merge fallback then read real
+  // requests posted after generation as older than the evidence boundary.
+  // (Codex, #38 round 9.)
+  const future = require.filter((k) => Date.parse(at[k]) > now);
+  if (future.length) return { at: null, missing: [], future };
+  const oldest = require
+    .map((k) => [at[k], Date.parse(at[k])])
+    .sort((a, b) => a[1] - b[1])[0][0];
+  return { at: oldest, missing: [], future: [] };
+}
+
+export function capturedAtOf(snapshot, collection = null, options = {}) {
+  const at = snapshot?.capturedAt;
+  if (typeof at === "string") return at;
+  if (!at || typeof at !== "object") return null;
+  if (collection) return typeof at[collection] === "string" ? at[collection] : null;
+  return capturedAtDetail(snapshot, options).at;
+}
+
+export function headRepoOf(pr) {
+  const repo = pr?.head?.repo;
+  if (typeof repo === "string") return repo;
+  if (repo && typeof repo.full_name === "string") return repo.full_name;
+  return null;
+}
+
 export function assertMcpSnapshotShape(snapshot) {
   const pr = snapshot.pr ?? {};
   if (typeof pr.number !== "number" || typeof pr.title !== "string" || Number.isNaN(new Date(pr.created_at ?? "").getTime())) {
@@ -549,7 +697,7 @@ export function assertMcpSnapshotShape(snapshot) {
         `The digest windows on the closure timestamp and cannot place a record without it.`,
     );
   }
-  for (const key of ["reviews", "files", "reviewThreads"]) {
+  for (const key of ["reviews", "reviewThreads"]) {
     if (!Array.isArray(snapshot[key])) {
       throw new Error(
         `MCP snapshot malformed: "${key}" must be an array (got ${typeof snapshot[key]}). ` +
@@ -582,7 +730,7 @@ export function assertMcpSnapshotShape(snapshot) {
       );
     }
   });
-  snapshot.files.forEach((f, i) => {
+  (snapshot.files ?? []).forEach((f, i) => {
     if (typeof f.filename !== "string" || typeof f.additions !== "number" || typeof f.deletions !== "number") {
       throw new Error(
         `MCP snapshot malformed: files[${i}] must have a string filename and numeric additions/deletions ` +
@@ -663,7 +811,7 @@ export function assertMcpSnapshotShape(snapshot) {
 export function fromMcp(snapshot) {
   assertMcpSnapshotShape(snapshot);
   assertMcpSnapshotComplete(snapshot);
-  const { pr, reviews, files, reviewThreads, issueComments } = snapshot;
+  const { pr, reviews, files = [], reviewThreads, issueComments } = snapshot;
   return {
     pr,
     reviews,

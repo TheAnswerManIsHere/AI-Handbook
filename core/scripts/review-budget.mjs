@@ -80,7 +80,8 @@
  *   1. NO BUDGET. Refused until a budget exists -- there is no
  *      "declare it later" path, because the first request is already blocked.
  *   2. AT BUDGET (tier-1 tripwire). Refused until a one-shot FRESH-CONTEXT
- *      adjudicator, running ON FABLE, has ruled. Its input is a
+ *      adjudicator, running at the strongest tier its own definition names,
+ *      has ruled. Its input is a
  *      script-generated mechanical record (`review-loop-record.mjs`), never
  *      this loop's prose -- a same-context "pause and re-evaluate" is the
  *      criticality gate again, and the criticality gate went 0-for-15. A
@@ -88,7 +89,7 @@
  *      adjudication cannot precede the tripwire it answers. Adjudicator
  *      grants self-serve at most one LEASH (3 rounds) past the budget.
  *   3. DAVID GATE (tier-2 tripwire), at budget + leash and again each time a
- *      David grant is spent. The same fresh Fable adjudication runs first --
+ *      David grant is spent. The same fresh adjudication runs first --
  *      committed as the RECOMMENDATION David reviews, granting nothing by
  *      itself -- and only a `david`-kind receipt (his decision, quoted)
  *      reopens the loop or endorses the stop. (David, 2026-08-26,
@@ -117,7 +118,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { REVIEWER_LOGINS, normalizeLogin } from "./review-counting.mjs";
+import {
+  MAX_SNAPSHOT_AGE_MS,
+  REVIEWER_LOGINS,
+  capturedAtDetail,
+  capturedAtOf,
+  headRepoOf,
+  normalizeLogin,
+} from "./review-counting.mjs";
 
 export const RECEIPTS_DIR = ".agents/receipts";
 
@@ -283,13 +291,22 @@ export function __resetRepoSlugCache() {
  * two guards must be free to diverge deliberately -- but a change to either
  * should look at the other.
  */
-export const MAX_CHECK_AGE_MS = 60 * 60 * 1000;
+export const MAX_CHECK_AGE_MS = MAX_SNAPSHOT_AGE_MS; // one bound, shared with the record generator
+/**
+ * The collections the round check READS -- `get`, `get_reviews`,
+ * `get_comments`, exactly the recipe pr-watch/SKILL.md gives. Requiring a
+ * `reviewThreads` capture time here demanded a timestamp for a collection the
+ * recipe never captures, so a truthful object-form snapshot assembled as
+ * documented was refused until the operator invented one. The record
+ * generator reads threads and keeps the full set. (Codex, #38 round 12.)
+ */
+export const ROUND_CHECK_COLLECTIONS = ["pr", "reviews", "issueComments"];
 
 /**
  * Blast-radius tiers (David, 2026-08-17, issue #501; revised 2026-08-20 and
  * 2026-08-26).
  *
- * `budget` is the round cap -- tripwire 1, where the Fable adjudicator takes
+ * `budget` is the round cap -- tripwire 1, where the adjudicator takes
  * over. No tier is uncapped any more: sensitive's old uncapped-with-a-
  * mandatory-stop shape is gone with the two-tier tripwire below.
  *
@@ -322,10 +339,10 @@ export const MAX_CHECK_AGE_MS = 60 * 60 * 1000;
  * internal included, superseding sensitive's mandatory-🛑-at-5 and
  * internal's David-in-person-at-3 -- runs the same two tripwires:
  *
- *   Tripwire 1, at the tier budget: the Fable adjudicator rules, and its
+ *   Tripwire 1, at the tier budget: the adjudicator rules, and its
  *   grants self-serve the loop at most one LEASH (3 rounds) past the budget.
  *   Tripwire 2 (the David gate), at budget + leash and again wherever a
- *   David grant runs out: a fresh Fable adjudication is committed as the
+ *   David grant runs out: a fresh adjudication is committed as the
  *   recommendation, and the loop stops for David's decision regardless of
  *   what it recommends.
  *
@@ -1040,7 +1057,94 @@ export function validateBudget(pr, receipt) {
  * likelier failures than the fabrication this module's header declines to
  * defend against.
  */
-function validateRecordReference(pr, tier, recordPath, io, ref, preceding = [], slug = null) {
+/**
+ * A verdict receipt's model/effort stamps, checked against THE RECORD IT
+ * CITES -- never against current configuration.
+ *
+ * A non-empty-string check accepts fiction: the session writes the receipt by
+ * hand after the dispatch, so "carries a string" proves only that something
+ * was typed. The record's `dispatch` block is read mechanically from the agent
+ * definition at the reviewed commit, so comparing against it rejects a typed,
+ * stale or invented value using evidence that was fixed before the verdict
+ * existed. (Codex, #37 round 2.)
+ *
+ * COMPATIBILITY IS KEYED ON THE RECORD'S SCHEMA, NOT A DATE. A receipt citing
+ * a record generated before `dispatch` existed is legacy and passes without
+ * stamps. A cutoff date cannot work: the plan-review PR that specified this
+ * never merges, and the implementation PR cannot know its own merge date in
+ * advance -- so every receipt written while that PR was itself under review
+ * would classify as legacy, which is the window the check most needs to
+ * cover. A date would also let a copied-forward `decidedAt` bypass it.
+ * (Codex, #37 round 2.)
+ */
+export function validateDispatchStamps(receipt, record) {
+  // LEGACY IS THE KEY BEING ABSENT, not the value being falsy. A record with
+  // `dispatch: null` (or `false`) is not pre-schema -- the generator has
+  // written `dispatch` on every record since the field existed -- it is a
+  // record something else has edited. Reading it as legacy skipped both stamp
+  // comparisons, so a hand-nulled block was a quieter bypass than the
+  // missing-model case below, which does refuse. (Codex, #38 round 8.)
+  if (!record || typeof record !== "object" || !("dispatch" in record)) return null; // legacy, by schema
+  const dispatch = record.dispatch;
+  if (!dispatch || typeof dispatch !== "object") {
+    return (
+      `the adjudication record this receipt cites carries \`dispatch: ${JSON.stringify(dispatch)}\`. A ` +
+      `generated record either has no \`dispatch\` key (pre-schema) or a block with a model; a null or ` +
+      `non-object block is a record something edited after generation, and the stamps cannot be checked ` +
+      `against it. Regenerate the record and re-run the adjudication`
+    );
+  }
+  // A `dispatch` WITHOUT A MODEL IS CORRUPTION, NOT A DECLARATION.
+  // `dispatchDeclaration` refuses to emit one -- a definition with no
+  // frontmatter `model` throws there -- so this shape cannot arise from a
+  // record the generator wrote. Treating its null like the legitimately-null
+  // `effort` of an older definition turned the model stamp off entirely for
+  // any receipt citing such a record: the one check that proves the verdict
+  // came from the declared judge, disabled by the field being missing. Both
+  // the budget guard and the merge gate run through here, so it fails closed.
+  // (Codex, #38 round 6.)
+  if (typeof dispatch.model !== "string" || !dispatch.model.trim()) {
+    return (
+      `the adjudication record this receipt cites carries a \`dispatch\` block with no \`model\` ` +
+      `(read from ${dispatch.source ?? "the agent definition"} at ${dispatch.sha ?? "the reviewed commit"}). ` +
+      `The generator cannot produce that record -- it refuses a definition with no declared model -- so this ` +
+      `is a malformed or hand-edited record, and the stamps cannot be checked against it. Regenerate the ` +
+      `record and re-run the adjudication against it`
+    );
+  }
+  for (const [field, expected] of [
+    ["modelRequested", dispatch.model ?? null],
+    ["effortRequested", dispatch.effort ?? null],
+  ]) {
+    // A NULL EXPECTATION IS STILL AN EXPECTATION. Skipping the comparison when
+    // the record's value is null let any invented `effortRequested` through on
+    // a record read from an older definition that declared no effort -- the
+    // exact "carries a string" acceptance this check exists to remove, hiding
+    // one field deeper. Legacy treatment is keyed on the record having no
+    // `dispatch` AT ALL, never on one of its fields being empty.
+    // (Codex, #38 round 1.)
+    if (expected === null) {
+      if (receipt[field] === undefined || receipt[field] === null) continue;
+      return (
+        `adjudication receipt's ${field} is ${JSON.stringify(receipt[field])}, but the record it cites ` +
+        `declares no ${field === "modelRequested" ? "model" : "effort"} (read from ` +
+        `${dispatch.source ?? "the agent definition"} at ${dispatch.sha ?? "the reviewed commit"}). A stamp ` +
+        `must equal its record, and "the record says nothing" is not a licence to state something`
+      );
+    }
+    if (receipt[field] !== expected) {
+      return (
+        `adjudication receipt's ${field} is ${JSON.stringify(receipt[field] ?? null)}, but the record it ` +
+        `cites declares ${JSON.stringify(expected)} (read from ${dispatch.source ?? "the agent definition"} ` +
+        `at ${dispatch.sha ?? "the reviewed commit"}). The stamps record what the dispatch DECLARED; they are ` +
+        `checked against that record, never against current configuration`
+      );
+    }
+  }
+  return null;
+}
+
+function validateRecordReference(pr, tier, recordPath, io, ref, preceding = [], slug = null, receipt = null) {
   // pr-ready.mjs's merge-gate fallback requires every recordPath to live
   // under ADJUDICATIONS_DIR (never trusting an arbitrary path), so a
   // receipt this guard accepts as closing the loop must be one that gate
@@ -1097,6 +1201,10 @@ function validateRecordReference(pr, tier, recordPath, io, ref, preceding = [], 
   // having ruled on round 6. Every preceding extension is fully spent before
   // this one activates (see `allowance`'s staging), so the floor is the
   // allowance they establish. (Codex, #543.)
+  if (receipt) {
+    const stampError = validateDispatchStamps(receipt, parsed.value);
+    if (stampError) return stampError;
+  }
   const stageFloor = allowance(tier, preceding, Number.MAX_SAFE_INTEGER);
   if (!Number.isInteger(passes) || passes < stageFloor) {
     return (
@@ -1148,7 +1256,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], 
     }
     // The record's own `generatedAt` is written BEFORE the adjudicator is
     // even dispatched (step 1 of the tripwire procedure runs
-    // review-loop-record.mjs, THEN step 2 dispatches Fable) -- so it
+    // review-loop-record.mjs, THEN step 2 dispatches the judge) -- so it
     // predates the actual decision and cannot stand in for "when was this
     // verdict decided". `decidedAt` is the moment this receipt itself was
     // written, which pr-ready.mjs's merge gate uses to order fresh evidence
@@ -1169,7 +1277,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], 
     if (!Array.isArray(receipt.gaps)) {
       return "adjudication receipt must carry the adjudicator's `gaps` array, verbatim (empty is valid for a verdict with no known gaps)";
     }
-    const recordError = validateRecordReference(pr, tier, receipt.recordPath, io, ref, preceding, slug);
+    const recordError = validateRecordReference(pr, tier, receipt.recordPath, io, ref, preceding, slug, receipt);
     if (recordError) return recordError;
     if (receipt.verdict !== "continue") return null; // ship-with-gaps-recorded / split / escalate grant nothing further
     // The adjudicator owns the SIZE of an extension (David, 2026-08-20); the
@@ -1191,7 +1299,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], 
 
   if (receipt.kind === "david") {
     const uncapped = receipt.grant === "uncapped";
-    // Grant 0 is valid and meaningful: David reviewed the gate's Fable
+    // Grant 0 is valid and meaningful: David reviewed the gate's
     // recommendation and endorsed STOPPING. It moves the gate nowhere, but
     // it is the durable record that he was consulted -- which is what the
     // gate exists to guarantee, and what pr-ready.mjs's rail check reads.
@@ -1572,18 +1680,22 @@ function refusal(pr, state, spent, tiedCount = false) {
       `TRIPWIRE 1 (self-serve). Do NOT re-evaluate this in the loop's own context -- that is the ` +
       `criticality gate again, and it has never stopped a loop. Instead:\n` +
       `  1. node scripts/review-loop-record.mjs --pr ${pr} --mcp-snapshot <file> --write\n` +
-      `  2. Dispatch ONE fresh-context adjudicator subagent ON FABLE -- agent type ` +
-      `"review-loop-adjudicator", and pass model: "fable" explicitly on the call rather than relying on ` +
-      `its frontmatter, since a per-invocation model outranks frontmatter in the resolution order. ` +
-      `Give it the generated record and NOTHING else from this session. Fable spends at double Opus, so ` +
-      `say out loud that you are dispatching it (the announce-don't-sneak rule in the model-routing skill).\n` +
+      `  2. Dispatch ONE fresh-context adjudicator subagent -- agent type "review-loop-adjudicator" -- ` +
+      `and pass NO per-invocation model or effort. Its own definition declares both, and a ` +
+      `per-invocation model outranks frontmatter, so passing one would pin the judge to a tier the ` +
+      `definition no longer names. Give it the generated record and NOTHING else from this session. The ` +
+      `judge runs at the strongest available tier and raised effort, which spends well above Opus, so say ` +
+      `out loud that you are dispatching it (the announce-don't-sneak rule in the model-routing skill).\n` +
       `  3. Write its verdict to ${extensionPath(pr, nextSeq)} ` +
       `(ship-with-gaps-recorded | split | continue+grant+risk | escalate). The adjudicator sizes its own ` +
       `grant -- a push whose last round revealed a real problem may need more than one round -- bounded ` +
       `by the self-serve leash: at the David gate of ${railFor(tier, extensions, spent)} rounds ` +
       `(the tier budget plus its ${LEASH}-round leash, or exactly where David's latest grant runs out) ` +
       `the loop stops for David regardless of verdict. ` +
-      `Every verdict -- not just "continue" -- must also carry \`recordPath\` (citing the exact record path ` +
+      `Every verdict -- not just "continue" -- must also carry \`modelRequested\` and \`effortRequested\` ` +
+      `(copied from the record's own \`dispatch\` block, which was read from the agent definition at the ` +
+      `reviewed commit -- a guard and the merge gate both compare them against it), \`recordPath\` ` +
+      `(citing the exact record path ` +
       `step 1 printed) and \`decidedAt\` (an ISO timestamp of when THIS receipt is being written, not when ` +
       `the record was generated in step 1). Carry the adjudicator's own \`reasoning\` and \`gaps\` fields ` +
       `into the receipt verbatim -- a receipt with only pr/kind/verdict/recordPath/decidedAt closes this ` +
@@ -1604,12 +1716,13 @@ function refusal(pr, state, spent, tiedCount = false) {
     `-- so the next rounds are David's to authorize, whatever the adjudicator recommends. The sequence ` +
     `(David, 2026-08-26):\n` +
     `  1. node scripts/review-loop-record.mjs --pr ${pr} --mcp-snapshot <file> --write\n` +
-    `  2. Dispatch ONE fresh-context adjudicator subagent ON FABLE (agent type "review-loop-adjudicator", ` +
-    `model: "fable" explicit), record and nothing else -- its verdict here is the RECOMMENDATION David ` +
-    `reviews, not a grant. Commit it to ${extensionPath(pr, nextSeq)} like any adjudication receipt ` +
-    `(recordPath, decidedAt, reasoning, gaps verbatim); a "continue" written at the gate grants nothing ` +
+    `  2. Dispatch ONE fresh-context adjudicator subagent (agent type "review-loop-adjudicator", no ` +
+    `per-invocation model or effort -- its definition declares both), record and nothing else -- its ` +
+    `verdict here is the RECOMMENDATION David reviews, not a grant. Commit it to ` +
+    `${extensionPath(pr, nextSeq)} like any adjudication receipt (modelRequested, effortRequested, ` +
+    `recordPath, decidedAt, reasoning, gaps verbatim); a "continue" written at the gate grants nothing ` +
     `by itself.\n` +
-    `  3. Take the verdict to David as a 🛑 NEED YOU -- his call on Fable's recommendation, with a ` +
+    `  3. Take the verdict to David as a 🛑 NEED YOU -- his call on the adjudicator's recommendation, with a ` +
     `push notification -- and record his answer as the NEXT receipt: {"kind":"david",` +
     `"grant":<n|0|"uncapped">,"asOf":<this gate's round count>,"authorization":"<his words>"} ` +
     `(default leash ${LEASH}; 0 endorses stopping; "asOf" is REQUIRED on every finite grant). COMMIT AND PUSH both -- extensions are read from the remote-tracking ref, so an unpushed ` +
@@ -1785,7 +1898,7 @@ export function judgeReviewRequest(
         `  node scripts/review-budget.mjs declare --pr ${pr} --tier <product|sensitive> ` +
         `--criticality <1-100> --artifact "<what is under review>"\n` +
         `Tiers: product=5 rounds; sensitive=5 (auth/payments/migrations); internal=3, strict ` +
-        `adjudication rubric. Every tier runs the two-tier tripwire: Fable adjudication from the ` +
+        `adjudication rubric. Every tier runs the two-tier tripwire: adjudication from the ` +
         `budget, self-serve leash of ${LEASH} rounds past it, then the David gate. ` +
         `Commit the receipt and state the budget in the PR body too.` + registryHint(registryProblem),
     };
@@ -2019,7 +2132,7 @@ export function declare(flags, io) {
   const cap = tierCap(flags.tier);
   return (
     `declared: PR #${pr}, tier "${flags.tier}" (${TIERS[flags.tier].label}), ${cap} rounds ` +
-    `(Fable adjudication from the cap, David gate at ${cap + LEASH}), ` +
+    `(adjudication from the cap, David gate at ${cap + LEASH}), ` +
     `criticality ${criticality}. Written to ${budgetPath(pr)} -- COMMIT AND PUSH it (a budget is read from the ` +
     `branch's remote-tracking ref, so an unpushed one reads as no budget at all), and state the budget in the ` +
     `PR body.`
@@ -2072,7 +2185,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // were captured from another repository's PR. `pr.head.repo` is GitHub's
   // word (pull_request_read get, head.repo.full_name) and must agree too.
   // (Codex, PR #7 round 14. pr-ready.mjs's assertSnapshot already did this.)
-  const head = snapshot.pr?.head?.repo;
+  const head = headRepoOf(snapshot.pr);
   if (typeof head !== "string" || head.toLowerCase() !== target.toLowerCase()) {
     throw new Error(
       `snapshot.pr.head.repo must be "${target}" (pull_request_read get, head.repo.full_name) -- it says ` +
@@ -2089,7 +2202,20 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // was actually read. (Codex, #503 round 4 -- and they were right that this
   // is the dissolved reconciliation-staleness finding reappearing in its
   // replacement, which is exactly why it needed closing rather than noting.)
-  const capturedAt = Date.parse(snapshot.capturedAt ?? "");
+  const captured = capturedAtDetail(snapshot, { now, require: ROUND_CHECK_COLLECTIONS });
+  const capturedAtRaw = captured.at;
+  if (captured.future.length) {
+    throw new Error(`snapshot capturedAt (${captured.future.join(", ")}) is in the future`);
+  }
+  if (captured.missing.length && captured.missing[0] !== "capturedAt") {
+    throw new Error(
+      `snapshot "capturedAt" dates some collections but not ${captured.missing.join(", ")}. Freshness is a ` +
+        `property of the STALEST evidence in the file, so a partial capture time covers nothing: an undated ` +
+        `collection could be hours old while the dated ones look current, and the receipt would undercount ` +
+        `spent rounds in the guard's own favour. Re-capture, dating every collection`,
+    );
+  }
+  const capturedAt = Date.parse(capturedAtRaw ?? "");
   if (!Number.isFinite(capturedAt)) {
     throw new Error(
       'snapshot must carry a parseable "capturedAt" -- the moment GitHub was read. Without it the ' +
@@ -2097,7 +2223,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
     );
   }
   const age = now - capturedAt;
-  if (age < 0) throw new Error(`snapshot capturedAt (${snapshot.capturedAt}) is in the future`);
+  if (age < 0) throw new Error(`snapshot capturedAt (${capturedAtRaw}) is in the future`);
   if (age > MAX_CHECK_AGE_MS) {
     throw new Error(
       `snapshot was captured ${Math.round(age / 60000)} minutes ago, older than the ` +
@@ -2185,9 +2311,16 @@ async function check(flags, io) {
   const previous = readJson(io, checkPath(pr));
   if (previous.state === "ok") {
     const before = Date.parse(previous.value?.capturedAt ?? "");
-    if (Number.isFinite(before) && Date.parse(snapshot.capturedAt) <= before) {
+    // THE SAME COLLECTION SET AS THE ACCEPTANCE CHECK ABOVE. With the default
+    // set this returned null for a recipe-shaped snapshot, `Date.parse(null)`
+    // is NaN, the comparison was false, and re-running `check` on the same
+    // still-fresh evidence overwrote a consumed receipt -- one observation
+    // authorising several posts, which is exactly what this guard exists to
+    // refuse. Third site for this set in one round. (Codex, #38 round 13.)
+    const thisCapture = capturedAtOf(snapshot, null, { require: ROUND_CHECK_COLLECTIONS });
+    if (Number.isFinite(before) && Date.parse(thisCapture) <= before) {
       throw new Error(
-        `this snapshot was captured at ${snapshot.capturedAt}, which is not newer than the evidence behind ` +
+        `this snapshot was captured at ${thisCapture}, which is not newer than the evidence behind ` +
           `the current receipt (${previous.value.capturedAt}). Re-capture the snapshot: re-presenting an ` +
           "observation that has already authorized a post is how one evidence state authorizes several.",
       );
@@ -2206,7 +2339,13 @@ async function check(flags, io) {
     // The snapshot's own capture time, NOT `io.now()`. See the freshness note
     // in assertCountingSnapshot: stamping the command time lets a stale
     // snapshot mint an indefinitely-renewable receipt.
-    capturedAt: snapshot.capturedAt,
+    // A SCALAR, never the per-collection object. `validateCheckReceipt` does
+    // `Date.parse(receipt.capturedAt)`; handed the object form it gets NaN and
+    // refuses the next review request as stale -- so accepting the object at
+    // the door while storing it raw would mint a receipt the guard could never
+    // consume, breaking the very workflow the compatibility was for.
+    // (Codex, #38 round 7, on a change made in the same round.)
+    capturedAt: capturedAtOf(snapshot, null, { require: ROUND_CHECK_COLLECTIONS }),
     mintedAt: io.now(),
     // This receipt's generation. The guard's claim path is derived from it, so
     // a fresh receipt gets a fresh claim WITHOUT deleting the previous one --

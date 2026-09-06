@@ -1,0 +1,9 @@
+{
+  "pr": 38,
+  "kind": "david",
+  "grant": 1,
+  "asOf": 13,
+  "authorization": "Option 1",
+  "createdAt": "2026-09-06T22:20:13.000Z",
+  "note": "Third David gate, on the bounded round's exceptions. Round 13 returned a deadlock (a quoted example under a live Review-mode heading) and a replay bypass in the round check's own anti-replay guard (a NaN comparison on a recipe-shaped snapshot re-minted a consumed receipt), both written for at 3035e4c per the pre-registered exceptions; the execution bar then found a round-attribution skew on this loop's own capture, fixed at 59c9a0e. The bound as first phrased implied merging that head unreviewed; the contract's invariant -- a loop terminates on a reviewed head, no commit merges unreviewed -- is the one that holds. David chose Option 1 as offered: one round to review 59c9a0e; that reviewed head merges; round 14's findings are recorded to #40 unless one is a deadlock or clears the critical bar, in which case it comes back to David rather than being written for silently. Round 14 is authorized from asOf 13."
+}

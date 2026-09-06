@@ -350,8 +350,9 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    all-declined round at any point ends the loop with no dispatch — nothing
    was written, so the head is already reviewed. Dispatch mechanics: agent
    type `review-loop-adjudicator`,
-   **on Fable**, passing `model: "fable"` explicitly since a per-invocation
-   model outranks frontmatter. Its only input is the script-generated record
+   passing **no** per-invocation `model` or `effort` — its definition declares
+   both (`best`/`xhigh`), and a per-invocation model would outrank and re-pin
+   them. Its only input is the script-generated record
    (`node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file>
    --write`), never the loop's own prose and never a case for continuing
    written by me. It returns continue / stop / split-to-David, and **its verdict
@@ -378,7 +379,7 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    **The David gate: budget + 3 rounds, on every tier** (David, 2026-08-26,
    superseding the 2×-budget hard stop and sensitive's stop-for-him-at-5).
    Adjudicator grants self-serve at most that 3-round leash; at the gate the
-   same fresh Fable adjudication runs and its verdict goes to David as a 🛑 —
+   same fresh adjudication runs and its verdict goes to David as a 🛑 —
    his call on its recommendation, with a push notification — rather than
    taking effect on its own. His answer is the `david`-kind receipt: a grant
    opens exactly that many more rounds (default: another 3-round leash, the
@@ -647,8 +648,9 @@ shows the true delta.
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
-  - Adjudication dispatches stay on Fable regardless — that is a separate,
-    deliberate routing (below), not this rule being violated.
+  - Adjudication dispatches run at the strongest available tier regardless —
+    that is a separate, deliberate routing (below), not this rule being
+    violated.
 - **Verify the active tier before Opus-reserved execution** (migration, Tier B
   fix, security review, dev-infra) rather than inferring it. `.claude/settings.json`
   pins `opus` but is **not proof of the running tier** — measured 2026-08-28,
@@ -662,11 +664,12 @@ shows the true delta.
   judgment is mine, verification of my own work, a Tier B fix, or a `/document`
   harvest (its first source is *this session's* decisions, which a cold worker
   doesn't inherit).
-- **Adjudications and bounded judgements dispatch on Fable** — the per-round
-  review adjudicator is the live case. A dispatched verdict **decides**; if I
+- **Adjudications and bounded judgements dispatch at the strongest available
+  tier, named once in the agent's own definition** — the per-round review
+  adjudicator is the live case. A dispatched verdict **decides**; if I
   think it's wrong that's a disagreement for David, not license to overrule.
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
-  Fable; an incomplete enumeration is invisible to the judge; and a **false
+  the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
   premise produces a confidently wrong verdict** — so pin the commit the
   question is about, check my working tree matches it when the question is about
   a tree, and tell the judge to verify load-bearing premises rather than taking

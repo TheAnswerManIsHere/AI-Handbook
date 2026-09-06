@@ -221,8 +221,9 @@ the disclosure check passes:
    finding (nature / affected area / verdict / causal flag) into the findings
    ledger, generate the mechanical record
    (`node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file>
-   --write`), and dispatch one `review-loop-adjudicator` on Fable with the
-   record as its only input. **Its verdict decides** continue/stop — the
+   --write`), and dispatch one `review-loop-adjudicator` with the
+   record as its only input — no per-invocation model or effort, since its own
+   definition declares both. **Its verdict decides** continue/stop — the
    decision is not mine — and goes in the findings ledger as one line for an
    ordinary round. **At budget exhaustion the same rules as a code loop
    apply** (Codex, #543 round 3): the verdict is an extension decision,

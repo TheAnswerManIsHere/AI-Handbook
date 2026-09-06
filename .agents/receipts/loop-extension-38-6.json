@@ -1,0 +1,9 @@
+{
+  "pr": 38,
+  "kind": "david",
+  "grant": 1,
+  "asOf": 12,
+  "authorization": "Option 2",
+  "createdAt": "2026-09-06T21:28:57.000Z",
+  "note": "Second David gate. A terminal ship-with-gaps-recorded verdict was standing (loop-extension-38-5.json, on record 38-4.json at 12 of 12). David chose Option 2 as offered: one bounded round -- fix the four round-12 gaps, run the execution bar, request round 13, and merge on that reviewed head regardless; round 13's findings, if any, are recorded to #40 rather than written for, unless one is a deadlock or clears the critical bar. Round 13 is authorized from asOf 12. The adjudicator's structural recommendation (a structured provenance field to replace regex-over-prose) is carried to #40 as the first phase-1b plan input."
+}

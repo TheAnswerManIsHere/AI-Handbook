@@ -56,10 +56,17 @@ import {
   nodeIo,
   railFor,
   validateBudget,
+  validateDispatchStamps,
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
-import { reviewerPasses, summaryCodeReviewPasses, summaryRows } from "./review-counting.mjs";
+import {
+  collectionsReadBefore,
+  headRepoOf,
+  reviewerPasses,
+  summaryCodeReviewPasses,
+  summaryRows,
+} from "./review-counting.mjs";
 import { pathToFileURL } from "node:url";
 
 export const RECEIPT_DIR = join(REPO_ROOT, RECEIPTS_DIR);
@@ -376,15 +383,16 @@ export function assertSnapshot(snapshot, prNumber) {
   // remote URL, and this gate exists to stop ME merging my own PRs without the
   // bar. Every PR in this repo is a same-repo `claude/*` branch. If that ever
   // changes, this message is where the work starts.
-  if (typeof pr.head?.repo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(pr.head.repo)) {
+  const headRepo = headRepoOf(pr);
+  if (typeof headRepo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(headRepo)) {
     throw fail(
       'snapshot.pr.head.repo must be "owner/name" (pull_request_read method:"get", head.repo.full_name) ' +
         "-- it is what distinguishes a same-repo head from a fork's",
     );
   }
-  if (pr.head.repo.toLowerCase() !== snapshot.repo.toLowerCase()) {
+  if (headRepo.toLowerCase() !== snapshot.repo.toLowerCase()) {
     throw fail(
-      `this PR's head is in ${pr.head.repo}, not ${snapshot.repo}. The merge gate resolves the branch ` +
+      `this PR's head is in ${headRepo}, not ${snapshot.repo}. The merge gate resolves the branch ` +
         "tip through `origin`, which is the base repository, so a fork head cannot be bound to a receipt " +
         "and must not be waved through by one. Fork PRs are outside this gate's scope -- merge one by hand " +
         "after checking the bar, or extend remoteTip to resolve against the head repository.",
@@ -1126,6 +1134,12 @@ function validateAdjudicationRecord(prNumber, recordPath, headSha, cwd, { floor 
     // committed receipts so either view of a standing terminal verdict
     // disqualifies a later adjudication candidate.
     extensions: Array.isArray(record.budget?.extensions) ? record.budget.extensions : [],
+    // The record itself, so the merge gate can run the SAME stamp comparison
+    // the review-budget guard runs. Without it this gate honours a terminal
+    // receipt through its own path and never calls `validateExtension`, so a
+    // receipt whose stamps disagree with its record could be refused by the
+    // guard and still produce readiness. (Codex, #37 round 2.)
+    record,
   };
 }
 
@@ -1345,6 +1359,14 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
   if (!recordCheck.ok) {
     return { pass: false, detail: `${candidate.path}: ${recordCheck.detail}` };
   }
+  // The same check the refusal layer runs, against the same evidence: the
+  // receipt's stamps must equal the dispatch the cited record read from the
+  // agent definition at the reviewed commit. Two gates honour these receipts,
+  // so both compare them or neither means anything.
+  const stampError = validateDispatchStamps(receipt, recordCheck.record);
+  if (stampError) {
+    return { pass: false, detail: `${candidate.path}: ${stampError}` };
+  }
 
   // THE CHAIN UNDER THE CANDIDATE MUST BE ONE THE GUARD WOULD ACCEPT. Only
   // the highest-sequence receipt is honored, but review-budget.mjs's rule is
@@ -1370,6 +1392,25 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
       return { pass: false, detail: `${path}: unreadable or malformed JSON (${e.message}) -- the chain under the terminal receipt cannot be validated` };
     }
   }
+  // EVERY adjudication receipt in the chain gets the stamp check, not just
+  // the terminal candidate. `loadLoop` rejects a malformed earlier receipt
+  // and so rejects the whole loop, but this gate honours the terminal receipt
+  // through its own path -- so a chain containing an earlier receipt whose
+  // stamps disagree with its own cited record could still produce readiness
+  // here while the refusal layer refuses it. Two gates, one answer.
+  // (Codex, #38 round 5.)
+  for (const earlier of preceding) {
+    if (earlier?.kind !== "adjudication") continue;
+    const earlierRecord = validateAdjudicationRecord(prNumber, earlier.recordPath, headSha, cwd);
+    if (!earlierRecord.ok) {
+      return { pass: false, detail: `${candidate.path}: an earlier receipt cites ${earlier.recordPath}, which ${earlierRecord.detail}` };
+    }
+    const earlierStamps = validateDispatchStamps(earlier, earlierRecord.record);
+    if (earlierStamps) {
+      return { pass: false, detail: `an earlier adjudication receipt in this chain is invalid: ${earlierStamps}` };
+    }
+  }
+
   for (const chain of [[...preceding, receipt], [...recordCheck.extensions, receipt]]) {
     for (let i = 1; i < chain.length; i++) {
       const prev = chain[i - 1];
@@ -1530,9 +1571,7 @@ export function checkCapture(capturedAt, acceptedAt, now = Date.now()) {
   // actually submitted at 04:10:00.900 is reported as 04:10:00.000, so a
   // collection captured at 04:10:00.500 -- genuinely BEFORE it -- compared
   // greater and passed. (Codex, #490 round 5.)
-  const stale = ["reviewThreads", "checkRuns", "issueComments"].filter(
-    (key) => Date.parse(capturedAt?.[key] ?? "") <= acceptedAt + 999,
-  );
+  const stale = collectionsReadBefore(capturedAt, acceptedAt, ["reviewThreads", "checkRuns", "issueComments"]);
   if (stale.length) {
     return {
       pass: false,
@@ -1760,7 +1799,7 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
     // loop that stops unconverged at the boundary never posts. Without a
     // round-count binding here, a historically-latest positive grant read
     // as permanently clearing the gate, and a loop could mint READY at the
-    // spent boundary without the fresh Fable recommendation and David
+    // spent boundary without the fresh adjudication and David
     // decision the repeating gate requires. So:
     //   - grant 0 (a stop-endorsement) clears permanently: no further
     //     rounds can run behind it without a NEWER david receipt, which
@@ -1792,7 +1831,8 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
       pass: false,
       detail:
         `David's latest grant is fully spent (${delivered} passes delivered, gate at ${rail}) -- the gate stands ` +
-        `again: a fresh Fable recommendation and his decision (a further grant, or a grant-0 stop-endorsement) ` +
+        `again: a fresh adjudication (the judge its own definition declares) and his decision (a further grant, ` +
+        `or a grant-0 stop-endorsement) ` +
         "are required before readiness",
     };
   }
