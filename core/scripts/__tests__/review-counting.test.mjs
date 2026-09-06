@@ -675,3 +675,24 @@ test("capturedAt is read in either shape, and the whole-snapshot view takes the 
     ["reviews"],
   );
 });
+
+test("a comment created a second after its review still belongs to that review", () => {
+  // GitHub writes the review row, then its comments; `gap >= 0` sent a
+  // comment created one second after the review to the NEXT pass. Two of
+  // #38's round-12 findings did exactly that on a real capture. (#38 round 13.)
+  const reviews = [
+    { id: 1, user: BOT, submitted_at: "2026-09-06T19:46:22Z" },
+    { id: 2, user: BOT, submitted_at: "2026-09-06T21:43:02Z" },
+  ];
+  const flat = flattenMcpThreads(
+    [{ id: "PRRT_x", comments: [{ author: "chatgpt-codex-connector", created_at: "2026-09-06T19:46:23Z", body: "f", html_url: "https://github.com/o/r/pull/38#discussion_r1" }] }],
+    reviews,
+  );
+  assert.equal(flat[0].pull_request_review_id, 1);
+  // Well outside the skew it is still the later review's comment.
+  const later = flattenMcpThreads(
+    [{ id: "PRRT_y", comments: [{ author: "chatgpt-codex-connector", created_at: "2026-09-06T19:50:00Z", body: "f", html_url: "https://github.com/o/r/pull/38#discussion_r2" }] }],
+    reviews,
+  );
+  assert.equal(later[0].pull_request_review_id, 2);
+});

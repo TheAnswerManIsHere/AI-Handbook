@@ -441,6 +441,16 @@ export function artifactSize(files) {
  * transport produces and far short of the gap between separate loops.
  */
 export const REVIEW_AUTHORING_WINDOW_MS = 6 * 60 * 60 * 1000;
+/**
+ * How far AFTER a review's submitted_at one of its comments may be created.
+ * GitHub writes the review row and then its comments, so a comment can carry
+ * a created_at one or two seconds later than the review it belongs to.
+ * Round 5's rule (`gap >= 0`) read those as belonging to the NEXT pass:
+ * on #38's own capture two of round 12's four findings were created one
+ * second after the review and moved the trend from [..,4,4,3] to [..,2,5].
+ * Found by the execution bar on a real capture. (#38 round 13.)
+ */
+export const REVIEW_COMMENT_SKEW_MS = 60 * 1000;
 
 export const normalizeLogin = (login) => (login ?? "").replace(/\[bot\]$/, "");
 
@@ -468,7 +478,7 @@ export function flattenMcpThreads(reviewThreads, reviews) {
       const review =
         candidates.find((r) => {
           const gap = new Date(r.submitted_at) - createdAt;
-          return gap >= 0 && gap <= REVIEW_AUTHORING_WINDOW_MS;
+          return gap >= -REVIEW_COMMENT_SKEW_MS && gap <= REVIEW_AUTHORING_WINDOW_MS;
         }) ?? candidates.filter((r) => new Date(r.submitted_at) <= createdAt).pop();
 
       out.push({
