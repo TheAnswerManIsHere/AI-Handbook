@@ -407,10 +407,24 @@ export function artifactSize(files) {
  *    our own workflow (one reviewer opens a thread, one author replies) and
  *    is not a general GitHub guarantee for arbitrarily-authored threads.
  *  - `pull_request_review_id`: not present in this MCP shape at all. It is
- *    approximated as the id of the latest `reviews` entry, **by the same
- *    author**, submitted at or before the comment's `created_at` — the same
- *    correlation a human would do by reading timestamps, made explicit and
- *    testable instead of implicit.
+ *    approximated from `reviews` **by the same author**, by timestamp.
+ *
+ *    THE DIRECTION OF THAT COMPARISON IS THE WHOLE THING. GitHub creates a
+ *    review's comments moments BEFORE the review itself is submitted --
+ *    measured on this repo's own PR #38, four seconds before -- so matching
+ *    "the latest review submitted at or before the comment" attributes every
+ *    comment to the PREVIOUS round, and `rounds.trend` (which the
+ *    adjudicator's rubric weighs directly) comes out shifted: 6/3/3/4 was
+ *    reported as 6/3/7/0. Found by an adjudicator reading the record's own
+ *    numbers, which is the arrangement working.
+ *
+ *    So a comment belongs to the EARLIEST review by that author submitted at
+ *    or after it, WITHIN A BOUNDED WINDOW -- the review it was written for.
+ *    The window matters: without it, a comment predating every review by
+ *    years would attach to the first one that happens to follow it, which is
+ *    a different confidently-wrong answer. Outside the window it falls back
+ *    to the latest earlier review (a reply posted after the last pass), and
+ *    failing that carries no review id at all.
  */
 /**
  * Same bot, two spellings: `get_reviews` returns
@@ -421,6 +435,13 @@ export function artifactSize(files) {
  * silently finds nothing for every one of the bot's own comments, which is
  * exactly the kind of confidently-wrong result this file exists to prevent.
  */
+/**
+ * How long before its submission a review's comments may have been created.
+ * A single reviewer pass is minutes; six hours is generous for any pass this
+ * transport produces and far short of the gap between separate loops.
+ */
+export const REVIEW_AUTHORING_WINDOW_MS = 6 * 60 * 60 * 1000;
+
 export const normalizeLogin = (login) => (login ?? "").replace(/\[bot\]$/, "");
 
 export function flattenMcpThreads(reviewThreads, reviews) {
@@ -444,7 +465,11 @@ export function flattenMcpThreads(reviewThreads, reviews) {
       const login = c.author ?? c.user?.login;
       const createdAt = new Date(c.created_at);
       const candidates = byAuthor.get(normalizeLogin(login)) ?? [];
-      const review = candidates.filter((r) => new Date(r.submitted_at) <= createdAt).pop();
+      const review =
+        candidates.find((r) => {
+          const gap = new Date(r.submitted_at) - createdAt;
+          return gap >= 0 && gap <= REVIEW_AUTHORING_WINDOW_MS;
+        }) ?? candidates.filter((r) => new Date(r.submitted_at) <= createdAt).pop();
 
       out.push({
         id,

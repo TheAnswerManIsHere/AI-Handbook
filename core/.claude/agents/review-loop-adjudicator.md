@@ -128,6 +128,17 @@ carry the decision:
   context from the loop. Capped, with truncation stated; a truncated or
   unavailable patch is itself uncertainty — weigh it, don't fill it by
   inference.
+
+  **It arrives as an ARRAY OF LINES, and so do the other long fields**
+  (`findings.items[].body`, `planOracle.sections`, `declineCitation.text`).
+  That is deliberate: `JSON.stringify` escapes newlines, so a multi-line value
+  would otherwise be one enormous JSON line — and a line is the unit your Read
+  tool cannot page past. An adjudicator on PR #38 had its read of a
+  103,547-character patch cut at 52,593 and never saw the implementation
+  hunks, while every declared cap was satisfied and `truncation.fields` was
+  empty. If you ever meet a field you cannot read to its end, say so in your
+  `reasoning` rather than ruling as though you had: an unread input is
+  uncertainty, and this record is now built so it should not arise.
 - `sinceLastReview` — what changed since the last completed reviewer pass,
   classified `code` / `agent-contract` / `prose` / `record`. **Its `patch` is
   normally EMPTY and that means nothing is wrong**: you are dispatched after

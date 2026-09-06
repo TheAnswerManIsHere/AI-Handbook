@@ -561,3 +561,40 @@ test("reviewerPasses counts both when the summary names a commit no marker does"
     ["summary", "comment"],
   );
 });
+
+test("a review comment belongs to the review it was written FOR, not the previous one", () => {
+  // GitHub creates a review's comments moments before the review is
+  // submitted. Matching "latest review at or before the comment" therefore
+  // attributed every comment to the PREVIOUS round, shifting `rounds.trend`
+  // — the field the adjudicator's rubric weighs directly. Timestamps are
+  // this repository's own PR #38: the round-4 comments landed at 16:53:30Z,
+  // four seconds before the round-4 review at 16:53:34Z, and were counted
+  // into round 3. (Codex found the fix; the adjudicator found the defect,
+  // from the record's own numbers.)
+  const reviews = [
+    { id: 1, user: { login: "chatgpt-codex-connector[bot]" }, submitted_at: "2026-09-06T16:10:38Z" },
+    { id: 2, user: { login: "chatgpt-codex-connector[bot]" }, submitted_at: "2026-09-06T16:53:34Z" },
+  ];
+  const threads = [
+    {
+      id: "PRRT_round4",
+      comments: [
+        {
+          author: "chatgpt-codex-connector",
+          created_at: "2026-09-06T16:53:30Z",
+          body: "a round-4 finding",
+          html_url: "https://github.com/o/r/pull/38#discussion_r99",
+        },
+      ],
+    },
+  ];
+  const [comment] = flattenMcpThreads(threads, reviews);
+  assert.equal(comment.pull_request_review_id, 2, "the comment belongs to the review submitted just after it");
+
+  // A reply posted after the last pass still attaches to that pass.
+  const later = flattenMcpThreads(
+    [{ id: "PRRT_after", comments: [{ author: "chatgpt-codex-connector", created_at: "2026-09-06T17:30:00Z", body: "later", html_url: "https://github.com/o/r/pull/38#discussion_r100" }] }],
+    reviews,
+  );
+  assert.equal(later[0].pull_request_review_id, 2);
+});

@@ -308,6 +308,21 @@ export function assertArtifactEndpoints(base, head, { runGit = git } = {}) {
           `from base...head -- without both endpoints there is nothing to derive them from`,
       );
     }
+    // A FULL OBJECT ID, not any commit-ish. `git cat-file -e` resolves
+    // `HEAD`, `main` and abbreviated shas alike (verified), so a snapshot
+    // carrying a symbolic ref would pass this check and then derive the
+    // artifact range -- and `dispatchDeclaration(head)` -- from whatever the
+    // checkout currently points at, while the record stored the mutable
+    // spelling as though it were pinned. The endpoints must name commits
+    // GitHub reported, not names this container can resolve differently
+    // tomorrow. (Codex, #38 round 4.)
+    if (!/^[0-9a-f]{40}$/i.test(ref.trim())) {
+      throw new Error(
+        `${label} ${JSON.stringify(ref)} is not a full 40-character object id. The snapshot must carry the ` +
+          `commit GitHub reported, not a name (HEAD, a branch) or an abbreviation this checkout could ` +
+          `resolve to something else`,
+      );
+    }
     try {
       runGit(["cat-file", "-e", `${ref}^{commit}`]);
     } catch {
@@ -690,7 +705,16 @@ const NO_PLAN_FORMS = [
   },
   { reason: "bugfix oracle (tier C)", re: /^\s*\*{0,2}Fix tier:?\*{0,2}\s*C\b/im },
   { reason: "trivial change", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}\s*n\/a\s*[-—–]\s*no plan/im },
-  { reason: "private path", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}[^\n]*shasum[^\n]*$/im },
+  {
+    // The private path's WHOLE provenance, not the word `shasum`. These three
+    // fields are the only independently inspectable evidence a private plan
+    // has -- the plan file itself is off the public channel by construction --
+    // so accepting "Approved-plan source: shasum" would treat a placeholder as
+    // proof of an approved plan, in exactly the field whose absence is
+    // otherwise a refusal. (Codex, #38 round 4.)
+    reason: "private path",
+    re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}[^\n]*?[\w.-]+\.md[^\n]*?\bshasum\b[^\n]*?\b[0-9a-f]{16,64}\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+  },
 ];
 
 /**
@@ -820,11 +844,25 @@ export function planOracleFor(pr, headSha, { runGit = git } = {}) {
  * forever. (Codex, #37 round 2.)
  */
 export function planFilesIntroducedBy(sha, { runGit = git } = {}) {
-  const out = runGit(["diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--no-renames", sha]);
-  return out
-    .split("\0")
-    .filter(Boolean)
-    .filter((f) => /^docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md$/.test(f));
+  // `-m` because a MERGE COMMIT otherwise reports nothing at all. This
+  // repository requires merging newly-landed `main` into an already-pushed
+  // branch rather than rebasing it, so a plan-review head IS routinely a
+  // merge -- and without merge traversal the oracle sees zero introduced
+  // plans and refuses the mandatory adjudication on a loop that contains
+  // exactly one plan. Reproduced against real git before fixing: 0 paths
+  // without `-m`, both paths with it. (Codex, #38 round 4.)
+  //
+  // `-m` emits one diff per parent, so the same path can appear twice; the
+  // set is deduplicated.
+  const out = runGit(["diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "-m", "--no-renames", sha]);
+  return [
+    ...new Set(
+      out
+        .split("\0")
+        .filter(Boolean)
+        .filter((f) => /^docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md$/.test(f)),
+    ),
+  ];
 }
 
 /**
@@ -983,6 +1021,46 @@ export const PLAN_ORACLE_CAP_CHARS = 80_000;
 export const DECLINE_CITATION_CAP_CHARS = 40_000;
 export const RECORD_TOTAL_CAP_CHARS = 600_000;
 
+/**
+ * The longest single line the record may emit.
+ *
+ * A cap on SIZE is not a guarantee of READABILITY, and the difference was
+ * demonstrated by the judge on this very PR: its Read was cut at 52,593 of
+ * 103,547 characters of `artifact.patch`, so it never saw the implementation
+ * hunks and said so in its verdict. `JSON.stringify` escapes newlines, so any
+ * multi-line value -- a patch, a finding body, a plan section -- arrives as
+ * ONE enormous JSON line, and a line is the unit the reader's transport
+ * cannot page past. A value can therefore sit under every declared cap, leave
+ * `truncation.fields` empty, and still be invisible to the only reader that
+ * matters. (Codex, #38 round 4, evidenced by loop-extension-38-1.json.)
+ *
+ * So every multi-line field is emitted as an ARRAY OF LINES: pretty-printed
+ * JSON then puts each source line on its own line, and a line longer than
+ * this cap is split into consecutive chunks rather than truncated -- nothing
+ * is lost, it is only made reachable.
+ */
+export const RECORD_LINE_CAP_CHARS = 2_000;
+
+/**
+ * A multi-line string as the record emits it: an array of lines, each within
+ * the line cap. `null` and non-strings pass through untouched, so a field
+ * that is legitimately absent still reads as absent rather than as [].
+ */
+export function asReadableLines(text) {
+  if (typeof text !== "string") return text;
+  const out = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (line.length <= RECORD_LINE_CAP_CHARS) {
+      out.push(line);
+      continue;
+    }
+    for (let i = 0; i < line.length; i += RECORD_LINE_CAP_CHARS) {
+      out.push(line.slice(i, i + RECORD_LINE_CAP_CHARS));
+    }
+  }
+  return out;
+}
+
 const cutMarker = (full, kept) => `\n[TRUNCATED at ${kept} chars of ${full} -- weigh the truncation itself as uncertainty]`;
 
 /** Order the finding text is spent in: unresolved first, then most recent. */
@@ -1004,6 +1082,9 @@ function spendOrder(items) {
 export function applyCaps(record) {
   const truncation = { fields: [], totalCapChars: RECORD_TOTAL_CAP_CHARS, serializedChars: 0 };
 
+  // The per-field caps below run on the strings, before the conversion above
+  // has any effect on them -- `applyCaps` is called once, and the conversion
+  // is the last thing it does to content.
   let budget = FINDING_TEXT_CAP_CHARS;
   for (const { item } of spendOrder(record.findings.items)) {
     const body = item.body ?? "";
@@ -1043,6 +1124,19 @@ export function applyCaps(record) {
   record.truncation = truncation;
   // Measured on what is actually written, after every per-field cap -- the
   // only measurement that can bound a combination nobody enumerated.
+  // EVERY MULTI-LINE FIELD BECOMES AN ARRAY OF LINES before anything is
+  // measured, because the conversion changes the emitted size and because
+  // what the judge cannot read may as well not be there. Done here, once, so
+  // no field can be added later that is capped but unreadable.
+  for (const item of record.findings?.items ?? []) item.body = asReadableLines(item.body);
+  if (record.planOracle?.sections) {
+    for (const heading of Object.keys(record.planOracle.sections)) {
+      record.planOracle.sections[heading] = asReadableLines(record.planOracle.sections[heading]);
+    }
+  }
+  if (record.declineCitation) record.declineCitation.text = asReadableLines(record.declineCitation.text);
+  if (record.artifact) record.artifact.patch = asReadableLines(record.artifact.patch);
+
   // The note goes on BEFORE anything is measured. Measuring, then adding
   // metadata, then never re-measuring is how a record ends up larger than the
   // size it reports: near the boundary it can cross the cap on the strength of
@@ -1078,9 +1172,13 @@ export function applyCaps(record) {
 
   let serialized = measure();
   const shedOrder = spendOrder(record.findings.items).reverse();
+  // Bodies are arrays of lines by now, so "how much am I dropping" is the
+  // joined character count, not the number of lines.
+  const textLength = (value) =>
+    Array.isArray(value) ? value.reduce((n, line) => n + line.length + 1, 0) : (value ?? "").length;
   for (const { item } of shedOrder) {
     if (serialized <= RECORD_TOTAL_CAP_CHARS) break;
-    const full = (item.body ?? "").length;
+    const full = textLength(item.body);
     if (full === 0) continue;
     item.body = null;
     item.bodyTruncated = true;

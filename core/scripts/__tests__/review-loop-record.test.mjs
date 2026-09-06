@@ -19,7 +19,9 @@ import {
   planReviewSignals,
   readAtCommit,
   sectionOf,
+  planFilesIntroducedBy,
   PATCH_CAP_CHARS,
+  RECORD_LINE_CAP_CHARS,
   RECORD_TOTAL_CAP_CHARS,
 } from "../review-loop-record.mjs";
 
@@ -520,9 +522,10 @@ test("an empty artifact against DISTINCT endpoints is allowed, and says so", () 
 });
 
 test("both endpoints are validated before anything derives from the range", () => {
-  assert.throws(() => assertArtifactEndpoints(null, "head", { runGit: () => "" }), /carries no pr\.base\.sha/);
+  const full = "a".repeat(40);
+  assert.throws(() => assertArtifactEndpoints(null, full, { runGit: () => "" }), /carries no pr\.base\.sha/);
   assert.throws(
-    () => assertArtifactEndpoints("base", "head", { runGit: numstatGit([], { fail: "cat-file" }) }),
+    () => assertArtifactEndpoints(full, full, { runGit: numstatGit([], { fail: "cat-file" }) }),
     /is not a resolvable commit/,
   );
 });
@@ -670,7 +673,10 @@ test("each permitted no-plan form yields a stated null", () => {
     ["**Fix tier:** B — Q2 fired\n**Root cause:** the retry double-charges", "bugfix oracle (tier A/B)"],
     ["**Fix tier:** C — trivial schema fix, migration ceremony authorized", "bugfix oracle (tier C)"],
     ["**Approved-plan source:** n/a — no plan (trivial change)", "trivial change"],
-    ["**Approved-plan source:** PLAN_X.md, shasum -a 256 abc…, 2026-09-06", "private path"],
+    [
+      "**Approved-plan source:** PLAN_X.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06",
+      "private path",
+    ],
   ];
   for (const [body, reason] of forms) {
     const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) });
@@ -877,4 +883,86 @@ test("thread provenance matches the shared snapshot contract, no stricter", () =
     () => assertThreadProvenance([{ id: "r1-0", comments: [{}] }]),
     /not a GitHub review-thread node id/,
   );
+});
+
+test("every long field is emitted as lines the judge's Read can actually page", () => {
+  // A cap on SIZE is not a guarantee of READABILITY. On PR #38 the judge's
+  // read of a 103,547-character `artifact.patch` was cut at 52,593 and it
+  // never saw the implementation hunks — with every declared cap satisfied
+  // and `truncation.fields` empty. JSON escapes newlines, so a multi-line
+  // value is one enormous JSON line, and a line is what the transport cannot
+  // page past. (Codex, #38 round 4, evidenced by the loop's own receipt.)
+  const record = applyCaps({
+    findings: { items: [{ threadId: "PRRT_a", resolved: false, body: `first\nsecond\n${"z".repeat(6000)}` }] },
+    planOracle: { sections: { Direction: "a\nb" } },
+    declineCitation: { text: "note one\nnote two" },
+    artifact: { patch: "diff --git a/x b/x\n+added\n" },
+  });
+  for (const value of [
+    record.findings.items[0].body,
+    record.planOracle.sections.Direction,
+    record.declineCitation.text,
+    record.artifact.patch,
+  ]) {
+    assert.ok(Array.isArray(value), "every multi-line field is an array of lines");
+  }
+  const emitted = JSON.stringify(record, null, 2).split("\n");
+  const longest = Math.max(...emitted.map((l) => l.length));
+  assert.ok(longest <= RECORD_LINE_CAP_CHARS + 32, `longest emitted line was ${longest}`);
+
+  // Chunked, not truncated: an over-long source line stays complete.
+  assert.ok(record.findings.items[0].body.join("").includes("z".repeat(6000)), "no content is lost to chunking");
+});
+
+test("a merge commit still yields the plan it introduced", () => {
+  // This repository requires merging newly-landed main into a pushed branch
+  // rather than rebasing, so a plan-review head IS routinely a merge — and
+  // `diff-tree` without `-m` reports nothing at all for one, which refused
+  // the mandatory adjudication on a loop containing exactly one plan.
+  let sawMergeTraversal = false;
+  const runGit = (args) => {
+    if (args[0] === "diff-tree") {
+      sawMergeTraversal = args.includes("-m");
+      // `-m` emits one diff per parent, so a path can repeat.
+      return ["docs/plans/PLAN_NEW.md", "b.txt", "docs/plans/PLAN_NEW.md"].join("\0") + "\0";
+    }
+    return "";
+  };
+  const plans = planFilesIntroducedBy("head", { runGit });
+  assert.ok(sawMergeTraversal, "merge traversal must be requested, or a merge head reports nothing");
+  assert.deepEqual(plans, ["docs/plans/PLAN_NEW.md"], "and the per-parent repeats are deduplicated");
+});
+
+test("artifact endpoints must be immutable object ids, not names", () => {
+  // `git cat-file -e` resolves HEAD, main and abbreviated shas alike, so the
+  // previous check let a snapshot carrying a NAME derive the artifact range
+  // and the dispatch declaration from whatever the checkout points at.
+  const full = "a".repeat(40);
+  for (const bad of ["HEAD", "main", "a6c0cc7"]) {
+    assert.throws(
+      () => assertArtifactEndpoints(bad, full, { runGit: () => "" }),
+      /not a full 40-character object id/,
+      `${bad} must be refused`,
+    );
+  }
+  assertArtifactEndpoints(full, full, { runGit: () => "" });
+});
+
+test("the private path must carry its whole provenance, not the word shasum", () => {
+  const complete = "**Approved-plan source:** PLAN_THING.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06";
+  assert.equal(
+    planOracleFor({ title: "Implement it", body: complete }, "head", { runGit: planGit([PLAN]) }).reason,
+    "private path",
+  );
+  for (const placeholder of [
+    "**Approved-plan source:** shasum",
+    "**Approved-plan source:** PLAN_THING.md, shasum -a 256 <digest>, approved <date>",
+    "**Approved-plan source:** shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e",
+  ]) {
+    assert.throws(
+      () => planOracleFor({ title: "Implement it", body: placeholder }, "head", { runGit: planGit([PLAN]) }),
+      /names no approved-plan source/,
+      `placeholder provenance must refuse: ${placeholder}`,
+    );
+  }
 });
