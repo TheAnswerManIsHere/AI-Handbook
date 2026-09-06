@@ -1,0 +1,297 @@
+{
+  "generator": "scripts/review-loop-record.mjs",
+  "generatedAt": "2026-09-06T04:05:27.661Z",
+  "evidenceCapturedAt": "2026-09-06T04:05:14.062975Z",
+  "pr": 37,
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "title": "[PLAN REVIEW] Fable review foundations (phase 1a of #36) — DO NOT MERGE",
+  "artifact": {
+    "files": 2,
+    "added": 697,
+    "removed": 0,
+    "patch": "[excluded 1 generated record file -- this machinery's own receipts and adjudication records, which are bookkeeping rather than the artifact under review: .agents/receipts/loop-budget-37.json]\ndiff --git a/docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md b/docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md\nnew file mode 100644\nindex 0000000..9f8ef55\n--- /dev/null\n+++ b/docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md\n@@ -0,0 +1,688 @@\n+# Plan: Fable review foundations — a record that cannot lie about the artifact, a judge whose model tracks the strongest available tier and is stamped on every verdict, and a record wide enough to check conformance\n+\n+Workstream: #36, phase 1a (foundations). Prerequisite for phase 1b (B1\n+conformance triage) and every later phase. Fixes #34 gap 2.\n+\n+## Preflight\n+\n+**Increment test.** #36 is the direction (\"every judgement that would\n+otherwise rest on one actor's word gets a dispatch to the strongest\n+available model\" — a universal quantifier). This plan is one increment: it\n+changes what the existing adjudicator *reads* and how its model and effort\n+are *chosen and recorded*. It adds no role, no rubric, no new dispatch\n+point. B1 (a rubric change) is the next increment and is not in this\n+document.\n+\n+**Affected-surface inventory.** Four classes, each with a mechanical oracle,\n+results recorded under *Settled Decisions*:\n+\n+1. **Declarative model pins** — `git grep -n -i 'model: *\"\\?fable'`\n+   over `core/` and `.claude/`.\n+2. **Semantic routing instructions that name the model tier in prose** —\n+   `git grep -n -i 'fable'` over the same roots, each hit classified *live\n+   routing instruction* (an agent would act on it) or *historical record* (a\n+   dated decision entry describing why something is as it is). Added at\n+   round 1: the `model:` spelling alone misses executable instructions like\n+   \"dispatch one `review-loop-adjudicator` on Fable\", which would keep a\n+   dispatch pinned to a tier the definition no longer names.\n+3. **Consumers of `artifact.files/added/removed` and `territory`** —\n+   `git grep -n 'artifactSize\\|findingsByTerritory\\|derived.files'`.\n+4. **Every consumer that validates or honours an `adjudication`-kind\n+   receipt** — `git grep -nE 'kind (===|!==) \"adjudication\"'`, each hit\n+   classified *shape validator*, *state reader*, or *independent honourer*.\n+   Corrected at round 2: the round-1 oracle tested only `===` and so missed\n+   `pr-ready.mjs`'s `!==` guard, which independently accepts a terminal\n+   receipt on the merge gate without calling the review-budget validator.\n+\n+**Specification test applied throughout:** what follows names invariants and\n+the constructs that hold them. Call sites, field renames, and test\n+assertions are left to the diff and the suite.\n+\n+## Problem\n+\n+Three defects in the adjudication machinery, each confirmed on a live loop:\n+\n+1. **The record reports the artifact's size as zero against a non-empty\n+   patch.** On #28 and #33 the adjudication record carried\n+   `artifact: {files: 0, added: 0, removed: 0}` beside a 50 KB\n+   `artifact.patch`, so `territory` said `inDiff: 0 / outsideDiff: 7` for a\n+   loop in which every finding path was in the diff. Two independent judges\n+   flagged it (#34 gap 2). Root cause, measured this session: the snapshot's\n+   `files` array was empty on both loops (`files: []` with\n+   `complete.files: true`), and the generator accepts an empty array. The\n+   MCP `get_files` result is unfit as this channel: each item omits\n+   `deletions` when it is zero (measured on #33: `{filename, status,\n+   additions, changes, patch}`), which the generator's own shape check\n+   refuses, and each item carries the file's whole patch, which makes a\n+   full-PR capture too large to hand through. Meanwhile the record already\n+   derives `artifact.patch` from git over `base...head`. Two sources for\n+   one fact, and the weaker one won.\n+2. **The judge's model and effort are asserted, not established, and pinned\n+   to a named tier rather than to the strongest one.** The agent definition\n+   says `model: fable`; the guard's refusal text says to pass\n+   `model: \"fable\"`; the effort is not declared at all, so the judge\n+   silently inherits whatever the dispatching session runs at; and no\n+   verdict receipt records either. \"It ran at the strongest tier, thinking\n+   hard\" is probably true and provable nowhere.\n+3. **The record is too narrow to check conformance.** Each finding is a\n+   400-character excerpt; the approved plan's oracle sections, the tier's\n+   decline citation (the machinery threat model), and the finding's full\n+   text are absent. Phase 1b needs all three, and the issue's *Never*\n+   list forbids sourcing any of them from the builder's prose.\n+\n+## Direction\n+\n+#36 — the strongest available model as a third set of eyes. This increment\n+makes true: **the adjudicator's only input is derived from one source per\n+fact, names the model and effort the dispatch actually declared, and carries\n+the artifacts a conformance judgement needs.**\n+\n+## Product Intent\n+\n+After this increment, an adjudication record's artifact size, file set,\n+territory and patch agree by construction; the judge's model tracks the\n+strongest tier available to this account without a code change, its\n+reasoning effort is declared rather than inherited, and both are stamped on\n+every verdict receipt from a mechanically-derived source; and the record\n+carries the approved plan's oracle sections at their approved commit, the\n+tier's decline citation, and each finding's full reviewer-authored text,\n+under a stated input budget. No rubric, role, or dispatch point changes.\n+\n+## Must Not Change\n+\n+- The adjudicator reads only the script-generated record. Nothing in this\n+  plan adds a channel by which the dispatching session's prose reaches it.\n+- The four verdicts, their meaning, the write-gate rule, the tier budgets,\n+  the self-serve leash and the David gate.\n+- The guard's hook path reads no configuration (threat-model rule 5).\n+- Existing committed receipts and records remain loadable: `loadLoop` on\n+  every PR that has receipts today must still return a usable state.\n+- `.agents/machinery.json`'s required shape. This plan adds no key to it, so\n+  every enrolled consumer's existing file stays valid unchanged.\n+- `artifact.patch`'s cap and its record-file exclusion.\n+- The record's refusal discipline: a fact it cannot establish is a stated\n+  refusal or a stated `null` with a reason, never a zero.\n+\n+## Settled Decisions\n+\n+1. **Artifact facts come from git, over the same range as the patch, and\n+   both endpoints are validated first.** `artifact.files/added/removed`, the\n+   file set `territory` classifies against, and `artifact.patch` are all\n+   derived from git over `base...head` (the snapshot's `pr.base.sha` and\n+   `pr.head.sha`). **Correcting a round-1 claim:** those shas are *not*\n+   already required — `assertAdjudicationSnapshot` validates the PR number,\n+   repository and capture metadata but neither sha; `changesSince` validates\n+   the head only, for its own separate range; and `artifactDiff` deliberately\n+   returns an \"unavailable\" marker rather than failing when an endpoint is\n+   missing. That tolerance was harmless while the file list came from the\n+   snapshot; it is not harmless once the same range is authoritative for\n+   size and territory. So both endpoints are explicitly validated as full,\n+   resolvable commits before the shared list is derived, with a refusal\n+   naming which one failed — never a silent empty list from an incidental\n+   git failure. One function yields the\n+   file list; the three consumers read it. Disagreement is then\n+   unconstructible, not merely tested for.\n+2. **That file list is lossless, and its parsing rules are stated.**\n+   (Round 1.) It is read with `--numstat -z --no-renames`: `-z` because a\n+   path with a space, a quote or a non-ASCII byte is otherwise C-quoted and\n+   silently mis-compared against a finding's path; `--no-renames` because\n+   rename detection reports only a rename's destination, which the record's\n+   existing discovery already disables for the same reason, so a rename\n+   appears as its add and its delete and both paths are in the set. Binary\n+   files report `-` for both counts: they carry `added: null, removed:\n+   null`, are counted in `files`, and are surfaced as `binaryFiles: <n>`\n+   beside the totals, so a non-zero artifact can never present as zero\n+   lines without saying why. A count that is neither numeric nor `-` is a\n+   refusal, not a coerced zero.\n+3. **An empty artifact against distinct base and head is a refusal.** If\n+   `base !== head` and the git-derived file set is empty, the generator\n+   refuses and names the two shas. A PR under review with no diff is not a\n+   state this machinery meets; the shape signals a wrong base or head.\n+4. **Size counts exclude the machinery's own record files; territory does\n+   not.** `files/added/removed` describe the artifact under review, so they\n+   apply the same exclusion the patch applies. A finding anchored on a\n+   receipt or record file is nonetheless *inside this PR's diff*, so\n+   `territory` classifies against the full changed set, including both\n+   sides of a rename. The record's `territory.note` states this, and the\n+   size fields state the exclusion, so a reader cannot mistake one for the\n+   other.\n+5. **The judge's model is declared once, in its own definition's\n+   frontmatter, as `best` — the alias that resolves to the strongest model\n+   available to this account.** Verified against the Claude Code\n+   documentation (see *External-claim verification*): `best` \"uses the\n+   latest Fable model where it's available to you, otherwise the same model\n+   as `opus`\", and subagent frontmatter accepts the same values as the\n+   `--model` flag. This is what David asked for on 2026-09-06 — the\n+   strongest model, tracked without a PR when that changes — and it is\n+   strictly better than the alias-in-config design this plan carried at\n+   round 1, because it needs no configuration key at all, tracks *across*\n+   tiers rather than within one, and degrades to Opus rather than failing\n+   if Fable is ever unavailable. Consequently **the dispatch passes no\n+   per-invocation `model`**: this harness's Agent tool exposes `model` as a\n+   four-alias enum that does not include `best`, so passing anything there\n+   would override the frontmatter and pin the tier — the exact defect being\n+   removed. The guard's refusal text and every routing instruction change\n+   from naming a tier to naming the definition file.\n+   **Implementation-time verification, with a parameterized fallback:** the\n+   first step is an empirical check that this harness accepts `best` in\n+   subagent frontmatter. If it does not, the declared value is `fable`.\n+   (Round 2.) Everything downstream is written against **the empirically\n+   selected alias**, not against the literal `best`: the class-1 oracle\n+   asserts exactly one declarative pin naming *that* alias, the runtime\n+   fixture asserts `dispatch.model` equals *that* alias, and the Definition\n+   of Done reads the same way — so the fallback cannot produce an\n+   implementation that fails the plan's own acceptance checks. The fallback\n+   path gets its own test: with `best` unavailable, a `fable` declaration\n+   and its stamps are accepted. The mechanism under review is the\n+   frontmatter being the single declaration, not the particular alias in\n+   it.\n+6. **The judge's reasoning effort is declared in the same frontmatter, not\n+   inherited.** `effort: xhigh`. Verified: subagent frontmatter accepts\n+   `low | medium | high | xhigh | max`, overrides the session level,\n+   inherits it when omitted, and has no per-invocation equivalent. Today\n+   the adjudicator inherits, so its depth silently tracks the dispatching\n+   session — an unpinned variable in a judge whose verdicts are audited.\n+   `xhigh` rather than `max`: the judge's measured failure was applying a\n+   rule to a situation nobody read, which is a depth failure, and a verdict\n+   is ~0.1% of a loop's tokens; but `max` is documented as prone to\n+   overthinking, and on a default-stop rubric overthinking reads as\n+   manufactured reasons to continue.\n+7. **The record carries the dispatch declaration, read mechanically from\n+   the definition file at the reviewed head, through a layout-aware\n+   resolver.** (Round 1; the resolver added round 2.)\n+   `dispatch: {model, effort, source, sha}` is parsed from the agent\n+   definition's frontmatter at `snapshot.pr.head.sha` — never from the\n+   working tree, never from anything the session types. The record is\n+   generated before the dispatch and is the input the verdict cites, so this\n+   is the same evidence chain every other record field uses.\n+   **The resolver is not a bare `git show <head>:<consumer path>`**, because\n+   the two layouts this machinery runs in disagree about where payload\n+   lives: in the handbook, `.claude/agents/review-loop-adjudicator.md` is a\n+   **symlink** (mode `120000`, whose blob is the target path text, not\n+   frontmatter) and the tracked source is `core/.claude/agents/…`; in an\n+   assembled consumer the same path is a regular file and no `core/` prefix\n+   exists. So every head-pinned payload read goes through one resolver that\n+   (a) reads the tree entry's **mode**, (b) follows a `120000` entry's\n+   target relative to the link's directory, refusing a target that escapes\n+   the repository or a chain deeper than one link, and (c) if the consumer\n+   path is absent entirely, retries once under the `core/` prefix. A path\n+   that resolves in neither layout is a refusal naming both attempts. This\n+   applies equally to `declineCitation` (decision 11), whose consumer path\n+   `.agents/memory/machinery-threat-model-is-my-own-mistakes.md` does not\n+   exist in the handbook at all — its tracked source is `core/.agents/…`.\n+8. **The receipt's stamps must equal the record's, and the validator\n+   compares them to the record — not to current configuration.** The\n+   adjudication receipt carries `modelRequested` and `effortRequested`; the\n+   validator resolves the `recordPath` the receipt already cites, reads\n+   that record's `dispatch`, and refuses on any mismatch. A typed, stale or\n+   invented value is therefore rejected without consulting anything mutable,\n+   which was the round-1 defect: a non-empty-string check accepts fiction.\n+   **Compatibility is decided by the cited record's schema, not by a date.**\n+   (Round 2, replacing a cutoff constant.) A receipt must carry the stamps\n+   **iff the record it cites carries `dispatch`**; a receipt citing a\n+   pre-`dispatch` record is legacy and passes without them. A date cannot\n+   work here: this plan-review PR never merges, so it has no merge date, and\n+   the implementation PR cannot know its own merge date in advance — every\n+   receipt written while that PR is itself under review would classify as\n+   legacy, which is precisely the window the validator most needs to cover.\n+   A date would also let a receipt with a copied-forward `decidedAt` bypass\n+   the comparison, which is the operator mistake this validator exists to\n+   catch. Keying on the record's schema is durable evidence and cannot be\n+   backdated.\n+8a. **The merge gate validates the stamps too.** (Round 2.)\n+   `pr-ready.mjs` recognises a terminal adjudication receipt through its own\n+   `receipt.kind !== \"adjudication\"` guard and honours it without calling\n+   `validateExtension`, so a receipt whose stamps disagree with its record\n+   could be refused by the review-budget guard and still produce readiness.\n+   The stamp comparison of decision 8 therefore belongs to **both**\n+   validators, with the merge gate performing the same record-derived check\n+   against the committed record the receipt cites.\n+9. **What remains an assertion is named as one.** Nothing observable from\n+   the harness proves the Agent tool actually served the declared model and\n+   effort: the tool result carries no model id, and `get_session` describes\n+   the main session, not a subagent. Decisions 5–8 establish *what the\n+   dispatch declared*, verifiably and mechanically; they do not establish\n+   *what ran*. The adjudicator's existing instruction to self-report a\n+   mismatch stays as best-effort, and this residue is recorded as a known\n+   gap rather than papered over.\n+10. **The record gains `planOracle`, sourced from the approved commit, and\n+    absence is a refusal rather than a null.** (Refusal added round 1.) The\n+    PR body's *Approved-plan source* line is parsed for a commit sha (the\n+    single-PR form `final plan commit <sha>`, or the combined form\n+    `combined plan commit <sha>`). The generator resolves **the plan file the cited\n+    commit itself introduced or modified** — `git diff-tree` against that\n+    commit's parent, restricted to `docs/plans/PLAN_*.md` — rather than\n+    every plan file present at that commit, because a repository may\n+    legitimately retain an older plan on `main` (the loop permits it when\n+    David asks), which would make an \"exactly one file present\" rule refuse\n+    every future plan. Zero or two *introduced* plan files is a refusal\n+    naming the commit; a pointer carrying an explicit path uses it directly.\n+    It then copies the *Direction*, *Product Intent*, *Must Not Change* and\n+    *Settled Decisions* sections verbatim, with the sha. The\n+    body supplies only the pointer; the text comes from the pinned commit,\n+    which David's approval fixed and the builder cannot revise mid-loop.\n+    `planOracle: null` is produced **only** when the body positively matches\n+    one of the permitted no-plan forms — the bugfix tier oracle, the\n+    verbatim trivial-change form, or the private-path form (a filename plus\n+    a checksum) — and the reason is stated. A body with no such line, or\n+    with a line the parser cannot resolve, is a **refusal**: the contract\n+    treats a missing approved-plan source as a finding in its own right, so\n+    a record that silently proceeded without the oracle would hide exactly\n+    the defect phase 1b exists to catch.\n+10a. **A `[PLAN REVIEW]` loop is its own positive form, and its oracle is\n+    the plan file at the reviewed head.** (Round 2. Without this, decision\n+    10's refusal would deadlock every plan-review loop — including the one\n+    reviewing this plan — because a plan under review has no approved-plan\n+    source by definition: it is not approved yet, and the loop's own\n+    template has no such field.) The mode is detected from the PR body's\n+    `## Review mode` / \"Plan review only\" declaration, which that template\n+    makes mandatory. In that mode `planOracle` carries\n+    `{mode: \"plan-review\", sha, path, sections}` — the same four sections,\n+    read from the plan file the PR introduces, at `snapshot.pr.head.sha`,\n+    through the same layout-aware resolver. That is the right oracle for the\n+    mode: on a plan loop the plan file *is* the artifact, which the\n+    adjudicator contract already says when it classifies `docs/plans/` as\n+    its own behavioral class. A PR declaring plan review that introduces no\n+    plan file is a refusal.\n+11. **The record gains `declineCitation`, tier-selected and read at the\n+    reviewed head.** (Head-reading added round 1.) For `budget.tier:\n+    internal` it is the text of\n+    `.agents/memory/machinery-threat-model-is-my-own-mistakes.md` at\n+    `snapshot.pr.head.sha`, through decision 7's layout-aware resolver after\n+    the commit is validated — not from the working tree, because the generator deliberately runs from\n+    `main` or a stale checkout and would otherwise hand the judge the base\n+    branch's text while the PR under review changes that very note. For\n+    `product` and `sensitive` it is `null` with reason `no tier citation in\n+    phase 1a`.\n+12. **Each finding item carries `body`: the full text of the finding's root\n+    comment, reviewer-authored only, under a stated record budget.**\n+    (Budget added round 1.) The existing `excerpt` field is replaced.\n+    Thread replies are excluded whoever wrote them — the builder's replies\n+    are prose the issue's *Never* list forbids, and the reviewer's\n+    follow-ups add nothing a triage needs. Reviewer identity is the\n+    existing `REVIEWER_LOGINS` set. The budget that bounds this text is\n+    decision 12a's, not a per-field one, because the finding bodies are not\n+    the only variable-length content in the record.\n+12a. **Every variable-length field in the record is bounded, and any\n+    truncation is visible.** (Round 1. The finding bodies were the reported\n+    instance; the class is \"content in the judge's single input whose size\n+    is set by something other than this plan\".) That content is exactly\n+    `artifact.patch` (already capped), `findings.items[].body`, and\n+    `planOracle`'s four sections — a plan file has no size limit either, so\n+    capping only the finding text would move the same defect one field over.\n+    The caps are **numeric and stated here**, not left to the implementer:\n+    `artifact.patch` keeps its existing cap; `findings.items[].body` gets a\n+    **200,000-character total** across all findings; `planOracle`'s sections\n+    get **80,000 characters** in total; `declineCitation` gets **40,000**.\n+    Above those sits a **total serialized-record cap of 600,000 characters**\n+    — measured on the exact JSON that is written and handed to the judge,\n+    after every per-field cap has been applied, so no combination of fields\n+    (including the ones that are variable but not capped individually, such\n+    as `sinceLastReview.files` and per-finding path metadata) can exceed it.\n+    If the serialized record still exceeds the total, the same priority\n+    order sheds further finding text until it fits, and the record says so.\n+    The numbers are chosen to sit an order of magnitude under a 1M-token\n+    context at ~4 characters per token while leaving the judge's own\n+    reasoning room; they are constants in one place, so moving them is a\n+    one-line change with a test. The record carries one `truncation` object\n+    naming every field that was cut, by how much, and the total serialized\n+    size actually emitted. Within the finding text\n+    the cap is spent on unresolved findings first, then most-recent-first;\n+    within `planOracle` an over-long section is cut at its end with an\n+    explicit marker, never dropped silently. `declineCitation` is a fixed\n+    repository file, bounded by that file. Refusal was rejected in favour of\n+    visible degradation: refusing to build a record is refusing to\n+    adjudicate, which on a long loop is the worst moment to have no judge.\n+12b. **The phase-scope selector is *next*, with its reason.** (Round 2.)\n+    `pr-docs` requires a phase PR's oracle to name which parent-plan\n+    sections that phase delivers and which it defers, and `planOracle` as\n+    specified carries the whole approved plan without that selector — so a\n+    conformance judge could not tell a deliberately deferred requirement\n+    from a silently dropped one. The finding is correct and its fix needs a\n+    **new mechanical source** for phase scope (the parent issue's Phases\n+    checklist is the only candidate, and it is not in the snapshot), which\n+    is a scope addition: by the now/next/never rule it defaults to *next*,\n+    and it belongs with phase 1b, whose rubric is the first consumer of\n+    `planOracle` at all. Nothing in phase 1a reads the field, so deferring\n+    it costs no correctness here. Recorded so 1b starts from it rather than\n+    rediscovering it.\n+13. **Measurement counters are *next*, not now.** #36 asks for counters of\n+    findings pre-empted by B1, defects caught by B2, checks synthesized by\n+    B3, David decisions changed by a D-role. None of those roles exists\n+    after this increment, so there is nothing to count. They ship with the\n+    role they measure, starting with B1 in phase 1b.\n+14. **No consumer configuration changes.** (Round 1, superseding the\n+    round-1 `models.adjudicator` config key.) Since the model and effort are\n+    declared in the agent definition — which is synced payload, not\n+    consumer-owned configuration — `.agents/machinery.json` keeps its two\n+    keys, `machinery.template.json` is untouched, `docs/consuming-repos.md`'s\n+    enrolment example stays correct, and no already-enrolled consumer can be\n+    left with a permanently-refusing config. The class of defect Codex named\n+    is dissolved rather than mitigated.\n+14a. **Every canonical receipt *producer* is updated, not just the\n+    validators.** (Round 2.) The affected-surface inventory covered\n+    validators and missed the places that teach an operator what to write:\n+    `core/.agents/receipts/README.md`'s canonical adjudication JSON and the\n+    two refusal recipes in `review-budget.mjs` that enumerate the fields to\n+    copy into a receipt. Making the stamps mandatory while those recipes\n+    still omit them would teach consumers to write receipts that fail\n+    validation. A fifth inventory class covers producers —\n+    `git grep -nE '\"kind\": ?\"adjudication\"|kind.*adjudication.*verdict'`\n+    over docs, READMEs and refusal strings — and every live recipe gains the\n+    stamps; an example that is deliberately historical is marked as such\n+    rather than silently updated.\n+15. **Inventory oracle results** (Preflight, run on `639266f`, re-run at\n+    round 1):\n+    - Class 1: 8 lines across 5 files. Post-change, exactly one declarative\n+      pin remains — the definition's own frontmatter — and it names `best`.\n+    - Class 2: `git grep -n -i 'fable' -- core/ .claude/` returns **111**\n+      hits; narrowed to the adjudicator-dispatch class (the same grep\n+      filtered to lines also naming *adjudicat*/*judge*, since a mention of\n+      the tier in a session-routing rule is a different subject) it returns\n+      **35**. The `model:` oracle of class 1 missed most of them, including\n+      the two live instructions Codex named — `plan-review-loop/SKILL.md:224`\n+      (\"dispatch one `review-loop-adjudicator` on Fable\") and\n+      `model-routing/SKILL.md:239-241` (\"All adjudication subagents dispatch\n+      on Fable — no exceptions\") — plus `pr-watch/SKILL.md:212`,\n+      `claude-core.md:650,665`, and the guard's two refusal messages at\n+      `review-budget.mjs:1575-1576,1607`. Every hit is classified at\n+      implementation time as **live routing** (an agent would act on it →\n+      rewritten to name the definition file rather than a tier),\n+      **historical record** (a dated decision entry explaining a past\n+      choice → left alone, because rewriting history to match present\n+      configuration is how a decision log stops being evidence), or\n+      **coupled assertion**. The third category is a round-1 discovery worth\n+      naming: `scripts/check-contract-consistency.mjs:141,150` asserts the\n+      literal phrase \"internal: budget 3, Fable-adjudicated leash to 6\"\n+      against the contract text, so a live-routing rewrite that ignored it\n+      would turn a passing CI check red for a reason unrelated to the\n+      change. It is in scope, and the implementation quotes the post-change\n+      classification of all 35 hits.\n+    - Class 3: 6 lines across 2 files (one definition, one comment, one\n+      import, two call sites, one territory definition).\n+    - Class 4: 6 lines across 2 files, of which exactly one\n+      (`review-budget.mjs`'s extension-receipt validator) validates shape;\n+      the other five read `kind`/`verdict` only and are unaffected by\n+      additive fields.\n+\n+## External-claim verification\n+\n+Checked 2026-09-06 against the current Claude Code documentation\n+(`code.claude.com/docs/en/sub-agents`, `/model-config`):\n+\n+- **Model aliases.** `best` \"uses the latest Fable model where it's\n+  available to you, otherwise the same model as `opus`\"; `fable` resolves to\n+  the latest Fable model; `opus`, `sonnet`, `haiku` resolve within their\n+  tiers; `default` varies by account type. There is no Messages-API-level\n+  \"strongest\" alias — this resolution is a Claude Code feature.\n+- **Subagent `model`.** Frontmatter accepts the same values as the\n+  `--model` flag (an alias, a full model id, or `inherit`); a per-invocation\n+  model outranks frontmatter; omitted, resolution is per-invocation, then\n+  `CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. In this\n+  harness the Agent tool's `model` parameter is an enum of four tier aliases\n+  (`sonnet | opus | haiku | fable`) — read from the live tool schema, not\n+  the docs — which is why decision 5 passes no per-invocation model.\n+- **Subagent `effort`.** Frontmatter accepts `low | medium | high | xhigh |\n+  max`, overrides the session effort level, and inherits it when omitted.\n+  There is no per-invocation effort parameter and no per-subagent thinking\n+  setting. The documented default is `high` on every model except Opus 4.7;\n+  `max` \"can improve performance on demanding tasks but may show diminishing\n+  returns and is prone to overthinking.\"\n+- **Model facts** (bundled `claude-api` reference, cached 2026-06-24):\n+  `claude-fable-5-1` is the most capable generally-available model;\n+  `claude-mythos-5-1` is the same underlying model behind restricted access.\n+\n+## Repo Context Inspected\n+\n+`core/scripts/review-loop-record.mjs` (`changesSince`, `artifactDiff`,\n+`buildRecord`, `main`, the `--no-renames` discovery rule),\n+`core/scripts/review-counting.mjs` (`artifactSize`,\n+`assertMcpSnapshotShape`, `fromMcp`, `REVIEWER_LOGINS`),\n+`core/scripts/review-budget.mjs` (`machineryConfig`, extension-receipt\n+validation, the two dispatch refusal messages),\n+`core/scripts/__tests__/review-loop-record.test.mjs` (the rename\n+regression), `core/.claude/agents/review-loop-adjudicator.md`,\n+`core/.claude/skills/model-routing/SKILL.md`,\n+`core/.claude/skills/plan-review-loop/SKILL.md`,\n+`core/.agents/machinery.template.json`, `docs/consuming-repos.md`,\n+`core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md`,\n+`AGENTS.md` (the five mandated commands), `.agents/adjudications/10-7.json`,\n+`23-1.json`, `33-1.json`, `.agents/receipts/loop-extension-33-1.json`, the\n+two live snapshots that produced #28's and #33's records,\n+`core/.agents/PLANS.md`, `sync-manifest.yml`, `identity-sources.yml`,\n+issues #34 and #36.\n+\n+## Current Behavior\n+\n+- `artifact.files/added/removed` come from `artifactSize(snapshot.files)`;\n+  `territory` from `findingsByTerritory(findings, snapshot.files)`;\n+  `artifact.patch` from `git diff base...head`. Records 10-7 and 23-1 show\n+  real sizes (their snapshots carried files); 28 and 33 show zeros.\n+- `assertMcpSnapshotShape` requires numeric `deletions` per file and accepts\n+  an empty array.\n+- The adjudicator's frontmatter says `model: fable` and declares no effort;\n+  the guard's refusal text says to pass `model: \"fable\"`; receipts carry\n+  neither field.\n+- Finding items carry a 400-character `excerpt` of the root comment.\n+- The record has no plan, threat-model, or dispatch content.\n+\n+## Source-of-Truth Analysis\n+\n+| Concept | Source of truth after this plan | Duplicate removed |\n+|---|---|---|\n+| Artifact size and file set | git, `base...head` | snapshot `files` |\n+| Artifact patch | git, `base...head` (unchanged) | — |\n+| Judge's model and effort | the agent definition's frontmatter | hardcoded tier names in refusal text and routing prose |\n+| What a verdict's dispatch declared | the record's `dispatch`, read from that definition at the reviewed head | — |\n+| Plan oracle | the plan file at the approved commit | — (the PR body carries only the pointer) |\n+| Internal-tier decline citation | the threat-model note at the reviewed head | — |\n+| Finding text | the reviewer's root comment | the 400-char excerpt |\n+\n+No new source of truth is created, and one configuration surface that the\n+round-1 draft would have created is not created either (decision 14).\n+\n+## Proposed Design\n+\n+**Record generator.** One git-derived file list over `base...head`, parsed\n+per decision 2, feeds size, territory and patch. Empty-against-distinct-shas\n+refuses. The snapshot's `files` is ignored and its shape assertion removed.\n+New top-level fields `dispatch`, `planOracle`, `declineCitation`;\n+`findings.items[].body` replaces `excerpt`, under the budget of decision 12.\n+Everything read from the repository is read at `snapshot.pr.head.sha` via\n+`git show`, never from the working tree. Every new field is either populated\n+from its named source, or `null` with a stated reason where a decision\n+permits, or a refusal.\n+\n+**Model and effort.** The definition declares both. The guard's refusal\n+text and every live routing instruction name the definition file instead of\n+a tier. No configuration key is added.\n+\n+**Receipt stamps.** `modelRequested` and `effortRequested` join the\n+adjudication receipt and must equal the cited record's `dispatch`.\n+`pr-ready`'s two-file allowance at exhaustion is unaffected.\n+\n+## Data Model and Migration Impact\n+\n+Two JSON shapes change, both append-only for readers:\n+\n+- Adjudication receipt: two new fields, required exactly when the record\n+  the receipt cites carries `dispatch`, and validated against that record.\n+  A receipt citing a pre-`dispatch` record is legacy and passes without\n+  them, so no committed receipt is invalidated and no rewrite is needed.\n+- Adjudication record: new fields; `excerpt` → `body`. Records are one-shot\n+  inputs; committed records are never re-read by the machinery, so no\n+  migration.\n+\n+Snapshot contract: `files` and `complete.files` become optional-and-ignored.\n+An old snapshot that carries them still passes. `.agents/machinery.json` is\n+untouched, so no consumer migration exists.\n+\n+## Runtime Behavior\n+\n+- A record built on a correct snapshot for #33's head at `703b230` shows\n+  `files: 9` (records excluded), non-zero added/removed, `inDiff: 7 /\n+  outsideDiff: 0`.\n+- A snapshot whose `pr.base.sha` equals `pr.head.sha`: `artifact` empty and\n+  allowed — the PR has no diff, which is true. Distinct shas with an empty\n+  git set: refusal.\n+- A PR containing a binary file: that file counts in `files`, contributes\n+  `null` line counts, and appears in `binaryFiles`.\n+- A PR containing a rename with a finding anchored on the destination: both\n+  paths are in the set, so the finding classifies `inDiff`.\n+- An implementation PR whose body cites a plan sha: `planOracle` populated\n+  with four sections and the sha. A bugfix PR: `planOracle: null`, reason\n+  `bugfix oracle`. A feature PR whose body omits the line: refusal.\n+- A record generated from a `main` checkout while the PR edits the\n+  threat-model note: `declineCitation` carries the PR's version.\n+- An adjudication dispatch after this merges: no `model` parameter is\n+  passed; the record's `dispatch` reads `{model: \"best\", effort: \"xhigh\"}`\n+  from the definition at the reviewed head; the receipt repeats both and is\n+  refused by the guard on any mismatch.\n+\n+## Admin/User UX Impact\n+\n+None. Agent-facing machinery only.\n+\n+## Security, Permissions, and Validation\n+\n+No authority widens. The record gains read-only content from the clone at a\n+validated commit. The threat model governs: these are mistake-catchers for\n+the single operator, not boundaries. This is a gate-script change and\n+therefore **David-merge-only**.\n+\n+## Testing Plan\n+\n+All five mandated repository commands (`AGENTS.md`), run and their results\n+recorded by the implementation:\n+\n+```\n+node --test scripts/__tests__/*.test.mjs\n+node scripts/check-manifest.mjs\n+node scripts/check-identity-sources.mjs\n+node scripts/check-root-wiring.mjs\n+node scripts/check-settings-fields.mjs\n+```\n+\n+Tests prove the invariants, with negatives:\n+\n+- Size/territory/patch derive from one git list: a fixture PR with a record\n+  file and two code files yields size that excludes the record, territory\n+  that includes it, and a patch that excludes it.\n+- A binary change reports `null` counts and a `binaryFiles` count, never a\n+  false zero; a non-numeric, non-`-` count refuses.\n+- A rename with a finding anchored on the destination classifies `inDiff`;\n+  a path containing a space and a non-ASCII byte round-trips.\n+- Empty set with distinct shas refuses; equal shas do not.\n+- A snapshot with `files: []`, with `files` absent, and with old-shape\n+  files all produce identical records.\n+- `planOracle`: sha with one plan file → four sections verbatim; two plan\n+  files → refusal; sha absent → refusal; each permitted no-plan form →\n+  `null` with its reason; **a feature body with the line omitted or\n+  malformed → refusal**.\n+- `declineCitation`: generated from an unrelated checkout while the PR\n+  changes the note → the PR's text, not the base branch's; `product` tier →\n+  `null`.\n+- `body` is the root comment in full; a thread with a builder reply carries\n+  none of the reply's text.\n+- Every variable-length field is bounded: a high-volume finding fixture and\n+  an oversized plan file each truncate deterministically, name themselves in\n+  the record's `truncation` object, and never exceed their cap.\n+- `dispatch` is parsed from the definition at the reviewed head, not the\n+  working tree, in **both layouts**: a handbook fixture where the consumer\n+  path is a `120000` symlink into `core/`, and an assembled-consumer fixture\n+  where it is a regular file; a link escaping the repository refuses.\n+- `declineCitation` resolves in both layouts, including the handbook case\n+  where the consumer path does not exist at all.\n+- `planOracle` on a `[PLAN REVIEW]` PR body: the record generates, carries\n+  `mode: \"plan-review\"`, and reads the plan file at head; a plan-review body\n+  introducing no plan file refuses.\n+- `planOracle` where the base already contains `PLAN_OLD.md` and the cited\n+  commit adds `PLAN_NEW.md`: resolves `PLAN_NEW.md`, does not refuse.\n+- Both artifact endpoints: missing, malformed, and unresolvable base/head\n+  each refuse by name rather than yielding an empty list.\n+- The serialized record never exceeds the total cap on a fixture that would\n+  otherwise blow it from three directions at once (many findings, an\n+  oversized plan, a large patch).\n+- Every live receipt-writing recipe in docs and refusal strings contains the\n+  stamps (a grep-based assertion, so a new recipe cannot omit them\n+  silently).\n+- Receipt validator: a stamp that disagrees with the cited record refuses,\n+  with no reference to current configuration; a receipt citing a record that\n+  carries `dispatch` refuses without stamps; a receipt citing a\n+  pre-`dispatch` record passes without them; a **backdated** receipt citing\n+  a new-format record is still refused.\n+- The merge gate refuses readiness on a terminal receipt whose stamps\n+  disagree with its record — the same check as the review-budget guard, in\n+  `pr-ready.mjs`.\n+- The definition's frontmatter declares a model and an effort, and the\n+  post-sweep class-1/class-2 oracles hold (exactly one declarative pin; no\n+  live routing instruction names a tier).\n+\n+Manual QA: regenerate #33's record from a corrected snapshot at `703b230`\n+and confirm the numbers above.\n+\n+## Implementation Steps\n+\n+1. Verify empirically that this harness accepts `best` in subagent\n+   frontmatter; if not, use `fable` and note it (decision 5).\n+2. Endpoint validation, then the git-derived file list with decision 2's\n+   parsing rules; size/territory/patch consume it; refusal on\n+   empty-against-distinct; retire snapshot `files`.\n+3. The layout-aware head-pinned resolver, then `planOracle` (both modes),\n+   `declineCitation`, `body`, `dispatch`, and the caps of decision 12a — all\n+   read through that resolver.\n+4. Receipt stamps, the record-comparing validation in both the guard and\n+   the merge gate, and every canonical producer recipe.\n+5. Definition frontmatter; sweep classes 1 and 2 with their classification.\n+6. Tests; the five mandated commands; regenerate #33's record.\n+\n+## Risks and Mitigations\n+\n+- **`best` may not be accepted in subagent frontmatter.** Step 1 checks it\n+  before anything depends on it; the fallback keeps the mechanism.\n+- **`best` could resolve to a *cheaper* model if Fable became unavailable.**\n+  That is the documented fallback to Opus, and it is the correct failure:\n+  the judge still runs, at the best tier that exists. `dispatch` records\n+  what was declared, so an audit can see which alias was in force.\n+- **A wider record costs tokens.** Plan oracle sections and the threat model\n+  add perhaps 10–20k tokens; decision 12a bounds every variable-length\n+  field. The patch cap is unchanged.\n+- **`xhigh` costs more per verdict.** Perhaps 1.5–2x the judge's own tokens,\n+  on a dispatch that is ~0.1% of the loop. Accepted; visible at\n+  `/maintenance` alongside verdict counts.\n+- **The alias hides which release actually ran.** `dispatch` records the\n+  alias, not a resolved model id, and nothing observable reports the served\n+  model (decision 9). Accepted, and recorded as a gap rather than claimed\n+  as solved.\n+- **Parsing the PR body for the plan sha depends on the body's format.** The\n+  format is contract-fixed; a body that does not match refuses rather than\n+  guessing (decision 10).\n+\n+## Questions for David\n+\n+None. The one product-shaped choice — tracking the strongest tier versus\n+pinning a model id — was settled by David on 2026-09-06, and round 1 found a\n+mechanism (`best`) that serves it better than the one this plan first\n+proposed.\n+\n+## Definition of Done\n+\n+- [ ] A record built for #33's head shows non-zero size and `inDiff: 7`.\n+- [ ] A snapshot with empty `files` no longer yields zeros; distinct shas\n+      with an empty git set refuses; binary and rename cases behave per\n+      decision 2.\n+- [ ] `planOracle`, `declineCitation`, `dispatch`, `findings.items[].body`\n+      present, with refusals where a decision requires one.\n+- [ ] Every variable-length field's cap holds — finding text and plan\n+      oracle alike — with truncation named in the record.\n+- [ ] The definition declares the empirically selected alias and an effort;\n+      class-1, class-2 and class-5 oracles re-run and quoted in the PR body.\n+- [ ] New adjudication receipts refuse on a stamp that disagrees with the\n+      cited record, in the review-budget guard **and** at the merge gate;\n+      every pre-existing receipt still loads.\n+- [ ] A plan-review loop can generate a record and reach its judge.\n+- [ ] Both payload layouts resolve every head-pinned read.\n+- [ ] The serialized record's total cap holds on a worst-case fixture.\n+- [ ] Every live receipt-writing recipe carries the stamps.\n+- [ ] `.agents/machinery.json` and the enrolment docs are unchanged.\n+- [ ] All five mandated commands pass, with output recorded.",
+    "patchNote": "base...head: the artifact this round's findings are about. This is the diff to read when the rubric asks whether a finding describes a critical flaw. `sinceLastReview.patch` is separate and is normally empty under the write-gate rule, since the judge rules on an already-reviewed head."
+  },
+  "budget": {
+    "tier": "internal",
+    "tierMeaning": "internal tooling (strict write-gate adjudication rubric)",
+    "declaredBudget": 3,
+    "cap": 3,
+    "criticality": 90,
+    "artifactDeclaredAtRoundZero": "Plan review for #36 phase 1a: adjudication-record foundations (git-derived artifact facts, declared model/effort with mechanically-derived receipt stamps, widened record)",
+    "roundsSpent": 3,
+    "pendingRequest": false,
+    "ambiguous": false,
+    "allowance": 3,
+    "extensions": []
+  },
+  "rounds": {
+    "completedReviewerPasses": 3,
+    "byRound": [
+      {
+        "round": 1,
+        "submitted_at": "2026-09-06T03:23:19Z",
+        "source": "review",
+        "findings": 8
+      },
+      {
+        "round": 2,
+        "submitted_at": "2026-09-06T03:44:28Z",
+        "source": "review",
+        "findings": 10
+      },
+      {
+        "round": 3,
+        "submitted_at": "2026-09-06T04:04:00Z",
+        "source": "review",
+        "findings": 5
+      }
+    ],
+    "trend": [
+      8,
+      10,
+      5
+    ],
+    "totalFindings": 23
+  },
+  "findings": {
+    "unresolved": 5,
+    "resolved": 18,
+    "resolutionUnknown": 0,
+    "note": "unresolved/resolved is THREAD state, not code state. An unresolved thread may already be fixed and awaiting a reply; isOutdated only tracks whether the anchored hunk moved. Treat these as 'what the reviewer has not yet been told is closed', never as 'what is still broken'.",
+    "items": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fo_3u",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 195,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-06T04:04:00Z",
+        "excerpt": "**P1 Bind stamps to the definition the harness actually loads** — Fresh evidence beyond the earlier stamp finding is the supported stale-checkout path: this reads `dispatch` from `snapshot.pr.head.sha`, while the named agent is loaded from the active checkout and decision 5 deliberately passes no per-invocation override. When the implementation PR changes the frontmatter but the generator is run f"
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fo_3v",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 281,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-06T04:04:01Z",
+        "excerpt": "**P2 Require the plan-review title before selecting the head oracle** — Detecting this mode solely from the body lets a malformed PR select an unapproved, mutable head plan as its oracle. The repository defines plan review through both the `[PLAN REVIEW] … — DO NOT MERGE` title and the body declaration, and the snapshot already carries pr.title. If the title is removed or an implementation PR reta"
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fo_3w",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 372,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-06T04:04:01Z",
+        "excerpt": "**P2 Make the producer oracle find the refusal recipes** — The proposed class-5 regex does not match the two review-budget.mjs producers it claims to cover: running it on 639266f returns the README examples plus validator expressions, but neither recipe at lines 1580-1593 or 1607-1611 because their kind, adjudication, and verdict wording is split or absent. Consequently the promised grep-based tes"
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fo_3y",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 195,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-06T04:04:01Z",
+        "excerpt": "**P1 Bind stamps to the definition the harness actually loads** (duplicate posting of the same finding on the same line) — see PRRT_kwDOUKOPKc6fo_3u."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6fo_3z",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 140,
+        "resolved": false,
+        "outdated": false,
+        "createdAt": "2026-09-06T04:04:01Z",
+        "excerpt": "**P2 Accept legitimate empty diffs with distinct endpoint commits** — A head can legitimately differ from the base commit while having an empty net diff (every branch change reverted), whereas base === head is not the usual representation of an empty PR. In that state the new numstat and patch sources agree correctly that the artifact is empty, but this rule refuses record generation, so a tripwir"
+      },
+      {
+        "threadId": "r1-0",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 100,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-1",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 101,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-2",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 102,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-3",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 103,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-4",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 104,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-5",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 105,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-6",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 106,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r1-7",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 107,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:23:19Z",
+        "excerpt": "Round 1 finding (resolved: fix pushed at 3565dbe, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-0",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 200,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-1",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 201,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-2",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 202,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-3",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 203,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-4",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 204,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-5",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 205,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-6",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 206,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-7",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 207,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-8",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 208,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding (resolved: fix pushed at 972b60d, reply posted, class sweep quoted)."
+      },
+      {
+        "threadId": "r2-deferred",
+        "path": "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md",
+        "line": 203,
+        "resolved": true,
+        "outdated": false,
+        "createdAt": "2026-09-06T03:44:28Z",
+        "excerpt": "Round 2 finding 'Carry the current phase's delivery scope' — accepted as correct, DEFERRED to phase 1b as a scope addition (new mechanical source needed); reasoning posted on the thread and recorded in the plan as decision 12b."
+      }
+    ]
+  },
+  "territory": {
+    "inDiff": 23,
+    "outsideDiff": 0,
+    "unknown": 0,
+    "outsideDiffPaths": [],
+    "note": "Territory is mechanical (finding path vs. this PR's changed files). CAUSE (new-ground / propagation / wrong-fix / re-raised) is NOT derivable -- it has no machine-readable marker, and is deliberately left unclassified rather than guessed."
+  },
+  "sinceLastReview": {
+    "lastReviewedCommit": "972b60d406acf9cbd7671b87420652c5fc06628c",
+    "resolved": true,
+    "since": "972b60d406acf9cbd7671b87420652c5fc06628c",
+    "head": "972b60d406acf9cbd7671b87420652c5fc06628c",
+    "commits": 0,
+    "files": [],
+    "patch": "",
+    "behavioralFiles": 0,
+    "proseOnly": false,
+    "noChange": true,
+    "note": "Branch movement since the last reviewed commit -- NOT the PR's diff. After a merge from the base branch this includes files already reviewed and merged there. Use `artifact` for the size of what is actually under review here."
+  },
+  "provenance": {
+    "githubVia": "mcp-snapshot (no bash transport reaches the GitHub API in this container)",
+    "countingLogic": "scripts/review-counting.mjs",
+    "caveat": "This record contains no narration from the loop it measures. If a field is unknown it says so; nothing here is inferred from the session's own account of its rounds."
+  }
+}

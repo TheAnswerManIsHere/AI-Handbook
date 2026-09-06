@@ -1,0 +1,16 @@
+{
+  "pr": 37,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/37-1.json",
+  "decidedAt": "2026-09-06T04:10:00.000Z",
+  "reasoning": "Internal tier at its budget (roundsSpent 3 of cap 3), trend 8/10/5 on a 697-line plan file with all 23 findings inDiff and 18 already resolved; the four distinct round-3 findings are plan-text hardening, none of which the record supports as a very-high-chance CRITICAL flaw. The P1 stamp-binding point (record reads `dispatch` at head, harness loads the definition from the active checkout) affects audit precision of a stamp whose only consumer is a receipt-vs-record equality check, and decision 9 in `artifact.patch` already names the declared-vs-ran gap as an accepted residue, so it neither mints a receipt the gate would wrongly honour nor widens authority; the empty-diff refusal and plan-review-title findings are wrongly-blocking or unread-in-1a edge cases, and the class-5 regex is a test-oracle wording defect fixable at implementation where Codex reviews the code. Note: items `r1-*`/`r2-*`/`r2-deferred` carry synthetic thread IDs and builder-phrased excerpts ('fix pushed at ..., reply posted') rather than reviewer text; I ruled on the mechanical counts and the five live round-3 threads only.",
+  "gaps": [
+    "PRRT_kwDOUKOPKc6fo_3u / _3y (P1, duplicate): `dispatch` stamps are read from the definition at `snapshot.pr.head.sha`, but the harness loads the agent definition from the active checkout; on a stale-checkout generator run the stamps can attest a model/effort other than the one the harness actually loaded. Carry into the implementation PR as a stated residue alongside decision 9, or bind the read to the checkout the dispatch uses.",
+    "PRRT_kwDOUKOPKc6fo_3v (P2): plan-review mode detected from the body declaration alone; a body-declaring PR without the `[PLAN REVIEW] ... DO NOT MERGE` title could select a mutable head plan as `planOracle`. No phase-1a consumer reads `planOracle`; tighten at implementation by also requiring `pr.title`.",
+    "PRRT_kwDOUKOPKc6fo_3w (P2): the class-5 producer-recipe grep does not match the two `review-budget.mjs` refusal recipes at 1580-1593 and 1607-1611, so the promised grep-based test would not cover them as written. Fix the oracle at implementation time.",
+    "PRRT_kwDOUKOPKc6fo_3z (P2): decision 3 refuses record generation on an empty git set with distinct base/head, which also refuses a legitimately net-empty branch (all changes reverted). Wrongly-blocking failure mode; revisit the rule at implementation or accept as a stated refusal."
+  ]
+}
