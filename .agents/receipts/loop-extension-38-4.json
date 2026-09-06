@@ -1,0 +1,10 @@
+{
+  "pr": 38,
+  "kind": "david",
+  "grant": 4,
+  "asOf": 8,
+  "authorization": "Option 3",
+  "authorizationContext": "Offered at the allowance-boundary gate as: 'Grant rounds on an execution bar. Fix all six known now. Before every review request, run the full pipeline against three real PR shapes -- this feature PR, a real bugfix-PR body, a real [PLAN REVIEW] body -- and request review only when that exercise finds nothing. The loop ends when a real exercise and a Codex round both return nothing. Cap at 4 more rounds, then back to you.' David chose it over the adjudicator's ship-with-gaps-recorded / grant 0 recommendation (loop-extension-38-3.json).",
+  "createdAt": "2026-09-06T18:42:27.000Z",
+  "note": "A terminal ship-with-gaps-recorded verdict was standing (loop-extension-38-3.json, the David-gate adjudication). Only a david-kind receipt reopens it, which this is: rounds 9-12 are authorized from asOf 8. The stopping condition is no longer a round count: each review request is preceded by an end-to-end exercise of the machinery against three real PR bodies, and the loop closes only when that exercise and a Codex round are both clean. The six recorded gaps become work in this PR, except the plan-review-oracle question (gap 6), which changes approved-plan decision 10a and is declined citing that decision per the verdict, staying with phase 1b in #40."
+}
