@@ -594,6 +594,27 @@ export function assertMcpSnapshotComplete(snapshot) {
  */
 export const MAX_SNAPSHOT_AGE_MS = 60 * 60 * 1000;
 
+/**
+ * The collections that were read BEFORE an accepted response -- and so
+ * describe a state that predates it. ONE rule for both gates: pr-ready's
+ * `checkCapture` orders its collections against the Codex response it
+ * honours; the record generator now orders the same collections against the
+ * latest completed reviewer pass. A threads capture taken before a
+ * findings-bearing review lands, beside a reviews capture taken after it,
+ * reported that pass as clean: every collection present, fresh and attested,
+ * and the round's findings simply absent. (Codex, #38 round 9; the rule
+ * itself is #490's.)
+ *
+ * `<=` against the END of the response's reported second: GitHub reports
+ * events to the second and a capture time carries milliseconds, so a read
+ * genuinely before a 04:10:00.900 response is reported as after 04:10:00.000.
+ */
+export function collectionsReadBefore(capturedAt, acceptedAt, keys) {
+  if (!Number.isFinite(acceptedAt)) return [];
+  const at = typeof capturedAt === "string" ? Object.fromEntries(keys.map((k) => [k, capturedAt])) : (capturedAt ?? {});
+  return keys.filter((key) => Date.parse(at?.[key] ?? "") <= acceptedAt + 999);
+}
+
 export const COUNTED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThreads"];
 
 /**
@@ -606,18 +627,26 @@ export const COUNTED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThr
  * this bound exists to close. A missing collection is now a refusal that names
  * it. (Codex, #38 round 7, on a normalizer added in the same round.)
  */
-export function capturedAtDetail(snapshot, { require = COUNTED_COLLECTIONS } = {}) {
+export function capturedAtDetail(snapshot, { require = COUNTED_COLLECTIONS, now = Date.now() } = {}) {
   const at = snapshot?.capturedAt;
   if (typeof at === "string") {
-    return Number.isFinite(Date.parse(at)) ? { at, missing: [] } : { at: null, missing: ["capturedAt"] };
+    if (!Number.isFinite(Date.parse(at))) return { at: null, missing: ["capturedAt"], future: [] };
+    return Date.parse(at) > now ? { at: null, missing: [], future: ["capturedAt"] } : { at, missing: [], future: [] };
   }
-  if (!at || typeof at !== "object") return { at: null, missing: ["capturedAt"] };
+  if (!at || typeof at !== "object") return { at: null, missing: ["capturedAt"], future: [] };
   const missing = require.filter((k) => !Number.isFinite(Date.parse(at[k] ?? "")));
-  if (missing.length) return { at: null, missing };
+  if (missing.length) return { at: null, missing, future: [] };
+  // EVERY collection is bounded on BOTH sides. Reporting only the oldest let
+  // a collection dated in the future pass: the oldest looked fine, the future
+  // one became `evidenceCapturedAt`, and the merge fallback then read real
+  // requests posted after generation as older than the evidence boundary.
+  // (Codex, #38 round 9.)
+  const future = require.filter((k) => Date.parse(at[k]) > now);
+  if (future.length) return { at: null, missing: [], future };
   const oldest = require
     .map((k) => [at[k], Date.parse(at[k])])
     .sort((a, b) => a[1] - b[1])[0][0];
-  return { at: oldest, missing: [] };
+  return { at: oldest, missing: [], future: [] };
 }
 
 export function capturedAtOf(snapshot, collection = null, options = {}) {

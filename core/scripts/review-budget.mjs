@@ -2193,8 +2193,11 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // was actually read. (Codex, #503 round 4 -- and they were right that this
   // is the dissolved reconciliation-staleness finding reappearing in its
   // replacement, which is exactly why it needed closing rather than noting.)
-  const captured = capturedAtDetail(snapshot);
+  const captured = capturedAtDetail(snapshot, { now });
   const capturedAtRaw = captured.at;
+  if (captured.future.length) {
+    throw new Error(`snapshot capturedAt (${captured.future.join(", ")}) is in the future`);
+  }
   if (captured.missing.length && captured.missing[0] !== "capturedAt") {
     throw new Error(
       `snapshot "capturedAt" dates some collections but not ${captured.missing.join(", ")}. Freshness is a ` +

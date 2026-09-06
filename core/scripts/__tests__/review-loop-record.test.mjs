@@ -6,6 +6,7 @@ import {
   applyCaps,
   approvedPlanCommit,
   artifactDiff,
+  assertCapturedAfterLatestPass,
   artifactFileList,
   artifactStats,
   assertAdjudicationSnapshot,
@@ -77,6 +78,44 @@ test("assertAdjudicationSnapshot: a capture older than the round check would acc
   const scalar = validSnapshot();
   scalar.capturedAt = new Date().toISOString();
   assert.doesNotThrow(() => assertAdjudicationSnapshot(500, scalar, TEST_SLUG));
+});
+
+test("assertAdjudicationSnapshot: a collection dated in the future is refused", () => {
+  // Reporting only the oldest capture time let a future-dated collection
+  // pass; it then became `evidenceCapturedAt`, and the merge fallback read
+  // real requests posted after generation as already known.
+  // (Codex, #38 round 9.)
+  const snap = validSnapshot();
+  snap.capturedAt.issueComments = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /dates issueComments in the future/);
+});
+
+test("threads and the request set must be captured after the latest completed pass", () => {
+  // Reviews captured after a findings-bearing pass, threads captured before
+  // it: fresh, complete, attested -- and that pass read as clean because its
+  // threads were absent. Age alone cannot see it. (Codex, #38 round 9.)
+  const passAt = "2026-09-06T18:34:22Z";
+  const passes = [{ at: passAt, commit: "abc" }];
+  const before = "2026-09-06T18:34:00.000Z";
+  const after = "2026-09-06T18:34:25.000Z";
+  assert.throws(
+    () => assertCapturedAfterLatestPass({ capturedAt: { pr: after, reviews: after, issueComments: after, reviewThreads: before } }, passes),
+    /reviewThreads was captured before the latest completed reviewer pass/,
+  );
+  assert.throws(
+    () => assertCapturedAfterLatestPass({ capturedAt: { pr: after, reviews: after, issueComments: before, reviewThreads: before } }, passes),
+    /reviewThreads and issueComments were captured before/,
+  );
+  // The END of the response's reported second is the boundary: a read in the
+  // same second cannot be shown to postdate it.
+  assert.throws(
+    () => assertCapturedAfterLatestPass({ capturedAt: { pr: after, reviews: after, issueComments: after, reviewThreads: "2026-09-06T18:34:22.900Z" } }, passes),
+    /reviewThreads was captured before/,
+  );
+  assert.doesNotThrow(() => assertCapturedAfterLatestPass({ capturedAt: { pr: after, reviews: after, issueComments: after, reviewThreads: after } }, passes));
+  // A scalar capture time covers every collection; no passes means nothing to order against.
+  assert.doesNotThrow(() => assertCapturedAfterLatestPass({ capturedAt: after }, passes));
+  assert.doesNotThrow(() => assertCapturedAfterLatestPass({ capturedAt: { reviewThreads: before, issueComments: before } }, []));
 });
 
 test("assertAdjudicationSnapshot: a well-formed snapshot passes", () => {
@@ -820,6 +859,36 @@ test("a fenced Review-mode example does not declare plan review", () => {
   assert.equal(
     planReviewSignals({ title: "[PLAN REVIEW] x", body: "## Review mode\nPlan review only. Never merge. Do not implement." }).isPlanReview,
     true,
+  );
+});
+
+test("a complete bugfix template inside a fence is documentation, not this PR's oracle", () => {
+  // A documentation PR showing the Tier C template inside a fenced example
+  // was accepted as `bugfix oracle (tier C)`: at adjudication the judge got a
+  // stated null where the missing-source refusal belonged. Third heading
+  // scanner made fence-aware in three rounds. (Codex, #38 round 9.)
+  const documenting = ["## Docs", "The Tier C block looks like this:", "", "```markdown", TIER_C_ORACLE, "```"].join("\n");
+  assert.throws(
+    () => planOracleFor({ title: "Document the bugfix skill", body: documenting }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+  // Outside a fence the same block is the oracle.
+  assert.equal(planOracleFor({ title: "Fix it", body: TIER_C_ORACLE }, "head", { runGit: planGit([PLAN]) }).reason, "bugfix oracle (tier C)");
+});
+
+test("the approver is part of the form: approved by David, not by anyone", () => {
+  // `\bapproved\b` matched `approved by Alice on`. Only David's approval
+  // authorises a plan, and the contract names him in the form.
+  // (Codex, #38 round 9.)
+  assert.equal(approvedPlanCommit("Plan-review PR #12, final plan commit abcdef1, approved by Alice on 2026-09-01"), null);
+  assert.equal(
+    approvedPlanCommit("Plan-review PRs #701 and #702, combined plan commit abcdef1 on plan-review/foo-combined, approved by Alice on 2026-09-01"),
+    null,
+  );
+  assert.equal(approvedPlanCommit("Plan-review PR #12, final plan commit abcdef1, approved 2026-09-01"), null);
+  assert.deepEqual(
+    approvedPlanCommit("Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06."),
+    { sha: "972b60d", form: "single plan-review PR" },
   );
 });
 

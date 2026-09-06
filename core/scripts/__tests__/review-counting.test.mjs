@@ -656,10 +656,19 @@ test("capturedAt is read in either shape, and the whole-snapshot view takes the 
   assert.deepEqual(capturedAtDetail({ capturedAt: { issueComments: "2026-09-06T18:00:00Z" } }), {
     at: null,
     missing: ["pr", "reviews", "reviewThreads"],
+    future: [],
   });
-  assert.deepEqual(capturedAtDetail(perCollection), { at: "2026-09-06T17:20:00Z", missing: [] });
-  assert.deepEqual(capturedAtDetail(scalar), { at: "2026-09-06T17:00:00Z", missing: [] });
-  assert.deepEqual(capturedAtDetail({}), { at: null, missing: ["capturedAt"] });
+  const now = Date.parse("2026-09-06T19:00:00Z");
+  assert.deepEqual(capturedAtDetail(perCollection, { now }), { at: "2026-09-06T17:20:00Z", missing: [], future: [] });
+  assert.deepEqual(capturedAtDetail(scalar, { now }), { at: "2026-09-06T17:00:00Z", missing: [], future: [] });
+  assert.deepEqual(capturedAtDetail({}), { at: null, missing: ["capturedAt"], future: [] });
+  // Bounded on BOTH sides: a future collection is named, not averaged away by
+  // the oldest. (Codex, #38 round 9.)
+  assert.deepEqual(
+    capturedAtDetail({ capturedAt: { ...perCollection.capturedAt, issueComments: "2026-09-06T20:00:00Z" } }, { now }),
+    { at: null, missing: [], future: ["issueComments"] },
+  );
+  assert.deepEqual(capturedAtDetail({ capturedAt: "2026-09-06T20:00:00Z" }, { now }), { at: null, missing: [], future: ["capturedAt"] });
   // An invalid timestamp is missing, not merely skipped.
   assert.deepEqual(
     capturedAtDetail({ capturedAt: { ...perCollection.capturedAt, reviews: "whenever" } }).missing,

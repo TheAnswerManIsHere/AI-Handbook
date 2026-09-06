@@ -60,7 +60,13 @@ import {
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
-import { headRepoOf, reviewerPasses, summaryCodeReviewPasses, summaryRows } from "./review-counting.mjs";
+import {
+  collectionsReadBefore,
+  headRepoOf,
+  reviewerPasses,
+  summaryCodeReviewPasses,
+  summaryRows,
+} from "./review-counting.mjs";
 import { pathToFileURL } from "node:url";
 
 export const RECEIPT_DIR = join(REPO_ROOT, RECEIPTS_DIR);
@@ -1565,9 +1571,7 @@ export function checkCapture(capturedAt, acceptedAt, now = Date.now()) {
   // actually submitted at 04:10:00.900 is reported as 04:10:00.000, so a
   // collection captured at 04:10:00.500 -- genuinely BEFORE it -- compared
   // greater and passed. (Codex, #490 round 5.)
-  const stale = ["reviewThreads", "checkRuns", "issueComments"].filter(
-    (key) => Date.parse(capturedAt?.[key] ?? "") <= acceptedAt + 999,
-  );
+  const stale = collectionsReadBefore(capturedAt, acceptedAt, ["reviewThreads", "checkRuns", "issueComments"]);
   if (stale.length) {
     return {
       pass: false,

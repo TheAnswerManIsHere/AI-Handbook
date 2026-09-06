@@ -63,6 +63,7 @@ import {
   MAX_SNAPSHOT_AGE_MS,
   capturedAtDetail,
   capturedAtOf,
+  collectionsReadBefore,
   headRepoOf,
 } from "./review-counting.mjs";
 import {
@@ -694,6 +695,13 @@ function fenceMask(lines) {
   return mask;
 }
 
+/** The text with every fenced block removed -- what a heading or field scan should see. */
+function outsideFences(markdown) {
+  const lines = String(markdown ?? "").split(/\r?\n/);
+  const fenced = fenceMask(lines);
+  return lines.filter((_, i) => !fenced[i]).join("\n");
+}
+
 export function sectionOf(markdown, heading) {
   const lines = String(markdown ?? "").split(/\r?\n/);
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
@@ -846,7 +854,14 @@ const TEXTUAL_NO_PLAN_FORMS = [
  * bugfix block it started to write is not one. Returns `null` when the body
  * claims no no-plan form at all.
  */
-export function permittedNoPlanForm(body) {
+export function permittedNoPlanForm(rawBody) {
+  // OUTSIDE FENCES ONLY. A documentation PR that shows a complete Tier C
+  // template inside a fenced example was accepted as a bugfix oracle, which at
+  // adjudication replaced the missing-source refusal with a stated null --
+  // the judge lost the oracle and was told nothing was wrong. Third heading
+  // scanner made fence-aware in three rounds; the pattern is in #40 §2.6.
+  // (Codex, #38 round 9.)
+  const body = outsideFences(rawBody);
   const tier = FIX_TIER_RE.exec(body)?.[1]?.toUpperCase();
   if (tier) {
     const fields = BUGFIX_ORACLE_FIELDS[tier];
@@ -920,15 +935,18 @@ export function permittedNoPlanForm(body) {
  */
 const PLAN_COMMIT_FORMS = [
   {
+    // `approved by David on <date>` -- the approver is named in the contract's
+    // form, and only his approval authorises a plan. `approved by Alice on`
+    // matched the old `\bapproved\b`. (Codex, #38 round 9.)
     reason: "single plan-review PR",
-    re: /^[^\n]*?\bPR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?\bPR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
   },
   {
     // "naming EVERY subsystem PR" -- a split loop has at least two, so the
     // plural with one number is an incomplete provenance, not a variant.
     // (Codex, #38 round 8.)
     reason: "split loop (combined plan)",
-    re: /^[^\n]*?\bPRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?\bPRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
   },
 ];
 
@@ -1801,6 +1819,28 @@ export function parseArgs(argv) {
  *
  * (Both: Codex, round 1.)
  */
+/**
+ * The threads and request set must have been read AFTER the latest completed
+ * reviewer pass. Age alone let a snapshot describe a state that never
+ * existed: reviews captured after a findings-bearing pass, threads captured
+ * before it -- fresh, complete, attested, and reporting that pass as clean,
+ * with the reconciliation check satisfied because both derived totals were
+ * zero. Same rule as pr-ready's `checkCapture`, through one shared function,
+ * so the two gates cannot drift on it again. (Codex, #38 round 9.)
+ */
+export function assertCapturedAfterLatestPass(snapshot, passes) {
+  const latest = passes.length ? Date.parse(passes[passes.length - 1].at ?? "") : NaN;
+  const stale = collectionsReadBefore(snapshot.capturedAt, latest, ["reviewThreads", "issueComments"]);
+  if (stale.length) {
+    throw new Error(
+      `${stale.join(" and ")} ${stale.length > 1 ? "were" : "was"} captured before the latest completed ` +
+        `reviewer pass at ${new Date(latest).toISOString()}, so the snapshot describes a state that predates ` +
+        `it -- that pass's findings would be absent and the round would read as clean. Re-read after the ` +
+        `response lands`,
+    );
+  }
+}
+
 export function assertAdjudicationSnapshot(pr, snapshot, slug) {
   if (typeof slug !== "string" || slug.trim() === "") {
     throw new Error(
@@ -1855,6 +1895,13 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
   // accept is a record the guard's own receipt could not have been minted
   // from. (Codex, #38 round 8.)
   const captured = capturedAtDetail(snapshot);
+  if (captured.future.length) {
+    throw new Error(
+      `the adjudication snapshot dates ${captured.future.join(", ")} in the future. A capture time after ` +
+        `this process's own clock cannot be the moment GitHub was read, and it would become the record's ` +
+        `evidence boundary -- refusing rather than letting later requests compare as already known`,
+    );
+  }
   if (captured.missing.length) {
     throw new Error(
       `an adjudication snapshot must carry a parseable capture time for every counted collection; ` +
@@ -1929,10 +1976,9 @@ function main() {
   assertArtifactEndpoints(base, head);
   const { files: artifactFiles, emptyAgainstDistinctEndpoints } = artifactFileList(base, head);
 
-  const changes = changesSince(
-    lastReviewedCommit(reviewerPasses(derived.reviews, derived.issueComments)),
-    head,
-  );
+  const passes = reviewerPasses(derived.reviews, derived.issueComments);
+  assertCapturedAfterLatestPass(snapshot, passes);
+  const changes = changesSince(lastReviewedCommit(passes), head);
   let artifactPatchTruncation = null;
   const artifactPatch = artifactDiff(base, head, {
     onTruncate: (cut) => {
