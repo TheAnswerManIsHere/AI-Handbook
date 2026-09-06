@@ -1,0 +1,18 @@
+{
+  "pr": 38,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/38-1.json",
+  "modelRequested": "best",
+  "effortRequested": "xhigh",
+  "decidedAt": "2026-09-06T16:20:00.000Z",
+  "reasoning": "budget.tier is internal, so the bar is a very high chance of a CRITICAL flaw; roundsSpent is 3 of a 3-round budget with a flat trend (6, 3, 3) on an 18-file / +1623 artifact, all 12 findings inside the diff and 9 of 12 threads already resolved on the reviewed head 4bc165b. None of the three unresolved round-3 findings is in the critical class: the plan-review-oracle finding contradicts settled decision 10a of the approved plan and concerns a field nothing in phase 1a reads (decision 12b), the snapshot-fallback finding is a refusal that announces itself (wrongly-blocking, not a gate passing work it should refuse or a false receipt), and the remaining-Fable-wording finding is prose drift. Uncertainty stated: artifact.patch (record line 16, ~26k tokens on one line) exceeds my read tool's per-call cap and I could not read it, so I ruled on the findings' own text and the record's counts; the dispatch declares model `best`/effort `xhigh` and I am running as Fable 5.1, consistent with that declaration. I was handed only the mechanical record, as the contract requires.",
+  "gaps": [
+    "PRRT_kwDOUKOPKc6ftJHo (P1, review-loop-record.mjs:753): on a [PLAN REVIEW] round planOracle is read from the head plan file, so artifact and oracle coincide and a dropped Product Intent / Must Not Change / Settled Decision is undetectable. This contradicts approved-plan decision 10a and is a design question for David / phase 1b (the first consumer of planOracle), not a fix for this loop.",
+    "PRRT_kwDOUKOPKc6ftJHu (P1, review-loop-record.mjs:865): a snapshot identifying comments by stable PRRT_ thread id without a #discussion_r html_url suffix is rejected before fromMcp runs despite assertMcpSnapshotShape supporting that shape; failure mode is a visible refusal that could block a record build. Follow-up fix.",
+    "PRRT_kwDOUKOPKc6ftJHp (P2, review-loop-adjudicator.md:5): residual Fable-specific wording remains in pr-ready.mjs:1810 and check-contract-consistency.mjs:103,120-121. Prose drift; follow-up."
+  ],
+  "operatorNote": "Two disclosures about how this verdict was produced, neither of which the record could carry. (1) The record could not be generated at all until a one-line matcher fix (a sha wrapped in backticks on the Approved-plan source line -- this PR's own body shape) was applied; that change was made BEFORE the verdict, out of necessity, and has been REVERTED so the loop terminates on the reviewed head 4bc165b. The defect is filed as a follow-up, not shipped here. (2) Agent definitions load at session start, so the definition this session actually dispatched is the pre-PR one (model: fable, no declared effort), while `dispatch` in the cited record reads `best`/`xhigh` from the definition at the reviewed head -- which is exactly the declared-vs-loaded gap this PR documents and does not close. The stamps above record what the dispatch DECLARED, which is what the field means."
+}
