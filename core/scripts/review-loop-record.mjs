@@ -226,7 +226,7 @@ function recordPathsIn(runGit, range) {
  * under review at any length, and a rule that only applies over some threshold
  * is one nobody can reason about at the moment it matters.
  */
-export function cappedDiff(runGit, range) {
+export function cappedDiff(runGit, range, { onTruncate = null } = {}) {
   try {
     const records = recordPathsIn(runGit, range);
     const raw = runGit([
@@ -256,6 +256,14 @@ export function cappedDiff(runGit, range) {
     // as an assurance. (Codex, #14 round 1.)
     const note = records.length ? exclusionNote(records) : "";
     if (raw.length <= PATCH_CAP_CHARS) return note + raw;
+    // THE CUT IS REPORTED, not just marked inside the text. This cap fires
+    // before `applyCaps` assembles `truncation.fields`, so a patch cut here
+    // used to leave `fields` empty on a record whose note promises that an
+    // empty `fields` means nothing was withheld. The judge weighs its own
+    // uncertainty from that summary; an assurance that is false exactly when
+    // 60,000 characters of the artifact are missing is worse than no summary
+    // at all. (Codex, #38 round 6.)
+    onTruncate?.({ keptChars: PATCH_CAP_CHARS, fullChars: raw.length });
     return (
       note +
       raw.slice(0, PATCH_CAP_CHARS) +
@@ -278,11 +286,11 @@ export function cappedDiff(runGit, range) {
  * asks "is there a critical flaw here", the old field showed nothing.
  * Three-dot so a base-branch merge does not drag in changes reviewed on main.
  */
-export function artifactDiff(base, head, { runGit = git } = {}) {
+export function artifactDiff(base, head, { runGit = git, onTruncate = null } = {}) {
   if (!base || !head) {
     return "[unavailable -- the snapshot carries no base or head sha; weigh the absence as uncertainty]";
   }
-  return cappedDiff(runGit, `${base}...${head}`);
+  return cappedDiff(runGit, `${base}...${head}`, { onTruncate });
 }
 
 // ---------------------------------------------------------------------------
@@ -694,6 +702,51 @@ export function planReviewSignals(pr) {
 }
 
 /**
+ * The bugfix oracle's fields, transcribed from the schemas an author is
+ * actually told to write: `core/.claude/skills/bugfix/SKILL.md:251-258`
+ * (Tier A/B) and `:264-271` (Tier C).
+ *
+ * LINE-CITED ON PURPOSE. A matcher written from memory of a format, rather
+ * than from the format, is the single most common defect in this file -- six
+ * of this loop's findings were that one mistake wearing different hats. The
+ * citation is what lets the next reader check the matcher against the
+ * document instead of against my recollection of it.
+ */
+const F = (label, pattern = null) => ({
+  label,
+  pattern: pattern ?? label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+});
+const BUGFIX_ORACLE_FIELDS = {
+  A: [
+    F("Fix tier"),
+    F("Reported symptom"),
+    F("Intended correct behavior"),
+    F("Must not change"),
+    F("Root cause"),
+    F("Blast radius"),
+  ],
+  C: [
+    F("Fix tier"),
+    F("Reported symptom"),
+    F("Root cause"),
+    F("Why this is trivial"),
+    // Either apostrophe: the schema uses the typewriter form, and a body
+    // written in an editor that smart-quotes would otherwise fail a field it
+    // in fact carries.
+    F("David's go-ahead", "David['’]s go-ahead"),
+    F("Migration ceremony checklist"),
+  ],
+};
+BUGFIX_ORACLE_FIELDS.B = BUGFIX_ORACLE_FIELDS.A;
+
+/** The tier letter, from the `**Fix tier:**` line the schemas open with. */
+const FIX_TIER_RE = /^\s*\*{0,2}Fix tier:?\*{0,2}\s*["'`]?([A-Za-z])\b/im;
+
+/** A labelled field carrying SOMETHING -- the label alone is not the field. */
+const fieldPresent = (body, field) =>
+  new RegExp(`^\\s*\\*{0,2}${field.pattern}:?\\*{0,2}\\s*\\S`, "im").test(body);
+
+/**
  * The permitted no-plan forms, each a POSITIVE match rather than an absence.
  *
  * The bugfix forms match the block `bugfix/SKILL.md` actually tells an author
@@ -704,14 +757,24 @@ export function planReviewSignals(pr) {
  * adjudication: the loop could then neither write the next fix nor close on a
  * verdict. Same deadlock the plan-review mode was added for, one PR shape
  * over. (Codex, #38 round 1.)
+ *
+ * THE WHOLE TIER-SPECIFIC BLOCK, not its opening line. Accepting a bare
+ * `**Fix tier:** C`, or a Tier A/B line with only one of its five companion
+ * fields -- or an invented tier `Z` -- handed the mandatory adjudication a
+ * `planOracle.sections: null` for a malformed oracle and called it permitted.
+ * Nothing else validates this block, so the judge would have ruled on a round
+ * whose stated oracle was a fragment, with no signal that it was one. A
+ * malformed oracle now REFUSES, naming the missing fields, because "the
+ * author wrote part of the contract" is a finding, not a licence.
+ * (Codex, #38 round 6.)
+ *
+ * STATED GAP: this checks that each field is present and carries text. It
+ * does not judge whether that text is real -- an author who pastes the
+ * schema and fills every field with a word passes. The record's discipline is
+ * to refuse what it can see is absent, not to grade prose.
  */
-const NO_PLAN_FORMS = [
-  {
-    reason: "bugfix oracle (tier A/B)",
-    re: /^\s*\*{0,2}Fix tier:?\*{0,2}[^\n]*$[\s\S]{0,4000}?^\s*\*{0,2}(Reported symptom|Root cause):?\*{0,2}/im,
-  },
-  { reason: "bugfix oracle (tier C)", re: /^\s*\*{0,2}Fix tier:?\*{0,2}\s*C\b/im },
-  { reason: "trivial change", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}\s*n\/a\s*[-—–]\s*no plan/im },
+const TEXTUAL_NO_PLAN_FORMS = [
+  { reason: "trivial change", re: /^\s*(?:\*{0,2}Approved-plan source:?\*{0,2}\s*)?n\/a\s*[-—–]\s*no plan/im },
   {
     // The private path's WHOLE provenance, not the word `shasum`. These three
     // fields are the only independently inspectable evidence a private plan
@@ -720,9 +783,47 @@ const NO_PLAN_FORMS = [
     // proof of an approved plan, in exactly the field whose absence is
     // otherwise a refusal. (Codex, #38 round 4.)
     reason: "private path",
-    re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}[^\n]*?[\w.-]+\.md[^\n]*?\bshasum\b[^\n]*?\b[0-9a-f]{16,64}\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?[\w.-]+\.md[^\n]*?\bshasum\b[^\n]*?\b[0-9a-f]{16,64}\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
   },
 ];
+
+/**
+ * Which permitted no-plan form this body carries, or a refusal naming why the
+ * bugfix block it started to write is not one. Returns `null` when the body
+ * claims no no-plan form at all.
+ */
+export function permittedNoPlanForm(body) {
+  const tier = FIX_TIER_RE.exec(body)?.[1]?.toUpperCase();
+  if (tier) {
+    const fields = BUGFIX_ORACLE_FIELDS[tier];
+    if (!fields) {
+      return {
+        refuse:
+          `the PR body declares \`Fix tier: ${tier}\`, which is not a tier the bugfix contract defines ` +
+          `(A, B or C). An unrecognised tier is a malformed oracle, not a permitted no-plan form`,
+      };
+    }
+    const missing = fields.filter((field) => !fieldPresent(body, field));
+    if (missing.length) {
+      return {
+        refuse:
+          `the PR body declares Tier ${tier} but its bugfix oracle is missing ` +
+          `${missing.map((f) => `\`${f.label}\``).join(", ")}. The tier-${tier} schema ` +
+          `(core/.claude/skills/bugfix/SKILL.md) requires ${fields.map((f) => f.label).join(", ")}, and the ` +
+          `mandatory adjudication reads this block as the round's oracle -- so an incomplete one is refused ` +
+          `rather than passed to the judge as \`sections: null\``,
+      };
+    }
+    return { reason: `bugfix oracle (tier ${tier})` };
+  }
+  // Scoped to the declared source region for the same reason the provenance
+  // matchers are: "n/a — no plan" is a claim about THIS PR's oracle only when
+  // it is written where the oracle goes. Body-wide, a sentence describing the
+  // form would be read as the form.
+  const source = approvedPlanSourceText(body);
+  const form = TEXTUAL_NO_PLAN_FORMS.find((f) => f.re.test(source));
+  return form ? { reason: form.reason } : null;
+}
 
 /**
  * The approved-plan commit, read ONLY from an `Approved-plan source` line.
@@ -747,7 +848,7 @@ const NO_PLAN_FORMS = [
  * not-worth-requiring. (Codex, #38 round 5.)
  */
 const PLAN_COMMIT_RE =
-  /^[^\n]*Approved-plan source[^\n]*?\bPR\s*#\d+[^\n]*?\b(?:final|combined) plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im;
+  /^[^\n]*?\bPR\s*#\d+[^\n]*?\b(?:final|combined) plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im;
 /**
  * An explicit plan path, read ONLY from the provenance line -- the same
  * anchoring the commit sha gets, and for the same reason. A body-wide match
@@ -764,7 +865,37 @@ const PLAN_COMMIT_RE =
  * the repository it ships in is the same defect as one written from memory,
  * found by running it rather than by reading it. (#39 gap 2.)
  */
-const PLAN_PATH_LINE_RE = /^[^\n]*Approved-plan source[^\n]*?["'`]?(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)["'`]?/im;
+const PLAN_PATH_LINE_RE = /^[^\n]*?["'`]?(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)["'`]?/im;
+
+/**
+ * The region of the body that DECLARES plan provenance -- what the anchoring
+ * above is anchored TO. Two shapes are in live use and the contract endorses
+ * neither over the other: an `## Approved-plan source` HEADING with the
+ * provenance beneath it (what this repository's own PRs write, #38 included)
+ * and an inline `**Approved-plan source:** …` LABEL.
+ *
+ * The matchers used to require the label and the provenance ON ONE LINE. That
+ * shape was written from the contract's prose sentence, not from a PR --
+ * `code-review.md` and CLAUDE.md both specify the CONTENT of the field and
+ * say nothing about its typography -- so the heading form, which is the one
+ * actually written, matched nothing. Its consequence is the whole reason the
+ * anchoring exists in reverse: record generation refused every PR whose body
+ * used a heading, which is to say the mandatory adjudication could not run on
+ * the PR shipping this file. Found by running the generator against #38's own
+ * body rather than against a body I wrote. (Round 6; the same
+ * matcher-from-memory defect as rounds 1, 2, 4 and 5.)
+ *
+ * Scoping is what keeps round 1's property: the provenance is still read ONLY
+ * from the region the author declared as the source, never from arbitrary
+ * prose elsewhere in the body.
+ */
+export function approvedPlanSourceText(body) {
+  const text = typeof body === "string" ? body : "";
+  const section = sectionOf(text, "Approved-plan source");
+  if (section) return section;
+  const labelled = text.split(/\r?\n/).filter((line) => /Approved-plan source/i.test(line));
+  return labelled.join("\n");
+}
 
 /**
  * The approved plan's four oracle sections, read at the commit the PR body
@@ -808,11 +939,20 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
     };
   }
 
-  const permitted = NO_PLAN_FORMS.find((f) => f.re.test(body));
-  if (permitted) return { mode: null, sha: null, path: null, sections: null, reason: permitted.reason };
-
-  const sha = PLAN_COMMIT_RE.exec(body)?.[1];
+  // AN EXPLICIT APPROVED-PLAN SOURCE OUTRANKS INCIDENTAL NO-PLAN TEXT.
+  // Searching the whole body for no-plan forms FIRST meant a feature PR that
+  // merely quotes one -- a process change discussing `**Fix tier:** C`, a
+  // changelog entry, this very loop's own PR body -- returned
+  // `planOracle: null` and dropped the human-approved oracle the conformance
+  // rubric runs on, without ever parsing the provenance line sitting in the
+  // same body. A no-plan form is a claim that no plan exists; it cannot
+  // outrank evidence that one does. (Codex, #38 round 6.)
+  const source = approvedPlanSourceText(body);
+  const sha = PLAN_COMMIT_RE.exec(source)?.[1];
   if (!sha) {
+    const permitted = permittedNoPlanForm(body);
+    if (permitted?.refuse) throw new Error(permitted.refuse);
+    if (permitted) return { mode: null, sha: null, path: null, sections: null, reason: permitted.reason };
     throw new Error(
       `the PR body names no approved-plan source and matches none of the permitted no-plan forms ` +
         `(bugfix oracle, trivial change, private path). A missing approved-plan source is itself a ` +
@@ -824,7 +964,7 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
   } catch {
     throw new Error(`the approved-plan commit ${sha} is not present in this clone (fetch the plan-review branch, then re-run)`);
   }
-  const explicit = PLAN_PATH_LINE_RE.exec(body)?.[1];
+  const explicit = PLAN_PATH_LINE_RE.exec(source)?.[1];
   // The cited plan commit lives on a plan-review branch cut from the same
   // base this PR was, so the PR's base is the right range endpoint for it too.
   const introduced = planFilesIntroducedBy(sha, { runGit, base });
@@ -1153,6 +1293,15 @@ export function applyCaps(record) {
     truncation.fields.push({ field: "declineCitation.text", keptChars: DECLINE_CITATION_CAP_CHARS, fullChars: full });
   }
 
+  // The artifact patch is capped by `cappedDiff` before this function runs,
+  // so its cut arrives as a fact on the record rather than being made here.
+  // It is folded into the ONE summary the judge reads, and the scratch field
+  // removed, so `fields` is the single place a withheld field is named.
+  if (record.artifact?.patchTruncation) {
+    truncation.fields.push({ field: "artifact.patch", ...record.artifact.patchTruncation });
+  }
+  if (record.artifact) delete record.artifact.patchTruncation;
+
   record.truncation = truncation;
   // Measured on what is actually written, after every per-field cap -- the
   // only measurement that can bound a combination nobody enumerated.
@@ -1245,6 +1394,7 @@ export function buildRecord({
   budgetState,
   changes,
   artifactPatch = null,
+  artifactPatchTruncation = null,
   artifactFiles = [],
   emptyAgainstDistinctEndpoints = false,
   dispatch = null,
@@ -1341,6 +1491,9 @@ export function buildRecord({
       // the last pass -- empty whenever the judge is dispatched per the
       // write-gate rule -- so the findings' own subject lives here.
       patch: artifactPatch,
+      // Consumed by `applyCaps` into `truncation.fields` and removed there,
+      // so the emitted record states a cut in exactly one place.
+      patchTruncation: artifactPatchTruncation,
       patchNote:
         "base...head: the artifact this round's findings are about. This is the diff to read when the " +
         "rubric asks whether a finding describes a critical flaw. `sinceLastReview.patch` is separate and " +
@@ -1580,7 +1733,12 @@ function main() {
     lastReviewedCommit(reviewerPasses(derived.reviews, derived.issueComments)),
     head,
   );
-  const artifactPatch = artifactDiff(base, head);
+  let artifactPatchTruncation = null;
+  const artifactPatch = artifactDiff(base, head, {
+    onTruncate: (cut) => {
+      artifactPatchTruncation = cut;
+    },
+  });
   const dispatch = dispatchDeclaration(head);
   const planOracle = planOracleFor(snapshot.pr, head, { base });
   const declineCitation = declineCitationFor(budgetState.tier, head);
@@ -1593,6 +1751,7 @@ function main() {
       budgetState,
       changes,
       artifactPatch,
+      artifactPatchTruncation,
       artifactFiles,
       emptyAgainstDistinctEndpoints,
       dispatch,

@@ -1064,6 +1064,24 @@ export function validateBudget(pr, receipt) {
 export function validateDispatchStamps(receipt, record) {
   const dispatch = record?.dispatch;
   if (!dispatch) return null; // legacy record, by schema -- not by date
+  // A `dispatch` WITHOUT A MODEL IS CORRUPTION, NOT A DECLARATION.
+  // `dispatchDeclaration` refuses to emit one -- a definition with no
+  // frontmatter `model` throws there -- so this shape cannot arise from a
+  // record the generator wrote. Treating its null like the legitimately-null
+  // `effort` of an older definition turned the model stamp off entirely for
+  // any receipt citing such a record: the one check that proves the verdict
+  // came from the declared judge, disabled by the field being missing. Both
+  // the budget guard and the merge gate run through here, so it fails closed.
+  // (Codex, #38 round 6.)
+  if (typeof dispatch.model !== "string" || !dispatch.model.trim()) {
+    return (
+      `the adjudication record this receipt cites carries a \`dispatch\` block with no \`model\` ` +
+      `(read from ${dispatch.source ?? "the agent definition"} at ${dispatch.sha ?? "the reviewed commit"}). ` +
+      `The generator cannot produce that record -- it refuses a definition with no declared model -- so this ` +
+      `is a malformed or hand-edited record, and the stamps cannot be checked against it. Regenerate the ` +
+      `record and re-run the adjudication against it`
+    );
+  }
   for (const [field, expected] of [
     ["modelRequested", dispatch.model ?? null],
     ["effortRequested", dispatch.effort ?? null],

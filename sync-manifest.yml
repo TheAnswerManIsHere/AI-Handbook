@@ -710,6 +710,43 @@ groups:
           The same citation in the test that pins the matcher to the
           documented block. The test builds the body it matches; it never
           reads the skill.
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        form: ".claude/skills/bugfix/SKILL.md"
+        from: core/scripts/review-loop-record.mjs
+        count: 2
+        why: >
+          The same citation in its fully-qualified spelling: once line-cited
+          on the field table transcribed from the schema, once in the refusal
+          that names the schema a malformed oracle failed. Round 6 tightened
+          the matcher from "the block opens with a Fix tier line" to "the
+          block carries every field the schema lists", and a matcher written
+          from a format has to say WHICH format so the next reader can check
+          it. Still evidence: the generator opens the PR body, never the
+          skill.
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        form: ".claude/skills/bugfix/SKILL.md"
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        count: 1
+        why: >
+          The same line-citation over the two oracle blocks the test
+          transcribes whole, so a schema change fails a test rather than
+          silently parting the matcher from the contract. The test builds the
+          bodies it matches; it never reads the skill.
+      - group: engineering
+        ref: core/docs/engineering/code-review.md
+        form: "code-review.md"
+        from: core/scripts/review-loop-record.mjs
+        count: 1
+        why: >
+          Cited as the document that specifies the Approved-plan source
+          field's CONTENT and, deliberately, not its typography — the reason
+          the provenance is now read from the declared source region in either
+          the heading or the inline-label shape. Evidence for why the matcher
+          is written the way it is; the generator reads the PR body, never
+          this contract, and a consumer without the `engineering` group
+          resolves provenance identically.
       - group: memory
         ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
         from: core/scripts/review-loop-record.mjs

@@ -666,12 +666,34 @@ test("a feature body with no approved-plan source REFUSES rather than nulling", 
   );
 });
 
+// The two bugfix oracle blocks EXACTLY as core/.claude/skills/bugfix/SKILL.md
+// specifies them -- :251-258 and :264-271 -- filled in. Transcribed from the
+// document rather than recalled, and kept whole here so a change to either
+// schema shows up as a failing test rather than as a matcher that silently
+// stopped agreeing with the contract.
+const TIER_B_ORACLE = [
+  "**Fix tier:** B — Q2 fired (product-visible)",
+  "**Reported symptom:** the retry double-charges",
+  "**Intended correct behavior:** one charge per confirmed order",
+  "**Must not change:** the refund path sharing this client",
+  "**Root cause:** the retry wrapper re-enters before the idempotency key is set",
+  "**Blast radius:** three callers, all checked",
+].join("\n");
+const TIER_C_ORACLE = [
+  "**Fix tier:** C — trivial schema/migration fix, no plan",
+  "**Reported symptom:** the column is nullable and should not be",
+  "**Root cause:** the original migration omitted NOT NULL",
+  "**Why this is trivial:** single-step, no data transformation, no behavior change",
+  "**David's go-ahead:** confirmed in chat 2026-09-06",
+  "**Migration ceremony checklist:** idempotent, counts observed, no destructive op",
+].join("\n");
+
 test("each permitted no-plan form yields a stated null", () => {
   const forms = [
     // The bugfix oracle is the block bugfix/SKILL.md actually specifies --
     // see the dedicated test below for why the imagined line is not it.
-    ["**Fix tier:** B — Q2 fired\n**Root cause:** the retry double-charges", "bugfix oracle (tier A/B)"],
-    ["**Fix tier:** C — trivial schema fix, migration ceremony authorized", "bugfix oracle (tier C)"],
+    [TIER_B_ORACLE, "bugfix oracle (tier B)"],
+    [TIER_C_ORACLE, "bugfix oracle (tier C)"],
     ["**Approved-plan source:** n/a — no plan (trivial change)", "trivial change"],
     [
       "**Approved-plan source:** PLAN_X.md, shasum -a 256 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e, approved 2026-09-06",
@@ -704,6 +726,34 @@ test("findings must come from captured threads, not a reconstruction", () => {
     /not a GitHub review-thread node id/,
   );
   assertThreadProvenance([{ id: "PRRT_ok", comments: [{ html_url: "https://github.com/o/r/pull/1#discussion_r42" }] }]);
+});
+
+test("a patch cut before applyCaps still lands in the truncation summary", () => {
+  // `cappedDiff` cuts the patch BEFORE `applyCaps` assembles the summary, so
+  // the cut used to leave `truncation.fields` empty on a record whose note
+  // promises that an empty `fields` means nothing was withheld -- an assurance
+  // that was false exactly when 60,000 characters of the artifact were
+  // missing. (Codex, #38 round 6.)
+  const runGit = (args) => {
+    if (args[0] === "diff" && args.includes("--numstat")) return "";
+    if (args[0] === "diff") return "d".repeat(PATCH_CAP_CHARS + 500);
+    return "";
+  };
+  let cut = null;
+  const patch = artifactDiff("base", "head", { runGit, onTruncate: (c) => (cut = c) });
+  assert.match(patch, /\[TRUNCATED at/);
+  assert.deepEqual(cut, { keptChars: PATCH_CAP_CHARS, fullChars: PATCH_CAP_CHARS + 500 });
+
+  const record = applyCaps({ findings: { items: [] }, artifact: { patch, patchTruncation: cut } });
+  assert.deepEqual(record.truncation.fields, [
+    { field: "artifact.patch", keptChars: PATCH_CAP_CHARS, fullChars: PATCH_CAP_CHARS + 500 },
+  ]);
+  assert.equal(record.artifact.patchTruncation, undefined, "the cut is named once, in the summary");
+
+  // And an uncut patch still reports an honestly empty `fields`.
+  const small = artifactDiff("base", "head", { runGit: () => "diff --git a/x b/x" });
+  const clean = applyCaps({ findings: { items: [] }, artifact: { patch: small, patchTruncation: null } });
+  assert.deepEqual(clean.truncation.fields, []);
 });
 
 test("every variable-length field is bounded, and truncation is named", () => {
@@ -761,7 +811,108 @@ test("the documented bugfix oracle block is recognised, not just an imagined lin
     "**Blast radius:** two callers, both checked",
   ].join("\n");
   const oracle = planOracleFor({ title: "Fix the double render", body }, "head", { runGit: planGit([PLAN]) });
-  assert.deepEqual({ mode: oracle.mode, reason: oracle.reason }, { mode: null, reason: "bugfix oracle (tier A/B)" });
+  assert.deepEqual({ mode: oracle.mode, reason: oracle.reason }, { mode: null, reason: "bugfix oracle (tier A)" });
+});
+
+test("a partial or invented bugfix oracle is refused, not accepted as a no-plan form", () => {
+  // Accepting a bare `**Fix tier:** C`, or a Tier A/B line with one companion
+  // field, or a tier the contract does not define, handed the mandatory
+  // adjudication `planOracle.sections: null` for a malformed oracle and called
+  // it permitted -- with nothing else in the pipeline checking the block.
+  // (Codex, #38 round 6.)
+  const at = (body) => () => planOracleFor({ title: "Fix it", body }, "head", { runGit: planGit([PLAN]) });
+
+  assert.throws(at("**Fix tier:** C"), /missing .*Reported symptom.*Root cause/s);
+  assert.throws(at("**Fix tier:** C"), /Why this is trivial/);
+  assert.throws(
+    at("**Fix tier:** B — Q2 fired\n**Root cause:** the retry double-charges"),
+    /missing .*Reported symptom.*Intended correct behavior.*Must not change.*Blast radius/s,
+  );
+  assert.throws(at("**Fix tier:** Z — invented\n**Root cause:** whatever"), /not a tier the bugfix contract defines/);
+  // The unfilled template's own tier placeholder is not a tier either.
+  assert.throws(at("**Fix tier:** <A or B> — fill this in"), /names no approved-plan source/);
+  // A smart-quoted apostrophe is the same field, not a missing one.
+  assert.equal(
+    planOracleFor({ title: "Fix it", body: TIER_C_ORACLE.replace("David's", "David\u2019s") }, "head", {
+      runGit: planGit([PLAN]),
+    }).reason,
+    "bugfix oracle (tier C)",
+  );
+});
+
+test("the provenance is read from the heading form this repo actually writes", () => {
+  // The matchers required the label and the provenance ON ONE LINE -- a shape
+  // taken from the contract's prose sentence, not from a PR. Every body using
+  // an `## Approved-plan source` HEADING, which is what this repository writes
+  // (#38's own body included), matched nothing and refused record generation:
+  // the mandatory adjudication could not run on the PR shipping this file.
+  // Found by running the generator against the real body. (Round 6.)
+  const heading = [
+    "Workstream: #36 (phase 1a).",
+    "",
+    "## Approved-plan source",
+    "",
+    "Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06.",
+    "",
+    "## Product intent (from the approved plan, verbatim)",
+    "",
+    "Something else entirely.",
+  ].join("\n");
+  const oracle = planOracleFor({ title: "Implement phase 1a", body: heading }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.mode, "approved-plan");
+  assert.equal(oracle.sha, "972b60d");
+
+  // The inline label form still works -- both are in live use.
+  assert.equal(
+    planOracleFor(
+      {
+        title: "x",
+        body: "**Approved-plan source:** Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06",
+      },
+      "head",
+      { runGit: planGit([PLAN]) },
+    ).sha,
+    "972b60d",
+  );
+
+  // And scoping keeps round 1's property: provenance-shaped prose OUTSIDE the
+  // declared source region is still not this PR's oracle.
+  assert.throws(
+    () =>
+      planOracleFor(
+        {
+          title: "x",
+          body: [
+            "## Approved-plan source",
+            "",
+            "TBD — pending David's approval.",
+            "",
+            "## Notes",
+            "",
+            "PR #12, final plan commit deadbee, approved by David on 2026-01-01 covered the other phase.",
+          ].join("\n"),
+        },
+        "head",
+        { runGit: planGit([PLAN]) },
+      ),
+    /names no approved-plan source/,
+  );
+});
+
+test("an explicit approved-plan source outranks incidental no-plan text", () => {
+  // A feature PR that merely QUOTES a no-plan form -- a process change
+  // discussing the Tier C block, a changelog, this loop's own PR body --
+  // returned `planOracle: null` and dropped the human-approved oracle without
+  // ever parsing the provenance line in the same body. (Codex, #38 round 6.)
+  const body = [
+    "**Approved-plan source:** Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06",
+    "",
+    "## Notes",
+    "This change also documents the bugfix oracle, whose Tier C block opens `**Fix tier:** C`.",
+  ].join("\n");
+  const oracle = planOracleFor({ title: "Implement phase 1a", body }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.mode, "approved-plan");
+  assert.equal(oracle.sha, "972b60d");
 });
 
 test("a plan commit is read only from an Approved-plan source line", () => {

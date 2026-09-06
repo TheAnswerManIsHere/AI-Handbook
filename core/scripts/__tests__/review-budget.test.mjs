@@ -2295,6 +2295,27 @@ test("the stamp comparison consults the record, never current configuration", ()
   assert.equal(validateDispatchStamps({}, {}), null, "no dispatch in the record: nothing to compare");
 });
 
+test("a dispatch block with no model is corruption, and fails closed", () => {
+  // `dispatchDeclaration` throws on a definition with no frontmatter `model`,
+  // so the generator cannot write this record. Treating its missing model like
+  // the legitimately-absent `effort` of an older definition turned OFF the one
+  // check that proves the verdict came from the declared judge, for any
+  // receipt citing such a record. (Codex, #38 round 6.)
+  for (const dispatch of [
+    { effort: "xhigh", source: "def.md", sha: "abc123" },
+    { model: null, effort: "xhigh" },
+    { model: "   ", effort: "xhigh" },
+  ]) {
+    assert.match(
+      String(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, { dispatch })),
+      /carries a `dispatch` block with no `model`/,
+      JSON.stringify(dispatch),
+    );
+    // Omitting the stamp does not buy past it either -- that was the bypass.
+    assert.match(String(validateDispatchStamps({}, { dispatch })), /no `model`/);
+  }
+});
+
 test("a null-valued dispatch field is still an expectation", () => {
   // Skipping the comparison when the record's value is null let any invented
   // effortRequested through on a record read from an older definition that
