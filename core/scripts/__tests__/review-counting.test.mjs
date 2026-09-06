@@ -308,7 +308,11 @@ test("fromMcp refuses a snapshot with no completeness attestation at all", () =>
   assert.throws(() => fromMcp(noAttestation), /complete\.reviews/);
 });
 
-for (const key of ["reviews", "files", "reviewThreads"]) {
+// `files` is deliberately absent from both loops below: the artifact's file
+// list now comes from git over base...head, one source shared with the patch
+// and territory, so the snapshot no longer attests to it (see
+// review-loop-record.mjs's artifactFileList).
+for (const key of ["reviews", "reviewThreads"]) {
   test(`fromMcp refuses a snapshot where complete.${key} is explicitly false`, () => {
     assert.throws(
       () => fromMcp(realSnapshot({ complete: { reviews: true, files: true, reviewThreads: true, [key]: false } })),
@@ -331,11 +335,32 @@ test("fromMcp refuses complete:true attesting to a collection that is not actual
   assert.throws(() => fromMcp(malformed), /"reviewThreads" must be an array/);
 });
 
-for (const key of ["reviews", "files", "reviewThreads"]) {
+for (const key of ["reviews", "reviewThreads"]) {
   test(`fromMcp refuses ${key} when it is present but not an array`, () => {
     assert.throws(() => fromMcp(realSnapshot({ [key]: "not-an-array" })), new RegExp(`"${key}" must be an array`));
   });
 }
+
+test("the snapshot's retired `files` field is ignored in every shape it can arrive in", () => {
+  // Absent, empty, and old-shape all pass, and none of them can influence a
+  // derived value any more. #28 and #33 both carried `files: []` with
+  // `complete.files: true`, which is how a 50 KB patch was reported as an
+  // artifact of zero files (#34 gap 2). The field is gone from the contract
+  // rather than validated harder.
+  const { files: _drop, ...noFiles } = realSnapshot();
+  const shapes = [
+    noFiles,
+    realSnapshot({ files: [] }),
+    realSnapshot({ files: [{ filename: "a.ts", additions: 1, deletions: 0 }] }),
+  ];
+  const derived = shapes.map((snap) => fromMcp(snap));
+  for (const d of derived) {
+    assert.deepEqual(
+      { reviews: d.reviews.length, threads: d.reviewThreads?.length ?? null },
+      { reviews: derived[0].reviews.length, threads: derived[0].reviewThreads?.length ?? null },
+    );
+  }
+});
 
 test("fromMcp refuses a thread whose comments field is missing", () => {
   const threadWithNoComments = { id: "PRRT_broken" };

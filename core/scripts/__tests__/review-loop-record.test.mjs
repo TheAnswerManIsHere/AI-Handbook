@@ -3,11 +3,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  assertAdjudicationSnapshot,
+  applyCaps,
   artifactDiff,
+  artifactFileList,
+  artifactStats,
+  assertAdjudicationSnapshot,
+  assertArtifactEndpoints,
+  assertThreadProvenance,
   buildRecord,
   cappedDiff,
+  declineCitationFor,
+  findingsByTerritory,
+  parseFrontmatter,
+  planOracleFor,
+  planReviewSignals,
+  readAtCommit,
+  sectionOf,
   PATCH_CAP_CHARS,
+  RECORD_TOTAL_CAP_CHARS,
 } from "../review-loop-record.mjs";
 
 // The payload no longer knows one repo's name; tests declare their own.
@@ -408,3 +421,301 @@ test("a pathological number of records is summarised rather than dumped", () => 
   assert.match(notice, /and 8 more/, "12 named, the remainder counted");
   assert.ok(patch.includes("+++ b/CLAUDE.md"));
 });
+
+// ---------------------------------------------------------------------------
+// ONE git-derived source for size, territory and patch (#34 gap 2)
+//
+// The defect these cover, measured on #28 and #33: the snapshot's `files` was
+// empty, `artifactSize` read it, and the record reported an artifact of zero
+// files beside a 50 KB patch -- so `territory` said every finding was outside
+// a diff that contained all of them. The fix is not a better check on that
+// field; it is deriving the fact from the same range the patch comes from.
+// ---------------------------------------------------------------------------
+
+/** A numstat stand-in: records are `added\tremoved\tpath\0`. */
+const numstatGit = (rows, { fail = null } = {}) => (args) => {
+  if (fail && args.includes(fail)) throw new Error(`fake git: ${fail} unresolvable`);
+  if (args.includes("--numstat")) return rows.map((r) => r.join("\t")).join("\0") + (rows.length ? "\0" : "");
+  if (args[0] === "cat-file") return "";
+  return "";
+};
+
+test("size excludes this machinery's own records; territory includes them", () => {
+  const { files } = artifactFileList("base", "head", {
+    runGit: numstatGit([
+      ["9", "0", ".agents/receipts/loop-budget-37.json"],
+      ["100", "5", "core/scripts/review-budget.mjs"],
+      ["20", "1", "core/scripts/pr-ready.mjs"],
+    ]),
+  });
+  const stats = artifactStats(files);
+  assert.deepEqual(
+    { files: stats.files, added: stats.added, removed: stats.removed, excluded: stats.excludedGeneratedRecords },
+    { files: 2, added: 120, removed: 6, excluded: 1 },
+    "the artifact is the code under review, not the loop's own bookkeeping",
+  );
+  // Territory classifies against the FULL set: a finding anchored on a receipt
+  // this PR changed is still inside this PR's diff, and saying otherwise is
+  // exactly the lie #34 gap 2 reported.
+  const territory = findingsByTerritory(
+    [{ path: ".agents/receipts/loop-budget-37.json" }, { path: "core/scripts/review-budget.mjs" }],
+    files.map((f) => ({ filename: f.file })),
+  );
+  assert.deepEqual({ inDiff: territory.inDiff, outsideDiff: territory.outsideDiff }, { inDiff: 2, outsideDiff: 0 });
+});
+
+test("a binary change reports null counts and a binaryFiles count, never a false zero", () => {
+  const { files } = artifactFileList("base", "head", {
+    runGit: numstatGit([
+      ["-", "-", "docs/img/diagram.png"],
+      ["3", "0", "core/scripts/pr-ready.mjs"],
+    ]),
+  });
+  const stats = artifactStats(files);
+  assert.equal(files[0].added, null, "a binary file's line count is unknown, not zero");
+  assert.deepEqual({ files: stats.files, added: stats.added, binaryFiles: stats.binaryFiles }, { files: 2, added: 3, binaryFiles: 1 });
+});
+
+test("a non-numeric, non-binary count refuses rather than coercing to zero", () => {
+  assert.throws(
+    () => artifactFileList("base", "head", { runGit: numstatGit([["?", "0", "a.ts"]]) }),
+    /non-numeric, non-binary count/,
+  );
+});
+
+test("a rename lands BOTH paths in the set, so a finding on either is inDiff", () => {
+  // --no-renames is why: with rename detection on, git reports only the
+  // destination and a finding anchored on the source classifies outside the
+  // diff. The fake asserts the flag is actually asked for.
+  let sawNoRenames = false;
+  const runGit = (args) => {
+    if (args.includes("--numstat")) {
+      sawNoRenames = args.includes("--no-renames");
+      return ["12\t0\tnew/path.mjs", "0\t12\told/path.mjs"].join("\t\0").replace("\t\0", "\0") + "\0";
+    }
+    return "";
+  };
+  const { files } = artifactFileList("base", "head", { runGit });
+  assert.ok(sawNoRenames, "rename detection must be off, or the source path disappears");
+  const paths = files.map((f) => f.file);
+  assert.deepEqual(paths.sort(), ["new/path.mjs", "old/path.mjs"]);
+});
+
+test("a path with a space and a non-ASCII byte round-trips", () => {
+  // -z is why: git's default output C-quotes such a path, and a quoted path
+  // never equals the path a finding is anchored on.
+  const { files } = artifactFileList("base", "head", {
+    runGit: numstatGit([["1", "0", "docs/plans/PLAN — my plan.md"]]),
+  });
+  assert.equal(files[0].file, "docs/plans/PLAN — my plan.md");
+});
+
+test("an empty artifact against DISTINCT endpoints is allowed, and says so", () => {
+  // A branch whose every change was reverted is legitimate and reachable, and
+  // refusing it would block the tripwire and direct-stop flows that need a
+  // record to close the loop at all. (Codex, #37 round 3.)
+  const { files, emptyAgainstDistinctEndpoints } = artifactFileList("base", "head", { runGit: numstatGit([]) });
+  assert.deepEqual(files, []);
+  assert.equal(emptyAgainstDistinctEndpoints, true, "the state is marked, not refused");
+});
+
+test("both endpoints are validated before anything derives from the range", () => {
+  assert.throws(() => assertArtifactEndpoints(null, "head", { runGit: () => "" }), /carries no pr\.base\.sha/);
+  assert.throws(
+    () => assertArtifactEndpoints("base", "head", { runGit: numstatGit([], { fail: "cat-file" }) }),
+    /is not a resolvable commit/,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Reading payload at the reviewed commit, in either layout
+// ---------------------------------------------------------------------------
+
+/**
+ * A git stand-in over a committed tree: `{ path: {mode, text} }`. The handbook
+ * fixture stores a symlink whose blob is its target's path, exactly as
+ * `git ls-tree` and `git show` report one.
+ */
+const treeGit = (tree) => (args) => {
+  if (args[0] === "ls-tree") {
+    const wanted = args[args.length - 1];
+    const entry = tree[wanted];
+    return entry ? `${entry.mode} blob deadbeef\t${wanted}\0` : "";
+  }
+  if (args[0] === "show") {
+    const wanted = args[1].split(":").slice(1).join(":");
+    if (!tree[wanted]) throw new Error(`fake git: no ${wanted}`);
+    return tree[wanted].text;
+  }
+  return "";
+};
+
+const DEFINITION = ".claude/agents/review-loop-adjudicator.md";
+const FRONTMATTER = "---\nname: review-loop-adjudicator\nmodel: best\neffort: xhigh\n---\n\nbody\n";
+
+test("a head-pinned read follows the handbook's symlink into core/", () => {
+  const runGit = treeGit({
+    [DEFINITION]: { mode: "120000", text: "../../core/.claude/agents/review-loop-adjudicator.md" },
+    "core/.claude/agents/review-loop-adjudicator.md": { mode: "100644", text: FRONTMATTER },
+  });
+  const read = readAtCommit("head", DEFINITION, { runGit });
+  assert.equal(read.path, "core/.claude/agents/review-loop-adjudicator.md");
+  assert.equal(read.followedLink, DEFINITION);
+  assert.deepEqual(parseFrontmatter(read.text), { name: "review-loop-adjudicator", model: "best", effort: "xhigh" });
+});
+
+test("the same read works in an assembled consumer, where the path is an ordinary file", () => {
+  const runGit = treeGit({ [DEFINITION]: { mode: "100644", text: FRONTMATTER } });
+  const read = readAtCommit("head", DEFINITION, { runGit });
+  assert.equal(read.path, DEFINITION);
+  assert.equal(read.followedLink, null);
+});
+
+test("a consumer path absent entirely retries once under core/", () => {
+  // The handbook has no `.agents/memory/…` at all -- the tracked source is
+  // `core/.agents/memory/…`, so a bare `git show <sha>:<consumer path>` reads
+  // nothing and the field would have been silently empty.
+  const note = ".agents/memory/machinery-threat-model-is-my-own-mistakes.md";
+  const runGit = treeGit({ [`core/${note}`]: { mode: "100644", text: "the threat model" } });
+  const citation = declineCitationFor("internal", "head", { runGit });
+  assert.equal(citation.text, "the threat model");
+  assert.equal(citation.path, `core/${note}`);
+});
+
+test("a symlink escaping the repository is refused, not followed", () => {
+  const runGit = treeGit({ [DEFINITION]: { mode: "120000", text: "../../../etc/passwd" } });
+  assert.throws(() => readAtCommit("head", DEFINITION, { runGit }), /escapes the repository/);
+});
+
+test("a path resolving in neither layout refuses, naming both attempts", () => {
+  assert.throws(() => readAtCommit("head", DEFINITION, { runGit: treeGit({}) }), /tried .*core\//s);
+});
+
+test("the decline citation is tier-selected, and degrades with a stated reason", () => {
+  assert.equal(declineCitationFor("product", "head", { runGit: treeGit({}) }).text, null);
+  // Absent in this repository: a stated null, not a refusal -- `memory` is a
+  // separate sync group and requiring it would couple the machinery to most
+  // of the handbook.
+  const absent = declineCitationFor("internal", "head", { runGit: treeGit({}) });
+  assert.equal(absent.text, null);
+  assert.match(absent.reason, /unavailable at head/);
+});
+
+// ---------------------------------------------------------------------------
+// The plan oracle, both modes
+// ---------------------------------------------------------------------------
+
+const PLAN = "docs/plans/PLAN_NEW.md";
+const planText = "# Plan\n\n## Direction\nthe direction\n\n## Product Intent\nthe intent\n\n## Must Not Change\nthe invariants\n\n## Settled Decisions\n1. a decision\n";
+
+const planGit = (introduced, text = planText) => (args) => {
+  if (args[0] === "diff-tree") return introduced.join("\0") + (introduced.length ? "\0" : "");
+  if (args[0] === "cat-file") return "";
+  if (args[0] === "show") return text;
+  return "";
+};
+
+test("a [PLAN REVIEW] loop reads its own plan at the head -- the deadlock #37 round 2 found", () => {
+  // Without this mode the record refuses on every plan-review loop, because a
+  // plan under review has no approved-plan source by definition. The loop then
+  // cannot obtain the verdict it needs to continue OR stop.
+  const oracle = planOracleFor(
+    { title: "[PLAN REVIEW] something — DO NOT MERGE", body: "## Review mode\nPlan review only. Never merge." },
+    "head",
+    { runGit: planGit([PLAN]) },
+  );
+  assert.equal(oracle.mode, "plan-review");
+  assert.deepEqual(oracle.sections, {
+    Direction: "the direction",
+    "Product Intent": "the intent",
+    "Must Not Change": "the invariants",
+    "Settled Decisions": "1. a decision",
+  });
+});
+
+test("plan review needs BOTH defining signals, and refuses when they disagree", () => {
+  const bodyOnly = { title: "Ordinary implementation PR", body: "## Review mode\nPlan review only." };
+  assert.throws(() => planOracleFor(bodyOnly, "head", { runGit: planGit([PLAN]) }), /declares plan review in its body but not the other/);
+  assert.equal(planReviewSignals(bodyOnly).isPlanReview, false);
+});
+
+test("a plan-review PR introducing no plan file refuses", () => {
+  assert.throws(
+    () => planOracleFor({ title: "[PLAN REVIEW] x — DO NOT MERGE", body: "## Review mode\nPlan review only." }, "head", { runGit: planGit([]) }),
+    /must introduce exactly one/,
+  );
+});
+
+test("the approved plan is the one the cited commit INTRODUCED, not the one file present", () => {
+  // A repository may retain an older plan on main, which the loop permits. A
+  // "exactly one file present" rule would then refuse every future plan.
+  const body = "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06";
+  const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.mode, "approved-plan");
+  assert.equal(oracle.sha, "abc1234");
+  assert.equal(oracle.path, PLAN);
+});
+
+test("a feature body with no approved-plan source REFUSES rather than nulling", () => {
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body: "## Summary\nsome prose" }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+});
+
+test("each permitted no-plan form yields a stated null", () => {
+  const forms = [
+    ["**Approved-plan source:** n/a — bugfix mode, tier A oracle below", "bugfix oracle"],
+    ["**Approved-plan source:** n/a — no plan (trivial change)", "trivial change"],
+    ["**Approved-plan source:** PLAN_X.md, shasum -a 256 abc…, 2026-09-06", "private path"],
+  ];
+  for (const [body, reason] of forms) {
+    const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) });
+    assert.deepEqual({ mode: oracle.mode, reason: oracle.reason }, { mode: null, reason });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Provenance, bodies and caps
+// ---------------------------------------------------------------------------
+
+test("findings must come from captured threads, not a reconstruction", () => {
+  // The fix for my own mistake on #37: prior rounds' threads were filled in by
+  // hand, with invented ids and my paraphrase of the reviewer, and handed to
+  // the judge as GitHub's record. A real thread carries a PRRT_ node id and a
+  // #discussion_r html_url; neither is something a session assembles.
+  assert.throws(
+    () => assertThreadProvenance([{ id: "r1-0", comments: [{ html_url: "https://example.invalid" }] }]),
+    /not a GitHub review-thread node id/,
+  );
+  assert.throws(
+    () => assertThreadProvenance([{ id: "PRRT_ok", comments: [{ html_url: "https://example.invalid" }] }]),
+    /no #discussion_r/,
+  );
+  assertThreadProvenance([{ id: "PRRT_ok", comments: [{ html_url: "https://github.com/o/r/pull/1#discussion_r42" }] }]);
+});
+
+test("every variable-length field is bounded, and truncation is named", () => {
+  const huge = "x".repeat(RECORD_TOTAL_CAP_CHARS);
+  const record = applyCaps({
+    findings: {
+      items: [
+        { threadId: "PRRT_a", resolved: false, createdAt: "2026-09-01", body: huge },
+        { threadId: "PRRT_b", resolved: true, createdAt: "2026-09-02", body: huge },
+      ],
+    },
+    planOracle: { sections: { Direction: huge } },
+    declineCitation: { text: huge },
+  });
+  assert.ok(record.truncation.fields.length >= 3, "every over-long field names itself");
+  assert.ok(
+    record.truncation.serializedChars <= RECORD_TOTAL_CAP_CHARS,
+    `the emitted record must fit the total cap, got ${record.truncation.serializedChars}`,
+  );
+  // Unresolved findings are served first: the verdict turns on those.
+  assert.ok((record.findings.items[0].body ?? "").length >= (record.findings.items[1].body ?? "").length);
+});
+
+// ---------------------------------------------------------------------------
+// The shipped definition declares what this machinery reads
+// ---------------------------------------------------------------------------

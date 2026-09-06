@@ -209,9 +209,12 @@ adjudicator, the leash, and the David gate all in force. While watching an imple
   node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file> --write
   ```
 
-  Dispatch **one** `review-loop-adjudicator` subagent **on Fable**, passing
-  `model: "fable"` explicitly (a per-invocation model outranks frontmatter),
-  and announce the dispatch. Its only input is that record — never this
+  Dispatch **one** `review-loop-adjudicator` subagent, passing **no**
+  per-invocation `model` or `effort` — its own definition declares both, and a
+  per-invocation model outranks frontmatter, so passing one would pin the judge
+  to a tier the definition no longer names. Announce the dispatch: it runs at
+  the strongest available tier and raised effort, which spends well above
+  Opus. Its only input is that record — never this
   session's prose, and never a case for continuing written by me. **Its verdict
   decides**: continue, stop, or split-to-David. I do not weigh it or adopt part
   of it; if I think it is wrong, that is a disagreement for David, not license

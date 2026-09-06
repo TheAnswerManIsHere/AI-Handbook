@@ -830,6 +830,10 @@ function record(pr, seq, {
   // models a present-but-null key, which is a different thing.
   omitRepo = false,
   budgetRepo = TEST_REPO_SLUG,
+  // The dispatch declaration the generator read from the agent definition at
+  // the reviewed commit. Absent = a pre-`dispatch` record, whose receipts are
+  // legacy and valid without stamps.
+  dispatch = undefined,
 } = {}) {
   const path = `.agents/adjudications/${pr}-${seq}.json`;
   const body = JSON.stringify({
@@ -842,6 +846,7 @@ function record(pr, seq, {
     repo: omitRepo ? undefined : repo,
     generatedAt,
     evidenceCapturedAt,
+    dispatch,
     budget: { tier, pendingRequest, ambiguous, allowance: allowanceValue, extensions },
     rounds: { completedReviewerPasses: passes },
     sinceLastReview: { resolved, head: baseline },
@@ -2377,4 +2382,36 @@ test("remoteTip keeps working for the direct --show caller, which passes no root
   // broken it silently. The default is what keeps that caller correct.
   assert.equal(remoteTip.length, 1, "the root parameter must be optional, so arity stays 1");
   assert.equal(remoteTip(""), null, "the single-argument shape still behaves");
+});
+
+test("the merge gate refuses a terminal receipt whose stamps disagree with its record", () => {
+  // Round 2 of #37 found this hole: this gate honours a terminal receipt
+  // through its own `receipt.kind !== "adjudication"` guard and never calls
+  // `validateExtension`, so a receipt the refusal layer rejects could still
+  // produce readiness. Two gates honour these receipts; both compare the
+  // stamps or neither means anything.
+  const { dir, commit } = tempRepo();
+  const dispatch = { model: "best", effort: "xhigh", source: ".claude/agents/review-loop-adjudicator.md", sha: "abc123" };
+  const bad = closedLoop(commit, 921, {
+    recordOpts: { dispatch },
+    extOpts: { modelRequested: "sonnet", effortRequested: "xhigh" },
+  });
+  const refused = checkAdjudicatedCodex(921, bad.head, { cwd: dir });
+  assert.equal(refused.pass, false);
+  assert.match(refused.detail, /modelRequested is "sonnet", but the record it cites declares "best"/);
+
+  const { dir: dir2, commit: commit2 } = tempRepo();
+  const good = closedLoop(commit2, 922, {
+    recordOpts: { dispatch },
+    extOpts: { modelRequested: "best", effortRequested: "xhigh" },
+  });
+  assert.equal(checkAdjudicatedCodex(922, good.head, { cwd: dir2 }).pass, true, "matching stamps pass this gate");
+
+  const { dir: dir3, commit: commit3 } = tempRepo();
+  const legacy = closedLoop(commit3, 923);
+  assert.equal(
+    checkAdjudicatedCodex(923, legacy.head, { cwd: dir3 }).pass,
+    true,
+    "a receipt citing a pre-dispatch record stays honourable -- no committed receipt is invalidated",
+  );
 });

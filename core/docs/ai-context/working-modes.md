@@ -629,7 +629,7 @@ the safety net a non-code-reading product manager depends on.
 - **The David gate stands at budget + 3, on every tier** (David, 2026-08-26,
   superseding the 2x-budget hard stop and sensitive's mandatory stop at 5).
   Adjudicator grants self-serve at most that 3-round leash. At the gate a
-  fresh Fable adjudication runs and its verdict goes to David as a 🛑 — his
+  fresh adjudication runs and its verdict goes to David as a 🛑 — his
   call on the recommendation — instead of taking effect on its own; his
   answer is the committed `david`-kind receipt (a grant opens exactly those
   rounds, default another 3-round leash with the gate repeating where it

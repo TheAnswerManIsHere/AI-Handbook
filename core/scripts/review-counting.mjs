@@ -489,7 +489,9 @@ export function assertMcpSnapshotComplete(snapshot) {
   // already warns loudly when it is absent — but a snapshot that DOES carry it
   // must attest to it like any other paginated collection, or a truncated
   // first page would silently drop the clean passes it was added to find.
-  const required = ["reviews", "files", "reviewThreads"];
+  // `files` is deliberately ABSENT: the artifact's file list now comes from
+  // git over base...head, one source shared with the patch and territory.
+  const required = ["reviews", "reviewThreads"];
   if (snapshot.issueComments !== undefined) required.push("issueComments");
   for (const key of required) {
     if (complete[key] !== true) {
@@ -549,7 +551,7 @@ export function assertMcpSnapshotShape(snapshot) {
         `The digest windows on the closure timestamp and cannot place a record without it.`,
     );
   }
-  for (const key of ["reviews", "files", "reviewThreads"]) {
+  for (const key of ["reviews", "reviewThreads"]) {
     if (!Array.isArray(snapshot[key])) {
       throw new Error(
         `MCP snapshot malformed: "${key}" must be an array (got ${typeof snapshot[key]}). ` +
@@ -582,7 +584,7 @@ export function assertMcpSnapshotShape(snapshot) {
       );
     }
   });
-  snapshot.files.forEach((f, i) => {
+  (snapshot.files ?? []).forEach((f, i) => {
     if (typeof f.filename !== "string" || typeof f.additions !== "number" || typeof f.deletions !== "number") {
       throw new Error(
         `MCP snapshot malformed: files[${i}] must have a string filename and numeric additions/deletions ` +
@@ -663,7 +665,7 @@ export function assertMcpSnapshotShape(snapshot) {
 export function fromMcp(snapshot) {
   assertMcpSnapshotShape(snapshot);
   assertMcpSnapshotComplete(snapshot);
-  const { pr, reviews, files, reviewThreads, issueComments } = snapshot;
+  const { pr, reviews, files = [], reviewThreads, issueComments } = snapshot;
   return {
     pr,
     reviews,

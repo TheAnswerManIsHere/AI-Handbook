@@ -56,6 +56,7 @@ import {
   nodeIo,
   railFor,
   validateBudget,
+  validateDispatchStamps,
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
@@ -1126,6 +1127,12 @@ function validateAdjudicationRecord(prNumber, recordPath, headSha, cwd, { floor 
     // committed receipts so either view of a standing terminal verdict
     // disqualifies a later adjudication candidate.
     extensions: Array.isArray(record.budget?.extensions) ? record.budget.extensions : [],
+    // The record itself, so the merge gate can run the SAME stamp comparison
+    // the review-budget guard runs. Without it this gate honours a terminal
+    // receipt through its own path and never calls `validateExtension`, so a
+    // receipt whose stamps disagree with its record could be refused by the
+    // guard and still produce readiness. (Codex, #37 round 2.)
+    record,
   };
 }
 
@@ -1344,6 +1351,14 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
   const recordCheck = validateAdjudicationRecord(prNumber, receipt.recordPath, headSha, cwd);
   if (!recordCheck.ok) {
     return { pass: false, detail: `${candidate.path}: ${recordCheck.detail}` };
+  }
+  // The same check the refusal layer runs, against the same evidence: the
+  // receipt's stamps must equal the dispatch the cited record read from the
+  // agent definition at the reviewed commit. Two gates honour these receipts,
+  // so both compare them or neither means anything.
+  const stampError = validateDispatchStamps(receipt, recordCheck.record);
+  if (stampError) {
+    return { pass: false, detail: `${candidate.path}: ${stampError}` };
   }
 
   // THE CHAIN UNDER THE CANDIDATE MUST BE ONE THE GUARD WOULD ACCEPT. Only

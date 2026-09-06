@@ -278,6 +278,125 @@ export function artifactDiff(base, head, { runGit = git } = {}) {
   return cappedDiff(runGit, `${base}...${head}`);
 }
 
+// ---------------------------------------------------------------------------
+// The artifact's own file list -- ONE git-derived source for size, territory
+// and patch
+// ---------------------------------------------------------------------------
+
+/**
+ * Both endpoints of `base...head`, validated as resolvable commits BEFORE any
+ * derivation runs.
+ *
+ * The snapshot never validated these. `assertAdjudicationSnapshot` checks the
+ * PR number, the repository and the capture metadata; `changesSince` checks
+ * the head only, for its own separate range; and `artifactDiff` deliberately
+ * returns an "unavailable" marker rather than failing. That tolerance was
+ * harmless while the file list came from the snapshot -- a missing endpoint
+ * cost the patch and nothing else. It stops being harmless now the same range
+ * is authoritative for SIZE and TERRITORY: an incidental git failure would
+ * present as an artifact of zero files with every finding outside the diff,
+ * which is #34 gap 2 wearing a different hat. (Codex, #37 round 2.)
+ */
+export function assertArtifactEndpoints(base, head, { runGit = git } = {}) {
+  for (const [label, ref] of [
+    ["pr.base.sha", base],
+    ["pr.head.sha", head],
+  ]) {
+    if (typeof ref !== "string" || ref.trim() === "") {
+      throw new Error(
+        `the snapshot carries no ${label}, and the artifact's size, territory and patch are all derived ` +
+          `from base...head -- without both endpoints there is nothing to derive them from`,
+      );
+    }
+    try {
+      runGit(["cat-file", "-e", `${ref}^{commit}`]);
+    } catch {
+      throw new Error(
+        `${label} ${ref} is not a resolvable commit in this clone (fetch the branch, then re-run) -- ` +
+          `refusing rather than deriving an artifact from a range with an unresolvable end`,
+      );
+    }
+  }
+}
+
+/**
+ * The artifact's changed files, from git, over the same range as the patch.
+ *
+ * Flags, each load-bearing:
+ *
+ * - `-z` because a path containing a space, a quote or a non-ASCII byte is
+ *   otherwise C-quoted, and a quoted path never equals the path GitHub reports
+ *   on a finding -- so territory would silently classify it `outsideDiff`.
+ * - `--no-renames` because rename detection reports only a rename's
+ *   DESTINATION, leaving a finding anchored on the source outside the diff.
+ *   Off, a rename appears as its add and its delete and BOTH paths are in the
+ *   set. `recordPathsIn` already disables it, for the neighbouring reason.
+ *
+ * Binary files report `-` for both counts. They carry `added: null,
+ * removed: null` and are counted separately, so a non-zero artifact can never
+ * present as zero lines without saying why. A count that is neither numeric
+ * nor `-` is a refusal, not a coerced zero: `?? 0` on an unparsed count is the
+ * exact shape of the defect this whole change exists to remove.
+ */
+export function artifactFileList(base, head, { runGit = git } = {}) {
+  const raw = runGit(["diff", "--numstat", "-z", "--no-renames", `${base}...${head}`]);
+  const files = raw
+    .split("\0")
+    .filter(Boolean)
+    .map((record) => {
+      const parts = record.split("\t");
+      if (parts.length < 3) {
+        throw new Error(`git numstat produced an unparseable record: ${JSON.stringify(record)}`);
+      }
+      const [added, removed] = parts;
+      // A path may itself contain a tab; everything after the two counts is it.
+      const file = parts.slice(2).join("\t");
+      const count = (raw_) => {
+        if (raw_ === "-") return null;
+        if (!/^\d+$/.test(raw_)) {
+          throw new Error(
+            `git numstat reported a non-numeric, non-binary count ${JSON.stringify(raw_)} for ${file} -- ` +
+              `refusing rather than coercing it to zero`,
+          );
+        }
+        return Number(raw_);
+      };
+      return { file, added: count(added), removed: count(removed), binary: added === "-" && removed === "-" };
+    });
+  if (files.length === 0 && base !== head) {
+    // A consistently empty artifact IS reachable and legitimate: a branch whose
+    // every change has been reverted. Both sources agree it is empty, so the
+    // record says so with a marker rather than refusing -- refusing here would
+    // block the tripwire and direct-stop flows that need a record to close the
+    // loop at all, which is a wrongly-blocking failure on machinery whose whole
+    // job is to unblock a decision. (Codex, #37 round 3.)
+    return { files, emptyAgainstDistinctEndpoints: true };
+  }
+  return { files, emptyAgainstDistinctEndpoints: false };
+}
+
+/**
+ * Size counts describe THE ARTIFACT UNDER REVIEW, so they apply the same
+ * generated-record exclusion the patch applies. Territory does not: a finding
+ * anchored on a receipt this PR changed is still inside this PR's diff, and
+ * telling the judge otherwise is the very lie #34 gap 2 reported.
+ */
+export function artifactStats(files) {
+  const artifact = files.filter((f) => !isGeneratedRecord(f.file));
+  return {
+    files: artifact.length,
+    added: artifact.reduce((n, f) => n + (f.added ?? 0), 0),
+    removed: artifact.reduce((n, f) => n + (f.removed ?? 0), 0),
+    binaryFiles: artifact.filter((f) => f.binary).length,
+    excludedGeneratedRecords: files.length - artifact.length,
+    note:
+      "files/added/removed EXCLUDE this machinery's own generated receipts and records (the same " +
+      "exclusion the patch applies); binaryFiles counts files whose line counts git reports as `-`, " +
+      "which carry null rather than zero. `territory` classifies against the FULL changed set, " +
+      "including those records and both sides of a rename.",
+  };
+}
+
 export function changesSince(since, head, { runGit = git } = {}) {
   if (!since) {
     return { resolved: false, reason: "no reviewed commit found in the snapshot (no completed reviewer pass yet)" };
@@ -333,6 +452,324 @@ export function changesSince(since, head, { runGit = git } = {}) {
 // GitHub side
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Reading payload at the reviewed commit, in either layout
+// ---------------------------------------------------------------------------
+
+/** The two payload files this record reads, by their CONSUMER path. */
+export const ADJUDICATOR_DEFINITION = ".claude/agents/review-loop-adjudicator.md";
+export const THREAT_MODEL_NOTE = ".agents/memory/machinery-threat-model-is-my-own-mistakes.md";
+
+/**
+ * A payload file's content at `sha`, resolved through both layouts this
+ * machinery runs in.
+ *
+ * A bare `git show <sha>:<consumer path>` works in exactly one of them.
+ * Measured in the handbook at `972b60d`:
+ *
+ *     git ls-tree HEAD .claude/agents/review-loop-adjudicator.md
+ *     120000 blob 3ccda5b…    (a SYMLINK; its blob is the target path text)
+ *     git ls-tree HEAD .agents/memory/…-mistakes.md
+ *     (empty -- the tracked source is core/.agents/memory/…)
+ *
+ * In an assembled consumer both are ordinary files and no `core/` exists. So
+ * the resolver reads the tree entry's MODE, follows a `120000` target relative
+ * to the link's own directory, and retries once under `core/` when the
+ * consumer path is absent entirely. A target escaping the repository, a link
+ * chain deeper than one, or a path resolving in neither layout is a refusal
+ * naming both attempts -- never a silently empty field. (Codex, #37 round 2.)
+ */
+export function readAtCommit(sha, consumerPath, { runGit = git } = {}) {
+  const attempts = [consumerPath, `core/${consumerPath}`];
+  const tried = [];
+  for (const candidate of attempts) {
+    let entry;
+    try {
+      entry = runGit(["ls-tree", "-z", sha, "--", candidate]);
+    } catch {
+      entry = "";
+    }
+    if (!entry) {
+      tried.push(`${candidate} (absent at ${sha})`);
+      continue;
+    }
+    const mode = entry.slice(0, 6);
+    const read = (target) => runGit(["show", `${sha}:${target}`]);
+    if (mode !== "120000") return { path: candidate, text: read(candidate), followedLink: null };
+
+    const target = read(candidate).trim();
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(candidate), target));
+    if (resolved.startsWith("../") || path.posix.isAbsolute(resolved)) {
+      throw new Error(
+        `${candidate} at ${sha} is a symlink to ${target}, which escapes the repository -- refusing to follow it`,
+      );
+    }
+    let inner;
+    try {
+      inner = runGit(["ls-tree", "-z", sha, "--", resolved]);
+    } catch {
+      inner = "";
+    }
+    if (!inner) {
+      throw new Error(`${candidate} at ${sha} is a symlink to ${resolved}, which is not present at that commit`);
+    }
+    if (inner.slice(0, 6) === "120000") {
+      // One hop only. A chain is a repository mistake, and following it would
+      // make this resolver the thing that has to reason about cycles.
+      throw new Error(`${candidate} at ${sha} is a symlink to another symlink (${resolved}) -- refusing to follow a chain`);
+    }
+    return { path: resolved, text: read(resolved), followedLink: candidate };
+  }
+  throw new Error(
+    `cannot read ${consumerPath} at ${sha} in either payload layout -- tried ${tried.join("; ")}. ` +
+      `The record reads payload at the REVIEWED COMMIT, never from the working tree, so this is a refusal ` +
+      `rather than a field the judge would have to guess about`,
+  );
+}
+
+/** The `key: value` pairs of a markdown file's leading `---` frontmatter. */
+export function parseFrontmatter(text) {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text ?? "");
+  if (!match) return null;
+  const out = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const kv = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
+    if (kv) out[kv[1]] = kv[2].trim().replace(/^["']|["']$/g, "");
+  }
+  return out;
+}
+
+/**
+ * What the dispatch DECLARES: the judge's model and reasoning effort, read
+ * mechanically from its own definition at the reviewed commit.
+ *
+ * Not from configuration, not from the working tree, and above all not from
+ * anything the dispatching session types. A receipt's `modelRequested` /
+ * `effortRequested` are checked against THIS, so a typed, stale or invented
+ * value is rejected without consulting anything mutable.
+ *
+ * What this does NOT establish, stated here because the plan is asked to say
+ * so rather than imply otherwise: what the harness actually SERVED. The Agent
+ * tool result carries no model id and `get_session` describes the main
+ * session, not a subagent. Two gaps live here, both known: declared-vs-served,
+ * and declared-at-head vs. loaded-from-the-active-checkout (Codex, #37 round
+ * 3) -- the harness loads the definition from the checkout it is running in,
+ * which a stale-checkout generator run can differ from.
+ */
+export function dispatchDeclaration(sha, { runGit = git } = {}) {
+  const { path: resolvedPath, text, followedLink } = readAtCommit(sha, ADJUDICATOR_DEFINITION, { runGit });
+  const front = parseFrontmatter(text);
+  if (!front?.model) {
+    throw new Error(
+      `${resolvedPath} at ${sha} declares no \`model\` in its frontmatter -- the record cannot stamp a ` +
+        `declaration that does not exist`,
+    );
+  }
+  return {
+    model: front.model,
+    effort: front.effort ?? null,
+    source: followedLink ? `${followedLink} -> ${resolvedPath}` : resolvedPath,
+    sha,
+    note:
+      "What the dispatch DECLARES, read from the agent definition at the reviewed commit. A verdict " +
+      "receipt's modelRequested/effortRequested are validated against these values. This does NOT " +
+      "establish what the harness served, nor that the checkout the dispatch ran from carried this same " +
+      "definition -- both are stated gaps, not claims.",
+  };
+}
+
+/**
+ * The tier's decline citation: the text an internal-tier judge is entitled to
+ * decline against, read at the reviewed head rather than from the working
+ * tree -- because the generator deliberately supports running from `main`, and
+ * a PR that edits the threat model would otherwise hand the judge the base
+ * branch's version of the very note under review.
+ */
+export function declineCitationFor(tier, sha, { runGit = git } = {}) {
+  if (tier !== "internal") {
+    return { text: null, path: null, reason: `no tier citation in phase 1a for tier "${tier}"` };
+  }
+  let resolved;
+  try {
+    resolved = readAtCommit(sha, THREAT_MODEL_NOTE, { runGit });
+  } catch (e) {
+    // A STATED NULL, not a refusal. This note is delivered by the `memory`
+    // sync group and the machinery does not require it: requiring it would
+    // pull `contracts`, `planning` and `skills` into machinery's dependency
+    // closure through memory's own requires, coupling a consumer that wants
+    // the review machinery to most of the handbook. So a repository without
+    // the note still adjudicates -- the judge simply sees that the citation
+    // is unavailable and why, which is the record's standing discipline for
+    // a fact it cannot establish.
+    return {
+      text: null,
+      path: null,
+      sha,
+      reason: `unavailable at ${sha}: ${e.message}`,
+      note: "The internal tier's decline citation could not be read here; weigh its absence rather than assuming its content.",
+    };
+  }
+  return {
+    text: resolved.text,
+    path: resolved.path,
+    sha,
+    reason: null,
+    note: "The internal tier's threat model, at the reviewed commit -- the basis an internal-tier decline cites.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The approved plan's oracle
+// ---------------------------------------------------------------------------
+
+/** The four sections that ARE the reviewer's oracle, per the PR-body contract. */
+const ORACLE_SECTIONS = ["Direction", "Product Intent", "Must Not Change", "Settled Decisions"];
+
+/**
+ * A markdown section's body, matched on its heading text, case-insensitively.
+ *
+ * A line scanner rather than one regex. The regex form is where this goes
+ * wrong quietly: JavaScript has no `\\Z`, so an end-of-input alternation
+ * written that way degrades to the literal letter Z and every section silently
+ * ends at the first Z in the document. Scanning lines has no such trap and
+ * says what it does.
+ */
+export function sectionOf(markdown, heading) {
+  const lines = String(markdown ?? "").split(/\r?\n/);
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
+  const want = new RegExp(`^#{1,6}\\s+${escaped}\\s*$`, "i");
+  const anyHeading = /^#{1,6}\s+\S/;
+  const start = lines.findIndex((l) => want.test(l));
+  if (start === -1) return null;
+  const body = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (anyHeading.test(lines[i])) break;
+    body.push(lines[i]);
+  }
+  return body.join("\n").trim();
+}
+
+/**
+ * A `[PLAN REVIEW]` PR requires BOTH of the repository's defining signals --
+ * the title and the body declaration -- and refuses when they disagree.
+ *
+ * The body alone was the round-2 design and round 3 found the hole: a PR that
+ * keeps the boilerplate while dropping the title would route past the
+ * approved-plan-source check entirely and take a mutable head plan as its
+ * oracle. Both signals are in the snapshot already, so requiring both costs
+ * nothing. (Codex, #37 round 3.)
+ */
+export function planReviewSignals(pr) {
+  const title = typeof pr?.title === "string" && /^\[PLAN REVIEW\]/i.test(pr.title.trim());
+  const body = typeof pr?.body === "string" && /^##\s+Review mode\s*$[\s\S]{0,400}?plan review only/im.test(pr.body);
+  return { title, body, isPlanReview: title && body, disagree: title !== body };
+}
+
+/** The permitted no-plan forms, each a POSITIVE match rather than an absence. */
+const NO_PLAN_FORMS = [
+  { reason: "bugfix oracle", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}\s*n\/a\s*[-—–]\s*bugfix( mode)?/im },
+  { reason: "trivial change", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}\s*n\/a\s*[-—–]\s*no plan/im },
+  { reason: "private path", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}[^\n]*shasum[^\n]*$/im },
+];
+
+const PLAN_COMMIT_RE = /\b(?:final|combined) plan commit\s+([0-9a-f]{7,40})\b/i;
+const PLAN_PATH_RE = /\b(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)\b/;
+
+/**
+ * The approved plan's four oracle sections, read at the commit the PR body
+ * names -- or, on a plan-review loop, at the reviewed head, because a plan
+ * under review has no approved commit by definition.
+ *
+ * Absence is a REFUSAL, not a null. The contract treats a missing
+ * approved-plan source as a finding in its own right, so a record that
+ * proceeded quietly without the oracle would hide exactly the defect the
+ * conformance rubric exists to catch. `null` is produced only on a positive
+ * match against one of the permitted no-plan forms, with its reason stated.
+ */
+export function planOracleFor(pr, headSha, { runGit = git } = {}) {
+  const body = typeof pr?.body === "string" ? pr.body : "";
+  const signals = planReviewSignals(pr);
+  if (signals.disagree) {
+    throw new Error(
+      `this PR declares plan review in ${signals.title ? "its title" : "its body"} but not the other -- ` +
+        `the repository defines the mode by both, and a half-declared plan review would select a mutable ` +
+        `head plan as its oracle. Refusing rather than guessing which signal to believe`,
+    );
+  }
+  if (signals.isPlanReview) {
+    // On a plan loop the plan file IS the artifact -- which is why
+    // `classifyPath` already gives `docs/plans/` its own behavioral class.
+    const introduced = planFilesIntroducedBy(headSha, { runGit });
+    if (introduced.length !== 1) {
+      throw new Error(
+        `a [PLAN REVIEW] PR must introduce exactly one docs/plans/PLAN_*.md at its head ${headSha}; ` +
+          `found ${introduced.length}${introduced.length ? ` (${introduced.join(", ")})` : ""}`,
+      );
+    }
+    const text = runGit(["show", `${headSha}:${introduced[0]}`]);
+    return {
+      mode: "plan-review",
+      sha: headSha,
+      path: introduced[0],
+      sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
+      reason: null,
+      note: "The plan under review, at the reviewed head. On a plan loop the plan file is the artifact.",
+    };
+  }
+
+  const permitted = NO_PLAN_FORMS.find((f) => f.re.test(body));
+  if (permitted) return { mode: null, sha: null, path: null, sections: null, reason: permitted.reason };
+
+  const sha = PLAN_COMMIT_RE.exec(body)?.[1];
+  if (!sha) {
+    throw new Error(
+      `the PR body names no approved-plan source and matches none of the permitted no-plan forms ` +
+        `(bugfix oracle, trivial change, private path). A missing approved-plan source is itself a ` +
+        `contract finding, so this refuses rather than proceeding without the oracle`,
+    );
+  }
+  try {
+    runGit(["cat-file", "-e", `${sha}^{commit}`]);
+  } catch {
+    throw new Error(`the approved-plan commit ${sha} is not present in this clone (fetch the plan-review branch, then re-run)`);
+  }
+  const explicit = PLAN_PATH_RE.exec(body)?.[1];
+  const candidates = explicit ? [explicit] : planFilesIntroducedBy(sha, { runGit });
+  if (candidates.length !== 1) {
+    throw new Error(
+      `the approved-plan commit ${sha} introduces ${candidates.length} docs/plans/PLAN_*.md files` +
+        `${candidates.length ? ` (${candidates.join(", ")})` : ""}; name the path in the source line to disambiguate`,
+    );
+  }
+  const text = runGit(["show", `${sha}:${candidates[0]}`]);
+  return {
+    mode: "approved-plan",
+    sha,
+    path: candidates[0],
+    sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
+    reason: null,
+    note: "The approved plan, read at the commit the PR body names -- fixed by David's approval, not revisable mid-loop.",
+  };
+}
+
+/**
+ * The plan files a commit ITSELF introduced or modified -- not every plan file
+ * present at it.
+ *
+ * "Exactly one present" is a property of the repository's history, not of the
+ * approved plan, and it stops holding the first time a plan is retained on
+ * `main`, which the loop permits. After that every future plan-review branch
+ * would carry the retained file plus its own and the check would refuse
+ * forever. (Codex, #37 round 2.)
+ */
+export function planFilesIntroducedBy(sha, { runGit = git } = {}) {
+  const out = runGit(["diff-tree", "--no-commit-id", "--name-only", "-r", "-z", "--no-renames", sha]);
+  return out
+    .split("\0")
+    .filter(Boolean)
+    .filter((f) => /^docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md$/.test(f));
+}
+
 /**
  * The reviewer-authored root comments, one per thread — the same population
  * `countFindings` counts, but keeping the fields it drops (path, resolution
@@ -344,6 +781,44 @@ export function changesSince(since, head, { runGit = git } = {}) {
  * loop and could flip a stop/continue decision on findings that were never
  * part of it. (Codex, round 1.)
  */
+/**
+ * GitHub's own identifiers, asserted before a finding list is built from them.
+ *
+ * WHY THIS EXISTS, stated plainly because it is a fix for MY OWN mistake
+ * (#37, round 3). Assembling a snapshot by hand, I filled the prior rounds'
+ * threads with reconstructed entries -- invented ids and my paraphrase of the
+ * reviewer's findings -- and handed the result to the adjudicator as though it
+ * were GitHub's record. The judge noticed unprompted and discounted them. The
+ * record's entire premise is that the loop's own account of itself is the
+ * thing that failed, so a record that will accept the loop's paraphrase of a
+ * finding has given away the only property that makes it worth reading.
+ *
+ * A real review thread carries a GraphQL node id (`PRRT_…`) and every comment
+ * on it a `html_url` containing `#discussion_r<digits>`. Neither is something
+ * a session assembles; both come back from the MCP call verbatim. Requiring
+ * them refuses a reconstruction without the judge having to smell one.
+ */
+export function assertThreadProvenance(reviewThreads) {
+  (reviewThreads ?? []).forEach((thread, i) => {
+    if (typeof thread.id !== "string" || !/^PRRT_[A-Za-z0-9_-]+$/.test(thread.id)) {
+      throw new Error(
+        `reviewThreads[${i}] carries id ${JSON.stringify(thread.id)}, which is not a GitHub review-thread ` +
+          `node id (PRRT_…). Findings must come from the captured threads verbatim -- a reconstructed or ` +
+          `hand-written thread is refused, because the record's whole value is that it is not the loop's ` +
+          `own account of itself`,
+      );
+    }
+    (thread.comments ?? []).forEach((c, j) => {
+      if (!/#discussion_r\d+/.test(c.html_url ?? "")) {
+        throw new Error(
+          `reviewThreads[${i}].comments[${j}] carries no #discussion_r<id> html_url, so it did not come ` +
+            `from a GitHub review comment. Refusing rather than counting it as a finding`,
+        );
+      }
+    });
+  });
+}
+
 export function reviewerFindings(reviewThreads) {
   const out = [];
   // Deduplicated by the root comment's identity, matching `countFindings`'
@@ -369,7 +844,12 @@ export function reviewerFindings(reviewThreads) {
       resolved: typeof thread.isResolved === "boolean" ? thread.isResolved : null,
       outdated: typeof thread.isOutdated === "boolean" ? thread.isOutdated : null,
       createdAt: root.created_at ?? null,
-      excerpt: typeof root.body === "string" ? root.body.slice(0, 400) : null,
+      // The reviewer's OWN WORDS, in full -- the 400-character excerpt this
+      // replaces was too short to triage against. Bounded by the record's
+      // caps below, never by a per-item slice, and replies are excluded
+      // whoever wrote them: the builder's replies are exactly the channel the
+      // adjudicator must not read.
+      body: typeof root.body === "string" ? root.body : null,
     });
   }
   return out;
@@ -407,10 +887,126 @@ export function lastReviewedCommit(passes) {
 }
 
 // ---------------------------------------------------------------------------
+// Caps: every variable-length field is bounded, and truncation is visible
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-field caps, and a total measured on the SERIALIZED record.
+ *
+ * The per-field caps bound what this record chooses to include; the total
+ * bounds what it actually emits, after those caps, so fields that are variable
+ * but not individually capped (`sinceLastReview.files`, per-finding path
+ * metadata, the round table) cannot combine past it. Chosen an order of
+ * magnitude under a 1M-token context at ~4 characters per token, leaving the
+ * judge's own reasoning room.
+ *
+ * Overflow DEGRADES VISIBLY rather than refusing. Refusing to build a record
+ * is refusing to adjudicate, and a loop long enough to blow the budget is the
+ * worst possible moment to have no judge. The finding text is spent on
+ * unresolved findings first, then most-recent-first, because those are the
+ * ones a verdict turns on.
+ */
+export const FINDING_TEXT_CAP_CHARS = 200_000;
+export const PLAN_ORACLE_CAP_CHARS = 80_000;
+export const DECLINE_CITATION_CAP_CHARS = 40_000;
+export const RECORD_TOTAL_CAP_CHARS = 600_000;
+
+const cutMarker = (full, kept) => `\n[TRUNCATED at ${kept} chars of ${full} -- weigh the truncation itself as uncertainty]`;
+
+/** Order the finding text is spent in: unresolved first, then most recent. */
+function spendOrder(items) {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const unresolved = (x) => (x.item.resolved === false ? 0 : 1);
+      if (unresolved(a) !== unresolved(b)) return unresolved(a) - unresolved(b);
+      const at = (x) => Date.parse(x.item.createdAt ?? "") || 0;
+      return at(b) - at(a);
+    });
+}
+
+/**
+ * Applies every cap and records what was cut. Mutates nothing the caller
+ * still needs: it returns the record to write.
+ */
+export function applyCaps(record) {
+  const truncation = { fields: [], totalCapChars: RECORD_TOTAL_CAP_CHARS, serializedChars: 0 };
+
+  let budget = FINDING_TEXT_CAP_CHARS;
+  for (const { item } of spendOrder(record.findings.items)) {
+    const body = item.body ?? "";
+    if (body.length <= budget) {
+      budget -= body.length;
+      continue;
+    }
+    const kept = Math.max(0, budget);
+    item.body = body.slice(0, kept) + cutMarker(body.length, kept);
+    item.bodyTruncated = true;
+    budget = 0;
+    truncation.fields.push({ field: `findings.items[${item.threadId}].body`, keptChars: kept, fullChars: body.length });
+  }
+
+  const sections = record.planOracle?.sections;
+  if (sections) {
+    let planBudget = PLAN_ORACLE_CAP_CHARS;
+    for (const heading of Object.keys(sections)) {
+      const text = sections[heading] ?? "";
+      if (text.length <= planBudget) {
+        planBudget -= text.length;
+        continue;
+      }
+      const kept = Math.max(0, planBudget);
+      sections[heading] = text.slice(0, kept) + cutMarker(text.length, kept);
+      planBudget = 0;
+      truncation.fields.push({ field: `planOracle.sections.${heading}`, keptChars: kept, fullChars: text.length });
+    }
+  }
+
+  if (typeof record.declineCitation?.text === "string" && record.declineCitation.text.length > DECLINE_CITATION_CAP_CHARS) {
+    const full = record.declineCitation.text.length;
+    record.declineCitation.text = record.declineCitation.text.slice(0, DECLINE_CITATION_CAP_CHARS) + cutMarker(full, DECLINE_CITATION_CAP_CHARS);
+    truncation.fields.push({ field: "declineCitation.text", keptChars: DECLINE_CITATION_CAP_CHARS, fullChars: full });
+  }
+
+  record.truncation = truncation;
+  // Measured on what is actually written, after every per-field cap -- the
+  // only measurement that can bound a combination nobody enumerated.
+  let serialized = JSON.stringify(record, null, 2);
+  while (serialized.length > RECORD_TOTAL_CAP_CHARS) {
+    const next = spendOrder(record.findings.items).reverse().find((x) => (x.item.body ?? "").length > 0);
+    if (!next) break;
+    const full = (next.item.body ?? "").length;
+    next.item.body = cutMarker(full, 0).trim();
+    next.item.bodyTruncated = true;
+    truncation.fields.push({ field: `findings.items[${next.item.threadId}].body`, keptChars: 0, fullChars: full, reason: "total record cap" });
+    serialized = JSON.stringify(record, null, 2);
+  }
+  truncation.serializedChars = serialized.length;
+  truncation.note =
+    "Every variable-length field is bounded: finding bodies, the plan oracle's sections, the decline " +
+    "citation, and artifact.patch (its own cap). `fields` names everything that was cut. An empty " +
+    "`fields` with a serializedChars under the total means nothing was withheld.";
+  return record;
+}
+
+// ---------------------------------------------------------------------------
 // Assembly
 // ---------------------------------------------------------------------------
 
-export function buildRecord({ pr, snapshot, derived, budgetState, changes, artifactPatch = null, now }) {
+export function buildRecord({
+  pr,
+  snapshot,
+  derived,
+  budgetState,
+  changes,
+  artifactPatch = null,
+  artifactFiles = [],
+  emptyAgainstDistinctEndpoints = false,
+  dispatch = null,
+  planOracle = null,
+  declineCitation = null,
+  now,
+}) {
   const passes = reviewerPasses(derived.reviews, derived.issueComments);
   const byRound = findingsByRound(derived.reviews, derived.comments, derived.issueComments);
   const counts = byRound.map((r) => r.findings);
@@ -494,7 +1090,8 @@ export function buildRecord({ pr, snapshot, derived, budgetState, changes, artif
     // Counted, never recalled. Every number below comes from GitHub's records
     // via review-counting.mjs's own counting functions.
     artifact: {
-      ...artifactSize(derived.files),
+      ...artifactStats(artifactFiles),
+      emptyAgainstDistinctEndpoints,
       // The reviewed code itself. `sinceLastReview.patch` is movement AFTER
       // the last pass -- empty whenever the judge is dispatched per the
       // write-gate rule -- so the findings' own subject lives here.
@@ -505,6 +1102,11 @@ export function buildRecord({ pr, snapshot, derived, budgetState, changes, artif
         "is normally empty under the write-gate rule, since the judge rules on an already-reviewed head.",
     },
     budget,
+    // What the dispatch DECLARES, and the oracles a conformance judgement
+    // needs -- all read at the reviewed commit, never from the working tree.
+    dispatch,
+    planOracle,
+    declineCitation,
     rounds: {
       completedReviewerPasses: passes.length,
       byRound,
@@ -535,7 +1137,7 @@ export function buildRecord({ pr, snapshot, derived, budgetState, changes, artif
       items: findings,
     },
     territory: {
-      ...findingsByTerritory(findings, derived.files),
+      ...findingsByTerritory(findings, artifactFiles.map((f) => ({ filename: f.file }))),
       note:
         "Territory is mechanical (finding path vs. this PR's changed files). CAUSE " +
         "(new-ground / propagation / wrong-fix / re-raised) is NOT derivable -- it has no " +
@@ -718,22 +1320,42 @@ function main() {
     );
   }
   assertAdjudicationSnapshot(pr, snapshot, budgetState.budget.repo);
+  // Findings are built from the captured threads verbatim or not at all.
+  assertThreadProvenance(snapshot.reviewThreads);
   const derived = fromMcp(snapshot);
+
+  const base = snapshot.pr?.base?.sha ?? null;
+  const head = snapshot.pr?.head?.sha ?? null;
+  // Validate BOTH endpoints before anything derives from the range: size,
+  // territory and the patch now all come from it.
+  assertArtifactEndpoints(base, head);
+  const { files: artifactFiles, emptyAgainstDistinctEndpoints } = artifactFileList(base, head);
+
   const changes = changesSince(
     lastReviewedCommit(reviewerPasses(derived.reviews, derived.issueComments)),
-    snapshot.pr?.head?.sha ?? null,
+    head,
   );
-  const artifactPatch = artifactDiff(snapshot.pr?.base?.sha ?? null, snapshot.pr?.head?.sha ?? null);
+  const artifactPatch = artifactDiff(base, head);
+  const dispatch = dispatchDeclaration(head);
+  const planOracle = planOracleFor(snapshot.pr, head);
+  const declineCitation = declineCitationFor(budgetState.tier, head);
 
-  const record = buildRecord({
-    pr,
-    snapshot,
-    derived,
-    budgetState,
-    changes,
-    artifactPatch,
-    now: new Date().toISOString(),
-  });
+  const record = applyCaps(
+    buildRecord({
+      pr,
+      snapshot,
+      derived,
+      budgetState,
+      changes,
+      artifactPatch,
+      artifactFiles,
+      emptyAgainstDistinctEndpoints,
+      dispatch,
+      planOracle,
+      declineCitation,
+      now: new Date().toISOString(),
+    }),
+  );
 
   const text = `${JSON.stringify(record, null, 2)}\n`;
   if (!flags.write) {

@@ -690,6 +690,32 @@ groups:
       # two flip in one commit, the way claude-core and planning already do.
       - machinery-config
     mentions:
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/review-loop-record.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          On an internal-tier loop the record carries this note as
+          `declineCitation` — the basis that tier's rubric declines against.
+          Evidence, not instruction: the generator states a null with its
+          reason when the note is absent in both payload layouts, and every
+          other field of the record is unaffected. Requiring `memory` here
+          would drag `contracts`, `planning` and `skills` into machinery's
+          closure through memory's own requires, coupling a consumer that
+          wants the review machinery to most of the handbook — a far larger
+          claim than one optional citation earns.
+      - group: memory
+        ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: ".agents/memory/machinery-threat-model-is-my-own-mistakes.md"
+        count: 1
+        why: >
+          The test names the same path as a FIXTURE, to prove the layout-aware
+          resolver retries under `core/` when the consumer path is absent —
+          which is how this file is stored in the handbook. It builds the tree
+          it reads; it never opens the real note, and it passes in a consumer
+          that has no `memory` group at all.
       - group: contracts
         ref: core/docs/ai-context/known-failure-patterns.md
         from: core/scripts/pr-ready.mjs
