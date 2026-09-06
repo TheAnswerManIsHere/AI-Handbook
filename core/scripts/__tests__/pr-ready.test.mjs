@@ -823,6 +823,14 @@ function record(pr, seq, {
   allowanceValue = TIER_CAP,
   extensions = [],
   baseline,
+  // The last commit a reviewer pass actually covered. Defaults to the
+  // baseline, which is the only shape the generator emits since #38's
+  // follow-up: it refuses to build a record whose head the reviewer never
+  // saw. Set it apart from `baseline` to model a record from before that
+  // refusal existed. `omitLastReviewed` models a record from before the
+  // field existed at all.
+  lastReviewedCommit = baseline,
+  omitLastReviewed = false,
   resolved = true,
   repo = TEST_REPO_SLUG,
   // A record from before the field existed. `repo: undefined` cannot express
@@ -849,7 +857,7 @@ function record(pr, seq, {
     dispatch,
     budget: { tier, pendingRequest, ambiguous, allowance: allowanceValue, extensions },
     rounds: { completedReviewerPasses: passes },
-    sinceLastReview: { resolved, head: baseline },
+    sinceLastReview: { resolved, head: baseline, lastReviewedCommit: omitLastReviewed ? undefined : lastReviewedCommit },
   });
   return { path, files: { [path]: body }, budget: loopBudget(pr, { repo: budgetRepo, tier }) };
 }
@@ -2445,4 +2453,78 @@ test("the merge gate validates stamps on EVERY adjudication receipt in the chain
   const res = checkAdjudicatedCodex(pr, head, { cwd: dir });
   assert.equal(res.pass, false, "a bad earlier receipt must not be honoured through a good terminal one");
   assert.match(res.detail, /an earlier adjudication receipt in this chain is invalid/);
+});
+
+// ---------------------------------------------------------------------------
+// The diff baseline is the last REVIEWED commit, never the record's head
+// (Codex, #38 round 14)
+// ---------------------------------------------------------------------------
+
+test("adjudication: a record generated past the last reviewed commit is refused -- the unreviewed push cannot become the baseline", () => {
+  // The hole: the generator recorded `sinceLastReview.head` (the PR head at
+  // generation) and this gate diffed from it. A behavioral push AFTER the
+  // last pass, followed by a record and a stop receipt, therefore had the
+  // unreviewed push inside the baseline and the bookkeeping-only bound saw
+  // nothing. The bound must start at the commit a reviewer actually saw.
+  const { dir, commit } = tempRepo();
+  const bud = loopBudget(999);
+  const reviewed = commit({ "docs/x.md": "content", ...bud.files }, "c1 -- the last commit Codex saw");
+  const unreviewed = commit({ "src/gate.mjs": "export const open = true;" }, "c2 -- a behavioral push nobody reviewed");
+  const rec = record(999, 1, { baseline: unreviewed, lastReviewedCommit: reviewed });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c3 -- record + ship receipt");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /generated on .* which no reviewer pass covers/);
+  assert.match(res.detail, new RegExp(reviewed.slice(0, 7)));
+});
+
+test("adjudication: the same shape under a DIRECT David stop is refused too -- his stop waives the tripwire floor, not review coverage", () => {
+  const { dir, commit } = tempRepo();
+  const bud = loopBudget(999);
+  const reviewed = commit({ "docs/x.md": "content", ...bud.files }, "c1 -- reviewed");
+  const unreviewed = commit({ "src/gate.mjs": "export const open = true;" }, "c2 -- unreviewed push");
+  const rec = record(999, 1, { passes: 2, allowanceValue: 5, baseline: unreviewed, lastReviewedCommit: reviewed });
+  const head = commit(
+    {
+      ...rec.files,
+      ".agents/receipts/loop-extension-999-1.json": JSON.stringify({
+        pr: 999, kind: "david", grant: 0, asOf: 2, authorization: "stop", recordPath: rec.path,
+      }),
+    },
+    "c3 -- record + direct stop",
+  );
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /no reviewer pass covers/);
+});
+
+test("adjudication: a record with no lastReviewedCommit cannot supply a baseline", () => {
+  const { dir, commit } = tempRepo();
+  closedLoop(commit, 999, { recordOpts: { omitLastReviewed: true } });
+  const head = commit({ "docs/y.md": "" }, "c3");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /sinceLastReview\.lastReviewedCommit/);
+});
+
+test("adjudication: an abbreviated lastReviewedCommit (a `**Reviewed commit:**` announcement carries 10 characters) resolves to the full baseline", () => {
+  const { dir, commit } = tempRepo();
+  const bud = loopBudget(999);
+  const reviewed = commit({ "docs/x.md": "content", ...bud.files }, "c1 -- reviewed");
+  const rec = record(999, 1, { baseline: reviewed, lastReviewedCommit: reviewed.slice(0, 10) });
+  const ext = extension(999, 1, { recordPath: rec.path });
+  const head = commit({ ...rec.files, ...ext.files }, "c2 -- bookkeeping only");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, true, res.detail);
+  assert.match(res.detail, new RegExp(`record generated against ${reviewed.slice(0, 7)}`));
+});
+
+test("adjudication: a lastReviewedCommit that is not a commit in this checkout is refused, not guessed", () => {
+  const { dir, commit } = tempRepo();
+  closedLoop(commit, 999, { recordOpts: { lastReviewedCommit: "0123456789abcdef0123456789abcdef01234567" } });
+  const head = commit({ "docs/y.md": "" }, "c3");
+  const res = checkAdjudicatedCodex(999, head, { cwd: dir });
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /does not resolve to a commit/);
 });
