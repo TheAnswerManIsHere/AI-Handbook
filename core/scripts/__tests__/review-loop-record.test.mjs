@@ -665,7 +665,10 @@ test("a feature body with no approved-plan source REFUSES rather than nulling", 
 
 test("each permitted no-plan form yields a stated null", () => {
   const forms = [
-    ["**Approved-plan source:** n/a — bugfix mode, tier A oracle below", "bugfix oracle"],
+    // The bugfix oracle is the block bugfix/SKILL.md actually specifies --
+    // see the dedicated test below for why the imagined line is not it.
+    ["**Fix tier:** B — Q2 fired\n**Root cause:** the retry double-charges", "bugfix oracle (tier A/B)"],
+    ["**Fix tier:** C — trivial schema fix, migration ceremony authorized", "bugfix oracle (tier C)"],
     ["**Approved-plan source:** n/a — no plan (trivial change)", "trivial change"],
     ["**Approved-plan source:** PLAN_X.md, shasum -a 256 abc…, 2026-09-06", "private path"],
   ];
@@ -719,3 +722,69 @@ test("every variable-length field is bounded, and truncation is named", () => {
 // ---------------------------------------------------------------------------
 // The shipped definition declares what this machinery reads
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Round-1 regressions (#38)
+// ---------------------------------------------------------------------------
+
+test("an oracle section keeps its nested headings and everything under them", () => {
+  // Stopping at ANY heading dropped a `### Security` subsection and its
+  // constraints -- the record would then hand the judge a Must Not Change
+  // section with its security rules silently missing.
+  const md = "## Must Not Change\nfirst rule\n\n### Security\nthe security rule\n\n## Next Section\nunrelated";
+  const body = sectionOf(md, "Must Not Change");
+  assert.match(body, /### Security/);
+  assert.match(body, /the security rule/);
+  assert.doesNotMatch(body, /unrelated/, "but it still ends at the next same-level heading");
+});
+
+test("the documented bugfix oracle block is recognised, not just an imagined line", () => {
+  // bugfix/SKILL.md tells an author to write `**Fix tier:**` with its
+  // companion fields. Matching an "Approved-plan source: n/a — bugfix" line
+  // that no bugfix PR carries made every bugfix loop refuse record generation
+  // at its mandatory round-3 adjudication -- unable to write the next fix OR
+  // close on a verdict.
+  const body = [
+    "**Fix tier:** A — Q1 and Q2 both ruled out",
+    "**Reported symptom:** the card renders twice",
+    "**Intended correct behavior:** it renders once",
+    "**Must not change:** the sibling card path",
+    "**Root cause:** the effect re-subscribes on every render",
+    "**Blast radius:** two callers, both checked",
+  ].join("\n");
+  const oracle = planOracleFor({ title: "Fix the double render", body }, "head", { runGit: planGit([PLAN]) });
+  assert.deepEqual({ mode: oracle.mode, reason: oracle.reason }, { mode: null, reason: "bugfix oracle (tier A/B)" });
+});
+
+test("a plan commit is read only from an Approved-plan source line", () => {
+  // Unanchored, the phrase matches anywhere -- a quoted comment, a changelog,
+  // a sentence about a different PR -- and that commit's plan would then be
+  // presented to the judge as this PR's approved oracle.
+  const incidental = "## Notes\nWe discussed the final plan commit abc1234 in standup; it is not this PR's.";
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body: incidental }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+});
+
+test("the total cap terminates, and an overflow it cannot fix is stated", () => {
+  // The obvious loop -- blank a non-empty body, re-serialize, repeat -- never
+  // terminates, because blanking replaces the body with a non-empty marker
+  // the next pass selects again. It hung record generation outright.
+  const big = "x".repeat(700_000);
+  const record = applyCaps({
+    findings: {
+      items: [
+        { threadId: "PRRT_a", resolved: false, createdAt: "2026-01-01", body: big },
+        { threadId: "PRRT_b", resolved: true, createdAt: "2026-01-02", body: big },
+      ],
+    },
+  });
+  assert.ok(record.truncation.serializedChars <= RECORD_TOTAL_CAP_CHARS);
+
+  // And when the overflow is in metadata this function does not own, it says
+  // so in the record rather than emitting a silently oversized one.
+  const stuck = applyCaps({ findings: { items: [] }, padding: "y".repeat(RECORD_TOTAL_CAP_CHARS + 10) });
+  assert.equal(stuck.truncation.overCap, true);
+  assert.match(stuck.truncation.overCapNote, /already been shed/);
+});

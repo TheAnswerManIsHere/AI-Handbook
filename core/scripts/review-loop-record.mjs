@@ -637,13 +637,19 @@ const ORACLE_SECTIONS = ["Direction", "Product Intent", "Must Not Change", "Sett
 export function sectionOf(markdown, heading) {
   const lines = String(markdown ?? "").split(/\r?\n/);
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
-  const want = new RegExp(`^#{1,6}\\s+${escaped}\\s*$`, "i");
-  const anyHeading = /^#{1,6}\s+\S/;
+  const want = new RegExp(`^(#{1,6})\\s+${escaped}\\s*$`, "i");
   const start = lines.findIndex((l) => want.test(l));
   if (start === -1) return null;
+  // A markdown section ends at a heading of the SAME OR HIGHER level. Stopping
+  // at ANY heading drops a nested one and everything under it -- so an oracle
+  // section carrying a `### Security` subsection would reach the judge with
+  // its security constraints silently missing, which is the worst possible
+  // way for this field to be wrong. (Codex, #38 round 1.)
+  const level = want.exec(lines[start])[1].length;
   const body = [];
   for (let i = start + 1; i < lines.length; i += 1) {
-    if (anyHeading.test(lines[i])) break;
+    const heading = /^(#{1,6})\s+\S/.exec(lines[i]);
+    if (heading && heading[1].length <= level) break;
     body.push(lines[i]);
   }
   return body.join("\n").trim();
@@ -665,14 +671,38 @@ export function planReviewSignals(pr) {
   return { title, body, isPlanReview: title && body, disagree: title !== body };
 }
 
-/** The permitted no-plan forms, each a POSITIVE match rather than an absence. */
+/**
+ * The permitted no-plan forms, each a POSITIVE match rather than an absence.
+ *
+ * The bugfix forms match the block `bugfix/SKILL.md` actually tells an author
+ * to write -- `**Fix tier:**` with its companion fields, or the Tier C schema
+ * block -- NOT an "Approved-plan source: n/a — bugfix" line, which no bugfix
+ * PR carries. Matching the imagined shape instead of the documented one made
+ * every bugfix loop refuse record generation at its mandatory round-3
+ * adjudication: the loop could then neither write the next fix nor close on a
+ * verdict. Same deadlock the plan-review mode was added for, one PR shape
+ * over. (Codex, #38 round 1.)
+ */
 const NO_PLAN_FORMS = [
-  { reason: "bugfix oracle", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}\s*n\/a\s*[-—–]\s*bugfix( mode)?/im },
+  {
+    reason: "bugfix oracle (tier A/B)",
+    re: /^\s*\*{0,2}Fix tier:?\*{0,2}[^\n]*$[\s\S]{0,4000}?^\s*\*{0,2}(Reported symptom|Root cause):?\*{0,2}/im,
+  },
+  { reason: "bugfix oracle (tier C)", re: /^\s*\*{0,2}Fix tier:?\*{0,2}\s*C\b/im },
   { reason: "trivial change", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}\s*n\/a\s*[-—–]\s*no plan/im },
   { reason: "private path", re: /^\s*\*{0,2}Approved-plan source:?\*{0,2}[^\n]*shasum[^\n]*$/im },
 ];
 
-const PLAN_COMMIT_RE = /\b(?:final|combined) plan commit\s+([0-9a-f]{7,40})\b/i;
+/**
+ * The approved-plan commit, read ONLY from an `Approved-plan source` line.
+ *
+ * An unanchored search for "final plan commit <sha>" matches the phrase
+ * anywhere in the body -- a quoted comment, a changelog entry, a sentence
+ * about some other PR -- and would then present that commit's plan to the
+ * judge as this PR's approved oracle. The contract puts the provenance on its
+ * own line for exactly this reason. (Codex, #38 round 1.)
+ */
+const PLAN_COMMIT_RE = /^[^\n]*Approved-plan source[^\n]*?\b(?:final|combined) plan commit\s+([0-9a-f]{7,40})\b/im;
 const PLAN_PATH_RE = /\b(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)\b/;
 
 /**
@@ -971,14 +1001,35 @@ export function applyCaps(record) {
   record.truncation = truncation;
   // Measured on what is actually written, after every per-field cap -- the
   // only measurement that can bound a combination nobody enumerated.
+  // PROGRESS IS GUARANTEED BY CONSTRUCTION, not by hoping the next pass picks
+  // a different item. The obvious loop -- "find a body with length > 0, blank
+  // it" -- never terminates, because blanking a body replaces it with a
+  // non-empty truncation marker that the next pass selects again. Measured:
+  // it hangs record generation outright, in every synced consumer. So each
+  // pass takes the NEXT item in a fixed order and each item is shed at most
+  // once. (Codex, #38 round 1.)
   let serialized = JSON.stringify(record, null, 2);
-  while (serialized.length > RECORD_TOTAL_CAP_CHARS) {
-    const next = spendOrder(record.findings.items).reverse().find((x) => (x.item.body ?? "").length > 0);
-    if (!next) break;
-    const full = (next.item.body ?? "").length;
-    next.item.body = cutMarker(full, 0).trim();
-    next.item.bodyTruncated = true;
-    truncation.fields.push({ field: `findings.items[${next.item.threadId}].body`, keptChars: 0, fullChars: full, reason: "total record cap" });
+  const shedOrder = spendOrder(record.findings.items).reverse();
+  for (const { item } of shedOrder) {
+    if (serialized.length <= RECORD_TOTAL_CAP_CHARS) break;
+    const full = (item.body ?? "").length;
+    if (full === 0) continue;
+    item.body = null;
+    item.bodyTruncated = true;
+    truncation.fields.push({ field: `findings.items[${item.threadId}].body`, keptChars: 0, fullChars: full, reason: "total record cap" });
+    serialized = JSON.stringify(record, null, 2);
+  }
+  if (serialized.length > RECORD_TOTAL_CAP_CHARS) {
+    // Every sheddable field is gone and the record still does not fit, so the
+    // overflow is in metadata this function does not own (a very long round
+    // table, thousands of paths). Say so IN the record rather than emitting a
+    // silently oversized one: the judge is told to weigh a stated limit as
+    // uncertainty, and an unannounced overflow is the one thing it cannot.
+    truncation.overCap = true;
+    truncation.overCapNote =
+      `the serialized record is ${serialized.length} chars against a cap of ${RECORD_TOTAL_CAP_CHARS}, and every ` +
+      `variable-length field this generator owns has already been shed -- the remainder is record metadata. ` +
+      `Weigh the possibility that the dispatch will not carry all of it.`;
     serialized = JSON.stringify(record, null, 2);
   }
   truncation.serializedChars = serialized.length;

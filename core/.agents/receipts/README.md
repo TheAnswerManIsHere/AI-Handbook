@@ -158,7 +158,7 @@ simply one of the passes.
 
 Tiers: `internal` = 3 rounds, `product` = 5, `sensitive` = 5
 (auth/payments/migrations). Every tier runs the same two-tier tripwire
-(David, 2026-08-26): Fable adjudication from the budget, a 3-round self-serve
+(David, 2026-08-26): adjudication from the budget, a 3-round self-serve
 leash past it, then the David gate — repeating wherever a David grant runs out.
 
 ## Fail-closed, everywhere

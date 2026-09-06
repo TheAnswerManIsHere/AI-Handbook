@@ -69,7 +69,7 @@ process doc, a documentation harvest:
   everything ships as recorded gaps on the round-3-reviewed head.
 - **Budget 3, two-tier tripwire like every tier** (David, 2026-08-26): the
   adjudicator's grants self-serve to at most round 6, where the David gate
-  stands — a fresh Fable recommendation goes to David, and only his receipt
+  stands — a fresh adjudication goes to David as the recommendation, and only his receipt
   moves the loop.
 
 ### Declare the round budget at loop start (product loops only)

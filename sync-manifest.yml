@@ -690,6 +690,26 @@ groups:
       # two flip in one commit, the way claude-core and planning already do.
       - machinery-config
     mentions:
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        from: core/scripts/review-loop-record.mjs
+        form: "bugfix/SKILL.md"
+        count: 1
+        why: >
+          A citation in a comment, naming where the bugfix oracle's shape is
+          specified so the next reader can check the matcher against it. The
+          generator never opens the skill: it matches the PR BODY an author
+          wrote from that skill, and a consumer without the `skills` group
+          still classifies every bugfix PR correctly.
+      - group: skills
+        ref: core/.claude/skills/bugfix/SKILL.md
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        form: "bugfix/SKILL.md"
+        count: 2
+        why: >
+          The same citation in the test that pins the matcher to the
+          documented block. The test builds the body it matches; it never
+          reads the skill.
       - group: memory
         ref: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md
         from: core/scripts/review-loop-record.mjs

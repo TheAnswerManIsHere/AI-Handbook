@@ -290,7 +290,7 @@ export const MAX_CHECK_AGE_MS = 60 * 60 * 1000;
  * Blast-radius tiers (David, 2026-08-17, issue #501; revised 2026-08-20 and
  * 2026-08-26).
  *
- * `budget` is the round cap -- tripwire 1, where the Fable adjudicator takes
+ * `budget` is the round cap -- tripwire 1, where the adjudicator takes
  * over. No tier is uncapped any more: sensitive's old uncapped-with-a-
  * mandatory-stop shape is gone with the two-tier tripwire below.
  *
@@ -323,10 +323,10 @@ export const MAX_CHECK_AGE_MS = 60 * 60 * 1000;
  * internal included, superseding sensitive's mandatory-🛑-at-5 and
  * internal's David-in-person-at-3 -- runs the same two tripwires:
  *
- *   Tripwire 1, at the tier budget: the Fable adjudicator rules, and its
+ *   Tripwire 1, at the tier budget: the adjudicator rules, and its
  *   grants self-serve the loop at most one LEASH (3 rounds) past the budget.
  *   Tripwire 2 (the David gate), at budget + leash and again wherever a
- *   David grant runs out: a fresh Fable adjudication is committed as the
+ *   David grant runs out: a fresh adjudication is committed as the
  *   recommendation, and the loop stops for David's decision regardless of
  *   what it recommends.
  *
@@ -1068,7 +1068,22 @@ export function validateDispatchStamps(receipt, record) {
     ["modelRequested", dispatch.model ?? null],
     ["effortRequested", dispatch.effort ?? null],
   ]) {
-    if (expected === null) continue;
+    // A NULL EXPECTATION IS STILL AN EXPECTATION. Skipping the comparison when
+    // the record's value is null let any invented `effortRequested` through on
+    // a record read from an older definition that declared no effort -- the
+    // exact "carries a string" acceptance this check exists to remove, hiding
+    // one field deeper. Legacy treatment is keyed on the record having no
+    // `dispatch` AT ALL, never on one of its fields being empty.
+    // (Codex, #38 round 1.)
+    if (expected === null) {
+      if (receipt[field] === undefined || receipt[field] === null) continue;
+      return (
+        `adjudication receipt's ${field} is ${JSON.stringify(receipt[field])}, but the record it cites ` +
+        `declares no ${field === "modelRequested" ? "model" : "effort"} (read from ` +
+        `${dispatch.source ?? "the agent definition"} at ${dispatch.sha ?? "the reviewed commit"}). A stamp ` +
+        `must equal its record, and "the record says nothing" is not a licence to state something`
+      );
+    }
     if (receipt[field] !== expected) {
       return (
         `adjudication receipt's ${field} is ${JSON.stringify(receipt[field] ?? null)}, but the record it ` +
@@ -1193,7 +1208,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], 
     }
     // The record's own `generatedAt` is written BEFORE the adjudicator is
     // even dispatched (step 1 of the tripwire procedure runs
-    // review-loop-record.mjs, THEN step 2 dispatches Fable) -- so it
+    // review-loop-record.mjs, THEN step 2 dispatches the judge) -- so it
     // predates the actual decision and cannot stand in for "when was this
     // verdict decided". `decidedAt` is the moment this receipt itself was
     // written, which pr-ready.mjs's merge gate uses to order fresh evidence
@@ -1236,7 +1251,7 @@ export function validateExtension(pr, tier, receipt, { io, ref, preceding = [], 
 
   if (receipt.kind === "david") {
     const uncapped = receipt.grant === "uncapped";
-    // Grant 0 is valid and meaningful: David reviewed the gate's Fable
+    // Grant 0 is valid and meaningful: David reviewed the gate's
     // recommendation and endorsed STOPPING. It moves the gate nowhere, but
     // it is the durable record that he was consulted -- which is what the
     // gate exists to guarantee, and what pr-ready.mjs's rail check reads.
@@ -1659,7 +1674,7 @@ function refusal(pr, state, spent, tiedCount = false) {
     `${extensionPath(pr, nextSeq)} like any adjudication receipt (modelRequested, effortRequested, ` +
     `recordPath, decidedAt, reasoning, gaps verbatim); a "continue" written at the gate grants nothing ` +
     `by itself.\n` +
-    `  3. Take the verdict to David as a 🛑 NEED YOU -- his call on Fable's recommendation, with a ` +
+    `  3. Take the verdict to David as a 🛑 NEED YOU -- his call on the adjudicator's recommendation, with a ` +
     `push notification -- and record his answer as the NEXT receipt: {"kind":"david",` +
     `"grant":<n|0|"uncapped">,"asOf":<this gate's round count>,"authorization":"<his words>"} ` +
     `(default leash ${LEASH}; 0 endorses stopping; "asOf" is REQUIRED on every finite grant). COMMIT AND PUSH both -- extensions are read from the remote-tracking ref, so an unpushed ` +
@@ -1835,7 +1850,7 @@ export function judgeReviewRequest(
         `  node scripts/review-budget.mjs declare --pr ${pr} --tier <product|sensitive> ` +
         `--criticality <1-100> --artifact "<what is under review>"\n` +
         `Tiers: product=5 rounds; sensitive=5 (auth/payments/migrations); internal=3, strict ` +
-        `adjudication rubric. Every tier runs the two-tier tripwire: Fable adjudication from the ` +
+        `adjudication rubric. Every tier runs the two-tier tripwire: adjudication from the ` +
         `budget, self-serve leash of ${LEASH} rounds past it, then the David gate. ` +
         `Commit the receipt and state the budget in the PR body too.` + registryHint(registryProblem),
     };
@@ -2069,7 +2084,7 @@ export function declare(flags, io) {
   const cap = tierCap(flags.tier);
   return (
     `declared: PR #${pr}, tier "${flags.tier}" (${TIERS[flags.tier].label}), ${cap} rounds ` +
-    `(Fable adjudication from the cap, David gate at ${cap + LEASH}), ` +
+    `(adjudication from the cap, David gate at ${cap + LEASH}), ` +
     `criticality ${criticality}. Written to ${budgetPath(pr)} -- COMMIT AND PUSH it (a budget is read from the ` +
     `branch's remote-tracking ref, so an unpushed one reads as no budget at all), and state the budget in the ` +
     `PR body.`

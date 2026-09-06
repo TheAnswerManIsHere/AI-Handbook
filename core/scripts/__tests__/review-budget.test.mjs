@@ -2294,3 +2294,17 @@ test("the stamp comparison consults the record, never current configuration", ()
   assert.equal(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, { dispatch: DISPATCH }), null);
   assert.equal(validateDispatchStamps({}, {}), null, "no dispatch in the record: nothing to compare");
 });
+
+test("a null-valued dispatch field is still an expectation", () => {
+  // Skipping the comparison when the record's value is null let any invented
+  // effortRequested through on a record read from an older definition that
+  // declared no effort -- the "carries a string" acceptance this check exists
+  // to remove, one field deeper. Legacy is keyed on NO dispatch block at all.
+  const record = { dispatch: { model: "best", effort: null, source: "def.md", sha: "abc123" } };
+  assert.match(
+    String(validateDispatchStamps({ modelRequested: "best", effortRequested: "xhigh" }, record)),
+    /declares no effort/,
+  );
+  assert.equal(validateDispatchStamps({ modelRequested: "best" }, record), null, "absent matches absent");
+  assert.equal(validateDispatchStamps({ modelRequested: "best", effortRequested: null }, record), null);
+});
