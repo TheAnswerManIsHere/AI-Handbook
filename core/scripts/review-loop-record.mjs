@@ -703,7 +703,16 @@ const NO_PLAN_FORMS = [
  * own line for exactly this reason. (Codex, #38 round 1.)
  */
 const PLAN_COMMIT_RE = /^[^\n]*Approved-plan source[^\n]*?\b(?:final|combined) plan commit\s+([0-9a-f]{7,40})\b/im;
-const PLAN_PATH_RE = /\b(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)\b/;
+/**
+ * An explicit plan path, read ONLY from the provenance line -- the same
+ * anchoring the commit sha gets, and for the same reason. A body-wide match
+ * takes the first `docs/plans/PLAN_*.md` anywhere: a quoted Product Intent, a
+ * reference to the NEXT phase's plan, a link in a comment. If that file
+ * happens to exist at the cited commit the record presents the wrong plan as
+ * the approved oracle; if it does not, the mandatory adjudication dies inside
+ * `git show`. (Codex, #38 round 2.)
+ */
+const PLAN_PATH_LINE_RE = /^[^\n]*Approved-plan source[^\n]*?\b(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)\b/im;
 
 /**
  * The approved plan's four oracle sections, read at the commit the PR body
@@ -763,8 +772,19 @@ export function planOracleFor(pr, headSha, { runGit = git } = {}) {
   } catch {
     throw new Error(`the approved-plan commit ${sha} is not present in this clone (fetch the plan-review branch, then re-run)`);
   }
-  const explicit = PLAN_PATH_RE.exec(body)?.[1];
-  const candidates = explicit ? [explicit] : planFilesIntroducedBy(sha, { runGit });
+  const explicit = PLAN_PATH_LINE_RE.exec(body)?.[1];
+  const introduced = planFilesIntroducedBy(sha, { runGit });
+  if (explicit && !introduced.includes(explicit)) {
+    // An explicit path is a disambiguator among what the commit introduced,
+    // never an override of it. Trusting it unchecked would let the body name
+    // any file at that commit -- including one the approval never covered.
+    throw new Error(
+      `the Approved-plan source line names ${explicit}, but the cited commit ${sha} introduces ` +
+        `${introduced.length ? introduced.join(", ") : "no docs/plans/PLAN_*.md at all"} -- refusing rather than ` +
+        `reading a plan the cited commit did not deliver`,
+    );
+  }
+  const candidates = explicit ? [explicit] : introduced;
   if (candidates.length !== 1) {
     throw new Error(
       `the approved-plan commit ${sha} introduces ${candidates.length} docs/plans/PLAN_*.md files` +
@@ -1001,6 +1021,16 @@ export function applyCaps(record) {
   record.truncation = truncation;
   // Measured on what is actually written, after every per-field cap -- the
   // only measurement that can bound a combination nobody enumerated.
+  // The note goes on BEFORE anything is measured. Measuring, then adding
+  // metadata, then never re-measuring is how a record ends up larger than the
+  // size it reports: near the boundary it can cross the cap on the strength of
+  // the very fields that describe the cap, with `overCap` unset and
+  // `serializedChars` understating the truth. (Codex, #38 round 2.)
+  truncation.note =
+    "Every variable-length field is bounded: finding bodies, the plan oracle's sections, the decline " +
+    "citation, and artifact.patch (its own cap). `fields` names everything that was cut. An empty " +
+    "`fields` with a serializedChars under the total means nothing was withheld.";
+
   // PROGRESS IS GUARANTEED BY CONSTRUCTION, not by hoping the next pass picks
   // a different item. The obvious loop -- "find a body with length > 0, blank
   // it" -- never terminates, because blanking a body replaces it with a
@@ -1008,18 +1038,34 @@ export function applyCaps(record) {
   // it hangs record generation outright, in every synced consumer. So each
   // pass takes the NEXT item in a fixed order and each item is shed at most
   // once. (Codex, #38 round 1.)
-  let serialized = JSON.stringify(record, null, 2);
+  /**
+   * The size of the record AS EMITTED -- including `serializedChars` itself,
+   * whose digits are part of what is written. Writing the number changes the
+   * length, so this iterates to a fixed point (two passes in practice, and
+   * bounded regardless) rather than reporting a figure that was true before
+   * the field carrying it existed.
+   */
+  const measure = () => {
+    for (let i = 0; i < 8; i += 1) {
+      const text = JSON.stringify(record, null, 2);
+      if (truncation.serializedChars === text.length) return text.length;
+      truncation.serializedChars = text.length;
+    }
+    return JSON.stringify(record, null, 2).length;
+  };
+
+  let serialized = measure();
   const shedOrder = spendOrder(record.findings.items).reverse();
   for (const { item } of shedOrder) {
-    if (serialized.length <= RECORD_TOTAL_CAP_CHARS) break;
+    if (serialized <= RECORD_TOTAL_CAP_CHARS) break;
     const full = (item.body ?? "").length;
     if (full === 0) continue;
     item.body = null;
     item.bodyTruncated = true;
     truncation.fields.push({ field: `findings.items[${item.threadId}].body`, keptChars: 0, fullChars: full, reason: "total record cap" });
-    serialized = JSON.stringify(record, null, 2);
+    serialized = measure();
   }
-  if (serialized.length > RECORD_TOTAL_CAP_CHARS) {
+  if (serialized > RECORD_TOTAL_CAP_CHARS) {
     // Every sheddable field is gone and the record still does not fit, so the
     // overflow is in metadata this function does not own (a very long round
     // table, thousands of paths). Say so IN the record rather than emitting a
@@ -1027,16 +1073,12 @@ export function applyCaps(record) {
     // uncertainty, and an unannounced overflow is the one thing it cannot.
     truncation.overCap = true;
     truncation.overCapNote =
-      `the serialized record is ${serialized.length} chars against a cap of ${RECORD_TOTAL_CAP_CHARS}, and every ` +
-      `variable-length field this generator owns has already been shed -- the remainder is record metadata. ` +
-      `Weigh the possibility that the dispatch will not carry all of it.`;
-    serialized = JSON.stringify(record, null, 2);
+      `the serialized record exceeds the ${RECORD_TOTAL_CAP_CHARS}-char cap and every variable-length field ` +
+      `this generator owns has already been shed -- the remainder is record metadata. Weigh the possibility ` +
+      `that the dispatch will not carry all of it.`;
   }
-  truncation.serializedChars = serialized.length;
-  truncation.note =
-    "Every variable-length field is bounded: finding bodies, the plan oracle's sections, the decline " +
-    "citation, and artifact.patch (its own cap). `fields` names everything that was cut. An empty " +
-    "`fields` with a serializedChars under the total means nothing was withheld.";
+  // Last, so the reported size includes every field above, overCap included.
+  measure();
   return record;
 }
 

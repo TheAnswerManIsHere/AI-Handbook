@@ -788,3 +788,45 @@ test("the total cap terminates, and an overflow it cannot fix is stated", () => 
   assert.equal(stuck.truncation.overCap, true);
   assert.match(stuck.truncation.overCapNote, /already been shed/);
 });
+
+// ---------------------------------------------------------------------------
+// Round-2 regressions (#38)
+// ---------------------------------------------------------------------------
+
+test("the reported size is the size of the record as emitted, metadata included", () => {
+  // Measuring, then adding the fields that describe the measurement, then
+  // never re-measuring, is how a record crosses the cap on the strength of its
+  // own truncation metadata -- with `overCap` unset and `serializedChars`
+  // understating the truth. The boundary case is Codex's own.
+  const record = applyCaps({ findings: { items: [] }, padding: "z".repeat(599_575) });
+  const emitted = JSON.stringify(record, null, 2).length;
+  assert.equal(record.truncation.serializedChars, emitted, "the reported size must be the emitted size");
+  assert.equal(record.truncation.overCap, true, "and an emitted record over the cap must say so");
+
+  // The ordinary case still reports exactly, with nothing flagged.
+  const small = applyCaps({ findings: { items: [{ threadId: "PRRT_a", resolved: false, body: "short" }] } });
+  assert.equal(small.truncation.serializedChars, JSON.stringify(small, null, 2).length);
+  assert.equal(small.truncation.overCap, undefined);
+});
+
+test("an explicit plan path is read from the provenance line, and must be one the commit introduced", () => {
+  // A body-wide match takes the first plan path anywhere -- a quoted Product
+  // Intent, a reference to the next phase's plan -- and would then present
+  // that file's sections as this PR's approved oracle.
+  const decoy = [
+    "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "",
+    "## Product intent",
+    "This delivers phase 1a; phase 1b is specified in docs/plans/PLAN_OTHER.md and is not in scope.",
+  ].join("\n");
+  const oracle = planOracleFor({ title: "Implement phase 1a", body: decoy }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.path, PLAN, "the decoy path outside the provenance line must not win");
+
+  // And an explicit path IS a disambiguator among what the commit introduced,
+  // never an override of it.
+  const overriding = "**Approved-plan source:** final plan commit abc1234, docs/plans/PLAN_ELSEWHERE.md";
+  assert.throws(
+    () => planOracleFor({ title: "x", body: overriding }, "head", { runGit: planGit([PLAN]) }),
+    /refusing rather than reading a plan the cited commit did not deliver/,
+  );
+});

@@ -107,10 +107,10 @@ is **state**, not difficulty:
   reasoning, resolved threads) that a subagent would re-establish on every
   webhook event, while my main loop stays engaged anyway. Plausibly *more*
   expensive than simply watching on Opus, not less. **What IS dispatched is
-  the per-round adjudication itself** — one `review-loop-adjudicator` on
-  Fable, reading a script-generated record rather than this session's
-  context, which is the whole point: the value is the absence of my context,
-  not the presence of a worker. Recorded here so it isn't re-proposed
+  the per-round adjudication itself** — one `review-loop-adjudicator` at the
+  strongest tier its own definition names, reading a script-generated record
+  rather than this session's context, which is the whole point: the value is
+  the absence of my context, not the presence of a worker. Recorded here so it isn't re-proposed
   as an obvious optimization.
 - **Announce every dispatch, in both directions.** The announce-don't-sneak
   rule was written for expensive escalations; it applies just as much to a
