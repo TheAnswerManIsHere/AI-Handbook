@@ -1,4 +1,4 @@
-# Plan: Fable review foundations — a record that cannot lie about the artifact, a judge whose model is named in one place and stamped on every verdict, and a record wide enough to check conformance
+# Plan: Fable review foundations — a record that cannot lie about the artifact, a judge whose model tracks the strongest available tier and is stamped on every verdict, and a record wide enough to check conformance
 
 Workstream: #36, phase 1a (foundations). Prerequisite for phase 1b (B1
 conformance triage) and every later phase. Fixes #34 gap 2.
@@ -6,26 +6,30 @@ conformance triage) and every later phase. Fixes #34 gap 2.
 ## Preflight
 
 **Increment test.** #36 is the direction ("every judgement that would
-otherwise rest on one actor's word gets a Fable dispatch" — a universal
-quantifier). This plan is one increment: it changes what the existing
-adjudicator *reads* and how its model is *chosen and recorded*. It adds no
-role, no rubric, no new dispatch point. B1 (a rubric change) is the next
-increment and is not in this document.
+otherwise rest on one actor's word gets a dispatch to the strongest
+available model" — a universal quantifier). This plan is one increment: it
+changes what the existing adjudicator *reads* and how its model and effort
+are *chosen and recorded*. It adds no role, no rubric, no new dispatch
+point. B1 (a rubric change) is the next increment and is not in this
+document.
 
-**Affected-surface inventory.** Three classes, each with a mechanical oracle,
+**Affected-surface inventory.** Four classes, each with a mechanical oracle,
 results recorded under *Settled Decisions*:
 
-1. Every place the judge's model is named in prose or code:
-   `git grep -n -i 'model: *"\?fable' -- core/ .claude/` — the agent
-   definition frontmatter, the guard's refusal text in `review-budget.mjs`
-   and its test, the `pr-watch` skill, and the synced `claude-core.md`
-   contract.
-2. Every consumer of `artifact.files/added/removed` and `territory`:
-   `git grep -n 'artifactSize\|findingsByTerritory\|derived.files'` —
-   `review-loop-record.mjs` (two call sites), `review-counting.mjs`
-   (definition), their tests.
-3. Every validator of an `adjudication`-kind extension receipt:
-   `git grep -n 'kind === "adjudication"'` — `review-budget.mjs` only.
+1. **Declarative model pins** — `git grep -n -i 'model: *"\?fable'`
+   over `core/` and `.claude/`.
+2. **Semantic routing instructions that name the model tier in prose** —
+   `git grep -n -i 'fable'` over the same roots, each hit classified *live
+   routing instruction* (an agent would act on it) or *historical record* (a
+   dated decision entry describing why something is as it is). Added at
+   round 1: the `model:` spelling alone misses executable instructions like
+   "dispatch one `review-loop-adjudicator` on Fable", which would keep a
+   dispatch pinned to a tier the definition no longer names.
+3. **Consumers of `artifact.files/added/removed` and `territory`** —
+   `git grep -n 'artifactSize\|findingsByTerritory\|derived.files'`.
+4. **Validators of an `adjudication`-kind extension receipt** —
+   `git grep -n 'kind === "adjudication"'`, each hit classified *shape
+   validator* or *state reader*.
 
 **Specification test applied throughout:** what follows names invariants and
 the constructs that hold them. Call sites, field renames, and test
@@ -50,10 +54,13 @@ Three defects in the adjudication machinery, each confirmed on a live loop:
    full-PR capture too large to hand through. Meanwhile the record already
    derives `artifact.patch` from git over `base...head`. Two sources for
    one fact, and the weaker one won.
-2. **The judge's model is asserted, not established.** The agent definition
-   says `model: fable`, the guard's refusal text says to pass
-   `model: "fable"`, and no verdict receipt records what was requested.
-   "It is using 5.1" is probably true and provable nowhere.
+2. **The judge's model and effort are asserted, not established, and pinned
+   to a named tier rather than to the strongest one.** The agent definition
+   says `model: fable`; the guard's refusal text says to pass
+   `model: "fable"`; the effort is not declared at all, so the judge
+   silently inherits whatever the dispatching session runs at; and no
+   verdict receipt records either. "It ran at the strongest tier, thinking
+   hard" is probably true and provable nowhere.
 3. **The record is too narrow to check conformance.** Each finding is a
    400-character excerpt; the approved plan's oracle sections, the tier's
    decline citation (the machinery threat model), and the finding's full
@@ -62,19 +69,21 @@ Three defects in the adjudication machinery, each confirmed on a live loop:
 
 ## Direction
 
-#36 — Fable as a third set of eyes. This increment makes true: **the
-adjudicator's only input is derived from one source per fact, names the
-model requested for the verdict, and carries the artifacts a conformance
-judgement needs.**
+#36 — the strongest available model as a third set of eyes. This increment
+makes true: **the adjudicator's only input is derived from one source per
+fact, names the model and effort the dispatch actually declared, and carries
+the artifacts a conformance judgement needs.**
 
 ## Product Intent
 
 After this increment, an adjudication record's artifact size, file set,
-territory and patch agree by construction; every adjudication receipt
-states which model was requested; and the record carries the approved
-plan's oracle sections at their approved commit, the tier's decline
-citation, and each finding's full reviewer-authored text. No rubric, role,
-or dispatch point changes.
+territory and patch agree by construction; the judge's model tracks the
+strongest tier available to this account without a code change, its
+reasoning effort is declared rather than inherited, and both are stamped on
+every verdict receipt from a mechanically-derived source; and the record
+carries the approved plan's oracle sections at their approved commit, the
+tier's decline citation, and each finding's full reviewer-authored text,
+under a stated input budget. No rubric, role, or dispatch point changes.
 
 ## Must Not Change
 
@@ -82,10 +91,11 @@ or dispatch point changes.
   plan adds a channel by which the dispatching session's prose reaches it.
 - The four verdicts, their meaning, the write-gate rule, the tier budgets,
   the self-serve leash and the David gate.
-- The guard's hook path reads no configuration (threat-model rule 5). The
-  model alias is resolved off the hook path only.
+- The guard's hook path reads no configuration (threat-model rule 5).
 - Existing committed receipts and records remain loadable: `loadLoop` on
   every PR that has receipts today must still return a usable state.
+- `.agents/machinery.json`'s required shape. This plan adds no key to it, so
+  every enrolled consumer's existing file stays valid unchanged.
 - `artifact.patch`'s cap and its record-file exclusion.
 - The record's refusal discipline: a fact it cannot establish is a stated
   refusal or a stated `null` with a reason, never a zero.
@@ -94,16 +104,23 @@ or dispatch point changes.
 
 1. **Artifact facts come from git, over the same range as the patch.**
    `artifact.files/added/removed`, the file set `territory` classifies
-   against, and `artifact.patch` are all derived from `git` over
+   against, and `artifact.patch` are all derived from git over
    `base...head` (the snapshot's `pr.base.sha` and `pr.head.sha`, both
    already required to be present in the clone). One function yields the
    file list; the three consumers read it. Disagreement is then
    unconstructible, not merely tested for.
-2. **The snapshot's `files` array is retired from the contract.** It is
-   neither required nor read. `complete.files` is no longer required.
-   Rationale: the MCP channel cannot supply it faithfully (Problem 1), and
-   the git range supersedes it. `reviews`, `reviewThreads`,
-   `issueComments` and their `complete` flags are unchanged.
+2. **That file list is lossless, and its parsing rules are stated.**
+   (Round 1.) It is read with `--numstat -z --no-renames`: `-z` because a
+   path with a space, a quote or a non-ASCII byte is otherwise C-quoted and
+   silently mis-compared against a finding's path; `--no-renames` because
+   rename detection reports only a rename's destination, which the record's
+   existing discovery already disables for the same reason, so a rename
+   appears as its add and its delete and both paths are in the set. Binary
+   files report `-` for both counts: they carry `added: null, removed:
+   null`, are counted in `files`, and are surfaced as `binaryFiles: <n>`
+   beside the totals, so a non-zero artifact can never present as zero
+   lines without saying why. A count that is neither numeric nor `-` is a
+   refusal, not a coerced zero.
 3. **An empty artifact against distinct base and head is a refusal.** If
    `base !== head` and the git-derived file set is empty, the generator
    refuses and names the two shas. A PR under review with no diff is not a
@@ -112,147 +129,192 @@ or dispatch point changes.
    not.** `files/added/removed` describe the artifact under review, so they
    apply the same exclusion the patch applies. A finding anchored on a
    receipt or record file is nonetheless *inside this PR's diff*, so
-   `territory` classifies against the full changed set. The record's
-   `territory.note` states this.
-5. **The judge's model is named once, as a harness tier alias, in
-   `.agents/machinery.json` (`models.adjudicator`), and the dispatch
-   passes that value per invocation.** Verified against the Claude Code
-   documentation (see *External-claim verification*): a per-invocation
-   `model` outranks frontmatter; the Agent tool's `model` parameter
-   accepts tier aliases only (`sonnet | opus | haiku | fable`); frontmatter
-   accepts aliases or full ids. So the alias is the only shape that can
-   travel from config through the dispatch. This is David's stated
-   preference (2026-09-06): the strongest available tier, tracked without a
-   PR when the tier's current release moves. What the alias does **not**
-   do: cross a tier boundary. A new tier above Fable is a one-line config
-   change plus a frontmatter change, and this plan makes that the whole
-   cost. The frontmatter keeps `model: fable` as the fallback for a
-   dispatch that passes nothing; a test asserts the frontmatter alias
-   equals the template's `models.adjudicator`.
-5a. **The judge's reasoning effort is declared in its frontmatter, not
-   inherited.** Verified against the Claude Code documentation (see
-   *External-claim verification*): a subagent definition accepts
-   `effort: low | medium | high | xhigh | max`, which overrides the session
-   level; omitted, it inherits the session's; the Agent tool call has no
-   per-invocation effort parameter. Today the adjudicator inherits, so its
-   depth silently tracks whatever effort the dispatching session happens
-   to run at — an unpinned variable in a judge whose verdicts are audited.
-   This plan declares `effort: xhigh`. Rationale: the judge's measured
-   failure was applying a rule to a situation nobody read, a depth
-   failure; a verdict is ~0.1% of a loop's tokens, so doubling its
-   thinking is cheap where it pays; and `max` is documented as prone to
-   overthinking, which on a default-stop rubric would read as
-   manufactured reasons to continue. The frontmatter is the single source
-   (the dispatch cannot override it), so no config key duplicates it.
-6. **Every adjudication receipt carries `modelRequested` and
-   `effortRequested`.** `modelRequested` is the alias read from config at
-   dispatch time; `effortRequested` is the frontmatter's `effort` value,
-   read by the `check` CLI from the definition file and printed beside the
-   model. The validator applies the same cutoff rule to both. The receipt validator
-   refuses an adjudication receipt without a non-empty string
-   `modelRequested` and `effortRequested` when its `decidedAt` is on or after a named cutoff
-   constant beside the validator (the date this plan's PR merges); earlier
-   receipts read as `modelRequested: null`. The validator does not compare
-   the stamp to current config, because config may legitimately change
-   between dispatch and a later read.
-7. **The served model is not observable from the harness, and the plan
-   says so rather than pretending.** The Agent tool result carries no model
-   id; `get_session` reports the main session's model, not a subagent's.
-   `modelRequested` records the request. The adjudicator's existing
-   instruction to self-report a mismatch stays as best-effort. This is a
-   recorded gap, not a solved property.
-8. **The hook path names the config key, never the value.** The guard's
-   refusal text currently hardcodes `model: "fable"`; after this plan it
-   says to pass the alias named by `.agents/machinery.json`
-   `models.adjudicator`. The `check` CLI and the record generator, which
-   already read config for `repo`, resolve and print the actual value.
-   Missing `models.adjudicator` fails closed there with a message naming
-   the key, matching how `repo` and `requiredChecks` fail.
-9. **The record gains `planOracle`, sourced from the approved commit.** The
-   PR body's *Approved-plan source* line is parsed for a commit sha (the
-   single-PR form `final plan commit <sha>`, or the combined form
-   `combined plan commit <sha>`). The generator resolves the one
-   `docs/plans/PLAN_*.md` at that commit (two or zero is a refusal naming
-   the commit) and copies the *Direction*, *Product Intent*, *Must Not
-   Change* and *Settled Decisions* sections verbatim, with the sha. The
-   body supplies only the pointer; the text comes from the pinned commit,
-   which David's approval fixed and the builder cannot revise mid-loop.
-   A body stating `n/a — no plan`, a bugfix-tier oracle, or no such line
-   yields `planOracle: null` with the reason stated. A sha absent from
-   the clone is a refusal ("fetch the plan-review branch"). The private
-   path's filename-plus-checksum form yields `null` with reason `private
-   path`.
-10. **The record gains `declineCitation`, tier-selected.** For
-    `budget.tier: internal` it is the verbatim text of
-    `.agents/memory/machinery-threat-model-is-my-own-mistakes.md`, read
-    from the working tree at the record's own commit. For `product` and
-    `sensitive` it is `null` with reason `no tier citation in phase 1a` —
-    `decisions.md` is consumer-owned and large; including it is a *next*
-    for the phase that defines product-tier declines.
-11. **Each finding item carries `body`: the full text of the finding's
-    root comment, reviewer-authored only.** The existing `excerpt` field is
-    replaced. Thread replies are excluded whoever wrote them — the builder's
-    replies are prose the issue's *Never* list forbids, and the reviewer's
+   `territory` classifies against the full changed set, including both
+   sides of a rename. The record's `territory.note` states this, and the
+   size fields state the exclusion, so a reader cannot mistake one for the
+   other.
+5. **The judge's model is declared once, in its own definition's
+   frontmatter, as `best` — the alias that resolves to the strongest model
+   available to this account.** Verified against the Claude Code
+   documentation (see *External-claim verification*): `best` "uses the
+   latest Fable model where it's available to you, otherwise the same model
+   as `opus`", and subagent frontmatter accepts the same values as the
+   `--model` flag. This is what David asked for on 2026-09-06 — the
+   strongest model, tracked without a PR when that changes — and it is
+   strictly better than the alias-in-config design this plan carried at
+   round 1, because it needs no configuration key at all, tracks *across*
+   tiers rather than within one, and degrades to Opus rather than failing
+   if Fable is ever unavailable. Consequently **the dispatch passes no
+   per-invocation `model`**: this harness's Agent tool exposes `model` as a
+   four-alias enum that does not include `best`, so passing anything there
+   would override the frontmatter and pin the tier — the exact defect being
+   removed. The guard's refusal text and every routing instruction change
+   from naming a tier to naming the definition file.
+   **Implementation-time verification, with a stated fallback:** the first
+   step is an empirical check that this harness accepts `best` in subagent
+   frontmatter. If it does not, the value is `fable` and everything else in
+   this plan is unchanged — the mechanism is the frontmatter being the
+   single declaration, not the particular alias in it.
+6. **The judge's reasoning effort is declared in the same frontmatter, not
+   inherited.** `effort: xhigh`. Verified: subagent frontmatter accepts
+   `low | medium | high | xhigh | max`, overrides the session level,
+   inherits it when omitted, and has no per-invocation equivalent. Today
+   the adjudicator inherits, so its depth silently tracks the dispatching
+   session — an unpinned variable in a judge whose verdicts are audited.
+   `xhigh` rather than `max`: the judge's measured failure was applying a
+   rule to a situation nobody read, which is a depth failure, and a verdict
+   is ~0.1% of a loop's tokens; but `max` is documented as prone to
+   overthinking, and on a default-stop rubric overthinking reads as
+   manufactured reasons to continue.
+7. **The record carries the dispatch declaration, read mechanically from
+   the definition file at the reviewed head.** (Round 1, replacing a
+   free-text stamp.) `dispatch: {model, effort, source, sha}` is parsed from
+   `git show <snapshot head sha>:<definition path>`'s frontmatter — never
+   from the working tree, never from anything the session types. The record
+   is generated before the dispatch and is the input the verdict cites, so
+   this is the same evidence chain every other record field uses.
+8. **The receipt's stamps must equal the record's, and the validator
+   compares them to the record — not to current configuration.** The
+   adjudication receipt carries `modelRequested` and `effortRequested`; the
+   validator resolves the `recordPath` the receipt already cites, reads
+   that record's `dispatch`, and refuses on any mismatch. A typed, stale or
+   invented value is therefore rejected without consulting anything mutable,
+   which was the round-1 defect: a non-empty-string check accepts fiction.
+   Receipts whose `decidedAt` precedes a cutoff constant named beside the
+   validator (the date this plan's PR merges) are read as `null` and pass,
+   so no committed receipt is invalidated.
+9. **What remains an assertion is named as one.** Nothing observable from
+   the harness proves the Agent tool actually served the declared model and
+   effort: the tool result carries no model id, and `get_session` describes
+   the main session, not a subagent. Decisions 5–8 establish *what the
+   dispatch declared*, verifiably and mechanically; they do not establish
+   *what ran*. The adjudicator's existing instruction to self-report a
+   mismatch stays as best-effort, and this residue is recorded as a known
+   gap rather than papered over.
+10. **The record gains `planOracle`, sourced from the approved commit, and
+    absence is a refusal rather than a null.** (Refusal added round 1.) The
+    PR body's *Approved-plan source* line is parsed for a commit sha (the
+    single-PR form `final plan commit <sha>`, or the combined form
+    `combined plan commit <sha>`). The generator resolves the one
+    `docs/plans/PLAN_*.md` at that commit — two or zero is a refusal naming
+    the commit — and copies the *Direction*, *Product Intent*, *Must Not
+    Change* and *Settled Decisions* sections verbatim, with the sha. The
+    body supplies only the pointer; the text comes from the pinned commit,
+    which David's approval fixed and the builder cannot revise mid-loop.
+    `planOracle: null` is produced **only** when the body positively matches
+    one of the permitted no-plan forms — the bugfix tier oracle, the
+    verbatim trivial-change form, or the private-path form (a filename plus
+    a checksum) — and the reason is stated. A body with no such line, or
+    with a line the parser cannot resolve, is a **refusal**: the contract
+    treats a missing approved-plan source as a finding in its own right, so
+    a record that silently proceeded without the oracle would hide exactly
+    the defect phase 1b exists to catch.
+11. **The record gains `declineCitation`, tier-selected and read at the
+    reviewed head.** (Head-reading added round 1.) For `budget.tier:
+    internal` it is the text of
+    `.agents/memory/machinery-threat-model-is-my-own-mistakes.md` at
+    `snapshot.pr.head.sha`, via `git show` after the commit is validated —
+    not from the working tree, because the generator deliberately runs from
+    `main` or a stale checkout and would otherwise hand the judge the base
+    branch's text while the PR under review changes that very note. For
+    `product` and `sensitive` it is `null` with reason `no tier citation in
+    phase 1a`.
+12. **Each finding item carries `body`: the full text of the finding's root
+    comment, reviewer-authored only, under a stated record budget.**
+    (Budget added round 1.) The existing `excerpt` field is replaced.
+    Thread replies are excluded whoever wrote them — the builder's replies
+    are prose the issue's *Never* list forbids, and the reviewer's
     follow-ups add nothing a triage needs. Reviewer identity is the
-    existing `REVIEWER_LOGINS` set. Bodies are not truncated; the record's
-    only cap remains the patch cap.
-12. **Measurement counters are *next*, not now.** #36 asks for counters of
+    existing `REVIEWER_LOGINS` set. Because a long loop can carry many
+    findings, the finding text has a **total** budget: bodies are emitted in
+    full while the budget lasts, spending it on unresolved findings first
+    and then most-recent-first, and any body that does not fit is truncated
+    with an explicit per-item marker and counted in a record-level
+    `findingsTextTruncated` field. Truncation is therefore always visible
+    to the judge and never silent. A refusal was rejected in favour of
+    degradation: refusing to build a record is refusing to adjudicate, which
+    on a long loop is the worst moment to have no judge.
+13. **Measurement counters are *next*, not now.** #36 asks for counters of
     findings pre-empted by B1, defects caught by B2, checks synthesized by
     B3, David decisions changed by a D-role. None of those roles exists
     after this increment, so there is nothing to count. They ship with the
     role they measure, starting with B1 in phase 1b.
-13. **`machinery.template.json` seeds `models.adjudicator: "fable"`.** The
-    template is seed-mode; an enrolled consumer edits its own
-    `machinery.json`. Overhype.me's copy gains the key as a one-line
-    consumer follow-up, noted in the implementation PR body.
-14. **Inventory oracle results** (Preflight, run on `639266f`): class 1
-    found 8 lines across 5 files (`claude-core.md`,
-    `review-loop-adjudicator.md`, `pr-watch/SKILL.md`, `review-budget.mjs`,
-    `review-budget.test.mjs`); class 2 found 6 lines across 2 files (one
-    definition, one comment, one import, two call sites, one territory
-    definition); class 3 found 6 lines across 2 files, of which exactly one
-    (`review-budget.mjs`, the extension-receipt validator) validates a
-    receipt's shape — the other five read `kind`/`verdict` only and are
-    unaffected by an additive field. The implementation sweeps class 1 to a
-    post-change count of exactly one (the frontmatter fallback) and quotes
-    the re-run in its PR body.
+14. **No consumer configuration changes.** (Round 1, superseding the
+    round-1 `models.adjudicator` config key.) Since the model and effort are
+    declared in the agent definition — which is synced payload, not
+    consumer-owned configuration — `.agents/machinery.json` keeps its two
+    keys, `machinery.template.json` is untouched, `docs/consuming-repos.md`'s
+    enrolment example stays correct, and no already-enrolled consumer can be
+    left with a permanently-refusing config. The class of defect Codex named
+    is dissolved rather than mitigated.
+15. **Inventory oracle results** (Preflight, run on `639266f`, re-run at
+    round 1):
+    - Class 1: 8 lines across 5 files. Post-change, exactly one declarative
+      pin remains — the definition's own frontmatter — and it names `best`.
+    - Class 2: the broadened case-insensitive sweep adds live routing
+      instructions the `model:` oracle missed, confirmed at
+      `plan-review-loop/SKILL.md:224` ("dispatch one
+      `review-loop-adjudicator` on Fable") and `model-routing/SKILL.md:239`
+      ("All adjudication subagents dispatch on Fable — no exceptions"), plus
+      the guard's two refusal messages. Every *live routing* hit is rewritten
+      to name the definition file rather than a tier; every *historical
+      record* hit (a dated decision entry explaining a past choice) is left
+      alone, since rewriting history to match present configuration is how a
+      decision log stops being evidence. The implementation quotes the
+      post-change classification of every hit.
+    - Class 3: 6 lines across 2 files (one definition, one comment, one
+      import, two call sites, one territory definition).
+    - Class 4: 6 lines across 2 files, of which exactly one
+      (`review-budget.mjs`'s extension-receipt validator) validates shape;
+      the other five read `kind`/`verdict` only and are unaffected by
+      additive fields.
 
 ## External-claim verification
 
 Checked 2026-09-06 against the current Claude Code documentation
-(`code.claude.com/docs/en/sub-agents`, `/model-config`, `/settings`):
+(`code.claude.com/docs/en/sub-agents`, `/model-config`):
 
-- Subagent frontmatter `model` accepts the aliases `sonnet`, `opus`,
-  `haiku`, `fable`, a full model id, or `inherit`; omitted, resolution is
-  per-invocation parameter, then `CLAUDE_CODE_SUBAGENT_MODEL`, then the
-  main conversation's model. The per-invocation parameter outranks the
-  frontmatter. In this harness the Agent tool's `model` parameter is an
-  enum of the four aliases (read from the tool schema, not the docs).
-- Subagent frontmatter `effort` accepts `low`, `medium`, `high`, `xhigh`,
-  `max`, overrides the session level, and inherits it when omitted. There
-  is no per-invocation effort parameter and no per-subagent thinking
-  setting. Default effort is `high` on Fable 5.1; `max` "may show
-  diminishing returns and is prone to overthinking".
-- Anthropic model facts (claude-api skill reference, cached 2026-06-24, and
-  the session's own model context): `claude-fable-5-1` is the most capable
-  generally available model; `claude-mythos-5-1` is the same underlying
-  model with restricted access; no "latest" or "strongest" alias exists
-  in the Messages API.
+- **Model aliases.** `best` "uses the latest Fable model where it's
+  available to you, otherwise the same model as `opus`"; `fable` resolves to
+  the latest Fable model; `opus`, `sonnet`, `haiku` resolve within their
+  tiers; `default` varies by account type. There is no Messages-API-level
+  "strongest" alias — this resolution is a Claude Code feature.
+- **Subagent `model`.** Frontmatter accepts the same values as the
+  `--model` flag (an alias, a full model id, or `inherit`); a per-invocation
+  model outranks frontmatter; omitted, resolution is per-invocation, then
+  `CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. In this
+  harness the Agent tool's `model` parameter is an enum of four tier aliases
+  (`sonnet | opus | haiku | fable`) — read from the live tool schema, not
+  the docs — which is why decision 5 passes no per-invocation model.
+- **Subagent `effort`.** Frontmatter accepts `low | medium | high | xhigh |
+  max`, overrides the session effort level, and inherits it when omitted.
+  There is no per-invocation effort parameter and no per-subagent thinking
+  setting. The documented default is `high` on every model except Opus 4.7;
+  `max` "can improve performance on demanding tasks but may show diminishing
+  returns and is prone to overthinking."
+- **Model facts** (bundled `claude-api` reference, cached 2026-06-24):
+  `claude-fable-5-1` is the most capable generally-available model;
+  `claude-mythos-5-1` is the same underlying model behind restricted access.
 
 ## Repo Context Inspected
 
 `core/scripts/review-loop-record.mjs` (`changesSince`, `artifactDiff`,
-`buildRecord`, `main`), `core/scripts/review-counting.mjs` (`artifactSize`,
+`buildRecord`, `main`, the `--no-renames` discovery rule),
+`core/scripts/review-counting.mjs` (`artifactSize`,
 `assertMcpSnapshotShape`, `fromMcp`, `REVIEWER_LOGINS`),
 `core/scripts/review-budget.mjs` (`machineryConfig`, extension-receipt
-validation, `refusal`), `core/.claude/agents/review-loop-adjudicator.md`,
-`core/.agents/machinery.template.json`,
+validation, the two dispatch refusal messages),
+`core/scripts/__tests__/review-loop-record.test.mjs` (the rename
+regression), `core/.claude/agents/review-loop-adjudicator.md`,
+`core/.claude/skills/model-routing/SKILL.md`,
+`core/.claude/skills/plan-review-loop/SKILL.md`,
+`core/.agents/machinery.template.json`, `docs/consuming-repos.md`,
 `core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md`,
-`.agents/adjudications/10-7.json`, `23-1.json`, `33-1.json`,
-`.agents/receipts/loop-extension-33-1.json`, the two live snapshots that
-produced #28's and #33's records, `core/.agents/PLANS.md`,
-`core/.claude/skills/plan-review-loop/SKILL.md`, `sync-manifest.yml` and
-`identity-sources.yml` (adjudicator touchpoints), issues #34 and #36.
+`AGENTS.md` (the five mandated commands), `.agents/adjudications/10-7.json`,
+`23-1.json`, `33-1.json`, `.agents/receipts/loop-extension-33-1.json`, the
+two live snapshots that produced #28's and #33's records,
+`core/.agents/PLANS.md`, `sync-manifest.yml`, `identity-sources.yml`,
+issues #34 and #36.
 
 ## Current Behavior
 
@@ -262,10 +324,11 @@ produced #28's and #33's records, `core/.agents/PLANS.md`,
   real sizes (their snapshots carried files); 28 and 33 show zeros.
 - `assertMcpSnapshotShape` requires numeric `deletions` per file and accepts
   an empty array.
-- The adjudicator's frontmatter says `model: fable`; the guard's refusal
-  text says to pass `model: "fable"`; receipts carry no model field.
+- The adjudicator's frontmatter says `model: fable` and declares no effort;
+  the guard's refusal text says to pass `model: "fable"`; receipts carry
+  neither field.
 - Finding items carry a 400-character `excerpt` of the root comment.
-- The record has no plan, threat-model, or decisions content.
+- The record has no plan, threat-model, or dispatch content.
 
 ## Source-of-Truth Analysis
 
@@ -273,49 +336,49 @@ produced #28's and #33's records, `core/.agents/PLANS.md`,
 |---|---|---|
 | Artifact size and file set | git, `base...head` | snapshot `files` |
 | Artifact patch | git, `base...head` (unchanged) | — |
-| Judge's model alias | `.agents/machinery.json` `models.adjudicator` | hardcoded strings in refusal text and skills |
-| Model actually requested for a verdict | the receipt's `modelRequested` | — |
+| Judge's model and effort | the agent definition's frontmatter | hardcoded tier names in refusal text and routing prose |
+| What a verdict's dispatch declared | the record's `dispatch`, read from that definition at the reviewed head | — |
 | Plan oracle | the plan file at the approved commit | — (the PR body carries only the pointer) |
-| Internal-tier decline citation | the threat-model memory note | — |
-| Finding text | the reviewer's root comment, in full | the 400-char excerpt |
+| Internal-tier decline citation | the threat-model note at the reviewed head | — |
+| Finding text | the reviewer's root comment | the 400-char excerpt |
 
-No new source of truth is created. The frontmatter alias is a fallback, not
-a second source: the test in decision 5 pins it to the template.
+No new source of truth is created, and one configuration surface that the
+round-1 draft would have created is not created either (decision 14).
 
 ## Proposed Design
 
-**Record generator.** One git-derived file list over `base...head`
-(numstat, with the record-file exclusion applied for size, unapplied for
-territory) feeds size, territory and patch. Empty-against-distinct-shas
+**Record generator.** One git-derived file list over `base...head`, parsed
+per decision 2, feeds size, territory and patch. Empty-against-distinct-shas
 refuses. The snapshot's `files` is ignored and its shape assertion removed.
-New top-level fields `planOracle`, `declineCitation`; `findings.items[].body`
-replaces `excerpt`. Every new field is either populated from its named
-source or `null` with a stated reason; a source that should resolve but
-cannot (sha absent, ambiguous plan file) refuses the whole record, matching
-the generator's existing discipline.
+New top-level fields `dispatch`, `planOracle`, `declineCitation`;
+`findings.items[].body` replaces `excerpt`, under the budget of decision 12.
+Everything read from the repository is read at `snapshot.pr.head.sha` via
+`git show`, never from the working tree. Every new field is either populated
+from its named source, or `null` with a stated reason where a decision
+permits, or a refusal.
 
-**Model naming.** `machineryConfig` exposes `models.adjudicator`; the
-`check` CLI's dispatch instruction and the record's `provenance` print it.
-The hook-path refusal names the key. The adjudicator definition's "You run
-on Fable" section is rewritten to say the model is the alias config names,
-the dispatch passes it, and the receipt records it.
+**Model and effort.** The definition declares both. The guard's refusal
+text and every live routing instruction name the definition file instead of
+a tier. No configuration key is added.
 
-**Receipt stamp.** `modelRequested` joins the adjudication receipt; the
-validator enforces it past the cutoff. `pr-ready`'s two-file allowance at
-exhaustion is unaffected (the receipt is still one file).
+**Receipt stamps.** `modelRequested` and `effortRequested` join the
+adjudication receipt and must equal the cited record's `dispatch`.
+`pr-ready`'s two-file allowance at exhaustion is unaffected.
 
 ## Data Model and Migration Impact
 
 Two JSON shapes change, both append-only for readers:
 
-- Adjudication receipt: new required field past a cutoff; pre-cutoff
-  receipts unchanged and read as `null`. No rewrite of committed receipts.
+- Adjudication receipt: two new fields, required past a cutoff and
+  validated against the cited record; pre-cutoff receipts unchanged and read
+  as `null`. No rewrite of committed receipts.
 - Adjudication record: new fields; `excerpt` → `body`. Records are one-shot
   inputs; committed records are never re-read by the machinery, so no
   migration.
 
 Snapshot contract: `files` and `complete.files` become optional-and-ignored.
-An old snapshot that carries them still passes.
+An old snapshot that carries them still passes. `.agents/machinery.json` is
+untouched, so no consumer migration exists.
 
 ## Runtime Behavior
 
@@ -323,17 +386,21 @@ An old snapshot that carries them still passes.
   `files: 9` (records excluded), non-zero added/removed, `inDiff: 7 /
   outsideDiff: 0`.
 - A snapshot whose `pr.base.sha` equals `pr.head.sha`: `artifact` empty and
-  allowed (no refusal) — the PR has no diff, which is true. Distinct shas
-  with an empty set: refusal.
+  allowed — the PR has no diff, which is true. Distinct shas with an empty
+  git set: refusal.
+- A PR containing a binary file: that file counts in `files`, contributes
+  `null` line counts, and appears in `binaryFiles`.
+- A PR containing a rename with a finding anchored on the destination: both
+  paths are in the set, so the finding classifies `inDiff`.
 - An implementation PR whose body cites a plan sha: `planOracle` populated
   with four sections and the sha. A bugfix PR: `planOracle: null`, reason
-  `bugfix oracle`.
-- An adjudication dispatch after this merges: the `check` CLI prints
-  `pass model: "<alias from config>"`; the receipt I write carries
-  `modelRequested: "<alias>"`; a receipt without it is refused by the guard
-  on the next review request with a message naming the field.
-- A consumer whose `machinery.json` lacks `models`: the record generator
-  and `check` refuse with the key named; the hook is unaffected.
+  `bugfix oracle`. A feature PR whose body omits the line: refusal.
+- A record generated from a `main` checkout while the PR edits the
+  threat-model note: `declineCitation` carries the PR's version.
+- An adjudication dispatch after this merges: no `model` parameter is
+  passed; the record's `dispatch` reads `{model: "best", effort: "xhigh"}`
+  from the definition at the reviewed head; the receipt repeats both and is
+  refused by the guard on any mismatch.
 
 ## Admin/User UX Impact
 
@@ -341,83 +408,115 @@ None. Agent-facing machinery only.
 
 ## Security, Permissions, and Validation
 
-No authority widens. The record gains read-only content from the clone. The
-threat model governs: these are mistake-catchers for the single operator,
-not boundaries. This is a gate-script change and therefore
-**David-merge-only**.
+No authority widens. The record gains read-only content from the clone at a
+validated commit. The threat model governs: these are mistake-catchers for
+the single operator, not boundaries. This is a gate-script change and
+therefore **David-merge-only**.
 
 ## Testing Plan
 
-`node --test core/scripts/__tests__/` (the repo's runner). Tests prove the
-invariants, with negatives:
+All five mandated repository commands (`AGENTS.md`), run and their results
+recorded by the implementation:
+
+```
+node --test scripts/__tests__/*.test.mjs
+node scripts/check-manifest.mjs
+node scripts/check-identity-sources.mjs
+node scripts/check-root-wiring.mjs
+node scripts/check-settings-fields.mjs
+```
+
+Tests prove the invariants, with negatives:
 
 - Size/territory/patch derive from one git list: a fixture PR with a record
   file and two code files yields size that excludes the record, territory
   that includes it, and a patch that excludes it.
+- A binary change reports `null` counts and a `binaryFiles` count, never a
+  false zero; a non-numeric, non-`-` count refuses.
+- A rename with a finding anchored on the destination classifies `inDiff`;
+  a path containing a space and a non-ASCII byte round-trips.
 - Empty set with distinct shas refuses; equal shas do not.
 - A snapshot with `files: []`, with `files` absent, and with old-shape
   files all produce identical records.
 - `planOracle`: sha with one plan file → four sections verbatim; two plan
-  files → refusal; sha absent → refusal; `n/a — no plan` → `null`.
-- `declineCitation`: `internal` → the note's text; `product` → `null`.
+  files → refusal; sha absent → refusal; each permitted no-plan form →
+  `null` with its reason; **a feature body with the line omitted or
+  malformed → refusal**.
+- `declineCitation`: generated from an unrelated checkout while the PR
+  changes the note → the PR's text, not the base branch's; `product` tier →
+  `null`.
 - `body` is the root comment in full; a thread with a builder reply carries
-  none of the reply's text.
-- Receipt validator: missing `modelRequested` or `effortRequested` after
-  the cutoff refuses; before it passes; empty string refuses.
-- Frontmatter `effort` is `xhigh` (a test reads the definition file).
-- Frontmatter alias equals the template's `models.adjudicator`.
-- `check-identity-sources` and `check-manifest` pass with the new
-  touchpoints classified.
+  none of the reply's text; a high-volume fixture (findings whose combined
+  text exceeds the budget) truncates deterministically, marks every
+  truncated item, sets `findingsTextTruncated`, and never exceeds the
+  budget.
+- `dispatch` is parsed from the definition at the reviewed head, not the
+  working tree.
+- Receipt validator: a stamp that disagrees with the cited record refuses,
+  with no reference to current configuration; a missing stamp after the
+  cutoff refuses; before the cutoff passes.
+- The definition's frontmatter declares a model and an effort, and the
+  post-sweep class-1/class-2 oracles hold (exactly one declarative pin; no
+  live routing instruction names a tier).
 
 Manual QA: regenerate #33's record from a corrected snapshot at `703b230`
 and confirm the numbers above.
 
 ## Implementation Steps
 
-1. Git-derived file list; size/territory/patch consume it; refusal on
-   empty-against-distinct; retire snapshot `files`.
-2. `planOracle`, `declineCitation`, `body`.
-3. `models.adjudicator` in config, template, `check` output, record
-   provenance, hook-path key naming; sweep class 1.
-4. `modelRequested` in the receipt and its validator with the cutoff.
-5. Adjudicator definition and the skills' dispatch text; consuming-repos
-   enrolment step; manifest and identity-source classification.
-6. Tests; regenerate #33's record as the manual check.
+1. Verify empirically that this harness accepts `best` in subagent
+   frontmatter; if not, use `fable` and note it (decision 5).
+2. Git-derived file list with decision 2's parsing rules; size/territory/
+   patch consume it; refusal on empty-against-distinct; retire snapshot
+   `files`.
+3. `planOracle`, `declineCitation`, `body` + budget, `dispatch` — all read
+   at the reviewed head.
+4. Receipt stamps and the record-comparing validator with its cutoff.
+5. Definition frontmatter; sweep classes 1 and 2 with their classification.
+6. Tests; the five mandated commands; regenerate #33's record.
 
 ## Risks and Mitigations
 
-- **A wider record costs tokens.** Plan oracle sections and the threat
-  model add perhaps 10–20k tokens. Accepted per #36's cost arithmetic; the
-  patch cap is unchanged.
-- **`xhigh` costs more per verdict.** Perhaps 1.5–2x the judge's own
-  tokens, on a dispatch that is ~0.1% of the loop. Accepted; measured at
+- **`best` may not be accepted in subagent frontmatter.** Step 1 checks it
+  before anything depends on it; the fallback keeps the mechanism.
+- **`best` could resolve to a *cheaper* model if Fable became unavailable.**
+  That is the documented fallback to Opus, and it is the correct failure:
+  the judge still runs, at the best tier that exists. `dispatch` records
+  what was declared, so an audit can see which alias was in force.
+- **A wider record costs tokens.** Plan oracle sections and the threat model
+  add perhaps 10–20k tokens; decision 12's budget bounds the finding text.
+  The patch cap is unchanged.
+- **`xhigh` costs more per verdict.** Perhaps 1.5–2x the judge's own tokens,
+  on a dispatch that is ~0.1% of the loop. Accepted; visible at
   `/maintenance` alongside verdict counts.
-- **The alias silently moves within a tier.** A future `fable` release
-  changes the judge without a PR. `modelRequested` records the alias, not
-  the resolved id, so an audit cannot tell 5.1 from 5.2 verdicts apart.
-  Accepted by David's stated preference; noted as a gap.
+- **The alias hides which release actually ran.** `dispatch` records the
+  alias, not a resolved model id, and nothing observable reports the served
+  model (decision 9). Accepted, and recorded as a gap rather than claimed
+  as solved.
 - **Parsing the PR body for the plan sha depends on the body's format.** The
-  format is contract-fixed in `CLAUDE.md` PR rule 4; a body that does not
-  match yields `null` with reason, never a wrong plan.
+  format is contract-fixed; a body that does not match refuses rather than
+  guessing (decision 10).
 
 ## Questions for David
 
-None. The one product-shaped choice — alias tracking versus a pinned id —
-was settled by David on 2026-09-06 and is decision 5.
+None. The one product-shaped choice — tracking the strongest tier versus
+pinning a model id — was settled by David on 2026-09-06, and round 1 found a
+mechanism (`best`) that serves it better than the one this plan first
+proposed.
 
 ## Definition of Done
 
 - [ ] A record built for #33's head shows non-zero size and `inDiff: 7`.
 - [ ] A snapshot with empty `files` no longer yields zeros; distinct shas
-      with an empty git set refuses.
-- [ ] `planOracle`, `declineCitation`, `findings.items[].body` present with
-      the stated null reasons where applicable.
-- [ ] `models.adjudicator` in config and template; no hardcoded `fable`
-      remains in class-1 sites except the frontmatter fallback (oracle
-      re-run quoted in the PR).
-- [ ] New adjudication receipts refuse without `modelRequested` and
-      `effortRequested`; every pre-existing receipt still loads.
-- [ ] The adjudicator definition declares `effort: xhigh`.
-- [ ] Tests pass; manifest and identity-source checks pass.
-- [ ] The consumer follow-up (Overhype.me `machinery.json` key) is named
-      in the PR body's post-merge section.
+      with an empty git set refuses; binary and rename cases behave per
+      decision 2.
+- [ ] `planOracle`, `declineCitation`, `dispatch`, `findings.items[].body`
+      present, with refusals where a decision requires one.
+- [ ] The finding-text budget holds on a high-volume fixture, with
+      truncation marked.
+- [ ] The definition declares model and effort; class-1 and class-2 oracles
+      re-run and quoted in the PR body.
+- [ ] New adjudication receipts refuse on a stamp that disagrees with the
+      cited record; every pre-existing receipt still loads.
+- [ ] `.agents/machinery.json` and the enrolment docs are unchanged.
+- [ ] All five mandated commands pass, with output recorded.
