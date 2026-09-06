@@ -1,0 +1,10 @@
+{
+  "pr": 38,
+  "kind": "david",
+  "grant": 0,
+  "asOf": 14,
+  "recordPath": ".agents/adjudications/38-5.json",
+  "authorization": "Option 1",
+  "createdAt": "2026-09-06T23:00:46.000Z",
+  "note": "Third David gate. The adjudicator's verdict on record 38-5.json (loop-extension-38-8.json) was ship-with-gaps-recorded, grant 0, at 14 of 14. David chose Option 1 as offered: endorse the stop and merge on the reviewed head c3797aa (code head 59c9a0e; the later commits are records and receipts only). The four round-14 findings are recorded: the two guard-side ones (head coverage in the generator and merge fallback; per-collection monotonicity in the round-check replay guard) open as a bugfix PR immediately after merge, small enough for the judge to read whole; the two parsing ones go to #40 with the structured-provenance redesign for phase 1b. The builder's dissent on the replay finding's severity is recorded in loop-extension-38-8.json and not acted on."
+}
