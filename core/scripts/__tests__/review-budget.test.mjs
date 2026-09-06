@@ -26,6 +26,9 @@ import {
   attachedRoots,
   MAX_CHECK_AGE_MS,
   ROUND_CHECK_COLLECTIONS,
+  roundCheckCaptureTimes,
+  assertCaptureAdvanced,
+  check as runCheck,
   repoSlug,
   declare,
   machineryConfig,
@@ -2375,4 +2378,87 @@ test("a null-valued dispatch field is still an expectation", () => {
   );
   assert.equal(validateDispatchStamps({ modelRequested: "best" }, record), null, "absent matches absent");
   assert.equal(validateDispatchStamps({ modelRequested: "best", effortRequested: null }, record), null);
+});
+
+// ---------------------------------------------------------------------------
+// Replay monotonicity is per collection, not on the oldest scalar
+// (Codex, #38 round 14)
+// ---------------------------------------------------------------------------
+
+test("roundCheckCaptureTimes: one time per round-check collection, from either snapshot form", () => {
+  const t = "2026-08-17T10:35:00Z";
+  assert.deepEqual(roundCheckCaptureTimes({ capturedAt: t }), { pr: t, reviews: t, issueComments: t });
+  assert.deepEqual(
+    roundCheckCaptureTimes({ capturedAt: { pr: "2026-08-17T10:00:00Z", reviews: "2026-08-17T10:10:00Z", issueComments: "2026-08-17T10:10:00Z", reviewThreads: "x" } }),
+    { pr: "2026-08-17T10:00:00Z", reviews: "2026-08-17T10:10:00Z", issueComments: "2026-08-17T10:10:00Z" },
+  );
+  assert.equal(roundCheckCaptureTimes({}), null);
+  assert.equal(roundCheckCaptureTimes({ capturedAt: { pr: "2026-08-17T10:00:00Z" } }), null, "a collection with no time is not 'the scalar'");
+});
+
+test("assertCaptureAdvanced: the rotating-oldest replay is refused -- every consumed collection must advance", () => {
+  // The hole: the receipt kept only the oldest time (10:00, from `pr`). An
+  // operator re-reading `pr` and `reviews` at 10:11 while REUSING the 10:10
+  // `issueComments` -- the request set, captured before the post -- made the
+  // new oldest 10:10 > 10:00, so the compare read the snapshot as newer and
+  // minted another one-post receipt from a request set that had already
+  // authorized a post.
+  const previous = {
+    capturedAt: "2026-08-17T10:00:00Z",
+    capturedAtByCollection: { pr: "2026-08-17T10:00:00Z", reviews: "2026-08-17T10:10:00Z", issueComments: "2026-08-17T10:10:00Z" },
+  };
+  const rotated = { pr: "2026-08-17T10:11:00Z", reviews: "2026-08-17T10:11:00Z", issueComments: "2026-08-17T10:10:00Z" };
+  assert.throws(() => assertCaptureAdvanced(previous, rotated), /issueComments/);
+  assert.throws(() => assertCaptureAdvanced(previous, rotated), /not newer than/);
+  // Equal is not newer, in any collection.
+  assert.throws(() => assertCaptureAdvanced(previous, { ...rotated, issueComments: "2026-08-17T10:10:00.000Z" }), /issueComments/);
+  // Every collection genuinely re-read: accepted.
+  assert.doesNotThrow(() => assertCaptureAdvanced(previous, { pr: "2026-08-17T10:11:00Z", reviews: "2026-08-17T10:11:00Z", issueComments: "2026-08-17T10:11:00Z" }));
+  // A collection going BACKWARDS is named too.
+  assert.throws(
+    () => assertCaptureAdvanced(previous, { pr: "2026-08-17T09:00:00Z", reviews: "2026-08-17T10:11:00Z", issueComments: "2026-08-17T10:11:00Z" }),
+    /pr/,
+  );
+});
+
+test("assertCaptureAdvanced: a receipt minted before per-collection times existed falls back to the scalar compare", () => {
+  const legacy = { capturedAt: "2026-08-17T10:00:00Z" };
+  assert.throws(() => assertCaptureAdvanced(legacy, { pr: "2026-08-17T10:00:00Z", reviews: "2026-08-17T10:00:00Z", issueComments: "2026-08-17T10:00:00Z" }), /not newer than/);
+  assert.doesNotThrow(() => assertCaptureAdvanced(legacy, { pr: "2026-08-17T10:01:00Z", reviews: "2026-08-17T10:01:00Z", issueComments: "2026-08-17T10:01:00Z" }));
+  // No previous receipt at all: nothing to be newer than.
+  assert.doesNotThrow(() => assertCaptureAdvanced(null, { pr: "2026-08-17T10:01:00Z", reviews: "2026-08-17T10:01:00Z", issueComments: "2026-08-17T10:01:00Z" }));
+  // An unparseable previous scalar cannot silently disable the guard either.
+  assert.throws(() => assertCaptureAdvanced({ capturedAt: "whenever" }, { pr: "2026-08-17T10:01:00Z", reviews: "2026-08-17T10:01:00Z", issueComments: "2026-08-17T10:01:00Z" }), /cannot be ordered/);
+});
+
+test("check(): the minted receipt carries per-collection times, and a rotated re-run is refused through the real command", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = mkdtempSync(join(tmpdir(), "round-check-replay-"));
+  const file = join(dir, "snap.json");
+  const io = fakeIo({ [budgetPath(1)]: budget(1) });
+  // The fake io's clock is NOW; the snapshot fixture's clock is 10:35 on the
+  // same day, so capture times are set relative to NOW to stay inside the age
+  // bound the way a live capture would.
+  const at = (minutesAgo) => new Date(NOW - minutesAgo * 60_000).toISOString();
+  const first = snapshot(1, { capturedAt: { pr: at(20), reviews: at(10), issueComments: at(10) } });
+  writeFileSync(file, JSON.stringify(first));
+  await runCheck({ pr: "1", "mcp-snapshot": file }, io);
+  const minted = JSON.parse(io.store[checkPath(1)]);
+  assert.equal(minted.capturedAt, at(20), "the scalar stays the oldest, for the age bound");
+  assert.deepEqual(minted.capturedAtByCollection, { pr: at(20), reviews: at(10), issueComments: at(10) });
+
+  // Rotate: re-read pr and reviews, reuse the request set. The oldest moves
+  // from 20 minutes ago to 10 minutes ago -- "newer" under the scalar rule.
+  const rotated = snapshot(1, { capturedAt: { pr: at(9), reviews: at(9), issueComments: at(10) } });
+  writeFileSync(file, JSON.stringify(rotated));
+  await assert.rejects(runCheck({ pr: "1", "mcp-snapshot": file }, io), /issueComments.*not newer than/s);
+  assert.deepEqual(JSON.parse(io.store[checkPath(1)]).capturedAtByCollection, { pr: at(20), reviews: at(10), issueComments: at(10) }, "the refused run did not overwrite the receipt");
+
+  // A genuine re-capture of every collection mints again.
+  const fresh = snapshot(1, { capturedAt: { pr: at(8), reviews: at(8), issueComments: at(8) } });
+  writeFileSync(file, JSON.stringify(fresh));
+  await runCheck({ pr: "1", "mcp-snapshot": file }, io);
+  assert.deepEqual(JSON.parse(io.store[checkPath(1)]).capturedAtByCollection, { pr: at(8), reviews: at(8), issueComments: at(8) });
 });
