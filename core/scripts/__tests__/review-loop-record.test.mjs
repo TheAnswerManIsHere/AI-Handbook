@@ -116,6 +116,18 @@ test("threads and the request set must be captured after the latest completed pa
   // A scalar capture time covers every collection; no passes means nothing to order against.
   assert.doesNotThrow(() => assertCapturedAfterLatestPass({ capturedAt: after }, passes));
   assert.doesNotThrow(() => assertCapturedAfterLatestPass({ capturedAt: { reviewThreads: before, issueComments: before } }, []));
+  // An unparseable latest pass cannot anchor the check -- it refuses rather
+  // than silently ordering nothing. (Codex, #38 round 11.)
+  assert.throws(
+    () => assertCapturedAfterLatestPass({ capturedAt: { reviewThreads: before, issueComments: before } }, [{ at: "whenever" }]),
+    /unparseable timestamp/,
+  );
+});
+
+test("assertAdjudicationSnapshot: every review's submitted_at must parse", () => {
+  const snap = validSnapshot();
+  snap.reviews = [{ id: 1, user: { login: "x" }, submitted_at: "not a time" }];
+  assert.throws(() => assertAdjudicationSnapshot(500, snap, TEST_SLUG), /reviews\[0\] carries an unparseable submitted_at/);
 });
 
 test("assertAdjudicationSnapshot: a well-formed snapshot passes", () => {
@@ -958,6 +970,16 @@ test("a captured entry must come from THIS pull request, not just agree with its
   // ...but a thread identified by its stable node id alone stays supported:
   // refusing that shape is the shared-contract divergence round 3 found.
   assertCapturedProvenance({ ...base, reviewThreads: [{ id: "PRRT_x", comments: [{}] }] });
+  // A URL WITHOUT a #discussion_r fragment is still a URL with a path: a
+  // foreign one is refused, an absent one is not. (Codex, #38 round 11.)
+  assert.throws(
+    () =>
+      assertCapturedProvenance({
+        ...base,
+        reviewThreads: [{ id: "PRRT_x", comments: [{ html_url: "https://github.com/TheAnswerManIsHere/AI-Handbook/pull/9" }] }],
+      }),
+    /was captured from PR #9/,
+  );
 });
 
 test("reviews and issue comments must come from a capture too", () => {
@@ -1178,6 +1200,37 @@ test("the provenance is read from the heading form this repo actually writes", (
         { runGit: planGit([PLAN]) },
       ),
     /names no approved-plan source/,
+  );
+});
+
+test("indented and blockquoted examples are not live declarations either", () => {
+  // Fences were masked in rounds 8-10; a four-space-indented Tier C template
+  // and a blockquoted provenance line survived. (Codex, #38 round 11.)
+  const indented = ["## Docs", "", ...TIER_C_ORACLE.split("\n").map((l) => "    " + l)].join("\n");
+  assert.throws(
+    () => planOracleFor({ title: "Document it", body: indented }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+  const quoted = "## Notes\n> **Approved-plan source:** Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06";
+  assert.throws(
+    () => planOracleFor({ title: "Document it", body: quoted }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+  // An indented line inside a LIST ITEM is list content, not code: the block
+  // is still recognised when the indentation continues a paragraph.
+  const listed = ["## Bugfix oracle", "1. The oracle:", ...TIER_C_ORACLE.split("\n").map((l) => "    " + l)].join("\n");
+  assert.equal(planOracleFor({ title: "Fix it", body: listed }, "head", { runGit: planGit([PLAN]) }).reason, "bugfix oracle (tier C)");
+});
+
+test("the Plan-review prefix is part of the public form", () => {
+  // `Implementation PR #12, final plan commit …` matched on `PR #` alone; the
+  // plan-review PR is the approval's home and the prefix names it.
+  // (Codex, #38 round 11.)
+  assert.equal(approvedPlanCommit("Implementation PR #12, final plan commit abcdef1, approved by David on 2026-09-01"), null);
+  assert.equal(approvedPlanCommit("PRs #701 and #702, combined plan commit abcdef1 on plan-review/x-combined, approved by David on 2026-09-01"), null);
+  assert.deepEqual(
+    approvedPlanCommit("Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06."),
+    { sha: "972b60d", form: "single plan-review PR" },
   );
 });
 

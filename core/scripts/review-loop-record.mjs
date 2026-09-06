@@ -695,11 +695,33 @@ function fenceMask(lines) {
   return mask;
 }
 
-/** The text with every fenced block removed -- what a heading or field scan should see. */
+/**
+ * The LIVE text of a markdown document: fenced blocks, indented code blocks
+ * and blockquotes removed. A declaration scan should see only what the
+ * author asserts, never what the author quotes or shows.
+ *
+ * Fences were masked in rounds 8-10 and the two other literal contexts were
+ * not: a four-space-indented Tier C template was accepted as this PR's
+ * oracle, and a blockquoted provenance line resolved an unrelated commit.
+ * Same defect, two more contexts. An indented line inside a list item is
+ * list content, not code, so indentation counts only when the previous live
+ * line is blank or absent -- the CommonMark rule for where an indented code
+ * block can start. (Codex, #38 round 11.)
+ */
 function outsideFences(markdown) {
   const lines = String(markdown ?? "").split(/\r?\n/);
   const fenced = fenceMask(lines);
-  return lines.filter((_, i) => !fenced[i]).join("\n");
+  const live = [];
+  let prevBlank = true;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (fenced[i]) continue;
+    const line = lines[i];
+    if (/^\s*>/.test(line)) continue;
+    if (prevBlank && /^(?: {4,}|\t)\S/.test(line)) continue;
+    live.push(line);
+    prevBlank = line.trim() === "";
+  }
+  return live.join("\n");
 }
 
 export function sectionOf(markdown, heading) {
@@ -939,14 +961,18 @@ const PLAN_COMMIT_FORMS = [
     // form, and only his approval authorises a plan. `approved by Alice on`
     // matched the old `\bapproved\b`. (Codex, #38 round 9.)
     reason: "single plan-review PR",
-    re: /^[^\n]*?\bPR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
+    // `Plan-review PR #<N>` -- the prefix is part of the form, and it is what
+    // distinguishes the plan-review PR (the approval's home) from any other
+    // PR number a body might mention. `Implementation PR #12, final plan
+    // commit …` matched without it. (Codex, #38 round 11.)
+    re: /^[^\n]*?\bPlan-review PR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
   },
   {
     // "naming EVERY subsystem PR" -- a split loop has at least two, so the
     // plural with one number is an incomplete provenance, not a variant.
     // (Codex, #38 round 8.)
     reason: "split loop (combined plan)",
-    re: /^[^\n]*?\bPRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?\bPlan-review PRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
   },
 ];
 
@@ -1279,9 +1305,15 @@ export function assertCapturedProvenance(snapshot) {
   // PRESENT, because the shared snapshot contract deliberately allows a thread
   // identified by its stable node id alone -- refusing that shape here is the
   // divergence round 3 already found. (#38 round 7.)
+  // ANY non-empty URL is bound, not only one carrying a `#discussion_r`
+  // fragment. The stable-id fallback lets a thread arrive with no URL at all;
+  // it never meant a URL from another PR should ride along unread because its
+  // fragment was missing -- the path still names a repository and a pull
+  // number, and a foreign finding was landing in this record through exactly
+  // that gap. (Codex, #38 round 11.)
   for (const [i, thread] of (snapshot?.reviewThreads ?? []).entries()) {
     for (const [j, c] of (thread?.comments ?? []).entries()) {
-      if (typeof c?.html_url === "string" && /#discussion_r\d+/.test(c.html_url)) {
+      if (typeof c?.html_url === "string" && c.html_url.trim() !== "") {
         assertTarget(`reviewThreads[${i}].comments[${j}]`, c.html_url);
       }
     }
@@ -1844,7 +1876,20 @@ export function parseArgs(argv) {
  * so the two gates cannot drift on it again. (Codex, #38 round 9.)
  */
 export function assertCapturedAfterLatestPass(snapshot, passes) {
-  const latest = passes.length ? Date.parse(passes[passes.length - 1].at ?? "") : NaN;
+  if (!passes.length) return;
+  const latest = Date.parse(passes[passes.length - 1].at ?? "");
+  // A pass whose timestamp does not parse cannot anchor the ordering check,
+  // and `collectionsReadBefore` returns nothing to order against -- so an
+  // unparseable `submitted_at` on the latest pass silently switched the
+  // check off. Refuse instead: a pass with no readable time is a capture
+  // defect, not an exemption. (Codex, #38 round 11.)
+  if (!Number.isFinite(latest)) {
+    throw new Error(
+      `the latest completed reviewer pass carries an unparseable timestamp ` +
+        `(${JSON.stringify(passes[passes.length - 1].at ?? null)}), so the capture-order check has nothing to ` +
+        `order against. Every review's submitted_at must be a parseable time; re-capture`,
+    );
+  }
   const stale = collectionsReadBefore(snapshot.capturedAt, latest, ["reviewThreads", "issueComments"]);
   if (stale.length) {
     throw new Error(
@@ -1887,6 +1932,17 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
         `${JSON.stringify(head ?? null)}. The collections were captured from a different pull request than the budget covers`,
     );
   }
+  // The same per-review rule the budget check applies (#503 round 4): a
+  // stable id, a login, a PARSEABLE submitted_at. Without the last, the
+  // ordering anchor above can be NaN. (Codex, #38 round 11.)
+  (snapshot.reviews ?? []).forEach((r, i) => {
+    if (!Number.isFinite(Date.parse(r?.submitted_at ?? ""))) {
+      throw new Error(
+        `snapshot reviews[${i}] carries an unparseable submitted_at (${JSON.stringify(r?.submitted_at ?? null)}); ` +
+          `passes are ordered by it and the capture-order check anchors on it`,
+      );
+    }
+  });
   if (!Array.isArray(snapshot.issueComments) || snapshot.complete?.issueComments !== true) {
     throw new Error(
       "an adjudication snapshot must carry issueComments with complete.issueComments === true. " +
