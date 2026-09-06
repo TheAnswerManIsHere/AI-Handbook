@@ -39,6 +39,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const NOW = Date.parse("2026-08-17T12:00:00.000Z");
+const NOW_ISO = new Date(NOW).toISOString();
 
 export const TEST_SLUG = "TestOwner/TestRepo";
 export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
@@ -735,6 +736,21 @@ test("allowance refuses a nonsense spent count rather than defaulting", () => {
 // ---------------------------------------------------------------------------
 // The round-check receipt: fresh evidence, one post
 // ---------------------------------------------------------------------------
+
+test("a round-check receipt's capturedAt must be a scalar the guard can parse", () => {
+  // `check()` stored `snapshot.capturedAt` raw. Once the per-collection OBJECT
+  // form was accepted at the door, that receipt carried an object;
+  // `validateCheckReceipt` does `Date.parse(receipt.capturedAt)`, gets NaN, and
+  // refuses the next review request as stale — so the compatibility fix minted
+  // a receipt the guard could never consume, breaking the very workflow it was
+  // for. (Codex, #38 round 7, on this same round's change.)
+  const objectForm = {
+    ...JSON.parse(check(1, 0)),
+    capturedAt: { pr: NOW_ISO, reviews: NOW_ISO, issueComments: NOW_ISO, reviewThreads: NOW_ISO },
+  };
+  assert.ok(validateCheckReceipt(1, objectForm, NOW, TEST_SLUG), "an object capturedAt is not consumable");
+  assert.equal(validateCheckReceipt(1, JSON.parse(check(1, 0)), NOW, TEST_SLUG), null, "the scalar form is");
+});
 
 test("a round-check receipt must be bound to this PR and repo", () => {
   assert.match(validateCheckReceipt(1, JSON.parse(check(2, 0)), NOW, TEST_SLUG), /names PR 2, not 1/);

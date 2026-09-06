@@ -666,11 +666,46 @@ const ORACLE_SECTIONS = ["Direction", "Product Intent", "Must Not Change", "Sett
  * ends at the first Z in the document. Scanning lines has no such trap and
  * says what it does.
  */
+/**
+ * Which lines sit inside a fenced code block. A fence opens on ``` or ~~~ with
+ * any info string and closes on a fence of the SAME character at least as
+ * long, per CommonMark -- so a ```` ```` ```` block containing ``` does not
+ * close early. The fence lines themselves count as inside: neither is a
+ * heading, and treating them as outside would let ```` ```## X ```` slip past.
+ */
+function fenceMask(lines) {
+  const mask = new Array(lines.length).fill(false);
+  let open = null; // { char, len }
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(lines[i]);
+    if (!open) {
+      // An opening fence's info string may not contain a backtick.
+      if (m && !(m[1][0] === "`" && m[2].includes("`"))) {
+        open = { char: m[1][0], len: m[1].length };
+        mask[i] = true;
+      }
+      continue;
+    }
+    mask[i] = true;
+    if (m && m[1][0] === open.char && m[1].length >= open.len && m[2].trim() === "") open = null;
+  }
+  return mask;
+}
+
 export function sectionOf(markdown, heading) {
   const lines = String(markdown ?? "").split(/\r?\n/);
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+");
   const want = new RegExp(`^(#{1,6})\\s+${escaped}\\s*$`, "i");
-  const start = lines.findIndex((l) => want.test(l));
+  // A `##` INSIDE A FENCE IS NOT A HEADING. Plans and PR bodies quote oracle
+  // blocks in fenced examples -- `bugfix/SKILL.md` shows two of them, and this
+  // very PR's plan quotes the sections it specifies -- so a scanner blind to
+  // fences takes the EXAMPLE as the section and omits the real invariants
+  // below it. Same consequence as round 1's nested-heading bug: a verdict
+  // against an oracle that looks complete and is not. Tracked for both the
+  // start and the end scan, since a fence can open inside a section too.
+  // (Codex, #38 round 7.)
+  const fenced = fenceMask(lines);
+  const start = lines.findIndex((l, i) => !fenced[i] && want.test(l));
   if (start === -1) return null;
   // A markdown section ends at a heading of the SAME OR HIGHER level. Stopping
   // at ANY heading drops a nested one and everything under it -- so an oracle
@@ -680,7 +715,7 @@ export function sectionOf(markdown, heading) {
   const level = want.exec(lines[start])[1].length;
   const body = [];
   for (let i = start + 1; i < lines.length; i += 1) {
-    const heading = /^(#{1,6})\s+\S/.exec(lines[i]);
+    const heading = fenced[i] ? null : /^(#{1,6})\s+\S/.exec(lines[i]);
     if (heading && heading[1].length <= level) break;
     body.push(lines[i]);
   }
@@ -849,8 +884,42 @@ export function permittedNoPlanForm(body) {
  * was wrong on the bar: unverifiable-by-machine is not the same as
  * not-worth-requiring. (Codex, #38 round 5.)
  */
-const PLAN_COMMIT_RE =
-  /^[^\n]*?\bPR\s*#\d+[^\n]*?\b(?:final|combined) plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im;
+/**
+ * TWO forms, because the contract specifies two, not one with interchangeable
+ * adjectives (`claude-core.md:453-457`):
+ *
+ *   `Plan-review PR #<N>, final plan commit <sha>, approved by David on <date>`
+ *   the split-loop form naming EVERY subsystem PR plus
+ *   `combined plan commit <sha> on plan-review/<slug>-combined`
+ *
+ * Treating them as one regex with `(?:final|combined)` looked equivalent and
+ * was not: the split form names its PRs in the PLURAL -- `Plan-review PRs #701
+ * and #702` -- which `\bPR\s*#` cannot match, so every split loop reported no
+ * approved-plan source and could not run its mandatory adjudication. The
+ * combined form also requires its `-combined` branch, which is the field that
+ * makes it checkable at all: that branch is the one this repository never
+ * deletes, precisely because no PR retains its commit.
+ * (Codex, #38 round 7 -- the seventh matcher written from a remembered format.)
+ */
+const PLAN_COMMIT_FORMS = [
+  {
+    reason: "single plan-review PR",
+    re: /^[^\n]*?\bPR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+  },
+  {
+    reason: "split loop (combined plan)",
+    re: /^[^\n]*?\bPRs?\s*#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved\b[^\n]*?\d{4}-\d{2}-\d{2}/im,
+  },
+];
+
+/** The approved-plan commit, in whichever documented form the body carries. */
+export function approvedPlanCommit(sourceText) {
+  for (const form of PLAN_COMMIT_FORMS) {
+    const sha = form.re.exec(sourceText)?.[1];
+    if (sha) return { sha, form: form.reason };
+  }
+  return null;
+}
 /**
  * An explicit plan path, read ONLY from the provenance line -- the same
  * anchoring the commit sha gets, and for the same reason. A body-wide match
@@ -950,7 +1019,7 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
   // same body. A no-plan form is a claim that no plan exists; it cannot
   // outrank evidence that one does. (Codex, #38 round 6.)
   const source = approvedPlanSourceText(body);
-  const sha = PLAN_COMMIT_RE.exec(source)?.[1];
+  const sha = approvedPlanCommit(source)?.sha;
   if (!sha) {
     const permitted = permittedNoPlanForm(body);
     if (permitted?.refuse) throw new Error(permitted.refuse);
@@ -1126,10 +1195,51 @@ export function assertThreadProvenance(reviewThreads) {
  * which is a plausible number typed where a captured one belonged.
  */
 export function assertCapturedProvenance(snapshot) {
+  // THE URL'S PATH IS EVIDENCE TOO, and ignoring it wasted half the check: a
+  // foreign entry -- `reviews` accidentally concatenated from another PR, or
+  // from another repository's #38 -- agrees with its own id perfectly well,
+  // and would then be counted into `rounds` and `trend` on a record labelled
+  // as this PR. The path names the repository and the pull number; both must
+  // be this loop's. (Codex, #38 round 7, on a check added in the same round.)
+  const repo = typeof snapshot?.repo === "string" ? snapshot.repo.toLowerCase() : null;
+  const number = snapshot?.pr?.number;
+  const assertTarget = (where, url) => {
+    const m = /github\.com\/([^/\s]+\/[^/\s]+)\/pull\/(\d+)\b/i.exec(url);
+    if (!m) {
+      throw new Error(
+        `${where}'s html_url ${JSON.stringify(url)} names no <owner>/<repo>/pull/<n>, so nothing ties it to ` +
+          `this loop. Refusing rather than counting a pass whose pull request is unidentified`,
+      );
+    }
+    if (repo && m[1].toLowerCase() !== repo) {
+      throw new Error(
+        `${where} was captured from ${m[1]}, not ${snapshot.repo}. A snapshot's collections must all come ` +
+          `from the pull request the record is about`,
+      );
+    }
+    if (Number.isFinite(number) && Number(m[2]) !== number) {
+      throw new Error(
+        `${where} was captured from PR #${m[2]}, not #${number}. Rounds and trend are counted from these ` +
+          `arrays, so a foreign entry would be reported as this loop's own`,
+      );
+    }
+  };
+
   const arrays = [
     ["reviews", "review", "#pullrequestreview-<id>", snapshot?.reviews, /#pullrequestreview-(\d+)\b/],
     ["issueComments", "issue comment", "#issuecomment-<id>", snapshot?.issueComments, /#issuecomment-(\d+)\b/],
   ];
+  // Threads carry the same URLs and the same hole. Checked only WHERE A URL IS
+  // PRESENT, because the shared snapshot contract deliberately allows a thread
+  // identified by its stable node id alone -- refusing that shape here is the
+  // divergence round 3 already found. (#38 round 7.)
+  for (const [i, thread] of (snapshot?.reviewThreads ?? []).entries()) {
+    for (const [j, c] of (thread?.comments ?? []).entries()) {
+      if (typeof c?.html_url === "string" && /#discussion_r\d+/.test(c.html_url)) {
+        assertTarget(`reviewThreads[${i}].comments[${j}]`, c.html_url);
+      }
+    }
+  }
   for (const [key, noun, shape, entries, anchor] of arrays) {
     (entries ?? []).forEach((entry, i) => {
       const url = typeof entry?.html_url === "string" ? entry.html_url : "";
@@ -1141,6 +1251,7 @@ export function assertCapturedProvenance(snapshot) {
             `counted from these arrays`,
         );
       }
+      assertTarget(`${key}[${i}]`, url);
       if (String(entry.id) !== found) {
         throw new Error(
           `${key}[${i}] has id ${JSON.stringify(entry.id)} but its html_url names ${found}. A capture cannot ` +

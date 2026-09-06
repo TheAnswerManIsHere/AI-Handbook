@@ -167,6 +167,7 @@ function stub(pages) {
 // ---------------------------------------------------------------------------
 
 import {
+  capturedAtDetail,
   capturedAtOf,
   headRepoOf,
   countFindings,
@@ -646,4 +647,22 @@ test("capturedAt is read in either shape, and the whole-snapshot view takes the 
   assert.equal(capturedAtOf({ capturedAt: {} }), null);
   assert.equal(capturedAtOf({ capturedAt: { reviews: "not a date" } }), null);
   assert.equal(capturedAtOf(perCollection, "files"), null);
+
+  // A PARTIAL capture time covers nothing. Taking the oldest VALID entry and
+  // shrugging at the rest let a snapshot with stale, undated `reviews` and a
+  // fresh `issueComments` pass the freshness bound and mint a round-check
+  // receipt from evidence nothing had dated — undercounting spent rounds in
+  // the guard's own favour. (Codex, #38 round 7, on this same round's change.)
+  assert.deepEqual(capturedAtDetail({ capturedAt: { issueComments: "2026-09-06T18:00:00Z" } }), {
+    at: null,
+    missing: ["pr", "reviews", "reviewThreads"],
+  });
+  assert.deepEqual(capturedAtDetail(perCollection), { at: "2026-09-06T17:20:00Z", missing: [] });
+  assert.deepEqual(capturedAtDetail(scalar), { at: "2026-09-06T17:00:00Z", missing: [] });
+  assert.deepEqual(capturedAtDetail({}), { at: null, missing: ["capturedAt"] });
+  // An invalid timestamp is missing, not merely skipped.
+  assert.deepEqual(
+    capturedAtDetail({ capturedAt: { ...perCollection.capturedAt, reviews: "whenever" } }).missing,
+    ["reviews"],
+  );
 });

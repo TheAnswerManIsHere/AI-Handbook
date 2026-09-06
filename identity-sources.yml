@@ -228,6 +228,19 @@
   why: >-
     The --show surface's identity and policy comparisons, from one config read.
 
+- key: "review-loop-record.mjs :: assertCapturedProvenance :: const repo = typeof snapshot?.repo === \"string\" ? snapshot.repo.toLowerCase() : null;"
+  source: config
+  why: >-
+    The operator's transcription of the identity into the snapshot, used here
+    as the target every captured html_url's own path must match. Compared
+    against GitHub's word inside each URL, so a foreign entry is refused even
+    when the transcription is right.
+
+- key: "review-loop-record.mjs :: assertCapturedProvenance :: `${where} was captured from ${m[1]}, not ${snapshot.repo}. A snapshot's collections must all come ` +"
+  source: message
+  why: >-
+    Refusal or guidance text. Decides nothing.
+
 - key: "review-counting.mjs :: headRepoOf :: const repo = pr?.head?.repo;"
   source: github
   why: >-

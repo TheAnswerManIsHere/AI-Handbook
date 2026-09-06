@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 
 import {
   applyCaps,
+  approvedPlanCommit,
   artifactDiff,
   artifactFileList,
   artifactStats,
@@ -710,6 +711,103 @@ test("each permitted no-plan form yields a stated null", () => {
 // ---------------------------------------------------------------------------
 // Provenance, bodies and caps
 // ---------------------------------------------------------------------------
+
+test("an oracle heading inside a fenced example is not the section", () => {
+  // Plans and PR bodies quote oracle blocks in fenced examples --
+  // `bugfix/SKILL.md` shows two — so a scanner blind to fences takes the
+  // EXAMPLE and omits the real invariants below it. Same consequence as the
+  // nested-heading bug: a verdict against an oracle that looks complete.
+  // (Codex, #38 round 7.)
+  const md = [
+    "## Notes",
+    "",
+    "```markdown",
+    "## Must Not Change",
+    "the EXAMPLE invariant",
+    "```",
+    "",
+    "## Must Not Change",
+    "the REAL invariant",
+    "",
+    "## Next",
+    "x",
+  ].join("\n");
+  assert.equal(sectionOf(md, "Must Not Change"), "the REAL invariant");
+
+  // A fence that OPENS inside the section does not end it either.
+  const inside = "## Must Not Change\nfirst\n\n```\n## Next\nnot a heading\n```\n\nlast\n\n## Next\nx";
+  assert.equal(sectionOf(inside, "Must Not Change"), "first\n\n```\n## Next\nnot a heading\n```\n\nlast");
+
+  // Tildes fence too, and a longer backtick run is not closed by a shorter one.
+  assert.equal(sectionOf("~~~\n## A\n~~~\n\n## A\nreal", "A"), "real");
+  assert.equal(sectionOf("````\n```\n## A\n````\n\n## A\nreal", "A"), "real");
+
+  // And the round-1 nested-heading behaviour is unchanged.
+  assert.match(sectionOf("## Must Not Change\nfirst\n\n### Security\nrule\n\n## Next\nx", "Must Not Change"), /### Security/);
+});
+
+test("both documented approved-plan provenance forms are accepted", () => {
+  // The contract specifies TWO forms (claude-core.md:453-457), and the split
+  // form names its PRs in the PLURAL — `Plan-review PRs #701 and #702` — which
+  // `\bPR\s*#` cannot match. Every split loop therefore reported no approved-plan
+  // source and could not run its mandatory adjudication. (Codex, #38 round 7.)
+  assert.deepEqual(
+    approvedPlanCommit("Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06."),
+    { sha: "972b60d", form: "single plan-review PR" },
+  );
+  assert.deepEqual(
+    approvedPlanCommit(
+      "Plan-review PRs #701 and #702, combined plan commit abcdef1 on plan-review/foo-combined, " +
+        "approved by David on 2026-09-01",
+    ),
+    { sha: "abcdef1", form: "split loop (combined plan)" },
+  );
+  // The `-combined` branch is what makes the split form checkable: it is the
+  // one branch this repository never deletes, because no PR retains its commit.
+  assert.equal(
+    approvedPlanCommit("Plan-review PRs #701 and #702, combined plan commit abcdef1, approved by David on 2026-09-01"),
+    null,
+  );
+  // The two forms are not interchangeable adjectives.
+  assert.equal(approvedPlanCommit("Plan-review PR #37, combined plan commit abcdef1, approved by David on 2026-09-06"), null);
+});
+
+test("a captured entry must come from THIS pull request, not just agree with itself", () => {
+  // An id/URL agreement check leaves the foreign-capture hole open: reviews
+  // concatenated from another PR, or from another repository's #38, agree with
+  // themselves perfectly and would be counted into rounds and trend on a
+  // record labelled as this loop. (Codex, #38 round 7.)
+  const base = { repo: "TheAnswerManIsHere/AI-Handbook", pr: { number: 38 } };
+  const url = (pull, id) => `https://github.com/TheAnswerManIsHere/AI-Handbook/pull/${pull}#pullrequestreview-${id}`;
+  // The thread anchor has no hyphen -- `#discussion_r5`, not `#discussion_r-5`.
+  const threadUrl = (pull, id) => `https://github.com/TheAnswerManIsHere/AI-Handbook/pull/${pull}#discussion_r${id}`;
+
+  assertCapturedProvenance({ ...base, reviews: [{ id: 1, html_url: url(38, 1) }] });
+  assert.throws(
+    () => assertCapturedProvenance({ ...base, reviews: [{ id: 1, html_url: url(33, 1) }] }),
+    /was captured from PR #33, not #38/,
+  );
+  assert.throws(
+    () =>
+      assertCapturedProvenance({
+        ...base,
+        issueComments: [{ id: 2, html_url: "https://github.com/other/repo/pull/38#issuecomment-2" }],
+      }),
+    /was captured from other\/repo/,
+  );
+  // Threads carry the same URLs and the same hole...
+  assert.throws(
+    () =>
+      assertCapturedProvenance({
+        ...base,
+        reviewThreads: [{ id: "PRRT_x", comments: [{ html_url: threadUrl(9, 5) }] }],
+      }),
+    /reviewThreads\[0\].comments\[0\] was captured from PR #9/,
+  );
+  // ...but a thread identified by its stable node id alone stays supported:
+  // refusing that shape is the shared-contract divergence round 3 found.
+  assertCapturedProvenance({ ...base, reviewThreads: [{ id: "PRRT_x", comments: [{}] }] });
+});
 
 test("reviews and issue comments must come from a capture too", () => {
   // `assertThreadProvenance` closed the array I was caught on. #38's own

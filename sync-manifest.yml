@@ -694,7 +694,7 @@ groups:
         ref: core/.claude/skills/bugfix/SKILL.md
         from: core/scripts/review-loop-record.mjs
         form: "bugfix/SKILL.md"
-        count: 1
+        count: 2
         why: >
           A citation in a comment, naming where the bugfix oracle's shape is
           specified so the next reader can check the matcher against it. The
@@ -705,11 +705,33 @@ groups:
         ref: core/.claude/skills/bugfix/SKILL.md
         from: core/scripts/__tests__/review-loop-record.test.mjs
         form: "bugfix/SKILL.md"
-        count: 2
+        count: 3
         why: >
           The same citation in the test that pins the matcher to the
           documented block. The test builds the body it matches; it never
           reads the skill.
+      - group: claude-core
+        ref: core/.agents/core/claude-core.md
+        form: "claude-core.md"
+        from: core/scripts/review-loop-record.mjs
+        count: 1
+        why: >
+          Cited as the contract that specifies the THREE approved-plan
+          provenance forms, line-ranged, because round 7 found the split-loop
+          form ("Plan-review PRs #701 and #702, combined plan commit … on
+          plan-review/<slug>-combined") matched nothing — a seventh matcher
+          written from a remembered format. Evidence for where the shapes are
+          defined; the generator parses the PR body and never opens this file.
+      - group: claude-core
+        ref: core/.agents/core/claude-core.md
+        form: "claude-core.md"
+        from: core/scripts/__tests__/review-loop-record.test.mjs
+        count: 1
+        why: >
+          The same line-citation over the test that pins both provenance forms
+          to the contract, so a change to either form fails a test rather than
+          silently parting the matcher from what authors are told to write. The
+          test builds the lines it matches; it never reads the contract.
       - group: skills
         ref: core/.claude/skills/bugfix/SKILL.md
         form: ".claude/skills/bugfix/SKILL.md"

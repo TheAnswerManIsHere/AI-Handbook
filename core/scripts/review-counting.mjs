@@ -581,18 +581,43 @@ export function assertMcpSnapshotComplete(snapshot) {
  * With no collection named, an object form yields its OLDEST entry: freshness
  * is a property of the stalest evidence in the file, never of the newest.
  */
-export function capturedAtOf(snapshot, collection = null) {
+/**
+ * The collections a whole-snapshot freshness view is answering FOR. A capture
+ * time that covers only some of them covers none of them, as far as the round
+ * check is concerned.
+ */
+export const COUNTED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThreads"];
+
+/**
+ * A snapshot's capture time, with the collections it FAILS to date.
+ *
+ * Taking the oldest VALID entry and shrugging at the rest let a snapshot with
+ * stale, undated `reviews` and a fresh `issueComments` pass the freshness
+ * bound and mint a round-check receipt from evidence nothing had dated --
+ * undercounting spent rounds in the guard's own favour, which is the direction
+ * this bound exists to close. A missing collection is now a refusal that names
+ * it. (Codex, #38 round 7, on a normalizer added in the same round.)
+ */
+export function capturedAtDetail(snapshot, { require = COUNTED_COLLECTIONS } = {}) {
+  const at = snapshot?.capturedAt;
+  if (typeof at === "string") {
+    return Number.isFinite(Date.parse(at)) ? { at, missing: [] } : { at: null, missing: ["capturedAt"] };
+  }
+  if (!at || typeof at !== "object") return { at: null, missing: ["capturedAt"] };
+  const missing = require.filter((k) => !Number.isFinite(Date.parse(at[k] ?? "")));
+  if (missing.length) return { at: null, missing };
+  const oldest = require
+    .map((k) => [at[k], Date.parse(at[k])])
+    .sort((a, b) => a[1] - b[1])[0][0];
+  return { at: oldest, missing: [] };
+}
+
+export function capturedAtOf(snapshot, collection = null, options = {}) {
   const at = snapshot?.capturedAt;
   if (typeof at === "string") return at;
   if (!at || typeof at !== "object") return null;
   if (collection) return typeof at[collection] === "string" ? at[collection] : null;
-  const times = Object.values(at)
-    .filter((v) => typeof v === "string")
-    .map((v) => [v, Date.parse(v)])
-    .filter(([, ms]) => Number.isFinite(ms));
-  if (!times.length) return null;
-  times.sort((a, b) => a[1] - b[1]);
-  return times[0][0];
+  return capturedAtDetail(snapshot, options).at;
 }
 
 export function headRepoOf(pr) {

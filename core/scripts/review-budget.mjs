@@ -118,7 +118,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { REVIEWER_LOGINS, capturedAtOf, headRepoOf, normalizeLogin } from "./review-counting.mjs";
+import { REVIEWER_LOGINS, capturedAtDetail, capturedAtOf, headRepoOf, normalizeLogin } from "./review-counting.mjs";
 
 export const RECEIPTS_DIR = ".agents/receipts";
 
@@ -2172,7 +2172,16 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // was actually read. (Codex, #503 round 4 -- and they were right that this
   // is the dissolved reconciliation-staleness finding reappearing in its
   // replacement, which is exactly why it needed closing rather than noting.)
-  const capturedAtRaw = capturedAtOf(snapshot);
+  const captured = capturedAtDetail(snapshot);
+  const capturedAtRaw = captured.at;
+  if (captured.missing.length && captured.missing[0] !== "capturedAt") {
+    throw new Error(
+      `snapshot "capturedAt" dates some collections but not ${captured.missing.join(", ")}. Freshness is a ` +
+        `property of the STALEST evidence in the file, so a partial capture time covers nothing: an undated ` +
+        `collection could be hours old while the dated ones look current, and the receipt would undercount ` +
+        `spent rounds in the guard's own favour. Re-capture, dating every collection`,
+    );
+  }
   const capturedAt = Date.parse(capturedAtRaw ?? "");
   if (!Number.isFinite(capturedAt)) {
     throw new Error(
@@ -2290,7 +2299,13 @@ async function check(flags, io) {
     // The snapshot's own capture time, NOT `io.now()`. See the freshness note
     // in assertCountingSnapshot: stamping the command time lets a stale
     // snapshot mint an indefinitely-renewable receipt.
-    capturedAt: snapshot.capturedAt,
+    // A SCALAR, never the per-collection object. `validateCheckReceipt` does
+    // `Date.parse(receipt.capturedAt)`; handed the object form it gets NaN and
+    // refuses the next review request as stale -- so accepting the object at
+    // the door while storing it raw would mint a receipt the guard could never
+    // consume, breaking the very workflow the compatibility was for.
+    // (Codex, #38 round 7, on a change made in the same round.)
+    capturedAt: capturedAtOf(snapshot),
     mintedAt: io.now(),
     // This receipt's generation. The guard's claim path is derived from it, so
     // a fresh receipt gets a fresh claim WITHOUT deleting the previous one --
