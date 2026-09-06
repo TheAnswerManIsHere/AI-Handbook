@@ -467,7 +467,15 @@ export function changesSince(since, head, { runGit = git } = {}) {
     });
 
   const behavioral = files.filter((f) => BEHAVIORAL_CLASSES.has(f.class));
-  const patch = cappedDiff(runGit, `${since}..${head}`);
+  // Reports its cut the same way the artifact patch does (round 6): both
+  // patches share one cap and one summary, and an empty `truncation.fields`
+  // must mean neither was cut. (Codex, #38 round 12.)
+  let patchTruncation = null;
+  const patch = cappedDiff(runGit, `${since}..${head}`, {
+    onTruncate: (cut) => {
+      patchTruncation = cut;
+    },
+  });
   return {
     resolved: true,
     since,
@@ -475,6 +483,7 @@ export function changesSince(since, head, { runGit = git } = {}) {
     commits: Number(runGit(["rev-list", "--count", `${since}..${head}`])),
     files,
     patch,
+    patchTruncation,
     behavioralFiles: behavioral.length,
     // The re-request rule's whole test, precomputed so the adjudicator does
     // not have to re-derive it from the file list.
@@ -965,18 +974,23 @@ const PLAN_COMMIT_FORMS = [
     // distinguishes the plan-review PR (the approval's home) from any other
     // PR number a body might mention. `Implementation PR #12, final plan
     // commit …` matched without it. (Codex, #38 round 11.)
-    re: /^[^\n]*?\bPlan-review PR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?\bPlan-review PR\s*#\d+[^\n]*?\bfinal plan commit\s+["'`]?([0-9a-f]{7,40})(?![0-9a-f])["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
   },
   {
     // "naming EVERY subsystem PR" -- a split loop has at least two, so the
     // plural with one number is an incomplete provenance, not a variant.
     // (Codex, #38 round 8.)
     reason: "split loop (combined plan)",
-    re: /^[^\n]*?\bPlan-review PRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
+    re: /^[^\n]*?\bPlan-review PRs\s*#\d+[^\n]*?#\d+[^\n]*?\bcombined plan commit\s+["'`]?([0-9a-f]{7,40})(?![0-9a-f])["'`]?[^\n]*?\bon\s+["'`]?plan-review\/[A-Za-z0-9._-]+-combined["'`]?[^\n]*?\bapproved by David on\s+\d{4}-\d{2}-\d{2}/im,
   },
 ];
 
-/** The approved-plan commit, in whichever documented form the body carries. */
+/**
+ * The approved-plan commit, in whichever documented form the body carries.
+ * The sha is bounded on its right: `{7,40}` alone captured the first 40 of a
+ * 41-character token and let the rest fall into the following `[^\n]*?`, so
+ * a malformed digest resolved as its prefix. (Codex, #38 round 12.)
+ */
 export function approvedPlanCommit(sourceText) {
   for (const form of PLAN_COMMIT_FORMS) {
     const sha = form.re.exec(sourceText)?.[1];
@@ -1026,8 +1040,13 @@ const PLAN_PATH_LINE_RE = /^[^\n]*?["'`]?(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)
  */
 export function approvedPlanSourceText(body) {
   const text = typeof body === "string" ? body : "";
+  // LIVE TEXT ON BOTH PATHS. The fallback got the literal-context mask in
+  // round 10; the section path returned the raw section, so a blockquoted or
+  // indented sample under a live `## Approved-plan source` heading resolved
+  // the sample's commit. Same function, second path, same mask.
+  // (Codex, #38 round 12.)
   const section = sectionOf(text, "Approved-plan source");
-  if (section) return section;
+  if (section) return outsideFences(section);
   // OUTSIDE FENCES, like every other scan. The section path was fence-aware
   // through `sectionOf`; this fallback read the raw text, so a documentation
   // PR showing a complete provenance line inside a fenced example resolved
@@ -1541,6 +1560,10 @@ export function applyCaps(record) {
     truncation.fields.push({ field: "artifact.patch", ...record.artifact.patchTruncation });
   }
   if (record.artifact) delete record.artifact.patchTruncation;
+  if (record.sinceLastReview?.patchTruncation) {
+    truncation.fields.push({ field: "sinceLastReview.patch", ...record.sinceLastReview.patchTruncation });
+  }
+  if (record.sinceLastReview) delete record.sinceLastReview.patchTruncation;
 
   record.truncation = truncation;
   // Measured on what is actually written, after every per-field cap -- the

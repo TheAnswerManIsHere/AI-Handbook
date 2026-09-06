@@ -292,6 +292,15 @@ export function __resetRepoSlugCache() {
  * should look at the other.
  */
 export const MAX_CHECK_AGE_MS = MAX_SNAPSHOT_AGE_MS; // one bound, shared with the record generator
+/**
+ * The collections the round check READS -- `get`, `get_reviews`,
+ * `get_comments`, exactly the recipe pr-watch/SKILL.md gives. Requiring a
+ * `reviewThreads` capture time here demanded a timestamp for a collection the
+ * recipe never captures, so a truthful object-form snapshot assembled as
+ * documented was refused until the operator invented one. The record
+ * generator reads threads and keeps the full set. (Codex, #38 round 12.)
+ */
+export const ROUND_CHECK_COLLECTIONS = ["pr", "reviews", "issueComments"];
 
 /**
  * Blast-radius tiers (David, 2026-08-17, issue #501; revised 2026-08-20 and
@@ -2193,7 +2202,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // was actually read. (Codex, #503 round 4 -- and they were right that this
   // is the dissolved reconciliation-staleness finding reappearing in its
   // replacement, which is exactly why it needed closing rather than noting.)
-  const captured = capturedAtDetail(snapshot, { now });
+  const captured = capturedAtDetail(snapshot, { now, require: ROUND_CHECK_COLLECTIONS });
   const capturedAtRaw = captured.at;
   if (captured.future.length) {
     throw new Error(`snapshot capturedAt (${captured.future.join(", ")}) is in the future`);
@@ -2329,7 +2338,7 @@ async function check(flags, io) {
     // the door while storing it raw would mint a receipt the guard could never
     // consume, breaking the very workflow the compatibility was for.
     // (Codex, #38 round 7, on a change made in the same round.)
-    capturedAt: capturedAtOf(snapshot),
+    capturedAt: capturedAtOf(snapshot, null, { require: ROUND_CHECK_COLLECTIONS }),
     mintedAt: io.now(),
     // This receipt's generation. The guard's claim path is derived from it, so
     // a fresh receipt gets a fresh claim WITHOUT deleting the previous one --

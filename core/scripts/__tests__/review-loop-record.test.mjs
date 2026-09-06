@@ -1222,6 +1222,48 @@ test("indented and blockquoted examples are not live declarations either", () =>
   assert.equal(planOracleFor({ title: "Fix it", body: listed }, "head", { runGit: planGit([PLAN]) }).reason, "bugfix oracle (tier C)");
 });
 
+test("a sha is bounded on its right", () => {
+  // `{7,40}` captured the first 40 of a 41-character token and let the rest
+  // fall into the following `[^\\n]*?`. (Codex, #38 round 12.)
+  const forty = "0123456789abcdef0123456789abcdef01234567";
+  assert.equal(approvedPlanCommit(`Plan-review PR #1, final plan commit ${forty}a, approved by David on 2026-09-01`), null);
+  assert.equal(
+    approvedPlanCommit(`Plan-review PRs #1 and #2, combined plan commit ${forty}a on plan-review/x-combined, approved by David on 2026-09-01`),
+    null,
+  );
+  assert.equal(approvedPlanCommit(`Plan-review PR #1, final plan commit ${forty}, approved by David on 2026-09-01`).sha, forty);
+});
+
+test("a quoted sample under a live Approved-plan source heading is still a sample", () => {
+  // The fallback path got the literal-context mask in round 10; the section
+  // path returned the raw section. (Codex, #38 round 12.)
+  for (const sample of [
+    "> Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06",
+    "    Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06",
+  ]) {
+    const body = ["## Approved-plan source", "", "For example:", "", sample].join("\n");
+    assert.throws(
+      () => planOracleFor({ title: "Document it", body }, "head", { runGit: planGit([PLAN]) }),
+      /names no approved-plan source/,
+      sample,
+    );
+  }
+});
+
+test("the since-review patch reports its own cut", () => {
+  // Both patches share one cap and one summary; an empty `fields` must mean
+  // neither was cut. (Codex, #38 round 12.)
+  const record = applyCaps({
+    findings: { items: [] },
+    artifact: { patch: "a", patchTruncation: null },
+    sinceLastReview: { patch: "b", patchTruncation: { keptChars: PATCH_CAP_CHARS, fullChars: PATCH_CAP_CHARS + 9 } },
+  });
+  assert.deepEqual(record.truncation.fields, [
+    { field: "sinceLastReview.patch", keptChars: PATCH_CAP_CHARS, fullChars: PATCH_CAP_CHARS + 9 },
+  ]);
+  assert.equal(record.sinceLastReview.patchTruncation, undefined);
+});
+
 test("the Plan-review prefix is part of the public form", () => {
   // `Implementation PR #12, final plan commit …` matched on `PR #` alone; the
   // plan-review PR is the approval's home and the prefix names it.

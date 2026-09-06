@@ -25,6 +25,7 @@ import {
   judgeReviewRequest,
   attachedRoots,
   MAX_CHECK_AGE_MS,
+  ROUND_CHECK_COLLECTIONS,
   repoSlug,
   declare,
   machineryConfig,
@@ -736,6 +737,20 @@ test("allowance refuses a nonsense spent count rather than defaulting", () => {
 // ---------------------------------------------------------------------------
 // The round-check receipt: fresh evidence, one post
 // ---------------------------------------------------------------------------
+
+test("the round check requires capture times only for the collections it reads", () => {
+  // The documented recipe captures get, get_reviews and get_comments -- no
+  // threads. Requiring a reviewThreads time refused a truthful snapshot until
+  // the operator invented one. (Codex, #38 round 12.)
+  assert.deepEqual(ROUND_CHECK_COLLECTIONS, ["pr", "reviews", "issueComments"]);
+  const t = "2026-08-17T10:35:00Z"; // the snapshot fixture's own clock
+  assert.doesNotThrow(() => assertSnapshot(1, snapshot(1, { capturedAt: { pr: t, reviews: t, issueComments: t } })));
+  // And a collection the check DOES read is still required.
+  assert.throws(
+    () => assertSnapshot(1, snapshot(1, { capturedAt: { pr: t, issueComments: t } })),
+    /dates some collections but not reviews/,
+  );
+});
 
 test("a round-check receipt's capturedAt must be a scalar the guard can parse", () => {
   // `check()` stored `snapshot.capturedAt` raw. Once the per-collection OBJECT
