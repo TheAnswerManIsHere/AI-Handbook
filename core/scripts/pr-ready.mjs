@@ -1775,7 +1775,7 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
     // loop that stops unconverged at the boundary never posts. Without a
     // round-count binding here, a historically-latest positive grant read
     // as permanently clearing the gate, and a loop could mint READY at the
-    // spent boundary without the fresh Fable recommendation and David
+    // spent boundary without the fresh adjudication and David
     // decision the repeating gate requires. So:
     //   - grant 0 (a stop-endorsement) clears permanently: no further
     //     rounds can run behind it without a NEWER david receipt, which
@@ -1807,7 +1807,8 @@ export function checkRail(prNumber, headSha, cwd, delivered = null) {
       pass: false,
       detail:
         `David's latest grant is fully spent (${delivered} passes delivered, gate at ${rail}) -- the gate stands ` +
-        `again: a fresh Fable recommendation and his decision (a further grant, or a grant-0 stop-endorsement) ` +
+        `again: a fresh adjudication (the judge its own definition declares) and his decision (a further grant, ` +
+        `or a grant-0 stop-endorsement) ` +
         "are required before readiness",
     };
   }

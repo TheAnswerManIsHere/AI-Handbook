@@ -702,7 +702,7 @@ const NO_PLAN_FORMS = [
  * judge as this PR's approved oracle. The contract puts the provenance on its
  * own line for exactly this reason. (Codex, #38 round 1.)
  */
-const PLAN_COMMIT_RE = /^[^\n]*Approved-plan source[^\n]*?\b(?:final|combined) plan commit\s+([0-9a-f]{7,40})\b/im;
+const PLAN_COMMIT_RE = /^[^\n]*Approved-plan source[^\n]*?\b(?:final|combined) plan commit\s+["'`]?([0-9a-f]{7,40})["'`]?/im;
 /**
  * An explicit plan path, read ONLY from the provenance line -- the same
  * anchoring the commit sha gets, and for the same reason. A body-wide match
@@ -711,8 +711,15 @@ const PLAN_COMMIT_RE = /^[^\n]*Approved-plan source[^\n]*?\b(?:final|combined) p
  * happens to exist at the cited commit the record presents the wrong plan as
  * the approved oracle; if it does not, the mandatory adjudication dies inside
  * `git show`. (Codex, #38 round 2.)
+ *
+ * Both this and PLAN_COMMIT_RE tolerate the sha or path being wrapped in
+ * backticks or quotes, because that is how they are actually written. This
+ * repository's own PR #38 carries "final plan commit `972b60d`", and the first
+ * record generated for it REFUSED -- a matcher that rejects the house style of
+ * the repository it ships in is the same defect as one written from memory,
+ * found by running it rather than by reading it. (#39 gap 2.)
  */
-const PLAN_PATH_LINE_RE = /^[^\n]*Approved-plan source[^\n]*?\b(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)\b/im;
+const PLAN_PATH_LINE_RE = /^[^\n]*Approved-plan source[^\n]*?["'`]?(docs\/plans\/PLAN_[A-Za-z0-9_.-]+\.md)["'`]?/im;
 
 /**
  * The approved plan's four oracle sections, read at the commit the PR body
@@ -858,11 +865,26 @@ export function assertThreadProvenance(reviewThreads) {
           `own account of itself`,
       );
     }
+    // The comment-level rule MATCHES THE SHARED CONTRACT rather than
+    // exceeding it. `assertMcpSnapshotShape` recovers a comment's identity
+    // from `#discussion_r<id>` and deliberately FALLS BACK to the stable
+    // thread id when the URL is absent -- a shape `review-counting.test.mjs`
+    // pins as supported. Requiring both here rejected captures `fromMcp`
+    // accepts, in the one place a refusal can strand a mandatory round: a
+    // loop that cannot build a record cannot obtain a verdict to continue OR
+    // to stop. Two enforcement points with different rules is how a contract
+    // diverges from itself. (Codex, #38 round 3; #39 gap 1.)
+    //
+    // The anti-reconstruction property is unchanged, because it never rested
+    // on the URL: a hand-written thread fails the node-id check above, which
+    // is the check that caught mine.
+    const stableThreadId = /^PRRT_[A-Za-z0-9_-]+$/.test(thread.id ?? "");
     (thread.comments ?? []).forEach((c, j) => {
-      if (!/#discussion_r\d+/.test(c.html_url ?? "")) {
+      if (!stableThreadId && !/#discussion_r\d+/.test(c.html_url ?? "")) {
         throw new Error(
-          `reviewThreads[${i}].comments[${j}] carries no #discussion_r<id> html_url, so it did not come ` +
-            `from a GitHub review comment. Refusing rather than counting it as a finding`,
+          `reviewThreads[${i}].comments[${j}] carries neither a #discussion_r<id> html_url nor a stable ` +
+            `thread id, so nothing identifies it as a GitHub review comment. Refusing rather than counting ` +
+            `it as a finding`,
         );
       }
     });

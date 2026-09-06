@@ -691,9 +691,11 @@ test("findings must come from captured threads, not a reconstruction", () => {
     () => assertThreadProvenance([{ id: "r1-0", comments: [{ html_url: "https://example.invalid" }] }]),
     /not a GitHub review-thread node id/,
   );
+  // A thread with NEITHER a stable node id NOR a #discussion_r URL has nothing
+  // identifying it as GitHub's record at all.
   assert.throws(
-    () => assertThreadProvenance([{ id: "PRRT_ok", comments: [{ html_url: "https://example.invalid" }] }]),
-    /no #discussion_r/,
+    () => assertThreadProvenance([{ id: "made-up", comments: [{ html_url: "https://example.invalid" }] }]),
+    /not a GitHub review-thread node id/,
   );
   assertThreadProvenance([{ id: "PRRT_ok", comments: [{ html_url: "https://github.com/o/r/pull/1#discussion_r42" }] }]);
 });
@@ -828,5 +830,51 @@ test("an explicit plan path is read from the provenance line, and must be one th
   assert.throws(
     () => planOracleFor({ title: "x", body: overriding }, "head", { runGit: planGit([PLAN]) }),
     /refusing rather than reading a plan the cited commit did not deliver/,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Recorded gaps from #38's stop verdict, worked under David's grant (#39)
+// ---------------------------------------------------------------------------
+
+test("the approved-plan pointer is read in the shape this repository actually writes it", () => {
+  // Found by running the machinery on its own PR, not by reading it: #38's
+  // body carries "final plan commit `972b60d`" -- the sha in backticks, which
+  // is this repo's house style -- and the first record generated for it
+  // REFUSED. Every feature PR written the way this repo writes them would
+  // have. (#39 gap 2.)
+  const body = "**Approved-plan source:** Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06.";
+  const oracle = planOracleFor({ title: "Implement phase 1a", body }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.mode, "approved-plan");
+  assert.equal(oracle.sha, "972b60d");
+
+  // Quoted and bare forms keep working, and a backticked PATH resolves too.
+  for (const variant of [
+    "**Approved-plan source:** final plan commit 972b60d",
+    "**Approved-plan source:** final plan commit \"972b60d\"",
+    "**Approved-plan source:** final plan commit `972b60d`, `docs/plans/PLAN_NEW.md`",
+  ]) {
+    assert.equal(planOracleFor({ title: "x", body: variant }, "head", { runGit: planGit([PLAN]) }).sha, "972b60d");
+  }
+});
+
+test("thread provenance matches the shared snapshot contract, no stricter", () => {
+  // `assertMcpSnapshotShape` recovers a comment's identity from its
+  // #discussion_r URL and deliberately falls back to the stable thread id.
+  // Requiring both here rejected captures `fromMcp` accepts, in the one place
+  // a refusal strands a mandatory round. (#39 gap 1.)
+  const url = "https://github.com/o/r/pull/1#discussion_r42";
+  assertThreadProvenance([{ id: "PRRT_ok", comments: [{ html_url: url }] }]);
+  assertThreadProvenance([{ id: "PRRT_ok", comments: [{}] }]); // the documented fallback
+
+  // The anti-reconstruction property is untouched: it rests on the node id,
+  // which is the check that caught my own hand-written threads.
+  assert.throws(
+    () => assertThreadProvenance([{ id: "r1-0", comments: [{ html_url: url }] }]),
+    /not a GitHub review-thread node id/,
+  );
+  assert.throws(
+    () => assertThreadProvenance([{ id: "r1-0", comments: [{}] }]),
+    /not a GitHub review-thread node id/,
   );
 });
