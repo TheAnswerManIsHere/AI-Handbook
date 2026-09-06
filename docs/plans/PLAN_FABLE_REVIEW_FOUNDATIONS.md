@@ -27,9 +27,12 @@ results recorded under *Settled Decisions*:
    dispatch pinned to a tier the definition no longer names.
 3. **Consumers of `artifact.files/added/removed` and `territory`** —
    `git grep -n 'artifactSize\|findingsByTerritory\|derived.files'`.
-4. **Validators of an `adjudication`-kind extension receipt** —
-   `git grep -n 'kind === "adjudication"'`, each hit classified *shape
-   validator* or *state reader*.
+4. **Every consumer that validates or honours an `adjudication`-kind
+   receipt** — `git grep -nE 'kind (===|!==) "adjudication"'`, each hit
+   classified *shape validator*, *state reader*, or *independent honourer*.
+   Corrected at round 2: the round-1 oracle tested only `===` and so missed
+   `pr-ready.mjs`'s `!==` guard, which independently accepts a terminal
+   receipt on the merge gate without calling the review-budget validator.
 
 **Specification test applied throughout:** what follows names invariants and
 the constructs that hold them. Call sites, field renames, and test
@@ -102,11 +105,21 @@ under a stated input budget. No rubric, role, or dispatch point changes.
 
 ## Settled Decisions
 
-1. **Artifact facts come from git, over the same range as the patch.**
-   `artifact.files/added/removed`, the file set `territory` classifies
-   against, and `artifact.patch` are all derived from git over
-   `base...head` (the snapshot's `pr.base.sha` and `pr.head.sha`, both
-   already required to be present in the clone). One function yields the
+1. **Artifact facts come from git, over the same range as the patch, and
+   both endpoints are validated first.** `artifact.files/added/removed`, the
+   file set `territory` classifies against, and `artifact.patch` are all
+   derived from git over `base...head` (the snapshot's `pr.base.sha` and
+   `pr.head.sha`). **Correcting a round-1 claim:** those shas are *not*
+   already required — `assertAdjudicationSnapshot` validates the PR number,
+   repository and capture metadata but neither sha; `changesSince` validates
+   the head only, for its own separate range; and `artifactDiff` deliberately
+   returns an "unavailable" marker rather than failing when an endpoint is
+   missing. That tolerance was harmless while the file list came from the
+   snapshot; it is not harmless once the same range is authoritative for
+   size and territory. So both endpoints are explicitly validated as full,
+   resolvable commits before the shared list is derived, with a refusal
+   naming which one failed — never a silent empty list from an incidental
+   git failure. One function yields the
    file list; the three consumers read it. Disagreement is then
    unconstructible, not merely tested for.
 2. **That file list is lossless, and its parsing rules are stated.**
@@ -150,11 +163,19 @@ under a stated input budget. No rubric, role, or dispatch point changes.
    would override the frontmatter and pin the tier — the exact defect being
    removed. The guard's refusal text and every routing instruction change
    from naming a tier to naming the definition file.
-   **Implementation-time verification, with a stated fallback:** the first
-   step is an empirical check that this harness accepts `best` in subagent
-   frontmatter. If it does not, the value is `fable` and everything else in
-   this plan is unchanged — the mechanism is the frontmatter being the
-   single declaration, not the particular alias in it.
+   **Implementation-time verification, with a parameterized fallback:** the
+   first step is an empirical check that this harness accepts `best` in
+   subagent frontmatter. If it does not, the declared value is `fable`.
+   (Round 2.) Everything downstream is written against **the empirically
+   selected alias**, not against the literal `best`: the class-1 oracle
+   asserts exactly one declarative pin naming *that* alias, the runtime
+   fixture asserts `dispatch.model` equals *that* alias, and the Definition
+   of Done reads the same way — so the fallback cannot produce an
+   implementation that fails the plan's own acceptance checks. The fallback
+   path gets its own test: with `best` unavailable, a `fable` declaration
+   and its stamps are accepted. The mechanism under review is the
+   frontmatter being the single declaration, not the particular alias in
+   it.
 6. **The judge's reasoning effort is declared in the same frontmatter, not
    inherited.** `effort: xhigh`. Verified: subagent frontmatter accepts
    `low | medium | high | xhigh | max`, overrides the session level,
@@ -167,12 +188,28 @@ under a stated input budget. No rubric, role, or dispatch point changes.
    overthinking, and on a default-stop rubric overthinking reads as
    manufactured reasons to continue.
 7. **The record carries the dispatch declaration, read mechanically from
-   the definition file at the reviewed head.** (Round 1, replacing a
-   free-text stamp.) `dispatch: {model, effort, source, sha}` is parsed from
-   `git show <snapshot head sha>:<definition path>`'s frontmatter — never
-   from the working tree, never from anything the session types. The record
-   is generated before the dispatch and is the input the verdict cites, so
-   this is the same evidence chain every other record field uses.
+   the definition file at the reviewed head, through a layout-aware
+   resolver.** (Round 1; the resolver added round 2.)
+   `dispatch: {model, effort, source, sha}` is parsed from the agent
+   definition's frontmatter at `snapshot.pr.head.sha` — never from the
+   working tree, never from anything the session types. The record is
+   generated before the dispatch and is the input the verdict cites, so this
+   is the same evidence chain every other record field uses.
+   **The resolver is not a bare `git show <head>:<consumer path>`**, because
+   the two layouts this machinery runs in disagree about where payload
+   lives: in the handbook, `.claude/agents/review-loop-adjudicator.md` is a
+   **symlink** (mode `120000`, whose blob is the target path text, not
+   frontmatter) and the tracked source is `core/.claude/agents/…`; in an
+   assembled consumer the same path is a regular file and no `core/` prefix
+   exists. So every head-pinned payload read goes through one resolver that
+   (a) reads the tree entry's **mode**, (b) follows a `120000` entry's
+   target relative to the link's directory, refusing a target that escapes
+   the repository or a chain deeper than one link, and (c) if the consumer
+   path is absent entirely, retries once under the `core/` prefix. A path
+   that resolves in neither layout is a refusal naming both attempts. This
+   applies equally to `declineCitation` (decision 11), whose consumer path
+   `.agents/memory/machinery-threat-model-is-my-own-mistakes.md` does not
+   exist in the handbook at all — its tracked source is `core/.agents/…`.
 8. **The receipt's stamps must equal the record's, and the validator
    compares them to the record — not to current configuration.** The
    adjudication receipt carries `modelRequested` and `effortRequested`; the
@@ -180,9 +217,26 @@ under a stated input budget. No rubric, role, or dispatch point changes.
    that record's `dispatch`, and refuses on any mismatch. A typed, stale or
    invented value is therefore rejected without consulting anything mutable,
    which was the round-1 defect: a non-empty-string check accepts fiction.
-   Receipts whose `decidedAt` precedes a cutoff constant named beside the
-   validator (the date this plan's PR merges) are read as `null` and pass,
-   so no committed receipt is invalidated.
+   **Compatibility is decided by the cited record's schema, not by a date.**
+   (Round 2, replacing a cutoff constant.) A receipt must carry the stamps
+   **iff the record it cites carries `dispatch`**; a receipt citing a
+   pre-`dispatch` record is legacy and passes without them. A date cannot
+   work here: this plan-review PR never merges, so it has no merge date, and
+   the implementation PR cannot know its own merge date in advance — every
+   receipt written while that PR is itself under review would classify as
+   legacy, which is precisely the window the validator most needs to cover.
+   A date would also let a receipt with a copied-forward `decidedAt` bypass
+   the comparison, which is the operator mistake this validator exists to
+   catch. Keying on the record's schema is durable evidence and cannot be
+   backdated.
+8a. **The merge gate validates the stamps too.** (Round 2.)
+   `pr-ready.mjs` recognises a terminal adjudication receipt through its own
+   `receipt.kind !== "adjudication"` guard and honours it without calling
+   `validateExtension`, so a receipt whose stamps disagree with its record
+   could be refused by the review-budget guard and still produce readiness.
+   The stamp comparison of decision 8 therefore belongs to **both**
+   validators, with the merge gate performing the same record-derived check
+   against the committed record the receipt cites.
 9. **What remains an assertion is named as one.** Nothing observable from
    the harness proves the Agent tool actually served the declared model and
    effort: the tool result carries no model id, and `get_session` describes
@@ -195,10 +249,16 @@ under a stated input budget. No rubric, role, or dispatch point changes.
     absence is a refusal rather than a null.** (Refusal added round 1.) The
     PR body's *Approved-plan source* line is parsed for a commit sha (the
     single-PR form `final plan commit <sha>`, or the combined form
-    `combined plan commit <sha>`). The generator resolves the one
-    `docs/plans/PLAN_*.md` at that commit — two or zero is a refusal naming
-    the commit — and copies the *Direction*, *Product Intent*, *Must Not
-    Change* and *Settled Decisions* sections verbatim, with the sha. The
+    `combined plan commit <sha>`). The generator resolves **the plan file the cited
+    commit itself introduced or modified** — `git diff-tree` against that
+    commit's parent, restricted to `docs/plans/PLAN_*.md` — rather than
+    every plan file present at that commit, because a repository may
+    legitimately retain an older plan on `main` (the loop permits it when
+    David asks), which would make an "exactly one file present" rule refuse
+    every future plan. Zero or two *introduced* plan files is a refusal
+    naming the commit; a pointer carrying an explicit path uses it directly.
+    It then copies the *Direction*, *Product Intent*, *Must Not Change* and
+    *Settled Decisions* sections verbatim, with the sha. The
     body supplies only the pointer; the text comes from the pinned commit,
     which David's approval fixed and the builder cannot revise mid-loop.
     `planOracle: null` is produced **only** when the body positively matches
@@ -209,12 +269,27 @@ under a stated input budget. No rubric, role, or dispatch point changes.
     treats a missing approved-plan source as a finding in its own right, so
     a record that silently proceeded without the oracle would hide exactly
     the defect phase 1b exists to catch.
+10a. **A `[PLAN REVIEW]` loop is its own positive form, and its oracle is
+    the plan file at the reviewed head.** (Round 2. Without this, decision
+    10's refusal would deadlock every plan-review loop — including the one
+    reviewing this plan — because a plan under review has no approved-plan
+    source by definition: it is not approved yet, and the loop's own
+    template has no such field.) The mode is detected from the PR body's
+    `## Review mode` / "Plan review only" declaration, which that template
+    makes mandatory. In that mode `planOracle` carries
+    `{mode: "plan-review", sha, path, sections}` — the same four sections,
+    read from the plan file the PR introduces, at `snapshot.pr.head.sha`,
+    through the same layout-aware resolver. That is the right oracle for the
+    mode: on a plan loop the plan file *is* the artifact, which the
+    adjudicator contract already says when it classifies `docs/plans/` as
+    its own behavioral class. A PR declaring plan review that introduces no
+    plan file is a refusal.
 11. **The record gains `declineCitation`, tier-selected and read at the
     reviewed head.** (Head-reading added round 1.) For `budget.tier:
     internal` it is the text of
     `.agents/memory/machinery-threat-model-is-my-own-mistakes.md` at
-    `snapshot.pr.head.sha`, via `git show` after the commit is validated —
-    not from the working tree, because the generator deliberately runs from
+    `snapshot.pr.head.sha`, through decision 7's layout-aware resolver after
+    the commit is validated — not from the working tree, because the generator deliberately runs from
     `main` or a stale checkout and would otherwise hand the judge the base
     branch's text while the PR under review changes that very note. For
     `product` and `sensitive` it is `null` with reason `no tier citation in
@@ -235,14 +310,42 @@ under a stated input budget. No rubric, role, or dispatch point changes.
     `artifact.patch` (already capped), `findings.items[].body`, and
     `planOracle`'s four sections — a plan file has no size limit either, so
     capping only the finding text would move the same defect one field over.
-    Each has a stated cap, and the record carries one `truncation` object
-    naming every field that was cut and by how much. Within the finding text
+    The caps are **numeric and stated here**, not left to the implementer:
+    `artifact.patch` keeps its existing cap; `findings.items[].body` gets a
+    **200,000-character total** across all findings; `planOracle`'s sections
+    get **80,000 characters** in total; `declineCitation` gets **40,000**.
+    Above those sits a **total serialized-record cap of 600,000 characters**
+    — measured on the exact JSON that is written and handed to the judge,
+    after every per-field cap has been applied, so no combination of fields
+    (including the ones that are variable but not capped individually, such
+    as `sinceLastReview.files` and per-finding path metadata) can exceed it.
+    If the serialized record still exceeds the total, the same priority
+    order sheds further finding text until it fits, and the record says so.
+    The numbers are chosen to sit an order of magnitude under a 1M-token
+    context at ~4 characters per token while leaving the judge's own
+    reasoning room; they are constants in one place, so moving them is a
+    one-line change with a test. The record carries one `truncation` object
+    naming every field that was cut, by how much, and the total serialized
+    size actually emitted. Within the finding text
     the cap is spent on unresolved findings first, then most-recent-first;
     within `planOracle` an over-long section is cut at its end with an
     explicit marker, never dropped silently. `declineCitation` is a fixed
     repository file, bounded by that file. Refusal was rejected in favour of
     visible degradation: refusing to build a record is refusing to
     adjudicate, which on a long loop is the worst moment to have no judge.
+12b. **The phase-scope selector is *next*, with its reason.** (Round 2.)
+    `pr-docs` requires a phase PR's oracle to name which parent-plan
+    sections that phase delivers and which it defers, and `planOracle` as
+    specified carries the whole approved plan without that selector — so a
+    conformance judge could not tell a deliberately deferred requirement
+    from a silently dropped one. The finding is correct and its fix needs a
+    **new mechanical source** for phase scope (the parent issue's Phases
+    checklist is the only candidate, and it is not in the snapshot), which
+    is a scope addition: by the now/next/never rule it defaults to *next*,
+    and it belongs with phase 1b, whose rubric is the first consumer of
+    `planOracle` at all. Nothing in phase 1a reads the field, so deferring
+    it costs no correctness here. Recorded so 1b starts from it rather than
+    rediscovering it.
 13. **Measurement counters are *next*, not now.** #36 asks for counters of
     findings pre-empted by B1, defects caught by B2, checks synthesized by
     B3, David decisions changed by a D-role. None of those roles exists
@@ -256,6 +359,18 @@ under a stated input budget. No rubric, role, or dispatch point changes.
     enrolment example stays correct, and no already-enrolled consumer can be
     left with a permanently-refusing config. The class of defect Codex named
     is dissolved rather than mitigated.
+14a. **Every canonical receipt *producer* is updated, not just the
+    validators.** (Round 2.) The affected-surface inventory covered
+    validators and missed the places that teach an operator what to write:
+    `core/.agents/receipts/README.md`'s canonical adjudication JSON and the
+    two refusal recipes in `review-budget.mjs` that enumerate the fields to
+    copy into a receipt. Making the stamps mandatory while those recipes
+    still omit them would teach consumers to write receipts that fail
+    validation. A fifth inventory class covers producers —
+    `git grep -nE '"kind": ?"adjudication"|kind.*adjudication.*verdict'`
+    over docs, READMEs and refusal strings — and every live recipe gains the
+    stamps; an example that is deliberately historical is marked as such
+    rather than silently updated.
 15. **Inventory oracle results** (Preflight, run on `639266f`, re-run at
     round 1):
     - Class 1: 8 lines across 5 files. Post-change, exactly one declarative
@@ -390,9 +505,10 @@ adjudication receipt and must equal the cited record's `dispatch`.
 
 Two JSON shapes change, both append-only for readers:
 
-- Adjudication receipt: two new fields, required past a cutoff and
-  validated against the cited record; pre-cutoff receipts unchanged and read
-  as `null`. No rewrite of committed receipts.
+- Adjudication receipt: two new fields, required exactly when the record
+  the receipt cites carries `dispatch`, and validated against that record.
+  A receipt citing a pre-`dispatch` record is legacy and passes without
+  them, so no committed receipt is invalidated and no rewrite is needed.
 - Adjudication record: new fields; `excerpt` → `body`. Records are one-shot
   inputs; committed records are never re-read by the machinery, so no
   migration.
@@ -472,10 +588,32 @@ Tests prove the invariants, with negatives:
   an oversized plan file each truncate deterministically, name themselves in
   the record's `truncation` object, and never exceed their cap.
 - `dispatch` is parsed from the definition at the reviewed head, not the
-  working tree.
+  working tree, in **both layouts**: a handbook fixture where the consumer
+  path is a `120000` symlink into `core/`, and an assembled-consumer fixture
+  where it is a regular file; a link escaping the repository refuses.
+- `declineCitation` resolves in both layouts, including the handbook case
+  where the consumer path does not exist at all.
+- `planOracle` on a `[PLAN REVIEW]` PR body: the record generates, carries
+  `mode: "plan-review"`, and reads the plan file at head; a plan-review body
+  introducing no plan file refuses.
+- `planOracle` where the base already contains `PLAN_OLD.md` and the cited
+  commit adds `PLAN_NEW.md`: resolves `PLAN_NEW.md`, does not refuse.
+- Both artifact endpoints: missing, malformed, and unresolvable base/head
+  each refuse by name rather than yielding an empty list.
+- The serialized record never exceeds the total cap on a fixture that would
+  otherwise blow it from three directions at once (many findings, an
+  oversized plan, a large patch).
+- Every live receipt-writing recipe in docs and refusal strings contains the
+  stamps (a grep-based assertion, so a new recipe cannot omit them
+  silently).
 - Receipt validator: a stamp that disagrees with the cited record refuses,
-  with no reference to current configuration; a missing stamp after the
-  cutoff refuses; before the cutoff passes.
+  with no reference to current configuration; a receipt citing a record that
+  carries `dispatch` refuses without stamps; a receipt citing a
+  pre-`dispatch` record passes without them; a **backdated** receipt citing
+  a new-format record is still refused.
+- The merge gate refuses readiness on a terminal receipt whose stamps
+  disagree with its record — the same check as the review-budget guard, in
+  `pr-ready.mjs`.
 - The definition's frontmatter declares a model and an effort, and the
   post-sweep class-1/class-2 oracles hold (exactly one declarative pin; no
   live routing instruction names a tier).
@@ -487,12 +625,14 @@ and confirm the numbers above.
 
 1. Verify empirically that this harness accepts `best` in subagent
    frontmatter; if not, use `fable` and note it (decision 5).
-2. Git-derived file list with decision 2's parsing rules; size/territory/
-   patch consume it; refusal on empty-against-distinct; retire snapshot
-   `files`.
-3. `planOracle`, `declineCitation`, `body` + budget, `dispatch` — all read
-   at the reviewed head.
-4. Receipt stamps and the record-comparing validator with its cutoff.
+2. Endpoint validation, then the git-derived file list with decision 2's
+   parsing rules; size/territory/patch consume it; refusal on
+   empty-against-distinct; retire snapshot `files`.
+3. The layout-aware head-pinned resolver, then `planOracle` (both modes),
+   `declineCitation`, `body`, `dispatch`, and the caps of decision 12a — all
+   read through that resolver.
+4. Receipt stamps, the record-comparing validation in both the guard and
+   the merge gate, and every canonical producer recipe.
 5. Definition frontmatter; sweep classes 1 and 2 with their classification.
 6. Tests; the five mandated commands; regenerate #33's record.
 
@@ -535,9 +675,14 @@ proposed.
       present, with refusals where a decision requires one.
 - [ ] Every variable-length field's cap holds — finding text and plan
       oracle alike — with truncation named in the record.
-- [ ] The definition declares model and effort; class-1 and class-2 oracles
-      re-run and quoted in the PR body.
+- [ ] The definition declares the empirically selected alias and an effort;
+      class-1, class-2 and class-5 oracles re-run and quoted in the PR body.
 - [ ] New adjudication receipts refuse on a stamp that disagrees with the
-      cited record; every pre-existing receipt still loads.
+      cited record, in the review-budget guard **and** at the merge gate;
+      every pre-existing receipt still loads.
+- [ ] A plan-review loop can generate a record and reach its judge.
+- [ ] Both payload layouts resolve every head-pinned read.
+- [ ] The serialized record's total cap holds on a worst-case fixture.
+- [ ] Every live receipt-writing recipe carries the stamps.
 - [ ] `.agents/machinery.json` and the enrolment docs are unchanged.
 - [ ] All five mandated commands pass, with output recorded.
