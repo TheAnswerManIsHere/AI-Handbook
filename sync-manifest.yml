@@ -722,6 +722,17 @@ groups:
           private-path matcher (round 8 found it accepted `shasum` without
           `-a 256`). Evidence for where the shapes are defined; the generator
           parses the PR body and never opens this file.
+      - group: skills
+        ref: core/.claude/skills/pr-watch/SKILL.md
+        form: "pr-watch/SKILL.md"
+        from: core/scripts/review-budget.mjs
+        count: 1
+        why: >
+          Cited on `ROUND_CHECK_COLLECTIONS` as the recipe the round check's
+          required capture set is transcribed from (get, get_reviews,
+          get_comments) — round 12 found the check demanding a threads
+          timestamp the recipe never captures. Evidence for where the set
+          comes from; the guard reads the snapshot, never the skill.
       - group: guard
         ref: core/.claude/guard.sh
         form: ".claude/guard.sh"
