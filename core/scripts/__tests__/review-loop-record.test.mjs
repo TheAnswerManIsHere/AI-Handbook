@@ -1181,6 +1181,37 @@ test("the provenance is read from the heading form this repo actually writes", (
   );
 });
 
+test("a fenced Approved-plan source example is documentation, not this PR's provenance", () => {
+  // The section path was fence-aware; the labelled-line fallback read the raw
+  // text, so a documentation PR quoting a complete provenance line inside a
+  // fence resolved that example's commit as the approved oracle.
+  // (Codex, #38 round 10.)
+  const documenting = [
+    "## Summary",
+    "The provenance line is written like this:",
+    "",
+    "```markdown",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06",
+    "```",
+  ].join("\n");
+  assert.throws(
+    () => planOracleFor({ title: "Document the template", body: documenting }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+});
+
+test("the since-last-review patch is emitted as lines too", () => {
+  // One escaped JSON line is the unreadable shape round 5 removed from the
+  // artifact patch; the other patch had the same shape. (Codex, #38 round 10.)
+  const record = applyCaps({
+    findings: { items: [] },
+    artifact: { patch: "a\nb", patchTruncation: null },
+    sinceLastReview: { patch: "diff --git a/x b/x\n+moved\n" },
+  });
+  assert.deepEqual(record.sinceLastReview.patch, ["diff --git a/x b/x", "+moved", ""]);
+  assert.deepEqual(record.artifact.patch, ["a", "b"]);
+});
+
 test("an explicit approved-plan source outranks incidental no-plan text", () => {
   // A feature PR that merely QUOTES a no-plan form -- a process change
   // discussing the Tier C block, a changelog, this loop's own PR body --

@@ -1002,7 +1002,15 @@ export function approvedPlanSourceText(body) {
   const text = typeof body === "string" ? body : "";
   const section = sectionOf(text, "Approved-plan source");
   if (section) return section;
-  const labelled = text.split(/\r?\n/).filter((line) => /Approved-plan source/i.test(line));
+  // OUTSIDE FENCES, like every other scan. The section path was fence-aware
+  // through `sectionOf`; this fallback read the raw text, so a documentation
+  // PR showing a complete provenance line inside a fenced example resolved
+  // that example's commit as this PR's approved oracle -- an unrelated plan
+  // presented to the judge as approved. Fourth scanner, same fix.
+  // (Codex, #38 round 10.)
+  const labelled = outsideFences(text)
+    .split(/\r?\n/)
+    .filter((line) => /Approved-plan source/i.test(line));
   return labelled.join("\n");
 }
 
@@ -1517,6 +1525,13 @@ export function applyCaps(record) {
   }
   if (record.declineCitation) record.declineCitation.text = asReadableLines(record.declineCitation.text);
   if (record.artifact) record.artifact.patch = asReadableLines(record.artifact.patch);
+  // BOTH patches. `sinceLastReview.patch` is empty under the write-gate rule
+  // but not by construction -- a branch that moved after the last pass emits
+  // it in full, and one escaped JSON line is exactly the unreadable shape
+  // round 5 removed from the artifact patch. (Codex, #38 round 10.)
+  if (record.sinceLastReview && typeof record.sinceLastReview.patch === "string") {
+    record.sinceLastReview.patch = asReadableLines(record.sinceLastReview.patch);
+  }
 
   // The note goes on BEFORE anything is measured. Measuring, then adding
   // metadata, then never re-measuring is how a record ends up larger than the
