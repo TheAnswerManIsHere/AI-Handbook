@@ -9,6 +9,7 @@ import {
   artifactStats,
   assertAdjudicationSnapshot,
   assertArtifactEndpoints,
+  assertCapturedProvenance,
   assertThreadProvenance,
   buildRecord,
   cappedDiff,
@@ -709,6 +710,38 @@ test("each permitted no-plan form yields a stated null", () => {
 // ---------------------------------------------------------------------------
 // Provenance, bodies and caps
 // ---------------------------------------------------------------------------
+
+test("reviews and issue comments must come from a capture too", () => {
+  // `assertThreadProvenance` closed the array I was caught on. #38's own
+  // round-4 snapshot then carried four review ids and one issue comment id
+  // that I typed -- 5125910000, 5125910100, 5125910200, 5125940000,
+  // 5560235000, round numbers rather than GitHub's -- and fed the record the
+  // judge ruled on. `rounds` and `trend` are counted from exactly these two
+  // arrays. (Round 7, found by inspecting my own input.)
+  assert.throws(
+    () => assertCapturedProvenance({ reviews: [{ id: 5125910000, submitted_at: "2026-09-06T16:15:15Z" }] }),
+    /carries no #pullrequestreview-<id> html_url/,
+  );
+  assert.throws(
+    () => assertCapturedProvenance({ issueComments: [{ id: 5560235000, body: "x" }] }),
+    /carries no #issuecomment-<id> html_url/,
+  );
+  // A fabricated id beside a real URL disagrees with itself.
+  assert.throws(
+    () =>
+      assertCapturedProvenance({
+        reviews: [{ id: 5125910000, html_url: "https://github.com/o/r/pull/38#pullrequestreview-5125908676" }],
+      }),
+    /has id 5125910000 but its html_url names 5125908676/,
+  );
+  // A real capture passes, in both arrays.
+  assertCapturedProvenance({
+    reviews: [{ id: 5125908676, html_url: "https://github.com/o/r/pull/38#pullrequestreview-5125908676" }],
+    issueComments: [{ id: 5560231827, html_url: "https://github.com/o/r/pull/38#issuecomment-5560231827" }],
+  });
+  // Absent arrays are the shared contract's business, not this check's.
+  assertCapturedProvenance({});
+});
 
 test("findings must come from captured threads, not a reconstruction", () => {
   // The fix for my own mistake on #37: prior rounds' threads were filled in by

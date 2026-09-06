@@ -60,7 +60,7 @@ import {
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
-import { reviewerPasses, summaryCodeReviewPasses, summaryRows } from "./review-counting.mjs";
+import { headRepoOf, reviewerPasses, summaryCodeReviewPasses, summaryRows } from "./review-counting.mjs";
 import { pathToFileURL } from "node:url";
 
 export const RECEIPT_DIR = join(REPO_ROOT, RECEIPTS_DIR);
@@ -377,15 +377,16 @@ export function assertSnapshot(snapshot, prNumber) {
   // remote URL, and this gate exists to stop ME merging my own PRs without the
   // bar. Every PR in this repo is a same-repo `claude/*` branch. If that ever
   // changes, this message is where the work starts.
-  if (typeof pr.head?.repo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(pr.head.repo)) {
+  const headRepo = headRepoOf(pr);
+  if (typeof headRepo !== "string" || !/^[^/\s]+\/[^/\s]+$/.test(headRepo)) {
     throw fail(
       'snapshot.pr.head.repo must be "owner/name" (pull_request_read method:"get", head.repo.full_name) ' +
         "-- it is what distinguishes a same-repo head from a fork's",
     );
   }
-  if (pr.head.repo.toLowerCase() !== snapshot.repo.toLowerCase()) {
+  if (headRepo.toLowerCase() !== snapshot.repo.toLowerCase()) {
     throw fail(
-      `this PR's head is in ${pr.head.repo}, not ${snapshot.repo}. The merge gate resolves the branch ` +
+      `this PR's head is in ${headRepo}, not ${snapshot.repo}. The merge gate resolves the branch ` +
         "tip through `origin`, which is the base repository, so a fork head cannot be bound to a receipt " +
         "and must not be waved through by one. Fork PRs are outside this gate's scope -- merge one by hand " +
         "after checking the bar, or extend remoteTip to resolve against the head repository.",

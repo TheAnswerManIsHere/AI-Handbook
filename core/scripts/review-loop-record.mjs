@@ -60,6 +60,8 @@ import {
   artifactSize,
   REVIEWER_LOGINS,
   normalizeLogin,
+  capturedAtOf,
+  headRepoOf,
 } from "./review-counting.mjs";
 import {
   loadLoop,
@@ -1101,6 +1103,55 @@ export function assertThreadProvenance(reviewThreads) {
   });
 }
 
+/**
+ * The SAME anti-reconstruction rule, applied to the two arrays a thread check
+ * never touched: `reviews` and `issueComments`.
+ *
+ * These are what `rounds`, `trend` and every clean-pass detection are counted
+ * from, and the rubric weighs the trend directly. `assertThreadProvenance`
+ * caught my hand-built THREADS on #37; it left the sibling arrays open, and
+ * #38's own round-4 snapshot then carried four review ids and one issue
+ * comment id that I typed -- 5125910000, 5125910100, 5125910200, 5125940000,
+ * 5560235000, round numbers rather than GitHub's -- with a paraphrased body
+ * beside them. That snapshot fed the record the judge ruled on. Fixing one
+ * array and leaving two is not a provenance guarantee; it is a guarantee
+ * about the array I happened to be caught on.
+ *
+ * What is checkable without network access: GitHub returns an `html_url` for
+ * every review and issue comment, ending in `#pullrequestreview-<id>` or
+ * `#issuecomment-<id>`, and that id must EQUAL the entry's own `id`. A typed
+ * entry has no URL to copy and a fabricated one disagrees with itself. This
+ * cannot stop deliberate forgery and does not claim to -- the threat model is
+ * my own mistakes -- but it does stop the mistake that actually happened,
+ * which is a plausible number typed where a captured one belonged.
+ */
+export function assertCapturedProvenance(snapshot) {
+  const arrays = [
+    ["reviews", "review", "#pullrequestreview-<id>", snapshot?.reviews, /#pullrequestreview-(\d+)\b/],
+    ["issueComments", "issue comment", "#issuecomment-<id>", snapshot?.issueComments, /#issuecomment-(\d+)\b/],
+  ];
+  for (const [key, noun, shape, entries, anchor] of arrays) {
+    (entries ?? []).forEach((entry, i) => {
+      const url = typeof entry?.html_url === "string" ? entry.html_url : "";
+      const found = anchor.exec(url)?.[1];
+      if (!found) {
+        throw new Error(
+          `${key}[${i}] carries no ${shape} html_url. GitHub returns one for every ${noun}; an entry ` +
+            `without it was not captured from GitHub, and the rounds and trend this record reports are ` +
+            `counted from these arrays`,
+        );
+      }
+      if (String(entry.id) !== found) {
+        throw new Error(
+          `${key}[${i}] has id ${JSON.stringify(entry.id)} but its html_url names ${found}. A capture cannot ` +
+            `disagree with itself; refusing rather than counting a round from an entry whose identity is ` +
+            `internally inconsistent`,
+        );
+      }
+    });
+  }
+}
+
 export function reviewerFindings(reviewThreads) {
   const out = [];
   // Deduplicated by the root comment's identity, matching `countFindings`'
@@ -1471,7 +1522,7 @@ export function buildRecord({
     // running is invisible to `pendingRequest` but would compare as
     // "already known" against the later, misleadingly-fresh-looking
     // `generatedAt`. (Codex, #539 round 3.)
-    evidenceCapturedAt: snapshot.capturedAt.issueComments,
+    evidenceCapturedAt: capturedAtOf(snapshot, "issueComments"),
     pr,
     // WHICH REPOSITORY, out of the durable budget rather than the working
     // tree. Every repository has a #503, so a PR number alone does not
@@ -1643,7 +1694,7 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
   }
   // `snapshot.repo` is the operator's transcription; `pr.head.repo` is
   // GitHub's word and must agree too. (Codex, PR #7 round 14.)
-  const head = snapshot.pr?.head?.repo;
+  const head = headRepoOf(snapshot.pr);
   if (typeof head !== "string" || head.toLowerCase() !== target.toLowerCase()) {
     throw new Error(
       `snapshot.pr.head.repo must be "${target}" (pull_request_read get, head.repo.full_name) -- it says ` +
@@ -1665,7 +1716,7 @@ export function assertAdjudicationSnapshot(pr, snapshot, slug) {
   // process running would show pendingRequest: false and compare as
   // "already known" against a boundary that never actually saw it.
   // (Codex, #539 round 3.)
-  if (!Number.isFinite(Date.parse(snapshot.capturedAt?.issueComments ?? ""))) {
+  if (!Number.isFinite(Date.parse(capturedAtOf(snapshot, "issueComments") ?? ""))) {
     throw new Error(
       "an adjudication snapshot must carry a parseable capturedAt.issueComments -- the record's " +
         "evidence-freshness boundary is the moment issueComments were actually read, not this process's run time",
@@ -1720,6 +1771,7 @@ function main() {
   assertAdjudicationSnapshot(pr, snapshot, budgetState.budget.repo);
   // Findings are built from the captured threads verbatim or not at all.
   assertThreadProvenance(snapshot.reviewThreads);
+  assertCapturedProvenance(snapshot);
   const derived = fromMcp(snapshot);
 
   const base = snapshot.pr?.base?.sha ?? null;

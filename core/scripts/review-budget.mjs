@@ -118,7 +118,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { REVIEWER_LOGINS, normalizeLogin } from "./review-counting.mjs";
+import { REVIEWER_LOGINS, capturedAtOf, headRepoOf, normalizeLogin } from "./review-counting.mjs";
 
 export const RECEIPTS_DIR = ".agents/receipts";
 
@@ -2155,7 +2155,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // were captured from another repository's PR. `pr.head.repo` is GitHub's
   // word (pull_request_read get, head.repo.full_name) and must agree too.
   // (Codex, PR #7 round 14. pr-ready.mjs's assertSnapshot already did this.)
-  const head = snapshot.pr?.head?.repo;
+  const head = headRepoOf(snapshot.pr);
   if (typeof head !== "string" || head.toLowerCase() !== target.toLowerCase()) {
     throw new Error(
       `snapshot.pr.head.repo must be "${target}" (pull_request_read get, head.repo.full_name) -- it says ` +
@@ -2172,7 +2172,8 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   // was actually read. (Codex, #503 round 4 -- and they were right that this
   // is the dissolved reconciliation-staleness finding reappearing in its
   // replacement, which is exactly why it needed closing rather than noting.)
-  const capturedAt = Date.parse(snapshot.capturedAt ?? "");
+  const capturedAtRaw = capturedAtOf(snapshot);
+  const capturedAt = Date.parse(capturedAtRaw ?? "");
   if (!Number.isFinite(capturedAt)) {
     throw new Error(
       'snapshot must carry a parseable "capturedAt" -- the moment GitHub was read. Without it the ' +
@@ -2180,7 +2181,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
     );
   }
   const age = now - capturedAt;
-  if (age < 0) throw new Error(`snapshot capturedAt (${snapshot.capturedAt}) is in the future`);
+  if (age < 0) throw new Error(`snapshot capturedAt (${capturedAtRaw}) is in the future`);
   if (age > MAX_CHECK_AGE_MS) {
     throw new Error(
       `snapshot was captured ${Math.round(age / 60000)} minutes ago, older than the ` +
@@ -2268,9 +2269,9 @@ async function check(flags, io) {
   const previous = readJson(io, checkPath(pr));
   if (previous.state === "ok") {
     const before = Date.parse(previous.value?.capturedAt ?? "");
-    if (Number.isFinite(before) && Date.parse(snapshot.capturedAt) <= before) {
+    if (Number.isFinite(before) && Date.parse(capturedAtOf(snapshot)) <= before) {
       throw new Error(
-        `this snapshot was captured at ${snapshot.capturedAt}, which is not newer than the evidence behind ` +
+        `this snapshot was captured at ${capturedAtOf(snapshot)}, which is not newer than the evidence behind ` +
           `the current receipt (${previous.value.capturedAt}). Re-capture the snapshot: re-presenting an ` +
           "observation that has already authorized a post is how one evidence state authorizes several.",
       );

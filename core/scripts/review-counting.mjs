@@ -553,6 +553,55 @@ export function assertMcpSnapshotComplete(snapshot) {
  * that JSON-serializes as a legitimate-looking `hours: null` (with
  * `opened_at` silently omitted) instead of failing loudly.
  */
+/**
+ * The head repository's `owner/name`, accepted in EITHER of the two shapes an
+ * operator can honestly produce: the bare string the snapshot contract asks
+ * for, or the `{ full_name }` object `pull_request_read` actually returns.
+ *
+ * All three validators demanded the string while their own refusal messages
+ * told the operator to take the value from `head.repo.full_name` — so copying
+ * the API's shape, which is what the message names, was refused by a message
+ * that reads as though the wrong field had been copied. That is the same
+ * defect this round fixed in the plan-provenance matchers, one field over: a
+ * matcher written against a shape the documented source does not emit.
+ * (Round 7.)
+ */
+/**
+ * A snapshot's capture time, in EITHER documented shape, for one collection or
+ * for the snapshot as a whole.
+ *
+ * The two gates that read the same snapshot file disagreed about this field.
+ * `review-budget.mjs check` required `snapshot.capturedAt` to be a parseable
+ * TIMESTAMP; `review-loop-record.mjs` required `snapshot.capturedAt.issueComments`,
+ * an OBJECT. No single file satisfied both, so the documented workflow —
+ * capture once, run the budget check, then generate the record from that same
+ * capture — could not be executed at all. Found by running it, not by reading
+ * it. (Round 7.)
+ *
+ * With no collection named, an object form yields its OLDEST entry: freshness
+ * is a property of the stalest evidence in the file, never of the newest.
+ */
+export function capturedAtOf(snapshot, collection = null) {
+  const at = snapshot?.capturedAt;
+  if (typeof at === "string") return at;
+  if (!at || typeof at !== "object") return null;
+  if (collection) return typeof at[collection] === "string" ? at[collection] : null;
+  const times = Object.values(at)
+    .filter((v) => typeof v === "string")
+    .map((v) => [v, Date.parse(v)])
+    .filter(([, ms]) => Number.isFinite(ms));
+  if (!times.length) return null;
+  times.sort((a, b) => a[1] - b[1]);
+  return times[0][0];
+}
+
+export function headRepoOf(pr) {
+  const repo = pr?.head?.repo;
+  if (typeof repo === "string") return repo;
+  if (repo && typeof repo.full_name === "string") return repo.full_name;
+  return null;
+}
+
 export function assertMcpSnapshotShape(snapshot) {
   const pr = snapshot.pr ?? {};
   if (typeof pr.number !== "number" || typeof pr.title !== "string" || Number.isNaN(new Date(pr.created_at ?? "").getTime())) {

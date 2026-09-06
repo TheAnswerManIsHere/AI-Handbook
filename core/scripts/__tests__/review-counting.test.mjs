@@ -167,6 +167,8 @@ function stub(pages) {
 // ---------------------------------------------------------------------------
 
 import {
+  capturedAtOf,
+  headRepoOf,
   countFindings,
   findingsByRound,
   reviewerPasses,
@@ -597,4 +599,51 @@ test("a review comment belongs to the review it was written FOR, not the previou
     reviews,
   );
   assert.equal(later[0].pull_request_review_id, 2);
+});
+
+// ---------------------------------------------------------------------------
+// The two shapes the same snapshot file has to satisfy in two different gates
+// ---------------------------------------------------------------------------
+
+test("the head repository is read in either documented shape", () => {
+  // Every validator demanded the bare string while its own refusal message
+  // told the operator to take the value from `head.repo.full_name` — so a
+  // capture copied in the API's own shape was refused by a message reading as
+  // though the wrong field had been copied. (Round 7.)
+  assert.equal(headRepoOf({ head: { repo: "TheAnswerManIsHere/AI-Handbook" } }), "TheAnswerManIsHere/AI-Handbook");
+  assert.equal(
+    headRepoOf({ head: { repo: { full_name: "TheAnswerManIsHere/AI-Handbook" } } }),
+    "TheAnswerManIsHere/AI-Handbook",
+  );
+  assert.equal(headRepoOf({ head: {} }), null);
+  assert.equal(headRepoOf({}), null);
+  assert.equal(headRepoOf(null), null);
+});
+
+test("capturedAt is read in either shape, and the whole-snapshot view takes the oldest", () => {
+  // `review-budget.mjs check` required a parseable TIMESTAMP here;
+  // `review-loop-record.mjs` required an OBJECT keyed by collection. No single
+  // file satisfied both, so the documented workflow — capture once, run the
+  // budget check, generate the record from that same capture — could not be
+  // executed. Found by running it. (Round 7.)
+  const scalar = { capturedAt: "2026-09-06T17:00:00Z" };
+  assert.equal(capturedAtOf(scalar), "2026-09-06T17:00:00Z");
+  assert.equal(capturedAtOf(scalar, "issueComments"), "2026-09-06T17:00:00Z");
+
+  const perCollection = {
+    capturedAt: {
+      pr: "2026-09-06T17:50:00Z",
+      reviews: "2026-09-06T17:20:00Z",
+      issueComments: "2026-09-06T17:40:00Z",
+      reviewThreads: "2026-09-06T17:45:00Z",
+    },
+  };
+  assert.equal(capturedAtOf(perCollection, "issueComments"), "2026-09-06T17:40:00Z");
+  // Freshness is a property of the STALEST evidence in the file.
+  assert.equal(capturedAtOf(perCollection), "2026-09-06T17:20:00Z");
+
+  assert.equal(capturedAtOf({}), null);
+  assert.equal(capturedAtOf({ capturedAt: {} }), null);
+  assert.equal(capturedAtOf({ capturedAt: { reviews: "not a date" } }), null);
+  assert.equal(capturedAtOf(perCollection, "files"), null);
 });
