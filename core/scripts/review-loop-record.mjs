@@ -1871,6 +1871,21 @@ export function buildRecord({
     provenance: {
       githubVia: "mcp-snapshot (no bash transport reaches the GitHub API in this container)",
       countingLogic: "scripts/review-counting.mjs",
+      // WHERE EACH COLLECTION ACTUALLY CAME FROM, because "assembled by a
+      // script" is two different guarantees. A `harness-capture` is the raw
+      // response file the harness wrote when a result was too large to return
+      // inline: no agent touched it. An `agent-written` capture is a response
+      // that came back inline and was written out by hand as one blob -- the
+      // ids are still copied by program and verified against that file, but
+      // the file itself is a transcription. The judge is told which, rather
+      // than being left to assume the stronger one. See
+      // `scripts/snapshot-from-captures.mjs`.
+      captures: Object.fromEntries(
+        Object.entries(snapshot.captureProvenance ?? {}).map(([k, v]) => [
+          k,
+          { source: v?.source ?? null, file: String(v?.file ?? "").split("/").pop(), sha256: v?.sha256 ?? null },
+        ]),
+      ),
       caveat:
         "This record contains no narration from the loop it measures. If a field is unknown it says so; " +
         "nothing here is inferred from the session's own account of its rounds.",

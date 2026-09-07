@@ -1661,13 +1661,10 @@ test("a snapshot's identifiers must exist in the responses it claims to come fro
   const file = path.join(dir, "threads.json");
   fs.writeFileSync(file, JSON.stringify({ review_threads: [{ id: "PRRT_kwDOUKOPKc6fxvRx" }] }));
   const sha256 = createHash("sha256").update(fs.readFileSync(file, "utf8"), "utf8").digest("hex");
+  const entry = { file, sha256, source: "agent-written" };
   const named = {
     ...snapshot,
-    captureProvenance: {
-      reviews: { file, sha256 },
-      issueComments: { file, sha256 },
-      reviewThreads: { file, sha256 },
-    },
+    captureProvenance: { reviews: entry, issueComments: entry, reviewThreads: entry },
   };
   assert.throws(() => assertSnapshotEvidence(named), /appear nowhere in .*threads\.json/);
 
@@ -1676,4 +1673,35 @@ test("a snapshot's identifiers must exist in the responses it claims to come fro
   named.reviewThreads = [{ id: "PRRT_kwDOUKOPKc6fxvRx", comments: [{}] }];
   assert.doesNotThrow(() => assertSnapshotEvidence(named));
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("buildRecord: the judge is told where each collection actually came from", () => {
+  // "Assembled by a script" is two different guarantees. A harness capture is
+  // a file no agent touched; an agent-written one is an inline response copied
+  // out as a blob, whose ids are still verified against it but whose bytes are
+  // a transcription. Recording the distinction only helps if it reaches the
+  // record -- a field the generator drops is a field nobody can act on.
+  const snapshot = {
+    ...minimalSnapshot(),
+    captureProvenance: {
+      reviews: { file: "/tmp/scratch/reviews.json", sha256: "aa", source: "agent-written" },
+      issueComments: { file: "/tmp/scratch/comments.json", sha256: "bb", source: "agent-written" },
+      reviewThreads: { file: "/root/.claude/projects/p/s/tool-results/x.txt", sha256: "cc", source: "harness-capture" },
+    },
+  };
+  const record = buildRecord({
+    pr: 500,
+    snapshot,
+    derived: { pr: snapshot.pr, reviews: [], files: [], comments: [], issueComments: [] },
+    budgetState: minimalBudgetState(),
+    changes: { resolved: false, reason: "test" },
+    now: "2026-08-19T22:00:00Z",
+  });
+  assert.deepEqual(record.provenance.captures, {
+    reviews: { source: "agent-written", file: "reviews.json", sha256: "aa" },
+    issueComments: { source: "agent-written", file: "comments.json", sha256: "bb" },
+    // The absolute path is local layout the judge cannot use; the basename is
+    // enough to tie a claim back to a file, and the hash is what pins it.
+    reviewThreads: { source: "harness-capture", file: "x.txt", sha256: "cc" },
+  });
 });

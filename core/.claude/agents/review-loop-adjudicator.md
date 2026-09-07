@@ -146,6 +146,19 @@ carry the decision:
   it. Never read an empty `sinceLastReview.patch` as "no code to worry
   about" — `artifact.patch` above is the one that carries the code.
 
+- `provenance.captures` — how each collection of evidence reached this
+  record, per collection. `harness-capture` means the raw API response file
+  the harness wrote because the result was too large to return inline: no
+  agent touched those bytes. `agent-written` means the response came back
+  inline and was copied out as one blob; every identifier in the record was
+  still copied from that file by program and verified against it, but the file
+  itself is a transcription. **This exists because on 2026-09-07 a dispatching
+  session typed a round's thread and comment ids and invented four of them**,
+  and both provenance checks in force at the time passed, because an
+  invention agrees with itself. Weigh a wholly `agent-written` record as
+  slightly weaker evidence than a `harness-capture` one; do not treat either
+  as narration, and do not let it move a verdict on its own.
+
 `territory.note` tells you what the record deliberately does **not** classify:
 the *cause* of each finding (new ground vs. repairing an earlier fix vs.
 re-raised) has no machine-readable marker and was left unclassified rather than

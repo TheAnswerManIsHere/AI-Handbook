@@ -7,6 +7,7 @@ import path from "node:path";
 
 import {
   VERIFIED_COLLECTIONS,
+  captureSource,
   digest,
   identifiersOf,
   assertCaptureProvenance,
@@ -89,6 +90,9 @@ test("the assembled snapshot copies every identifier from a capture, and says wh
   for (const key of VERIFIED_COLLECTIONS) {
     assert.equal(snap.captureProvenance[key].file, paths[{ reviews: "reviews.json", issueComments: "comments.json", reviewThreads: "threads.json" }[key]]);
     assert.equal(snap.captureProvenance[key].sha256, digest(fs.readFileSync(snap.captureProvenance[key].file, "utf8")));
+    // These fixtures are written by the test, so they classify honestly as
+    // the weaker case rather than as harness captures.
+    assert.equal(snap.captureProvenance[key].source, "agent-written");
   }
   assert.doesNotThrow(() => assertCaptureProvenance(snap));
   cleanup();
@@ -99,8 +103,14 @@ test("a snapshot with no captureProvenance is refused, because nothing establish
 });
 
 test("every verified collection must name a file and that file's hash", () => {
+  const entry = { file: "/x", sha256: "0", source: "agent-written" };
+  const all = () => Object.fromEntries(VERIFIED_COLLECTIONS.map((k) => [k, { ...entry }]));
+  // The shape pass runs across ALL collections before any file is opened:
+  // otherwise the refusal you get depends on which filesystem error came
+  // first, and a snapshot naming no source for `reviewThreads` reports an
+  // unreadable `reviews` file instead.
   for (const key of VERIFIED_COLLECTIONS) {
-    const prov = Object.fromEntries(VERIFIED_COLLECTIONS.map((k) => [k, { file: "/x", sha256: "0" }]));
+    const prov = all();
     delete prov[key];
     assert.throws(
       () => assertCaptureProvenance({ captureProvenance: prov }),
@@ -108,8 +118,35 @@ test("every verified collection must name a file and that file's hash", () => {
     );
   }
   assert.throws(
-    () => assertCaptureProvenance({ captureProvenance: { ...Object.fromEntries(VERIFIED_COLLECTIONS.map((k) => [k, { file: "/x", sha256: "0" }])), reviews: { file: "/x" } } }),
+    () => assertCaptureProvenance({ captureProvenance: { ...all(), reviews: { file: "/x" } } }),
     /captureProvenance\.reviews must name/,
+  );
+});
+
+test("a capture's source is derived from its path, never taken from the file", () => {
+  // The real layout, from the path this session's own oversized results land
+  // in: `projects/<project>/<session>/tool-results/`.
+  const harness = "/root/.claude/projects/-home-user-Overhypeme/badfaaa0-24b8/tool-results/mcp-github-pull_request_read-1.txt";
+  assert.equal(captureSource(harness), "harness-capture");
+  assert.equal(captureSource("/tmp/scratch/threads.json"), "agent-written");
+  // A relative path is resolved first, so the classification cannot be
+  // changed by where the command was run from.
+  assert.equal(captureSource("./threads.json"), "agent-written");
+  // "tool-results" outside the harness layout is not the harness layout.
+  assert.equal(captureSource("/tmp/tool-results/x.txt"), "agent-written");
+
+  const entry = { file: "/x", sha256: "0", source: "agent-written" };
+  const all = () => Object.fromEntries(VERIFIED_COLLECTIONS.map((k) => [k, { ...entry }]));
+  // Claiming the stronger provenance for an agent-written file is refused --
+  // the point of the field is that it reports what happened, not what the
+  // writer would prefer to have happened.
+  assert.throws(
+    () => assertCaptureProvenance({ captureProvenance: { ...all(), reviews: { ...entry, source: "harness-capture" } } }),
+    /records source "harness-capture" for \/x, but that path is a agent-written/,
+  );
+  assert.throws(
+    () => assertCaptureProvenance({ captureProvenance: { ...all(), reviews: { file: "/x", sha256: "0" } } }),
+    /records source null for \/x/,
   );
 });
 
@@ -162,5 +199,28 @@ test("a missing required flag is a refusal, not a snapshot with a hole in it", (
   const full = argv(paths, path.join(dir, "s.json"));
   const i = full.indexOf("--head");
   assert.throws(() => main([...full.slice(0, i), ...full.slice(i + 2)]), /--head is required/);
+  cleanup();
+});
+
+test("a capture named by a relative path is recorded absolutely", () => {
+  // The generator verifies a snapshot from the repository root, not from
+  // wherever the captures happened to sit when the assembler ran. Recording
+  // `reviews.json` verbatim made the check report a missing capture in every
+  // directory but one. (Found running this against #43's real captures.)
+  const { dir, paths, cleanup } = fixture();
+  const out = path.join(dir, "snapshot.json");
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    main(argv(Object.fromEntries(Object.keys(paths).map((k) => [k, `./${k}`])), out));
+  } finally {
+    process.chdir(cwd);
+  }
+  const snap = JSON.parse(fs.readFileSync(out, "utf8"));
+  for (const key of VERIFIED_COLLECTIONS) {
+    assert.equal(path.isAbsolute(snap.captureProvenance[key].file), true);
+  }
+  // ...and it verifies from anywhere, which is the property that matters.
+  assert.doesNotThrow(() => assertCaptureProvenance(snap));
   cleanup();
 });

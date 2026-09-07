@@ -24,11 +24,24 @@
  * against its own sources rather than trusting its shape.
  *
  * HOW TO GET THE CAPTURE FILES. Request the full page (`perPage: 100`). A
- * response large enough to exceed the inline limit is written to a path the
- * tool result names. A small response is returned inline and never lands on
- * disk -- which is why the `pr` object is deliberately NOT covered here: it
- * carries no external identifiers this check could verify, and its two shas
- * are checked against git by the generator anyway.
+ * response large enough to exceed the inline limit is written by the harness
+ * to a path the tool result names; that file is evidence no agent touched.
+ *
+ * A SMALLER RESPONSE COMES BACK INLINE AND MUST BE WRITTEN OUT BY HAND, and
+ * this file does not pretend otherwise. Copying one contiguous blob is a much
+ * narrower act than typing a snapshot field by field -- the failure being
+ * fixed was inventing ids for entries whose bodies came from somewhere else
+ * entirely -- but it is still a hand step, and a blob corrupted on the way in
+ * would satisfy every check here, because the snapshot is then a faithful
+ * transform of a corrupted source. So each collection RECORDS which case it
+ * is, derived from the path rather than declared, and the record carries it.
+ * Refusing the agent-written case instead would strand any pull request small
+ * enough to answer inline -- and a loop that cannot build a record cannot
+ * obtain a verdict to continue OR to stop.
+ *
+ * The `pr` object is deliberately not covered: it carries no external
+ * identifiers this check could verify, and its two shas are checked against
+ * git by the generator anyway.
  *
  * Usage:
  *   node core/scripts/snapshot-from-captures.mjs \
@@ -39,9 +52,29 @@
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 /** The collections whose entries carry identifiers a fabricator could invent. */
 export const VERIFIED_COLLECTIONS = ["reviews", "issueComments", "reviewThreads"];
+
+/**
+ * Where a capture came from, from its path alone.
+ *
+ * The harness writes an oversized tool result under
+ * `…/projects/<session>/tool-results/`, and nothing else writes there in the
+ * course of this work. Deriving the classification rather than accepting a
+ * declared one is the whole point: a field the assembler sets from a flag is
+ * a field that says what its caller wanted it to say.
+ *
+ * This is not a forgery defence -- the directory is writable, and the stated
+ * threat model here is my own mistakes, not an adversary. It makes the
+ * weaker case visible instead of silently equivalent to the stronger one.
+ */
+export function captureSource(file) {
+  return /(^|\/)\.claude\/projects\/(?:[^/]+\/)+tool-results\//.test(resolve(file))
+    ? "harness-capture"
+    : "agent-written";
+}
 
 export function digest(text) {
   return createHash("sha256").update(text, "utf8").digest("hex");
@@ -102,6 +135,14 @@ export function assertCaptureProvenance(snapshot, { read = readFileSync } = {}) 
           `file's sha256. A collection with no named source is exactly the hand-typed case this refuses`,
       );
     }
+    const source = captureSource(entry.file);
+    if (entry.source !== source) {
+      throw new Error(
+        `captureProvenance.${key} records source ${JSON.stringify(entry.source ?? null)} for ${entry.file}, ` +
+          `but that path is a ${source}. The classification is derived from the path, never declared -- a ` +
+          `field the writer chooses is a field that says whatever the writer wanted`,
+      );
+    }
   }
   for (const key of VERIFIED_COLLECTIONS) {
     const entry = prov[key];
@@ -143,6 +184,13 @@ function loadCapture(path) {
   const text = readFileSync(path, "utf8");
   return { text, json: JSON.parse(text), sha256: digest(text), file: path };
 }
+
+// THE RECORDED PATH IS ABSOLUTE. A snapshot is verified by the generator,
+// from the repository root, long after the assembler ran in whatever
+// directory the captures happened to sit in -- so a relative path recorded
+// here reads as a missing capture there, and the refusal blames the evidence
+// for the bookkeeping. (Found by running this against #43's real captures.)
+const provenanceOf = (c) => ({ file: resolve(c.file), sha256: c.sha256, source: captureSource(c.file) });
 
 const normaliseThread = (t) => ({
   id: t.id,
@@ -199,9 +247,9 @@ export function main(argv = process.argv.slice(2)) {
     reviewThreads: (threads.json.review_threads ?? []).map(normaliseThread),
     complete: { reviews: true, issueComments: true, reviewThreads: true },
     captureProvenance: {
-      reviews: { file: reviews.file, sha256: reviews.sha256 },
-      issueComments: { file: comments.file, sha256: comments.sha256 },
-      reviewThreads: { file: threads.file, sha256: threads.sha256 },
+      reviews: provenanceOf(reviews),
+      issueComments: provenanceOf(comments),
+      reviewThreads: provenanceOf(threads),
     },
   };
   assertCaptureProvenance(snapshot);
@@ -211,7 +259,8 @@ export function main(argv = process.argv.slice(2)) {
     `wrote ${out}: ${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ` +
     `${snapshot.reviewThreads.length} threads ` +
     `(${snapshot.reviewThreads.filter((t) => t.isResolved).length} resolved). ` +
-    `Every identifier copied from a capture and verified against it.`
+    `Every identifier copied from a capture and verified against it. Sources: ` +
+    VERIFIED_COLLECTIONS.map((k) => `${k} ${snapshot.captureProvenance[k].source}`).join(", ")
   );
 }
 
