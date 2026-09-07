@@ -49,15 +49,26 @@ private/manual path), plus the date David approved it, as named keys
 ([`plan-provenance.md`](../ai-context/plan-provenance.md)). In a multi-round
 plan review, an oracle pasted from an earlier revision is a plausible failure
 and an invisible one: the PR looks correctly oracled while the code is checked
-against a plan David never approved. A missing block, or one naming only a
-title or a mutable branch, is itself a finding — the oracle can't be trusted
-until it's pinned.
+against a plan David never approved. Provenance that names only a title or a
+mutable branch is itself a finding — the oracle can't be trusted until it's
+pinned.
+
+**A body with no block is not a finding.** The legacy prose form still
+resolves, deliberately, and the record marks which of the two answered. A
+prose-selected oracle is the same oracle read a more fragile way, not weaker
+evidence — the judge's own contract says so and forbids it moving a verdict.
+Reporting its absence would manufacture a finding on every PR written before
+this shipped and force a migration nothing asked for.
 
 The parser refuses a malformed block by key name rather than accepting it, so
-what reaches you as a *review* finding is the class it cannot judge: a
-well-formed block naming the **wrong** revision. Check the sha against the
-plan-review PR's final commit; the machine only checks that a sha was named
-and that the commit introduced the plan file.
+what reaches you as a *review* finding is the class it cannot judge: **a
+well-formed block whose values are false.** It checks shapes, not truth, and
+then keeps only the commit — so every other key is auditable by you alone.
+Cross-check, as applicable: the sha against the plan-review PR's final commit;
+the PR number, or each number in a split loop; the approval date; and that the
+combined branch is the one carrying that commit. A block can be perfectly
+formed and name the wrong approval, and those keys exist precisely to make the
+approval auditable.
 
 **On the private/manual path, "pinned" is as far as an independent reviewer
 can verify — and that's accepted, not a gap to close.** That path exists
