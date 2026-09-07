@@ -1463,8 +1463,7 @@ export function lastReviewedCommit(passes) {
  * adjudication. Reaching a verdict took a review round that existed only to
  * re-cover bookkeeping: a round spent on nothing and, at a spent budget, an
  * escalation to David for a decision with no content in it. (Overhypeme #614,
- * 2026-09-07: a budget receipt re-declared to satisfy this file's own identity
- * rule was itself the unreviewed commit.)
+ * 2026-09-07, where the shape was found.)
  *
  * `isGeneratedRecord` is the predicate, deliberately, and not
  * `behavioralFiles === 0`: it admits exactly the numbered shapes this
@@ -1474,15 +1473,56 @@ export function lastReviewedCommit(passes) {
  * `.agents/machinery.json` is configuration that changes how these gates
  * behave, classes as `agent-contract`, and is still refused here.
  *
- * THE MERGE GATE IS NOT LOOSENED BY THIS. `pr-ready.mjs` bounds its own diff
- * from `lastReviewedCommit` and allows exactly two files past it -- the
- * terminal receipt and its cited record -- so a head carrying earlier
- * bookkeeping commits still fails there and still needs the proper path. The
- * asymmetry is the point: the two gates share an invariant but not a job.
- * Adjudicating is deciding whether to write more, which a receipt cannot
- * change; merging is shipping, where an unreviewed receipt could carry a tier
- * re-declaration that changes the rubric the loop was judged under.
+ * AND ONLY AN ADDITION. `.agents/receipts/README.md` states the line this
+ * exemption must respect: *evidence is ephemeral, decisions are durable*. A
+ * budget receipt names the tier the loop is judged under; an extension receipt
+ * IS the adjudicator's or David's decision. Matching those paths and asking no
+ * more let a commit that DELETED or REWROTE a standing terminal receipt ride
+ * through as bookkeeping -- `loadLoop` runs before this assertion, so it would
+ * derive a history in which that stop never happened, and the rewritten
+ * decision would sit outside the record's patches where no judge could see it.
+ * Creating the next artifact is this machinery writing; changing one already
+ * written is rewriting the decision history the guards read. So every path in
+ * the delta must be an ADDITION, and a modification or deletion refuses --
+ * including of a file this predicate would otherwise admit. (Codex, #47 round
+ * 1.) A consequence worth stating: #614's own re-declared budget receipt was a
+ * modification, so this would not have exempted it. That is the correct
+ * answer, for the same reason -- a re-declaration can change the tier.
+ *
+ * THE MERGE GATE IS NOT LOOSENED BY THIS, and that is a scope boundary rather
+ * than a completed workflow. `pr-ready.mjs` bounds its own diff from
+ * `lastReviewedCommit` and refuses a record generated anywhere else, so a stop
+ * on a receipt-only head still has no path to READY through the fallback; it
+ * needs a live pass on that head. Widening the merge gate to match is a
+ * guardrail change that belongs to its own review, and the question is open
+ * with David (Overhypeme #615). What this function does is let such a loop
+ * reach a VERDICT, which it previously could not do at all.
  */
+/**
+ * `[{ file, status }]` for a range, or `null` if git could not answer.
+ *
+ * Separate from `changesSince`'s `--numstat`, which reports line counts and no
+ * status at all. `--no-renames` so a rename cannot arrive as a single
+ * destination path with its source silently dropped -- under this predicate
+ * that would read as an addition, which is exactly the misreading that matters.
+ * Anything unparseable returns null and the caller refuses.
+ */
+export function changedPathStatuses(since, head, { runGit = git } = {}) {
+  let out;
+  try {
+    out = runGit(["diff", "--name-status", "--no-renames", "-z", `${since}..${head}`]);
+  } catch {
+    return null;
+  }
+  const parts = String(out).split("\0").filter(Boolean);
+  if (parts.length % 2 !== 0) return null;
+  const delta = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    delta.push({ status: parts[i], file: parts[i + 1] });
+  }
+  return delta;
+}
+
 export function assertHeadReviewed(lastReviewed, head, { changedFiles = null } = {}) {
   if (!lastReviewed || !head) return;
   const x = String(lastReviewed).toLowerCase();
@@ -1491,15 +1531,20 @@ export function assertHeadReviewed(lastReviewed, head, { changedFiles = null } =
   if (n >= 7 && x.slice(0, n) === y.slice(0, n)) return;
   // Only when the caller actually resolved the diff. A null list means what
   // changed could not be determined, which must read as "not established" --
-  // never as "nothing did".
-  const content = Array.isArray(changedFiles) ? changedFiles.filter((f) => !isGeneratedRecord(f)) : null;
+  // never as "nothing did". Entries are `{ file, status }`; anything else,
+  // including a bare string, is not a delta this can reason about.
+  const delta = Array.isArray(changedFiles) ? changedFiles : null;
+  const content = delta?.filter((c) => !(c?.status === "A" && isGeneratedRecord(c?.file)));
   if (content && content.length === 0) return;
   throw new Error(
     `PR head ${String(head).slice(0, 7)} is not a reviewed commit: no completed reviewer pass covers it ` +
       `(the last reviewed commit is ${String(lastReviewed).slice(0, 7)})` +
       (content
-        ? `, and ${content.length} file(s) other than this machinery's own generated records changed since ` +
-          `it (${content.slice(0, 5).join(", ")}${content.length > 5 ? ", ..." : ""})`
+        ? `, and ${content.length} change(s) since it are not newly added generated records of this machinery ` +
+          `(${content
+            .slice(0, 5)
+            .map((c) => `${c?.status ?? "?"} ${c?.file ?? "?"}`)
+            .join(", ")}${content.length > 5 ? ", ..." : ""})`
         : "") +
       ". A record for adjudication or for a stop is generated on a reviewed head or not at all -- the merge " +
       "gate bounds its bookkeeping-only diff from the last reviewed commit, so a record on an unreviewed head " +
@@ -2227,7 +2272,7 @@ function main() {
   // established" and refuses on.
   const changes = changesSince(reviewed, head);
   assertHeadReviewed(reviewed, head, {
-    changedFiles: changes.resolved ? changes.files.map((f) => f.file) : null,
+    changedFiles: changes.resolved ? changedPathStatuses(reviewed, head) : null,
   });
   let artifactPatchTruncation = null;
   const artifactPatch = artifactDiff(base, head, {

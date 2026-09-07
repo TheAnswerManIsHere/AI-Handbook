@@ -11,6 +11,7 @@ import {
   artifactDiff,
   assertCapturedAfterLatestPass,
   assertHeadReviewed,
+  changedPathStatuses,
   artifactFileList,
   artifactStats,
   assertAdjudicationSnapshot,
@@ -1624,62 +1625,94 @@ test("assertHeadReviewed: with no reviewed commit at all there is nothing to com
   assert.doesNotThrow(() => assertHeadReviewed(undefined, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
 });
 
-test("assertHeadReviewed: a head moved only by this machinery's own generated records is not unreviewed", () => {
-  // THE REGRESSION (Overhypeme #614, 2026-09-07). The generator refused to
-  // identify the repository without a config file, and refused a budget
-  // receipt written by an older tool. Committing both moved the head; this
-  // assertion then refused the record those commits existed to enable. The
-  // loop needed a review round to re-cover bookkeeping, and at a spent budget
-  // that round became an escalation to David carrying no decision in it.
+test("assertHeadReviewed: a head moved only by newly added generated records is not unreviewed", () => {
+  // THE REGRESSION (Overhypeme #614, 2026-09-07). The generator refused a
+  // record whenever the head had moved past the last pass -- and committing a
+  // receipt IS such a move, so enabling an adjudication blocked it. Escaping
+  // cost a review round that re-covered bookkeeping and nothing else.
   const reviewed = "c3797aa4fd8f08684130fccb98ede616b45bcb6c";
   const pushed = "59c9a0e00000000000000000000000000000abcd";
+  const A = (file) => ({ status: "A", file });
 
-  // Receipts and adjudication records: this machinery's own writing.
+  // Newly written receipts and adjudication records: this machinery writing.
   assert.doesNotThrow(() =>
     assertHeadReviewed(reviewed, pushed, {
-      changedFiles: [".agents/receipts/loop-budget-614.json", ".agents/adjudications/614-1.json"],
+      changedFiles: [A(".agents/receipts/loop-budget-614.json"), A(".agents/adjudications/614-1.json")],
     }),
   );
   // An identical tree at a different sha changed nothing reviewable.
   assert.doesNotThrow(() => assertHeadReviewed(reviewed, pushed, { changedFiles: [] }));
 
-  // Content mixed in with bookkeeping is still content, and the refusal names
-  // the offending file rather than only the sha.
+  // DECISIONS ARE DURABLE (Codex, #47 round 1). A commit that REWRITES or
+  // DELETES a standing receipt is rewriting decision history, not writing the
+  // next artifact -- `loadLoop` runs before this and would derive a history in
+  // which the adjudicator's or David's stop never happened.
+  for (const status of ["M", "D"]) {
+    assert.throws(
+      () => assertHeadReviewed(reviewed, pushed, { changedFiles: [{ status, file: ".agents/receipts/loop-extension-614-1.json" }] }),
+      new RegExp(`${status} \\.agents/receipts/loop-extension-614-1\\.json`),
+      `a ${status} of a durable receipt must refuse`,
+    );
+  }
+  // #614's own re-declared budget was a modification, so this would not have
+  // exempted it -- the correct answer, since a re-declaration can change the
+  // tier the loop is judged under.
   assert.throws(
-    () =>
-      assertHeadReviewed(reviewed, pushed, {
-        changedFiles: [".agents/receipts/loop-budget-614.json", "CLAUDE.md"],
-      }),
-    /1 file\(s\) other than this machinery's own generated records[\s\S]*CLAUDE\.md/,
+    () => assertHeadReviewed(reviewed, pushed, { changedFiles: [{ status: "M", file: ".agents/receipts/loop-budget-614.json" }] }),
+    /not newly added generated records/,
+  );
+
+  // Content mixed in with bookkeeping is still content, and the refusal names
+  // the offending change with its status rather than only the sha.
+  assert.throws(
+    () => assertHeadReviewed(reviewed, pushed, { changedFiles: [A(".agents/receipts/loop-budget-614.json"), A("CLAUDE.md")] }),
+    /1 change\(s\)[\s\S]*A CLAUDE\.md/,
   );
 
   // `.agents/machinery.json` is configuration, not a generated record: it
-  // changes how these gates behave, so a reviewer sees it. This is the half of
-  // #614 the fix deliberately does NOT unblock.
-  assert.throws(
-    () => assertHeadReviewed(reviewed, pushed, { changedFiles: [".agents/machinery.json"] }),
-    /machinery\.json/,
-  );
+  // changes how these gates behave, so a reviewer sees it.
+  assert.throws(() => assertHeadReviewed(reviewed, pushed, { changedFiles: [A(".agents/machinery.json")] }), /machinery\.json/);
 
   // A zero-padded receipt name DOES ride the exemption, because
-  // `isGeneratedRecord` matches `\d+` and this call site deliberately reuses
-  // that one predicate rather than inventing a third notion of canonical. The
-  // refusal of a non-round-trip name lives where it bites -- `checkRail` in
-  // `pr-ready.mjs`, which fails the whole loop closed on it, as `loadLoop`
-  // does. Asserted so a future tightening of `isGeneratedRecord` shows up here
-  // as a decision rather than as drift.
-  assert.doesNotThrow(() =>
-    assertHeadReviewed(reviewed, pushed, { changedFiles: [".agents/receipts/loop-budget-0614.json"] }),
-  );
+  // `isGeneratedRecord` matches `\d+` and this call site reuses that one
+  // predicate rather than inventing a third notion of canonical. The refusal of
+  // a non-round-trip name lives where it bites -- `checkRail` in
+  // `pr-ready.mjs`, which fails the whole loop closed on it. Asserted so a
+  // future tightening shows up here as a decision rather than as drift.
+  assert.doesNotThrow(() => assertHeadReviewed(reviewed, pushed, { changedFiles: [A(".agents/receipts/loop-budget-0614.json")] }));
 
   // FAIL CLOSED. A caller that could not resolve the diff passes null, which
-  // must read as "not established", never as "nothing changed".
+  // must read as "not established", never as "nothing changed" -- and a bare
+  // string list is not a delta this can reason about either.
   assert.throws(() => assertHeadReviewed(reviewed, pushed), /no completed reviewer pass covers/);
   assert.throws(() => assertHeadReviewed(reviewed, pushed, { changedFiles: null }), /no completed reviewer pass covers/);
-  // ...and the message carries no file clause that would imply one was read.
+  assert.throws(
+    () => assertHeadReviewed(reviewed, pushed, { changedFiles: [".agents/receipts/loop-budget-614.json"] }),
+    /not newly added generated records/,
+    "a bare string carries no status, so it cannot be exempt",
+  );
   assert.throws(
     () => assertHeadReviewed(reviewed, pushed, { changedFiles: null }),
-    (e) => !/other than this machinery's own/.test(e.message),
+    (e) => !/change\(s\) since it/.test(e.message),
+  );
+});
+
+test("changedPathStatuses: pairs git's -z name-status output, and fails closed", () => {
+  const runGit = (out) => () => out;
+  assert.deepEqual(changedPathStatuses("a", "b", { runGit: runGit("A\0one.md\0M\0two.md\0") }), [
+    { status: "A", file: "one.md" },
+    { status: "M", file: "two.md" },
+  ]);
+  assert.deepEqual(changedPathStatuses("a", "b", { runGit: runGit("") }), []);
+  // An odd number of fields is unparseable, not an empty delta.
+  assert.equal(changedPathStatuses("a", "b", { runGit: runGit("A\0one.md\0M\0") }), null);
+  assert.equal(
+    changedPathStatuses("a", "b", {
+      runGit: () => {
+        throw new Error("git failed");
+      },
+    }),
+    null,
   );
 });
 
