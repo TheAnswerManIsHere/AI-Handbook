@@ -149,29 +149,36 @@ path being used, not a proof that it is unused.
    became the oracle. A second block is a contradiction, and a contradiction
    the author can see is better than a winner they cannot predict.
 
-3. **The declaration is read only where the body is live — outside every
-   inert region.** An inert region is one whose content a reader does not see
-   as the author's assertion, and for a GitHub PR body there are exactly two:
-   a fenced code block, and an HTML comment. A `plan-provenance` block inside
-   either is an example or a template placeholder, not a declaration — this
-   plan's own text contains one of the first, and a PR template would carry one
-   of the second. Round 1 named only the fence; `fenceMask` tracks fences and
-   nothing else, so a commented placeholder would have been read as
-   authoritative, or counted as the second block that refuses a valid body.
-   (Codex, round 2.)
+3. **The declaration is read only from the generator's existing live-text
+   boundary, extended by one construct.** `outsideFences` already defines what
+   counts as the author's own assertion: it drops fenced blocks, blockquotes
+   and indented code, each added because a declaration-shaped string appeared
+   there and was wrongly believed. This plan reuses that function rather than
+   restating what it covers, and adds the one construct it does not know
+   about — an HTML comment, which is invisible in the rendered body and is
+   exactly what a PR-template placeholder is made of.
 
-3a. **That set is closed, and the argument is what distinguishes this design
-   from the one it replaces.** The prose path had an open set of topologies
-   because it matched a *phrase* that live prose could legitimately contain, so
-   each round found one more context to mask. This path matches a *fence with a
-   unique info string*, so the only question is which regions of the body are
-   inert — and inertness in a GitHub PR body is a property of the renderer, not
-   of the sentence: content is either rendered as the author's text or it is
-   not. Two constructs hide content; both are named above. **This is a
-   closure argument, not a proof:** it rests on the rendering rules holding, so
-   a third inert construct is the shape that would falsify it, and the honest
-   statement is that the set is closed against today's Markdown rather than
-   against all future ones.
+3a. **The enumeration is the defect; the reference is the fix.** Round 1 of
+   this loop named one inert construct, round 2 named two, and round 3 pointed
+   out that the generator had known four since #38's round 11 — a set I had
+   read in this same session and then wrote down from memory anyway. That is
+   three consecutive rounds of the same failure, inside the plan whose purpose
+   is to end it, and the honest reading is that any list of inert regions I
+   maintain by hand will be wrong again. So the plan does not keep one. The
+   parser asks the single existing construct what is live, and the only
+   standing claim is the delta: `outsideFences` plus HTML comments. Adding a
+   fifth construct later is then one edit in one function that every consumer
+   of live text inherits at once, rather than a list to re-audit.
+   (Codex, round 3.)
+
+3b. **What survives of the closure argument, stated smaller.** The prose path
+   matched a *phrase* that live prose can legitimately contain, so its problem
+   was unbounded in a second dimension: even correct live-text detection left
+   every sentence containing the label a candidate. This path matches a *fence
+   with a unique info string*, so live-text detection is the whole problem, and
+   it is one this repository already owns an answer to. That is a narrower and
+   more defensible claim than round 2's "there are exactly two", and it is the
+   one the plan makes.
 
 4. **A present-but-malformed declaration refuses, and never falls through to
    the prose path.** Fall-through would mean a typo silently re-enters the
@@ -215,6 +222,17 @@ path being used, not a proof that it is unused.
    already requires it (`claude-core.md:453-457`); today it is a phrase inside
    a regex, and after this it is a key comparison.
 
+8a. **`plan_file` is required on every approved-plan kind, not optional.**
+   The existing resolver accepts an explicit plan path and uses it to pick one
+   plan when the cited commit introduced several, validating that the path was
+   actually introduced there. Forbidding the key would turn a body the current
+   resolver handles into an unavoidable refusal; making it *optional* would
+   contradict decision 9's no-optional-keys rule and reintroduce the
+   present-or-absent ambiguity the block exists to remove. Required is the only
+   form that keeps both: the author always names the plan, and the resolver
+   keeps its introduced-at-that-commit check as the thing that makes the name
+   trustworthy. (Codex, round 3.)
+
 9. **Values are validated by shape, and an unknown key refuses.** A permissive
    parser that ignores what it does not recognise would accept a misspelled key
    as an absent one — which is the fail-open direction, and the one this
@@ -244,9 +262,29 @@ path being used, not a proof that it is unused.
     and the prose. So: `fix_tier` in the block replaces the `Fix tier:` line; a
     declared body carrying that line as well is the refused
     contradiction, and every other tier field stays required exactly as today.
+    **The tier's rationale survives as oracle prose, not as a block key**:
+    today it rides the same line (`Fix tier: B — Q1 fired …`), and reviewers
+    use it to challenge a mis-tiering, so it becomes a named required field
+    for tiers A, B and C under the completeness check decision 5 preserves.
+    `fix_tier` carries the letter; the reason it is that letter stays where a
+    reviewer reads it. Without this the block would parse as complete while a
+    required reviewer check had quietly gone. (Codex, round 3.)
     The same split applies to the approved-plan kinds: the block replaces the
     provenance *sentence*, and the plan's quoted oracle sections are untouched
     prose. (Codex, round 2.)
+
+    **And to plan-review mode, where the distinction is safety-critical.**
+    `## Review mode` / *Plan review only* is simultaneously the selector
+    `planReviewSignals` reads and the human instruction never to merge or
+    implement. The selector is the **phrase** `Plan review only`, and that
+    phrase alone is what `kind: plan-review` replaces; the rest of the section
+    — never merge, do not implement, apply the plan-review contract — is
+    safety copy that stays exactly as it is and is not a selector. Without
+    this, an implementation reading 11a literally either refuses every
+    declared plan-review body as mixed-format or deletes the never-merge
+    instruction to avoid that. The revised template, and a test proving the
+    template it emits actually parses, are part of the producer step.
+    (Codex, round 3.)
 
     **Why a refusal, and why in the parser.** Decision 11 states the
     replacement; without this, nothing enforces it. "Declaration, else prose" would silently ignore
@@ -270,6 +308,20 @@ path being used, not a proof that it is unused.
     field a demonstration, which was a completeness claim resting on sampled
     evidence — the precise thing the claim-oracle rule forbids.
     (Codex, round 1.)
+
+12a. **The machinery is not enabled in a consumer until that consumer's own
+    template emits the declaration.** `docs/consuming-repos.md:101-124` makes
+    each consuming repository the owner of its
+    `.github/pull_request_template.md`, and `bugfix/SKILL.md` sends authors to
+    it. Those files are outside this repository, so **no grep run here can
+    establish that the producer inventory is exhaustive** — under the
+    claim-oracle rule that is an uncertainty, not a settled fact, and this
+    decision is what bounds it. The sequencing invariant: syncing the parser
+    to a consumer whose template still emits a legacy selector would refuse
+    that consumer's PRs, so the template migration precedes the machinery, per
+    consumer, and the enabling step checks it rather than assuming it. Nothing
+    has synced yet (`0 ready, 13 staged`), so this is a gate to build before
+    the first unstaging, not a repair. (Codex, round 3.)
 
 13. **The implementation PR carries its own declaration.** The first real
     exercise of the form is the change that introduces it; a form that cannot
@@ -333,8 +385,8 @@ that kind; there are no optional keys.
 
 | `kind` | Required keys |
 |---|---|
-| `approved-plan` | `plan_review_pr`, `plan_commit`, `approved_by`, `approved_on` |
-| `approved-plan-split` | `plan_review_prs`, `combined_plan_commit`, `combined_branch`, `approved_by`, `approved_on` |
+| `approved-plan` | `plan_review_pr`, `plan_commit`, `plan_file`, `approved_by`, `approved_on` |
+| `approved-plan-split` | `plan_review_prs`, `combined_plan_commit`, `combined_branch`, `plan_file`, `approved_by`, `approved_on` |
 | `private-plan` | `plan_file`, `plan_sha256`, `approved_by`, `approved_on` |
 | `bugfix` | `fix_tier` |
 | `trivial` | *(none)* |
@@ -347,8 +399,8 @@ that kind; there are no optional keys.
 | `plan_review_pr` | a positive integer, written without `#` |
 | `plan_review_prs` | two or more positive integers, comma-separated |
 | `plan_commit`, `combined_plan_commit` | 7–40 lowercase hexadecimal characters |
-| `combined_branch` | `plan-review/<slug>-combined` |
-| `plan_file` | a repository-relative path under `docs/plans/` |
+| `combined_branch` | `plan-review/`, then 1–100 characters from `[A-Za-z0-9._-]`, then `-combined`. The slug may not be empty, may not begin or end with `.`, `_` or `-`, and may not contain two adjacent separators. |
+| `plan_file` | a repository-relative path matching `docs/plans/PLAN_[A-Z0-9_]{1,100}\.md` |
 | `plan_sha256` | exactly 64 lowercase hexadecimal characters |
 | `approved_by` | exactly `David` |
 | `approved_on` | `YYYY-MM-DD` |
@@ -399,8 +451,10 @@ recognise. The parser reads no file the generator does not already read.
 Regression tests written before the change and watched to fail, covering: each
 kind's happy path; a missing required key; a forbidden key for that kind; an
 unknown key; a repeated key; a malformed value of every grammar above; two
-blocks; a block nested inside another fence; a block inside an HTML comment,
-alone and alongside a live one; a `kind: bugfix` body carrying a legacy
+blocks; a block nested inside another fence, a blockquote, or an indented
+code block; a block inside an HTML comment; each of those four alone and
+alongside a live declaration; a `combined_branch` failing each clause of its
+grammar; a missing `plan_file`; a `kind: bugfix` body carrying a legacy
 `Fix tier:` selector line as well as the block; a body with no block falling back
 to prose unchanged; `declaredBy` under both paths and absent on a legacy
 record; a body carrying both a declaration and a prose provenance form; a
@@ -444,11 +498,23 @@ format.
 
 ## Definition of Done
 
-`review-loop-record.mjs` regenerates #38's record from its real body plus a
-declaration block, and the resulting `planOracle.sections` are byte-identical
-to the ones the prose path produced at `972b60d`, with the record naming the
-declared path. A malformed declaration refuses naming the key. A body with no
-declaration produces the record it produces today.
+Two fixtures built from #38's real body, because one body cannot legally
+exercise both paths — decision 11a refuses a body carrying a declaration and a
+legacy selector together, so "the real body *plus* a block" is the state the
+plan forbids rather than its acceptance case (Codex, round 3):
+
+1. **Declaration path.** #38's body with its `Approved-plan source` sentence
+   *replaced* by the equivalent declaration. `review-loop-record.mjs`
+   regenerates the record, `planOracle.sections` are byte-identical to the
+   ones the prose path produced at `972b60d`, and `declaredBy` is
+   `"declaration"`.
+2. **Fallback path.** #38's body untouched. The record is the one the
+   generator produces today, and `declaredBy` is `"prose"`.
+
+Plus: a malformed declaration refuses naming the key; the two bodies above
+concatenated refuse as the mixed state; and the plan-review template the
+producer step emits parses as `kind: plan-review` with its never-merge copy
+intact.
 
 ## Now / Next / Never
 
