@@ -158,6 +158,18 @@ path being used, not a proof that it is unused.
    about — an HTML comment, which is invisible in the rendered body and is
    exactly what a PR-template placeholder is made of.
 
+   **Reuse the boundary, not the stripper.** `outsideFences` *removes* fenced
+   lines, the fence markers included, so a parser that literally called it
+   could never see a `plan-provenance` block at all — and changing what it
+   returns would alter prose-path behavior, which Must Not Change forbids.
+   What the two paths share is the computation of **which lines are inert**,
+   not what is done with them. That computation is extracted so it has one
+   definition and two consumers: the prose path drops the inert lines as it
+   does today, and the declaration scan asks whether a given fence *opener*
+   sits at a live position and reads the region it delimits. Adding HTML
+   comments is then one edit to the extracted boundary, inherited by both.
+   (Codex, round 4.)
+
 3a. **The enumeration is the defect; the reference is the fix.** Round 1 of
    this loop named one inert construct, round 2 named two, and round 3 pointed
    out that the generator had known four since #38's round 11 — a set I had
@@ -221,6 +233,13 @@ path being used, not a proof that it is unused.
 8. **`approved_by` must name David** for every approved-plan kind. The contract
    already requires it (`claude-core.md:453-457`); today it is a phrase inside
    a regex, and after this it is a key comparison.
+
+8b. **The private kind names a file, not a path.** A private plan is handed
+   to David directly and never committed, so `docs/plans/PLAN_….md` is a path
+   it will never have; requiring the public key would refuse every valid
+   private-plan PR by construct. It carries `plan_filename` — the artifact's
+   real name — beside the `shasum -a 256` that pins its contents, which is the
+   pairing the contract's private form already specifies. (Codex, round 4.)
 
 8a. **`plan_file` is required on every approved-plan kind, not optional.**
    The existing resolver accepts an explicit plan path and uses it to pick one
@@ -387,7 +406,7 @@ that kind; there are no optional keys.
 |---|---|
 | `approved-plan` | `plan_review_pr`, `plan_commit`, `plan_file`, `approved_by`, `approved_on` |
 | `approved-plan-split` | `plan_review_prs`, `combined_plan_commit`, `combined_branch`, `plan_file`, `approved_by`, `approved_on` |
-| `private-plan` | `plan_file`, `plan_sha256`, `approved_by`, `approved_on` |
+| `private-plan` | `plan_filename`, `plan_sha256`, `approved_by`, `approved_on` |
 | `bugfix` | `fix_tier` |
 | `trivial` | *(none)* |
 | `plan-review` | *(none)* |
@@ -401,6 +420,7 @@ that kind; there are no optional keys.
 | `plan_commit`, `combined_plan_commit` | 7–40 lowercase hexadecimal characters |
 | `combined_branch` | `plan-review/`, then 1–100 characters from `[A-Za-z0-9._-]`, then `-combined`. The slug may not be empty, may not begin or end with `.`, `_` or `-`, and may not contain two adjacent separators. |
 | `plan_file` | a repository-relative path matching `docs/plans/PLAN_[A-Z0-9_]{1,100}\.md` |
+| `plan_filename` | a bare filename matching `PLAN_[A-Z0-9_]{1,100}\.md`, no path separators — the private artifact is handed to David as a file and never committed, so it has a name but no repository path |
 | `plan_sha256` | exactly 64 lowercase hexadecimal characters |
 | `approved_by` | exactly `David` |
 | `approved_on` | `YYYY-MM-DD` |
@@ -454,7 +474,9 @@ unknown key; a repeated key; a malformed value of every grammar above; two
 blocks; a block nested inside another fence, a blockquote, or an indented
 code block; a block inside an HTML comment; each of those four alone and
 alongside a live declaration; a `combined_branch` failing each clause of its
-grammar; a missing `plan_file`; a `kind: bugfix` body carrying a legacy
+grammar; a missing `plan_file`; a `private-plan` block naming a bare filename
+and one wrongly naming a repository path; a declaration whose fence opener
+sits inside each inert context, proving the extracted boundary is shared; a `kind: bugfix` body carrying a legacy
 `Fix tier:` selector line as well as the block; a body with no block falling back
 to prose unchanged; `declaredBy` under both paths and absent on a legacy
 record; a body carrying both a declaration and a prose provenance form; a
