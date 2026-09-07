@@ -396,7 +396,8 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    round, and is never ground through mechanically. **A mechanical round is
    mine to grant** — the head moved only by bookkeeping (receipts, records,
    machinery config, a merge of the base branch), no finding is being written
-   for, and no review or verdict is pending. I commit a `david`-kind receipt
+   for, and no review or verdict is pending. Under budget I just request the
+   pass; only at an exhausted allowance do I commit a `david`-kind receipt
    (`grant 2`, `asOf` the completed count) citing his standing grant of
    2026-09-07, then request the pass so it covers the receipt. Once per loop.
 
