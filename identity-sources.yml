@@ -457,3 +457,36 @@
     The budget receipt's stamped repository, read from the durable ref to decide whether a checkout may answer
     for this target. The same comparison is made again on the chosen state, so this picks the root and the
     refusal message still comes from the comparison itself.
+
+
+# --------------------------------------------------------------------------
+# snapshot-from-captures.mjs
+# --------------------------------------------------------------------------
+# The assembler reads GitHub's `get` response and nothing else. Before #45
+# these three values were flags -- `--repo`, `--base`, `--head` -- which made
+# the operator the source for the two shas that decide the artifact diff,
+# territory classification and plan-file discovery. A wrong-but-real sha
+# passes the generator's endpoint check and then describes a different diff
+# while looking fully validated. (Codex, #45 round 1.)
+
+- key: "snapshot-from-captures.mjs :: deriveSnapshot :: repo: pr.base.repo.full_name,"
+  source: github
+  why: >-
+    GitHub's own word, read out of the captured `get` response. The snapshot
+    states it so that `assertAdjudicationSnapshot` can compare it to config;
+    this line does not decide identity, it reports what GitHub said.
+
+- key: "snapshot-from-captures.mjs :: normalisePr :: base: { ref: need(\"base.ref\"), sha: need(\"base.sha\"), repo: { full_name: need(\"base.repo.full_name\") } },"
+  source: github
+  why: >-
+    GitHub's own word, read out of the captured `get` response and required
+    rather than defaulted -- an absent field is a refusal naming it, never a
+    null the artifact range would then be measured over.
+
+- key: "snapshot-from-captures.mjs :: normalisePr :: head: { ref: need(\"head.ref\"), sha: need(\"head.sha\"), repo: { full_name: need(\"head.repo.full_name\") } },"
+  source: github
+  why: >-
+    GitHub's own word, read out of the captured `get` response. The generator
+    compares this against the trusted config identity before anything derives
+    from the range.
+

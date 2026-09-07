@@ -1883,7 +1883,16 @@ export function buildRecord({
       captures: Object.fromEntries(
         Object.entries(snapshot.captureProvenance ?? {}).map(([k, v]) => [
           k,
-          { source: v?.source ?? null, file: String(v?.file ?? "").split("/").pop(), sha256: v?.sha256 ?? null },
+          {
+            capturedAt: v?.capturedAt ?? null,
+            // Basenames, not the absolute paths: local layout the judge cannot
+            // use, where the hash is what actually pins the file.
+            files: (v?.files ?? []).map((f) => ({
+              file: String(f?.file ?? "").split("/").pop(),
+              sha256: f?.sha256 ?? null,
+              source: f?.source ?? null,
+            })),
+          },
         ]),
       ),
       caveat:

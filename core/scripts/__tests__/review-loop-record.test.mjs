@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
 
 import {
   applyCaps,
@@ -33,6 +32,7 @@ import {
   RECORD_LINE_CAP_CHARS,
   RECORD_TOTAL_CAP_CHARS,
 } from "../review-loop-record.mjs";
+import { main as assembleFromCaptures } from "../snapshot-from-captures.mjs";
 
 // The payload no longer knows one repo's name; tests declare their own.
 const TEST_SLUG = "TestOwner/TestRepo";
@@ -1624,7 +1624,7 @@ test("assertHeadReviewed: with no reviewed commit at all there is nothing to com
   assert.doesNotThrow(() => assertHeadReviewed(undefined, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
 });
 
-test("a snapshot's identifiers must exist in the responses it claims to come from", () => {
+test("a snapshot's entries must be what its captures derive, not merely well-formed", () => {
   // THE REGRESSION. On 2026-09-07 I assembled #43's round-4 evidence from
   // webhook notification text, which carries comment bodies but no ids, and
   // typed ids that looked right: threads `PRRT_kwDOUKOPKc6fxwZ1`/`…fxwZ4`,
@@ -1636,42 +1636,66 @@ test("a snapshot's identifiers must exist in the responses it claims to come fro
   // is well-formed; `assertCapturedProvenance` asks whether it agrees with its
   // own URL and names this pull request. A fabricator writes a well-formed id
   // and a matching URL in one motion, so agreement with itself is exactly what
-  // an invention has. Nothing asked the only question that separates them:
-  // did this id ever come back from GitHub.
+  // an invention has.
   const url = (id) => `https://github.com/TheAnswerManIsHere/AI-Handbook/pull/43#discussion_r${id}`;
-  const snapshot = {
+  const fabricated = {
+    id: "PRRT_kwDOUKOPKc6fxwZ1",
+    comments: [{ id: 3946356201, html_url: url(3946356201) }],
+  };
+  const bare = {
     repo: "TheAnswerManIsHere/AI-Handbook",
     pr: { number: 43 },
     reviews: [],
     issueComments: [],
-    reviewThreads: [
-      { id: "PRRT_kwDOUKOPKc6fxwZ1", comments: [{ id: 3946356201, html_url: url(3946356201) }] },
-    ],
+    reviewThreads: [fabricated],
   };
   // Self-consistent, this-PR, well-formed -- and entirely made up.
-  assert.doesNotThrow(() => assertThreadProvenance(snapshot.reviewThreads));
-  assert.doesNotThrow(() => assertCapturedProvenance(snapshot));
-  assert.throws(() => assertSnapshotEvidence(snapshot), /no `captureProvenance`/);
+  assert.doesNotThrow(() => assertThreadProvenance(bare.reviewThreads));
+  assert.doesNotThrow(() => assertCapturedProvenance(bare));
+  assert.throws(() => assertSnapshotEvidence(bare), /no `captureProvenance`/);
 
-  // Naming a capture is not enough either: the ids must be IN it. This is the
-  // shape the fabricated snapshot would have taken had I been asked to name a
-  // source -- a real capture file, from the same PR, that simply does not
-  // contain the entries the snapshot claims to have read out of it.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "capture-"));
-  const file = path.join(dir, "threads.json");
-  fs.writeFileSync(file, JSON.stringify({ review_threads: [{ id: "PRRT_kwDOUKOPKc6fxvRx" }] }));
-  const sha256 = createHash("sha256").update(fs.readFileSync(file, "utf8"), "utf8").digest("hex");
-  const entry = { file, sha256, source: "agent-written" };
-  const named = {
-    ...snapshot,
-    captureProvenance: { reviews: entry, issueComments: entry, reviewThreads: entry },
+  // Naming captures is not enough either. Build a real one with the assembler,
+  // then add the same fabricated thread: every recorded file still hashes
+  // correctly, and the snapshot still fails because it is no longer what those
+  // files derive.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-"));
+  const repo = { full_name: "TheAnswerManIsHere/AI-Handbook" };
+  const write = (name, value) => {
+    const p = path.join(dir, name);
+    fs.writeFileSync(p, JSON.stringify(value));
+    return p;
   };
-  assert.throws(() => assertSnapshotEvidence(named), /appear nowhere in .*threads\.json/);
+  const out = path.join(dir, "snapshot.json");
+  assembleFromCaptures([
+    "--pr-capture", write("pr.json", {
+      number: 43,
+      title: "[PLAN REVIEW] Structured plan provenance",
+      created_at: "2026-09-07T00:35:55Z",
+      body: "Workstream: #36.\n",
+      base: { ref: "main", sha: "25c1df885d104e0a8918fc09a993a0bf24d9b257", repo },
+      head: { ref: "plan-review/x", sha: "6eb3b5e5ccd03fdcfb825d7a280de584ee1a8f0a", repo },
+    }),
+    "--reviews", write("reviews.json", []),
+    "--comments", write("comments.json", []),
+    "--threads", write("threads.json", {
+      pageInfo: { hasNextPage: false },
+      review_threads: [{ id: "PRRT_kwDOUKOPKc6fxvRx", is_resolved: false, is_outdated: false, comments: [] }],
+    }),
+    "--out", out,
+  ]);
+  const real = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.doesNotThrow(() => assertSnapshotEvidence(real));
 
-  // And the real thread from that capture passes, so the check refuses
-  // inventions rather than refusing work.
-  named.reviewThreads = [{ id: "PRRT_kwDOUKOPKc6fxvRx", comments: [{}] }];
-  assert.doesNotThrow(() => assertSnapshotEvidence(named));
+  const doctored = structuredClone(real);
+  doctored.reviewThreads.push({
+    id: fabricated.id,
+    isResolved: false,
+    isOutdated: false,
+    path: null,
+    line: null,
+    comments: [],
+  });
+  assert.throws(() => assertSnapshotEvidence(doctored), /is not what its own captures derive: reviewThreads differ/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -1684,9 +1708,18 @@ test("buildRecord: the judge is told where each collection actually came from", 
   const snapshot = {
     ...minimalSnapshot(),
     captureProvenance: {
-      reviews: { file: "/tmp/scratch/reviews.json", sha256: "aa", source: "agent-written" },
-      issueComments: { file: "/tmp/scratch/comments.json", sha256: "bb", source: "agent-written" },
-      reviewThreads: { file: "/root/.claude/projects/p/s/tool-results/x.txt", sha256: "cc", source: "harness-capture" },
+      reviews: {
+        capturedAt: "2026-08-19T21:00:00Z",
+        files: [{ file: "/tmp/scratch/reviews.json", sha256: "aa", source: "agent-written" }],
+      },
+      issueComments: {
+        capturedAt: "2026-08-19T21:00:00Z",
+        files: [{ file: "/tmp/scratch/comments-1.json", sha256: "bb", source: "agent-written" }],
+      },
+      reviewThreads: {
+        capturedAt: "2026-08-19T20:30:00Z",
+        files: [{ file: "/root/.claude/projects/p/s/tool-results/x.txt", sha256: "cc", source: "harness-capture" }],
+      },
     },
   };
   const record = buildRecord({
@@ -1698,10 +1731,21 @@ test("buildRecord: the judge is told where each collection actually came from", 
     now: "2026-08-19T22:00:00Z",
   });
   assert.deepEqual(record.provenance.captures, {
-    reviews: { source: "agent-written", file: "reviews.json", sha256: "aa" },
-    issueComments: { source: "agent-written", file: "comments.json", sha256: "bb" },
+    reviews: {
+      capturedAt: "2026-08-19T21:00:00Z",
+      files: [{ file: "reviews.json", sha256: "aa", source: "agent-written" }],
+    },
+    issueComments: {
+      capturedAt: "2026-08-19T21:00:00Z",
+      files: [{ file: "comments-1.json", sha256: "bb", source: "agent-written" }],
+    },
     // The absolute path is local layout the judge cannot use; the basename is
-    // enough to tie a claim back to a file, and the hash is what pins it.
-    reviewThreads: { source: "harness-capture", file: "x.txt", sha256: "cc" },
+    // enough to tie a claim back to a file, and the hash is what pins it. The
+    // per-collection capture time travels too: a collection older than its
+    // siblings is a fact about the evidence, not a detail of assembly.
+    reviewThreads: {
+      capturedAt: "2026-08-19T20:30:00Z",
+      files: [{ file: "x.txt", sha256: "cc", source: "harness-capture" }],
+    },
   });
 });

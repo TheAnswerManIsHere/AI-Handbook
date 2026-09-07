@@ -17,11 +17,30 @@
  * true. Nothing checked that the id had ever come from GitHub.
  *
  * THE FIX IS TO REMOVE THE HAND STEP, NOT TO CHECK IT HARDER. This script
- * reads the raw response files the harness writes when a tool result is too
- * large to return inline, and emits a snapshot whose every identifier is
- * copied by a program. It records, for each collection, the file it came from
- * and that file's SHA-256, so `review-loop-record.mjs` can verify the snapshot
- * against its own sources rather than trusting its shape.
+ * reads raw response files and emits a snapshot that is a pure function of
+ * them. It records, for each collection, the files it read and their SHA-256s,
+ * so `assertCaptureProvenance` can RE-DERIVE the snapshot from those files and
+ * refuse anything that differs.
+ *
+ * THE CHECK IS STRUCTURAL EQUALITY, NOT AN IDENTIFIER SEARCH. The first
+ * version of this file verified that every id in the snapshot appeared
+ * somewhere in the capture's text. Round 1 of #45 showed that is both too
+ * weak and too loose: a snapshot edited after assembly to flip `isResolved`,
+ * rewrite a finding's body, or move a comment onto a different thread leaves
+ * every id exactly where it was -- and `isResolved` is the field that already
+ * produced a wrong verdict on #43 -- while `text.includes("234")` is
+ * satisfied by a capture containing only `12345`. Deriving the collections
+ * again and comparing the whole structure answers both, and it makes no shape
+ * assumption the assembler does not already make: it is literally the same
+ * function.
+ *
+ * NOTHING ABOUT THE PULL REQUEST IS TYPED ON THE COMMAND LINE. The first
+ * version took `--head`, `--base`, `--title` and the rest as flags, which put
+ * the two shas that decide `artifact`, territory and plan-file discovery back
+ * in the hand-typed category this file exists to abolish -- and a
+ * wrong-but-real base sha passes the generator's endpoint check and then
+ * silently describes a different diff. They come from the captured `get`
+ * response now.
  *
  * HOW TO GET THE CAPTURE FILES. Request the full page (`perPage: 100`). A
  * response large enough to exceed the inline limit is written by the harness
@@ -33,42 +52,64 @@
  * fixed was inventing ids for entries whose bodies came from somewhere else
  * entirely -- but it is still a hand step, and a blob corrupted on the way in
  * would satisfy every check here, because the snapshot is then a faithful
- * transform of a corrupted source. So each collection RECORDS which case it
- * is, derived from the path rather than declared, and the record carries it.
+ * transform of a corrupted source. So each capture RECORDS which case it is,
+ * derived from the path rather than declared, and the record carries it.
  * Refusing the agent-written case instead would strand any pull request small
  * enough to answer inline -- and a loop that cannot build a record cannot
  * obtain a verdict to continue OR to stop.
  *
- * The `pr` object is deliberately not covered: it carries no external
- * identifiers this check could verify, and its two shas are checked against
- * git by the generator anyway.
- *
  * Usage:
  *   node core/scripts/snapshot-from-captures.mjs \
- *     --pr 43 --repo Owner/Name --head <sha> --base <sha> \
- *     --head-ref <branch> --base-ref main --title <t> --created-at <iso> \
- *     --body-file <path> \
- *     --reviews <capture> --comments <capture> --threads <capture> --out <path>
+ *     --pr-capture <get> \
+ *     --reviews <get_reviews page> [--reviews <next page> ...] \
+ *     --comments <get_comments page> [--comments <next page> ...] \
+ *     --threads <get_review_comments page> [--threads <next page> ...] \
+ *     --out <path>
  */
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-/** The collections whose entries carry identifiers a fabricator could invent. */
-export const VERIFIED_COLLECTIONS = ["reviews", "issueComments", "reviewThreads"];
+/**
+ * The collections whose contents this file can prove, in the order the
+ * refusals should be read. `pr` is one of them now: its two shas decide the
+ * artifact diff, and a typed sha is exactly the class of value that has gone
+ * wrong here before.
+ */
+export const VERIFIED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThreads"];
+
+/** Which flag supplies each collection's captures. */
+const FLAG_OF = {
+  pr: "pr-capture",
+  reviews: "reviews",
+  issueComments: "comments",
+  reviewThreads: "threads",
+};
+
+/**
+ * A REST page is proven to be the last one only by being SHORT. GitHub's
+ * `perPage` maximum is 100, so a page holding exactly that many entries may
+ * have a successor and may not -- and the difference is a reviewer pass the
+ * record does not know happened, or a clean round never counted.
+ */
+const PAGE_MAX = 100;
+
+export function digest(text) {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
 
 /**
  * Where a capture came from, from its path alone.
  *
  * The harness writes an oversized tool result under
- * `…/projects/<session>/tool-results/`, and nothing else writes there in the
- * course of this work. Deriving the classification rather than accepting a
- * declared one is the whole point: a field the assembler sets from a flag is
- * a field that says what its caller wanted it to say.
+ * `…/projects/<project>/<session>/tool-results/`, and nothing else writes
+ * there in the course of this work. Deriving the classification rather than
+ * accepting a declared one is the whole point: a field the assembler sets
+ * from a flag is a field that says what its caller wanted it to say.
  *
  * This is not a forgery defence -- the directory is writable, and the stated
- * threat model here is my own mistakes, not an adversary. It makes the
- * weaker case visible instead of silently equivalent to the stronger one.
+ * threat model here is my own mistakes, not an adversary. It makes the weaker
+ * case visible instead of silently equivalent to the stronger one.
  */
 export function captureSource(file) {
   return /(^|\/)\.claude\/projects\/(?:[^/]+\/)+tool-results\//.test(resolve(file))
@@ -76,121 +117,105 @@ export function captureSource(file) {
     : "agent-written";
 }
 
-export function digest(text) {
-  return createHash("sha256").update(text, "utf8").digest("hex");
+/**
+ * One capture file, read.
+ *
+ * `capturedAt` is the file's mtime -- when the response was written -- rather
+ * than when this script ran. Stamping the invocation time let a capture taken
+ * hours earlier satisfy the round check's one-hour freshness bound and appear
+ * to postdate a reviewer pass it actually predated, which is precisely what
+ * `assertCapturedAfterLatestPass` exists to refuse. (Codex, #45 round 1.)
+ */
+function loadCapture(path) {
+  const file = resolve(path);
+  let text;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (e) {
+    throw new Error(`capture ${file} cannot be read (${e.code ?? e.message})`);
+  }
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`capture ${file} is not JSON (${e.message}). Pass the raw tool result, unedited`);
+  }
+  return {
+    file,
+    json,
+    sha256: digest(text),
+    source: captureSource(file),
+    capturedAt: new Date(statSync(file).mtimeMs).toISOString(),
+  };
 }
 
 /**
- * Every identifier in a collection, as strings, for the containment check.
- *
- * Ids only -- not bodies. A body can legitimately differ from its captured
- * form (the record truncates long ones), while an id is copied or it is
- * invented. Checking the narrow thing that cannot legitimately change is what
- * keeps this from producing false refusals that would get it switched off.
+ * The capture time for a collection is its OLDEST page. Both gates that read
+ * it mean "not older than", so a fresh final page must not be able to carry a
+ * stale first one past them.
  */
-export function identifiersOf(collection, rows) {
-  const out = [];
-  for (const row of rows ?? []) {
-    if (row?.id !== undefined && row?.id !== null) out.push(String(row.id));
-    for (const c of row?.comments ?? []) {
-      if (c?.id !== undefined && c?.id !== null) out.push(String(c.id));
-    }
+const oldest = (captures) => captures.map((c) => c.capturedAt).sort()[0];
+
+const requireArray = (capture, what) => {
+  if (!Array.isArray(capture.json)) {
+    throw new Error(
+      `${capture.file} is not a ${what} array -- it is ${capture.json === null ? "null" : typeof capture.json}. ` +
+        `An error object or a snapshot fragment passed here would become an empty collection, and an empty ` +
+        `collection reads as a clean round`,
+    );
   }
+  return capture.json;
+};
+
+/**
+ * Concatenate a collection's pages, refusing a set that does not prove it
+ * reached the end. `complete: true` is an attestation the generator trusts
+ * absolutely; asserting it from one unexamined page is how a loop undercounts
+ * its own rounds. (Codex, #45 round 1.)
+ */
+function pagedArray(captures, collection) {
+  const pages = captures.map((c) => requireArray(c, collection));
+  const last = pages[pages.length - 1];
+  if (last.length >= PAGE_MAX) {
+    throw new Error(
+      `the last ${collection} capture (${captures[captures.length - 1].file}) holds ${last.length} entries, ` +
+        `which is GitHub's page maximum -- so there may be another page, and this snapshot would attest a ` +
+        `completeness it has not established. Fetch the next page and pass it as a further ` +
+        `--${FLAG_OF[collection]}`,
+    );
+  }
+  return pages.flat();
+}
+
+/**
+ * GitHub's review-thread payload is cursor-paginated and carries its own
+ * end-of-list proof, so this one does not have to infer the end from a length.
+ */
+function pagedThreads(captures) {
+  const out = [];
+  captures.forEach((c, i) => {
+    if (!c.json || typeof c.json !== "object" || !Array.isArray(c.json.review_threads)) {
+      throw new Error(
+        `${c.file} carries no review_threads array. An API error object or an older snapshot format would ` +
+          `otherwise become zero threads, and zero threads is indistinguishable from a clean round`,
+      );
+    }
+    if (c.json.pageInfo?.hasNextPage && i === captures.length - 1) {
+      throw new Error(
+        `${c.file} reports hasNextPage: true and is the last capture supplied, so this is one page of a ` +
+          `longer list. A partial capture understates findings, which is wrong in the loop's favour -- ` +
+          `pass the next page as a further --threads`,
+      );
+    }
+    out.push(...c.json.review_threads);
+  });
   return out;
 }
 
-/**
- * Verify a snapshot against the captures it claims to come from.
- *
- * Three questions, in order, because a later one is meaningless if an earlier
- * one fails: does the snapshot name a source for every verified collection;
- * does that source still hash to what was recorded; and does every identifier
- * in the collection appear in that source's raw text.
- *
- * The containment test is deliberately textual. Re-parsing the capture and
- * comparing structures would re-implement the shape assumptions this file
- * already makes, and would then agree with itself for the same reason the
- * hand-assembly did. A substring search over the bytes the API returned
- * cannot agree with an id that was never in them.
- */
-export function assertCaptureProvenance(snapshot, { read = readFileSync } = {}) {
-  const prov = snapshot?.captureProvenance;
-  if (!prov || typeof prov !== "object") {
-    throw new Error(
-      "snapshot carries no `captureProvenance`, so nothing establishes that its entries came from GitHub " +
-        "rather than from an agent's context. Assemble it with core/scripts/snapshot-from-captures.mjs, " +
-        "which copies every identifier from a captured response and records the file it copied from",
-    );
-  }
-  // SHAPE FIRST, ACROSS ALL COLLECTIONS, before any file is opened. Checking
-  // one collection through to completion before looking at the next makes the
-  // refusal you get depend on which filesystem error happened to come first:
-  // a snapshot naming no source for `reviewThreads` reports an unreadable
-  // `reviews` file instead, and the reader fixes the wrong thing.
-  for (const key of VERIFIED_COLLECTIONS) {
-    const entry = prov[key];
-    if (!entry || typeof entry.file !== "string" || typeof entry.sha256 !== "string") {
-      throw new Error(
-        `captureProvenance.${key} must name the capture file this collection was assembled from and that ` +
-          `file's sha256. A collection with no named source is exactly the hand-typed case this refuses`,
-      );
-    }
-    const source = captureSource(entry.file);
-    if (entry.source !== source) {
-      throw new Error(
-        `captureProvenance.${key} records source ${JSON.stringify(entry.source ?? null)} for ${entry.file}, ` +
-          `but that path is a ${source}. The classification is derived from the path, never declared -- a ` +
-          `field the writer chooses is a field that says whatever the writer wanted`,
-      );
-    }
-  }
-  for (const key of VERIFIED_COLLECTIONS) {
-    const entry = prov[key];
-    let text;
-    try {
-      text = read(entry.file, "utf8");
-    } catch (e) {
-      throw new Error(
-        `captureProvenance.${key} names ${entry.file}, which cannot be read (${e.code ?? e.message}). ` +
-          `The capture a snapshot was built from must still exist to be checked against`,
-      );
-    }
-    const actual = digest(text);
-    if (actual !== entry.sha256) {
-      throw new Error(
-        `captureProvenance.${key}: ${entry.file} now hashes to ${actual.slice(0, 12)} but the snapshot ` +
-          `records ${String(entry.sha256).slice(0, 12)}. The capture changed after assembly, so it no longer ` +
-          `establishes anything about this snapshot's contents`,
-      );
-    }
-    const missing = identifiersOf(key, snapshot[key]).filter((id) => !text.includes(id));
-    if (missing.length) {
-      throw new Error(
-        `${missing.length} identifier(s) in snapshot.${key} appear nowhere in ${entry.file}: ` +
-          `${missing.slice(0, 5).join(", ")}${missing.length > 5 ? ", ..." : ""}. An id that is not in the ` +
-          `captured response was not returned by GitHub -- refusing rather than letting invented evidence ` +
-          `reach the judge`,
-      );
-    }
-  }
-}
-
-const flag = (args, name) => {
-  const i = args.indexOf(`--${name}`);
-  return i === -1 ? null : args[i + 1] ?? null;
+const commentIdOf = (url) => {
+  const m = /#discussion_r(\d+)/.exec(url ?? "");
+  return m ? Number(m[1]) : null;
 };
-
-function loadCapture(path) {
-  const text = readFileSync(path, "utf8");
-  return { text, json: JSON.parse(text), sha256: digest(text), file: path };
-}
-
-// THE RECORDED PATH IS ABSOLUTE. A snapshot is verified by the generator,
-// from the repository root, long after the assembler ran in whatever
-// directory the captures happened to sit in -- so a relative path recorded
-// here reads as a missing capture there, and the refusal blames the evidence
-// for the bookkeeping. (Found by running this against #43's real captures.)
-const provenanceOf = (c) => ({ file: resolve(c.file), sha256: c.sha256, source: captureSource(c.file) });
 
 const normaliseThread = (t) => ({
   id: t.id,
@@ -199,7 +224,7 @@ const normaliseThread = (t) => ({
   path: t.comments?.[0]?.path ?? null,
   line: t.comments?.[0]?.line ?? null,
   comments: (t.comments ?? []).map((c) => ({
-    id: Number(/#discussion_r(\d+)/.exec(c.html_url)?.[1]),
+    id: commentIdOf(c.html_url),
     body: c.body,
     path: c.path ?? null,
     line: c.line ?? null,
@@ -210,57 +235,184 @@ const normaliseThread = (t) => ({
   })),
 });
 
-export function main(argv = process.argv.slice(2)) {
-  const need = (name) => {
-    const v = flag(argv, name);
-    if (!v) throw new Error(`--${name} is required`);
+/** The fields of `get` the snapshot carries, each required rather than defaulted. */
+function normalisePr(capture) {
+  const g = capture.json;
+  const need = (dotted) => {
+    const v = dotted.split(".").reduce((o, k) => (o == null ? undefined : o[k]), g);
+    if (v === undefined || v === null || v === "") {
+      throw new Error(
+        `the PR capture ${capture.file} has no ${dotted}. Pass the unedited result of ` +
+          `pull_request_read(method: "get") -- everything the artifact is measured over comes from it`,
+      );
+    }
     return v;
   };
-  const capturedAt = flag(argv, "captured-at") ?? new Date().toISOString();
-  const reviews = loadCapture(need("reviews"));
-  const comments = loadCapture(need("comments"));
-  const threads = loadCapture(need("threads"));
+  return {
+    number: need("number"),
+    title: need("title"),
+    state: g.state ?? null,
+    draft: g.draft ?? null,
+    merged: g.merged ?? null,
+    mergeable_state: g.mergeable_state ?? null,
+    created_at: need("created_at"),
+    updated_at: g.updated_at ?? null,
+    closed_at: g.closed_at ?? null,
+    body: need("body"),
+    base: { ref: need("base.ref"), sha: need("base.sha"), repo: { full_name: need("base.repo.full_name") } },
+    head: { ref: need("head.ref"), sha: need("head.sha"), repo: { full_name: need("head.repo.full_name") } },
+  };
+}
 
-  if (threads.json?.pageInfo?.hasNextPage) {
+/**
+ * THE ONE DERIVATION, used both to build a snapshot and to verify one.
+ *
+ * Two implementations of "what this capture means" would drift, and the
+ * verifier would then certify snapshots the assembler could not produce. One
+ * function cannot.
+ */
+export function deriveSnapshot(captures) {
+  const pr = normalisePr(captures.pr[0]);
+  const snapshot = {
+    repo: pr.base.repo.full_name,
+    capturedAt: Object.fromEntries(VERIFIED_COLLECTIONS.map((k) => [k, oldest(captures[k])])),
+    pr,
+    reviews: pagedArray(captures.reviews, "reviews"),
+    issueComments: pagedArray(captures.issueComments, "issueComments"),
+    reviewThreads: pagedThreads(captures.reviewThreads).map(normaliseThread),
+    complete: { reviews: true, issueComments: true, reviewThreads: true },
+    captureProvenance: Object.fromEntries(
+      VERIFIED_COLLECTIONS.map((k) => [
+        k,
+        {
+          files: captures[k].map((c) => ({ file: c.file, sha256: c.sha256, source: c.source })),
+          capturedAt: oldest(captures[k]),
+        },
+      ]),
+    ),
+  };
+  // Through JSON once, so that what is compared is what a reader of the file
+  // would see: an `undefined` this derivation produced would vanish on write
+  // and then differ from itself on the way back in.
+  return JSON.parse(JSON.stringify(snapshot));
+}
+
+/** The top-level keys that differ, so a refusal names where to look. */
+export function diffKeys(expected, actual) {
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual ?? {})]);
+  return [...keys].filter((k) => JSON.stringify(expected[k]) !== JSON.stringify(actual?.[k]));
+}
+
+/**
+ * Verify a snapshot by rebuilding it from the captures it names.
+ *
+ * Three questions, in order, because a later one is meaningless if an earlier
+ * one fails: does the snapshot name its sources; do those files still hash to
+ * what was recorded; and is the snapshot equal to what they derive.
+ */
+export function assertCaptureProvenance(snapshot, { load = loadCapture } = {}) {
+  const prov = snapshot?.captureProvenance;
+  if (!prov || typeof prov !== "object") {
     throw new Error(
-      `${threads.file} reports hasNextPage: true, so it is one page of a longer list. A partial capture ` +
-        `understates findings, which is wrong in the loop's favour -- re-request with a larger perPage`,
+      "snapshot carries no `captureProvenance`, so nothing establishes that its entries came from GitHub " +
+        "rather than from an agent's context. Assemble it with core/scripts/snapshot-from-captures.mjs, " +
+        "which derives every field from a captured response and records the files it read",
     );
   }
+  // SHAPE FIRST, ACROSS ALL COLLECTIONS, before any file is opened. Checking
+  // one collection through to completion before looking at the next makes the
+  // refusal you get depend on which filesystem error happened first: a
+  // snapshot naming no source for `reviewThreads` reports an unreadable
+  // `reviews` file instead, and the reader fixes the wrong thing.
+  for (const key of VERIFIED_COLLECTIONS) {
+    const entry = prov[key];
+    if (!entry || !Array.isArray(entry.files) || entry.files.length === 0) {
+      throw new Error(
+        `captureProvenance.${key} must list the capture file(s) this collection was derived from. A ` +
+          `collection with no named source is exactly the hand-typed case this refuses`,
+      );
+    }
+    entry.files.forEach((f, i) => {
+      if (!f || typeof f.file !== "string" || typeof f.sha256 !== "string") {
+        throw new Error(`captureProvenance.${key}.files[${i}] must name a file and its sha256`);
+      }
+    });
+  }
 
-  const snapshot = {
-    repo: need("repo"),
-    capturedAt: Object.fromEntries(
-      ["pr", "reviews", "issueComments", "reviewThreads"].map((k) => [k, capturedAt]),
-    ),
-    pr: {
-      number: Number(need("pr")),
-      title: need("title"),
-      created_at: need("created-at"),
-      closed_at: null,
-      body: readFileSync(need("body-file"), "utf8"),
-      base: { ref: need("base-ref"), sha: need("base"), repo: { full_name: need("repo") } },
-      head: { ref: need("head-ref"), sha: need("head"), repo: { full_name: need("repo") } },
-    },
-    reviews: reviews.json,
-    issueComments: comments.json,
-    reviewThreads: (threads.json.review_threads ?? []).map(normaliseThread),
-    complete: { reviews: true, issueComments: true, reviewThreads: true },
-    captureProvenance: {
-      reviews: provenanceOf(reviews),
-      issueComments: provenanceOf(comments),
-      reviewThreads: provenanceOf(threads),
-    },
-  };
+  const captures = {};
+  for (const key of VERIFIED_COLLECTIONS) {
+    captures[key] = prov[key].files.map((f, i) => {
+      const c = load(f.file);
+      if (c.sha256 !== f.sha256) {
+        throw new Error(
+          `captureProvenance.${key}.files[${i}]: ${f.file} now hashes to ${c.sha256.slice(0, 12)} but the ` +
+            `snapshot records ${String(f.sha256).slice(0, 12)}. The capture changed after assembly, so it no ` +
+            `longer establishes anything about this snapshot's contents`,
+        );
+      }
+      if (f.source !== c.source) {
+        throw new Error(
+          `captureProvenance.${key}.files[${i}] records source ${JSON.stringify(f.source ?? null)} for ` +
+            `${f.file}, but that path is a ${c.source}. The classification is derived from the path, never ` +
+            `declared -- a field the writer chooses is a field that says whatever the writer wanted`,
+        );
+      }
+      return c;
+    });
+  }
+
+  const differing = diffKeys(deriveSnapshot(captures), JSON.parse(JSON.stringify(snapshot)));
+  if (differing.length) {
+    throw new Error(
+      `the snapshot is not what its own captures derive: ${differing.join(", ")} differ. Every field here is ` +
+        `a pure function of the recorded files, so a difference means the snapshot was edited or built some ` +
+        `other way. Re-run core/scripts/snapshot-from-captures.mjs rather than editing a snapshot -- an ` +
+        `edited \`isResolved\` or finding body is invisible to an identifier check, and has produced a wrong ` +
+        `verdict here before`,
+    );
+  }
+}
+
+/** Every value given for a repeatable flag, in the order supplied. */
+export function flagValues(args, name) {
+  const out = [];
+  args.forEach((a, i) => {
+    if (a === `--${name}`) {
+      const v = args[i + 1];
+      if (v === undefined || v.startsWith("--")) throw new Error(`--${name} needs a path`);
+      out.push(v);
+    }
+  });
+  return out;
+}
+
+export function main(argv = process.argv.slice(2)) {
+  const captures = {};
+  for (const key of VERIFIED_COLLECTIONS) {
+    const paths = flagValues(argv, FLAG_OF[key]);
+    if (paths.length === 0) throw new Error(`--${FLAG_OF[key]} is required (repeat it for further pages)`);
+    if (key === "pr" && paths.length > 1) throw new Error("--pr-capture takes exactly one file");
+    captures[key] = paths.map(loadCapture);
+  }
+  const out = flagValues(argv, "out")[0];
+  if (!out) throw new Error("--out is required");
+
+  const snapshot = deriveSnapshot(captures);
+  // The verifier runs on the way out as well as on the way in: a snapshot
+  // this script cannot itself certify is one nothing downstream will accept,
+  // and learning that here costs a second rather than a round.
   assertCaptureProvenance(snapshot);
-  const out = need("out");
   writeFileSync(out, `${JSON.stringify(snapshot, null, 1)}\n`);
+
+  const sources = VERIFIED_COLLECTIONS.map(
+    (k) => `${k} ${[...new Set(captures[k].map((c) => c.source))].join("+")}`,
+  ).join(", ");
   return (
-    `wrote ${out}: ${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ` +
+    `wrote ${out}: PR #${snapshot.pr.number} at ${snapshot.pr.head.sha.slice(0, 7)}, ` +
+    `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ` +
     `${snapshot.reviewThreads.length} threads ` +
     `(${snapshot.reviewThreads.filter((t) => t.isResolved).length} resolved). ` +
-    `Every identifier copied from a capture and verified against it. Sources: ` +
-    VERIFIED_COLLECTIONS.map((k) => `${k} ${snapshot.captureProvenance[k].source}`).join(", ")
+    `Derived from the captures and verified against them. Sources: ${sources}`
   );
 }
 

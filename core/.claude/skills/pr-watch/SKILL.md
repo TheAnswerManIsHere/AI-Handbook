@@ -104,28 +104,39 @@ node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>
 **Build the snapshot with a script, never by hand:**
 
 ```
-node scripts/snapshot-from-captures.mjs --pr <n> --repo <owner/name> \
-  --head <sha> --base <sha> --head-ref <branch> --base-ref <branch> \
-  --title <title> --created-at <iso> --body-file <path> \
-  --reviews <capture> --comments <capture> --threads <capture> --out <file>
+node scripts/snapshot-from-captures.mjs \
+  --pr-capture <get> \
+  --reviews <get_reviews page> [--reviews <next page> ...] \
+  --comments <get_comments page> [--comments <next page> ...] \
+  --threads <get_review_comments page> [--threads <next page> ...] \
+  --out <file>
 ```
 
-Its inputs are the raw response files themselves. Request the FULL page
-(`perPage: 100`) for `get_reviews`, `get_comments` and `get_review_comments`:
-a result too large to return inline is written to a path the tool result
-names, and that path is what you pass. A response small enough to return
-inline has to be written out verbatim first — one blob, not field by field.
-The script copies every identifier and records each collection's file and
-SHA-256 under `captureProvenance`, which is what `review-loop-record.mjs`
-verifies. **Typing a snapshot is how invented thread ids reached a judge on
-2026-09-07**; the generator now refuses a snapshot whose entries appear in no
-captured response, so hand-assembly does not merely risk that failure, it
-fails outright.
+Its inputs are the raw response files themselves, and **nothing about the pull
+request is typed on the command line** — the number, title, body, base and head
+shas all come out of the `get` capture, because a wrong-but-real base sha
+passes every downstream check and then describes a different diff.
+
+Request the FULL page (`perPage: 100`) for each list. A result too large to
+return inline is written to a path the tool result names, and that path is what
+you pass; a response small enough to return inline has to be written out
+verbatim first — one blob, not field by field. **Pass every page**: a REST page
+holding exactly 100 entries is refused, because only a short page proves the
+list ended, and `complete: true` is an attestation the generator trusts
+absolutely.
+
+The script derives the snapshot from those files, records each collection's
+files, SHA-256s and capture times (the files' own mtimes, not the clock at
+assembly), and `review-loop-record.mjs` re-derives the snapshot from them and
+refuses anything that differs. **So never edit a snapshot — re-run the
+assembler.** A hand-flipped `isResolved` or a paraphrased finding body leaves
+every identifier untouched and has already produced a wrong verdict here once.
+Typing a snapshot is how invented thread ids reached a judge on 2026-09-07.
 
 One assembled snapshot serves both commands — it is a superset of what the
-round check reads. The snapshot names its source (`repo`, the `owner/name`
-this checkout declares in `.agents/machinery.json`) and the moment GitHub was
-read (`capturedAt`) — a PR number alone does not identify a pull request, and
+round check reads. The snapshot names its source (`repo`, the `owner/name` this
+checkout declares in `.agents/machinery.json`) and the moment GitHub was read
+(`capturedAt`) — a PR number alone does not identify a pull request, and
 freshness is a property of the evidence rather than of when the command was
 typed. Bodies are required on every issue comment and every reviewer-authored
 review, because that is where the count actually reads. `check` writes an
