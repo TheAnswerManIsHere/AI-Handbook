@@ -303,6 +303,71 @@ export const MAX_CHECK_AGE_MS = MAX_SNAPSHOT_AGE_MS; // one bound, shared with t
 export const ROUND_CHECK_COLLECTIONS = ["pr", "reviews", "issueComments"];
 
 /**
+ * One capture time per collection the round check reads, whichever form the
+ * snapshot carries. The scalar form dates every collection at once; the
+ * object form dates each. Null when any round-check collection is undated,
+ * because "the scalar" is not an answer for a collection nobody stamped.
+ */
+export function roundCheckCaptureTimes(snapshot) {
+  const at = snapshot?.capturedAt;
+  if (typeof at === "string") return Object.fromEntries(ROUND_CHECK_COLLECTIONS.map((k) => [k, at]));
+  if (!at || typeof at !== "object") return null;
+  if (ROUND_CHECK_COLLECTIONS.some((k) => typeof at[k] !== "string")) return null;
+  return Object.fromEntries(ROUND_CHECK_COLLECTIONS.map((k) => [k, at[k]]));
+}
+
+/**
+ * EACH CHECK NEEDS STRICTLY NEWER EVIDENCE THAN THE LAST ONE -- PER COLLECTION.
+ *
+ * Without any compare, the single-use contract was single-use in name only:
+ * after a post consumed a receipt, re-running `check` with the SAME
+ * still-fresh snapshot overwrote the consumed receipt and released the claim,
+ * and since that snapshot predates the post it still reports the lower count.
+ * One evidence state could authorize a request, be re-minted, and authorize
+ * the next -- repeatable for the whole hour. (Codex, #503 round 5.)
+ *
+ * Comparing the OLDEST time closed that and opened a narrower one: the
+ * receipt reduced `{pr, reviews, issueComments}` to one scalar, so an operator
+ * who re-read `pr` and `reviews` while REUSING the pre-post `issueComments`
+ * -- the request set, the collection this guard exists to see fresh -- moved
+ * the oldest forward and the compare read the snapshot as newer. The receipt
+ * now keeps every consumed collection's time, and each must advance past its
+ * stored value: a genuinely new observation of GitHub is later than the one
+ * before it in EVERY collection that was actually re-read, and a collection
+ * that did not move was not re-read. (Codex, #38 round 14.)
+ *
+ * A receipt minted before the per-collection field existed falls back to the
+ * scalar compare; an unparseable previous time refuses rather than disabling
+ * the guard (NaN compared false and let the replay through, #38 round 13).
+ */
+export function assertCaptureAdvanced(previousReceipt, times) {
+  if (!previousReceipt) return;
+  const stored = previousReceipt.capturedAtByCollection;
+  const perCollection = stored && typeof stored === "object";
+  const stale = [];
+  for (const key of ROUND_CHECK_COLLECTIONS) {
+    const beforeRaw = perCollection ? stored[key] : previousReceipt.capturedAt;
+    const before = Date.parse(beforeRaw ?? "");
+    const now = Date.parse(times?.[key] ?? "");
+    if (!Number.isFinite(before) || !Number.isFinite(now)) {
+      throw new Error(
+        `the current round-check receipt's capture time for ${key} (${JSON.stringify(beforeRaw ?? null)}) and this ` +
+          `snapshot's (${JSON.stringify(times?.[key] ?? null)}) cannot be ordered -- an unreadable time is not ` +
+          "evidence that the evidence moved; re-capture the snapshot",
+      );
+    }
+    if (now <= before) stale.push(`${key} (${times[key]}, receipt ${beforeRaw})`);
+  }
+  if (stale.length) {
+    throw new Error(
+      `this snapshot's ${stale.join("; ")} ${stale.length > 1 ? "are" : "is"} not newer than the evidence behind the ` +
+        "current receipt. Re-capture EVERY round-check collection -- re-presenting an observation that has already " +
+        "authorized a post, in any one of them, is how one evidence state authorizes several.",
+    );
+  }
+}
+
+/**
  * Blast-radius tiers (David, 2026-08-17, issue #501; revised 2026-08-20 and
  * 2026-08-26).
  *
@@ -2279,7 +2344,7 @@ export function assertCountingSnapshot(pr, snapshot, now = Date.now(), slug) {
   });
 }
 
-async function check(flags, io) {
+export async function check(flags, io) {
   const pr = requirePr(flags);
 
   // The budget is loaded first because the round-check receipt is minted
@@ -2295,37 +2360,14 @@ async function check(flags, io) {
   const snapshot = JSON.parse(fs.readFileSync(flags["mcp-snapshot"], "utf8"));
   assertCountingSnapshot(pr, snapshot, Date.parse(io.now()), slug);
 
-  // EACH CHECK NEEDS STRICTLY NEWER EVIDENCE THAN THE LAST ONE.
-  //
-  // Without this, the single-use contract was single-use in name only: after a
-  // post consumed a receipt, re-running `check` with the SAME still-fresh
-  // snapshot overwrote the consumed receipt and released the claim, and since
-  // that snapshot predates the post it still reports the lower count. One
-  // evidence state could authorize a request, be re-minted, and authorize the
-  // next -- repeatable for the whole hour. The claim closed the concurrent
-  // race and quietly opened the sequential one. (Codex, #503 round 5.)
-  //
-  // Monotonicity is the exact property wanted: a genuinely new observation of
-  // GitHub is always later than the one before it, and re-presenting an old
-  // observation is precisely what must not count as new evidence.
+  // EACH CHECK NEEDS STRICTLY NEWER EVIDENCE THAN THE LAST ONE, IN EVERY
+  // COLLECTION IT READS -- see `assertCaptureAdvanced` for the two holes this
+  // closes (#503 round 5, #38 round 14). `assertCountingSnapshot` above has
+  // already required a parseable time for each of these collections, so the
+  // times here are never null on this path.
+  const captureTimes = roundCheckCaptureTimes(snapshot);
   const previous = readJson(io, checkPath(pr));
-  if (previous.state === "ok") {
-    const before = Date.parse(previous.value?.capturedAt ?? "");
-    // THE SAME COLLECTION SET AS THE ACCEPTANCE CHECK ABOVE. With the default
-    // set this returned null for a recipe-shaped snapshot, `Date.parse(null)`
-    // is NaN, the comparison was false, and re-running `check` on the same
-    // still-fresh evidence overwrote a consumed receipt -- one observation
-    // authorising several posts, which is exactly what this guard exists to
-    // refuse. Third site for this set in one round. (Codex, #38 round 13.)
-    const thisCapture = capturedAtOf(snapshot, null, { require: ROUND_CHECK_COLLECTIONS });
-    if (Number.isFinite(before) && Date.parse(thisCapture) <= before) {
-      throw new Error(
-        `this snapshot was captured at ${thisCapture}, which is not newer than the evidence behind ` +
-          `the current receipt (${previous.value.capturedAt}). Re-capture the snapshot: re-presenting an ` +
-          "observation that has already authorized a post is how one evidence state authorizes several.",
-      );
-    }
-  }
+  if (previous.state === "ok") assertCaptureAdvanced(previous.value, captureTimes);
 
   const { reviewerPasses } = await import("./review-counting.mjs");
   const counted = countRounds({
@@ -2346,6 +2388,11 @@ async function check(flags, io) {
     // consume, breaking the very workflow the compatibility was for.
     // (Codex, #38 round 7, on a change made in the same round.)
     capturedAt: capturedAtOf(snapshot, null, { require: ROUND_CHECK_COLLECTIONS }),
+    // ...AND the per-collection times beside it, which is what the next
+    // check's replay compare reads: the scalar above answers "how old is the
+    // oldest evidence", this answers "which collections were actually
+    // re-read". (Codex, #38 round 14.)
+    capturedAtByCollection: captureTimes,
     mintedAt: io.now(),
     // This receipt's generation. The guard's claim path is derived from it, so
     // a fresh receipt gets a fresh claim WITHOUT deleting the previous one --

@@ -147,7 +147,11 @@ simply one of the passes.
 // loop-round-check-<pr>.json — EPHEMERAL, gitignored, one post per receipt.
 // `capturedAt` is the SNAPSHOT's capture time, not the command's: freshness is
 // a property of the evidence, or a saved snapshot mints a renewable receipt.
+// `capturedAtByCollection` keeps each round-check collection's own time; the
+// next check must show every one of them advanced, or it is a replay of a
+// request set that already authorized a post.
 { "pr": 503, "repo": "<owner>/<repo>", "capturedAt": "…",
+  "capturedAtByCollection": { "pr": "…", "reviews": "…", "issueComments": "…" },
   "mintedAt": "…", "delivered": 2, "pending": 1, "spent": 3 }
 
 // loop-round-check-<pr>.json.claim — EPHEMERAL, gitignored, zero bytes.
