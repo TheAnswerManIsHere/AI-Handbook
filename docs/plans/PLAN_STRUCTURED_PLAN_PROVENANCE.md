@@ -130,7 +130,19 @@ path being used, not a proof that it is unused.
   that has receipts today still returns a usable state.
 - `.agents/machinery.json`'s required shape. No key is added, so every enrolled
   consumer's file stays valid unchanged.
-- The prose path's behavior for bodies that carry no declaration.
+- The prose path's behavior for bodies that carry no declaration, **with one
+  exception David settled at approval (2026-09-07)**: invisible text stops
+  counting as the author's own words on *both* paths, not just the new one.
+  An HTML comment is what a PR-template placeholder is made of, and those
+  placeholders contain the very strings the generator scans for — the
+  template's own note under `**Fix tier:**` spells out "A or B" — so a body
+  nobody filled in can today be read as one that answered. Such a body now
+  refuses. His words: *"Obviously just ignore the irrelevant hidden
+  instructions that add no value."* This closes the round-5 contradiction
+  (`PRRT_kwDOUKOPKc6fyBcO`): decision 3 shares one inert-line computation
+  between both paths, which this line as originally written forbade. **The
+  invariant was the mistake, not the decision** — it was written to protect
+  behavior that turns out to be a defect.
 - **The tier-completeness refusal**: a bugfix body missing a required oracle
   field is refused, not passed to the judge as `sections: null`.
 - **Title/body agreement for plan-review mode**, in both mismatch directions.
