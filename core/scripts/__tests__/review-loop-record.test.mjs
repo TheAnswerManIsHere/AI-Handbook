@@ -8,6 +8,7 @@ import path from "node:path";
 import {
   applyCaps,
   approvedPlanCommit,
+  approvedPlanSourceText,
   artifactDiff,
   assertCapturedAfterLatestPass,
   assertHeadReviewed,
