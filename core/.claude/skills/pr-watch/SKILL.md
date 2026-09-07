@@ -156,9 +156,17 @@ Typing a snapshot is how invented thread ids reached a judge on 2026-09-07.
 check.** The round check reads `pr`, `reviews` and `issueComments` and nothing
 else; the generator refuses any snapshot whose `complete.reviewThreads` is not
 explicitly true. So a threads-less snapshot serves the check and can never
-reach a judge as a round that found nothing. Capture threads when you are
-building a record — which, on a loop with rounds behind it, is usually the
-capture large enough to land on disk anyway.
+reach a judge as a round that found nothing. In that mode the `get` capture may
+also omit `body` — the body has one reader, the generator's plan-oracle
+resolution, which this snapshot cannot reach. Capture threads (and the body)
+when you are building a record; on a loop with rounds behind it the threads
+payload is usually large enough to land on disk anyway.
+
+**This matters more than it looks.** A round check costs one small capture set
+per round, and if that set includes a pull request's whole body and every
+review thread, an honest operator transcribing inline responses pays that on
+every round. The discipline that is expensive is the one that gets skipped,
+and skipping it is how a snapshot got fabricated on 2026-09-07.
 
 The snapshot names its source (`repo`, the `owner/name` this
 checkout declares in `.agents/machinery.json`) and the moment GitHub was read

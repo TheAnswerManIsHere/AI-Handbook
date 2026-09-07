@@ -330,8 +330,19 @@ const normaliseThread = (t) => ({
   })),
 });
 
-/** The fields of `get` the snapshot carries, each required rather than defaulted. */
-function normalisePr(capture) {
+/**
+ * The fields of `get` the snapshot carries, each required rather than
+ * defaulted.
+ *
+ * `body` is the exception, and only in round-check-only mode. The body exists
+ * in a snapshot for one reader -- the generator's plan-oracle resolution --
+ * and a threads-less snapshot can never reach the generator, which refuses any
+ * snapshot whose `complete.reviewThreads` is not explicitly true. Requiring it
+ * anyway would mean transcribing a pull request's whole body by hand for a
+ * round check that never opens it, every round; that is the cost that makes an
+ * honest path get skipped. Where the body CAN be read, it is required.
+ */
+function normalisePr(capture, { requireBody } = { requireBody: true }) {
   const g = capture.json;
   const need = (dotted) => {
     const v = dotted.split(".").reduce((o, k) => (o == null ? undefined : o[k]), g);
@@ -353,7 +364,7 @@ function normalisePr(capture) {
     created_at: need("created_at"),
     updated_at: g.updated_at ?? null,
     closed_at: g.closed_at ?? null,
-    body: need("body"),
+    body: requireBody ? need("body") : (g.body ?? null),
     base: { ref: need("base.ref"), sha: need("base.sha"), repo: { full_name: need("base.repo.full_name") } },
     head: { ref: need("head.ref"), sha: need("head.sha"), repo: { full_name: need("head.repo.full_name") } },
   };
@@ -369,7 +380,7 @@ function normalisePr(capture) {
 export function deriveSnapshot(captures) {
   const present = VERIFIED_COLLECTIONS.filter((k) => (captures[k] ?? []).length > 0);
   const withThreads = present.includes("reviewThreads");
-  const pr = normalisePr(captures.pr[0]);
+  const pr = normalisePr(captures.pr[0], { requireBody: withThreads });
   const snapshot = {
     repo: pr.base.repo.full_name,
     capturedAt: Object.fromEntries(present.map((k) => [k, oldest(captures[k])])),
@@ -522,9 +533,10 @@ export function main(argv = process.argv.slice(2)) {
     ? `${snapshot.reviewThreads.length} threads ` +
       `(${snapshot.reviewThreads.filter((t) => t.isResolved).length} resolved)`
     : "NO THREADS -- round-check-only; review-loop-record.mjs will refuse this snapshot";
+  const bodyNote = snapshot.pr.body === null ? " (pr.body omitted: nothing round-check-only reads it)" : "";
   return (
     `wrote ${out}: PR #${snapshot.pr.number} at ${snapshot.pr.head.sha.slice(0, 7)}, ` +
-    `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ${threads}. ` +
+    `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ${threads}.${bodyNote} ` +
     `Derived from the captures and verified against them. Sources: ${sources}`
   );
 }

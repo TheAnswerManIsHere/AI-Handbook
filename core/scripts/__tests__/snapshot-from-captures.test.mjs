@@ -548,3 +548,30 @@ test("omitting --threads builds a round-check-only snapshot the generator refuse
   assert.throws(() => assertCaptureProvenance(smuggled), /is not what its own captures derive/);
   cleanup();
 });
+
+test("a round-check-only snapshot does not require the PR body", () => {
+  // The body exists in a snapshot for exactly one reader -- the generator's
+  // plan-oracle resolution -- and a threads-less snapshot can never reach the
+  // generator. Demanding it would mean transcribing a pull request's whole
+  // body by hand, every round, for a check that never opens it. That cost is
+  // what makes an honest path get skipped, which is the failure this whole
+  // file exists to prevent.
+  const pr = { ...PR };
+  delete pr.body;
+  const { dir, paths, cleanup } = fixture({ pr });
+  const out = path.join(dir, "s.json");
+  const full = argv(paths, out);
+  const i = full.indexOf("--threads");
+  const line = main([...full.slice(0, i), ...full.slice(i + 2)]);
+  assert.match(line, /pr\.body omitted: nothing round-check-only reads it/);
+
+  const snap = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.equal(snap.pr.body, null);
+  assert.doesNotThrow(() => assertCaptureProvenance(snap));
+  // Fail-closed as before: it cannot reach a judge.
+  assert.throws(() => assertMcpSnapshotComplete(snap), /complete\.reviewThreads must be explicitly true/);
+
+  // ...and where the body CAN be read, it is still required.
+  assert.throws(() => main(full), /has no body/);
+  cleanup();
+});
