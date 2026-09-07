@@ -33,10 +33,33 @@ oracles, run against `main` at `25c1df8` on 2026-09-07:
 |---|---|
 | `git grep -n "planOracle" -- core/scripts core/.claude core/.agents docs scripts` (minus tests) | 13 hits: the producer, its two cap sites, and **one consumer — the judge's contract prose** at `review-loop-adjudicator.md:133`. No code consumes it. |
 | `git grep -n "PLAN_COMMIT_FORMS\|TEXTUAL_NO_PLAN_FORMS\|approvedPlanSourceText\|permittedNoPlanForm\|planReviewSignals\|BUGFIX_ORACLE_FIELDS\|FIX_TIER_RE\|approvedPlanCommit"` | 19 hits, all inside `review-loop-record.mjs` lines 770–1130 — a 361-line block |
-| `git grep -ln "Approved-plan source\|Approved-plan oracle\|Fix tier\|no-plan form" -- core docs scripts .github` | 6 files: `claude-core.md`, `code-review.md`, `bugfix/SKILL.md`, `maintenance/SKILL.md`, `plan-review-loop/SKILL.md`, the generator |
+| `git grep -lni "approved[- ]plan[- ]source\|approved-plan oracle\|fix tier\|no-plan form\|\[PLAN REVIEW\]\|Review mode" -- core docs scripts .github` | 16 files (excluding this plan, tests, and committed receipts) |
 | `node scripts/check-manifest.mjs` | `0 ready, 13 staged` — nothing has synced to any consumer |
 
-The hit list is the scope. Nothing outside those files reads or writes a
+**The producer oracle was wrong once, and the corrected one is above.** Its
+first form searched `"Approved-plan source"` — space-separated and
+capitalised — and found 6 files. `pr-docs/SKILL.md:120` writes
+*approved-plan-source line*, hyphenated and lowercase, and was missed; so were
+the plan-review selector's own tokens. That is #40 §2.2's class — a matcher
+written from a remembered format — committed in the very plan that exists to
+end it. Recording the failure rather than only the corrected result, because
+the corrected result alone would teach the wrong lesson. (Codex, round 1.)
+
+The 16 hits classify into three sets, and only the first is this plan's scope:
+
+- **Teaches a form an author writes** (must change): `claude-core.md` (the
+  contract's three provenance forms), `pr-docs/SKILL.md` (the phase-PR
+  oracle line), `bugfix/SKILL.md` (the tier oracle block), `working-modes.md`
+  (that block's field list), `plan-review-loop/SKILL.md` (the plan-review body
+  template).
+- **Selects or consumes** (must change): `review-loop-record.mjs`,
+  `review-loop-adjudicator.md`'s description of what it reads.
+- **Mentions without instructing** (unchanged, listed so the next reader need
+  not re-derive the split): `code-review.md`, `maintenance/SKILL.md`,
+  `status/SKILL.md`, `status-all/SKILL.md`, `uat/SKILL.md`, `agents-core.md`,
+  `plan-review-contract.md`, `pr-watch/SKILL.md`, and one memory note.
+
+The first two sets are the scope. Nothing outside them reads or writes a
 provenance form.
 
 **Claim-oracle rule.** Every completeness claim below either names the oracle
@@ -83,8 +106,8 @@ one block whose form is fixed and whose keys are named. The record reads that
 declaration; it does not infer one from prose. A declaration that is present
 and malformed is a refusal that names the key at fault, never a silent
 fall-back. A body written before this exists keeps working, and the record says
-which of the two paths produced its oracle, so the prose path's disuse becomes
-a measurement rather than an assumption.
+which of the two paths produced its oracle — a diagnostic that shows the prose
+path being used, not a proof that it is unused.
 
 ## Must Not Change
 
@@ -102,6 +125,9 @@ a measurement rather than an assumption.
 - `.agents/machinery.json`'s required shape. No key is added, so every enrolled
   consumer's file stays valid unchanged.
 - The prose path's behavior for bodies that carry no declaration.
+- **The tier-completeness refusal**: a bugfix body missing a required oracle
+  field is refused, not passed to the judge as `sections: null`.
+- **Title/body agreement for plan-review mode**, in both mismatch directions.
 
 ## Settled Decisions
 
@@ -131,11 +157,17 @@ a measurement rather than an assumption.
    change worthless. *Enforced by construct:* the refusal is a runtime
    condition in the generator, not a checked property.
 
-5. **The block declares identity, not completeness.** It says which kind of
-   oracle governs and carries the machine-checkable facts; whether the body
-   *also* contains a complete human-readable oracle is a different question and
-   belongs to the PR-body lint recorded as #40 §2.8. Conflating the two is what
-   made the current function hard to reason about.
+5. **The block selects which oracle governs; every completeness check the
+   generator performs today survives, unchanged, beside it.** In particular a
+   body declaring `kind: bugfix` still has its tier's required oracle fields
+   checked, and an incomplete one still refuses rather than reaching the judge
+   as `sections: null` — the refusal `permittedNoPlanForm` performs today.
+   An earlier revision of this decision deferred that check to the PR-body
+   lint (#40 §2.8) and so contradicted decision 6 in the same list: a reviewer
+   *would* have lost a check, for however long that lint took to ship. The
+   split is between *selection* (the block's job) and *completeness* (a check
+   that keeps running); it is not a licence to drop the second.
+   (Codex, round 1.)
 
 6. **A declaration is the author's word, and always was.** Prose saying "n/a —
    trivial change" was equally self-asserted. This plan makes the assertion
@@ -146,6 +178,16 @@ a measurement rather than an assumption.
    an approved plan, its split-loop variant, the private path, a bugfix with
    its tier, a trivial change, and a plan-review loop. One parser answers "what
    governs this PR", where six prose forms answer it today.
+
+7a. **`kind: plan-review` must agree with the `[PLAN REVIEW]` title, and
+   disagreement in either direction refuses.** This is the invariant
+   `planReviewSignals` enforces today, and it is a safety property, not a
+   formatting one: without it an ordinary PR can declare itself a plan-review
+   loop and take the *mutable head plan* as its oracle, and a real plan-review
+   PR can be judged against an approved-plan or no-plan oracle instead. Both
+   mismatch directions are refusals. Moving the signal from prose to a
+   declared key changes where the body half is read, never whether the
+   agreement is required. (Codex, round 1.)
 
 8. **`approved_by` must name David** for every approved-plan kind. The contract
    already requires it (`claude-core.md:453-457`); today it is a phrase inside
@@ -168,11 +210,29 @@ a measurement rather than an assumption.
     reading the PR, so nothing is lost by having one. **This is the decision
     most worth challenging** — see *Questions for David*.
 
+11a. **A body carrying both a declaration and a legacy prose provenance form
+    refuses, as a contradiction.** Decision 11 states the replacement; without
+    this, nothing enforces it. "Declaration, else prose" would silently ignore
+    the prose whenever a block exists, so a stale producer or a half-edited
+    body could name one commit in the block and a different one in the
+    sentence — the judge following the first while a human following the
+    contract reads the second. Enforcement belongs in the parser, not in
+    producer instructions, because a stale producer is precisely one that has
+    already failed to follow instructions. *Enforced by construct.*
+    (Codex, round 1.)
+
 12. **The prose path stays, unchanged, for bodies with no declaration**, and
-    the record names which path produced the oracle. Deleting 361 lines is
-    correct eventually and reckless now; the field is what turns "no PR needs
-    the old path any more" into something a later pass can demonstrate instead
-    of assume.
+    the record carries a discriminator naming which of the two answered.
+    Deleting 361 lines is correct eventually and reckless now. **That
+    discriminator is sampled diagnostics, not migration proof:** a record
+    exists only where the judge was dispatched, and a clean or all-declined
+    round ends with no dispatch and so no record — an absence of
+    prose-selected records therefore observes only the PRs that reached
+    adjudication. Removing the fallback requires an exhaustive pass over PR
+    bodies; this field cannot authorise it. An earlier revision called the
+    field a demonstration, which was a completeness claim resting on sampled
+    evidence — the precise thing the claim-oracle rule forbids.
+    (Codex, round 1.)
 
 13. **The implementation PR carries its own declaration.** The first real
     exercise of the form is the change that introduces it; a form that cannot
@@ -206,14 +266,78 @@ oracle's *contents*, unchanged.
 
 A declaration block whose kind selects a required key set, parsed once, with
 refusals that name the offending key. The prose path becomes a fallback that
-runs only when no declaration is present, and the record records which path
-answered.
+runs only when no declaration is present, and the record carries a
+discriminator naming which answered.
+
+### The declaration, normatively
+
+This section is the wire format. It is here rather than left to
+implementation because a format shared by *producers* (five skills and
+contracts that tell an author what to write) and one *parser* is the case the
+specification test keeps: both sides can be self-consistently wrong, and no
+compiler, test or diff review compares a skill's template against a parser's
+key set. #40 §2.2 requires a matcher's fixture to be copied from the document
+that defines the format; this plan is that document. (Codex, round 1.)
+
+The block is a fenced region whose info string is exactly `plan-provenance`:
+
+````markdown
+```plan-provenance
+kind: approved-plan
+plan_review_pr: 37
+plan_commit: 972b60d
+approved_by: David
+approved_on: 2026-09-06
+```
+````
+
+**Kinds and their keys.** Every key not required for a kind is forbidden for
+that kind; there are no optional keys.
+
+| `kind` | Required keys |
+|---|---|
+| `approved-plan` | `plan_review_pr`, `plan_commit`, `approved_by`, `approved_on` |
+| `approved-plan-split` | `plan_review_prs`, `combined_plan_commit`, `combined_branch`, `approved_by`, `approved_on` |
+| `private-plan` | `plan_file`, `plan_sha256`, `approved_by`, `approved_on` |
+| `bugfix` | `fix_tier` |
+| `trivial` | *(none)* |
+| `plan-review` | *(none)* |
+
+**Value grammars.**
+
+| Key | Grammar |
+|---|---|
+| `plan_review_pr` | a positive integer, written without `#` |
+| `plan_review_prs` | two or more positive integers, comma-separated |
+| `plan_commit`, `combined_plan_commit` | 7–40 lowercase hexadecimal characters |
+| `combined_branch` | `plan-review/<slug>-combined` |
+| `plan_file` | a repository-relative path under `docs/plans/` |
+| `plan_sha256` | exactly 64 lowercase hexadecimal characters |
+| `approved_by` | exactly `David` |
+| `approved_on` | `YYYY-MM-DD` |
+| `fix_tier` | one of `A`, `B`, `C` |
+
+**Syntax.** One `key: value` per line, surrounding whitespace trimmed; blank
+lines ignored. `kind` comes first. No comments, no nesting, no quoting, no
+multi-line values, no repeated keys. A repeated key, an unknown key, a missing
+required key, a forbidden key, or a value failing its grammar is a refusal
+naming the key.
+
+### The record's discriminator
+
+The record gains `planOracle.declaredBy`, whose value is `"declaration"` or
+`"prose"`. It is deliberately **not** called `path`: `planOracle.path` already
+exists and holds the resolved `docs/plans/PLAN_*.md` filename, so reusing the
+word would either collide with a source-of-truth field or leave two readers
+disagreeing about which one they were reading. Absent on every record
+committed before this ships, and absence means `"prose"` — which is what every
+existing record used. (Codex, round 1.)
 
 ## Data Model and Migration Impact
 
-No database, no migration. The record gains one field naming the path that
-produced the oracle. Committed records lack it; readers must treat its absence
-as "prose", which is what every existing record used.
+No database, no migration. The record gains `planOracle.declaredBy`, specified
+above. Committed records lack it, and its absence means `"prose"` — what every
+existing record used. No key is added to `.agents/machinery.json`.
 
 ## Runtime Behavior
 
@@ -236,17 +360,23 @@ recognise. The parser reads no file the generator does not already read.
 ## Testing Plan
 
 Regression tests written before the change and watched to fail, covering: each
-kind's happy path; a missing required key; an unknown key; a malformed value of
-each shape; two blocks; a block nested inside another fence; a body with no
-block falling back to prose unchanged; and the record's path field under both.
-Fixtures are copied from real bodies — #38's, the merged bugfix #611's, and
-plan-review #37's — per #40 §2.2, not invented from a remembered format.
+kind's happy path; a missing required key; a forbidden key for that kind; an
+unknown key; a repeated key; a malformed value of every grammar above; two
+blocks; a block nested inside another fence; a body with no block falling back
+to prose unchanged; `declaredBy` under both paths and absent on a legacy
+record; a body carrying both a declaration and a prose provenance form; a
+`kind: plan-review` block under an ordinary title and a `[PLAN REVIEW]` title
+with no such block; and a `kind: bugfix` block whose tier oracle is
+incomplete. Fixtures are copied from real bodies — #38's, the merged bugfix
+#611's, and plan-review #37's — per #40 §2.2, not invented from a remembered
+format.
 
 ## Implementation Steps
 
 1. Tests first, failing.
 2. The parser and its refusals.
-3. Resolution order: declaration, else prose; record the path.
+3. Resolution order: declaration, else prose; refuse a body carrying both;
+   record `declaredBy`.
 4. The contract text and the producers that teach the form.
 5. `sync-manifest.yml` `mentions` and `identity-sources.yml` where citations move.
 6. This PR's own body carries the block.
