@@ -1,0 +1,9 @@
+{
+  "pr": 43,
+  "tier": "sensitive",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 5,
+  "criticality": 90,
+  "artifact": "the adjudication record's approved-plan oracle: a declared provenance block replacing prose inference",
+  "declaredAt": "2026-09-07T00:36:03.579Z"
+}
