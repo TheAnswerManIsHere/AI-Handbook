@@ -5,6 +5,8 @@
   "grant": 0,
   "risk": "",
   "recordPath": ".agents/adjudications/43-4.json",
+  "modelRequested": "best",
+  "effortRequested": "xhigh",
   "decidedAt": "2026-09-07T15:56:00.000Z",
   "reasoning": "Sensitive tier at cap (5 of 5, criticality 90), trend 7/4/7/4/3 across 25 in-diff findings, 7 unresolved. The judge verified the premises against the record: budget spent with no extensions, [PLAN REVIEW] title with planOracle.mode plan-review so the 554-line plan file is the artifact, truncation.fields empty, sinceLastReview.noChange true as the write-gate expects. It found the trend unconverged -- round 3 re-spiked to 7 and each fix spawned sub-decisions (3 -> 3a -> 3b, 8 -> 8a -> 8b, 11 -> 11a), the #38 shape the plan itself describes as not closing by review rounds. Of the seven unresolved threads, two are already written for at head and are thread state only; the five genuinely open ones all fail in the wrongly-blocking direction or are specification gaps the implementation PR will surface concretely against real code with tests written first. None is a fail-open path feeding the judge a wrong oracle, which is the only blast radius on this artifact that would justify buying a sixth round of plan prose plus its mandatory review.",
   "gaps": [
