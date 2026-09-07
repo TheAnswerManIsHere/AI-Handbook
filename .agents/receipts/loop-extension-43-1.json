@@ -1,0 +1,18 @@
+{
+  "pr": 43,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "grant": 0,
+  "risk": "",
+  "recordPath": ".agents/adjudications/43-4.json",
+  "decidedAt": "2026-09-07T15:56:00.000Z",
+  "reasoning": "Sensitive tier at cap (5 of 5, criticality 90), trend 7/4/7/4/3 across 25 in-diff findings, 7 unresolved. The judge verified the premises against the record: budget spent with no extensions, [PLAN REVIEW] title with planOracle.mode plan-review so the 554-line plan file is the artifact, truncation.fields empty, sinceLastReview.noChange true as the write-gate expects. It found the trend unconverged -- round 3 re-spiked to 7 and each fix spawned sub-decisions (3 -> 3a -> 3b, 8 -> 8a -> 8b, 11 -> 11a), the #38 shape the plan itself describes as not closing by review rounds. Of the seven unresolved threads, two are already written for at head and are thread state only; the five genuinely open ones all fail in the wrongly-blocking direction or are specification gaps the implementation PR will surface concretely against real code with tests written first. None is a fail-open path feeding the judge a wrong oracle, which is the only blast radius on this artifact that would justify buying a sixth round of plan prose plus its mandatory review.",
+  "gaps": [
+    "Round 5 P2 (PRRT_kwDOUKOPKc6fyBcO): decision 3 has the prose path inherit the new HTML-comment inert rule, which literally contradicts Must Not Change 'The prose path's behavior for bodies that carry no declaration'. Resolve at approval or in the implementation PR: either scope HTML-comment masking to declaration discovery only, or amend Must Not Change to accept that a legacy body whose only provenance line sits inside an HTML comment now refuses (fail-closed; such a body was being wrongly resolved today).",
+    "Round 5 P1 (PRRT_kwDOUKOPKc6fyBcJ): decision 11a's mixed-format refusal is body-wide, so an approved-plan declaration coexisting with an incidental live `**Fix tier:**` line (docs/changelog prose) refuses the PR; the current code lets approved provenance outrank incidental no-plan text. Implementation should define an authoritative selector region while still refusing a true duplicate selector.",
+    "Round 5 P1 (PRRT_kwDOUKOPKc6fyBcM): decision 11a says the bugfix tier rationale becomes 'a named required field' but never names the label or its completeness rule; the normative schema lists only `fix_tier`. Implementation must fix one label shared by parser, producers, and fixtures.",
+    "Round 4 P1 (PRRT_kwDOUKOPKc6fxvR1): the canonical `approved-plan` example in the wire-format section still omits `plan_file`, which the kinds table makes required with no optional keys; a fixture copied from the example refuses. One-line plan edit or fix at implementation.",
+    "Round 4 P1 (PRRT_kwDOUKOPKc6fxvR5): decision 12a gates enabling on the consumer's PR template only; sync-manifest.yml lets the `machinery` group ship with only `machinery-config` while `skills`/`claude-core` producers remain `mentions`, so a consumer could receive the refusing parser before its producers emit the declaration. Fail-closed at the consumer; the enabling-step check in 12a should cover every producer-bearing group, not the template alone.",
+    "Round 4 threads PRRT_kwDOUKOPKc6fxvRx (live-boundary API) and PRRT_kwDOUKOPKc6fxvR6 (private filename) appear addressed at head by decision 3 'Reuse the boundary, not the stripper' and decision 8b `plan_filename`; they are unresolved as thread state only and need replies, not code."
+  ]
+}
