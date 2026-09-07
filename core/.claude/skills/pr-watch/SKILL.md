@@ -101,14 +101,35 @@ rather than sending you back to `declare`.)
 node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>
 ```
 
-The snapshot is `pull_request_read` (`get`, `get_reviews`, `get_comments`),
-paginated and attested complete, and it must also name its source
-(`repo`, the `owner/name` this checkout declares in `.agents/machinery.json`) and the moment GitHub was read
-(`capturedAt`) — a PR number alone does not identify a pull request, and
+**Build the snapshot with a script, never by hand:**
+
+```
+node scripts/snapshot-from-captures.mjs --pr <n> --repo <owner/name> \
+  --head <sha> --base <sha> --head-ref <branch> --base-ref <branch> \
+  --title <title> --created-at <iso> --body-file <path> \
+  --reviews <capture> --comments <capture> --threads <capture> --out <file>
+```
+
+Its inputs are the raw response files themselves. Request the FULL page
+(`perPage: 100`) for `get_reviews`, `get_comments` and `get_review_comments`:
+a result too large to return inline is written to a path the tool result
+names, and that path is what you pass. A response small enough to return
+inline has to be written out verbatim first — one blob, not field by field.
+The script copies every identifier and records each collection's file and
+SHA-256 under `captureProvenance`, which is what `review-loop-record.mjs`
+verifies. **Typing a snapshot is how invented thread ids reached a judge on
+2026-09-07**; the generator now refuses a snapshot whose entries appear in no
+captured response, so hand-assembly does not merely risk that failure, it
+fails outright.
+
+One assembled snapshot serves both commands — it is a superset of what the
+round check reads. The snapshot names its source (`repo`, the `owner/name`
+this checkout declares in `.agents/machinery.json`) and the moment GitHub was
+read (`capturedAt`) — a PR number alone does not identify a pull request, and
 freshness is a property of the evidence rather than of when the command was
 typed. Bodies are required on every issue comment and every reviewer-authored
-review, because that is where the count actually reads. It writes an ephemeral
-round-check receipt that authorizes exactly **one** post — the same
+review, because that is where the count actually reads. `check` writes an
+ephemeral round-check receipt that authorizes exactly **one** post — the same
 evidence-at-decision-time pattern the merge gate uses, because the round count
 is evidence, not something to remember. There is no tally to maintain and
 nothing to reconcile if a request stalls.

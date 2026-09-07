@@ -1,6 +1,10 @@
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createHash } from "node:crypto";
 
 import {
   applyCaps,
@@ -13,6 +17,7 @@ import {
   assertAdjudicationSnapshot,
   assertArtifactEndpoints,
   assertCapturedProvenance,
+  assertSnapshotEvidence,
   assertThreadProvenance,
   buildRecord,
   cappedDiff,
@@ -1617,4 +1622,58 @@ test("assertHeadReviewed: the PR head must be the last commit a reviewer pass co
 test("assertHeadReviewed: with no reviewed commit at all there is nothing to compare -- changesSince already reports that state", () => {
   assert.doesNotThrow(() => assertHeadReviewed(null, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
   assert.doesNotThrow(() => assertHeadReviewed(undefined, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
+});
+
+test("a snapshot's identifiers must exist in the responses it claims to come from", () => {
+  // THE REGRESSION. On 2026-09-07 I assembled #43's round-4 evidence from
+  // webhook notification text, which carries comment bodies but no ids, and
+  // typed ids that looked right: threads `PRRT_kwDOUKOPKc6fxwZ1`/`…fxwZ4`,
+  // comments 3946356201/3946356214. All four were invented. The same capture
+  // also MISSED two of the round's four findings, because notification text is
+  // not a capture of PR state.
+  //
+  // Both checks above passed it. `assertThreadProvenance` asks whether the id
+  // is well-formed; `assertCapturedProvenance` asks whether it agrees with its
+  // own URL and names this pull request. A fabricator writes a well-formed id
+  // and a matching URL in one motion, so agreement with itself is exactly what
+  // an invention has. Nothing asked the only question that separates them:
+  // did this id ever come back from GitHub.
+  const url = (id) => `https://github.com/TheAnswerManIsHere/AI-Handbook/pull/43#discussion_r${id}`;
+  const snapshot = {
+    repo: "TheAnswerManIsHere/AI-Handbook",
+    pr: { number: 43 },
+    reviews: [],
+    issueComments: [],
+    reviewThreads: [
+      { id: "PRRT_kwDOUKOPKc6fxwZ1", comments: [{ id: 3946356201, html_url: url(3946356201) }] },
+    ],
+  };
+  // Self-consistent, this-PR, well-formed -- and entirely made up.
+  assert.doesNotThrow(() => assertThreadProvenance(snapshot.reviewThreads));
+  assert.doesNotThrow(() => assertCapturedProvenance(snapshot));
+  assert.throws(() => assertSnapshotEvidence(snapshot), /no `captureProvenance`/);
+
+  // Naming a capture is not enough either: the ids must be IN it. This is the
+  // shape the fabricated snapshot would have taken had I been asked to name a
+  // source -- a real capture file, from the same PR, that simply does not
+  // contain the entries the snapshot claims to have read out of it.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "capture-"));
+  const file = path.join(dir, "threads.json");
+  fs.writeFileSync(file, JSON.stringify({ review_threads: [{ id: "PRRT_kwDOUKOPKc6fxvRx" }] }));
+  const sha256 = createHash("sha256").update(fs.readFileSync(file, "utf8"), "utf8").digest("hex");
+  const named = {
+    ...snapshot,
+    captureProvenance: {
+      reviews: { file, sha256 },
+      issueComments: { file, sha256 },
+      reviewThreads: { file, sha256 },
+    },
+  };
+  assert.throws(() => assertSnapshotEvidence(named), /appear nowhere in .*threads\.json/);
+
+  // And the real thread from that capture passes, so the check refuses
+  // inventions rather than refusing work.
+  named.reviewThreads = [{ id: "PRRT_kwDOUKOPKc6fxvRx", comments: [{}] }];
+  assert.doesNotThrow(() => assertSnapshotEvidence(named));
+  fs.rmSync(dir, { recursive: true, force: true });
 });

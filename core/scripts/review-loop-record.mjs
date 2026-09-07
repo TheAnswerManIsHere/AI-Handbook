@@ -75,6 +75,7 @@ import {
   REPO_ROOT,
   TIERS,
 } from "./review-budget.mjs";
+import { assertCaptureProvenance } from "./snapshot-from-captures.mjs";
 
 export const ADJUDICATIONS_DIR = ".agents/adjudications";
 
@@ -1966,6 +1967,34 @@ export function assertCapturedAfterLatestPass(snapshot, passes) {
   }
 }
 
+/**
+ * The three evidence checks, as ONE call, because they are one question asked
+ * at three depths and the generator has exactly one place that needs the
+ * answer.
+ *
+ * Depth 1 (`assertThreadProvenance`): is this id SHAPED like GitHub's.
+ * Depth 2 (`assertCapturedProvenance`): does it agree with its own URL, and
+ * does that URL name this pull request in this repository.
+ * Depth 3 (`assertCaptureProvenance`): did it ever come back from GitHub.
+ *
+ * The first two are properties an invention has for free -- a fabricator
+ * writes the id and its URL in one motion, from the same wrong number -- which
+ * is why both passed the round-4 snapshot whose thread ids I had typed. Only
+ * the third asks a question the fabricator cannot answer by being consistent,
+ * and it can only be asked because assembly moved into a script that records
+ * what it read: see `snapshot-from-captures.mjs`.
+ *
+ * They live behind one function so that adding a fourth cannot leave the
+ * generator calling two of four. Two enforcement points with different rules
+ * is how a contract diverges from itself -- the same reason round 3 gave for
+ * matching the shared comment rule rather than exceeding it.
+ */
+export function assertSnapshotEvidence(snapshot) {
+  assertThreadProvenance(snapshot?.reviewThreads);
+  assertCapturedProvenance(snapshot);
+  assertCaptureProvenance(snapshot);
+}
+
 export function assertAdjudicationSnapshot(pr, snapshot, slug) {
   if (typeof slug !== "string" || slug.trim() === "") {
     throw new Error(
@@ -2112,8 +2141,7 @@ function main() {
   }
   assertAdjudicationSnapshot(pr, snapshot, budgetState.budget.repo);
   // Findings are built from the captured threads verbatim or not at all.
-  assertThreadProvenance(snapshot.reviewThreads);
-  assertCapturedProvenance(snapshot);
+  assertSnapshotEvidence(snapshot);
   const derived = fromMcp(snapshot);
 
   const base = snapshot.pr?.base?.sha ?? null;
