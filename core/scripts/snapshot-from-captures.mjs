@@ -78,6 +78,25 @@ import { resolve } from "node:path";
  */
 export const VERIFIED_COLLECTIONS = ["pr", "reviews", "issueComments", "reviewThreads"];
 
+/**
+ * `--threads` is the one optional capture, and omitting it produces a
+ * ROUND-CHECK-ONLY snapshot.
+ *
+ * `review-budget.mjs check` reads `pr`, `reviews` and `issueComments` and
+ * nothing else, while `review-loop-record.mjs` refuses any snapshot whose
+ * `complete.reviewThreads` is not explicitly true. So a snapshot built
+ * without threads serves the round check and is REFUSED BY NAME by the
+ * generator -- the omission cannot become a silently empty finding list,
+ * which is the failure this file exists to prevent.
+ *
+ * It matters because captures small enough to return inline have to be
+ * written out by hand, and a threads payload carrying a loop's own replies is
+ * the largest of them. A round check that demanded it would make the honest
+ * path the expensive one, and an expensive discipline is one that gets
+ * skipped.
+ */
+export const OPTIONAL_COLLECTIONS = ["reviewThreads"];
+
 /** Which flag supplies each collection's captures. */
 const FLAG_OF = {
   pr: "pr-capture",
@@ -272,17 +291,19 @@ function normalisePr(capture) {
  * function cannot.
  */
 export function deriveSnapshot(captures) {
+  const present = VERIFIED_COLLECTIONS.filter((k) => (captures[k] ?? []).length > 0);
+  const withThreads = present.includes("reviewThreads");
   const pr = normalisePr(captures.pr[0]);
   const snapshot = {
     repo: pr.base.repo.full_name,
-    capturedAt: Object.fromEntries(VERIFIED_COLLECTIONS.map((k) => [k, oldest(captures[k])])),
+    capturedAt: Object.fromEntries(present.map((k) => [k, oldest(captures[k])])),
     pr,
     reviews: pagedArray(captures.reviews, "reviews"),
     issueComments: pagedArray(captures.issueComments, "issueComments"),
-    reviewThreads: pagedThreads(captures.reviewThreads).map(normaliseThread),
-    complete: { reviews: true, issueComments: true, reviewThreads: true },
+    ...(withThreads ? { reviewThreads: pagedThreads(captures.reviewThreads).map(normaliseThread) } : {}),
+    complete: { reviews: true, issueComments: true, ...(withThreads ? { reviewThreads: true } : {}) },
     captureProvenance: Object.fromEntries(
-      VERIFIED_COLLECTIONS.map((k) => [
+      present.map((k) => [
         k,
         {
           files: captures[k].map((c) => ({ file: c.file, sha256: c.sha256, source: c.source })),
@@ -326,6 +347,7 @@ export function assertCaptureProvenance(snapshot, { load = loadCapture } = {}) {
   // `reviews` file instead, and the reader fixes the wrong thing.
   for (const key of VERIFIED_COLLECTIONS) {
     const entry = prov[key];
+    if (!entry && OPTIONAL_COLLECTIONS.includes(key)) continue;
     if (!entry || !Array.isArray(entry.files) || entry.files.length === 0) {
       throw new Error(
         `captureProvenance.${key} must list the capture file(s) this collection was derived from. A ` +
@@ -341,7 +363,7 @@ export function assertCaptureProvenance(snapshot, { load = loadCapture } = {}) {
 
   const captures = {};
   for (const key of VERIFIED_COLLECTIONS) {
-    captures[key] = prov[key].files.map((f, i) => {
+    captures[key] = (prov[key]?.files ?? []).map((f, i) => {
       const c = load(f.file);
       if (c.sha256 !== f.sha256) {
         throw new Error(
@@ -390,7 +412,9 @@ export function main(argv = process.argv.slice(2)) {
   const captures = {};
   for (const key of VERIFIED_COLLECTIONS) {
     const paths = flagValues(argv, FLAG_OF[key]);
-    if (paths.length === 0) throw new Error(`--${FLAG_OF[key]} is required (repeat it for further pages)`);
+    if (paths.length === 0 && !OPTIONAL_COLLECTIONS.includes(key)) {
+      throw new Error(`--${FLAG_OF[key]} is required (repeat it for further pages)`);
+    }
     if (key === "pr" && paths.length > 1) throw new Error("--pr-capture takes exactly one file");
     captures[key] = paths.map(loadCapture);
   }
@@ -404,14 +428,16 @@ export function main(argv = process.argv.slice(2)) {
   assertCaptureProvenance(snapshot);
   writeFileSync(out, `${JSON.stringify(snapshot, null, 1)}\n`);
 
-  const sources = VERIFIED_COLLECTIONS.map(
-    (k) => `${k} ${[...new Set(captures[k].map((c) => c.source))].join("+")}`,
-  ).join(", ");
+  const sources = VERIFIED_COLLECTIONS.filter((k) => captures[k].length)
+    .map((k) => `${k} ${[...new Set(captures[k].map((c) => c.source))].join("+")}`)
+    .join(", ");
+  const threads = snapshot.reviewThreads
+    ? `${snapshot.reviewThreads.length} threads ` +
+      `(${snapshot.reviewThreads.filter((t) => t.isResolved).length} resolved)`
+    : "NO THREADS -- round-check-only; review-loop-record.mjs will refuse this snapshot";
   return (
     `wrote ${out}: PR #${snapshot.pr.number} at ${snapshot.pr.head.sha.slice(0, 7)}, ` +
-    `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ` +
-    `${snapshot.reviewThreads.length} threads ` +
-    `(${snapshot.reviewThreads.filter((t) => t.isResolved).length} resolved). ` +
+    `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ${threads}. ` +
     `Derived from the captures and verified against them. Sources: ${sources}`
   );
 }

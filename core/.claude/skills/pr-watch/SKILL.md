@@ -133,8 +133,15 @@ assembler.** A hand-flipped `isResolved` or a paraphrased finding body leaves
 every identifier untouched and has already produced a wrong verdict here once.
 Typing a snapshot is how invented thread ids reached a judge on 2026-09-07.
 
-One assembled snapshot serves both commands — it is a superset of what the
-round check reads. The snapshot names its source (`repo`, the `owner/name` this
+**`--threads` is optional, and omitting it is how you run a cheap round
+check.** The round check reads `pr`, `reviews` and `issueComments` and nothing
+else; the generator refuses any snapshot whose `complete.reviewThreads` is not
+explicitly true. So a threads-less snapshot serves the check and can never
+reach a judge as a round that found nothing. Capture threads when you are
+building a record — which, on a loop with rounds behind it, is usually the
+capture large enough to land on disk anyway.
+
+The snapshot names its source (`repo`, the `owner/name` this
 checkout declares in `.agents/machinery.json`) and the moment GitHub was read
 (`capturedAt`) — a PR number alone does not identify a pull request, and
 freshness is a property of the evidence rather than of when the command was

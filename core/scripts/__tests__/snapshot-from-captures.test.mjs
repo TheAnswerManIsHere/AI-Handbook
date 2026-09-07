@@ -7,6 +7,7 @@ import path from "node:path";
 
 import {
   VERIFIED_COLLECTIONS,
+  OPTIONAL_COLLECTIONS,
   captureSource,
   diffKeys,
   digest,
@@ -14,6 +15,7 @@ import {
   assertCaptureProvenance,
   main,
 } from "../snapshot-from-captures.mjs";
+import { assertMcpSnapshotComplete } from "../review-counting.mjs";
 
 // A capture is a file on disk, so the tests use real ones. Faking the read
 // seam would leave the one thing this module does -- read what a tool actually
@@ -161,10 +163,24 @@ test("every verified collection must list its capture files", () => {
   for (const key of VERIFIED_COLLECTIONS) {
     const prov = all();
     delete prov[key];
-    assert.throws(
-      () => assertCaptureProvenance({ captureProvenance: prov }),
-      new RegExp(`captureProvenance\\.${key} must list the capture file`),
-    );
+    if (OPTIONAL_COLLECTIONS.includes(key)) {
+      // Absent is a legitimate shape for the optional capture -- it is what a
+      // round-check-only snapshot looks like, and the generator refuses that
+      // one by name rather than reading it as zero findings. (It still fails
+      // further down on the unreadable fixture path, which is not this
+      // assertion's subject.)
+      assert.throws(
+        () => assertCaptureProvenance({ captureProvenance: prov }),
+        (e) => !/must list the capture file/.test(e.message),
+      );
+    } else {
+      assert.throws(
+        () => assertCaptureProvenance({ captureProvenance: prov }),
+        new RegExp(`captureProvenance\\.${key} must list the capture file`),
+      );
+    }
+    // Present-but-empty is NOT the same as absent: a collection that names
+    // itself and then lists nothing is a hole, not an omission.
     const empty = all();
     empty[key].files = [];
     assert.throws(
@@ -366,8 +382,8 @@ test("a capture that is not JSON, and a missing flag, are refusals rather than h
 
   const f2 = fixture();
   const full = argv(f2.paths, path.join(f2.dir, "s.json"));
-  const i = full.indexOf("--threads");
-  assert.throws(() => main([...full.slice(0, i), ...full.slice(i + 2)]), /--threads is required/);
+  const i = full.indexOf("--reviews");
+  assert.throws(() => main([...full.slice(0, i), ...full.slice(i + 2)]), /--reviews is required/);
   assert.throws(() => main([...full, "--pr-capture", f2.paths["pr.json"]]), /--pr-capture takes exactly one file/);
   f2.cleanup();
 });
@@ -386,4 +402,43 @@ test("diffKeys names every top-level key that differs, in both directions", () =
   assert.deepEqual(diffKeys({ a: [1, 2] }, { a: [1, 2] }), []);
   assert.equal(digest("x"), digest("x"));
   assert.notEqual(digest("x"), digest("y"));
+});
+
+test("omitting --threads builds a round-check-only snapshot the generator refuses", () => {
+  // Captures small enough to return inline have to be written out by hand, and
+  // a threads payload carrying a loop's own replies is the largest of them. The
+  // round check reads `pr`, `reviews` and `issueComments` and nothing else, so
+  // demanding threads for it would make the honest path the expensive one --
+  // and an expensive discipline is the one that gets skipped.
+  const { dir, paths, cleanup } = fixture();
+  const out = path.join(dir, "round-check.json");
+  const full = argv(paths, out);
+  const i = full.indexOf("--threads");
+  const line = main([...full.slice(0, i), ...full.slice(i + 2)]);
+  assert.match(line, /NO THREADS -- round-check-only/);
+
+  const snap = JSON.parse(fs.readFileSync(out, "utf8"));
+  // The omission is total: no empty array anywhere for something to read as a
+  // clean round, and no completeness attestation for it either.
+  assert.equal("reviewThreads" in snap, false);
+  assert.equal("reviewThreads" in snap.complete, false);
+  assert.equal("reviewThreads" in snap.captureProvenance, false);
+  assert.equal("reviewThreads" in snap.capturedAt, false);
+  assert.deepEqual(Object.keys(snap.complete), ["reviews", "issueComments"]);
+  assert.doesNotThrow(() => assertCaptureProvenance(snap));
+
+  // ...and it is fail-CLOSED: the shared completeness gate refuses it by name,
+  // so it can never reach a judge as a round that found nothing.
+  assert.throws(
+    () => assertMcpSnapshotComplete(snap),
+    /complete\.reviewThreads must be explicitly true/,
+  );
+
+  // Adding threads back to the snapshot without adding the capture is caught
+  // by structural equality, not waved through as an optional field.
+  const smuggled = structuredClone(snap);
+  smuggled.reviewThreads = [];
+  smuggled.complete.reviewThreads = true;
+  assert.throws(() => assertCaptureProvenance(smuggled), /is not what its own captures derive/);
+  cleanup();
 });
