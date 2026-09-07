@@ -845,8 +845,17 @@ export function sectionOf(markdown, heading) {
   // against an oracle that looks complete and is not. Tracked for both the
   // start and the end scan, since a fence can open inside a section too.
   // (Codex, #38 round 7.)
-  const fenced = fenceMask(lines);
-  const start = lines.findIndex((l, i) => !fenced[i] && want.test(l));
+  //
+  // THE FULL INERT MASK, NOT JUST FENCES. A heading inside an HTML comment was
+  // still selected here, and the caller then ran the live-text filter over the
+  // returned SLICE -- which begins after the heading and so no longer carries
+  // the opening `<!--`. The commented provenance then read as live, so a stale
+  // template example could select the wrong plan commit and a commented
+  // review-mode example could refuse an ordinary PR. Section membership has to
+  // be decided from the ORIGINAL document's mask, because that is the only
+  // place the comment's opener is still visible. (Codex, #46 round 1.)
+  const { mask: inert } = inertScan(lines);
+  const start = lines.findIndex((l, i) => !inert[i] && want.test(l));
   if (start === -1) return null;
   // A markdown section ends at a heading of the SAME OR HIGHER level. Stopping
   // at ANY heading drops a nested one and everything under it -- so an oracle
@@ -856,7 +865,7 @@ export function sectionOf(markdown, heading) {
   const level = want.exec(lines[start])[1].length;
   const body = [];
   for (let i = start + 1; i < lines.length; i += 1) {
-    const heading = fenced[i] ? null : /^(#{1,6})\s+\S/.exec(lines[i]);
+    const heading = inert[i] ? null : /^(#{1,6})\s+\S/.exec(lines[i]);
     if (heading && heading[1].length <= level) break;
     body.push(lines[i]);
   }
@@ -977,7 +986,14 @@ export function planProvenanceDeclaration(body) {
     return { refuse: `the \`${DECLARATION_INFO}\` block must open with \`kind\`${order.length ? `, not \`${order[0]}\`` : " and is empty"}` };
   }
   const kind = values.kind;
-  const required = DECLARATION_KINDS[kind];
+  // `Object.hasOwn`, NOT a truthiness test on the lookup. `kind: constructor`
+  // (or `toString`, or `__proto__`) reaches an inherited property, which is
+  // truthy and is not an array -- so the required-key loop below threw a
+  // TypeError instead of producing the refusal this function promises for
+  // every malformed body. A crash where a refusal was specified is the worst
+  // shape available: the loop cannot obtain a verdict to continue OR to stop.
+  // (Codex, #46 round 1.)
+  const required = Object.hasOwn(DECLARATION_KINDS, kind) ? DECLARATION_KINDS[kind] : null;
   if (!required) {
     return { refuse: `\`kind: ${kind}\` is not a kind this contract defines (${Object.keys(DECLARATION_KINDS).join(", ")})` };
   }
@@ -1440,13 +1456,27 @@ function resolveApprovedPlanAt(sha, explicit, { runGit, base, cite }) {
  * plan-review` replaces the PHRASE `Plan review only` while the never-merge
  * safety copy around it stays exactly as it is.
  */
+// ANCHORED TO THE SELECTOR'S OWN SHAPE, never a substring. An unanchored
+// `Approved-plan source` test refused any body that MENTIONED the old form --
+// "this removes the old Approved-plan source matcher" is a documentation PR
+// describing the change, not a second claim about its own provenance. The two
+// real shapes are the ones `approvedPlanSourceText` itself reads: a heading,
+// and a labelled line. Same lesson as the kind-scoping fix one round earlier,
+// applied to the matcher instead of the kind. (Codex, #46 round 1.)
+const APPROVED_PLAN_HEADING_RE = /^\s{0,3}#{1,6}\s+Approved-plan source\s*$/im;
+const APPROVED_PLAN_LABEL_RE = /^\s{0,3}\*{0,2}Approved-plan source\*{0,2}\s*[:.]/im;
+const legacyApprovedPlanSelector = (live) => APPROVED_PLAN_HEADING_RE.test(live) || APPROVED_PLAN_LABEL_RE.test(live);
+const APPROVED_PLAN_SELECTOR = { test: legacyApprovedPlanSelector, names: "an `Approved-plan source` heading or labelled line" };
+
 const LEGACY_SELECTORS = {
-  "approved-plan": { test: (live) => /Approved-plan source/i.test(live), names: "an `Approved-plan source` line" },
-  "approved-plan-split": { test: (live) => /Approved-plan source/i.test(live), names: "an `Approved-plan source` line" },
-  "private-plan": { test: (live) => /Approved-plan source/i.test(live), names: "an `Approved-plan source` line" },
-  trivial: { test: (live) => /Approved-plan source/i.test(live), names: "an `Approved-plan source` line" },
+  "approved-plan": APPROVED_PLAN_SELECTOR,
+  "approved-plan-split": APPROVED_PLAN_SELECTOR,
+  "private-plan": APPROVED_PLAN_SELECTOR,
+  trivial: APPROVED_PLAN_SELECTOR,
   bugfix: { test: (live) => FIX_TIER_RE.test(live), names: "a `Fix tier:` line" },
-  "plan-review": { test: (live) => /Plan review only/i.test(live), names: "the phrase `Plan review only`" },
+  // The PHRASE at the start of a line, which is how the template emits it --
+  // not a sentence that happens to contain it.
+  "plan-review": { test: (live) => /^\s{0,3}Plan review only\b/im.test(live), names: "the phrase `Plan review only`" },
 };
 
 /**

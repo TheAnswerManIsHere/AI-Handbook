@@ -490,8 +490,14 @@ the disclosure check passes:
     approval. It needs no PR and no review round of its own — the subsystem
     loops already converged; the branch exists so the approved artifact has a
     stable URL and a resolvable commit sha. That sha is what the
-    implementation PR's **Approved-plan source** line cites, which the
-    per-subsystem branches cannot supply.
+    implementation PR declares as `combined_plan_commit`, beside
+    `plan_review_prs` naming every subsystem PR and `combined_branch` naming
+    this branch — the `approved-plan-split` kind in
+    [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md). The
+    per-subsystem branches cannot supply that sha, which is why the combined
+    branch exists. **It emits the block and not the legacy line**: a body
+    carrying both is refused by the parser, so an implementation PR following
+    an older version of this step would be rejected for obeying it.
 
 ## Keeping the workstream issue's labels current
 

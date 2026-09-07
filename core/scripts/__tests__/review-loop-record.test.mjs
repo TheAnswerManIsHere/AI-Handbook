@@ -2126,3 +2126,66 @@ test("#38's real body resolves identically through both paths -- the Definition 
   // And the two concatenated are the state the plan forbids.
   assert.throws(() => planOracleFor({ title: PR38.title, body: `${declaredBody}\n\n${PR38.body}` }, "head", { runGit: planGit([PLAN]) }), /both/i);
 });
+
+test("a heading inside an HTML comment is not a section -- the slice loses the opener", () => {
+  // Codex, #46 round 1, and the sharpest finding of that round: `sectionOf`
+  // masked fences only, so a commented `## Approved-plan source` was selected,
+  // and the caller's live-text filter then ran over a SLICE that began after
+  // the heading and no longer carried the opening `<!--`. The commented
+  // provenance read as live and resolved a commit David never approved.
+  //
+  // This is the exact hazard David settled at #43's approval -- a template
+  // placeholder IS an HTML comment -- reaching the oracle by a second route.
+  const body = [
+    "## Summary",
+    "",
+    "<!--",
+    "## Approved-plan source",
+    "",
+    "Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "-->",
+    "",
+    "Nothing here declares a plan.",
+  ].join("\n");
+  assert.equal(sectionOf(body, "Approved-plan source"), null, "a commented heading is not a heading");
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+  // The same shape for the plan-review selector, which fails the other way:
+  // a commented example must not refuse an ordinary PR.
+  const commentedMode = ["## Summary", "", "<!--", "## Review mode", "Plan review only. Never merge.", "-->"].join("\n");
+  assert.equal(planReviewSignals({ title: "Ordinary implementation PR", body: commentedMode }).body, false);
+});
+
+test("the legacy selector is matched by its SHAPE, not as a substring", () => {
+  // Codex, #46 round 1. An unanchored test refused any body that MENTIONED the
+  // old form. A machinery PR describing the change it makes is the likeliest
+  // body in this repository, and it was the one guaranteed to be refused.
+  const declared = decl(...APPROVED_PLAN);
+  const describing = [declared, "", "This removes the old Approved-plan source matcher from the generator."].join("\n");
+  const oracle = planOracleFor({ title: "Implement the thing", body: describing }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.declaredBy, "declaration", "prose describing the old form is not a second selector");
+  // Both real shapes still refuse: the heading and the labelled line.
+  for (const legacy of [
+    "## Approved-plan source\n\nPlan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+  ]) {
+    assert.throws(
+      () => planOracleFor({ title: "Implement the thing", body: `${declared}\n\n${legacy}` }, "head", { runGit: planGit([PLAN]) }),
+      /both/i,
+      `expected a mixed-format refusal for: ${legacy.slice(0, 40)}`,
+    );
+  }
+});
+
+test("an inherited property name is an unknown kind, not a crash", () => {
+  // Codex, #46 round 1. `kind: constructor` reached an inherited property,
+  // which is truthy and not an array, so the required-key loop threw a
+  // TypeError where a refusal was specified. A crash is the worst available
+  // shape: the loop can then obtain no verdict, to continue OR to stop.
+  for (const kind of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+    const found = planProvenanceDeclaration(decl(`kind: ${kind}`));
+    assert.match(found?.refuse ?? "", /is not a kind this contract defines/, `kind: ${kind} should refuse cleanly`);
+  }
+});

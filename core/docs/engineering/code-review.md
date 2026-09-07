@@ -84,14 +84,22 @@ over a falsely-ambiguous space*).
 
 So a bugfix PR carries its own oracle in the same body section — see
 [`working-modes.md`](../ai-context/working-modes.md#the-bugfix-oracle-what-the-pr-body-must-carry).
-**This field list is for a Tier A/B PR**: **Fix tier**, **Reported symptom**
-(David's words, verbatim), **Intended correct behavior**, **Must not change**,
-**Root cause**, **Blast radius**. A Tier C PR (the trivial-schema-fix exception
-below) uses a **different**, dedicated oracle block — symptom, root cause, why
-it's trivial, David's go-ahead, the migration-ceremony checklist — with no
-*Intended correct behavior*, *Must not change*, or *Blast radius* fields; don't
-flag a correctly filled Tier C block as incomplete for lacking Tier A/B fields
-it was never meant to carry. Review the diff against whichever block applies,
+**The tier letter is not a prose field.** It is `fix_tier` in the body's
+declared block ([`plan-provenance.md`](../ai-context/plan-provenance.md)), and
+a body carrying both that key and a legacy `Fix tier:` line is refused. What
+stays in prose is the **reason** for the letter — **Tier rationale**, required
+for A, B and C alike — because that is the half a reviewer argues with.
+
+**This field list is for a Tier A/B PR**: **Tier rationale**, **Reported
+symptom** (David's words, verbatim), **Intended correct behavior**, **Must not
+change**, **Root cause**, **Blast radius**. A Tier C PR (the
+trivial-schema-fix exception below) uses a **different**, dedicated oracle
+block — **Tier rationale**, symptom, root cause, why it's trivial, David's
+go-ahead, the migration-ceremony checklist — with no *Intended correct
+behavior*, *Must not change*, or *Blast radius* fields; don't flag a correctly
+filled Tier C block as incomplete for lacking Tier A/B fields it was never
+meant to carry, and don't flag a declared body as incomplete for lacking the
+`Fix tier:` line the block replaced. Review the diff against whichever block applies,
 and specifically ask:
 
 - **Is this the root cause or a symptom-level patch?** Does the fix address the
