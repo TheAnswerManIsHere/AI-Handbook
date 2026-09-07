@@ -2179,6 +2179,58 @@ test("the legacy selector is matched by its SHAPE, not as a substring", () => {
   }
 });
 
+test("a legacy selector is whatever the PROSE PATH would act on, not a listed shape", () => {
+  // Codex, #46 round 2. Anchoring the two shapes bought a false negative: the
+  // same selector as a Markdown list item is resolved by the prose path but
+  // matches neither anchor. A body could carry a declaration naming one commit
+  // and a visible legacy line naming another, with no refusal -- the human
+  // reading one and the machine selecting the other.
+  const declared = decl(...APPROVED_PLAN);
+  const runGit = planGit([PLAN]);
+
+  // The reported shape, and the neighbours an anchored list would each have
+  // needed their own entry for.
+  for (const legacy of [
+    "- **Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "* Approved-plan source: Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "1. **Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "  - Approved-plan source: Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+  ]) {
+    assert.throws(
+      () => planOracleFor({ title: "Implement the thing", body: `${declared}\n\n${legacy}` }, "head", { runGit }),
+      /both/i,
+      `expected a mixed-format refusal for: ${legacy.slice(0, 44)}`,
+    );
+  }
+
+  // STATED RESIDUE, asserted so it is a decision rather than a blind spot. A
+  // no-plan claim in a shape the anchors miss is NOT refused -- because the
+  // prose path does not read it either: `TEXTUAL_NO_PLAN_FORMS` has the same
+  // line-start anchoring, so a body carrying only that line refuses outright
+  // rather than concluding "no plan". There is no competing answer to
+  // contradict. If that shape should count, the prose path is where it changes.
+  const listNoPlan = `${declared}\n\n- **Approved-plan source:** n/a — no plan`;
+  assert.equal(
+    planOracleFor({ title: "Implement the thing", body: listNoPlan }, "head", { runGit }).declaredBy,
+    "declaration",
+    "a list-item no-plan line is not a claim the prose path would have acted on",
+  );
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body: "- **Approved-plan source:** n/a — no plan" }, "head", { runGit }),
+    /names no approved-plan source and matches none of the permitted no-plan forms/,
+    "the prose path alone refuses that shape, which is why it is not a competing answer",
+  );
+
+  // ROUND 1'S FIX IS NOT UNDONE. Prose that merely mentions the phrase resolves
+  // no commit and matches no no-plan form, so it is still not a selector.
+  const describing = [declared, "", "This removes the old Approved-plan source matcher from the generator."].join("\n");
+  assert.equal(
+    planOracleFor({ title: "Implement the thing", body: describing }, "head", { runGit }).declaredBy,
+    "declaration",
+    "prose describing the old form is still not a second selector",
+  );
+});
+
 test("an inherited property name is an unknown kind, not a crash", () => {
   // Codex, #46 round 1. `kind: constructor` reached an inherited property,
   // which is truthy and not an array, so the required-key loop threw a

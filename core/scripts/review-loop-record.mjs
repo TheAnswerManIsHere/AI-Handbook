@@ -1465,8 +1465,56 @@ function resolveApprovedPlanAt(sha, explicit, { runGit, base, cite }) {
 // applied to the matcher instead of the kind. (Codex, #46 round 1.)
 const APPROVED_PLAN_HEADING_RE = /^\s{0,3}#{1,6}\s+Approved-plan source\s*$/im;
 const APPROVED_PLAN_LABEL_RE = /^\s{0,3}\*{0,2}Approved-plan source\*{0,2}\s*[:.]/im;
-const legacyApprovedPlanSelector = (live) => APPROVED_PLAN_HEADING_RE.test(live) || APPROVED_PLAN_LABEL_RE.test(live);
-const APPROVED_PLAN_SELECTOR = { test: legacyApprovedPlanSelector, names: "an `Approved-plan source` heading or labelled line" };
+
+/**
+ * ...AND, BESIDE THOSE SHAPES, THE PROSE PATH'S OWN ANSWER. Anchoring the two
+ * shapes fixed round 1's false positive and bought a false negative: the same
+ * selector written as a Markdown list item -- `- **Approved-plan source:** …
+ * final plan commit abc1234` -- is read by `approvedPlanSourceText` and
+ * resolved by `approvedPlanCommit`, but matches neither anchor. A body could
+ * therefore carry a declaration naming one commit and a visible legacy line
+ * naming another, with no refusal: two approved commits, the human reading one
+ * and the machine selecting the other, which is the precise state the
+ * mixed-format rule exists to prevent. (Codex, #46 round 2.)
+ *
+ * The fix is NOT a third shape. Three rounds of "one more shape" on one
+ * matcher is the pattern plan #43's decision 3a was written to end: a
+ * hand-maintained enumeration of constructs will be wrong again. 3a's move was
+ * to stop enumerating and reference the definition that already exists, and
+ * that move applies here unchanged. A legacy selector is present when THE
+ * PROSE PATH WOULD HAVE ACTED ON ONE -- so ask the prose path.
+ *
+ * It reads only `approvedPlanSourceText(body)` -- the region the prose path
+ * itself treats as this body's provenance, never the whole body -- and asks
+ * whether a commit resolves there. A resolved commit is a positive claim about
+ * a specific plan, which is exactly what can contradict the declaration.
+ *
+ * STATED, NOT COVERED: a no-plan claim written in a shape the anchors miss,
+ * such as `- Approved-plan source: n/a — no plan`. That is not an omission
+ * this test should close, because the prose path does not read it either --
+ * `TEXTUAL_NO_PLAN_FORMS` has the same line-start anchoring, so the prose path
+ * REFUSES such a body rather than concluding anything from it. There is no
+ * competing answer to contradict. Closing it would mean teaching this matcher
+ * a shape the definition it defers to does not know, which is the enumeration
+ * this fix exists to stop. If that shape should count, the prose path is where
+ * it changes, and both follow.
+ *
+ * The anchors stay beside this rather than being replaced by it. They catch a
+ * vestigial heading or labelled line whose content resolves nothing: no
+ * competing claim, but still the retired form sitting in a declared body. The
+ * definition catches every shape that does carry a claim, including shapes
+ * nobody has written yet. Neither subsumes the other.
+ */
+const legacyApprovedPlanClaim = (body) => {
+  const source = approvedPlanSourceText(body);
+  return Boolean(source) && Boolean(approvedPlanCommit(source)?.sha);
+};
+const legacyApprovedPlanSelector = (live, body) =>
+  APPROVED_PLAN_HEADING_RE.test(live) || APPROVED_PLAN_LABEL_RE.test(live) || legacyApprovedPlanClaim(body);
+const APPROVED_PLAN_SELECTOR = {
+  test: legacyApprovedPlanSelector,
+  names: "an `Approved-plan source` heading, labelled line, or any line the prose path resolves as one",
+};
 
 const LEGACY_SELECTORS = {
   "approved-plan": APPROVED_PLAN_SELECTOR,
@@ -1488,7 +1536,10 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
   const { kind, values } = declaration;
   const live = outsideFences(body);
   const selector = LEGACY_SELECTORS[kind];
-  if (selector.test(live)) {
+  // `live` for the shape anchors; the raw body for the prose path's own answer,
+  // which applies its own live-text mask through `sectionOf`/`outsideFences`
+  // and needs the original document to compute it.
+  if (selector.test(live, body)) {
     throw new Error(
       `the PR body carries BOTH a \`${DECLARATION_INFO}\` block declaring \`kind: ${kind}\` and ` +
         `${selector.names}, the legacy selector that block replaces. Two statements of one fact drift, and ` +
