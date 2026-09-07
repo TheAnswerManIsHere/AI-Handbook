@@ -2231,6 +2231,19 @@ test("a legacy selector is whatever the PROSE PATH would act on, not a listed sh
   );
 });
 
+test("a heading with an inline HTML comment is still that heading", () => {
+  // Codex, #46 round 3. The mask said the line was live (its comment-stripped
+  // half survives) but the heading test ran on the raw line, so a valid legacy
+  // body refused for missing provenance and an oracle section read as null.
+  const provenance = "Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06";
+  const body = ["## Approved-plan source <!-- required -->", "", provenance, "", "## Direction <!-- oracle -->", "", "Ship it.", ""].join("\n");
+  assert.equal(sectionOf(body, "Approved-plan source"), provenance);
+  assert.equal(sectionOf(body, "Direction"), "Ship it.");
+  assert.equal(approvedPlanCommit(approvedPlanSourceText(body))?.sha, "abc1234");
+  // A heading commented out entirely is still not a heading (round 1's fix holds).
+  assert.equal(sectionOf("<!-- ## Direction -->\n\nnope\n", "Direction"), null);
+});
+
 test("an inherited property name is an unknown kind, not a crash", () => {
   // Codex, #46 round 1. `kind: constructor` reached an inherited property,
   // which is truthy and not an array, so the required-key loop threw a

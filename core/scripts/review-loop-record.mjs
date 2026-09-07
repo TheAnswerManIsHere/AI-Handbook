@@ -854,18 +854,21 @@ export function sectionOf(markdown, heading) {
   // review-mode example could refuse an ordinary PR. Section membership has to
   // be decided from the ORIGINAL document's mask, because that is the only
   // place the comment's opener is still visible. (Codex, #46 round 1.)
-  const { mask: inert } = inertScan(lines);
-  const start = lines.findIndex((l, i) => !inert[i] && want.test(l));
+  // Match the comment-stripped LIVE text, not the raw line: `## Approved-plan
+  // source <!-- required -->` is live per the mask but never matched the
+  // anchored test on the raw line, so a valid body refused. (Codex, #46 round 3.)
+  const { mask: inert, live } = inertScan(lines);
+  const start = live.findIndex((l, i) => !inert[i] && want.test(l));
   if (start === -1) return null;
   // A markdown section ends at a heading of the SAME OR HIGHER level. Stopping
   // at ANY heading drops a nested one and everything under it -- so an oracle
   // section carrying a `### Security` subsection would reach the judge with
   // its security constraints silently missing, which is the worst possible
   // way for this field to be wrong. (Codex, #38 round 1.)
-  const level = want.exec(lines[start])[1].length;
+  const level = want.exec(live[start])[1].length;
   const body = [];
   for (let i = start + 1; i < lines.length; i += 1) {
-    const heading = inert[i] ? null : /^(#{1,6})\s+\S/.exec(lines[i]);
+    const heading = inert[i] ? null : /^(#{1,6})\s+\S/.exec(live[i]);
     if (heading && heading[1].length <= level) break;
     body.push(lines[i]);
   }
