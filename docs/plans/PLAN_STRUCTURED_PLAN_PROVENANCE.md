@@ -53,9 +53,15 @@ The 16 hits classify into three sets, and only the first is this plan's scope:
   (that block's field list), `plan-review-loop/SKILL.md` (the plan-review body
   template).
 - **Selects or consumes** (must change): `review-loop-record.mjs`,
-  `review-loop-adjudicator.md`'s description of what it reads.
+  `review-loop-adjudicator.md`'s description of what it reads, and
+  `code-review.md:45-52` — which is a *reviewer contract*, not a mention: it
+  tells a reviewer the oracle carries an **Approved-plan source** and that a
+  source naming only a title or a mutable branch is itself a finding. Left
+  unchanged while producers move, it would have reviewers enforcing the
+  superseded presentation. (Codex, round 2 — my first classification put it in
+  the set below.)
 - **Mentions without instructing** (unchanged, listed so the next reader need
-  not re-derive the split): `code-review.md`, `maintenance/SKILL.md`,
+  not re-derive the split): `maintenance/SKILL.md`,
   `status/SKILL.md`, `status-all/SKILL.md`, `uat/SKILL.md`, `agents-core.md`,
   `plan-review-contract.md`, `pr-watch/SKILL.md`, and one memory note.
 
@@ -143,13 +149,29 @@ path being used, not a proof that it is unused.
    became the oracle. A second block is a contradiction, and a contradiction
    the author can see is better than a winner they cannot predict.
 
-3. **The declaration is read only at the top level of the body.** A block
-   nested inside another fence is an example — this plan's own text and the PR
-   that ships it both contain one. This is the single Markdown-topology rule
-   that survives, and the honest statement of the change is that the class
-   shrinks from an open set of topologies to this one nesting rule, not that it
-   disappears. It reuses the fence-region computation the generator already
-   has; it adds no second notion of what a fence is.
+3. **The declaration is read only where the body is live — outside every
+   inert region.** An inert region is one whose content a reader does not see
+   as the author's assertion, and for a GitHub PR body there are exactly two:
+   a fenced code block, and an HTML comment. A `plan-provenance` block inside
+   either is an example or a template placeholder, not a declaration — this
+   plan's own text contains one of the first, and a PR template would carry one
+   of the second. Round 1 named only the fence; `fenceMask` tracks fences and
+   nothing else, so a commented placeholder would have been read as
+   authoritative, or counted as the second block that refuses a valid body.
+   (Codex, round 2.)
+
+3a. **That set is closed, and the argument is what distinguishes this design
+   from the one it replaces.** The prose path had an open set of topologies
+   because it matched a *phrase* that live prose could legitimately contain, so
+   each round found one more context to mask. This path matches a *fence with a
+   unique info string*, so the only question is which regions of the body are
+   inert — and inertness in a GitHub PR body is a property of the renderer, not
+   of the sentence: content is either rendered as the author's text or it is
+   not. Two constructs hide content; both are named above. **This is a
+   closure argument, not a proof:** it rests on the rendering rules holding, so
+   a third inert construct is the shape that would falsify it, and the honest
+   statement is that the set is closed against today's Markdown rather than
+   against all future ones.
 
 4. **A present-but-malformed declaration refuses, and never falls through to
    the prose path.** Fall-through would mean a typo silently re-enters the
@@ -210,9 +232,24 @@ path being used, not a proof that it is unused.
     reading the PR, so nothing is lost by having one. **This is the decision
     most worth challenging** — see *Questions for David*.
 
-11a. **A body carrying both a declaration and a legacy prose provenance form
-    refuses, as a contradiction.** Decision 11 states the replacement; without
-    this, nothing enforces it. "Declaration, else prose" would silently ignore
+11a. **A body carrying both a declaration and a legacy prose *selector*
+    refuses, as a contradiction — and a selector is not the same thing as
+    oracle prose.** The distinction is load-bearing and round 1's wording
+    missed it: `permittedNoPlanForm` reads the `**Fix tier:**` line as the
+    legacy *selector* for a bugfix body, while the tier's other fields
+    (reported symptom, intended behavior, must not change, root cause, blast
+    radius) are the human-readable *oracle* that decision 5 keeps requiring.
+    Refusing on "both formats" without that split would reject every complete
+    declared bugfix, because a complete one necessarily carries both the block
+    and the prose. So: `fix_tier` in the block replaces the `Fix tier:` line; a
+    declared body carrying that line as well is the refused
+    contradiction, and every other tier field stays required exactly as today.
+    The same split applies to the approved-plan kinds: the block replaces the
+    provenance *sentence*, and the plan's quoted oracle sections are untouched
+    prose. (Codex, round 2.)
+
+    **Why a refusal, and why in the parser.** Decision 11 states the
+    replacement; without this, nothing enforces it. "Declaration, else prose" would silently ignore
     the prose whenever a block exists, so a stale producer or a half-edited
     body could name one commit in the block and a different one in the
     sentence — the judge following the first while a human following the
@@ -362,7 +399,9 @@ recognise. The parser reads no file the generator does not already read.
 Regression tests written before the change and watched to fail, covering: each
 kind's happy path; a missing required key; a forbidden key for that kind; an
 unknown key; a repeated key; a malformed value of every grammar above; two
-blocks; a block nested inside another fence; a body with no block falling back
+blocks; a block nested inside another fence; a block inside an HTML comment,
+alone and alongside a live one; a `kind: bugfix` body carrying a legacy
+`Fix tier:` selector line as well as the block; a body with no block falling back
 to prose unchanged; `declaredBy` under both paths and absent on a legacy
 record; a body carrying both a declaration and a prose provenance form; a
 `kind: plan-review` block under an ordinary title and a `[PLAN REVIEW]` title
@@ -416,7 +455,9 @@ declaration produces the record it produces today.
 **Now:** the declared form, its parser, the record's path field, the contract
 and producer text.
 
-**Next:** deleting the prose path once the path field shows it unused; the
+**Next:** deleting the prose path — gated on the exhaustive PR-body pass
+named in decision 12, never on `declaredBy` observations, which cannot see a
+PR that closed without an adjudication (Codex, round 2); the
 PR-body completeness lint (#40 §2.8); the conformance rubric that first
 consumes `planOracle` (phase 1c); the plan-review oracle fork (#39 gap 3);
 the patch-cap amendment (#40 §2.4).
