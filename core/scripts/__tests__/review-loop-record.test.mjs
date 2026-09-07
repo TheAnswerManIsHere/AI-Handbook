@@ -1624,6 +1624,65 @@ test("assertHeadReviewed: with no reviewed commit at all there is nothing to com
   assert.doesNotThrow(() => assertHeadReviewed(undefined, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
 });
 
+test("assertHeadReviewed: a head moved only by this machinery's own generated records is not unreviewed", () => {
+  // THE REGRESSION (Overhypeme #614, 2026-09-07). The generator refused to
+  // identify the repository without a config file, and refused a budget
+  // receipt written by an older tool. Committing both moved the head; this
+  // assertion then refused the record those commits existed to enable. The
+  // loop needed a review round to re-cover bookkeeping, and at a spent budget
+  // that round became an escalation to David carrying no decision in it.
+  const reviewed = "c3797aa4fd8f08684130fccb98ede616b45bcb6c";
+  const pushed = "59c9a0e00000000000000000000000000000abcd";
+
+  // Receipts and adjudication records: this machinery's own writing.
+  assert.doesNotThrow(() =>
+    assertHeadReviewed(reviewed, pushed, {
+      changedFiles: [".agents/receipts/loop-budget-614.json", ".agents/adjudications/614-1.json"],
+    }),
+  );
+  // An identical tree at a different sha changed nothing reviewable.
+  assert.doesNotThrow(() => assertHeadReviewed(reviewed, pushed, { changedFiles: [] }));
+
+  // Content mixed in with bookkeeping is still content, and the refusal names
+  // the offending file rather than only the sha.
+  assert.throws(
+    () =>
+      assertHeadReviewed(reviewed, pushed, {
+        changedFiles: [".agents/receipts/loop-budget-614.json", "CLAUDE.md"],
+      }),
+    /1 file\(s\) other than this machinery's own generated records[\s\S]*CLAUDE\.md/,
+  );
+
+  // `.agents/machinery.json` is configuration, not a generated record: it
+  // changes how these gates behave, so a reviewer sees it. This is the half of
+  // #614 the fix deliberately does NOT unblock.
+  assert.throws(
+    () => assertHeadReviewed(reviewed, pushed, { changedFiles: [".agents/machinery.json"] }),
+    /machinery\.json/,
+  );
+
+  // A zero-padded receipt name DOES ride the exemption, because
+  // `isGeneratedRecord` matches `\d+` and this call site deliberately reuses
+  // that one predicate rather than inventing a third notion of canonical. The
+  // refusal of a non-round-trip name lives where it bites -- `checkRail` in
+  // `pr-ready.mjs`, which fails the whole loop closed on it, as `loadLoop`
+  // does. Asserted so a future tightening of `isGeneratedRecord` shows up here
+  // as a decision rather than as drift.
+  assert.doesNotThrow(() =>
+    assertHeadReviewed(reviewed, pushed, { changedFiles: [".agents/receipts/loop-budget-0614.json"] }),
+  );
+
+  // FAIL CLOSED. A caller that could not resolve the diff passes null, which
+  // must read as "not established", never as "nothing changed".
+  assert.throws(() => assertHeadReviewed(reviewed, pushed), /no completed reviewer pass covers/);
+  assert.throws(() => assertHeadReviewed(reviewed, pushed, { changedFiles: null }), /no completed reviewer pass covers/);
+  // ...and the message carries no file clause that would imply one was read.
+  assert.throws(
+    () => assertHeadReviewed(reviewed, pushed, { changedFiles: null }),
+    (e) => !/other than this machinery's own/.test(e.message),
+  );
+});
+
 test("a snapshot's entries must be what its captures derive, not merely well-formed", () => {
   // THE REGRESSION. On 2026-09-07 I assembled #43's round-4 evidence from
   // webhook notification text, which carries comment bodies but no ids, and

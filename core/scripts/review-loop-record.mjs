@@ -1454,19 +1454,57 @@ export function lastReviewedCommit(passes) {
  * No reviewed commit at all is not this refusal's case: `changesSince` already
  * reports that state as `resolved: false` with its reason, and a record for a
  * loop that has not had a single pass is a legitimate thing to generate.
+ *
+ * A DELTA OF THIS MACHINERY'S OWN GENERATED RECORDS IS NOT AN UNREVIEWED HEAD.
+ * The refusal above treated any movement past the last pass as content a
+ * reviewer had not seen. Committing a receipt IS such movement, and receipts
+ * are what this machinery writes in order to run -- so enabling an
+ * adjudication moved the head, and the moved head then refused the
+ * adjudication. Reaching a verdict took a review round that existed only to
+ * re-cover bookkeeping: a round spent on nothing and, at a spent budget, an
+ * escalation to David for a decision with no content in it. (Overhypeme #614,
+ * 2026-09-07: a budget receipt re-declared to satisfy this file's own identity
+ * rule was itself the unreviewed commit.)
+ *
+ * `isGeneratedRecord` is the predicate, deliberately, and not
+ * `behavioralFiles === 0`: it admits exactly the numbered shapes this
+ * machinery generates, where the looser test would also admit prose, docs,
+ * `.agents/metrics/` and any non-canonically-named receipt. A file this
+ * machinery did not itself write is content, whatever it is named --
+ * `.agents/machinery.json` is configuration that changes how these gates
+ * behave, classes as `agent-contract`, and is still refused here.
+ *
+ * THE MERGE GATE IS NOT LOOSENED BY THIS. `pr-ready.mjs` bounds its own diff
+ * from `lastReviewedCommit` and allows exactly two files past it -- the
+ * terminal receipt and its cited record -- so a head carrying earlier
+ * bookkeeping commits still fails there and still needs the proper path. The
+ * asymmetry is the point: the two gates share an invariant but not a job.
+ * Adjudicating is deciding whether to write more, which a receipt cannot
+ * change; merging is shipping, where an unreviewed receipt could carry a tier
+ * re-declaration that changes the rubric the loop was judged under.
  */
-export function assertHeadReviewed(lastReviewed, head) {
+export function assertHeadReviewed(lastReviewed, head, { changedFiles = null } = {}) {
   if (!lastReviewed || !head) return;
   const x = String(lastReviewed).toLowerCase();
   const y = String(head).toLowerCase();
   const n = Math.min(x.length, y.length);
   if (n >= 7 && x.slice(0, n) === y.slice(0, n)) return;
+  // Only when the caller actually resolved the diff. A null list means what
+  // changed could not be determined, which must read as "not established" --
+  // never as "nothing did".
+  const content = Array.isArray(changedFiles) ? changedFiles.filter((f) => !isGeneratedRecord(f)) : null;
+  if (content && content.length === 0) return;
   throw new Error(
     `PR head ${String(head).slice(0, 7)} is not a reviewed commit: no completed reviewer pass covers it ` +
-      `(the last reviewed commit is ${String(lastReviewed).slice(0, 7)}). A record for adjudication or for a ` +
-      "stop is generated on a reviewed head or not at all -- the merge gate bounds its bookkeeping-only diff " +
-      "from the last reviewed commit, so a record on an unreviewed head could only describe a state that must " +
-      "not merge. Request a review of this head (or wait for the in-flight pass), re-capture, then re-run.",
+      `(the last reviewed commit is ${String(lastReviewed).slice(0, 7)})` +
+      (content
+        ? `, and ${content.length} file(s) other than this machinery's own generated records changed since ` +
+          `it (${content.slice(0, 5).join(", ")}${content.length > 5 ? ", ..." : ""})`
+        : "") +
+      ". A record for adjudication or for a stop is generated on a reviewed head or not at all -- the merge " +
+      "gate bounds its bookkeeping-only diff from the last reviewed commit, so a record on an unreviewed head " +
+      "could only describe a state that must not merge. Request a review of this head (or wait for the " +
+      "in-flight pass), re-capture, then re-run.",
   );
 }
 
@@ -2183,8 +2221,14 @@ function main() {
   const passes = reviewerPasses(derived.reviews, derived.issueComments);
   assertCapturedAfterLatestPass(snapshot, passes);
   const reviewed = lastReviewedCommit(passes);
-  assertHeadReviewed(reviewed, head);
+  // The diff is computed FIRST so the refusal can tell a head carrying real
+  // content from one carrying only this machinery's own receipts. An
+  // unresolved diff passes `null`, which the assertion reads as "not
+  // established" and refuses on.
   const changes = changesSince(reviewed, head);
+  assertHeadReviewed(reviewed, head, {
+    changedFiles: changes.resolved ? changes.files.map((f) => f.file) : null,
+  });
   let artifactPatchTruncation = null;
   const artifactPatch = artifactDiff(base, head, {
     onTruncate: (cut) => {
