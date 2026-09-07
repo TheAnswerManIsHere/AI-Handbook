@@ -139,8 +139,10 @@ simply one of the passes.
 // A DIRECT STOP — David answers a product escalation with "stop", possibly before
 // any adjudication receipt exists. His grant-0 receipt cites its OWN mechanical
 // record (run review-loop-record.mjs when he stops, commit both): that record's
-// sinceLastReview.head is the baseline pr-ready.mjs bounds the bookkeeping diff
-// against, with the tripwire floor waived — his stop needs no tripwire.
+// sinceLastReview.lastReviewedCommit — the commit the latest completed pass
+// named, which the generator requires the head to be — is the baseline
+// pr-ready.mjs bounds the bookkeeping diff against, with the tripwire floor
+// waived — his stop needs no tripwire, but it does need a reviewed head.
 { "pr": 503, "kind": "david", "grant": 0, "asOf": 4, "authorization": "<his words>",
   "recordPath": ".agents/adjudications/503-2.json", "createdAt": "…" }
 

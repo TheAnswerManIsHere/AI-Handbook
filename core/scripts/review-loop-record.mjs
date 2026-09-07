@@ -1431,6 +1431,44 @@ export function lastReviewedCommit(passes) {
   return null;
 }
 
+/**
+ * A record is generated on a reviewed head or not at all.
+ *
+ * The contract's terminal invariant -- a loop ends on a head the reviewer
+ * saw, and no commit merges unreviewed -- had no mechanical enforcement in
+ * this file: when the PR head had moved past the last completed pass, the
+ * generator merely recorded the movement in `sinceLastReview` and carried
+ * on. The merge gate then bounded its bookkeeping-only diff from that
+ * record's `head`, so a behavioral push made after the last pass sat INSIDE
+ * the baseline and a stop receipt shipped it. Refusing here closes the
+ * producer side; `pr-ready.mjs` closes the consumer side by diffing from
+ * `lastReviewedCommit` instead. Both, because two gates that share one
+ * invariant must each enforce it. (Codex, #38 round 14.)
+ *
+ * `lastReviewed` may be abbreviated: an announcement-form pass carries the
+ * 10-character sha from the `**Reviewed commit:**` line. The comparison is
+ * the same prefix test `pr-ready.mjs` uses for check runs, with the same
+ * 7-character floor below which a match means nothing.
+ *
+ * No reviewed commit at all is not this refusal's case: `changesSince` already
+ * reports that state as `resolved: false` with its reason, and a record for a
+ * loop that has not had a single pass is a legitimate thing to generate.
+ */
+export function assertHeadReviewed(lastReviewed, head) {
+  if (!lastReviewed || !head) return;
+  const x = String(lastReviewed).toLowerCase();
+  const y = String(head).toLowerCase();
+  const n = Math.min(x.length, y.length);
+  if (n >= 7 && x.slice(0, n) === y.slice(0, n)) return;
+  throw new Error(
+    `PR head ${String(head).slice(0, 7)} is not a reviewed commit: no completed reviewer pass covers it ` +
+      `(the last reviewed commit is ${String(lastReviewed).slice(0, 7)}). A record for adjudication or for a ` +
+      "stop is generated on a reviewed head or not at all -- the merge gate bounds its bookkeeping-only diff " +
+      "from the last reviewed commit, so a record on an unreviewed head could only describe a state that must " +
+      "not merge. Request a review of this head (or wait for the in-flight pass), re-capture, then re-run.",
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Caps: every variable-length field is bounded, and truncation is visible
 // ---------------------------------------------------------------------------
@@ -2087,7 +2125,9 @@ function main() {
 
   const passes = reviewerPasses(derived.reviews, derived.issueComments);
   assertCapturedAfterLatestPass(snapshot, passes);
-  const changes = changesSince(lastReviewedCommit(passes), head);
+  const reviewed = lastReviewedCommit(passes);
+  assertHeadReviewed(reviewed, head);
+  const changes = changesSince(reviewed, head);
   let artifactPatchTruncation = null;
   const artifactPatch = artifactDiff(base, head, {
     onTruncate: (cut) => {

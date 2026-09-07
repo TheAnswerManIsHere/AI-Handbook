@@ -891,10 +891,22 @@ export function checkCodex(issueComments, reviews, headSha = null) {
  * receipt can claim ANY later ancestor commit that happens to already
  * contain the cited record, including one carrying real unreviewed changes,
  * and the documented tripwire procedure never actually produces a `headSha`
- * on the verdict it writes in the first place. `sinceLastReview.head` on the
- * record -- the PR head at the moment the record's round-counting analysis
- * was generated -- is source-derived instead, so THAT is the baseline used
- * below. (Codex, #539 round 2.)
+ * on the verdict it writes in the first place. The record's own
+ * `sinceLastReview` block is source-derived instead, so THAT is where the
+ * baseline comes from. (Codex, #539 round 2.)
+ *
+ * AND WITHIN IT, THE LAST REVIEWED COMMIT -- NOT THE RECORD'S HEAD. The
+ * first source-derived version took `sinceLastReview.head`, the PR head at
+ * generation. A behavioral push made AFTER the last completed pass, followed
+ * by a record and a stop receipt, therefore had the unreviewed push inside
+ * the baseline: the bookkeeping-only bound below started past it and saw
+ * nothing, and the loop's terminal invariant (a reviewed head, every commit
+ * reviewed) was enforced by process alone in the one file whose purpose is
+ * to make that process unnecessary. `sinceLastReview.lastReviewedCommit` is
+ * the commit the latest completed pass actually named, so the bound starts
+ * there; the generator now refuses to build a record whose head is not that
+ * commit, and this function refuses such a record if one is presented
+ * anyway. (Codex, #38 round 14.)
  *
  * THE RECEIPT MUST CITE, AND THIS FUNCTION FULLY VALIDATES, A REAL
  * MECHANICAL RECORD -- `review-budget.mjs` now requires `recordPath` on
@@ -997,8 +1009,9 @@ function latestReviewRequestAt(issueComments) {
  * self-declared receipt fields: the tier, whether it's self-serve, the round
  * count against its cap, whether a request was still pending at generation,
  * and -- the diff baseline --
- * `sinceLastReview.head`, the PR head at the moment the record's analysis
- * was generated. Reads the record's committed content at the CURRENT head
+ * `sinceLastReview.lastReviewedCommit`, the commit the latest completed
+ * reviewer pass named, which the record's `sinceLastReview.head` must equal.
+ * Reads the record's committed content at the CURRENT head
  * (`headSha`), never a separately-cited commit: like the receipt itself, the
  * record persists forward in git history once committed, so nothing but
  * `headSha` is needed to reach it. Mirrors `review-budget.mjs`'s
@@ -1115,12 +1128,42 @@ function validateAdjudicationRecord(prNumber, recordPath, headSha, cwd, { floor 
   if (record.sinceLastReview?.resolved !== true) {
     return { ok: false, detail: `${recordPath}: sinceLastReview.resolved is not true -- the record's own diff baseline never resolved` };
   }
-  const baseline = record.sinceLastReview.head;
-  if (typeof baseline !== "string" || !/^[0-9a-f]{40}$/i.test(baseline)) {
-    return { ok: false, detail: `${recordPath}: sinceLastReview.head is not a full 40-character commit sha (got ${JSON.stringify(baseline)})` };
+  const recordHead = record.sinceLastReview.head;
+  if (typeof recordHead !== "string" || !/^[0-9a-f]{40}$/i.test(recordHead)) {
+    return { ok: false, detail: `${recordPath}: sinceLastReview.head is not a full 40-character commit sha (got ${JSON.stringify(recordHead)})` };
   }
-  if (git(["cat-file", "-e", `${baseline}^{commit}`], cwd) === null) {
-    return { ok: false, detail: `${recordPath}: sinceLastReview.head ${baseline.slice(0, 7)} does not resolve to a commit in this checkout` };
+  if (git(["cat-file", "-e", `${recordHead}^{commit}`], cwd) === null) {
+    return { ok: false, detail: `${recordPath}: sinceLastReview.head ${recordHead.slice(0, 7)} does not resolve to a commit in this checkout` };
+  }
+  // The baseline: the commit the latest completed reviewer pass named. It may
+  // be abbreviated (an announcement-form pass carries the 10-character sha
+  // from the `**Reviewed commit:**` line), so it is resolved through git to
+  // the full sha rather than pattern-matched, and an ambiguous or unknown
+  // reference refuses. Then the record's own head must be that commit: a
+  // record generated past it describes a state that must not merge, whatever
+  // has or has not been committed since. (Codex, #38 round 14.)
+  const reviewed = record.sinceLastReview.lastReviewedCommit;
+  if (typeof reviewed !== "string" || !/^[0-9a-f]{7,40}$/i.test(reviewed)) {
+    return {
+      ok: false,
+      detail:
+        `${recordPath}: sinceLastReview.lastReviewedCommit is not a commit sha of 7 to 40 hex characters ` +
+        `(got ${JSON.stringify(reviewed ?? null)}) -- the diff baseline is the last REVIEWED commit, and a record ` +
+        "that cannot name one cannot bound a merge",
+    };
+  }
+  const baseline = git(["rev-parse", "--verify", "--quiet", `${reviewed}^{commit}`], cwd);
+  if (typeof baseline !== "string" || !/^[0-9a-f]{40}$/.test(baseline)) {
+    return { ok: false, detail: `${recordPath}: sinceLastReview.lastReviewedCommit ${reviewed.slice(0, 7)} does not resolve to a commit in this checkout` };
+  }
+  if (!sameCommit(baseline, recordHead)) {
+    return {
+      ok: false,
+      detail:
+        `${recordPath}: the record was generated on ${recordHead.slice(0, 7)}, which no reviewer pass covers -- the ` +
+        `last reviewed commit is ${baseline.slice(0, 7)}. Whatever was pushed between them was never reviewed, so ` +
+        "this record cannot bound a merge; request a review of the head and regenerate the record on it",
+    };
   }
 
   return {

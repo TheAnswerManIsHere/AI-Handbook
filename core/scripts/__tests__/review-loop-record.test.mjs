@@ -7,6 +7,7 @@ import {
   approvedPlanCommit,
   artifactDiff,
   assertCapturedAfterLatestPass,
+  assertHeadReviewed,
   artifactFileList,
   artifactStats,
   assertAdjudicationSnapshot,
@@ -1594,4 +1595,26 @@ test("the patch and the artifact counts describe the same rename", () => {
   };
   cappedDiff(runGit, "base...head");
   assert.ok(patchFlags.includes("--no-renames"), "the patch must use the same rename setting as the file list");
+});
+
+// ---------------------------------------------------------------------------
+// The record is generated on a reviewed head or not at all (Codex, #38 round 14)
+// ---------------------------------------------------------------------------
+
+test("assertHeadReviewed: the PR head must be the last commit a reviewer pass covered", () => {
+  const reviewed = "c3797aa4fd8f08684130fccb98ede616b45bcb6c";
+  const pushed = "59c9a0e00000000000000000000000000000abcd";
+  assert.doesNotThrow(() => assertHeadReviewed(reviewed, reviewed));
+  // Announcement-form passes carry an abbreviated sha; that is the same commit.
+  assert.doesNotThrow(() => assertHeadReviewed(reviewed.slice(0, 10), reviewed));
+  assert.doesNotThrow(() => assertHeadReviewed(reviewed, reviewed.slice(0, 7)));
+  assert.throws(() => assertHeadReviewed(reviewed, pushed), /59c9a0e .*no completed reviewer pass covers/);
+  assert.throws(() => assertHeadReviewed(reviewed, pushed), /c3797aa/);
+  // Too short to be a commit reference is not "the same commit".
+  assert.throws(() => assertHeadReviewed(reviewed.slice(0, 6), reviewed), /no completed reviewer pass covers/);
+});
+
+test("assertHeadReviewed: with no reviewed commit at all there is nothing to compare -- changesSince already reports that state", () => {
+  assert.doesNotThrow(() => assertHeadReviewed(null, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
+  assert.doesNotThrow(() => assertHeadReviewed(undefined, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
 });
