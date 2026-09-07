@@ -699,7 +699,7 @@ export function fenceRegions(lines) {
       continue;
     }
     if (m && m[1][0] === open.char && m[1].length >= open.len && m[2].trim() === "") {
-      regions.push({ start: open.start, end: i, info: open.info });
+      regions.push({ start: open.start, end: i, info: open.info, closed: true });
       open = null;
     }
   }
@@ -708,7 +708,7 @@ export function fenceRegions(lines) {
   // two derived views -- the mask and the opener list -- in agreement, so a
   // truncated body cannot make a line inert for one reader and live for the
   // other.
-  if (open) regions.push({ start: open.start, end: lines.length - 1, info: open.info });
+  if (open) regions.push({ start: open.start, end: lines.length - 1, info: open.info, closed: false });
   return regions;
 }
 
@@ -762,6 +762,10 @@ function inertScan(lines) {
   // a fence opener is always masked -- it is a fence -- so "is this opener
   // live?" can only be answered by asking whether something ELSE covers it.
   const comment = new Array(lines.length).fill(false);
+  // Every line with its HTML comments removed and nothing else changed --
+  // fences, blockquotes and indented code intact. `live` is not that: it is
+  // empty for every masked line. (Codex, #46 round 4.)
+  const stripped = lines.slice();
   let inComment = false;
   let prevBlank = true;
   for (let i = 0; i < lines.length; i += 1) {
@@ -797,6 +801,7 @@ function inertScan(lines) {
       inComment = true;
       comment[i] = true;
     }
+    if (touched) stripped[i] = kept;
     if (touched && kept.trim() === "") {
       mask[i] = true;
       continue;
@@ -813,7 +818,7 @@ function inertScan(lines) {
     live[i] = line;
     prevBlank = line.trim() === "";
   }
-  return { mask, live, comment };
+  return { mask, live, comment, stripped };
 }
 
 /** The inert-line mask alone, exported so the sharing is testable. */
@@ -857,7 +862,7 @@ export function sectionOf(markdown, heading) {
   // Match the comment-stripped LIVE text, not the raw line: `## Approved-plan
   // source <!-- required -->` is live per the mask but never matched the
   // anchored test on the raw line, so a valid body refused. (Codex, #46 round 3.)
-  const { mask: inert, live } = inertScan(lines);
+  const { mask: inert, live, comment, stripped } = inertScan(lines);
   const start = live.findIndex((l, i) => !inert[i] && want.test(l));
   if (start === -1) return null;
   // A markdown section ends at a heading of the SAME OR HIGHER level. Stopping
@@ -867,10 +872,15 @@ export function sectionOf(markdown, heading) {
   // way for this field to be wrong. (Codex, #38 round 1.)
   const level = want.exec(live[start])[1].length;
   const body = [];
+  // The body is the COMMENT-STRIPPED text, not the raw line: a comment opened
+  // on the heading line ran into the body, where the raw lines carried it as
+  // if live. Fences and blockquotes stay -- they are the plan's content, and
+  // the judge reads them. (Codex, #46 round 4.)
   for (let i = start + 1; i < lines.length; i += 1) {
     const heading = inert[i] ? null : /^(#{1,6})\s+\S/.exec(live[i]);
     if (heading && heading[1].length <= level) break;
-    body.push(lines[i]);
+    if (comment[i] && stripped[i].trim() === "") continue;
+    body.push(stripped[i]);
   }
   return body.join("\n").trim();
 }
@@ -971,7 +981,10 @@ export function planProvenanceDeclaration(body) {
   const region = found[0];
   const values = {};
   const order = [];
-  for (let i = region.start + 1; i < region.end; i += 1) {
+  // A closed fence's `end` is its closing line; an unclosed one's `end` is the
+  // document's last line, which IS content. (Codex, #46 round 4.)
+  const stop = region.closed ? region.end : region.end + 1;
+  for (let i = region.start + 1; i < stop; i += 1) {
     const line = lines[i];
     if (line.trim() === "") continue;
     const m = /^\s*([A-Za-z0-9_]+)\s*:\s*(.*?)\s*$/.exec(line);
@@ -1510,7 +1523,11 @@ const APPROVED_PLAN_LABEL_RE = /^\s{0,3}\*{0,2}Approved-plan source\*{0,2}\s*[:.
  */
 const legacyApprovedPlanClaim = (body) => {
   const source = approvedPlanSourceText(body);
-  return Boolean(source) && Boolean(approvedPlanCommit(source)?.sha);
+  if (!source) return false;
+  // The prose path acts on a resolved commit OR a permitted no-plan form read
+  // from this same region -- the private-path line is unanchored, so its
+  // list-item shape is one the prose path would have taken. (Codex, #46 round 4.)
+  return Boolean(approvedPlanCommit(source)?.sha) || TEXTUAL_NO_PLAN_FORMS.some((f) => f.re.test(source));
 };
 const legacyApprovedPlanSelector = (live, body) =>
   APPROVED_PLAN_HEADING_RE.test(live) || APPROVED_PLAN_LABEL_RE.test(live) || legacyApprovedPlanClaim(body);

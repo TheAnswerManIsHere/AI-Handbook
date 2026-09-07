@@ -2245,6 +2245,44 @@ test("a heading with an inline HTML comment is still that heading", () => {
   assert.equal(sectionOf("<!-- ## Direction -->\n\nnope\n", "Direction"), null);
 });
 
+test("a comment opened on a heading line does not leak into the section body", () => {
+  // Codex, #46 round 4. The start scan used the comment-stripped line; the body
+  // loop pushed the RAW lines, so a comment that opened on the heading and
+  // closed a few lines down reached the judge as live section text.
+  const body = [
+    "## Direction <!-- template note:",
+    "this whole comment is not the direction",
+    "and neither is this -->",
+    "Ship it.",
+    "",
+    "## Next",
+    "later",
+  ].join("\n");
+  assert.equal(sectionOf(body, "Direction"), "Ship it.");
+  // An inline comment in the body is removed; fences and blockquotes stay.
+  const mixed = ["## Direction", "", "keep <!-- drop --> this", "> quoted", "```", "code", "```", "## Next"].join("\n");
+  assert.equal(sectionOf(mixed, "Direction"), ["keep  this", "> quoted", "```", "code", "```"].join("\n"));
+});
+
+test("an unclosed declaration fence still reads its last line", () => {
+  // Codex, #46 round 4. An unclosed fence runs to the document's end, and its
+  // last line is content -- the loop treated it as the closing fence and
+  // silently dropped it, so a body truncated mid-declaration lost a field.
+  const unclosed = ["```plan-provenance", ...APPROVED_PLAN].join("\n");
+  const closed = decl(...APPROVED_PLAN);
+  assert.deepEqual(planProvenanceDeclaration(unclosed), planProvenanceDeclaration(closed));
+});
+
+test("a list-item private-path line is a legacy selector the prose path would act on", () => {
+  // Codex, #46 round 4. The private-path form is unanchored, so its list-item
+  // shape resolves on the prose path -- but the legacy claim only asked for a
+  // commit, so a declaration plus that line passed without the mixed-format
+  // refusal.
+  const declared = decl("kind: private-plan", "plan_filename: PLAN_X.md", "plan_sha256: " + "a".repeat(64), "approved_by: David", "approved_on: 2026-09-06");
+  const legacy = `- **Approved-plan source:** PLAN_X.md, shasum -a 256 ${"a".repeat(64)}, 2026-09-06`;
+  assert.throws(() => planOracleFor({ title: "Implement the thing", body: `${declared}\n\n${legacy}` }, "head", { runGit: planGit([PLAN]) }), /both/i);
+});
+
 test("an inherited property name is an unknown kind, not a crash", () => {
   // Codex, #46 round 1. `kind: constructor` reached an inherited property,
   // which is truthy and not an array, so the required-key loop threw a
