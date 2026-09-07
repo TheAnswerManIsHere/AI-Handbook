@@ -101,14 +101,80 @@ rather than sending you back to `declare`.)
 node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>
 ```
 
-The snapshot is `pull_request_read` (`get`, `get_reviews`, `get_comments`),
-paginated and attested complete, and it must also name its source
-(`repo`, the `owner/name` this checkout declares in `.agents/machinery.json`) and the moment GitHub was read
+**Build the snapshot with a script, never by hand:**
+
+```
+node scripts/snapshot-from-captures.mjs \
+  --pr-capture <get> \
+  --reviews <get_reviews page> [--reviews <next page> ...] \
+  --comments <get_comments page> [--comments <next page> ...] \
+  --threads <get_review_comments page> [--threads <next page> ...] \
+  --fetched-at <iso> \
+  --out <file>
+```
+
+**Paths in this document are the CONSUMER's layout.** In AI-Handbook itself the
+payload is not installed, so every machinery command here — this one,
+`review-budget.mjs`, `review-loop-record.mjs`, `pr-ready.mjs` — runs from
+`core/scripts/` instead of `scripts/`. Skills are symlinked and therefore live
+in both repositories; ordinary files under `core/` are not.
+
+Its inputs are the raw response files themselves, and **nothing about the pull
+request is typed on the command line** — the number, title, body, base and head
+shas all come out of the `get` capture, because a wrong-but-real base sha
+passes every downstream check and then describes a different diff.
+
+Request the FULL page (`perPage: 100`) for each list. A result too large to
+return inline is written to a path the tool result names, and that path is what
+you pass; a response small enough to return inline has to be written out
+verbatim first — one blob, not field by field. **Pass every page**: a REST page
+holding exactly 100 entries is refused, because only a short page proves the
+list ended, and `complete: true` is an attestation the generator trusts
+absolutely.
+
+**`--fetched-at` is when you called GitHub**, and it is required whenever a
+capture was written by hand. A harness capture's mtime is its fetch time,
+because the harness writes the file as the response arrives; a blob you saved
+from an inline result has an mtime that says when you *saved* it, and a
+response fetched an hour ago but written out just now would sail through the
+freshness gate while missing a reviewer pass. The declaration is bounded: it
+may not be later than the file's mtime, and it may not precede it by more than
+a day. Declaring it early is the safe direction — both gates mean "not older
+than" — so when in doubt, give the earlier time. A mixed batch is the normal
+batch, and needs no special handling: harness captures keep their measured
+mtime and ignore the declaration, which never overwrites a measurement.
+
+The script derives the snapshot from those files, records each collection's
+files, SHA-256s, capture times and whether each time was measured or declared,
+and `review-loop-record.mjs` re-derives the snapshot from them and refuses
+anything that differs. **So never edit a snapshot — re-run the
+assembler.** A hand-flipped `isResolved` or a paraphrased finding body leaves
+every identifier untouched and has already produced a wrong verdict here once.
+Typing a snapshot is how invented thread ids reached a judge on 2026-09-07.
+
+**`--threads` is optional, and omitting it is how you run a cheap round
+check.** The round check reads `pr`, `reviews` and `issueComments` and nothing
+else; the generator refuses any snapshot whose `complete.reviewThreads` is not
+explicitly true. So a threads-less snapshot serves the check and can never
+reach a judge as a round that found nothing. In that mode the `get` capture may
+also omit `body` — the body has one reader, the generator's plan-oracle
+resolution, which this snapshot cannot reach. Capture threads (and the body)
+when you are building a record; on a loop with rounds behind it the threads
+payload is usually large enough to land on disk anyway.
+
+**This matters more than it looks.** A round check costs one small capture set
+per round, and if that set includes a pull request's whole body and every
+review thread, an honest operator transcribing inline responses pays that on
+every round. The discipline that is expensive is the one that gets skipped,
+and skipping it is how a snapshot got fabricated on 2026-09-07.
+
+The snapshot names its source (`repo`, the `owner/name` this
+checkout declares in `.agents/machinery.json`) and the moment GitHub was read
 (`capturedAt`) — a PR number alone does not identify a pull request, and
 freshness is a property of the evidence rather than of when the command was
 typed. Bodies are required on every issue comment and every reviewer-authored
-review, because that is where the count actually reads. It writes an ephemeral
-round-check receipt that authorizes exactly **one** post — the same
+review, because that is where the count actually reads. `check` writes an
+ephemeral round-check receipt that authorizes exactly **one** post — the same
 evidence-at-decision-time pattern the merge gate uses, because the round count
 is evidence, not something to remember. There is no tally to maintain and
 nothing to reconcile if a request stalls.

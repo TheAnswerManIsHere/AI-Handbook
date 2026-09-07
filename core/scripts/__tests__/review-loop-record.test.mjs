@@ -1,6 +1,9 @@
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   applyCaps,
@@ -13,6 +16,7 @@ import {
   assertAdjudicationSnapshot,
   assertArtifactEndpoints,
   assertCapturedProvenance,
+  assertSnapshotEvidence,
   assertThreadProvenance,
   buildRecord,
   cappedDiff,
@@ -28,6 +32,7 @@ import {
   RECORD_LINE_CAP_CHARS,
   RECORD_TOTAL_CAP_CHARS,
 } from "../review-loop-record.mjs";
+import { main as assembleFromCaptures } from "../snapshot-from-captures.mjs";
 
 // The payload no longer knows one repo's name; tests declare their own.
 const TEST_SLUG = "TestOwner/TestRepo";
@@ -1617,4 +1622,142 @@ test("assertHeadReviewed: the PR head must be the last commit a reviewer pass co
 test("assertHeadReviewed: with no reviewed commit at all there is nothing to compare -- changesSince already reports that state", () => {
   assert.doesNotThrow(() => assertHeadReviewed(null, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
   assert.doesNotThrow(() => assertHeadReviewed(undefined, "c3797aa4fd8f08684130fccb98ede616b45bcb6c"));
+});
+
+test("a snapshot's entries must be what its captures derive, not merely well-formed", () => {
+  // THE REGRESSION. On 2026-09-07 I assembled #43's round-4 evidence from
+  // webhook notification text, which carries comment bodies but no ids, and
+  // typed ids that looked right: threads `PRRT_kwDOUKOPKc6fxwZ1`/`…fxwZ4`,
+  // comments 3946356201/3946356214. All four were invented. The same capture
+  // also MISSED two of the round's four findings, because notification text is
+  // not a capture of PR state.
+  //
+  // Both checks above passed it. `assertThreadProvenance` asks whether the id
+  // is well-formed; `assertCapturedProvenance` asks whether it agrees with its
+  // own URL and names this pull request. A fabricator writes a well-formed id
+  // and a matching URL in one motion, so agreement with itself is exactly what
+  // an invention has.
+  const url = (id) => `https://github.com/TheAnswerManIsHere/AI-Handbook/pull/43#discussion_r${id}`;
+  const fabricated = {
+    id: "PRRT_kwDOUKOPKc6fxwZ1",
+    comments: [{ id: 3946356201, html_url: url(3946356201) }],
+  };
+  const bare = {
+    repo: "TheAnswerManIsHere/AI-Handbook",
+    pr: { number: 43 },
+    reviews: [],
+    issueComments: [],
+    reviewThreads: [fabricated],
+  };
+  // Self-consistent, this-PR, well-formed -- and entirely made up.
+  assert.doesNotThrow(() => assertThreadProvenance(bare.reviewThreads));
+  assert.doesNotThrow(() => assertCapturedProvenance(bare));
+  assert.throws(() => assertSnapshotEvidence(bare), /no `captureProvenance`/);
+
+  // Naming captures is not enough either. Build a real one with the assembler,
+  // then add the same fabricated thread: every recorded file still hashes
+  // correctly, and the snapshot still fails because it is no longer what those
+  // files derive.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-"));
+  const repo = { full_name: "TheAnswerManIsHere/AI-Handbook" };
+  const write = (name, value) => {
+    const p = path.join(dir, name);
+    fs.writeFileSync(p, JSON.stringify(value));
+    return p;
+  };
+  const out = path.join(dir, "snapshot.json");
+  assembleFromCaptures([
+    "--pr-capture", write("pr.json", {
+      number: 43,
+      title: "[PLAN REVIEW] Structured plan provenance",
+      created_at: "2026-09-07T00:35:55Z",
+      body: "Workstream: #36.\n",
+      base: { ref: "main", sha: "25c1df885d104e0a8918fc09a993a0bf24d9b257", repo },
+      head: { ref: "plan-review/x", sha: "6eb3b5e5ccd03fdcfb825d7a280de584ee1a8f0a", repo },
+    }),
+    "--reviews", write("reviews.json", []),
+    "--comments", write("comments.json", []),
+    "--threads", write("threads.json", {
+      totalCount: 1,
+      pageInfo: { hasNextPage: false },
+      review_threads: [{ id: "PRRT_kwDOUKOPKc6fxvRx", is_resolved: false, is_outdated: false, comments: [] }],
+    }),
+    // These fixtures are written here, so they are agent-written captures and
+    // must declare when GitHub was read; the oldest save time is the one value
+    // that is not later than any of them.
+    "--fetched-at",
+    new Date(
+      Math.min(...["pr.json", "reviews.json", "comments.json", "threads.json"].map((f) =>
+        fs.statSync(path.join(dir, f)).mtimeMs)),
+    ).toISOString(),
+    "--out", out,
+  ]);
+  const real = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.doesNotThrow(() => assertSnapshotEvidence(real));
+
+  const doctored = structuredClone(real);
+  doctored.reviewThreads.push({
+    id: fabricated.id,
+    isResolved: false,
+    isOutdated: false,
+    path: null,
+    line: null,
+    comments: [],
+  });
+  assert.throws(() => assertSnapshotEvidence(doctored), /is not what its own captures derive: reviewThreads differ/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("buildRecord: the judge is told where each collection actually came from", () => {
+  // "Assembled by a script" is two different guarantees. A harness capture is
+  // a file no agent touched; an agent-written one is an inline response copied
+  // out as a blob, whose ids are still verified against it but whose bytes are
+  // a transcription. Recording the distinction only helps if it reaches the
+  // record -- a field the generator drops is a field nobody can act on.
+  const snapshot = {
+    ...minimalSnapshot(),
+    captureProvenance: {
+      reviews: {
+        capturedAt: "2026-08-19T21:00:00Z",
+        files: [{ file: "/tmp/scratch/reviews.json", sha256: "aa", source: "agent-written", capturedAtSource: "declared" }],
+      },
+      issueComments: {
+        capturedAt: "2026-08-19T21:00:00Z",
+        files: [{ file: "/tmp/scratch/comments-1.json", sha256: "bb", source: "agent-written", capturedAtSource: "declared" }],
+      },
+      reviewThreads: {
+        capturedAt: "2026-08-19T20:30:00Z",
+        files: [
+          { file: "/root/.claude/projects/p/s/tool-results/x.txt", sha256: "cc", source: "harness-capture", capturedAtSource: "file-mtime" },
+        ],
+      },
+    },
+  };
+  const record = buildRecord({
+    pr: 500,
+    snapshot,
+    derived: { pr: snapshot.pr, reviews: [], files: [], comments: [], issueComments: [] },
+    budgetState: minimalBudgetState(),
+    changes: { resolved: false, reason: "test" },
+    now: "2026-08-19T22:00:00Z",
+  });
+  assert.deepEqual(record.provenance.captures, {
+    reviews: {
+      capturedAt: "2026-08-19T21:00:00Z",
+      files: [{ file: "reviews.json", sha256: "aa", source: "agent-written", capturedAtSource: "declared" }],
+    },
+    issueComments: {
+      capturedAt: "2026-08-19T21:00:00Z",
+      files: [{ file: "comments-1.json", sha256: "bb", source: "agent-written", capturedAtSource: "declared" }],
+    },
+    // The absolute path is local layout the judge cannot use; the basename is
+    // enough to tie a claim back to a file, and the hash is what pins it. The
+    // per-collection capture time travels too, with whether it was MEASURED or
+    // DECLARED: a collection older than its siblings is a fact about the
+    // evidence, and so is a time nobody could measure.
+    reviewThreads: {
+      capturedAt: "2026-08-19T20:30:00Z",
+      files: [{ file: "x.txt", sha256: "cc", source: "harness-capture", capturedAtSource: "file-mtime" }],
+    },
+  });
 });
