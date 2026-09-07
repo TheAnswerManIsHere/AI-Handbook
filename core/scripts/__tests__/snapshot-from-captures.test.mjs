@@ -99,11 +99,19 @@ function fixture(o = {}) {
   });
 }
 
+// Every fixture here is written by the test, so every capture classifies as
+// `agent-written` and needs a declared fetch time. The oldest mtime in the set
+// is the one value that satisfies the rule for all of them: a declaration may
+// not be later than a file's save time.
+const fetchedAt = (paths) =>
+  new Date(Math.min(...Object.values(paths).map((f) => fs.statSync(f).mtimeMs))).toISOString();
+
 const argv = (paths, out, extra = []) => [
   "--pr-capture", paths["pr.json"],
   "--reviews", paths["reviews.json"],
   "--comments", paths["comments.json"],
   "--threads", paths["threads.json"],
+  "--fetched-at", fetchedAt(paths),
   "--out", out,
   ...extra,
 ];
@@ -255,26 +263,89 @@ test("capture times come from the files, not from the clock at assembly", () => 
   // satisfied the round check's one-hour bound and appeared to postdate a
   // reviewer pass it predated. (Codex, #45 round 1.)
   const { paths, snapshot, cleanup } = built();
-  const mtime = (k) => new Date(fs.statSync(paths[k]).mtimeMs).toISOString();
-  assert.equal(snapshot.capturedAt.reviews, mtime("reviews.json"));
-  assert.equal(snapshot.capturedAt.reviewThreads, mtime("threads.json"));
-  assert.equal(snapshot.capturedAt.pr, mtime("pr.json"));
+  // These fixtures are agent-written, so the recorded time is the DECLARED
+  // fetch, and the provenance says so rather than passing it off as measured.
+  const declared = fetchedAt(paths);
+  for (const key of VERIFIED_COLLECTIONS) {
+    assert.equal(snapshot.capturedAt[key], declared);
+    assert.equal(snapshot.captureProvenance[key].files[0].capturedAtSource, "declared");
+    assert.equal(snapshot.captureProvenance[key].files[0].capturedAt, declared);
+  }
+  // Not the invocation time: assembling later must not refresh the evidence.
+  assert.ok(Date.parse(declared) <= Date.now());
   cleanup();
+});
+
+test("an inline capture must declare when GitHub was read; a harness capture must not", () => {
+  // mtime is the SAVE time for a blob an agent wrote out, and the gap to the
+  // fetch is invisible to this program -- a response fetched hours earlier but
+  // saved just now would pass the freshness gate while missing a reviewer
+  // pass. So it is declared, and bounded on both sides. (Codex, #45 round 2.)
+  const { dir, paths, cleanup } = fixture();
+  const full = argv(paths, path.join(dir, "s.json"));
+  const i = full.indexOf("--fetched-at");
+  const without = [...full.slice(0, i), ...full.slice(i + 2)];
+  assert.throws(() => main(without), /Pass --fetched-at <iso> with the time of the fetch/);
+
+  // Later than the save is the unsafe direction and is refused: nothing is
+  // saved before it is fetched.
+  const later = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  assert.throws(() => main([...without, "--fetched-at", later]), /is later than .*mtime/);
+
+  // Earlier is the SAFE direction -- both gates mean "not older than", so an
+  // over-old claim only refuses work -- but a mistyped date is not a claim.
+  const ancient = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  assert.throws(() => main([...without, "--fetched-at", ancient]), /by more than a day/);
+  assert.throws(() => main([...without, "--fetched-at", "last tuesday"]), /is not a parseable date/);
+  cleanup();
+
+  // A MIXED BATCH IS THE NORMAL BATCH: on a loop with rounds behind it the
+  // threads payload spills to disk while the smaller responses come back
+  // inline. A harness capture ignores the declaration and keeps its measured
+  // mtime; refusing the declaration outright made this case unassemblable,
+  // which is a refusal with no remedy. (Found running it, not by review.)
+  const hdir = fs.mkdtempSync(path.join(os.tmpdir(), "hc-"));
+  const nested = path.join(hdir, ".claude", "projects", "p", "s", "tool-results");
+  fs.mkdirSync(nested, { recursive: true });
+  const hfile = path.join(nested, "mcp-github-threads.txt");
+  fs.writeFileSync(hfile, JSON.stringify(THREADS));
+  assert.equal(captureSource(hfile), "harness-capture");
+  const f2 = fixture();
+  const out2 = path.join(f2.dir, "s.json");
+  const withHarness = [...argv(f2.paths, out2)];
+  withHarness[withHarness.indexOf("--threads") + 1] = hfile;
+  main(withHarness);
+  const mixed = JSON.parse(fs.readFileSync(out2, "utf8"));
+  assert.equal(mixed.captureProvenance.reviewThreads.files[0].source, "harness-capture");
+  assert.equal(mixed.captureProvenance.reviewThreads.files[0].capturedAtSource, "file-mtime");
+  assert.equal(mixed.captureProvenance.reviews.files[0].capturedAtSource, "declared");
+  // The measurement wins: the declaration did not overwrite the harness time.
+  assert.equal(
+    mixed.capturedAt.reviewThreads,
+    new Date(fs.statSync(hfile).mtimeMs).toISOString(),
+  );
+  assert.doesNotThrow(() => assertCaptureProvenance(mixed));
+  fs.rmSync(hdir, { recursive: true, force: true });
+  f2.cleanup();
 });
 
 test("a collection's capture time is its OLDEST page", () => {
   const { dir, paths, cleanup } = fixture();
   const second = path.join(dir, "reviews-2.json");
   fs.writeFileSync(second, JSON.stringify([]));
-  const old = new Date("2026-09-06T00:00:00.000Z");
-  fs.utimesSync(paths["reviews.json"], old, old);
+  const earlier = new Date(Date.now() - 30 * 60 * 1000);
+  fs.utimesSync(paths["reviews.json"], earlier, earlier);
   const out = path.join(dir, "s.json");
   main([...argv(paths, out), "--reviews", second]);
   const snap = JSON.parse(fs.readFileSync(out, "utf8"));
   // Both gates that read this mean "not older than", so a fresh final page
-  // must not be able to carry a stale first one past them.
-  assert.equal(snap.capturedAt.reviews, "2026-09-06T00:00:00.000Z");
+  // must not be able to carry a stale first one past them. Read the mtime back
+  // rather than trusting the Date passed to utimes: the filesystem's
+  // resolution is its own, and the assertion is about what the tool saw.
+  const backdated = new Date(fs.statSync(paths["reviews.json"]).mtimeMs).toISOString();
+  assert.equal(snap.capturedAt.reviews, backdated);
   assert.equal(snap.captureProvenance.reviews.files.length, 2);
+  assert.equal(snap.captureProvenance.reviews.files[1].capturedAt, backdated);
   cleanup();
 });
 
@@ -307,17 +378,52 @@ test("a threads capture with no review_threads array is refused, not read as a c
   }
 });
 
-test("a paginated thread capture is refused unless its last page says so", () => {
+test("the end of the thread list must be STATED by the last page, not merely uncontradicted", () => {
   const { dir, paths, cleanup } = fixture({ threads: { ...THREADS, pageInfo: { hasNextPage: true } } });
-  assert.throws(() => main(argv(paths, path.join(dir, "s.json"))), /reports hasNextPage: true/);
+  assert.throws(
+    () => main(argv(paths, path.join(dir, "s.json"))),
+    /does not state pageInfo\.hasNextPage: false \(it is true\)/,
+  );
   // With the next page supplied, the earlier page's flag is no longer the end
   // of the story.
   const second = path.join(dir, "threads-2.json");
-  fs.writeFileSync(second, JSON.stringify({ pageInfo: { hasNextPage: false }, review_threads: [] }));
+  fs.writeFileSync(second, JSON.stringify({ totalCount: 1, pageInfo: { hasNextPage: false }, review_threads: [] }));
   const out = path.join(dir, "s.json");
   main([...argv(paths, out), "--threads", second]);
   assert.equal(JSON.parse(fs.readFileSync(out, "utf8")).reviewThreads.length, 1);
   cleanup();
+
+  // ABSENCE OF A CLAIM IS NOT A CLAIM. `pageInfo?.hasNextPage` read as falsy
+  // accepted a payload carrying no pageInfo at all -- a hand-trimmed capture,
+  // or an older tool's shape -- as a proven terminal page. (Codex, #45 round 2.)
+  const f2 = fixture({ threads: { totalCount: 1, review_threads: THREADS.review_threads } });
+  assert.throws(
+    () => main(argv(f2.paths, path.join(f2.dir, "s.json"))),
+    /does not state pageInfo\.hasNextPage: false \(it is null\)/,
+  );
+  f2.cleanup();
+});
+
+test("a thread list shorter than its own totalCount is refused", () => {
+  // `{ totalCount: 250, review_threads: [] }` satisfied every other check and
+  // became a complete zero-thread round -- the shape that produces a stop
+  // verdict on a loop that is not finished. (Codex, #45 round 2.)
+  const { dir, paths, cleanup } = fixture({
+    threads: { totalCount: 250, pageInfo: { hasNextPage: false }, review_threads: [] },
+  });
+  assert.throws(
+    () => main(argv(paths, path.join(dir, "s.json"))),
+    /hold 0 thread\(s\) but the payload reports totalCount 250/,
+  );
+  cleanup();
+
+  // A payload that does not carry totalCount is not refused for lacking it:
+  // this reconciles a number the response supplies, it does not demand one.
+  const f2 = fixture({ threads: { pageInfo: { hasNextPage: false }, review_threads: THREADS.review_threads } });
+  const out = path.join(f2.dir, "s.json");
+  main(argv(f2.paths, out));
+  assert.equal(JSON.parse(fs.readFileSync(out, "utf8")).reviewThreads.length, 1);
+  f2.cleanup();
 });
 
 test("a capture's source is derived from its path, never taken from the file", () => {

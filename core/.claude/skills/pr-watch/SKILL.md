@@ -109,8 +109,15 @@ node scripts/snapshot-from-captures.mjs \
   --reviews <get_reviews page> [--reviews <next page> ...] \
   --comments <get_comments page> [--comments <next page> ...] \
   --threads <get_review_comments page> [--threads <next page> ...] \
+  --fetched-at <iso> \
   --out <file>
 ```
+
+**Paths in this document are the CONSUMER's layout.** In AI-Handbook itself the
+payload is not installed, so every machinery command here — this one,
+`review-budget.mjs`, `review-loop-record.mjs`, `pr-ready.mjs` — runs from
+`core/scripts/` instead of `scripts/`. Skills are symlinked and therefore live
+in both repositories; ordinary files under `core/` are not.
 
 Its inputs are the raw response files themselves, and **nothing about the pull
 request is typed on the command line** — the number, title, body, base and head
@@ -125,10 +132,22 @@ holding exactly 100 entries is refused, because only a short page proves the
 list ended, and `complete: true` is an attestation the generator trusts
 absolutely.
 
+**`--fetched-at` is when you called GitHub**, and it is required whenever a
+capture was written by hand. A harness capture's mtime is its fetch time,
+because the harness writes the file as the response arrives; a blob you saved
+from an inline result has an mtime that says when you *saved* it, and a
+response fetched an hour ago but written out just now would sail through the
+freshness gate while missing a reviewer pass. The declaration is bounded: it
+may not be later than the file's mtime, and it may not precede it by more than
+a day. Declaring it early is the safe direction — both gates mean "not older
+than" — so when in doubt, give the earlier time. A mixed batch is the normal
+batch, and needs no special handling: harness captures keep their measured
+mtime and ignore the declaration, which never overwrites a measurement.
+
 The script derives the snapshot from those files, records each collection's
-files, SHA-256s and capture times (the files' own mtimes, not the clock at
-assembly), and `review-loop-record.mjs` re-derives the snapshot from them and
-refuses anything that differs. **So never edit a snapshot — re-run the
+files, SHA-256s, capture times and whether each time was measured or declared,
+and `review-loop-record.mjs` re-derives the snapshot from them and refuses
+anything that differs. **So never edit a snapshot — re-run the
 assembler.** A hand-flipped `isResolved` or a paraphrased finding body leaves
 every identifier untouched and has already produced a wrong verdict here once.
 Typing a snapshot is how invented thread ids reached a judge on 2026-09-07.

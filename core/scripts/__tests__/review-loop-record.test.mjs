@@ -1678,9 +1678,18 @@ test("a snapshot's entries must be what its captures derive, not merely well-for
     "--reviews", write("reviews.json", []),
     "--comments", write("comments.json", []),
     "--threads", write("threads.json", {
+      totalCount: 1,
       pageInfo: { hasNextPage: false },
       review_threads: [{ id: "PRRT_kwDOUKOPKc6fxvRx", is_resolved: false, is_outdated: false, comments: [] }],
     }),
+    // These fixtures are written here, so they are agent-written captures and
+    // must declare when GitHub was read; the oldest save time is the one value
+    // that is not later than any of them.
+    "--fetched-at",
+    new Date(
+      Math.min(...["pr.json", "reviews.json", "comments.json", "threads.json"].map((f) =>
+        fs.statSync(path.join(dir, f)).mtimeMs)),
+    ).toISOString(),
     "--out", out,
   ]);
   const real = JSON.parse(fs.readFileSync(out, "utf8"));
@@ -1710,15 +1719,17 @@ test("buildRecord: the judge is told where each collection actually came from", 
     captureProvenance: {
       reviews: {
         capturedAt: "2026-08-19T21:00:00Z",
-        files: [{ file: "/tmp/scratch/reviews.json", sha256: "aa", source: "agent-written" }],
+        files: [{ file: "/tmp/scratch/reviews.json", sha256: "aa", source: "agent-written", capturedAtSource: "declared" }],
       },
       issueComments: {
         capturedAt: "2026-08-19T21:00:00Z",
-        files: [{ file: "/tmp/scratch/comments-1.json", sha256: "bb", source: "agent-written" }],
+        files: [{ file: "/tmp/scratch/comments-1.json", sha256: "bb", source: "agent-written", capturedAtSource: "declared" }],
       },
       reviewThreads: {
         capturedAt: "2026-08-19T20:30:00Z",
-        files: [{ file: "/root/.claude/projects/p/s/tool-results/x.txt", sha256: "cc", source: "harness-capture" }],
+        files: [
+          { file: "/root/.claude/projects/p/s/tool-results/x.txt", sha256: "cc", source: "harness-capture", capturedAtSource: "file-mtime" },
+        ],
       },
     },
   };
@@ -1733,19 +1744,20 @@ test("buildRecord: the judge is told where each collection actually came from", 
   assert.deepEqual(record.provenance.captures, {
     reviews: {
       capturedAt: "2026-08-19T21:00:00Z",
-      files: [{ file: "reviews.json", sha256: "aa", source: "agent-written" }],
+      files: [{ file: "reviews.json", sha256: "aa", source: "agent-written", capturedAtSource: "declared" }],
     },
     issueComments: {
       capturedAt: "2026-08-19T21:00:00Z",
-      files: [{ file: "comments-1.json", sha256: "bb", source: "agent-written" }],
+      files: [{ file: "comments-1.json", sha256: "bb", source: "agent-written", capturedAtSource: "declared" }],
     },
     // The absolute path is local layout the judge cannot use; the basename is
     // enough to tie a claim back to a file, and the hash is what pins it. The
-    // per-collection capture time travels too: a collection older than its
-    // siblings is a fact about the evidence, not a detail of assembly.
+    // per-collection capture time travels too, with whether it was MEASURED or
+    // DECLARED: a collection older than its siblings is a fact about the
+    // evidence, and so is a time nobody could measure.
     reviewThreads: {
       capturedAt: "2026-08-19T20:30:00Z",
-      files: [{ file: "x.txt", sha256: "cc", source: "harness-capture" }],
+      files: [{ file: "x.txt", sha256: "cc", source: "harness-capture", capturedAtSource: "file-mtime" }],
     },
   });
 });

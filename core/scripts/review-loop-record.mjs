@@ -1891,6 +1891,11 @@ export function buildRecord({
               file: String(f?.file ?? "").split("/").pop(),
               sha256: f?.sha256 ?? null,
               source: f?.source ?? null,
+              // Whether this capture's time was MEASURED (the harness wrote the
+              // file as the response arrived) or DECLARED by the assembling
+              // agent, which is the only answer available for a response small
+              // enough to return inline.
+              capturedAtSource: f?.capturedAtSource ?? null,
             })),
           },
         ]),

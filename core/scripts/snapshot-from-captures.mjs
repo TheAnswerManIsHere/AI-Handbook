@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
  * Assemble an MCP snapshot from raw captured API responses on disk.
  *
@@ -136,16 +137,31 @@ export function captureSource(file) {
     : "agent-written";
 }
 
+/** How long before a file was written its fetch may plausibly be claimed. */
+const MAX_DECLARED_LAG_MS = 24 * 60 * 60 * 1000;
+
 /**
  * One capture file, read.
  *
- * `capturedAt` is the file's mtime -- when the response was written -- rather
- * than when this script ran. Stamping the invocation time let a capture taken
- * hours earlier satisfy the round check's one-hour freshness bound and appear
- * to postdate a reviewer pass it actually predated, which is precisely what
+ * `mtime` is when the response was written, not when this script ran.
+ * Stamping the invocation time let a capture taken hours earlier satisfy the
+ * round check's one-hour freshness bound and appear to postdate a reviewer
+ * pass it actually predated, which is precisely what
  * `assertCapturedAfterLatestPass` exists to refuse. (Codex, #45 round 1.)
+ *
+ * FOR AN INLINE RESPONSE, MTIME IS THE SAVE TIME, NOT THE FETCH TIME, and the
+ * gap between them is invisible to this program (Codex, #45 round 2). A
+ * harness capture has no gap: the harness writes the file as the response
+ * arrives. An agent-written one does, and nothing here can measure it -- so it
+ * must be DECLARED, with `--fetched-at`, and the declaration is bounded on
+ * both sides. It cannot be later than the file's mtime, because nothing is
+ * saved before it is fetched; and it cannot precede it by more than a day,
+ * because a mistyped date would otherwise age the evidence silently and every
+ * downstream refusal would name the wrong cause. Declaring EARLIER than the
+ * truth is the safe direction and is left alone: both gates that read this
+ * mean "not older than", so an over-old claim only ever refuses work.
  */
-function loadCapture(path) {
+function loadCapture(path, declared = null) {
   const file = resolve(path);
   let text;
   try {
@@ -159,13 +175,50 @@ function loadCapture(path) {
   } catch (e) {
     throw new Error(`capture ${file} is not JSON (${e.message}). Pass the raw tool result, unedited`);
   }
-  return {
-    file,
-    json,
-    sha256: digest(text),
-    source: captureSource(file),
-    capturedAt: new Date(statSync(file).mtimeMs).toISOString(),
-  };
+  const source = captureSource(file);
+  const mtime = new Date(statSync(file).mtimeMs).toISOString();
+  return { file, json, sha256: digest(text), source, ...resolveCaptureTime({ file, source, mtime }, declared) };
+}
+
+/**
+ * When GitHub was actually read, for one capture, and where that answer came
+ * from. Exported because the verifier must reach the same answer from the
+ * recorded provenance, and two implementations would drift.
+ */
+export function resolveCaptureTime({ file, source, mtime }, declared) {
+  // A HARNESS CAPTURE IGNORES THE DECLARATION rather than refusing it. The
+  // flag is per-batch, and the normal batch is MIXED: on a loop with rounds
+  // behind it the threads payload is large enough for the harness to spill,
+  // while the smaller responses come back inline. Refusing a declaration here
+  // made that ordinary case unassemblable -- a refusal with no remedy, which
+  // is worse than the fail-open it replaced. (Found running this against #43's
+  // real captures, not by review.) The measurement still wins: a declaration
+  // never overwrites a time the harness recorded.
+  if (source === "harness-capture") return { capturedAt: mtime, capturedAtSource: "file-mtime" };
+  if (!declared) {
+    throw new Error(
+      `${file} was written by an agent from an inline response, so its mtime is when the blob was SAVED, ` +
+        `not when GitHub was read -- and a response fetched hours earlier but saved just now would pass the ` +
+        `freshness gate while missing a reviewer pass. Pass --fetched-at <iso> with the time of the fetch`,
+    );
+  }
+  const at = Date.parse(declared);
+  if (!Number.isFinite(at)) throw new Error(`--fetched-at ${JSON.stringify(declared)} is not a parseable date`);
+  const saved = Date.parse(mtime);
+  if (at > saved) {
+    throw new Error(
+      `--fetched-at ${declared} is later than ${file}'s mtime ${mtime}: nothing is saved before it is ` +
+        `fetched, so the declaration is wrong in the direction that makes evidence look fresher than it is`,
+    );
+  }
+  if (saved - at > MAX_DECLARED_LAG_MS) {
+    throw new Error(
+      `--fetched-at ${declared} precedes ${file}'s mtime ${mtime} by more than a day. Declaring an older ` +
+        `fetch is the safe direction, but this far out is a mistyped date -- which would age the evidence ` +
+        `silently and make every downstream refusal name the wrong cause`,
+    );
+  }
+  return { capturedAt: new Date(at).toISOString(), capturedAtSource: "declared" };
 }
 
 /**
@@ -212,6 +265,7 @@ function pagedArray(captures, collection) {
  */
 function pagedThreads(captures) {
   const out = [];
+  const last = captures.length - 1;
   captures.forEach((c, i) => {
     if (!c.json || typeof c.json !== "object" || !Array.isArray(c.json.review_threads)) {
       throw new Error(
@@ -219,15 +273,37 @@ function pagedThreads(captures) {
           `otherwise become zero threads, and zero threads is indistinguishable from a clean round`,
       );
     }
-    if (c.json.pageInfo?.hasNextPage && i === captures.length - 1) {
-      throw new Error(
-        `${c.file} reports hasNextPage: true and is the last capture supplied, so this is one page of a ` +
-          `longer list. A partial capture understates findings, which is wrong in the loop's favour -- ` +
-          `pass the next page as a further --threads`,
-      );
+    // THE END OF THE LIST MUST BE STATED, NOT MERELY UNCONTRADICTED. Reading
+    // `pageInfo?.hasNextPage` as falsy accepted a capture with no `pageInfo`
+    // at all -- a hand-trimmed payload, an older tool's shape -- as a proven
+    // terminal page. Absence of a claim is not a claim. (Codex, #45 round 2.)
+    if (i === last) {
+      if (c.json.pageInfo?.hasNextPage !== false) {
+        throw new Error(
+          `${c.file} is the last --threads capture supplied but does not state pageInfo.hasNextPage: false ` +
+            `(it is ${JSON.stringify(c.json.pageInfo?.hasNextPage ?? null)}). Only the payload's own ` +
+            `end-of-list flag proves the list ended; a partial capture understates findings, which is wrong ` +
+            `in the loop's favour -- pass the remaining pages as further --threads`,
+        );
+      }
     }
     out.push(...c.json.review_threads);
   });
+  // ...AND THE COUNT MUST RECONCILE. `{ totalCount: 250, review_threads: [] }`
+  // satisfied every check above and became a complete zero-thread round, which
+  // is the shape that produces a stop verdict on a loop that is not finished.
+  // GitHub reports the whole list's size on every page, so the concatenated
+  // threads must equal it. Checked only when present, because it is the
+  // payload's field to supply, not one to demand of a shape that lacks it.
+  const declared = captures.map((c) => c.json.totalCount).filter((n) => Number.isFinite(n));
+  const total = declared.length ? Math.max(...declared) : null;
+  if (total !== null && out.length !== total) {
+    throw new Error(
+      `the --threads captures hold ${out.length} thread(s) but the payload reports totalCount ${total}. ` +
+        `A short list attested complete understates findings -- pass every page, and if the count still ` +
+        `disagrees the captures are from different reads and must be retaken together`,
+    );
+  }
   return out;
 }
 
@@ -306,7 +382,13 @@ export function deriveSnapshot(captures) {
       present.map((k) => [
         k,
         {
-          files: captures[k].map((c) => ({ file: c.file, sha256: c.sha256, source: c.source })),
+          files: captures[k].map((c) => ({
+            file: c.file,
+            sha256: c.sha256,
+            source: c.source,
+            capturedAt: c.capturedAt,
+            capturedAtSource: c.capturedAtSource,
+          })),
           capturedAt: oldest(captures[k]),
         },
       ]),
@@ -364,7 +446,7 @@ export function assertCaptureProvenance(snapshot, { load = loadCapture } = {}) {
   const captures = {};
   for (const key of VERIFIED_COLLECTIONS) {
     captures[key] = (prov[key]?.files ?? []).map((f, i) => {
-      const c = load(f.file);
+      const c = load(f.file, f.capturedAtSource === "declared" ? f.capturedAt : null);
       if (c.sha256 !== f.sha256) {
         throw new Error(
           `captureProvenance.${key}.files[${i}]: ${f.file} now hashes to ${c.sha256.slice(0, 12)} but the ` +
@@ -409,6 +491,11 @@ export function flagValues(args, name) {
 }
 
 export function main(argv = process.argv.slice(2)) {
+  // One fetch time for the batch, because the recipe captures every collection
+  // in one go; a per-file flag would invite pairing mistakes for no gain.
+  // Harness captures reject it, so passing it is never a way to overwrite a
+  // measured time with a claimed one.
+  const fetchedAt = flagValues(argv, "fetched-at")[0] ?? null;
   const captures = {};
   for (const key of VERIFIED_COLLECTIONS) {
     const paths = flagValues(argv, FLAG_OF[key]);
@@ -416,7 +503,7 @@ export function main(argv = process.argv.slice(2)) {
       throw new Error(`--${FLAG_OF[key]} is required (repeat it for further pages)`);
     }
     if (key === "pr" && paths.length > 1) throw new Error("--pr-capture takes exactly one file");
-    captures[key] = paths.map(loadCapture);
+    captures[key] = paths.map((f) => loadCapture(f, fetchedAt));
   }
   const out = flagValues(argv, "out")[0];
   if (!out) throw new Error("--out is required");
