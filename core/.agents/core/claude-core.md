@@ -450,14 +450,20 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
    must not change, root cause, blast radius. "n/a — no plan" only for a
    genuinely trivial change.
-4. **Approved-plan provenance names the exact revision**, not the title, in one
-   of three forms: `Plan-review PR #<N>, final plan commit <sha>, approved by
-   David on <date>`; the split-loop form naming every subsystem PR plus
-   `combined plan commit <sha> on plan-review/<slug>-combined`; or, for the
-   private path, the filename plus a `shasum -a 256` and the date. A
-   `-combined` branch is the one branch that must never be deleted — no PR
-   retains its commit. An ordinary `plan-review/<slug>` branch is safe to
-   delete once its work ships; its PR retains the commit.
+4. **Approved-plan provenance is a declared block, not a sentence.** The body
+   carries one fenced `plan-provenance` block whose `kind` selects a fixed key
+   set — `approved-plan`, `approved-plan-split`, `private-plan`, `bugfix`,
+   `trivial` or `plan-review`. No optional keys: an unknown, repeated,
+   missing, forbidden or malformed one refuses naming it, and two blocks
+   refuse as a contradiction. The keys, the grammars, and what the block does
+   *not* replace are in
+   [`plan-provenance.md`](../../docs/ai-context/plan-provenance.md), which is
+   the format's only statement — never restate it here. The block replaces the
+   legacy selector for its kind and a body carrying both refuses; the oracle
+   prose a reviewer reads is untouched. A `-combined` branch is the one branch
+   that must never be deleted — no PR retains its commit. An ordinary
+   `plan-review/<slug>` branch is safe to delete once its work ships; its PR
+   retains the commit.
 5. **Post-merge verification + UAT doc** for product-visible feature PRs, per
    the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done

@@ -151,3 +151,20 @@ jobs:
       # this reads the files instead.
       - name: Check settings fields
         run: node scripts/check-settings-fields.mjs
+
+      # Would a consumer receive the provenance PARSER before the documents
+      # that teach an author what to write?
+      #
+      # `requires` does not answer that, and should not: `machinery` requires
+      # only `machinery-config`, and its references to the skills are recorded
+      # as `mentions` -- evidence, not dependencies, because the generator
+      # opens the PR body and never opens a skill. That classification is
+      # correct, which is exactly why the sequencing needs a gate of its own. A
+      # consumer whose producers lag gets its own PRs refused by the parser it
+      # just received.
+      #
+      # Sits in Manifest for the same reason as the three above: it is a claim
+      # about what the payload delivers and in what order, and this reads the
+      # manifest instead of trusting someone's memory of it.
+      - name: Check provenance enabling
+        run: node scripts/check-provenance-enabling.mjs

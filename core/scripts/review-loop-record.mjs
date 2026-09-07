@@ -877,11 +877,11 @@ export function sectionOf(markdown, heading) {
 
 /** Info string of the fence that carries a declaration. Not `yaml`: a `yaml`
  * block is ordinary content in a PR body, and a sentinel must not be. */
-const DECLARATION_INFO = "plan-provenance";
+export const DECLARATION_INFO = "plan-provenance";
 
 /** Each kind's required keys. Every key not listed is forbidden for that kind;
  * there are no optional keys, so present-or-absent is never ambiguous. */
-const DECLARATION_KINDS = {
+export const DECLARATION_KINDS = {
   "approved-plan": ["plan_review_pr", "plan_commit", "plan_file", "approved_by", "approved_on"],
   "approved-plan-split": ["plan_review_prs", "combined_plan_commit", "combined_branch", "plan_file", "approved_by", "approved_on"],
   "private-plan": ["plan_filename", "plan_sha256", "approved_by", "approved_on"],
@@ -911,7 +911,7 @@ function validCombinedBranch(value) {
  * absent from this table is an UNKNOWN key, which refuses -- a permissive
  * parser would read a misspelling as an absence, which is the fail-open
  * direction and the one this repository's failure record returns to most. */
-const DECLARATION_GRAMMARS = {
+export const DECLARATION_GRAMMARS = {
   plan_review_pr: { test: (v) => /^[1-9]\d*$/.test(v), says: "a positive integer, written without `#`" },
   plan_review_prs: { test: (v) => /^[1-9]\d*(?:,[1-9]\d*)+$/.test(v), says: "two or more positive integers, comma-separated" },
   plan_commit: { test: (v) => /^[0-9a-f]{7,40}$/.test(v), says: "7-40 lowercase hexadecimal characters" },

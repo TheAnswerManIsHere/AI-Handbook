@@ -42,14 +42,22 @@ stated intent while violating its direction is exactly the "internally sound,
 quietly wrong" shape this oracle exists to catch. Missing Direction on a PR
 whose plan cited one is itself a finding.
 
-The oracle also carries **Approved-plan source** — the exact final revision
-those words came from (plan-review PR + final plan commit sha, or the plan
-filename + content hash on the private/manual path), plus the date David
-approved it. In a multi-round plan review, an oracle pasted from an earlier
-revision is a plausible failure and an invisible one: the PR looks correctly
-oracled while the code is checked against a plan David never approved. A
-missing source, or one that names only a title or a mutable branch, is itself
-a finding — the oracle can't be trusted until it's pinned.
+The oracle's provenance is a **declared `plan-provenance` block**, not a
+sentence — the exact final revision those words came from (plan-review PR +
+final plan commit sha, or the plan filename + content hash on the
+private/manual path), plus the date David approved it, as named keys
+([`plan-provenance.md`](../ai-context/plan-provenance.md)). In a multi-round
+plan review, an oracle pasted from an earlier revision is a plausible failure
+and an invisible one: the PR looks correctly oracled while the code is checked
+against a plan David never approved. A missing block, or one naming only a
+title or a mutable branch, is itself a finding — the oracle can't be trusted
+until it's pinned.
+
+The parser refuses a malformed block by key name rather than accepting it, so
+what reaches you as a *review* finding is the class it cannot judge: a
+well-formed block naming the **wrong** revision. Check the sha against the
+plan-review PR's final commit; the machine only checks that a sha was named
+and that the commit introduced the plan file.
 
 **On the private/manual path, "pinned" is as far as an independent reviewer
 can verify — and that's accepted, not a gap to close.** That path exists
