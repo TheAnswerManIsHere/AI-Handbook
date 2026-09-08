@@ -686,52 +686,156 @@ const ORACLE_SECTIONS = ["Direction", "Product Intent", "Must Not Change", "Sett
  * close early. The fence lines themselves count as inside: neither is a
  * heading, and treating them as outside would let ```` ```## X ```` slip past.
  */
-function fenceMask(lines) {
-  const mask = new Array(lines.length).fill(false);
-  let open = null; // { char, len }
+export function fenceRegions(lines) {
+  const regions = [];
+  let open = null; // { char, len, start, info }
   for (let i = 0; i < lines.length; i += 1) {
     const m = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(lines[i]);
     if (!open) {
       // An opening fence's info string may not contain a backtick.
       if (m && !(m[1][0] === "`" && m[2].includes("`"))) {
-        open = { char: m[1][0], len: m[1].length };
-        mask[i] = true;
+        open = { char: m[1][0], len: m[1].length, start: i, info: m[2].trim() };
       }
       continue;
     }
-    mask[i] = true;
-    if (m && m[1][0] === open.char && m[1].length >= open.len && m[2].trim() === "") open = null;
+    if (m && m[1][0] === open.char && m[1].length >= open.len && m[2].trim() === "") {
+      regions.push({ start: open.start, end: i, info: open.info, closed: true });
+      open = null;
+    }
+  }
+  // AN UNCLOSED FENCE RUNS TO THE END OF THE DOCUMENT, per CommonMark, and
+  // that is what the mask has always done. Recording it as a region keeps the
+  // two derived views -- the mask and the opener list -- in agreement, so a
+  // truncated body cannot make a line inert for one reader and live for the
+  // other.
+  if (open) regions.push({ start: open.start, end: lines.length - 1, info: open.info, closed: false });
+  return regions;
+}
+
+function fenceMask(lines) {
+  const mask = new Array(lines.length).fill(false);
+  for (const { start, end } of fenceRegions(lines)) {
+    for (let i = start; i <= end; i += 1) mask[i] = true;
   }
   return mask;
 }
 
 /**
- * The LIVE text of a markdown document: fenced blocks, indented code blocks
- * and blockquotes removed. A declaration scan should see only what the
- * author asserts, never what the author quotes or shows.
+ * WHICH LINES ARE INERT -- the one definition, with two consumers.
  *
- * Fences were masked in rounds 8-10 and the two other literal contexts were
- * not: a four-space-indented Tier C template was accepted as this PR's
- * oracle, and a blockquoted provenance line resolved an unrelated commit.
- * Same defect, two more contexts. An indented line inside a list item is
- * list content, not code, so indentation counts only when the previous live
- * line is blank or absent -- the CommonMark rule for where an indented code
- * block can start. (Codex, #38 round 11.)
+ * A line is inert when it is not the author's own assertion: inside a fenced
+ * block (markers included), inside a blockquote, inside an indented code
+ * block, or inside an HTML comment. `outsideFences` drops those lines; the
+ * declaration scan asks whether a fence OPENER sits at a live position. The
+ * two must never disagree, so they read this and nothing else.
+ *
+ * Fences were masked in #38's rounds 8-10 and the two other literal contexts
+ * were not: a four-space-indented Tier C template was accepted as a PR's
+ * oracle, and a blockquoted provenance line resolved an unrelated commit. An
+ * indented line inside a list item is list content, not code, so indentation
+ * counts only when the previous live line is blank or absent -- the CommonMark
+ * rule for where an indented code block can start. (Codex, #38 round 11.)
+ *
+ * HTML COMMENTS ARE THE FOURTH, and they are inert on BOTH paths -- David
+ * settled that at #43's approval (2026-09-07). A PR-template placeholder IS an
+ * HTML comment, and the placeholders carry the very strings this file scans
+ * for: the template's own note under `**Fix tier:**` spells out "A or B". So a
+ * body nobody filled in could be read as one that answered. Keeping the prose
+ * path exempt would have preserved that as a guarantee. It was a defect.
+ *
+ * Comment spans are removed from a line rather than the line being dropped:
+ * `Workstream: #<!-- issue number -->` is a real template line whose live half
+ * matters. A line is inert only when comments leave nothing behind.
+ *
+ * ORDER MATTERS AND IS DELIBERATE: fences are resolved first, so a `<!--`
+ * shown inside a fenced example cannot open a comment. The residue is the
+ * reverse case -- an UNBALANCED fence inside a comment masks to the end of the
+ * document. Stated rather than fixed: it is the same shape as an unbalanced
+ * fence anywhere else, which this file has always treated that way.
+ */
+function inertScan(lines) {
+  const fenced = fenceMask(lines);
+  const mask = new Array(lines.length).fill(false);
+  const live = new Array(lines.length).fill("");
+  // Comment membership is tracked SEPARATELY as well as folded into `mask`,
+  // because the declaration scan needs the one reason `mask` cannot give it:
+  // a fence opener is always masked -- it is a fence -- so "is this opener
+  // live?" can only be answered by asking whether something ELSE covers it.
+  const comment = new Array(lines.length).fill(false);
+  // Every line with its HTML comments removed and nothing else changed --
+  // fences, blockquotes and indented code intact. `live` is not that: it is
+  // empty for every masked line. (Codex, #46 round 4.)
+  const stripped = lines.slice();
+  let inComment = false;
+  let prevBlank = true;
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
+    if (inComment) comment[i] = true;
+    if (fenced[i] && !inComment) {
+      mask[i] = true;
+      continue;
+    }
+    let rest = raw;
+    let kept = "";
+    let touched = false;
+    while (rest.length) {
+      if (inComment) {
+        touched = true;
+        const end = rest.indexOf("-->");
+        if (end === -1) {
+          rest = "";
+          break;
+        }
+        inComment = false;
+        rest = rest.slice(end + 3);
+        continue;
+      }
+      const open = rest.indexOf("<!--");
+      if (open === -1) {
+        kept += rest;
+        break;
+      }
+      touched = true;
+      kept += rest.slice(0, open);
+      rest = rest.slice(open + 4);
+      inComment = true;
+      comment[i] = true;
+    }
+    if (touched) stripped[i] = kept;
+    if (touched && kept.trim() === "") {
+      mask[i] = true;
+      continue;
+    }
+    const line = touched ? kept : raw;
+    if (/^\s*>/.test(line)) {
+      mask[i] = true;
+      continue;
+    }
+    if (prevBlank && /^(?: {4,}|\t)\S/.test(line)) {
+      mask[i] = true;
+      continue;
+    }
+    live[i] = line;
+    prevBlank = line.trim() === "";
+  }
+  return { mask, live, comment, stripped };
+}
+
+/** The inert-line mask alone, exported so the sharing is testable. */
+export function inertMask(lines) {
+  return inertScan(lines).mask;
+}
+
+/**
+ * The LIVE text of a markdown document -- every inert line above removed and
+ * every comment span stripped from the lines that survive.
  */
 function outsideFences(markdown) {
   const lines = String(markdown ?? "").split(/\r?\n/);
-  const fenced = fenceMask(lines);
-  const live = [];
-  let prevBlank = true;
-  for (let i = 0; i < lines.length; i += 1) {
-    if (fenced[i]) continue;
-    const line = lines[i];
-    if (/^\s*>/.test(line)) continue;
-    if (prevBlank && /^(?: {4,}|\t)\S/.test(line)) continue;
-    live.push(line);
-    prevBlank = line.trim() === "";
-  }
-  return live.join("\n");
+  const { mask, live } = inertScan(lines);
+  const kept = [];
+  for (let i = 0; i < lines.length; i += 1) if (!mask[i]) kept.push(live[i]);
+  return kept.join("\n");
 }
 
 export function sectionOf(markdown, heading) {
@@ -746,22 +850,188 @@ export function sectionOf(markdown, heading) {
   // against an oracle that looks complete and is not. Tracked for both the
   // start and the end scan, since a fence can open inside a section too.
   // (Codex, #38 round 7.)
-  const fenced = fenceMask(lines);
-  const start = lines.findIndex((l, i) => !fenced[i] && want.test(l));
+  //
+  // THE FULL INERT MASK, NOT JUST FENCES. A heading inside an HTML comment was
+  // still selected here, and the caller then ran the live-text filter over the
+  // returned SLICE -- which begins after the heading and so no longer carries
+  // the opening `<!--`. The commented provenance then read as live, so a stale
+  // template example could select the wrong plan commit and a commented
+  // review-mode example could refuse an ordinary PR. Section membership has to
+  // be decided from the ORIGINAL document's mask, because that is the only
+  // place the comment's opener is still visible. (Codex, #46 round 1.)
+  // Match the comment-stripped LIVE text, not the raw line: `## Approved-plan
+  // source <!-- required -->` is live per the mask but never matched the
+  // anchored test on the raw line, so a valid body refused. (Codex, #46 round 3.)
+  const { mask: inert, live, comment, stripped } = inertScan(lines);
+  const start = live.findIndex((l, i) => !inert[i] && want.test(l));
   if (start === -1) return null;
   // A markdown section ends at a heading of the SAME OR HIGHER level. Stopping
   // at ANY heading drops a nested one and everything under it -- so an oracle
   // section carrying a `### Security` subsection would reach the judge with
   // its security constraints silently missing, which is the worst possible
   // way for this field to be wrong. (Codex, #38 round 1.)
-  const level = want.exec(lines[start])[1].length;
+  const level = want.exec(live[start])[1].length;
   const body = [];
+  // The body is the COMMENT-STRIPPED text, not the raw line: a comment opened
+  // on the heading line ran into the body, where the raw lines carried it as
+  // if live. Fences and blockquotes stay -- they are the plan's content, and
+  // the judge reads them. (Codex, #46 round 4.)
   for (let i = start + 1; i < lines.length; i += 1) {
-    const heading = fenced[i] ? null : /^(#{1,6})\s+\S/.exec(lines[i]);
+    const heading = inert[i] ? null : /^(#{1,6})\s+\S/.exec(live[i]);
     if (heading && heading[1].length <= level) break;
-    body.push(lines[i]);
+    if (comment[i] && stripped[i].trim() === "") continue;
+    body.push(stripped[i]);
   }
   return body.join("\n").trim();
+}
+
+// ---------------------------------------------------------------------------
+// The declared provenance block
+//
+// Plan-review PR #43, final plan commit fa59cce, approved by David on
+// 2026-09-07. That plan's *The declaration, normatively* section is the wire
+// format; the tables below are it, and a change to either belongs there first.
+// The format is shared between five producer documents and this one parser,
+// and nothing compares a skill's template against a parser's key set -- so
+// both sides can be self-consistently wrong. That is why the format has a
+// defining document at all.
+// ---------------------------------------------------------------------------
+
+/** Info string of the fence that carries a declaration. Not `yaml`: a `yaml`
+ * block is ordinary content in a PR body, and a sentinel must not be. */
+export const DECLARATION_INFO = "plan-provenance";
+
+/** Each kind's required keys. Every key not listed is forbidden for that kind;
+ * there are no optional keys, so present-or-absent is never ambiguous. */
+export const DECLARATION_KINDS = {
+  "approved-plan": ["plan_review_pr", "plan_commit", "plan_file", "approved_by", "approved_on"],
+  "approved-plan-split": ["plan_review_prs", "combined_plan_commit", "combined_branch", "plan_file", "approved_by", "approved_on"],
+  "private-plan": ["plan_filename", "plan_sha256", "approved_by", "approved_on"],
+  bugfix: ["fix_tier"],
+  trivial: [],
+  "plan-review": [],
+};
+
+/**
+ * `plan-review/<slug>-combined`, with the slug's four separate rules. Written
+ * as clauses rather than one regex because the grammar HAS four clauses, and a
+ * single "looks about right" pattern satisfies two of them while quietly
+ * dropping the rest.
+ */
+function validCombinedBranch(value) {
+  const PREFIX = "plan-review/";
+  const SUFFIX = "-combined";
+  if (!value.startsWith(PREFIX) || !value.endsWith(SUFFIX)) return false;
+  const slug = value.slice(PREFIX.length, value.length - SUFFIX.length);
+  if (!/^[A-Za-z0-9._-]{1,100}$/.test(slug)) return false; // class and length
+  if (/^[._-]|[._-]$/.test(slug)) return false; // no leading or trailing separator
+  if (/[._-]{2}/.test(slug)) return false; // no two adjacent separators
+  return true;
+}
+
+/** Every key this parser knows, and the shape its value must have. A key
+ * absent from this table is an UNKNOWN key, which refuses -- a permissive
+ * parser would read a misspelling as an absence, which is the fail-open
+ * direction and the one this repository's failure record returns to most. */
+export const DECLARATION_GRAMMARS = {
+  plan_review_pr: { test: (v) => /^[1-9]\d*$/.test(v), says: "a positive integer, written without `#`" },
+  plan_review_prs: { test: (v) => /^[1-9]\d*(?:,[1-9]\d*)+$/.test(v), says: "two or more positive integers, comma-separated" },
+  plan_commit: { test: (v) => /^[0-9a-f]{7,40}$/.test(v), says: "7-40 lowercase hexadecimal characters" },
+  combined_plan_commit: { test: (v) => /^[0-9a-f]{7,40}$/.test(v), says: "7-40 lowercase hexadecimal characters" },
+  combined_branch: { test: validCombinedBranch, says: "`plan-review/<slug>-combined`, the slug non-empty, from `[A-Za-z0-9._-]`, neither beginning nor ending with a separator and carrying no two adjacent ones" },
+  plan_file: { test: (v) => /^docs\/plans\/PLAN_[A-Z0-9_]{1,100}\.md$/.test(v), says: "a repository-relative `docs/plans/PLAN_*.md` path" },
+  plan_filename: { test: (v) => /^PLAN_[A-Z0-9_]{1,100}\.md$/.test(v), says: "a bare `PLAN_*.md` filename with no path separators -- a private plan is handed to David as a file and never committed, so it has a name and no repository path" },
+  plan_sha256: { test: (v) => /^[0-9a-f]{64}$/.test(v), says: "exactly 64 lowercase hexadecimal characters" },
+  approved_by: { test: (v) => v === "David", says: "exactly `David`" },
+  approved_on: { test: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v), says: "`YYYY-MM-DD`" },
+  fix_tier: { test: (v) => /^[ABC]$/.test(v), says: "one of `A`, `B` or `C`" },
+};
+
+/**
+ * The declaration this PR body carries, or `null` when it carries none.
+ *
+ * Returns `{ refuse }` on anything malformed, and the caller turns that into a
+ * refusal rather than falling back to prose: fall-through would let a typo
+ * silently re-enter the class this block exists to close, which is the one
+ * failure that would make the whole change worthless.
+ *
+ * The block is read only where the author ASSERTS it -- a fence opener at a
+ * live position, per the shared inert-line boundary. A declaration inside a
+ * blockquote, an indented block, another fence or an HTML comment is quoted,
+ * not claimed, and this returns `null` for it.
+ */
+export function planProvenanceDeclaration(body) {
+  const lines = String(body ?? "").split(/\r?\n/);
+  const { comment } = inertScan(lines);
+  // Blockquoted and four-space-indented fences are not fence openers at all --
+  // the opener pattern allows at most three leading spaces and no `>` -- and
+  // `fenceRegions` never reports a fence nested inside another. So the one
+  // construct that has to be excluded here is the comment.
+  const found = fenceRegions(lines).filter((r) => r.info === DECLARATION_INFO && !comment[r.start]);
+  if (found.length === 0) return null;
+  if (found.length > 1) {
+    return {
+      refuse:
+        `the PR body carries ${found.length} \`${DECLARATION_INFO}\` blocks (lines ` +
+        `${found.map((r) => r.start + 1).join(", ")}). Two declarations are a contradiction, and a ` +
+        "contradiction the author can see is better than a winner they cannot predict -- first-wins is " +
+        "how a sample declaration ahead of the real one silently became the oracle",
+    };
+  }
+  const region = found[0];
+  const values = {};
+  const order = [];
+  // A closed fence's `end` is its closing line; an unclosed one's `end` is the
+  // document's last line, which IS content. (Codex, #46 round 4.)
+  const stop = region.closed ? region.end : region.end + 1;
+  for (let i = region.start + 1; i < stop; i += 1) {
+    const line = lines[i];
+    if (line.trim() === "") continue;
+    const m = /^\s*([A-Za-z0-9_]+)\s*:\s*(.*?)\s*$/.exec(line);
+    if (!m) {
+      return { refuse: `line ${i + 1} of the \`${DECLARATION_INFO}\` block is not \`key: value\`: ${JSON.stringify(line)}. The block has no comments, nesting, quoting or multi-line values` };
+    }
+    const [, key, value] = m;
+    if (Object.hasOwn(values, key)) {
+      return { refuse: `the \`${DECLARATION_INFO}\` block repeats \`${key}\`. A repeated key has no defined winner, so it refuses rather than picking one` };
+    }
+    values[key] = value;
+    order.push(key);
+  }
+  if (order[0] !== "kind") {
+    return { refuse: `the \`${DECLARATION_INFO}\` block must open with \`kind\`${order.length ? `, not \`${order[0]}\`` : " and is empty"}` };
+  }
+  const kind = values.kind;
+  // `Object.hasOwn`, NOT a truthiness test on the lookup. `kind: constructor`
+  // (or `toString`, or `__proto__`) reaches an inherited property, which is
+  // truthy and is not an array -- so the required-key loop below threw a
+  // TypeError instead of producing the refusal this function promises for
+  // every malformed body. A crash where a refusal was specified is the worst
+  // shape available: the loop cannot obtain a verdict to continue OR to stop.
+  // (Codex, #46 round 1.)
+  const required = Object.hasOwn(DECLARATION_KINDS, kind) ? DECLARATION_KINDS[kind] : null;
+  if (!required) {
+    return { refuse: `\`kind: ${kind}\` is not a kind this contract defines (${Object.keys(DECLARATION_KINDS).join(", ")})` };
+  }
+  for (const key of required) {
+    if (!Object.hasOwn(values, key)) {
+      return { refuse: `the \`${DECLARATION_INFO}\` block declares \`kind: ${kind}\` but omits \`${key}\`, which that kind requires` };
+    }
+  }
+  for (const key of order) {
+    if (key === "kind") continue;
+    if (!Object.hasOwn(DECLARATION_GRAMMARS, key)) {
+      return { refuse: `\`${key}\` is not a key this contract defines. An unknown key refuses rather than being ignored, so a misspelling can never read as an absence` };
+    }
+    if (!required.includes(key)) {
+      return { refuse: `\`${key}\` is forbidden for \`kind: ${kind}\`, which requires exactly ${required.length ? required.map((k) => `\`${k}\``).join(", ") : "no other keys"}` };
+    }
+    const grammar = DECLARATION_GRAMMARS[key];
+    if (!grammar.test(values[key])) {
+      return { refuse: `\`${key}: ${values[key]}\` is malformed -- it must be ${grammar.says}` };
+    }
+  }
+  return { kind, values, line: region.start + 1 };
 }
 
 /**
@@ -1078,6 +1348,15 @@ export function approvedPlanSourceText(body) {
 export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
   const body = typeof pr?.body === "string" ? pr.body : "";
   const signals = planReviewSignals(pr);
+  const declaration = planProvenanceDeclaration(body);
+  // A PRESENT-BUT-MALFORMED DECLARATION REFUSES AND NEVER FALLS THROUGH.
+  // Falling back to prose would let a typo silently re-enter the class the
+  // block exists to close, which is the one failure that would make the whole
+  // change worthless. (Plan #43, decision 4, enforced by construct.)
+  if (declaration?.refuse) throw new Error(declaration.refuse);
+  if (declaration) {
+    return declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsPlanReview: signals.title });
+  }
   if (signals.disagree) {
     throw new Error(
       `this PR declares plan review in ${signals.title ? "its title" : "its body"} but not the other -- ` +
@@ -1102,6 +1381,7 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
       path: introduced[0],
       sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
       reason: null,
+      declaredBy: "prose",
       note: "The plan under review, at the reviewed head. On a plan loop the plan file is the artifact.",
     };
   }
@@ -1119,19 +1399,37 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
   if (!sha) {
     const permitted = permittedNoPlanForm(body);
     if (permitted?.refuse) throw new Error(permitted.refuse);
-    if (permitted) return { mode: null, sha: null, path: null, sections: null, reason: permitted.reason };
+    if (permitted) return { mode: null, sha: null, path: null, sections: null, reason: permitted.reason, declaredBy: "prose" };
     throw new Error(
       `the PR body names no approved-plan source and matches none of the permitted no-plan forms ` +
         `(bugfix oracle, trivial change, private path). A missing approved-plan source is itself a ` +
         `contract finding, so this refuses rather than proceeding without the oracle`,
     );
   }
+  const explicit = PLAN_PATH_LINE_RE.exec(source)?.[1];
+  const { path, text } = resolveApprovedPlanAt(sha, explicit, { runGit, base, cite: "Approved-plan source line" });
+  return {
+    mode: "approved-plan",
+    sha,
+    path,
+    sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
+    reason: null,
+    declaredBy: "prose",
+    note: "The approved plan, read at the commit the PR body names -- fixed by David's approval, not revisable mid-loop.",
+  };
+}
+
+/**
+ * The plan file a cited commit introduced, and its text. Shared by both paths
+ * so a declaration and a sentence naming the same commit can never resolve
+ * different plans -- `cite` only changes which of the two the refusal names.
+ */
+function resolveApprovedPlanAt(sha, explicit, { runGit, base, cite }) {
   try {
     runGit(["cat-file", "-e", `${sha}^{commit}`]);
   } catch {
     throw new Error(`the approved-plan commit ${sha} is not present in this clone (fetch the plan-review branch, then re-run)`);
   }
-  const explicit = PLAN_PATH_LINE_RE.exec(source)?.[1];
   // The cited plan commit lives on a plan-review branch cut from the same
   // base this PR was, so the PR's base is the right range endpoint for it too.
   const introduced = planFilesIntroducedBy(sha, { runGit, base });
@@ -1140,7 +1438,7 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
     // never an override of it. Trusting it unchecked would let the body name
     // any file at that commit -- including one the approval never covered.
     throw new Error(
-      `the Approved-plan source line names ${explicit}, but the cited commit ${sha} introduces ` +
+      `the ${cite} names ${explicit}, but the cited commit ${sha} introduces ` +
         `${introduced.length ? introduced.join(", ") : "no docs/plans/PLAN_*.md at all"} -- refusing rather than ` +
         `reading a plan the cited commit did not deliver`,
     );
@@ -1149,18 +1447,230 @@ export function planOracleFor(pr, headSha, { runGit = git, base = null } = {}) {
   if (candidates.length !== 1) {
     throw new Error(
       `the approved-plan commit ${sha} introduces ${candidates.length} docs/plans/PLAN_*.md files` +
-        `${candidates.length ? ` (${candidates.join(", ")})` : ""}; name the path in the source line to disambiguate`,
+        `${candidates.length ? ` (${candidates.join(", ")})` : ""}; name the path in the ${cite} to disambiguate`,
     );
   }
-  const text = runGit(["show", `${sha}:${candidates[0]}`]);
+  return { path: candidates[0], text: runGit(["show", `${sha}:${candidates[0]}`]) };
+}
+
+/**
+ * THE LEGACY SELECTOR each kind replaces -- and ONLY that kind's.
+ *
+ * The block replaces the selector; a body carrying both is the
+ * duplicate-source-of-truth pattern, and a stale producer emitting both would
+ * have the judge follow one commit while a human reading the contract follows
+ * another. So carrying both refuses (plan #43, decision 11a).
+ *
+ * SCOPED TO THE DECLARED KIND, because a body-wide rule refuses honest bodies:
+ * a documentation PR whose live prose begins a line with `**Fix tier:**` is
+ * describing the format, not claiming a tier, and `Fix tier` is not the
+ * approved-plan selector. (Codex, #43 round 5, recorded as a gap at approval
+ * and closed here.)
+ *
+ * A selector is not the same thing as oracle prose. `fix_tier` replaces the
+ * `Fix tier:` LINE while every other tier field stays required; `kind:
+ * plan-review` replaces the PHRASE `Plan review only` while the never-merge
+ * safety copy around it stays exactly as it is.
+ */
+// ANCHORED TO THE SELECTOR'S OWN SHAPE, never a substring. An unanchored
+// `Approved-plan source` test refused any body that MENTIONED the old form --
+// "this removes the old Approved-plan source matcher" is a documentation PR
+// describing the change, not a second claim about its own provenance. The two
+// real shapes are the ones `approvedPlanSourceText` itself reads: a heading,
+// and a labelled line. Same lesson as the kind-scoping fix one round earlier,
+// applied to the matcher instead of the kind. (Codex, #46 round 1.)
+const APPROVED_PLAN_HEADING_RE = /^\s{0,3}#{1,6}\s+Approved-plan source\s*$/im;
+const APPROVED_PLAN_LABEL_RE = /^\s{0,3}\*{0,2}Approved-plan source\*{0,2}\s*[:.]/im;
+
+/**
+ * ...AND, BESIDE THOSE SHAPES, THE PROSE PATH'S OWN ANSWER. Anchoring the two
+ * shapes fixed round 1's false positive and bought a false negative: the same
+ * selector written as a Markdown list item -- `- **Approved-plan source:** …
+ * final plan commit abc1234` -- is read by `approvedPlanSourceText` and
+ * resolved by `approvedPlanCommit`, but matches neither anchor. A body could
+ * therefore carry a declaration naming one commit and a visible legacy line
+ * naming another, with no refusal: two approved commits, the human reading one
+ * and the machine selecting the other, which is the precise state the
+ * mixed-format rule exists to prevent. (Codex, #46 round 2.)
+ *
+ * The fix is NOT a third shape. Three rounds of "one more shape" on one
+ * matcher is the pattern plan #43's decision 3a was written to end: a
+ * hand-maintained enumeration of constructs will be wrong again. 3a's move was
+ * to stop enumerating and reference the definition that already exists, and
+ * that move applies here unchanged. A legacy selector is present when THE
+ * PROSE PATH WOULD HAVE ACTED ON ONE -- so ask the prose path.
+ *
+ * It reads only `approvedPlanSourceText(body)` -- the region the prose path
+ * itself treats as this body's provenance, never the whole body -- and asks
+ * whether a commit resolves there. A resolved commit is a positive claim about
+ * a specific plan, which is exactly what can contradict the declaration.
+ *
+ * STATED, NOT COVERED: a no-plan claim written in a shape the anchors miss,
+ * such as `- Approved-plan source: n/a — no plan`. That is not an omission
+ * this test should close, because the prose path does not read it either --
+ * `TEXTUAL_NO_PLAN_FORMS` has the same line-start anchoring, so the prose path
+ * REFUSES such a body rather than concluding anything from it. There is no
+ * competing answer to contradict. Closing it would mean teaching this matcher
+ * a shape the definition it defers to does not know, which is the enumeration
+ * this fix exists to stop. If that shape should count, the prose path is where
+ * it changes, and both follow.
+ *
+ * The anchors stay beside this rather than being replaced by it. They catch a
+ * vestigial heading or labelled line whose content resolves nothing: no
+ * competing claim, but still the retired form sitting in a declared body. The
+ * definition catches every shape that does carry a claim, including shapes
+ * nobody has written yet. Neither subsumes the other.
+ */
+const legacyApprovedPlanClaim = (body) => {
+  const source = approvedPlanSourceText(body);
+  if (!source) return false;
+  // The prose path acts on a resolved commit OR a permitted no-plan form read
+  // from this same region -- the private-path line is unanchored, so its
+  // list-item shape is one the prose path would have taken. (Codex, #46 round 4.)
+  return Boolean(approvedPlanCommit(source)?.sha) || TEXTUAL_NO_PLAN_FORMS.some((f) => f.re.test(source));
+};
+const legacyApprovedPlanSelector = (live, body) =>
+  APPROVED_PLAN_HEADING_RE.test(live) || APPROVED_PLAN_LABEL_RE.test(live) || legacyApprovedPlanClaim(body);
+const APPROVED_PLAN_SELECTOR = {
+  test: legacyApprovedPlanSelector,
+  names: "an `Approved-plan source` heading, labelled line, or any line the prose path resolves as one",
+};
+
+const LEGACY_SELECTORS = {
+  "approved-plan": APPROVED_PLAN_SELECTOR,
+  "approved-plan-split": APPROVED_PLAN_SELECTOR,
+  "private-plan": APPROVED_PLAN_SELECTOR,
+  trivial: APPROVED_PLAN_SELECTOR,
+  bugfix: { test: (live) => FIX_TIER_RE.test(live), names: "a `Fix tier:` line" },
+  // The PHRASE at the start of a line, which is how the template emits it --
+  // not a sentence that happens to contain it.
+  "plan-review": { test: (live) => /^\s{0,3}Plan review only\b/im.test(live), names: "the phrase `Plan review only`" },
+};
+
+/**
+ * The oracle a DECLARED body selects. The block answers "which oracle governs
+ * this PR"; every completeness check the generator performs today still runs
+ * beside it (plan #43, decision 5) -- the block selects, it does not excuse.
+ */
+function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsPlanReview }) {
+  const { kind, values } = declaration;
+  const live = outsideFences(body);
+  const selector = LEGACY_SELECTORS[kind];
+  // `live` for the shape anchors; the raw body for the prose path's own answer,
+  // which applies its own live-text mask through `sectionOf`/`outsideFences`
+  // and needs the original document to compute it.
+  if (selector.test(live, body)) {
+    throw new Error(
+      `the PR body carries BOTH a \`${DECLARATION_INFO}\` block declaring \`kind: ${kind}\` and ` +
+        `${selector.names}, the legacy selector that block replaces. Two statements of one fact drift, and ` +
+        `nobody can tell which is authoritative -- delete the legacy line`,
+    );
+  }
+  // BOTH DIRECTIONS REFUSE. Without this an ordinary PR can declare itself a
+  // plan-review loop and take the MUTABLE HEAD plan as its oracle, and a real
+  // plan-review PR can be judged against an approved-plan oracle instead.
+  // Moving the body half of the signal into a key changes where it is read,
+  // never whether the agreement is required. (Plan #43, decision 7a.)
+  if (kind === "plan-review" && !titleIsPlanReview) {
+    throw new Error(
+      "the declaration says `kind: plan-review` but the title does not open with `[PLAN REVIEW]` -- the " +
+        "repository defines the mode by both, and a half-declared plan review would select a mutable head " +
+        "plan as its oracle",
+    );
+  }
+  if (kind !== "plan-review" && titleIsPlanReview) {
+    throw new Error(
+      `the title opens with \`[PLAN REVIEW]\` but the declaration says \`kind: ${kind}\` -- the repository ` +
+        "defines the mode by both, and refusing is the only answer that does not guess which signal to believe",
+    );
+  }
+
+  if (kind === "plan-review") {
+    const introduced = planFilesIntroducedBy(headSha, { runGit, base });
+    if (introduced.length !== 1) {
+      throw new Error(
+        `a [PLAN REVIEW] PR must introduce exactly one docs/plans/PLAN_*.md at its head ${headSha}; ` +
+          `found ${introduced.length}${introduced.length ? ` (${introduced.join(", ")})` : ""}`,
+      );
+    }
+    const text = runGit(["show", `${headSha}:${introduced[0]}`]);
+    return {
+      mode: "plan-review",
+      sha: headSha,
+      path: introduced[0],
+      sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
+      reason: null,
+      declaredBy: "declaration",
+      note: "The plan under review, at the reviewed head. On a plan loop the plan file is the artifact.",
+    };
+  }
+
+  if (kind === "approved-plan" || kind === "approved-plan-split") {
+    const sha = kind === "approved-plan" ? values.plan_commit : values.combined_plan_commit;
+    const { path, text } = resolveApprovedPlanAt(sha, values.plan_file, { runGit, base, cite: "`plan_file` key" });
+    return {
+      mode: "approved-plan",
+      sha,
+      path,
+      sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
+      reason: null,
+      declaredBy: "declaration",
+      note: "The approved plan, read at the commit the PR body declares -- fixed by David's approval, not revisable mid-loop.",
+    };
+  }
+
+  if (kind === "bugfix") {
+    const check = declaredBugfixOracle(live, values.fix_tier);
+    if (check.refuse) throw new Error(check.refuse);
+    return { mode: null, sha: null, path: null, sections: null, reason: check.reason, declaredBy: "declaration" };
+  }
+
   return {
-    mode: "approved-plan",
-    sha,
-    path: candidates[0],
-    sections: Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(text, h)])),
-    reason: null,
-    note: "The approved plan, read at the commit the PR body names -- fixed by David's approval, not revisable mid-loop.",
+    mode: null,
+    sha: null,
+    path: null,
+    sections: null,
+    reason: kind === "private-plan" ? "private path" : "trivial change",
+    declaredBy: "declaration",
   };
+}
+
+/**
+ * A declared bugfix's tier oracle, checked exactly as a prose one is -- minus
+ * the `Fix tier:` line the block replaces, plus the field that line used to
+ * carry implicitly.
+ *
+ * THE TIER'S RATIONALE IS `**Tier rationale:**`, named here once and shared by
+ * the parser, the producer documents and the fixtures. Today the reason rides
+ * the `Fix tier:` line itself (`Fix tier: B — Q1 fired …`) and reviewers use
+ * it to challenge a mis-tiering; moving the letter into a key would otherwise
+ * drop that check silently, leaving the block parsing as complete while a
+ * required reviewer check had quietly gone. The plan promised "a named
+ * required field" twice without ever naming it, which is the same
+ * unspecified-format defect this whole change removes, one level down.
+ * (Codex, #43 rounds 3 and 5.)
+ *
+ * REQUIRED ON THIS PATH ONLY. A legacy body carries the reason on the
+ * `Fix tier:` line, so requiring a separate field of it would change
+ * prose-path behavior, which Must Not Change forbids.
+ */
+function declaredBugfixOracle(live, tier) {
+  const fields = [
+    ...BUGFIX_ORACLE_FIELDS[tier].filter((field) => field.label !== "Fix tier"),
+    F("Tier rationale"),
+  ];
+  const missing = fields.filter((field) => !fieldPresent(live, field));
+  if (missing.length) {
+    return {
+      refuse:
+        `the declaration says \`fix_tier: ${tier}\` but the body's bugfix oracle is missing ` +
+        `${missing.map((f) => `\`${f.label}\``).join(", ")}. The tier-${tier} schema ` +
+        `(core/.claude/skills/bugfix/SKILL.md) requires ${fields.map((f) => f.label).join(", ")}, and the ` +
+        `mandatory adjudication reads this block as the round's oracle -- so an incomplete one is refused ` +
+        `rather than passed to the judge as \`sections: null\``,
+    };
+  }
+  return { reason: `bugfix oracle (tier ${tier})` };
 }
 
 /**

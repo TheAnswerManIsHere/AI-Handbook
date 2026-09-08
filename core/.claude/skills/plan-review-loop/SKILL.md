@@ -135,9 +135,13 @@ the disclosure check passes:
    `[PLAN REVIEW] <title> — DO NOT MERGE`. The PR body uses this template — it is
    Codex's review oracle:
 
-   ```markdown
+   ````markdown
+   ```plan-provenance
+   kind: plan-review
+   ```
+
    ## Review mode
-   Plan review only. Never merge. Do not implement. Apply
+   Never merge. Do not implement. Apply
    docs/ai-context/plan-review-contract.md.
 
    ## Public-disclosure check
@@ -187,7 +191,16 @@ the disclosure check passes:
    between rounds. The line count is not decoration — it is the growth
    tripwire's only record, and a round-1 baseline that was never written down
    cannot be compared against later.>
-   ```
+   ````
+
+   **`kind: plan-review` replaces the PHRASE `Plan review only`, and nothing
+   else in that section.** Never merge, do not implement, apply the
+   plan-review contract are safety copy a human reads, not a selector — they
+   stay exactly as they are. The block must also agree with the
+   `[PLAN REVIEW]` title: disagreement in either direction refuses, because
+   without that an ordinary PR could declare itself a plan-review loop and
+   take the *mutable head plan* as its oracle. Format:
+   [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md).
 
    **Record the plan file's round-1 line count in the ledger before triggering
    the first review** (`wc -l docs/plans/PLAN_<SLUG>.md`). It is the baseline
@@ -477,8 +490,14 @@ the disclosure check passes:
     approval. It needs no PR and no review round of its own — the subsystem
     loops already converged; the branch exists so the approved artifact has a
     stable URL and a resolvable commit sha. That sha is what the
-    implementation PR's **Approved-plan source** line cites, which the
-    per-subsystem branches cannot supply.
+    implementation PR declares as `combined_plan_commit`, beside
+    `plan_review_prs` naming every subsystem PR and `combined_branch` naming
+    this branch — the `approved-plan-split` kind in
+    [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md). The
+    per-subsystem branches cannot supply that sha, which is why the combined
+    branch exists. **It emits the block and not the legacy line**: a body
+    carrying both is refused by the parser, so an implementation PR following
+    an older version of this step would be rejected for obeying it.
 
 ## Keeping the workstream issue's labels current
 

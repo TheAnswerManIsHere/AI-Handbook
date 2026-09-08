@@ -8,6 +8,7 @@ import path from "node:path";
 import {
   applyCaps,
   approvedPlanCommit,
+  approvedPlanSourceText,
   artifactDiff,
   assertCapturedAfterLatestPass,
   assertHeadReviewed,
@@ -23,8 +24,10 @@ import {
   cappedDiff,
   declineCitationFor,
   findingsByTerritory,
+  inertMask,
   parseFrontmatter,
   planOracleFor,
+  planProvenanceDeclaration,
   planReviewSignals,
   readAtCommit,
   sectionOf,
@@ -1852,4 +1855,533 @@ test("buildRecord: the judge is told where each collection actually came from", 
       files: [{ file: "x.txt", sha256: "cc", source: "harness-capture", capturedAtSource: "file-mtime" }],
     },
   });
+});
+
+// #38's real body, excerpted verbatim from the GitHub API response for
+// TheAnswerManIsHere/AI-Handbook#38 (merged 2026-09-06 at `704080e`). An
+// EXCERPT, and said so: the whole body is ~9 KB of prose that adds no
+// topology. What is kept is every construct that has historically broken a
+// scanner on this file -- the `## Approved-plan source` heading, its sha in
+// backticks (the house style that made the generator refuse #38 itself,
+// recorded as #39 gap 2), a fenced block whose lines begin with `$`, and a
+// markdown table. Copied rather than composed, per #40 §2.2.
+const PR38 = {
+  title: "Derive the adjudication record's artifact from git, and declare the judge once",
+  body: [
+    "Workstream: #36 (phase 1a). Fixes #34 gap 2.",
+    "",
+    "**⚠️ DAVID-MERGE-ONLY.** This changes a gate script's input (`review-loop-record.mjs`), a receipt validator (`review-budget.mjs`) and the merge gate (`pr-ready.mjs`) — the guardrail carve-out. I do not merge it.",
+    "",
+    "## Approved-plan source",
+    "",
+    "Plan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06.",
+    "",
+    "## Verification",
+    "",
+    "All five mandated commands (`AGENTS.md`), run on this branch:",
+    "",
+    "```",
+    "$ node --test scripts/__tests__/*.test.mjs                    # pass 128, fail 0",
+    "$ node --test core/scripts/__tests__/*.test.mjs               # pass 709, fail 0",
+    "$ node scripts/check-manifest.mjs          # OK — 180 payload files across 13 groups",
+    "```",
+    "",
+    "**Manual QA — the Definition of Done's headline check.** #33's record regenerated from its real head `703b230`:",
+    "",
+    "| | `artifact.files` | `added` | `removed` | territory |",
+    "|---|---|---|---|---|",
+    "| Committed `33-1.json` | 0 | 0 | 0 | inDiff 0 / outsideDiff 7 |",
+    "| Regenerated | **9** | **766** | **22** | **inDiff 7 / outsideDiff 0** |",
+    "",
+    "## Post-merge verification",
+    "",
+    "None needed — no runtime surface, no consumer configuration change, no migration.",
+  ].join("\n"),
+};
+
+// The Tier C oracle as a DECLARED body carries it: the `**Fix tier:**` line is
+// gone -- `fix_tier: C` in the block replaces it (decision 11a) -- and the
+// reason that used to ride that line is its own named field. Everything else
+// is TIER_C_ORACLE unchanged, which is the point: the block selects, it does
+// not excuse a single completeness check (decision 5).
+const TIER_C_ORACLE_DECLARED = TIER_C_ORACLE.split("\n")
+  .filter((line) => !line.startsWith("**Fix tier:"))
+  .concat("**Tier rationale:** trivial schema/migration fix, no plan")
+  .join("\n");
+
+// ---------------------------------------------------------------------------
+// The declared provenance block
+//
+// Plan-review PR #43, final plan commit fa59cce, approved by David on
+// 2026-09-07. Every declaration below is copied from that plan's normative
+// wire-format section rather than written from memory -- #40 §2.2 requires a
+// matcher's fixture to come from the document that defines the format, and
+// this whole loop exists because a matcher written from a remembered format
+// is how the class of defect starts.
+// ---------------------------------------------------------------------------
+
+/** A declaration block, assembled from `key: value` lines. */
+const decl = (...lines) => ["```plan-provenance", ...lines, "```"].join("\n");
+
+const APPROVED_PLAN = [
+  "kind: approved-plan",
+  "plan_review_pr: 37",
+  "plan_commit: 972b60d",
+  `plan_file: ${PLAN}`,
+  "approved_by: David",
+  "approved_on: 2026-09-06",
+];
+
+test("each kind's happy path parses, and only its own keys are permitted", () => {
+  const kinds = [
+    [APPROVED_PLAN, "approved-plan"],
+    [
+      [
+        "kind: approved-plan-split",
+        "plan_review_prs: 37,41",
+        "combined_plan_commit: 972b60d",
+        "combined_branch: plan-review/fable-review-foundations-combined",
+        `plan_file: ${PLAN}`,
+        "approved_by: David",
+        "approved_on: 2026-09-06",
+      ],
+      "approved-plan-split",
+    ],
+    [
+      [
+        "kind: private-plan",
+        "plan_filename: PLAN_SOMETHING.md",
+        "plan_sha256: 3b1f8c2d9e4a7b6c5d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e",
+        "approved_by: David",
+        "approved_on: 2026-09-06",
+      ],
+      "private-plan",
+    ],
+    [["kind: bugfix", "fix_tier: B"], "bugfix"],
+    [["kind: trivial"], "trivial"],
+    [["kind: plan-review"], "plan-review"],
+  ];
+  for (const [lines, kind] of kinds) {
+    const found = planProvenanceDeclaration(decl(...lines));
+    assert.equal(found?.kind, kind, `${kind} should parse`);
+    assert.equal(found.refuse, undefined, `${kind} refused: ${found.refuse}`);
+  }
+});
+
+test("a missing required key, a forbidden key, an unknown key and a repeat each refuse BY NAME", () => {
+  // Naming the key is the whole difference between this and the prose path.
+  // "malformed provenance" sent an author back to re-read 361 lines of regex;
+  // "plan_file is required for kind: approved-plan" is actionable.
+  const cases = [
+    [APPROVED_PLAN.filter((l) => !l.startsWith("plan_file")), /plan_file/],
+    [[...APPROVED_PLAN, "fix_tier: B"], /fix_tier/],
+    [[...APPROVED_PLAN, "approved_at: 2026-09-06"], /approved_at/],
+    [[...APPROVED_PLAN, "plan_commit: 0123abc"], /plan_commit/],
+    [["plan_review_pr: 37", "kind: approved-plan"], /kind/],
+    [["kind: nonesuch"], /nonesuch/],
+  ];
+  for (const [lines, pattern] of cases) {
+    const found = planProvenanceDeclaration(decl(...lines));
+    assert.match(found?.refuse ?? "", pattern, `expected a refusal naming ${pattern}`);
+  }
+});
+
+test("every value grammar refuses its malformed form, naming the key", () => {
+  // One row per grammar in the plan's normative table. A grammar with no test
+  // here is a grammar the parser is free to get wrong.
+  const swap = (lines, key, value) => lines.map((l) => (l.startsWith(`${key}:`) ? `${key}: ${value}` : l));
+  const bad = [
+    ["plan_review_pr", "#37"],
+    ["plan_review_pr", "0"],
+    ["plan_commit", "972B60D"],
+    ["plan_commit", "972b60"],
+    ["plan_file", "docs/plans/plan_lowercase.md"],
+    ["plan_file", "PLAN_NEW.md"],
+    ["approved_by", "david"],
+    ["approved_by", "Codex"],
+    ["approved_on", "06-09-2026"],
+  ];
+  for (const [key, value] of bad) {
+    const found = planProvenanceDeclaration(decl(...swap(APPROVED_PLAN, key, value)));
+    assert.match(found?.refuse ?? "", new RegExp(key), `${key}: ${value} should refuse`);
+  }
+  for (const value of ["3b1f8c2d", "3B1F8C2D9E4A7B6C5D0E1F2A3B4C5D6E7F8091A2B3C4D5E6F708192A3B4C5D6E"]) {
+    const found = planProvenanceDeclaration(
+      decl("kind: private-plan", "plan_filename: PLAN_X.md", `plan_sha256: ${value}`, "approved_by: David", "approved_on: 2026-09-06"),
+    );
+    assert.match(found?.refuse ?? "", /plan_sha256/);
+  }
+  for (const value of ["A1", "D", "b"]) {
+    const found = planProvenanceDeclaration(decl("kind: bugfix", `fix_tier: ${value}`));
+    assert.match(found?.refuse ?? "", /fix_tier/, `fix_tier: ${value} should refuse`);
+  }
+});
+
+test("combined_branch refuses each clause of its grammar separately", () => {
+  // The grammar has five clauses and a single "looks about right" regex
+  // satisfies two of them. Each gets its own row so a rewrite cannot quietly
+  // drop one.
+  const split = (branch) => [
+    "kind: approved-plan-split",
+    "plan_review_prs: 37,41",
+    "combined_plan_commit: 972b60d",
+    `combined_branch: ${branch}`,
+    `plan_file: ${PLAN}`,
+    "approved_by: David",
+    "approved_on: 2026-09-06",
+  ];
+  const bad = [
+    "claude/fable-combined",       // wrong prefix
+    "plan-review/fable",          // no -combined suffix
+    "plan-review/-combined",      // empty slug
+    "plan-review/.fable-combined", // slug begins with a separator
+    "plan-review/fable_-combined", // two adjacent separators
+    "plan-review/fable!-combined", // character outside the class
+  ];
+  for (const branch of bad) {
+    const found = planProvenanceDeclaration(decl(...split(branch)));
+    assert.match(found?.refuse ?? "", /combined_branch/, `${branch} should refuse`);
+  }
+  assert.equal(planProvenanceDeclaration(decl(...split("plan-review/fable-review-foundations-combined")))?.refuse, undefined);
+  // Two or more PRs, comma-separated -- one is not a split loop.
+  assert.match(planProvenanceDeclaration(decl(...split("plan-review/x-combined").map((l) => (l.startsWith("plan_review_prs") ? "plan_review_prs: 37" : l))))?.refuse ?? "", /plan_review_prs/);
+});
+
+test("the private kind names a FILE, and a repository path refuses", () => {
+  // Decision 8b. A private plan is handed to David and never committed, so it
+  // has a name and no path; requiring the public key would refuse every valid
+  // private-plan PR by construct.
+  const priv = (name) => decl("kind: private-plan", `plan_filename: ${name}`, "plan_sha256: " + "a".repeat(64), "approved_by: David", "approved_on: 2026-09-06");
+  assert.equal(planProvenanceDeclaration(priv("PLAN_SOMETHING.md"))?.refuse, undefined);
+  assert.match(planProvenanceDeclaration(priv("docs/plans/PLAN_SOMETHING.md"))?.refuse ?? "", /plan_filename/);
+});
+
+test("two declarations are a contradiction, never a first-wins race", () => {
+  // Decision 2. First-wins is the precise defect #40 Part 1b recorded: a
+  // sample declaration ahead of the real one silently became the oracle.
+  const body = [decl(...APPROVED_PLAN), "", decl("kind: trivial")].join("\n");
+  assert.match(planProvenanceDeclaration(body)?.refuse ?? "", /two|second|more than one/i);
+});
+
+test("a declaration inside any inert context is quoted, not asserted", () => {
+  // Decision 3: the declaration scan asks whether a fence OPENER sits at a
+  // live position, using the same inert-line computation the prose path uses
+  // to drop lines. Four constructs, one boundary.
+  const block = decl(...APPROVED_PLAN);
+  const quoted = block.split("\n").map((l) => `> ${l}`).join("\n");
+  const indented = block.split("\n").map((l) => `    ${l}`).join("\n");
+  const commented = ["<!--", block, "-->"].join("\n");
+  const nested = ["````markdown", block, "````"].join("\n");
+  for (const [name, inert] of [["blockquote", quoted], ["indented", indented], ["html comment", commented], ["nested fence", nested]]) {
+    assert.equal(planProvenanceDeclaration(`## Summary\n\n${inert}\n`), null, `${name} alone should yield no declaration`);
+    // ...and alongside a live one, the live one is the only declaration, so
+    // this is a happy path rather than the two-block contradiction.
+    const both = `${inert}\n\n${block}\n`;
+    assert.equal(planProvenanceDeclaration(both)?.kind, "approved-plan", `${name} + live should read the live one`);
+  }
+});
+
+test("the inert boundary has ONE definition, and HTML comments are in it", () => {
+  // David settled this at approval on 2026-09-07: a PR-template placeholder
+  // IS an HTML comment, and those placeholders carry the very strings the
+  // generator scans for -- the template's own note under `**Fix tier:**`
+  // spells out "A or B". So a body nobody filled in could be read as one that
+  // answered. Both paths inherit the rule; the prose path is not exempt.
+  const lines = ["live", "<!--", "hidden", "-->", "live again"];
+  assert.deepEqual(inertMask(lines), [false, true, true, true, false]);
+  const body = "## Approved-plan source\n\n<!--\nPlan-review PR #37, final plan commit 972b60d, approved by David on 2026-09-06\n-->\n";
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+    "an unfilled template placeholder is not an approved-plan source",
+  );
+});
+
+test("a present-but-malformed declaration REFUSES and never falls through to prose", () => {
+  // Decision 4, enforced by construct. Fall-through would mean a typo
+  // silently re-enters the class this change closes -- the failure mode that
+  // would make the whole thing worthless. The body below carries a perfectly
+  // good legacy sentence, so a fall-through would resolve happily.
+  const body = [
+    decl("kind: approved-plan", "plan_review_pr: 37", "plan_commit: NOTAHEX", `plan_file: ${PLAN}`, "approved_by: David", "approved_on: 2026-09-06"),
+    "",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+  ].join("\n");
+  assert.throws(() => planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) }), /plan_commit/);
+});
+
+test("declaredBy names which path answered, and absence means prose", () => {
+  // Decision 12. Sampled diagnostics, not migration proof -- a record exists
+  // only where a judge was dispatched.
+  const declared = planOracleFor({ title: "Implement the thing", body: decl(...APPROVED_PLAN) }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(declared.declaredBy, "declaration");
+  assert.equal(declared.sha, "972b60d");
+  const prose = planOracleFor(
+    { title: "Implement the thing", body: "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06" },
+    "head",
+    { runGit: planGit([PLAN]) },
+  );
+  assert.equal(prose.declaredBy, "prose");
+  assert.deepEqual(declared.sections, prose.sections, "the two paths must produce the same oracle");
+});
+
+test("a declaration beside the legacy selector for its OWN kind refuses as mixed", () => {
+  // Decision 11a. The block REPLACES the selector; carrying both is the
+  // duplicate-source-of-truth pattern, and a stale producer emitting both
+  // would have the judge follow one commit while a human follows another.
+  const body = [decl("kind: bugfix", "fix_tier: B"), "", TIER_B_ORACLE].join("\n");
+  assert.throws(() => planOracleFor({ title: "Fix it", body }, "head", { runGit: planGit([PLAN]) }), /both/i);
+});
+
+test("the mixed-format refusal is scoped to the DECLARED KIND's own selector", () => {
+  // Codex, round 5. A body-wide rule refuses a documentation PR whose live
+  // prose happens to begin a line with `**Fix tier:**` -- describing the
+  // format, not claiming a tier. `Fix tier` is the bugfix selector; it is not
+  // the approved-plan one, so it is not a contradiction here.
+  const body = [
+    decl(...APPROVED_PLAN),
+    "",
+    "## What changed",
+    "",
+    "**Fix tier:** is the line the bugfix template emits, and this PR renames it.",
+  ].join("\n");
+  const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.declaredBy, "declaration");
+  assert.equal(oracle.sha, "972b60d");
+});
+
+test("a declared bugfix still has its tier oracle checked for completeness", () => {
+  // Decision 5: the block selects, it does not excuse. An earlier revision
+  // deferred this to a later lint and so would have dropped a reviewer check
+  // for however long that lint took to ship.
+  const complete = [decl("kind: bugfix", "fix_tier: C"), "", TIER_C_ORACLE_DECLARED].join("\n");
+  assert.equal(planOracleFor({ title: "Fix it", body: complete }, "head", { runGit: planGit([PLAN]) }).reason, "bugfix oracle (tier C)");
+  const missingRootCause = complete.split("\n").filter((l) => !l.startsWith("**Root cause:")).join("\n");
+  assert.throws(() => planOracleFor({ title: "Fix it", body: missingRootCause }, "head", { runGit: planGit([PLAN]) }), /Root cause/i);
+});
+
+test("the tier's rationale is a NAMED required field on the declaration path", () => {
+  // Codex raised this twice: the plan promised the reason became "a named
+  // required field" and never named it, leaving parser, producers and
+  // fixtures free to pick different labels -- the very failure this change
+  // exists to remove, one level down. The label is `Tier rationale`.
+  //
+  // Required on the DECLARATION path only. Today the reason rides the
+  // `Fix tier:` line itself, so requiring it of a legacy body would change
+  // prose-path behaviour, which Must Not Change forbids.
+  const withoutRationale = [decl("kind: bugfix", "fix_tier: C"), "", TIER_C_ORACLE_DECLARED]
+    .join("\n")
+    .split("\n")
+    .filter((l) => !l.startsWith("**Tier rationale:"))
+    .join("\n");
+  assert.throws(
+    () => planOracleFor({ title: "Fix it", body: withoutRationale }, "head", { runGit: planGit([PLAN]) }),
+    /Tier rationale/,
+  );
+  // The legacy body keeps working untouched: its reason is on the Fix tier line.
+  assert.equal(planOracleFor({ title: "Fix it", body: TIER_C_ORACLE }, "head", { runGit: planGit([PLAN]) }).reason, "bugfix oracle (tier C)");
+});
+
+test("kind: plan-review must agree with the title, in both directions", () => {
+  // Decision 7a. A safety property, not a formatting one: without it an
+  // ordinary PR can declare itself a plan-review loop and take the MUTABLE
+  // HEAD plan as its oracle.
+  assert.throws(
+    () => planOracleFor({ title: "Ordinary implementation PR", body: decl("kind: plan-review") }, "head", { runGit: planGit([PLAN]) }),
+    /plan review/i,
+  );
+  const agreeing = planOracleFor(
+    { title: "[PLAN REVIEW] something — DO NOT MERGE", body: decl("kind: plan-review") },
+    "head",
+    { runGit: planGit([PLAN]) },
+  );
+  assert.equal(agreeing.mode, "plan-review");
+  assert.equal(agreeing.declaredBy, "declaration");
+});
+
+test("#38's real body resolves identically through both paths -- the Definition of Done", () => {
+  // The headline check, on the body that actually shipped. One body cannot
+  // legally exercise both paths (decision 11a refuses a declaration beside a
+  // legacy selector), so this is two fixtures built from one real body.
+  const prose = planOracleFor({ title: PR38.title, body: PR38.body }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(prose.declaredBy, "prose");
+  assert.equal(prose.sha, "972b60d");
+
+  const declaredBody = PR38.body.replace(
+    "## Approved-plan source\n\nPlan-review PR #37, final plan commit `972b60d`, approved by David on 2026-09-06.\n",
+    `${decl(...APPROVED_PLAN)}\n`,
+  );
+  assert.notEqual(declaredBody, PR38.body, "the replacement must actually have matched");
+  const declared = planOracleFor({ title: PR38.title, body: declaredBody }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(declared.declaredBy, "declaration");
+  assert.deepEqual(declared.sections, prose.sections, "byte-identical oracle sections across the two paths");
+
+  // And the two concatenated are the state the plan forbids.
+  assert.throws(() => planOracleFor({ title: PR38.title, body: `${declaredBody}\n\n${PR38.body}` }, "head", { runGit: planGit([PLAN]) }), /both/i);
+});
+
+test("a heading inside an HTML comment is not a section -- the slice loses the opener", () => {
+  // Codex, #46 round 1, and the sharpest finding of that round: `sectionOf`
+  // masked fences only, so a commented `## Approved-plan source` was selected,
+  // and the caller's live-text filter then ran over a SLICE that began after
+  // the heading and no longer carried the opening `<!--`. The commented
+  // provenance read as live and resolved a commit David never approved.
+  //
+  // This is the exact hazard David settled at #43's approval -- a template
+  // placeholder IS an HTML comment -- reaching the oracle by a second route.
+  const body = [
+    "## Summary",
+    "",
+    "<!--",
+    "## Approved-plan source",
+    "",
+    "Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "-->",
+    "",
+    "Nothing here declares a plan.",
+  ].join("\n");
+  assert.equal(sectionOf(body, "Approved-plan source"), null, "a commented heading is not a heading");
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([PLAN]) }),
+    /names no approved-plan source/,
+  );
+  // The same shape for the plan-review selector, which fails the other way:
+  // a commented example must not refuse an ordinary PR.
+  const commentedMode = ["## Summary", "", "<!--", "## Review mode", "Plan review only. Never merge.", "-->"].join("\n");
+  assert.equal(planReviewSignals({ title: "Ordinary implementation PR", body: commentedMode }).body, false);
+});
+
+test("the legacy selector is matched by its SHAPE, not as a substring", () => {
+  // Codex, #46 round 1. An unanchored test refused any body that MENTIONED the
+  // old form. A machinery PR describing the change it makes is the likeliest
+  // body in this repository, and it was the one guaranteed to be refused.
+  const declared = decl(...APPROVED_PLAN);
+  const describing = [declared, "", "This removes the old Approved-plan source matcher from the generator."].join("\n");
+  const oracle = planOracleFor({ title: "Implement the thing", body: describing }, "head", { runGit: planGit([PLAN]) });
+  assert.equal(oracle.declaredBy, "declaration", "prose describing the old form is not a second selector");
+  // Both real shapes still refuse: the heading and the labelled line.
+  for (const legacy of [
+    "## Approved-plan source\n\nPlan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "**Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+  ]) {
+    assert.throws(
+      () => planOracleFor({ title: "Implement the thing", body: `${declared}\n\n${legacy}` }, "head", { runGit: planGit([PLAN]) }),
+      /both/i,
+      `expected a mixed-format refusal for: ${legacy.slice(0, 40)}`,
+    );
+  }
+});
+
+test("a legacy selector is whatever the PROSE PATH would act on, not a listed shape", () => {
+  // Codex, #46 round 2. Anchoring the two shapes bought a false negative: the
+  // same selector as a Markdown list item is resolved by the prose path but
+  // matches neither anchor. A body could carry a declaration naming one commit
+  // and a visible legacy line naming another, with no refusal -- the human
+  // reading one and the machine selecting the other.
+  const declared = decl(...APPROVED_PLAN);
+  const runGit = planGit([PLAN]);
+
+  // The reported shape, and the neighbours an anchored list would each have
+  // needed their own entry for.
+  for (const legacy of [
+    "- **Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "* Approved-plan source: Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "1. **Approved-plan source:** Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+    "  - Approved-plan source: Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06",
+  ]) {
+    assert.throws(
+      () => planOracleFor({ title: "Implement the thing", body: `${declared}\n\n${legacy}` }, "head", { runGit }),
+      /both/i,
+      `expected a mixed-format refusal for: ${legacy.slice(0, 44)}`,
+    );
+  }
+
+  // STATED RESIDUE, asserted so it is a decision rather than a blind spot. A
+  // no-plan claim in a shape the anchors miss is NOT refused -- because the
+  // prose path does not read it either: `TEXTUAL_NO_PLAN_FORMS` has the same
+  // line-start anchoring, so a body carrying only that line refuses outright
+  // rather than concluding "no plan". There is no competing answer to
+  // contradict. If that shape should count, the prose path is where it changes.
+  const listNoPlan = `${declared}\n\n- **Approved-plan source:** n/a — no plan`;
+  assert.equal(
+    planOracleFor({ title: "Implement the thing", body: listNoPlan }, "head", { runGit }).declaredBy,
+    "declaration",
+    "a list-item no-plan line is not a claim the prose path would have acted on",
+  );
+  assert.throws(
+    () => planOracleFor({ title: "Implement the thing", body: "- **Approved-plan source:** n/a — no plan" }, "head", { runGit }),
+    /names no approved-plan source and matches none of the permitted no-plan forms/,
+    "the prose path alone refuses that shape, which is why it is not a competing answer",
+  );
+
+  // ROUND 1'S FIX IS NOT UNDONE. Prose that merely mentions the phrase resolves
+  // no commit and matches no no-plan form, so it is still not a selector.
+  const describing = [declared, "", "This removes the old Approved-plan source matcher from the generator."].join("\n");
+  assert.equal(
+    planOracleFor({ title: "Implement the thing", body: describing }, "head", { runGit }).declaredBy,
+    "declaration",
+    "prose describing the old form is still not a second selector",
+  );
+});
+
+test("a heading with an inline HTML comment is still that heading", () => {
+  // Codex, #46 round 3. The mask said the line was live (its comment-stripped
+  // half survives) but the heading test ran on the raw line, so a valid legacy
+  // body refused for missing provenance and an oracle section read as null.
+  const provenance = "Plan-review PR #37, final plan commit abc1234, approved by David on 2026-09-06";
+  const body = ["## Approved-plan source <!-- required -->", "", provenance, "", "## Direction <!-- oracle -->", "", "Ship it.", ""].join("\n");
+  assert.equal(sectionOf(body, "Approved-plan source"), provenance);
+  assert.equal(sectionOf(body, "Direction"), "Ship it.");
+  assert.equal(approvedPlanCommit(approvedPlanSourceText(body))?.sha, "abc1234");
+  // A heading commented out entirely is still not a heading (round 1's fix holds).
+  assert.equal(sectionOf("<!-- ## Direction -->\n\nnope\n", "Direction"), null);
+});
+
+test("a comment opened on a heading line does not leak into the section body", () => {
+  // Codex, #46 round 4. The start scan used the comment-stripped line; the body
+  // loop pushed the RAW lines, so a comment that opened on the heading and
+  // closed a few lines down reached the judge as live section text.
+  const body = [
+    "## Direction <!-- template note:",
+    "this whole comment is not the direction",
+    "and neither is this -->",
+    "Ship it.",
+    "",
+    "## Next",
+    "later",
+  ].join("\n");
+  assert.equal(sectionOf(body, "Direction"), "Ship it.");
+  // An inline comment in the body is removed; fences and blockquotes stay.
+  const mixed = ["## Direction", "", "keep <!-- drop --> this", "> quoted", "```", "code", "```", "## Next"].join("\n");
+  assert.equal(sectionOf(mixed, "Direction"), ["keep  this", "> quoted", "```", "code", "```"].join("\n"));
+});
+
+test("an unclosed declaration fence still reads its last line", () => {
+  // Codex, #46 round 4. An unclosed fence runs to the document's end, and its
+  // last line is content -- the loop treated it as the closing fence and
+  // silently dropped it, so a body truncated mid-declaration lost a field.
+  const unclosed = ["```plan-provenance", ...APPROVED_PLAN].join("\n");
+  const closed = decl(...APPROVED_PLAN);
+  assert.deepEqual(planProvenanceDeclaration(unclosed), planProvenanceDeclaration(closed));
+});
+
+test("a list-item private-path line is a legacy selector the prose path would act on", () => {
+  // Codex, #46 round 4. The private-path form is unanchored, so its list-item
+  // shape resolves on the prose path -- but the legacy claim only asked for a
+  // commit, so a declaration plus that line passed without the mixed-format
+  // refusal.
+  const declared = decl("kind: private-plan", "plan_filename: PLAN_X.md", "plan_sha256: " + "a".repeat(64), "approved_by: David", "approved_on: 2026-09-06");
+  const legacy = `- **Approved-plan source:** PLAN_X.md, shasum -a 256 ${"a".repeat(64)}, 2026-09-06`;
+  assert.throws(() => planOracleFor({ title: "Implement the thing", body: `${declared}\n\n${legacy}` }, "head", { runGit: planGit([PLAN]) }), /both/i);
+});
+
+test("an inherited property name is an unknown kind, not a crash", () => {
+  // Codex, #46 round 1. `kind: constructor` reached an inherited property,
+  // which is truthy and not an array, so the required-key loop threw a
+  // TypeError where a refusal was specified. A crash is the worst available
+  // shape: the loop can then obtain no verdict, to continue OR to stop.
+  for (const kind of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+    const found = planProvenanceDeclaration(decl(`kind: ${kind}`));
+    assert.match(found?.refuse ?? "", /is not a kind this contract defines/, `kind: ${kind} should refuse cleanly`);
+  }
 });

@@ -117,6 +117,13 @@ carry the decision:
 
 - `budget` — the tier, the cap declared before round 1, the criticality rating,
   and how many rounds have actually been requested.
+- `planOracle.declaredBy` — `"declaration"` when the PR body declared its
+  oracle in a `plan-provenance` block, `"prose"` when the legacy path inferred
+  one from a sentence. **Absent means `"prose"`**: every record committed
+  before that field shipped used the prose path. It is a diagnostic, not a
+  quality signal — a prose-selected oracle is not weaker evidence, it is the
+  same oracle read a more fragile way, and it must not move a verdict on its
+  own.
 - `rounds.trend` — findings per round, in order.
 - `territory` — findings whose file is inside this PR's diff vs. outside it.
   Outside-diff findings mean the reviewer ran out of diff and started auditing

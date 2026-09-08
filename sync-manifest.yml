@@ -759,16 +759,19 @@ groups:
         ref: core/.claude/skills/bugfix/SKILL.md
         form: ".claude/skills/bugfix/SKILL.md"
         from: core/scripts/review-loop-record.mjs
-        count: 2
+        count: 3
         why: >
           The same citation in its fully-qualified spelling: once line-cited
-          on the field table transcribed from the schema, once in the refusal
-          that names the schema a malformed oracle failed. Round 6 tightened
-          the matcher from "the block opens with a Fix tier line" to "the
-          block carries every field the schema lists", and a matcher written
-          from a format has to say WHICH format so the next reader can check
-          it. Still evidence: the generator opens the PR body, never the
-          skill.
+          on the field table transcribed from the schema, and once in each of
+          the two refusals that name the schema a malformed oracle failed —
+          the prose path's, and since #43 the declaration path's. Round 6
+          tightened the matcher from "the block opens with a Fix tier line" to
+          "the block carries every field the schema lists", and a matcher
+          written from a format has to say WHICH format so the next reader can
+          check it. The third occurrence arrived with the declared `fix_tier`
+          key, whose oracle check is that same schema minus the `Fix tier`
+          line the key replaces and plus `Tier rationale`. Still evidence: the
+          generator opens the PR body, never the skill.
       - group: skills
         ref: core/.claude/skills/bugfix/SKILL.md
         form: ".claude/skills/bugfix/SKILL.md"

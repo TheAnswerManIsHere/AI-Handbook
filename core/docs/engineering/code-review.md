@@ -42,14 +42,33 @@ stated intent while violating its direction is exactly the "internally sound,
 quietly wrong" shape this oracle exists to catch. Missing Direction on a PR
 whose plan cited one is itself a finding.
 
-The oracle also carries **Approved-plan source** — the exact final revision
-those words came from (plan-review PR + final plan commit sha, or the plan
-filename + content hash on the private/manual path), plus the date David
-approved it. In a multi-round plan review, an oracle pasted from an earlier
-revision is a plausible failure and an invisible one: the PR looks correctly
-oracled while the code is checked against a plan David never approved. A
-missing source, or one that names only a title or a mutable branch, is itself
-a finding — the oracle can't be trusted until it's pinned.
+The oracle's provenance is a **declared `plan-provenance` block**, not a
+sentence — the exact final revision those words came from (plan-review PR +
+final plan commit sha, or the plan filename + content hash on the
+private/manual path), plus the date David approved it, as named keys
+([`plan-provenance.md`](../ai-context/plan-provenance.md)). In a multi-round
+plan review, an oracle pasted from an earlier revision is a plausible failure
+and an invisible one: the PR looks correctly oracled while the code is checked
+against a plan David never approved. Provenance that names only a title or a
+mutable branch is itself a finding — the oracle can't be trusted until it's
+pinned.
+
+**A body with no block is not a finding.** The legacy prose form still
+resolves, deliberately, and the record marks which of the two answered. A
+prose-selected oracle is the same oracle read a more fragile way, not weaker
+evidence — the judge's own contract says so and forbids it moving a verdict.
+Reporting its absence would manufacture a finding on every PR written before
+this shipped and force a migration nothing asked for.
+
+The parser refuses a malformed block by key name rather than accepting it, so
+what reaches you as a *review* finding is the class it cannot judge: **a
+well-formed block whose values are false.** It checks shapes, not truth, and
+then keeps only the commit — so every other key is auditable by you alone.
+Cross-check, as applicable: the sha against the plan-review PR's final commit;
+the PR number, or each number in a split loop; the approval date; and that the
+combined branch is the one carrying that commit. A block can be perfectly
+formed and name the wrong approval, and those keys exist precisely to make the
+approval auditable.
 
 **On the private/manual path, "pinned" is as far as an independent reviewer
 can verify — and that's accepted, not a gap to close.** That path exists
@@ -76,14 +95,22 @@ over a falsely-ambiguous space*).
 
 So a bugfix PR carries its own oracle in the same body section — see
 [`working-modes.md`](../ai-context/working-modes.md#the-bugfix-oracle-what-the-pr-body-must-carry).
-**This field list is for a Tier A/B PR**: **Fix tier**, **Reported symptom**
-(David's words, verbatim), **Intended correct behavior**, **Must not change**,
-**Root cause**, **Blast radius**. A Tier C PR (the trivial-schema-fix exception
-below) uses a **different**, dedicated oracle block — symptom, root cause, why
-it's trivial, David's go-ahead, the migration-ceremony checklist — with no
-*Intended correct behavior*, *Must not change*, or *Blast radius* fields; don't
-flag a correctly filled Tier C block as incomplete for lacking Tier A/B fields
-it was never meant to carry. Review the diff against whichever block applies,
+**The tier letter is not a prose field.** It is `fix_tier` in the body's
+declared block ([`plan-provenance.md`](../ai-context/plan-provenance.md)), and
+a body carrying both that key and a legacy `Fix tier:` line is refused. What
+stays in prose is the **reason** for the letter — **Tier rationale**, required
+for A, B and C alike — because that is the half a reviewer argues with.
+
+**This field list is for a Tier A/B PR**: **Tier rationale**, **Reported
+symptom** (David's words, verbatim), **Intended correct behavior**, **Must not
+change**, **Root cause**, **Blast radius**. A Tier C PR (the
+trivial-schema-fix exception below) uses a **different**, dedicated oracle
+block — **Tier rationale**, symptom, root cause, why it's trivial, David's
+go-ahead, the migration-ceremony checklist — with no *Intended correct
+behavior*, *Must not change*, or *Blast radius* fields; don't flag a correctly
+filled Tier C block as incomplete for lacking Tier A/B fields it was never
+meant to carry, and don't flag a declared body as incomplete for lacking the
+`Fix tier:` line the block replaced. Review the diff against whichever block applies,
 and specifically ask:
 
 - **Is this the root cause or a symptom-level patch?** Does the fix address the

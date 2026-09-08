@@ -1083,12 +1083,18 @@ The feature oracle's fields map onto a Tier A/B fix directly:
 | Must not change | **Must not change** — the adjacent behaviors sharing this path |
 | Settled decisions | **Root cause** — the mechanism, in one or two lines |
 
-Plus **Blast radius** (from step 5) and the **fix tier with its reason** —
-**required for Tier A as much as Tier B.** A is the classification reviewers
-most need to be able to challenge, so "A (contained)" alone is not enough:
-name the Q1/Q2 items you checked and ruled out, not just the ones that would
-have fired. A bare tier letter with no reasoning is a mis-tiering risk
-whether or not the letter turns out to be right.
+Plus **Blast radius** (from step 5), and the fix tier — which is now two
+things in two places. The **letter** is `fix_tier` in the body's declared
+`plan-provenance` block ([`plan-provenance.md`](plan-provenance.md)); the
+**reason** is `**Tier rationale:**`, a required prose field. The split is
+deliberate: a letter is what a machine selects on, a reason is what a reviewer
+argues with, and folding the second into the first is how the reason nearly
+disappeared when the letter moved. It is **required for Tier A as much as Tier
+B.** A is the classification reviewers most need to be able to challenge, so
+"A (contained)" alone is not enough: name the Q1/Q2 items you checked and
+ruled out, not just the ones that would have fired. A bare tier letter with no
+reasoning is a mis-tiering risk whether or not the letter turns out to be
+right.
 
 This is cheap to write and it is what lets a reviewer ask the two questions that
 matter most on a fix: *is this the root cause or a symptom-level patch?* and *did

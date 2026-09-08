@@ -246,22 +246,39 @@ the PR back only delays the review that catches things.
    section with the **bugfix oracle** instead of "n/a — no plan" — **which
    block depends on the tier:**
 
+   **The tier letter is declared; everything else stays prose.** `fix_tier`
+   replaces the old `Fix tier:` line and nothing else — a body carrying both
+   refuses. The reason for the tier is not lost with it: it becomes **`Tier
+   rationale`**, a required field of its own, because a reviewer uses it to
+   challenge a mis-tiering and a bare letter cannot be challenged. The format
+   is [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md).
+
    **Tier A/B:**
-   ```markdown
-   **Fix tier:** <A or B> — <the Q1/Q2 triggers checked: which one fired (B),
-     or which were ruled out (A) — a bare tier letter isn't enough; A is the
+   ````markdown
+   ```plan-provenance
+   kind: bugfix
+   fix_tier: <A or B>
+   ```
+
+   **Tier rationale:** <the Q1/Q2 triggers checked: which one fired (B), or
+     which were ruled out (A) — a bare tier letter isn't enough; A is the
      classification a reviewer most needs to be able to challenge>
    **Reported symptom:** <David's report, quoted verbatim>
    **Intended correct behavior:** <what right looks like>
    **Must not change:** <adjacent behaviors sharing this code path>
    **Root cause:** <the mechanism, not the instance>
    **Blast radius:** <what else calls this / shares this path, and what I checked>
-   ```
+   ````
 
    **Tier C, trivial schema fix** (David authorized migration ceremony directly
    — a *different* block, not the one above):
-   ```markdown
-   **Fix tier:** C — trivial schema/migration fix, no plan
+   ````markdown
+   ```plan-provenance
+   kind: bugfix
+   fix_tier: C
+   ```
+
+   **Tier rationale:** trivial schema/migration fix, no plan
    **Reported symptom:** <David's report, quoted verbatim>
    **Root cause:** <the mechanism, not the instance>
    **Why this is trivial:** <single-step, no data transformation, no behavior
@@ -269,7 +286,7 @@ the PR back only delays the review that catches things.
    **David's go-ahead:** <how/when confirmed>
    **Migration ceremony checklist:** <idempotency, observable counts,
      human-edited-row preservation, rollback for destructive ops>
-   ```
+   ````
 
    Then **Verification** (exact commands + results, and the click-through steps
    to observe the fix), and the checklist.
