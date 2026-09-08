@@ -958,15 +958,20 @@ groups:
         ref: core/.agents/receipts/README.md
         from: core/scripts/review-loop-record.mjs
         form: ".agents/receipts/README.md"
-        count: 1
+        count: 2
         why: >
-          cappedDiff's record filter must NOT exclude this file, and the header
-          names it to say so. The first cut of that filter reused classifyPath,
+          Two counter-examples, both naming this file to state a line the code
+          must not cross; nothing opens it, and the module runs identically
+          with the group absent. (1) cappedDiff's record filter must NOT
+          exclude this file. The first cut of that filter reused classifyPath,
           which calls every path under the receipt directories a record, and
           would have hidden this synced file from the adjudicator while
-          announcing it as generated bookkeeping. Named as the counter-example
-          the shape list exists to protect; nothing opens it, and the module
-          runs identically with the group absent. (Codex, #14 round 1.)
+          announcing it as generated bookkeeping. (Codex, #14 round 1.)
+          (2) assertHeadReviewed's bookkeeping exemption cites the README's
+          "evidence is ephemeral, decisions are durable" line as the reason it
+          admits only ADDED generated records: a modified or deleted receipt is
+          a rewritten decision, not the machinery writing its next artifact.
+          (Codex, #47 round 1.)
       - group: receipt-scaffolding
         ref: core/.agents/adjudications/README.md
         from: core/scripts/review-loop-record.mjs

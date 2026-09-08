@@ -1,0 +1,9 @@
+{
+  "pr": 47,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 70,
+  "artifact": "assertHeadReviewed's bookkeeping exemption in core/scripts/review-loop-record.mjs, narrowed to newly added generated records, plus changedPathStatuses and its regression tests",
+  "declaredAt": "2026-09-07T21:39:52.296Z"
+}
