@@ -1,0 +1,9 @@
+{
+  "pr": 54,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 65,
+  "artifact": "scripts/sync.mjs replacing sync-manifest.yml + check-manifest.mjs; the staging system's deletion and the docs that described it",
+  "declaredAt": "2026-09-08T17:01:09.675Z"
+}
