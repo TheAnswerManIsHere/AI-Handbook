@@ -5,6 +5,21 @@ changed on the way, and what is knowingly unfinished. Kept as a record because
 the next extraction (or the first argument about where a file belongs) will
 want the reasoning, not just the result.
 
+> **Superseded in part, 2026-09-08.** Everything below about **staging** — the
+> `staged`/`ready` statuses, the `requires` graph, cohorts, `flipsWith`, group
+> blockers, `sync-manifest.yml`, `check-manifest.mjs`, and the whole "how a
+> group gets unstaged" procedure — describes a system that has been **deleted**.
+> It existed to sequence a gradual rollout to consumers, and no consumer is
+> live, so it was managing a risk that did not exist. The payload now ships
+> whole: `scripts/sync.mjs` copies `core/**` to the same path, with
+> `*.template.*` files seeded under their real name only when absent.
+>
+> The rest of this document — the split test, what was taken and left, what was
+> rewritten on the way — is unaffected and still the reasoning of record. The
+> staging sections are kept rather than deleted because they explain a decision
+> that was actually made, and a record that quietly loses its wrong turns is
+> worth less than one that keeps them.
+
 ## The test used to split
 
 For each file: **would this still be true, unchanged, in a repo about a

@@ -27,8 +27,8 @@ AI-Handbook (this repo)          Consumer repo
 core/                     ──►    .agents/core/  docs/  .claude/  scripts/
   the payload                      vendored copies, overwritten by sync
 
-sync-manifest.yml                CLAUDE.md   ← the repo's own overlay,
-  what goes where                              imports the vendored core
+scripts/sync.mjs                 CLAUDE.md   ← the repo's own overlay,
+  copies core/** across                        imports the vendored core
                                  AGENTS.md   ← ditto, links to it
 ```
 
@@ -48,12 +48,23 @@ model and the overlay template.
 merge here opens a pull request in each enrolled consumer, so nothing lands in a
 product repo without the same review the product's own code gets.
 
-**Not built yet.** The sync workflow does not exist — `check.yml` is the only
-workflow in this repo — and every group in `sync-manifest.yml` is `staged`, so
-no consumer is receiving anything today. The payload is parked here, correct and
-reviewed, waiting on the follow-up PRs tracked in
-[`docs/porting-notes.md`](docs/porting-notes.md). Read a statement about "the
-sync" below as a description of the design, not of something running.
+**One rule, and a seed exception.** Everything under `core/` lands at the same
+path in the consumer, minus the `core/` prefix. The only exception is a
+`*.template.*` file, which lands under its real name (`settings.template.json`
+→ `.claude/settings.json`) and **only if the consumer does not already have
+one** — those two files are consumer-owned once they land, and overwriting them
+would clobber a repo's own permissions and identity.
+
+**Run it with `node scripts/sync.mjs --to <consumer-repo> [--dry-run]`.** There
+is no scheduled workflow yet: a sync is run deliberately and its output is
+reviewed as an ordinary pull request in the consumer, so nothing reaches a
+product repo without the review that repo's own code gets.
+
+**There is no staging system, deliberately.** An earlier design gave each group
+a `status`, a `requires` graph and a cohort model, to sequence a gradual
+rollout. Sequencing a rollout is only worth doing when something is live to be
+broken, and nothing is. It was deleted; if a staged rollout is ever genuinely
+needed, the thing to build is the smallest mechanism that delivers it.
 
 ## What is in `core/`
 
@@ -86,5 +97,5 @@ Verify locally with:
 
 ```
 node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-manifest.mjs    # every payload file is actually routed
+node scripts/sync.mjs --to <repo> --dry-run   # what a consumer would receive
 ```

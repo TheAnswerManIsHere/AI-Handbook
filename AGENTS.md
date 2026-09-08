@@ -10,9 +10,9 @@
 
 The shared working contract for every product David builds with AI agents. It
 contains no product code, no database, and no application. Its `core/`
-directory is a **payload**: files vendored into consumer repositories by a
-sync, described by `sync-manifest.yml` and
-[`docs/consuming-repos.md`](docs/consuming-repos.md).
+directory is a **payload**: files vendored into consumer repositories by
+`scripts/sync.mjs`, which copies `core/**` to the same path minus the `core/`
+prefix. See [`docs/consuming-repos.md`](docs/consuming-repos.md).
 
 Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
 `TheAnswerManIsHere/DojoOS`.
@@ -33,13 +33,16 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   diff to either is a change to this repository's own behaviour as well as to
   every consumer's. See *How this repo reaches its own payload* in
   [`CLAUDE.md`](CLAUDE.md).
-- **Coverage is part of correctness.** A file added under `core/` that no group
-  in `sync-manifest.yml` claims will never reach a consumer, and the sync will
-  still report success. `node scripts/check-manifest.mjs` detects this and runs
-  in CI; a change that adds payload without a manifest entry is incomplete.
-- **A `staged` group is deliberate, not neglect.** It carries a named blocker
-  saying what must land before it can sync. Removing a blocker is a claim that
-  the underlying problem is solved — check that it is.
+- **Coverage is automatic, and that is the point.** A file added under `core/`
+  ships, because the sync routes `core/**` by construction — there is no
+  routing table it can fall out of. This used to need a 1,325-line manifest and
+  a 1,176-line checker; both are gone. What *can* still go wrong is two payload
+  files colliding on one destination, which `scripts/__tests__/sync.test.mjs`
+  covers.
+- **There is no staging.** Groups, `status`, `requires` and cohorts were
+  deleted: they sequenced a rollout to consumers, and no consumer is live. Do
+  not reintroduce a status field to defer a payload change — if something is
+  not ready to ship, it is not ready to merge.
 - **Portability is the standard for `core/`.** The test: would this still be
   true, unchanged, in a repository about a different product? A worked example
   naming one product is fine and often necessary — a *dependency* on one
@@ -53,21 +56,20 @@ No install step; the machinery is dependency-free Node.
 
 ```
 node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-manifest.mjs          # every payload file is actually routed
 node scripts/check-identity-sources.mjs  # every identity touchpoint classified
 node scripts/check-root-wiring.mjs       # this repo actually reaches its payload
 node scripts/check-settings-fields.mjs   # no settings field Claude Code would refuse
-node scripts/check-provenance-enabling.mjs  # no consumer gets the parser before the form
+node scripts/sync.mjs --to <repo> --dry-run   # what a consumer would receive
 ```
 
 These run in the two required checks on every pull request to `main` — `Test`
 and `Manifest`, which are the job names `.agents/machinery.json` lists. The
-number of *commands* is not the number of *checks*: the last five all run in
-`Manifest`, so adding one here adds no new required check and needs no branch-
-protection change. Run all six locally; a change that adds payload without a
-manifest entry, adds an identity touchpoint without classifying it, adds a
-skill without wiring it to the root, puts a field in a settings file that
-Claude Code refuses to load, or unstages the provenance parser ahead of the
-documents that teach the form is incomplete and one of them will say so. There is no build,
-no typecheck and no database in this repository — if you are looking for them,
-you are in the wrong repo.
+number of *commands* is not the number of *checks*: the three `check-*` scripts
+all run in `Manifest`, so adding one here adds no new required check and needs
+no branch-protection change. (`Manifest` no longer checks a manifest; the name
+is kept because it is a required check, and renaming it is a branch-protection
+change rather than a code change.) A change that adds an identity touchpoint
+without classifying it, adds a skill without wiring it to the root, or puts a
+field in a settings file that Claude Code refuses to load is incomplete and one
+of them will say so. There is no build, no typecheck and no database in this
+repository — if you are looking for them, you are in the wrong repo.

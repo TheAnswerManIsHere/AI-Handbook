@@ -96,7 +96,7 @@ test("a missing file is a failure, not a skip", () => {
   // excluded a missing file from `problems`, so deleting or renaming
   // .claude/settings.json printed OK while every local guard had vanished —
   // and nothing else in CI covers that, since check-root-wiring explicitly
-  // excludes this file and check-manifest only sees the payload.
+  // excludes this file.
   withTree({}, (dir) => {
     const r = checkFile("core/.claude/settings.template.json", dir);
     assert.equal(r.missing, true, "absence must be recorded");

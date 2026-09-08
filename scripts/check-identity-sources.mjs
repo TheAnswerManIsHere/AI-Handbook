@@ -18,8 +18,9 @@
  * config read, is stamped into every artifact, and is compared on every
  * consume" is a claim someone has to answer for line by line -- and so a new
  * touchpoint fails the build until they do, and a vanished one fails too.
- * It is the `mentions:` design from sync-manifest.yml: the tool cannot judge
- * a read, so it refuses to guess and makes a human say which it is.
+ * The tool cannot judge a read, so it refuses to guess and makes a human say
+ * which it is. (This borrowed its shape from the deleted manifest's
+ * `mentions:` design, which is gone; the principle is this file's own.)
  *
  * WHAT IT CANNOT DO. It keys on the line of code, so a touchpoint whose
  * behaviour changes while its text stays the same does not fail. It matches
