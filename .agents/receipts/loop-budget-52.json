@@ -1,0 +1,9 @@
+{
+  "pr": 52,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 70,
+  "artifact": "check-manifest.mjs cohort condensation + flipsWith declaration rule, and the sync-manifest.yml declarations it forces",
+  "declaredAt": "2026-09-08T01:57:24.801Z"
+}
