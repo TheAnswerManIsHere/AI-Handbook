@@ -212,6 +212,12 @@ groups:
       - planning
       - memory
       - skills
+    flipsWith:
+      - agent-definitions
+      - engineering
+      - memory
+      - planning
+      - skills
     mentions:
       - group: guard
         ref: core/.claude/guard.sh
@@ -288,6 +294,12 @@ groups:
     requires:
       - contracts
       - memory
+    flipsWith:
+      - agent-definitions
+      - contracts
+      - memory
+      - planning
+      - skills
     mentions:
       - group: guard
         ref: core/.claude/guard.sh
@@ -327,6 +339,12 @@ groups:
     requires:
       - contracts
       - engineering
+    flipsWith:
+      - agent-definitions
+      - contracts
+      - engineering
+      - memory
+      - skills
     blocker: >
       The template's required procedure runs through other groups: its
       preflight cites agent-working-rules.md and four working-modes.md sections
@@ -348,6 +366,12 @@ groups:
     status: staged
     requires:
       - contracts
+    flipsWith:
+      - agent-definitions
+      - contracts
+      - engineering
+      - planning
+      - skills
     mentions:
       - group: claude-core
         ref: core/scripts/check-docs-accuracy.mjs
@@ -485,6 +509,12 @@ groups:
       - machinery
       - contracts
       - agent-definitions
+    flipsWith:
+      - agent-definitions
+      - contracts
+      - engineering
+      - memory
+      - planning
     mentions:
       - group: guard
         ref: core/.claude/guard.sh
@@ -589,6 +619,12 @@ groups:
     status: staged
     requires:
       - skills
+    flipsWith:
+      - contracts
+      - engineering
+      - memory
+      - planning
+      - skills
     blocker: >
       adversarial-modeler and semgrep-scanner are spawned by the
       differential-review and semgrep skills, and they route back into those
@@ -688,6 +724,8 @@ groups:
       # mode, and the scripts are sync (the handbook owns them) while the
       # config is seed (the consumer owns it after the first write). So the
       # two flip in one commit, the way claude-core and planning already do.
+      - machinery-config
+    flipsWith:
       - machinery-config
     mentions:
       - group: skills
@@ -1225,6 +1263,8 @@ groups:
     mode: seed
     status: staged
     requires:
+      - machinery
+    flipsWith:
       - machinery
     blocker: >
       Seeded alone this file is inert -- nothing reads it until the scripts

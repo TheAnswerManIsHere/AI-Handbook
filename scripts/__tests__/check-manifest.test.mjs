@@ -10,6 +10,7 @@ import {
   mentionsForm,
   distinctReferences,
   walk,
+  cohorts,
 } from "../check-manifest.mjs";
 
 // The point of this suite is the FAILING cases. A manifest checker that only
@@ -170,6 +171,179 @@ test("a staged group may require another staged group", () => {
     allExist,
   );
   assert.deepEqual(problems, []);
+});
+
+test("DETECTS an undeclared cohort", () => {
+  // The 2026-09-08 bug's signature. Two groups requiring each other with
+  // nothing declaring it: before the fix this passed every check while making
+  // the payload permanently unshippable, because the readiness rule could not
+  // express "these two land together" and so neither ever could.
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "staged", blocker: "b", requires: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("do not declare it")), problems.join("\n"));
+});
+
+test("a DECLARED cohort is accepted, and its members may flip together", () => {
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "ready", requires: ["config"], flipsWith: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "ready", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS a stale flipsWith left on a group whose cohort dissolved", () => {
+  // Codex, #52 round 1. The drift protection skipped singletons entirely, so
+  // breaking a mutual edge left both groups carrying a declaration that says
+  // they land together with nothing to contradict it — the declaration
+  // outliving the graph it describes, which is what this rule is for.
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "ready", flipsWith: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("is in no cohort")), problems.join("\n"));
+});
+
+test("a group missing an id is reported, not a crash", () => {
+  // Codex, #52 round 2. The unnamed group is excluded from groupsById but was
+  // still entering the cohort graph as an `undefined` node, and the singleton
+  // rule then dereferenced groupsById.get(undefined). A malformed manifest
+  // must produce the list of what is wrong with it, not a stack trace that
+  // discards every problem found so far.
+  const problems = check(
+    manifest([
+      { mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "docs", mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('missing an "id"')), problems.join("\n"));
+});
+
+test("DETECTS a flipsWith that is not a list of ids", () => {
+  // Codex, #52 round 2. `flipsWith` became a known key in this change, which
+  // took it out of the unknown-key guard's reach — so a scalar reached the
+  // cohort rules, where `.length` is undefined and the declaration passed by
+  // looking empty.
+  for (const bad of [true, 1, "machinery", ["ok", 7]]) {
+    const problems = check(
+      manifest([
+        { id: "docs", mode: "sync", status: "staged", blocker: "b", flipsWith: bad, paths: [{ from: "core/a.md", to: "a.md" }] },
+        { id: "tools", mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/dir/", to: "dir/" }] },
+      ]),
+      FILES,
+      allExist,
+    );
+    assert.ok(
+      problems.some((p) => p.includes("flipsWith must be a list of group ids")),
+      `expected a shape refusal for ${JSON.stringify(bad)}: ${problems.join("\n")}`,
+    );
+  }
+});
+
+test("cohort drift is compared element-wise, not through a delimiter", () => {
+  // Codex, #52 round 2. Group ids carry no character restriction, so joining
+  // both lists on "|" lets ["a", "b|c"] and ["a|b", "c"] compare equal — a
+  // wrong declaration reading as correct, in the rule whose whole job is
+  // catching a wrong declaration.
+  assert.deepEqual(
+    check(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "b", requires: ["b|c"], flipsWith: ["b|c"], paths: [{ from: "core/a.md", to: "a.md" }] },
+        { id: "b|c", mode: "sync", status: "staged", blocker: "b", requires: ["a"], flipsWith: ["a"], paths: [{ from: "core/dir/", to: "dir/" }] },
+      ]),
+      FILES,
+      allExist,
+    ),
+    [],
+    "a correct declaration containing the delimiter must still pass",
+  );
+
+  const problems = check(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "b", requires: ["b|c"], flipsWith: ["b", "c"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "b|c", mode: "sync", status: "staged", blocker: "b", requires: ["a"], flipsWith: ["a"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(
+    problems.some((p) => p.includes("fallen behind the dependency graph")),
+    `["b","c"] must not compare equal to ["b|c"]: ${problems.join("\n")}`,
+  );
+});
+
+test("DETECTS a flipsWith that has fallen behind the graph", () => {
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "staged", blocker: "b", requires: ["config"], flipsWith: ["docs"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/b.md", to: "b.md" }] },
+      { id: "docs", mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/dir/c.md", to: "c.md" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("fallen behind the dependency graph")), problems.join("\n"));
+});
+
+test("DETECTS mutual groups whose statuses disagree", () => {
+  // They flip in one commit, so they must agree. Without this the pair is
+  // exempt from the cross-cohort readiness rule and a consumer could receive
+  // the scripts without the config file they open.
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "ready", requires: ["config"], flipsWith: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("must share a status")), problems.join("\n"));
+});
+
+test("the real manifest's cohorts are the two known ones", () => {
+  // Pins the two cohorts, and NOTHING about the rollout order. `requires` is
+  // only one of the gates: `check-provenance-enabling.mjs` runs in the same CI
+  // job and independently refuses to let the machinery ship ahead of the
+  // documents that teach the form it parses, which this assertion cannot see.
+  // An earlier version of this comment claimed the cohorts established a
+  // seven-step rollout; they do not, and #53 is where the real order gets
+  // computed against both gates. What this does catch is a future edit that
+  // knots another group in, growing an all-at-once flip silently.
+  const real = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const byId = new Map(real.groups.map((g) => [g.id, g]));
+  const multi = [...new Set(cohorts(real.groups, byId).values())].filter((c) => c.length > 1).sort();
+  assert.deepEqual(multi, [
+    ["agent-definitions", "contracts", "engineering", "memory", "planning", "skills"],
+    ["machinery", "machinery-config"],
+  ]);
+});
+
+test("cohorts condenses a cycle and leaves independent groups alone", () => {
+  const groups = [
+    { id: "a", requires: ["b"] },
+    { id: "b", requires: ["a"] },
+    { id: "c", requires: ["a"] },
+  ];
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const co = cohorts(groups, byId);
+  assert.deepEqual(co.get("a"), ["a", "b"]);
+  assert.equal(co.get("a"), co.get("b"), "cohort identity is shared by reference");
+  assert.deepEqual(co.get("c"), ["c"]);
 });
 
 test("DETECTS a requires: naming a group that does not exist", () => {
