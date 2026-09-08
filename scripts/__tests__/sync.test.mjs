@@ -101,71 +101,25 @@ test("a seed IS written when the consumer does not have it yet", () => {
   }
 });
 
-test("a file that leaves the payload is removed from the consumer", () => {
-  // Copying only ever adds, so without this a deleted contract stays loaded
-  // in every consumer forever -- the second source of truth this repo exists
-  // to remove, arriving through the mechanism meant to prevent it.
+test("the sync never deletes anything, including files it no longer ships", () => {
+  // A removing sync was written and reverted: one review round found four
+  // ways it deleted the wrong thing, and it was guarding a hazard with no
+  // instances (no consumer has ever been synced). This pins the ADD-ONLY
+  // contract so a future removal feature is a deliberate change to it, not
+  // an accident. Removal is tracked separately.
   const dest = fresh();
   try {
     sync(dest, { log: silent });
-    // Simulate a previous sync having delivered a file this one does not.
-    const ghost = join(dest, "docs/ai-context/retired-contract.md");
-    mkdirSync(dirname(ghost), { recursive: true });
-    writeFileSync(ghost, "a contract the handbook no longer ships");
-    const ledger = join(dest, ".agents/synced-files.json");
-    const rec = JSON.parse(readFileSync(ledger, "utf8"));
-    rec.files.push("docs/ai-context/retired-contract.md");
-    writeFileSync(ledger, JSON.stringify(rec));
-
-    const counts = sync(dest, { log: silent });
-    assert.equal(counts.removed, 1);
-    assert.ok(!existsSync(ghost), "the retired file should be gone");
-  } finally {
-    rmSync(dest, { recursive: true, force: true });
-  }
-});
-
-test("a consumer's own files are never removed, wherever they sit", () => {
-  // Only paths the ledger records as delivered are ever deleted. A consumer
-  // file living under a directory the payload also writes into must survive.
-  const dest = fresh();
-  try {
-    sync(dest, { log: silent });
+    const stale = join(dest, "docs/ai-context/no-longer-shipped.md");
+    mkdirSync(dirname(stale), { recursive: true });
+    writeFileSync(stale, "a file the payload does not contain");
     const theirs = join(dest, "docs/ai-context/this-product-only.md");
-    mkdirSync(dirname(theirs), { recursive: true });
     writeFileSync(theirs, "product-specific, not ours");
 
-    const counts = sync(dest, { log: silent });
-    assert.equal(counts.removed, 0);
+    sync(dest, { log: silent });
+
+    assert.ok(existsSync(stale), "an unshipped file must survive a re-sync");
     assert.equal(readFileSync(theirs, "utf8"), "product-specific, not ours");
-  } finally {
-    rmSync(dest, { recursive: true, force: true });
-  }
-});
-
-test("a seed the consumer already owned is never recorded as deliverable", () => {
-  // If an owned seed entered the ledger, a later sync could delete a
-  // consumer's own settings.json -- the worst outcome available here.
-  const dest = fresh();
-  try {
-    sync(dest, { log: silent });
-    const rec = JSON.parse(readFileSync(join(dest, ".agents/synced-files.json"), "utf8"));
-    // First sync WROTE both seeds, so they are absent from the delivered list
-    // either way; assert the invariant directly.
-    assert.ok(!rec.files.includes(".claude/settings.json"));
-    assert.ok(!rec.files.includes(".agents/machinery.json"));
-  } finally {
-    rmSync(dest, { recursive: true, force: true });
-  }
-});
-
-test("a missing or malformed ledger removes nothing", () => {
-  const dest = fresh();
-  try {
-    sync(dest, { log: silent });
-    writeFileSync(join(dest, ".agents/synced-files.json"), "{ not json");
-    const counts = sync(dest, { log: silent });
-    assert.equal(counts.removed, 0);
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }

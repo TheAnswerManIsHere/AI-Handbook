@@ -75,14 +75,25 @@ retried.
   and paste anything that looks alarming into the chat for triage. Never
   silently skip the section, and never retry a 403 policy denial.
 
-**Verified working recipe (2026-07-23).** Org slug is `overhypeme`. The
-token is scoped **Issue & Event: Read only** (least privilege), which is
-enough for the one endpoint this section needs:
+**The org slug is THIS repository's, and it is not written here.** This file
+is fleet payload: every product that receives it has its own Sentry
+organization, so a slug hardcoded in the recipe would point one product's
+maintenance pass at another product's incidents. Take the slug from this
+repo's own overlay or its Sentry connector, and if it is not recorded in
+either, ask rather than guess — a wrong slug returns a plausible-looking
+list of somebody else's errors.
+
+**Verified working recipe (2026-07-23).** The token is scoped **Issue &
+Event: Read only** (least privilege), which is enough for the one endpoint
+this section needs:
 
 ```
-GET https://sentry.io/api/0/organizations/overhypeme/issues/?statsPeriod=7d&query=is:unresolved
+GET https://sentry.io/api/0/organizations/<this-repo's-org-slug>/issues/?statsPeriod=7d&query=is:unresolved
     Authorization: Bearer $SENTRY_AUTH_TOKEN
 ```
+
+(The recipe was verified against Overhype.me's organization; that is the
+example it was proved on, not the value to use.)
 
 Each returned issue carries `title`, `culprit`, `count`, `permalink`, and
 a `shortId` whose prefix identifies the project. **A `403` from the
