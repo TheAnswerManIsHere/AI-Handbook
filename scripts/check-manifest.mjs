@@ -520,7 +520,24 @@ export function check(manifest, payloadFiles, exists) {
   // safety net while catching nothing. The real risk after condensation is not
   // deadlock but cohort GROWTH, which is what this checks instead.
   for (const cohort of new Set(cohortOf.values())) {
-    if (cohort.length < 2) continue;
+    // A SINGLETON MUST DECLARE NOTHING. Skipping singletons outright left the
+    // drift protection with a hole at exactly the moment it matters: break a
+    // mutual edge and the groups fall out of the cohort still carrying the
+    // `flipsWith` that says they land together, with nothing to contradict
+    // them. The declaration would then outlive the graph it describes, which
+    // is the failure this rule exists to catch. (Codex, #52 round 1.)
+    if (cohort.length < 2) {
+      const [only] = cohort;
+      const stale = groupsById.get(only).flipsWith ?? [];
+      if (stale.length) {
+        problems.push(
+          `${only}: declares flipsWith [${[...stale].sort().join(", ")}] but is in no cohort — ` +
+            `nothing requires it back, so it flips alone. Remove the declaration, or restore the ` +
+            `mutual dependency it claims.`,
+        );
+      }
+      continue;
+    }
     const declared = cohort.filter((id) => (groupsById.get(id).flipsWith ?? []).length);
     if (declared.length !== cohort.length) {
       problems.push(

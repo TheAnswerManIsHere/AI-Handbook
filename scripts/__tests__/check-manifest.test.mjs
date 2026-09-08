@@ -201,6 +201,22 @@ test("a DECLARED cohort is accepted, and its members may flip together", () => {
   assert.deepEqual(problems, []);
 });
 
+test("DETECTS a stale flipsWith left on a group whose cohort dissolved", () => {
+  // Codex, #52 round 1. The drift protection skipped singletons entirely, so
+  // breaking a mutual edge left both groups carrying a declaration that says
+  // they land together with nothing to contradict it — the declaration
+  // outliving the graph it describes, which is what this rule is for.
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "ready", flipsWith: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("is in no cohort")), problems.join("\n"));
+});
+
 test("DETECTS a flipsWith that has fallen behind the graph", () => {
   const problems = check(
     manifest([
