@@ -8,7 +8,7 @@
  * consumer repo is quietly missing a rule. This check turns that into a red
  * build.
  *
- * It verifies five things:
+ * It verifies six things:
  *   1. Every file under `core/` is covered by exactly one manifest group.
  *   2. Every path a group declares actually exists.
  *   3. No two groups write to the same destination — compared per RESOLVED
@@ -24,6 +24,20 @@
  *      Shipping a contract whose procedure invokes a script the consumer will
  *      not receive hands that consumer instructions it cannot follow, which is
  *      worse than not shipping it — it looks governed without being governed.
+ *      MUTUAL dependencies are exempt from this and constrained instead by
+ *      rule 6: two groups that require each other cannot arrive in an order,
+ *      so they arrive together.
+ *   6. Every multi-group cohort is DECLARED with `flipsWith`. Groups that
+ *      require each other cannot arrive in an order, so they arrive in one
+ *      commit — which is legitimate, and is why cycles are condensed rather
+ *      than forbidden (see `cohorts()`). What is not legitimate is letting
+ *      that happen silently: an undeclared cohort turns "unstage group by
+ *      group" into an all-at-once flip with nothing saying so. Until
+ *      2026-09-08 this went further than silent — `machinery` and
+ *      `machinery-config` required each other at the root of a graph where
+ *      every other group needs `machinery`, the readiness rule below could
+ *      not express "these two land together", and so all thirteen groups were
+ *      permanently unshippable while this check reported OK.
  *
  * Deliberately dependency-free, matching the rest of the machinery. The YAML
  * reader below understands only the subset this manifest uses and THROWS on
@@ -47,7 +61,7 @@ const STATUSES = new Set(["ready", "staged"]);
 // one as absent, and a ready group passes the readiness gate with its
 // dependency silently dropped. Groups legitimately omit `requires`, so absence
 // cannot be the signal -- the spelling has to be.
-const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "mentions", "blocker", "description", "paths"]);
+const GROUP_KEYS = new Set(["id", "mode", "status", "requires", "flipsWith", "mentions", "blocker", "description", "paths"]);
 const MENTION_KEYS = new Set(["group", "ref", "from", "form", "count", "why"]);
 const PATH_KEYS = new Set(["from", "to", "exclude"]);
 const CONSUMER_KEYS = new Set(["repo", "enrolled"]);
@@ -445,18 +459,86 @@ export function check(manifest, payloadFiles, exists) {
     }
   }
 
-  // Readiness is transitive. A group is only as ready as the groups it needs.
+  // Every `requires` target must name a real group. Checked first and
+  // separately, because both rules below build a graph from these edges and a
+  // dangling edge would silently drop a dependency from it.
+  for (const group of manifest.groups ?? []) {
+    for (const req of group.requires ?? []) {
+      if (!groupsById.has(req)) {
+        problems.push(`${group.id}: requires "${req}", which is not a group in this manifest`);
+      }
+    }
+  }
+
+  // Readiness is transitive, and a COHORT is the unit. A group is only as
+  // ready as the groups it needs -- except the ones that need it back, which
+  // cannot arrive in an order and so arrive together.
+  const cohortOf = cohorts(manifest.groups ?? [], groupsById);
+
+  // Mutual groups flip in one commit, so they must agree about their status.
+  // Without this, `machinery` could go ready while `machinery-config` stayed
+  // staged: the pair is exempt from the cross-cohort rule below, so nothing
+  // else would catch a consumer receiving scripts that refuse for want of the
+  // config file they open.
+  for (const cohort of new Set(cohortOf.values())) {
+    if (cohort.length < 2) continue;
+    const statuses = new Set(cohort.map((id) => groupsById.get(id).status));
+    if (statuses.size > 1) {
+      const shown = cohort.map((id) => `${id}=${groupsById.get(id).status}`).join(", ");
+      problems.push(
+        `${cohort.join(" and ")} require each other, so they flip in one commit and must share a ` +
+          `status — got ${shown}. Either move them together or break the mutual dependency.`,
+      );
+    }
+  }
+
   for (const group of manifest.groups ?? []) {
     for (const req of group.requires ?? []) {
       const dep = groupsById.get(req);
-      if (!dep) {
-        problems.push(`${group.id}: requires "${req}", which is not a group in this manifest`);
-        continue;
-      }
+      if (!dep) continue; // already reported above
+      // Same cohort: constrained by the shared-status rule, not this one.
+      if (cohortOf.get(group.id) === cohortOf.get(req)) continue;
       if (group.status === "ready" && dep.status !== "ready") {
         problems.push(
           `${group.id} is ready but requires "${req}", which is ${dep.status} — ` +
             `a consumer would receive instructions referring to files it will not get`,
+        );
+      }
+    }
+  }
+
+  // Rule 6: a multi-group cohort must be DECLARED. Condensing cycles is what
+  // makes the payload shippable at all, but it is also silent: any new mutual
+  // edge simply grows a cohort, and a cohort is an all-at-once flip. Left
+  // undeclared, "unstage it group by group" quietly becomes "unstage six
+  // groups in one commit" with nothing saying so.
+  //
+  // There is deliberately NO reachability rule here. An earlier draft of this
+  // fix asserted that an unstaging order exists; that check cannot fail, since
+  // condensing every cycle leaves a DAG by construction and a DAG always has
+  // an order. A rule that cannot fire is worse than no rule -- it reads as a
+  // safety net while catching nothing. The real risk after condensation is not
+  // deadlock but cohort GROWTH, which is what this checks instead.
+  for (const cohort of new Set(cohortOf.values())) {
+    if (cohort.length < 2) continue;
+    const declared = cohort.filter((id) => (groupsById.get(id).flipsWith ?? []).length);
+    if (declared.length !== cohort.length) {
+      problems.push(
+        `${cohort.join(", ")} require each other and so flip in a single commit, but ` +
+          `${cohort.filter((id) => !(groupsById.get(id).flipsWith ?? []).length).join(", ")} ` +
+          `${declared.length === cohort.length - 1 ? "does" : "do"} not declare it. Add ` +
+          `\`flipsWith\` naming the others, or break the mutual dependency — an undeclared cohort ` +
+          `turns a staged rollout into an all-at-once one silently.`,
+      );
+      continue;
+    }
+    for (const id of cohort) {
+      const claimed = [...(groupsById.get(id).flipsWith ?? [])].sort();
+      const actual = cohort.filter((other) => other !== id);
+      if (claimed.join("|") !== actual.join("|")) {
+        problems.push(
+          `${id}: flipsWith says [${claimed.join(", ")}] but its actual cohort is ` +
+            `[${actual.join(", ")}] — the declaration has fallen behind the dependency graph`,
         );
       }
     }
@@ -474,6 +556,83 @@ export function check(manifest, payloadFiles, exists) {
  * Shared by the coverage check and the dependency derivation so the two can
  * never disagree about ownership.
  */
+/**
+ * Groups that must flip together, keyed by group id.
+ *
+ * Two groups that require each other cannot arrive in an order — the design
+ * intent (recorded on `machinery`'s own requires) is that they land in one
+ * commit. The readiness rule could not express that: a mutual pair reads as
+ * "each waits for the other" and neither ever moves. So cycles are CONDENSED
+ * rather than forbidden. Each strongly-connected component becomes one
+ * cohort, and the cohort is what the order is computed over — the standard
+ * condensation, and the reason rule 6 can assert an order exists at all,
+ * since a graph of cohorts is acyclic by construction.
+ *
+ * Forbidding cycles outright was the other option and is worse: it would make
+ * "these two land together" unsayable, and the manifest has to say it — the
+ * scripts open a config file that is inert without them, which is a genuine
+ * mutual dependency and not a modelling error.
+ *
+ * Iterative Tarjan. Recursion would be fine at thirteen groups, but this runs
+ * in a build on a manifest that only grows, and a stack overflow in a check
+ * reads as a broken check rather than as a big manifest.
+ */
+export function cohorts(groups, groupsById) {
+  const edges = new Map(groups.map((g) => [g.id, (g.requires ?? []).filter((r) => groupsById.has(r))]));
+  const index = new Map();
+  const low = new Map();
+  const onStack = new Set();
+  const stack = [];
+  const out = new Map();
+  let counter = 0;
+
+  for (const root of edges.keys()) {
+    if (index.has(root)) continue;
+    // Each frame is [node, position in its edge list].
+    const work = [[root, 0]];
+    while (work.length) {
+      const frame = work[work.length - 1];
+      const [v, i] = frame;
+      if (i === 0) {
+        index.set(v, counter);
+        low.set(v, counter);
+        counter += 1;
+        stack.push(v);
+        onStack.add(v);
+      }
+      const deps = edges.get(v) ?? [];
+      if (i < deps.length) {
+        frame[1] += 1;
+        const w = deps[i];
+        if (!index.has(w)) work.push([w, 0]);
+        else if (onStack.has(w)) low.set(v, Math.min(low.get(v), index.get(w)));
+        continue;
+      }
+      // v is finished: fold its low-link into its parent, then close a
+      // component if v is one's root.
+      work.pop();
+      if (work.length) {
+        const parent = work[work.length - 1][0];
+        low.set(parent, Math.min(low.get(parent), low.get(v)));
+      }
+      if (low.get(v) === index.get(v)) {
+        const component = [];
+        for (;;) {
+          const w = stack.pop();
+          onStack.delete(w);
+          component.push(w);
+          if (w === v) break;
+        }
+        component.sort();
+        // One shared array per component, so callers can compare cohort
+        // identity by reference rather than by rebuilding a key.
+        for (const id of component) out.set(id, component);
+      }
+    }
+  }
+  return out;
+}
+
 export function ownersOf(manifest, payloadFiles) {
   const owner = new Map();
   for (const group of manifest.groups ?? []) {

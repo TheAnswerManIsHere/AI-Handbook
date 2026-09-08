@@ -10,6 +10,7 @@ import {
   mentionsForm,
   distinctReferences,
   walk,
+  cohorts,
 } from "../check-manifest.mjs";
 
 // The point of this suite is the FAILING cases. A manifest checker that only
@@ -170,6 +171,88 @@ test("a staged group may require another staged group", () => {
     allExist,
   );
   assert.deepEqual(problems, []);
+});
+
+test("DETECTS an undeclared cohort", () => {
+  // The 2026-09-08 bug's signature. Two groups requiring each other with
+  // nothing declaring it: before the fix this passed every check while making
+  // the payload permanently unshippable, because the readiness rule could not
+  // express "these two land together" and so neither ever could.
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "staged", blocker: "b", requires: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("do not declare it")), problems.join("\n"));
+});
+
+test("a DECLARED cohort is accepted, and its members may flip together", () => {
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "ready", requires: ["config"], flipsWith: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "ready", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.deepEqual(problems, []);
+});
+
+test("DETECTS a flipsWith that has fallen behind the graph", () => {
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "staged", blocker: "b", requires: ["config"], flipsWith: ["docs"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/b.md", to: "b.md" }] },
+      { id: "docs", mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/dir/c.md", to: "c.md" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("fallen behind the dependency graph")), problems.join("\n"));
+});
+
+test("DETECTS mutual groups whose statuses disagree", () => {
+  // They flip in one commit, so they must agree. Without this the pair is
+  // exempt from the cross-cohort readiness rule and a consumer could receive
+  // the scripts without the config file they open.
+  const problems = check(
+    manifest([
+      { id: "tools", mode: "sync", status: "ready", requires: ["config"], flipsWith: ["config"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "config", mode: "seed", status: "staged", blocker: "b", requires: ["tools"], flipsWith: ["tools"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes("must share a status")), problems.join("\n"));
+});
+
+test("the real manifest's cohorts are the two known ones", () => {
+  // Pins the shape of the shipped rollout: seven steps, not thirteen. A future
+  // edit that knots another group in fails here rather than silently turning
+  // the staged rollout into a bigger all-at-once flip.
+  const real = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
+  const byId = new Map(real.groups.map((g) => [g.id, g]));
+  const multi = [...new Set(cohorts(real.groups, byId).values())].filter((c) => c.length > 1).sort();
+  assert.deepEqual(multi, [
+    ["agent-definitions", "contracts", "engineering", "memory", "planning", "skills"],
+    ["machinery", "machinery-config"],
+  ]);
+});
+
+test("cohorts condenses a cycle and leaves independent groups alone", () => {
+  const groups = [
+    { id: "a", requires: ["b"] },
+    { id: "b", requires: ["a"] },
+    { id: "c", requires: ["a"] },
+  ];
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const co = cohorts(groups, byId);
+  assert.deepEqual(co.get("a"), ["a", "b"]);
+  assert.equal(co.get("a"), co.get("b"), "cohort identity is shared by reference");
+  assert.deepEqual(co.get("c"), ["c"]);
 });
 
 test("DETECTS a requires: naming a group that does not exist", () => {
