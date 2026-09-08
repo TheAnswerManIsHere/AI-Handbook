@@ -1,0 +1,9 @@
+{
+  "pr": 54,
+  "kind": "david",
+  "grant": 3,
+  "asOf": 4,
+  "authorization": "\"Option 1 with an additional grant of up to 3 more rounds\" — in reply to a 🛑 offering (1) rewrite the write path inside #54 around atomic rename, spending the last round of his previous grant, or (2) stop #54 and rebuild the copy tool as its own piece. He chose 1 and added three rounds.",
+  "decidedAt": "2026-09-08T22:20:00.000Z",
+  "reasoning": "Round 4 returned six findings on f3c5b43, including a reproduced destructive one: a HARD link at a payload destination passes the symlink guard -- correctly, since a hard link is a second name for an inode and lstat reports an ordinary file -- and copyFileSync then truncates the shared inode, overwriting a file outside the consumer. That is the fifth path defect in this file and it tripped the flip condition registered before the round: a fifth means the audit method failed, not that another guard is needed. A sixth in the same round (git ls-files line parsing, where Git quotes unusual names and trim() mutates whitespace) is the same shape. I stopped rather than sending a sixth patch and took the design question to David. The agreed direction dissolves the class instead of enumerating it: materialize the payload from the committed tree, and write via a temporary file plus atomic rename, which cannot follow a link, cannot truncate a shared inode, and cannot leave a partial file whether or not the cases were foreseen. Three of round 4's six findings go away with that change rather than being guarded."
+}
