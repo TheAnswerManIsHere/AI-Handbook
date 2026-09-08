@@ -393,11 +393,17 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    that skips the leash entirely: a product decision.** A product-shaped
    blocker — the adjudicator's `escalate`, or my own recognition that a
    finding is product-not-mechanical — goes to David immediately, at any
-   round, and is never ground through mechanically.
+   round, and is never ground through mechanically. **A mechanical round is
+   mine to grant** — the head moved only by bookkeeping (receipts, records,
+   machinery config, a merge of the base branch), no finding is being written
+   for, and no review or verdict is pending. Under budget I just request the
+   pass; only at an exhausted allowance do I commit a `david`-kind receipt
+   (`grant 2`, `asOf` the completed count) citing his standing grant of
+   2026-09-07, then request the pass so it covers the receipt. Once per loop.
 
 4. **No re-request without a behavioral change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
-   as behavioral. **Every review request carries pre-registered flip
+   as behavioral; rule 3's mechanical round is the one exception. **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
    written before the round runs. This is the only judgment-shaped device with a
    working record, and it works because it collides with an event instead of

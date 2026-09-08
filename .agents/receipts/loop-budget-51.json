@@ -1,0 +1,9 @@
+{
+  "pr": 51,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 50,
+  "artifact": "the mechanical-round rule ported to working-modes.md and claude-core.md",
+  "declaredAt": "2026-09-07T22:03:17.661Z"
+}
