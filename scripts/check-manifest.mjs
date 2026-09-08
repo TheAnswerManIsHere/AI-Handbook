@@ -473,7 +473,36 @@ export function check(manifest, payloadFiles, exists) {
   // Readiness is transitive, and a COHORT is the unit. A group is only as
   // ready as the groups it needs -- except the ones that need it back, which
   // cannot arrive in an order and so arrive together.
-  const cohortOf = cohorts(manifest.groups ?? [], groupsById);
+  //
+  // ONLY GROUPS WITH AN ID. A group missing `id` is already reported above and
+  // excluded from `groupsById`, but it would still enter the graph here as an
+  // `undefined` node, and the rules below would then dereference
+  // `groupsById.get(undefined)` and throw. A malformed manifest must produce
+  // the list of what is wrong with it, not a stack trace that discards every
+  // problem accumulated so far. (Codex, #52 round 2.)
+  const identified = (manifest.groups ?? []).filter((g) => groupsById.has(g.id));
+  const cohortOf = cohorts(identified, groupsById);
+
+  // `flipsWith` IS VALIDATED BEFORE IT IS READ. It became a known key in this
+  // change, which took it out of the unknown-key guard's reach -- so a scalar
+  // (`flipsWith: true`) would reach the rules below, where `.length` is
+  // `undefined`, and a malformed declaration would pass by looking empty.
+  // (Codex, #52 round 2.)
+  for (const group of identified) {
+    if (group.flipsWith === undefined) continue;
+    if (!Array.isArray(group.flipsWith) || group.flipsWith.some((id) => typeof id !== "string")) {
+      problems.push(
+        `${group.id}: flipsWith must be a list of group ids (got ${JSON.stringify(group.flipsWith)})`,
+      );
+    }
+  }
+  // Below this point a `flipsWith` is either absent or a string array; anything
+  // else has been reported, and reading it as empty is then the safe default
+  // rather than a silent pass.
+  const flipsWithOf = (id) => {
+    const declared = groupsById.get(id)?.flipsWith;
+    return Array.isArray(declared) && declared.every((x) => typeof x === "string") ? declared : [];
+  };
 
   // Mutual groups flip in one commit, so they must agree about their status.
   // Without this, `machinery` could go ready while `machinery-config` stayed
@@ -528,7 +557,7 @@ export function check(manifest, payloadFiles, exists) {
     // is the failure this rule exists to catch. (Codex, #52 round 1.)
     if (cohort.length < 2) {
       const [only] = cohort;
-      const stale = groupsById.get(only).flipsWith ?? [];
+      const stale = flipsWithOf(only);
       if (stale.length) {
         problems.push(
           `${only}: declares flipsWith [${[...stale].sort().join(", ")}] but is in no cohort — ` +
@@ -538,11 +567,11 @@ export function check(manifest, payloadFiles, exists) {
       }
       continue;
     }
-    const declared = cohort.filter((id) => (groupsById.get(id).flipsWith ?? []).length);
+    const declared = cohort.filter((id) => flipsWithOf(id).length);
     if (declared.length !== cohort.length) {
       problems.push(
         `${cohort.join(", ")} require each other and so flip in a single commit, but ` +
-          `${cohort.filter((id) => !(groupsById.get(id).flipsWith ?? []).length).join(", ")} ` +
+          `${cohort.filter((id) => !flipsWithOf(id).length).join(", ")} ` +
           `${declared.length === cohort.length - 1 ? "does" : "do"} not declare it. Add ` +
           `\`flipsWith\` naming the others, or break the mutual dependency — an undeclared cohort ` +
           `turns a staged rollout into an all-at-once one silently.`,
@@ -550,9 +579,16 @@ export function check(manifest, payloadFiles, exists) {
       continue;
     }
     for (const id of cohort) {
-      const claimed = [...(groupsById.get(id).flipsWith ?? [])].sort();
+      const claimed = [...flipsWithOf(id)].sort();
       const actual = cohort.filter((other) => other !== id);
-      if (claimed.join("|") !== actual.join("|")) {
+      // ELEMENT-WISE, never a joined string. Group ids carry no character
+      // restriction, so a delimiter comparison collides: ["a", "b|c"] and
+      // ["a|b", "c"] join to the same thing and a wrong declaration would read
+      // as correct -- in the rule whose entire job is catching a wrong
+      // declaration. (Codex, #52 round 2.)
+      const drifted =
+        claimed.length !== actual.length || claimed.some((id, i) => id !== actual[i]);
+      if (drifted) {
         problems.push(
           `${id}: flipsWith says [${claimed.join(", ")}] but its actual cohort is ` +
             `[${actual.join(", ")}] — the declaration has fallen behind the dependency graph`,

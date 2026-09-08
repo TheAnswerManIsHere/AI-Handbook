@@ -217,6 +217,76 @@ test("DETECTS a stale flipsWith left on a group whose cohort dissolved", () => {
   assert.ok(problems.some((p) => p.includes("is in no cohort")), problems.join("\n"));
 });
 
+test("a group missing an id is reported, not a crash", () => {
+  // Codex, #52 round 2. The unnamed group is excluded from groupsById but was
+  // still entering the cohort graph as an `undefined` node, and the singleton
+  // rule then dereferenced groupsById.get(undefined). A malformed manifest
+  // must produce the list of what is wrong with it, not a stack trace that
+  // discards every problem found so far.
+  const problems = check(
+    manifest([
+      { mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "docs", mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(problems.some((p) => p.includes('missing an "id"')), problems.join("\n"));
+});
+
+test("DETECTS a flipsWith that is not a list of ids", () => {
+  // Codex, #52 round 2. `flipsWith` became a known key in this change, which
+  // took it out of the unknown-key guard's reach — so a scalar reached the
+  // cohort rules, where `.length` is undefined and the declaration passed by
+  // looking empty.
+  for (const bad of [true, 1, "machinery", ["ok", 7]]) {
+    const problems = check(
+      manifest([
+        { id: "docs", mode: "sync", status: "staged", blocker: "b", flipsWith: bad, paths: [{ from: "core/a.md", to: "a.md" }] },
+        { id: "tools", mode: "sync", status: "staged", blocker: "b", paths: [{ from: "core/dir/", to: "dir/" }] },
+      ]),
+      FILES,
+      allExist,
+    );
+    assert.ok(
+      problems.some((p) => p.includes("flipsWith must be a list of group ids")),
+      `expected a shape refusal for ${JSON.stringify(bad)}: ${problems.join("\n")}`,
+    );
+  }
+});
+
+test("cohort drift is compared element-wise, not through a delimiter", () => {
+  // Codex, #52 round 2. Group ids carry no character restriction, so joining
+  // both lists on "|" lets ["a", "b|c"] and ["a|b", "c"] compare equal — a
+  // wrong declaration reading as correct, in the rule whose whole job is
+  // catching a wrong declaration.
+  assert.deepEqual(
+    check(
+      manifest([
+        { id: "a", mode: "sync", status: "staged", blocker: "b", requires: ["b|c"], flipsWith: ["b|c"], paths: [{ from: "core/a.md", to: "a.md" }] },
+        { id: "b|c", mode: "sync", status: "staged", blocker: "b", requires: ["a"], flipsWith: ["a"], paths: [{ from: "core/dir/", to: "dir/" }] },
+      ]),
+      FILES,
+      allExist,
+    ),
+    [],
+    "a correct declaration containing the delimiter must still pass",
+  );
+
+  const problems = check(
+    manifest([
+      { id: "a", mode: "sync", status: "staged", blocker: "b", requires: ["b|c"], flipsWith: ["b", "c"], paths: [{ from: "core/a.md", to: "a.md" }] },
+      { id: "b|c", mode: "sync", status: "staged", blocker: "b", requires: ["a"], flipsWith: ["a"], paths: [{ from: "core/dir/", to: "dir/" }] },
+    ]),
+    FILES,
+    allExist,
+  );
+  assert.ok(
+    problems.some((p) => p.includes("fallen behind the dependency graph")),
+    `["b","c"] must not compare equal to ["b|c"]: ${problems.join("\n")}`,
+  );
+});
+
 test("DETECTS a flipsWith that has fallen behind the graph", () => {
   const problems = check(
     manifest([
@@ -246,9 +316,14 @@ test("DETECTS mutual groups whose statuses disagree", () => {
 });
 
 test("the real manifest's cohorts are the two known ones", () => {
-  // Pins the shape of the shipped rollout: seven steps, not thirteen. A future
-  // edit that knots another group in fails here rather than silently turning
-  // the staged rollout into a bigger all-at-once flip.
+  // Pins the two cohorts, and NOTHING about the rollout order. `requires` is
+  // only one of the gates: `check-provenance-enabling.mjs` runs in the same CI
+  // job and independently refuses to let the machinery ship ahead of the
+  // documents that teach the form it parses, which this assertion cannot see.
+  // An earlier version of this comment claimed the cohorts established a
+  // seven-step rollout; they do not, and #53 is where the real order gets
+  // computed against both gates. What this does catch is a future edit that
+  // knots another group in, growing an all-at-once flip silently.
   const real = parseManifestYaml(readFileSync(new URL("../../sync-manifest.yml", import.meta.url), "utf8"));
   const byId = new Map(real.groups.map((g) => [g.id, g]));
   const multi = [...new Set(cohorts(real.groups, byId).values())].filter((c) => c.length > 1).sort();
