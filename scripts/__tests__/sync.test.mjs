@@ -1,13 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { routeOf, payloadFiles, sync } from "../sync.mjs";
+import { routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath } from "../sync.mjs";
 
 const silent = () => {};
 const fresh = () => mkdtempSync(join(tmpdir(), "sync-test-"));
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 test("a plain payload file keeps its path, minus the core/ prefix", () => {
   assert.deepEqual(routeOf("scripts/pr-ready.mjs"), { to: "scripts/pr-ready.mjs", seed: false });
@@ -131,6 +133,98 @@ test("a dry run reports what it would do and writes nothing", () => {
     const counts = sync(dest, { dryRun: true, log: silent });
     assert.equal(counts.copied + counts.seeded, payloadFiles().length);
     assert.ok(!existsSync(join(dest, ".claude/guard.sh")));
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("a symlink at a destination FILE is refused, not followed", () => {
+  // Measured before the fix: copyFileSync followed the link and overwrote a
+  // file entirely outside the consumer, while the run reported success.
+  const dest = fresh();
+  const outside = fresh();
+  try {
+    const victim = join(outside, "victim.md");
+    writeFileSync(victim, "PRECIOUS");
+    mkdirSync(join(dest, "docs/engineering"), { recursive: true });
+    symlinkSync(victim, join(dest, "docs/engineering/code-review.md"));
+
+    assert.throws(() => sync(dest, { log: silent }), /refusing to write through a symlink/);
+    assert.equal(readFileSync(victim, "utf8"), "PRECIOUS", "the external file must be untouched");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("a symlink at an intermediate DIRECTORY is refused too", () => {
+  // The quieter half: mkdirSync(..., {recursive:true}) traverses a linked
+  // directory without complaint, and then every file beneath it lands
+  // outside the consumer.
+  const dest = fresh();
+  const outside = fresh();
+  try {
+    mkdirSync(join(outside, "engineering"), { recursive: true });
+    mkdirSync(join(dest, "docs"), { recursive: true });
+    symlinkSync(join(outside, "engineering"), join(dest, "docs/engineering"));
+
+    assert.throws(() => sync(dest, { log: silent }), /refusing to write through a symlink/);
+    assert.ok(!existsSync(join(outside, "engineering/code-review.md")), "nothing may land outside");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("the payload is enumerated from git, so ignored evidence never ships", () => {
+  // core/.agents/receipts/pr-*.json are live readiness receipts, gitignored
+  // here and at the destination. A filesystem walk includes them; a foreign
+  // receipt landing in a consumer overwrites its own and makes its merge
+  // guard refuse, with nothing saying why.
+  //
+  // This test CREATES the condition rather than asserting over whatever the
+  // tree happens to hold. Written first as a plain assertion over the real
+  // payload, it passed with the bug present -- there were no ignored files at
+  // that moment -- which is a test that proves nothing.
+  const ignored = join(REPO_ROOT, "core/.agents/receipts/pr-999999.json");
+  writeFileSync(ignored, '{"pr":999999}');
+  try {
+    const files = payloadFiles();
+    assert.ok(files.length > 100, `expected a real payload, got ${files.length}`);
+    assert.ok(existsSync(ignored), "the ignored file is really on disk");
+    assert.ok(
+      !files.some((f) => f.includes("pr-999999")),
+      "a gitignored receipt must not be enumerated as payload",
+    );
+    assert.ok(!files.some((f) => /loop-round-check-/.test(f)), "no round-check receipts");
+  } finally {
+    rmSync(ignored, { force: true });
+  }
+});
+
+test("payload paths are forward-slash separated regardless of platform", () => {
+  // routeOf splits on "/". Feeding it path.relative output reintroduces the
+  // platform-separator defect the removal path was reverted for.
+  for (const f of payloadFiles()) {
+    assert.ok(!f.includes("\\"), `${f} carries a backslash separator`);
+  }
+});
+
+test("isInside compares locations, not string prefixes", () => {
+  assert.equal(isInside("/a/b", "/a/b"), true);
+  assert.equal(isInside("/a/b", "/a/b/c"), true);
+  // The prefix trap: /a/bc is NOT inside /a/b.
+  assert.equal(isInside("/a/b", "/a/bc"), false);
+  assert.equal(isInside("/a/b", "/a"), false);
+});
+
+test("assertNoSymlinkOnPath is silent when the path is clean or absent", () => {
+  const dest = fresh();
+  try {
+    assert.doesNotThrow(() => assertNoSymlinkOnPath(dest, "does/not/exist/yet.md"));
+    mkdirSync(join(dest, "docs"), { recursive: true });
+    writeFileSync(join(dest, "docs/real.md"), "x");
+    assert.doesNotThrow(() => assertNoSymlinkOnPath(dest, "docs/real.md"));
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }

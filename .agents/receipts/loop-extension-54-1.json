@@ -1,0 +1,9 @@
+{
+  "pr": 54,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 3,
+  "authorization": "Option 1 — in reply to a 🛑 offering (1) grant the extension directly, two rounds, bypassing an adjudication whose evidence I could not assemble without hand-transcribing twelve review threads, an operation I had already botched twice in this session; or (2) do the transcription anyway and dispatch the judge. He chose 1.",
+  "decidedAt": "2026-09-08T21:20:00.000Z",
+  "reasoning": "Round 3 returned three findings on ac0158f, budget 3 of 3 spent. The P1 is a REPRODUCED destructive action: with a symlink at a payload destination, scripts/sync.mjs wrote through it and overwrote a file entirely outside the target repository, reporting success. That is squarely the internal rubric's CRITICAL class -- 'a destructive or irreversible action' -- so the write is not in doubt; what I could not produce honestly was the adjudication record, which requires a threads-complete snapshot and therefore hand transcription of twelve long threads. I took that to David rather than either faking the evidence or skipping the gate quietly. The third finding (product-bound rules shipping fleet-wide) is product-shaped and he ruled it OUT of this PR's scope in the same exchange; it is issue #57. This grant covers the two mechanical findings plus the path-handling audit that flip condition 3 requires, and one spare round."
+}
