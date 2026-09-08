@@ -153,5 +153,12 @@ and closing it closed a route rather than the shape: `guard.sh` still reads
 **any** non-2 exit as allow, so the next way a verdict fails to be produced
 fails open the same way. That is issue #16, and it wants the hook protocol
 changed — a sentinel on the allow path, so "ran and allowed" is
-distinguishable from "never ran". It should land before the `guard` group
-unstages.
+distinguishable from "never ran".
+
+**#16 now gates the first real sync, and that is a downgrade worth naming.**
+It used to be held by the `guard` group being staged — a mechanical hold,
+enforced by a check. Deleting staging removed the mechanism, so the hold is now
+a line in the enrollment checklist that a human has to honour. Weaker, and
+deliberately so: staging was managing this one real risk at the cost of an
+entire subsystem that managed nothing else. The right close is landing #16, not
+rebuilding the machine that was standing in front of it.

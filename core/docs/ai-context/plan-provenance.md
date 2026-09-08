@@ -133,10 +133,15 @@ PR bodies; this field cannot authorise it.
 
 ## Enabling this in a consuming repository
 
-The parser refuses a body whose producers still emit a legacy selector, so
-**every producer-bearing group reaches a consumer before the machinery does**.
-`scripts/check-provenance-enabling.mjs` is the gate; run it before unstaging
-`machinery` for any consumer. Each consuming repository owns its own
-`.github/pull_request_template.md`, which is outside this repository — so no
-search run here can prove the producer inventory is exhaustive, and the gate is
-what bounds that uncertainty rather than a claim that it does not exist.
+The parser refuses a body whose producers still emit a legacy selector. That
+used to need sequencing — the producer documents had to reach a consumer before
+the parser did — and a gate script enforced it. **Both are gone, and the
+ordering hazard with them:** the payload now syncs whole, so the parser and the
+documents that teach the form it accepts always arrive in the same copy.
+
+What still needs care is the part no sync controls. Each consuming repository
+owns its own `.github/pull_request_template.md`, which is outside this
+repository, so no search run here can prove the producer inventory is
+exhaustive. If a consumer's own template emits a legacy selector, its PR bodies
+are refused until that template is updated — check it at enrollment, because
+nothing here can check it for you.

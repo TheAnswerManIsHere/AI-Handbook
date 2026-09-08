@@ -136,8 +136,8 @@ and the payload keeps acquiring references.
 So the rule, rather than the list, is what to rely on:
 
 > **Any path the payload references that `core/` does not ship is
-> consumer-owned, and must exist in the consumer before the group referencing
-> it goes ready.**
+> consumer-owned, and must exist in the consumer before the payload is synced
+> there.**
 
 The rows above are the cases worth explaining — the ones where *why* it cannot
 be shared is not obvious. They are examples of the rule, not its boundary.
@@ -164,8 +164,8 @@ reaches a consumer as a dead link. It is a known gap, not a solved problem.
    server is not configured to. Settings are a repo-level thing the sync cannot
    write, so this is a human step and it gates the ones below.
 4. **If the repo already has `.claude/settings.json`, merge the template's
-   three `PreToolUse` hooks into it by hand.** `settings-template` is
-   `mode: seed`, which writes only when the file is absent — correct, because a
+   three `PreToolUse` hooks into it by hand.** The settings file is a
+   **seed**, which writes only when the file is absent — correct, because a
    consumer's permissions and env are its own and a sync that overwrote them
    would delete grants it needs. But the consequence is that an existing file
    is left untouched, so the vendored `guard.sh` arrives and **nothing ever
@@ -186,7 +186,7 @@ reaches a consumer as a dead link. It is a known gap, not a solved problem.
    had a settings file never receives the seed at all — `mode: seed` writes
    only when the file is absent — so this table is the checklist for the
    by-hand merge in step 4, and it applies now. A repo that had *none* does
-   not receive the file until the sync runs at **step 8**, so its adaptation
+   not receive the file until the sync runs at **step 9**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
    decisions are identical either way, which is why they are one step and not
    two.
@@ -206,7 +206,7 @@ reaches a consumer as a dead link. It is a known gap, not a solved problem.
    against the current working directory, so one persisting `cd` makes every
    hook exit 127, which `PreToolUse` treats as *allow*.
 
-6. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
+6. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Two values, both facts about the consumer that
    the handbook cannot know:
 
@@ -314,7 +314,25 @@ reaches a consumer as a dead link. It is a known gap, not a solved problem.
    asked *which* repository something is: that answer always comes from the
    receipt found there, compared against the call's target. So a wrong entry
    can only cause a refusal, never an unearned approval.
-8. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
+8. **🛑 Do not sync to a repo that will run `defaultMode: bypassPermissions`
+   until issue #16 is closed.** `guard.sh` treats **any** exit from
+   `guard-decision.mjs` other than 2 as *allow*, so a crash, a missing `node`,
+   or a path it cannot launch does not refuse a destructive command — it
+   permits one, silently. In this repository that is survivable: the `main`
+   ruleset is server-side and catches what the guard misses. In a consumer
+   running `bypassPermissions`, the guard is the control that is supposed to
+   stand in front of exactly those commands, and a guard that fails open is
+   worse than no guard because it is trusted.
+
+   This used to be enforced mechanically — the `guard` group was staged, so it
+   could not travel. Deleting staging removed that mechanism and left this
+   checklist item in its place, which is weaker: it depends on a person
+   honouring it. It is written as a step rather than a footnote for that
+   reason. **The real close is landing #16** (a sentinel on the allow path, so
+   "ran and allowed" is distinguishable from "never ran"), after which this
+   step can be deleted.
+
+9. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
    review the resulting diff as a pull request in that repo and merge. **On a
    clean enrollment this is where step 5 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
@@ -327,12 +345,12 @@ states. Steps 1 and 2 prevent that; steps 3 and 4 prevent the security
 equivalent, where a repo holds `bypassPermissions` without the controls that
 constrain it, or the guard without the hooks that invoke it; step 6 keeps its
 merge gate usable; step 7 is what lets a session hold more than one consumer at
-once.
+once; step 8 is the one that is currently a promise rather than a mechanism.
 
 There is no longer an `enrolled` flag, and nothing fires a sync automatically —
 running it is a deliberate act, so "eligible" and "ready" are the same moment by
 construction rather than by a flag anyone has to remember to flip last. A step
-added to this list later belongs above step 8, not below it.
+added to this list later belongs above step 9, not below it.
 
 ## Rules for changing shared content
 
