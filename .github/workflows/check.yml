@@ -165,6 +165,25 @@ jobs:
       - name: Check settings fields
         run: node scripts/check-settings-fields.mjs
 
+      # Does the sync actually run?
+      #
+      # Everything above imports the module; nothing exercised the CLI, so a
+      # regression in argument handling, the self-sync refusal, or the payload
+      # materialization could merge behind a green board while the unit suite
+      # passed. AGENTS.md listed this command among those that run in the
+      # required checks, and that was false until this step existed.
+      #
+      # A dry run writes nothing, so it is safe to point at a scratch
+      # directory; what it proves is that the entry point still works.
+      - name: Sync dry-run reaches a consumer
+        run: |
+          dest="$(mktemp -d)"
+          node scripts/sync.mjs --to "$dest" --dry-run
+          if [ -n "$(find "$dest" -type f)" ]; then
+            echo "::error::a dry run wrote files into $dest"
+            exit 1
+          fi
+
       # The provenance-enabling gate was deleted with the staging system.
       # It asked whether a consumer would receive the provenance PARSER before
       # the documents that teach an author what to write -- a question only

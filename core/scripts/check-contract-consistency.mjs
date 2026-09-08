@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 // Retired-contract guard.
 //
 // When a working rule is replaced, the replacement lands in the file the agent

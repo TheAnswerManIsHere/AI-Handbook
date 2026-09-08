@@ -1,3 +1,4 @@
+<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 # Plan provenance: the declared block
 
 **This file is the wire format.** Every producer that tells an author what to

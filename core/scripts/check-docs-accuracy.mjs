@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 // Docs-accuracy gate for the repo-native agent context system.
 //
 // Two checks, run over the shared context docs:

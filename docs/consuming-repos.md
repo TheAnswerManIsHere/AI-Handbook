@@ -369,7 +369,7 @@ added to this list later belongs above step 9, not below it.
   It does not need one: it is a **seed** — the delivered
   `.claude/settings.json` is **consumer-owned from the moment it lands**, so
   the rule this bullet states does not apply to it. That ownership is stated in
-  enrollment step 6 instead, where whoever adapts the file is already reading.
+  enrollment step 5 instead, where whoever adapts the file is already reading.
 - **Change the handbook, let the sync carry it.** One edit, every repo, each
   through review.
 - **Everything in `core/` syncs.** There is no staging and no per-group status:
