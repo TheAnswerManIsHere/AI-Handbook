@@ -143,7 +143,7 @@ other mention links to it.
 | Shipped slice / new open question | the repo's roadmap (move shipped work to "recently merged"; trim per its header) |
 | Engineering practice changed (testing, migrations, review) | The matching `docs/engineering/` doc |
 | A brand-new context doc was created | Add it to [`AGENTS.md`](../../AGENTS.md) routing |
-| How the area works + why, for humans | The area's chapter in [`docs/manual/`](../manual/README.md) (Step 3) |
+| How the area works + why, for humans | The area's chapter in the repo's Manual, where it keeps one (Step 3) |
 
 Worked routing examples:
 
@@ -162,7 +162,7 @@ chronology lives in `decisions.md` and git history.
 ## Step 3 — Update the manual chapter (only when it clears the quality bar)
 
 The manual is human-facing narrative — what an area does, how it behaves, and
-**why it's built that way** — governed by [`docs/manual/README.md`](../manual/README.md)
+**why it's built that way** — governed by the Manual's own README, where the repo keeps one
 (audience, tone, chapter template, TOC). Follow that charter.
 
 **Quality bar — no empty chapters.** Create a chapter *only* when there is

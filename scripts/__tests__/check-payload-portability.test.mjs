@@ -1,14 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   CONSUMER_OWNED, danglingReferences, linkTargets, resolveFrom,
 } from "../check-payload-portability.mjs";
 
 const fresh = () => mkdtempSync(join(tmpdir(), "portability-test-"));
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /** A throwaway payload tree, so nothing here reads the real `core/`. */
 function payloadWith(files) {
@@ -179,6 +181,43 @@ test("a *.template.* file is matched at the name it lands under", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("angle-bracketed destinations are unwrapped on BOTH link syntaxes", () => {
+  // Round 1 unwrapped them for reference definitions only. The inline branch
+  // kept `<…>`, and isPlaceholder then swallowed it — a false negative hiding
+  // inside a false-positive guard, and a fix applied to one of two branches
+  // that needed it. (Codex, #62 round 2.)
+  assert.deepEqual(linkTargets("[guide](<./missing file.md>)"), ["./missing file.md"]);
+  assert.deepEqual(linkTargets("[g]: <./missing.md>"), ["./missing.md"]);
+});
+
+test("an angle-bracketed inline link to a missing file is reported, not suppressed", () => {
+  const root = payloadWith({ "docs/a.md": "see [x](<./gone file.md>)" });
+  try {
+    const rows = danglingReferences(root);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].resolved, "docs/gone file.md");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("every consumer document the enrollment guide requires is in CONSUMER_OWNED", () => {
+  // Two hand-maintained lists of one thing drift, which is this repository's
+  // founding complaint. Round 1 found two files shipped that the guide already
+  // owned; round 2 found one owned here that the guide never requires. This
+  // closes the direction that BREAKS: a table row missing from the set means a
+  // future link to a legitimately consumer-owned document fails CI, inviting
+  // someone to "fix" a correct reference.
+  //
+  // The set may be a SUPERSET — CLAUDE.md and AGENTS.md come from enrollment
+  // step 1's prose rather than the table, and two entries are directories.
+  const doc = readFileSync(resolve(REPO_ROOT, "docs/consuming-repos.md"), "utf8");
+  const rows = [...doc.matchAll(/^\| `([^`]+)` \| /gm)].map((m) => m[1]);
+  assert.ok(rows.length > 5, `expected the consumer-owned table, found ${rows.length} rows`);
+  const missing = rows.filter((r) => !CONSUMER_OWNED.has(r));
+  assert.deepEqual(missing, [], "add these to CONSUMER_OWNED, or remove the row if the document is optional");
 });
 
 // ── the live invariant ─────────────────────────────────────────────────────

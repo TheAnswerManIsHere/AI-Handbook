@@ -82,7 +82,6 @@ export const CONSUMER_OWNED = new Set([
   "docs/ai-context/decisions.md",           // settled decisions + rationale, per product
   "docs/ai-context/replit-environment.md",  // that repo's environment and its boundaries
   ".github/pull_request_template.md",       // outside this repo's reach entirely
-  "docs/manual/README.md",                  // the product Manual, per product by definition
   "docs/ai-context",                        // the overlay's context directory
   "docs/engineering",                       // the overlay's engineering directory
 
@@ -121,10 +120,30 @@ export const CONSUMER_OWNED = new Set([
   // and the document that already answered the question went unread.
   "docs/handoff/README.md",                 // per-repo: its own transit folder
   "docs/tests/uat-doc-format.md",           // per-repo: names this repo's surfaces
+
+  // The remaining rows of the enrollment table. Nothing in the payload links
+  // to these today, so they are not load-bearing yet -- they are here because
+  // the table and this set are two hand-maintained lists of one thing, and a
+  // test below now refuses any table row this set lacks. That direction is the
+  // one that breaks: a future link to a legitimately consumer-owned document
+  // would otherwise fail CI and invite someone to "fix" a correct reference.
+  "docs/ai-context/codex-environment.md",   // that repo's Codex sandbox
+  "docs/ai-context/product-direction.md",   // product truth by definition
+  "docs/ai-context/current-roadmap.md",     // per-product, read by several skills
+  ".mcp.json",                              // the repo's own MCP server declarations
 ]);
 
 /** A `{placeholder}`, a `<placeholder>`, or prose elision — not a path. */
 const isPlaceholder = (t) => /[{}<>]/.test(t) || t.includes("...");
+
+/**
+ * Strip the angle brackets Markdown allows around a destination.
+ *
+ * ONE helper for both link syntaxes, because doing it in one branch and not
+ * the other is how round 2's finding happened: `<…>` survived on the inline
+ * branch and `isPlaceholder` then swallowed it.
+ */
+const unwrap = (t) => t.trim().replace(/^<([^>]*)>$/, "$1");
 
 /**
  * Markdown link targets in `text`, ignoring fenced blocks and inline code.
@@ -149,7 +168,13 @@ export function linkTargets(text) {
     }
     const bare = line.replace(/`[^`]*`/g, "");
     for (const m of bare.matchAll(/\]\(([^)]+)\)/g)) {
-      const target = m[1].split("#")[0].trim();
+      // `[x](<./a b.md>)` is standard Markdown for a destination containing
+      // spaces. Unwrapped HERE as well as in the definition branch below:
+      // fixing one branch and not the other left `<…>` intact, and the
+      // placeholder filter then suppressed it as a `<placeholder>` -- a false
+      // negative hiding inside a false-positive guard. (Codex, #62 round 2:
+      // the round-1 fix was applied to one of the two branches that needed it.)
+      const target = unwrap(m[1]).split("#")[0].trim();
       if (target) targets.push(target);
     }
     // A reference definition: `[label]: target "optional title"`. The target
@@ -157,7 +182,7 @@ export function linkTargets(text) {
     // `{placeholder}` shape, so the brackets come off before it is judged.
     const def = bare.match(/^\s{0,3}\[[^\]]+\]:\s*(\S+)/);
     if (def) {
-      const target = def[1].replace(/^<|>$/g, "").split("#")[0].trim();
+      const target = unwrap(def[1]).split("#")[0].trim();
       if (target) targets.push(target);
     }
   }
