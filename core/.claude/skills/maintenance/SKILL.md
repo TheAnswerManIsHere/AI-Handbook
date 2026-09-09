@@ -330,7 +330,7 @@ approve or amend, never an open-ended "is the backlog still right?"
 2. **Re-check `queue:` priorities against the roadmap.** Anything labeled
    `queue:now` that hasn't been started in weeks is either mislabeled or
    genuinely blocked — say which. Anything in
-   [`current-roadmap.md`](../../../docs/ai-context/current-roadmap.md)'s
+   the repo's roadmap's
    near-term slices with no backlog issue is a **gap**: propose opening
    one, since an item only in prose is invisible to `/next`.
 3. **Sweep `Blocked by:` markers** — for each, is the named blocker still

@@ -184,6 +184,16 @@ jobs:
             exit 1
           fi
 
+      # Would every reference in the payload resolve in a repository that is
+      # not this one?
+      #
+      # `core/` came out of one product's repo, and the parts that only made
+      # sense there were invisible while nothing shipped. Three review rounds
+      # on #54 each found one instance and NONE was found by a check -- every
+      # one was a reviewer reading files. This is that class, made mechanical.
+      - name: Check payload portability
+        run: node scripts/check-payload-portability.mjs
+
       # Does the contract that loads into every session still fit its budget?
       #
       # The budget itself is enforced by the unit test in the Test job, which

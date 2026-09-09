@@ -82,8 +82,7 @@ Two rules that matter more than the table:
 - **Next** — the concrete next action and who owns it. If David owns it, say
   exactly what he's being asked, restated from the actual thread rather than
   guessed from the stage name.
-- **Fits** — one line connecting this workstream to
-  [`current-roadmap.md`](../../../docs/ai-context/current-roadmap.md). This is
+- **Fits** — one line connecting this workstream to the repo's roadmap. This is
   the part a resuming session actually needs and the part a label can't give.
 
 ## Shape

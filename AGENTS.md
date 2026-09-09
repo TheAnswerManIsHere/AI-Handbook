@@ -60,6 +60,7 @@ node scripts/check-identity-sources.mjs  # every identity touchpoint classified
 node scripts/check-root-wiring.mjs       # this repo actually reaches its payload
 node scripts/check-settings-fields.mjs   # no settings field Claude Code would refuse
 node core/scripts/check-claude-md-budget.mjs  # the always-loaded contract still fits
+node scripts/check-payload-portability.mjs  # every payload reference resolves in a consumer
 node scripts/sync.mjs --to <repo> --dry-run   # what a consumer would receive
 ```
 

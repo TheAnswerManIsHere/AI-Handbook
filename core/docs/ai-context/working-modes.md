@@ -128,7 +128,7 @@ The front of the process worked. The artifact fed to it contained three
 projects.
 
 **A direction that duplicates or contradicts an existing canonical doc is not
-a new artifact — it's a routing bug.** [`product-direction.md`](./product-direction.md)
+a new artifact — it's a routing bug.** The repo's product direction
 already exists and already declares itself the winning source for current
 direction and settled decisions; most subsystems already have a canonical
 `docs/ai-context/<subsystem>.md`. Writing a direction means updating the

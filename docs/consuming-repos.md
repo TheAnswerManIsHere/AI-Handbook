@@ -142,11 +142,26 @@ So the rule, rather than the list, is what to rely on:
 The rows above are the cases worth explaining — the ones where *why* it cannot
 be shared is not obvious. They are examples of the rule, not its boundary.
 
-Enforcing the rule mechanically — resolving every link in a payload file and
-failing when a target is neither in `core/` nor declared consumer-owned — is
-the check that would actually close this, and it does not exist. **Nothing in
-CI proves this table is complete**, so a broken cross-reference in the payload
-reaches a consumer as a dead link. It is a known gap, not a solved problem.
+**This is now enforced mechanically.** `node scripts/check-payload-portability.mjs`
+resolves every markdown link in every payload file against the file's
+*destination* path and fails when a target is neither shipped in `core/` nor
+declared consumer-owned. It runs in CI, so a broken cross-reference cannot
+reach a consumer as a dead link.
+
+**The declared set lives in that script, not here.** `CONSUMER_OWNED` is the
+source of truth; the table above is the explanation. Adding an entry there is a
+decision that a consumer must produce that file — enrollment is not complete
+until it exists — and it is not a way to silence a broken link.
+
+Two things the check deliberately does not do, because a check that cries wolf
+gets suppressed and then protects nothing: it ignores links inside fenced code
+(a skill illustrating layout with a fictional example is not a broken
+reference — twelve of those were reported by a first pass) and it ignores
+`{placeholder}` targets. It also does not police product *names* in prose: a
+worked example naming one product is blessed by the fleet contract, and the
+rule it enforces is narrower and sharper — **an example may name a product's
+document; it may not link to it.** The prose survives a move; the link does
+not.
 
 ## Enrolling a repo
 

@@ -177,7 +177,7 @@ decided, what we explicitly ruled out. That's the half a roadmap bullet
 loses, and the half that makes an item resumable cold months later.
 
 **This does not replace the two prose backlogs.**
-[`current-roadmap.md`](./current-roadmap.md) stays the product narrative and
+the repo's roadmap stays the product narrative and
 [`deferred-work.md`](../engineering/deferred-work.md) stays the engineering
 one. A backlog issue is what gets created when something in either becomes
 a *specific, actionable unit of work* — not a mirror of every line in them.

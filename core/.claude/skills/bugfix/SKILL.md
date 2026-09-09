@@ -234,8 +234,8 @@ the PR back only delays the review that catches things.
    *before* the parent's PR is merged, not after** — this repo auto-deletes a
    merged branch with no reliable window afterward (deletion can happen as
    part of the merge itself), and a documented prior incident
-   ([`CODEX_GITHUB_REVIEW_WORKFLOW.md`](../../../docs/CODEX_GITHUB_REVIEW_WORKFLOW.md))
-   shows exactly this orphaning; that doc's own required workflow says to
+   (recorded in the repo's own review-workflow notes)
+   shows exactly this orphaning; that record's required workflow says to
    retarget before squash-merging, not after. Retargeting early leaves the
    diff temporarily broad (it still shows the parent's unmerged commits) —
    accept that, it's cosmetic. Once the parent has actually merged, narrow the
