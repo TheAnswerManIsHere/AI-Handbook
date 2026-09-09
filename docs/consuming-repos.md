@@ -261,8 +261,7 @@ to worry about strange links."*)
    data, the sync writes files, and **there is no GitHub MCP tool that creates
    a label** (`.agents/memory/github-mcp-no-label-creation-tool.md`). So an
    unenrolled repo gives every one of those skills a taxonomy that silently
-   matches nothing. Twenty-two labels, four prefixes, exactly one label per
-   prefix per issue:
+   matches nothing. Twenty-two labels across four prefixes:
 
    | Prefix | Slugs |
    |---|---|
@@ -270,6 +269,15 @@ to worry about strange links."*)
    | `waiting:` | `david`, `claude`, `codex`, `replit`, `ci` |
    | `mode:` | `feature`, `bugfix`, `docs`, `devops` |
    | `queue:` | `now`, `next`, `later` |
+
+   **Create all twenty-two, but note that an issue never carries all four
+   prefixes.** `queue:` and `stage:` are mutually exclusive, and
+   `workstream-tracking.md` is the statement of record for why. There are two
+   valid shapes: a **backlog item** carries `queue:` + `mode:` and no `stage:`
+   or `waiting:`; an **active workstream** carries `stage:` + `waiting:` +
+   `mode:` and no `queue:`. Promoting a backlog item means dropping `queue:`
+   and adding the `stage:`/`waiting:` pair in the same edit. Two labels sharing
+   one prefix is a data error the field sync refuses rather than guesses at.
 
    This is the same failure shape as the declarations in step 1 — a payload
    rule deferring to something enrollment never lands — and it fails the same

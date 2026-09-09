@@ -135,7 +135,7 @@ other mention links to it.
 
 | Learning | Canonical home |
 | --- | --- |
-| Subsystem truth changed (architecture, pipeline, data flow) | The matching subsystem doc under `docs/ai-context/` — whichever one the overlay's *Product truth lives here* section routes to for that subsystem. If the subsystem has no doc yet, create it there |
+| Subsystem truth changed (architecture, pipeline, data flow) | The subsystem doc the overlay's *Product truth lives here* section routes to — **both the directory and the filename are the overlay's to name**, so a repo keeping subsystem truth under some other `docs/<area>/` is already correct rather than misfiled. A subsystem with no doc yet gets one alongside its siblings, wherever those live. (`docs/ai-context/` is the templates' default, not a requirement.) |
 | Settled decision + why | [`decisions.md`](./decisions.md) — append-only, newest first, its **date · title — Decision / Why / Reference / Revisit if** format |
 | Product-level failure pattern / retired mistake | [`known-failure-patterns.md`](./known-failure-patterns.md) |
 | Engineering/repo gotcha (build, tests, codegen, env) | A note in `.agents/memory/` — **plus** its one-line entry in that folder's index, where the repo keeps one |

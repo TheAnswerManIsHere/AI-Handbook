@@ -39,6 +39,34 @@ Where the call was genuinely close, the file **stayed with the product**. A
 missing generic file is a small, fixable gap; a product-specific file synced
 into an unrelated repo is noise that erodes trust in everything around it.
 
+### Generalising has its own failure mode, and it is the same size
+
+Added 2026-09-09, from #65's audit — where **five of round 1's seven findings
+were this**, in edits whose entire purpose was to remove over-claiming:
+
+> **Generalise to what is actually true everywhere, or condition it. Never to a
+> broader assertion that is merely less product-specific.**
+
+A product-bound claim is wrong in every repo but the one it came from. A claim
+generalised carelessly is wrong in a *different* set of repos, and it is harder
+to spot, because it no longer names anything a reader can check against their
+own tree. "The migration runner tracks by SHA-256" is visibly one product's
+fact; "runners either replay or silently skip" reads like a survey, and is
+still false for the checksum-validating runners it omits.
+
+The discipline that catches it: after widening a claim, ask **which repo the
+new sentence is now false in.** If the answer needs a survey you have not done,
+condition the claim on the mechanism instead of asserting across it. Enumerate
+where you can, and where you cannot, say the rule holds and let the mechanism
+be looked up.
+
+The near-relative, and it recurred here too: **half-generalising.** Deferring
+the filename to the overlay while leaving the directory hardcoded, or the
+transport while leaving the polling cadence, produces a document that
+contradicts itself — the general half licenses something the unrevised half
+forbids. When one clause of a rule moves to the overlay, every clause that
+depends on it moves too, in the same edit.
+
 ## What came across
 
 | Group | Count | Note |

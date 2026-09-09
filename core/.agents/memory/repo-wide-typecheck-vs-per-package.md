@@ -14,9 +14,11 @@ fine at runtime (via symlinks, or a package manifest's `exports`) while the
 build system rejects it, because the edge was never declared. The two answers
 disagree, and only one of them runs in CI.
 
-The trap is that the failure surfaces **in a package you did not touch**. You
-add the import in package A, check A, and A is clean; the build breaks in
-package C, which imports A and whose own declaration list is now incomplete.
+The trap is that **the package that breaks is not the package you were
+working in.** You add the import to a shared or peripheral package, then run
+the scoped check over the two packages the feature is *about* — and those are
+clean, because neither one is the package whose declaration list you just made
+incomplete. The scoped check never covered the file you edited.
 
 **Overhype:** the build system is TypeScript's project-reference mode
 (`tsc -b`), which resolves a workspace import (`@workspace/api-zod`,

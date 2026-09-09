@@ -39,14 +39,20 @@ must report status at **two altitudes**:
 - Don't yank items out from under the user mid-run. Keep them visible (showing
   their result) until the operation completes, then reconcile.
 - **Never impose a UI timeout on a legitimately long-running job.** The whole point
-  of the async queue is that work can be long and robust — enriching 1000 facts may
-  take an hour, and that's fine. Poll at a steady cadence (~1s) and keep showing
-  live per-line status until every item is terminal, no matter how long it takes. A
-  page refresh must **never** be required to see current status.
+  of a durable queue is that work can be long and robust — enriching 1000 facts may
+  take an hour, and that's fine. Keep showing live per-line status until every item
+  is terminal, no matter how long it takes. A page refresh must **never** be
+  required to see current status.
+- **The cadence rule depends on the transport.** Where the declared transport is
+  **polling**, poll at a steady ~1s and stop early only on an extreme stall (~24h
+  of zero progress = a dead/stuck worker). Where it is a **subscription** (SSE, a
+  WebSocket), there is no cadence to set and the equivalent obligation is
+  liveness: reconnect on drop, reconcile the state you missed while
+  disconnected, and surface a failed connection as a visible error rather than a
+  view that has quietly stopped updating. Either way the stall is announced
+  loudly ("something went wrong"); neither silently gives up nor pretends success.
 - The backend's own retry limit is what fails a crash-looping job; the UI just
-  reflects `done`/`failed`. The only reason the *frontend* stops polling early is an
-  extreme stall (~24h of zero progress = a dead/stuck worker) — and then it says so
-  loudly ("something went wrong"); it does not silently give up or pretend success.
+  reflects `done`/`failed`.
 - **Prefer this repo's existing status transport** — the one its overlay
   declares, and whatever the frontend already uses — over inventing a second
   status channel. Polling a job-status-by-id endpoint, a subscription over SSE
