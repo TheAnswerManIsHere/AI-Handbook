@@ -169,7 +169,7 @@ export const MACHINERY_CONFIG_FILE = ".agents/machinery.json";
  * A CONSUMER SEES NO CHANGE. From `<repo>/scripts`, the first directory up
  * carrying `.agents/machinery.json` is `<repo>` -- the answer `..` gave.
  */
-function findRepoRoot(startDir) {
+export function findRepoRoot(startDir) {
   let dir = startDir;
   for (;;) {
     if (fs.existsSync(path.join(dir, MACHINERY_CONFIG_FILE))) return dir;

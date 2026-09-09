@@ -44,11 +44,21 @@
  *
  * Dependency-free. Run locally:  node scripts/check-claude-md-budget.mjs
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const CONFIG = ".agents/machinery.json";
+// ONE root resolver and ONE config-file name, imported rather than restated.
+// The first draft of this file carried its own copy of the walk, and the copy
+// omitted the `.git` bound -- so a checkout nested under a configured parent
+// silently adopted the parent's configuration and reported success over the
+// wrong contract (Codex, #60 round 1). A second implementation of "where is
+// the repository" is the second source of truth this repository exists to
+// remove, and it drifted immediately, in the way duplicates do.
+import { MACHINERY_CONFIG_FILE, findRepoRoot } from "./review-budget.mjs";
+
+export const CONFIG = MACHINERY_CONFIG_FILE;
+export { findRepoRoot };
 
 /** Count lines the way `wc -l` does: one per newline, plus one for a trailing partial line. */
 export function countLines(text) {
@@ -133,13 +143,35 @@ export function checkOne({ path, lines, bytes }, text) {
   );
 }
 
+/**
+ * Is `target` the repository root or inside it?
+ *
+ * Compared as locations, not string prefixes: `/a/bc` is not inside `/a/b`.
+ */
+export function isInside(root, target) {
+  const rel = relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !rel.startsWith(sep) && !/^[A-Za-z]:/.test(rel));
+}
+
 /** Every declared file, checked. Returns the failure messages, empty when all match. */
 export function checkAll(repoRoot, budgets = readBudgets(repoRoot)) {
   const failures = [];
   for (const budget of budgets) {
+    // `resolve` honours `..` and discards the root for an absolute path, so a
+    // declaration can name a file OUTSIDE the repository -- and one pinned to
+    // that file's size passes, leaving the repository's real contract
+    // unchecked behind a green board. Refuse rather than read.
+    const target = resolve(repoRoot, budget.path);
+    if (!isInside(repoRoot, target)) {
+      failures.push(
+        `${budget.path} resolves to ${target}, which is outside the repository. A budget may only ` +
+          `name a file inside it — otherwise this check passes while the real contract is never read.`,
+      );
+      continue;
+    }
     let text;
     try {
-      text = readFileSync(resolve(repoRoot, budget.path), "utf8");
+      text = readFileSync(target, "utf8");
     } catch (e) {
       failures.push(`${budget.path} is declared in ${CONFIG} but cannot be read: ${e.message}`);
       continue;
@@ -150,38 +182,17 @@ export function checkAll(repoRoot, budgets = readBudgets(repoRoot)) {
   return failures;
 }
 
-/**
- * The repository root: the nearest ancestor of this script that actually holds
- * the config.
- *
- * This script sits at `<root>/scripts/` in a consumer and `<root>/core/scripts/`
- * in the handbook, so the depth differs. It is resolved by ASKING THE
- * FILESYSTEM rather than by matching `/core/` in the path string — a path
- * compared as a string rather than as the thing it names is a defect class this
- * repository has paid for repeatedly, and "does the config exist here" is the
- * question actually being asked.
- *
- * Resolved from the script's own location rather than the cwd, because a check
- * that only works when run from the root is a check that silently passes from
- * anywhere else.
- */
-export function findRepoRoot(startDir) {
-  let dir = startDir;
-  for (;;) {
-    if (existsSync(resolve(dir, CONFIG))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error(
-        `no ${CONFIG} found in any directory above ${startDir}. This check reads its budgets ` +
-          `from that file; without it there is nothing to enforce.`,
-      );
-    }
-    dir = parent;
-  }
-}
-
 function main() {
-  const root = findRepoRoot(dirname(fileURLToPath(import.meta.url)));
+  // Resolved from this script's own location, not the cwd: a check that only
+  // works when run from the root is a check that silently passes elsewhere.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const root = findRepoRoot(here);
+  if (root === null) {
+    throw new Error(
+      `no ${CONFIG} in any directory from ${here} up to the enclosing repository. This check ` +
+        `reads its budgets from that file; without it there is nothing to enforce.`,
+    );
+  }
 
   const budgets = readBudgets(root);
   const failures = checkAll(root, budgets);
