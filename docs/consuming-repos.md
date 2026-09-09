@@ -283,6 +283,17 @@ to worry about strange links."*)
    rule deferring to something enrollment never lands — and it fails the same
    way, quietly. Nothing throws on a missing label; the issue just never gets
    one, and the fleet view goes blind to that workstream.
+
+   **The labels are necessary and not sufficient, and the gap is named rather
+   than papered over.** They make `/status`, `/status-all` and `/next` work,
+   because those read labels directly. They do **not** make a GitHub **Project
+   board** reflect anything: `workstream-tracking.md` routes that through a
+   consumer-owned `.github/workflows/project-sync.yml` calling
+   `scripts/sync-project-fields.mjs`, which additionally needs the matching
+   board fields and Project credentials. **No such workflow ships under
+   `core/`**, so a repo that completes every step here has working skills and a
+   board that never changes. Tracked separately; do not read this step as
+   finishing the board.
 4. **If the repo already has `.claude/settings.json`, merge the template's
    three `PreToolUse` hooks into it by hand.** The settings file is a
    **seed**, which writes only when the file is absent — correct, because a
