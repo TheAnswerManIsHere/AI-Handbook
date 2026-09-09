@@ -59,6 +59,11 @@
  *
  *   --dry-run  assembles the prompt and schema, writes them, spawns nothing.
  *
+ * A round is ~9-10 minutes at xhigh (522 s hand-run, 576 s scripted), which is
+ * longer than a comfortable Bash tool call. RUN IT DETACHED -- `setsid nohup`
+ * with an exit file to wait on; a foreground run that gets cut off loses the
+ * round, the reviewer's work included. The skill carries the exact shape.
+ *
  * Output: .agents/reviews/<slug>/round-N.json (the validated assessment),
  * plus round-N.prompt.md, round-N.schema.json and round-N.meta.json beside
  * it. The whole directory is gitignored -- these are session artifacts, and

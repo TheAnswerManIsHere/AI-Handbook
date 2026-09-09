@@ -96,6 +96,9 @@ one question: should this exist, and is the boundary in the right place.
 node core/scripts/plan-review.mjs --round 0 --slug <slug> --oracle <file>
 ```
 
+Round 0 is the one round short enough to run in the foreground — it reads a
+page, not a plan. Every later round is detached; see below.
+
 David sees its answer **beside mine** before he says go — my own view first, in
 my own words, then the reviewer's, then where we differ. This is the cheapest
 place in the whole system to catch "we are about to build the wrong thing", and
@@ -112,11 +115,24 @@ oracle as a fenced `plan-oracle` block at its head. Publish the Artifact
 page. Tell David it is up, and **keep going** — v1 will change anyway, and
 waiting for him to read it buys nothing. He interjects whenever he likes.
 
+**Run it detached. A round outlives the tool call that starts it.**
+
 ```
-node core/scripts/plan-review.mjs --round 1 --tier <product|sensitive|internal> \
-     --plan docs/plans/PLAN_<SLUG>.md --prior priors.json \
-     --lens "<the angle this round attacks from>"
+S=.agents/reviews/<slug>
+setsid nohup bash -c "cd $PWD && node core/scripts/plan-review.mjs \
+  --round 1 --tier <product|sensitive|internal> \
+  --plan docs/plans/PLAN_<SLUG>.md --prior priors.json \
+  --lens '<the angle this round attacks from>' > $S/run.log 2>&1; echo \$? > $S/run.exit" &
 ```
+
+Then wait on `run.exit` appearing — its existence is the completion signal and
+its contents are the status. **This is measured, not cautious**: a round is
+~9–10 minutes at `xhigh` (522 s hand-run, 576 s scripted), which is longer than
+a comfortable foreground Bash call, and a foreground run that gets cut off
+loses the whole round — the reviewer's work included. Absolute paths inside the
+`bash -c`; the working directory does not survive into the detached child the
+way you expect. The rest of the traps are in
+[`codex-cli-in-container.md`](../../../.agents/memory/codex-cli-in-container.md).
 
 `--prior` carries round 0's `scope_concerns` with what the plan did about each.
 The script refuses round 1 without it whenever round 0 ran — a scope concern is
@@ -153,6 +169,8 @@ Four things happen every round, in this order, and none of them is optional.
    this round" section rewritten.
 
 4. **Run the next round, handing over the dispositions.**
+
+   Detached, like every round — same shape as round 1 above:
 
    ```
    node core/scripts/plan-review.mjs --round N --tier <tier> --plan <file> \
