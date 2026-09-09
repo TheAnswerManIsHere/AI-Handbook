@@ -39,6 +39,16 @@
  * A check that cries wolf gets suppressed wholesale, and then it protects
  * nothing — which is the same failure as not having it.
  *
+ * BOTH LINK SYNTAXES, because a check with a syntax hole is a check that
+ * silently passes. Inline `[text](target)` and reference definitions
+ * `[label]: target` are both read. The payload uses no reference links today,
+ * which is exactly why it had to be closed now rather than recorded: this file
+ * exists because "we fixed the three we found" says nothing about how many
+ * remain, and a form the check cannot see would be the next three. Checking
+ * DEFINITIONS rather than usages is sufficient by construction — every usage
+ * resolves through a definition, and a usage with no definition is not a link
+ * at all, it renders literally. (Codex, #62 round 1.)
+ *
  * WHAT IT DOES NOT CHECK. Product names in prose. A worked example naming one
  * product is explicitly blessed by the fleet contract — `known-failure-patterns.md`
  * grounds each pattern in a real case, which is the file working as designed.
@@ -98,6 +108,19 @@ export const CONSUMER_OWNED = new Set([
   "docs/tests/TESTING.md",                  // per-repo: how ITS tests are run
   "docs/engineering/migrations-and-backfills.md", // per-repo: its schema tooling
   "docs/engineering/deferred-work.md",      // per-repo: its own deferred register
+
+  // These two were SHIPPED in this PR's first draft and un-shipped in round 1,
+  // and the reason is worth keeping. I measured them "0% product-bound" with a
+  // grep for one product's module names, and shipped them. But
+  // `docs/consuming-repos.md` already listed both as consumer-owned, with
+  // better reasoning than my measurement: uat-doc-format "names this repo's own
+  // surfaces" -- product-bound in a way a token grep cannot see -- and
+  // handoff/README documents a folder holding a repo's LIVE transit documents.
+  // Reproduced: a consumer customising either had its edit silently overwritten
+  // by the next sync. The measurement was of a token list, not of portability,
+  // and the document that already answered the question went unread.
+  "docs/handoff/README.md",                 // per-repo: its own transit folder
+  "docs/tests/uat-doc-format.md",           // per-repo: names this repo's surfaces
 ]);
 
 /** A `{placeholder}`, a `<placeholder>`, or prose elision — not a path. */
@@ -124,8 +147,17 @@ export function linkTargets(text) {
       fence = opener[1];
       continue;
     }
-    for (const m of line.replace(/`[^`]*`/g, "").matchAll(/\]\(([^)]+)\)/g)) {
+    const bare = line.replace(/`[^`]*`/g, "");
+    for (const m of bare.matchAll(/\]\(([^)]+)\)/g)) {
       const target = m[1].split("#")[0].trim();
+      if (target) targets.push(target);
+    }
+    // A reference definition: `[label]: target "optional title"`. The target
+    // may be angle-bracketed, which is ordinary link syntax rather than the
+    // `{placeholder}` shape, so the brackets come off before it is judged.
+    const def = bare.match(/^\s{0,3}\[[^\]]+\]:\s*(\S+)/);
+    if (def) {
+      const target = def[1].replace(/^<|>$/g, "").split("#")[0].trim();
       if (target) targets.push(target);
     }
   }

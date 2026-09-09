@@ -73,6 +73,30 @@ test("inline code is talked about, not linked to", () => {
   assert.deepEqual(linkTargets("use `[x](./nope.md)` then [y](./y.md)"), ["./y.md"]);
 });
 
+test("a reference definition is a link, or the syntax is a hole in the check", () => {
+  // `[text][g]` with `[g]: ./missing.md` was invisible: linkTargets returned []
+  // and CI passed over a broken reference. A check with a syntax hole silently
+  // passes, which is the failure this whole file exists to prevent.
+  assert.deepEqual(linkTargets("See [the guide][g].\n\n[g]: ./missing.md\n"), ["./missing.md"]);
+  assert.deepEqual(linkTargets('[g]: ./missing.md "Title"'), ["./missing.md"]);
+  assert.deepEqual(linkTargets("[g]: <./missing.md>"), ["./missing.md"], "angle brackets are link syntax, not a placeholder");
+});
+
+test("a reference definition inside a fence is still an example", () => {
+  assert.deepEqual(linkTargets("```\n[g]: ./missing.md\n```"), []);
+});
+
+test("a dangling reference-style link is reported end to end", () => {
+  const root = payloadWith({ "docs/a.md": "See [g][g].\n\n[g]: ./gone.md\n" });
+  try {
+    const rows = danglingReferences(root);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].resolved, "docs/gone.md");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // ── resolution ─────────────────────────────────────────────────────────────
 
 test("targets resolve against the file's DESTINATION path", () => {
