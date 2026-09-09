@@ -209,3 +209,37 @@ natural second consumer of the same round JSON.
 3. **Next**, not now: the same script running `codex review --base main`
    for **code** diffs under our persona and effort, as a controlled second
    reviewer beside (never instead of) the GitHub connector.
+
+## Counter-proposal weighed: a Codex GitHub Action (ChatGPT, via David, 2026-09-09)
+
+ChatGPT proposed keeping the PR handoff and replacing the managed Codex
+reviewer with `openai/codex-action` on GitHub runners, on the premise that
+the alternative needed a laptop. Verified against the action's README: it
+takes `model`, `effort`, `output-schema-file`, `permission-profile:
+:read-only`, and `openai-api-key` as a GitHub secret. So it can run the
+same reviewer, same contract, same schema.
+
+- **The premise is wrong.** The in-session design runs entirely in the
+  Claude cloud container, which reaches OpenAI (measured above). Nothing
+  touches a laptop in either design. The real axis is *where the reviewer
+  process runs*: my session, or a GitHub runner.
+- **What the Action genuinely buys:** the key lives in GitHub's encrypted
+  secret store instead of the environment env block that anyone using the
+  environment can read; and the handoff is durable and asynchronous, so a
+  review lands even if my session dies mid-round.
+- **What it costs, against the stated goals:** every round pays runner
+  boot, queue, review, post, webhook, fetch, and our own contract records
+  that webhooks lag and drop. It keeps the whole ceremony David wants gone:
+  the PR, the public branch, the disclosure gate, round counting from
+  GitHub, the ledger. "Preserves the existing PR monitoring" is
+  overstated, since `pr-watch` parses the connector's specific comment
+  shapes and would be rewritten either way. Iterating the reviewer prompt
+  costs a push per try instead of a re-run. And an AI action reading PR
+  content on a public repo is the prompt-injection surface the
+  `agentic-actions-auditor` skill exists to audit.
+- **Resolution:** not rival designs. The reviewer is one script that runs
+  `codex exec` with the contract and the schema; in-session is one
+  deployment target and the Action is another, using the same script. Run
+  in-session now, where speed is the goal; the Action is the *next* if a
+  durable asynchronous review is ever needed, or if David decides the
+  secret-store argument outweighs the capped-project key.
