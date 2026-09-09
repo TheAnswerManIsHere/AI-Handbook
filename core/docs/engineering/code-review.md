@@ -245,9 +245,11 @@ mattered. The full reasoning is in
   competing one? (See
   [`../ai-context/known-failure-patterns.md`](../ai-context/known-failure-patterns.md).)
 - Are **human overrides preserved** across AI reprocessing?
-- Where a concept has an **active** record and an archived or versioned one, is
-  the active record still the only thing read as truth? (**Overhype:** `facts.*`
-  is active enrichment truth; the versions table is archive.)
+- Do reads follow the source-of-truth boundary **this repo declares** for the
+  concept, rather than a convenient nearby copy of it? (**Overhype:** `facts.*`
+  is active enrichment truth and the versions table is archive — but a repo
+  whose authority is an append-only log has the opposite arrangement, so the
+  question is about the declared boundary, never about which shape is right.)
 
 ## Repository fit
 
