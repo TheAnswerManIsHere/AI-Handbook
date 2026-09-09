@@ -1,0 +1,9 @@
+{
+  "pr": 69,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 85,
+  "artifact": "The in-session GPT-6 Astra plan reviewer (core/scripts/plan-review.mjs) and the working-contract rewrite that follows it",
+  "declaredAt": "2026-09-09T23:49:37.441Z"
+}
