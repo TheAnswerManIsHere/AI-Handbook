@@ -1,0 +1,9 @@
+{
+  "pr": 60,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 55,
+  "artifact": "porting six items back from Overhype.me before a sync overwrites them: two contract sections, a process-health metric, check-claude-md-budget.mjs generalized to per-repo config, PR-subscription permissions, one stale record, two memory entries",
+  "declaredAt": "2026-09-09T03:17:54.584Z"
+}

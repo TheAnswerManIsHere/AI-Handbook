@@ -3,5 +3,17 @@
   "requiredChecks": [
     "Test",
     "Manifest"
+  ],
+  "contractBudgets": [
+    {
+      "path": "CLAUDE.md",
+      "lines": 165,
+      "bytes": 9354
+    },
+    {
+      "path": "core/.agents/core/claude-core.md",
+      "lines": 805,
+      "bytes": 49933
+    }
   ]
 }
