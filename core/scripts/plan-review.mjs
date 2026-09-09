@@ -1,0 +1,1135 @@
+#!/usr/bin/env node
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
+/**
+ * One round of the in-session plan review: GPT-6 Astra, in this container,
+ * against a plan that never leaves it.
+ *
+ * WHY A SCRIPT AND NOT A PROMPT I TYPE
+ * ------------------------------------
+ * The reviewer's independence is the whole product. If the session driving
+ * the loop writes the reviewer's instructions, the session can steer the
+ * reviewer -- which is the failure workstream #36 names, and it is the reason
+ * the adjudicator reads a script-generated record rather than my prose. The
+ * same rule applies here: this file composes every instruction the reviewer
+ * receives. What the caller supplies is data (which plan, which round, which
+ * findings were disposed of how) and one capped emphasis directive, framed by
+ * the script as emphasis and never as scope.
+ *
+ * WHY AN AGENT AND NOT AN API CALL
+ * --------------------------------
+ * The plan-review contract's first non-negotiable is "inspect the repository
+ * before concluding". A single Responses API call can only see what the
+ * caller packs into it, so the caller chooses the reviewer's evidence. Codex
+ * CLI in a read-only sandbox is an agent with the checkout: it greps, reads
+ * and runs read-only commands of its own choosing. In the measured pilot it
+ * ran 45 repository commands unprompted before concluding.
+ *
+ * TRANSPORT, AND THE ONE THING THAT MUST NEVER BE STORED
+ * -----------------------------------------------------
+ * `codex exec`, signed in PER SESSION by ChatGPT device code. The token
+ * bundle lives in $CODEX_HOME for the life of the container and nowhere else:
+ * not in the environment block, not in chat, not in a file handed to anyone.
+ * This script never reads it, never prints it, and never writes it. All it
+ * does is ask `codex login status` whether one exists, and refuse with
+ * instructions when it does not. (core/docs/ai-context/web-research.md.)
+ *
+ * TOKEN DISCIPLINE, WHICH IS WHY THE PROMPT IS ORDERED THE WAY IT IS
+ * ------------------------------------------------------------------
+ * The prompt is a STABLE PREFIX plus a per-round tail. Everything that does
+ * not change across a loop -- the role, the contract, the oracle, the pointer
+ * to the plan file, the standing output rules -- is emitted first, byte for
+ * byte identical each round, so the provider's prefix cache carries it. Only
+ * "## This round" varies. The plan is handed over as a PATH, never inlined,
+ * which is what keeps that prefix stable even though the plan itself is
+ * rewritten every round. The pilot measured 2.89M of 3.09M input tokens
+ * served from cache, and this ordering is why.
+ *
+ * Prior findings cross rounds as ids, titles and dispositions -- never full
+ * bodies. The reviewer starts fresh every round and reconciles against the
+ * CURRENT WHOLE PLAN, not against its own memory of what it said last time.
+ *
+ * USAGE
+ * -----
+ *   # Round 0, at the scope gate: the oracle alone, before a plan exists.
+ *   node core/scripts/plan-review.mjs --round 0 --slug <slug> --oracle <file>
+ *
+ *   # Round N: the plan, its oracle, a lens, and last round's dispositions.
+ *   node core/scripts/plan-review.mjs --round 2 --plan docs/plans/PLAN_X.md \
+ *        --lens "auth boundaries and failure modes" --prior priors.json
+ *
+ *   --dry-run  assembles the prompt and schema, writes them, spawns nothing.
+ *
+ * Output: .agents/reviews/<slug>/round-N.json (the validated assessment),
+ * plus round-N.prompt.md, round-N.schema.json and round-N.meta.json beside
+ * it. The whole directory is gitignored -- these are session artifacts, and
+ * the plan is deliberately not published into git history.
+ *
+ * EXIT CODES
+ *   0  a schema-valid assessment was written
+ *   1  a refusal, or the reviewer failed
+ *   2  no ChatGPT sign-in in this container -- David has to approve one
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+export const REPO_ROOT = process.env.PLAN_REVIEW_ROOT
+  ? path.resolve(process.env.PLAN_REVIEW_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/** Settled: GPT-6 Astra at xhigh, read-only. Overridable only for smoke tests. */
+export const DEFAULT_MODEL = "gpt-6-astra";
+export const DEFAULT_EFFORT = "xhigh";
+export const DEFAULT_SANDBOX = "read-only";
+export const SANDBOXES = ["read-only", "workspace-write", "danger-full-access"];
+
+export const REVIEWS_DIR = ".agents/reviews";
+
+/**
+ * The contract, by its CONSUMER path first. In the handbook the payload sits
+ * one directory deeper and there is no consumer-shaped copy, so the resolver
+ * retries under `core/`. Same two-layout problem the adjudication record
+ * solves at a commit; this one reads the working tree, because the plan under
+ * review is a working-tree file that may never be committed at all.
+ */
+export const CONTRACT_PATH = "docs/ai-context/plan-review-contract.md";
+
+/** A lens is emphasis the builder chose. Capped, and framed as emphasis. */
+export const MAX_LENS_CHARS = 500;
+/** A disposition note is the builder's one-line reason. Capped for the same reason. */
+export const MAX_NOTE_CHARS = 300;
+/** A rejected output echoed back into the one re-ask. */
+export const MAX_ECHO_CHARS = 200_000;
+
+export const DISPOSITIONS = ["fixed", "declined", "to-david", "deferred"];
+
+// ---------------------------------------------------------------------------
+// The output schemas
+// ---------------------------------------------------------------------------
+
+/**
+ * The plan-review contract's FULL-ASSESSMENT surface, as a JSON Schema.
+ *
+ * Every section every round, an empty list where a section is genuinely
+ * empty. That is the contract's own rule, and expressing it as `required`
+ * rather than as prose is the point of constraining the output: a reviewer
+ * cannot quietly omit "what is strong" on a round where it found plenty to
+ * complain about, and cannot omit `previous_findings` on a round where it
+ * would rather not reconcile.
+ *
+ * Derived from the pilot's schema (docs/research/pilot/review-schema.json),
+ * which produced a schema-valid assessment on the first real round.
+ */
+export const PLAN_ASSESSMENT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "review_status",
+    "lens_applied",
+    "summary_for_david",
+    "what_is_strong",
+    "required_revisions",
+    "product_decisions_for_david",
+    "recommended_improvements",
+    "verified_claims",
+    "unable_to_verify",
+    "previous_findings",
+  ],
+  properties: {
+    review_status: {
+      type: "string",
+      enum: [
+        "No major technical disagreement",
+        "Directionally good, revisions needed",
+        "Substantive technical concerns",
+        "Strong disagreement on direction",
+        "Human clarification required",
+        "Repo context required",
+      ],
+    },
+    lens_applied: { type: "string" },
+    summary_for_david: {
+      type: "string",
+      description:
+        "Three plain-English sentences for a non-coding product owner: what this plan builds, whether it is safe to approve, and the one thing he should decide or watch.",
+    },
+    what_is_strong: { type: "array", items: { type: "string" } },
+    required_revisions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "title", "why_it_matters", "what_should_change", "acceptance_check", "evidence", "class"],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          why_it_matters: { type: "string" },
+          what_should_change: { type: "string" },
+          acceptance_check: { type: "string", description: "A pass/fail condition a reviser can run or check." },
+          evidence: {
+            type: "array",
+            items: { type: "string" },
+            description: "File paths with line numbers, or commands you ran, that ground this finding.",
+          },
+          class: { type: "string", description: "The general class of defect this instance belongs to, so the reviser can sweep for siblings." },
+        },
+      },
+    },
+    product_decisions_for_david: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["question", "options", "recommendation"],
+        properties: {
+          question: { type: "string" },
+          options: { type: "array", items: { type: "string" } },
+          recommendation: { type: "string" },
+        },
+      },
+    },
+    recommended_improvements: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "what", "why"],
+        properties: { title: { type: "string" }, what: { type: "string" }, why: { type: "string" } },
+      },
+    },
+    verified_claims: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["claim", "how_verified"],
+        properties: { claim: { type: "string" }, how_verified: { type: "string" } },
+      },
+    },
+    unable_to_verify: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["claim", "why"],
+        properties: { claim: { type: "string" }, why: { type: "string" } },
+      },
+    },
+    previous_findings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "status", "reason"],
+        properties: {
+          id: { type: "string" },
+          status: { type: "string", enum: ["Resolved", "Still open", "Superseded"] },
+          reason: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+/**
+ * Round 0's shape: the scope gate, before a plan exists.
+ *
+ * A different question deserves a different shape. Round 0 has no plan to
+ * find defects in, so `required_revisions` would be a category error -- the
+ * reviewer is answering "should this be built at all, and is the boundary in
+ * the right place". Its concerns carry ids so they can cross into round 1 as
+ * prior findings like any other.
+ */
+export const SCOPE_ASSESSMENT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "review_status",
+    "summary_for_david",
+    "should_this_exist",
+    "should_this_exist_why",
+    "scope_assessment",
+    "scope_concerns",
+    "missing_from_scope",
+    "product_decisions_for_david",
+    "verified_claims",
+    "unable_to_verify",
+  ],
+  properties: {
+    review_status: {
+      type: "string",
+      enum: [
+        "Scope is right",
+        "Scope is right with changes",
+        "Scope is wrong",
+        "Human clarification required",
+        "Repo context required",
+      ],
+    },
+    summary_for_david: {
+      type: "string",
+      description:
+        "Three plain-English sentences for a non-coding product owner: what this proposes to build, whether it is worth building now, and the one thing he should decide.",
+    },
+    should_this_exist: { type: "string", enum: ["Yes", "Yes, but narrower", "Not yet", "No"] },
+    should_this_exist_why: { type: "string" },
+    scope_assessment: {
+      type: "string",
+      description: "Whether the now / next / never boundary is in the right place, and what you would move across it.",
+    },
+    scope_concerns: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "title", "why_it_matters", "what_should_change", "evidence"],
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          why_it_matters: { type: "string" },
+          what_should_change: { type: "string" },
+          evidence: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+    missing_from_scope: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "why", "belongs_in"],
+        properties: {
+          title: { type: "string" },
+          why: { type: "string" },
+          belongs_in: { type: "string", enum: ["now", "next", "never"] },
+        },
+      },
+    },
+    product_decisions_for_david: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["question", "options", "recommendation"],
+        properties: {
+          question: { type: "string" },
+          options: { type: "array", items: { type: "string" } },
+          recommendation: { type: "string" },
+        },
+      },
+    },
+    verified_claims: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["claim", "how_verified"],
+        properties: { claim: { type: "string" }, how_verified: { type: "string" } },
+      },
+    },
+    unable_to_verify: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["claim", "why"],
+        properties: { claim: { type: "string" }, why: { type: "string" } },
+      },
+    },
+  },
+};
+
+export const schemaFor = (round) => (round === 0 ? SCOPE_ASSESSMENT_SCHEMA : PLAN_ASSESSMENT_SCHEMA);
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a parsed value against the subset of JSON Schema these schemas use.
+ *
+ * Dependency-free on purpose: this repo installs nothing, and a validator that
+ * needs `npm install` is a validator that does not run on a fresh container.
+ * The subset is exactly what the two schemas above express -- object, array,
+ * string, required, additionalProperties:false, enum, items, properties. A
+ * keyword outside it would silently pass, so `assertSchemaSupported` refuses
+ * a schema this validator cannot actually enforce rather than pretending.
+ */
+export function validate(value, schema, at = "$") {
+  const problems = [];
+  const say = (msg) => problems.push(`${at}: ${msg}`);
+
+  if (schema.enum && !schema.enum.includes(value)) {
+    say(`${JSON.stringify(value)} is not one of ${schema.enum.map((e) => JSON.stringify(e)).join(", ")}`);
+    return problems;
+  }
+
+  switch (schema.type) {
+    case "object": {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        say(`expected an object, got ${describe(value)}`);
+        return problems;
+      }
+      for (const key of schema.required ?? []) {
+        if (!Object.prototype.hasOwnProperty.call(value, key)) say(`missing required key "${key}"`);
+      }
+      if (schema.additionalProperties === false) {
+        for (const key of Object.keys(value)) {
+          if (!(schema.properties ?? {})[key]) say(`unexpected key "${key}"`);
+        }
+      }
+      for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          problems.push(...validate(value[key], sub, `${at}.${key}`));
+        }
+      }
+      return problems;
+    }
+    case "array": {
+      if (!Array.isArray(value)) {
+        say(`expected an array, got ${describe(value)}`);
+        return problems;
+      }
+      if (schema.items) {
+        value.forEach((item, i) => problems.push(...validate(item, schema.items, `${at}[${i}]`)));
+      }
+      return problems;
+    }
+    case "string":
+      if (typeof value !== "string") say(`expected a string, got ${describe(value)}`);
+      return problems;
+    case "number":
+    case "integer":
+      if (typeof value !== "number") say(`expected a number, got ${describe(value)}`);
+      return problems;
+    case "boolean":
+      if (typeof value !== "boolean") say(`expected a boolean, got ${describe(value)}`);
+      return problems;
+    default:
+      say(`schema declares an unsupported type ${JSON.stringify(schema.type)}`);
+      return problems;
+  }
+}
+
+const describe = (v) => (v === null ? "null" : Array.isArray(v) ? "an array" : typeof v);
+
+/** Keywords `validate` actually enforces. Anything else is a silent pass, so refuse it. */
+const SUPPORTED_KEYWORDS = new Set(["type", "required", "additionalProperties", "properties", "items", "enum", "description"]);
+
+export function assertSchemaSupported(schema, at = "$") {
+  for (const key of Object.keys(schema)) {
+    if (!SUPPORTED_KEYWORDS.has(key)) {
+      throw new Error(
+        `${at} uses the JSON Schema keyword "${key}", which this repo's dependency-free validator does not enforce. ` +
+          `A keyword that is sent to the model but not checked here means an output could be accepted that does not ` +
+          `satisfy the schema -- add support for it, or drop it.`,
+      );
+    }
+  }
+  for (const [key, sub] of Object.entries(schema.properties ?? {})) assertSchemaSupported(sub, `${at}.${key}`);
+  if (schema.items) assertSchemaSupported(schema.items, `${at}[]`);
+}
+
+/**
+ * The reviewer's last message as a parsed object.
+ *
+ * `--output-schema` constrains the final message, but a model that decides to
+ * be helpful still sometimes wraps it in a ```json fence. Stripping one fence
+ * is worth doing; anything beyond that is a malformed output and belongs in
+ * the re-ask, not in a parser that guesses.
+ */
+export function parseAssessment(text) {
+  const trimmed = (text ?? "").trim();
+  if (trimmed === "") throw new Error("the reviewer returned an empty final message");
+  const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n?```$/.exec(trimmed);
+  const body = fenced ? fenced[1] : trimmed;
+  try {
+    return JSON.parse(body);
+  } catch (err) {
+    throw new Error(`the reviewer's final message is not JSON: ${err.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Inputs
+// ---------------------------------------------------------------------------
+
+/** A slug names a directory, so it is checked as one rather than trusted as one. */
+export function assertSlug(slug) {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug ?? "")) {
+    throw new Error(
+      `--slug must match /^[a-z0-9][a-z0-9-]*$/, got ${JSON.stringify(slug)}. It becomes a path segment under ` +
+        `${REVIEWS_DIR}/, so anything else is a traversal waiting to happen.`,
+    );
+  }
+  return slug;
+}
+
+/** `docs/plans/PLAN_FOO_BAR.md` -> `foo-bar`, so the common case needs no flag. */
+export function slugFromPlanPath(planPath) {
+  const base = path.basename(planPath).replace(/\.md$/i, "");
+  const slug = base
+    .replace(/^PLAN[_-]/i, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (slug === "") throw new Error(`cannot derive a slug from ${planPath} -- pass --slug explicitly`);
+  return assertSlug(slug);
+}
+
+/** The body of the first ```<tag> fenced block, or null. */
+export function extractFenced(text, tag) {
+  const re = new RegExp("^```" + tag + "\\s*\\n([\\s\\S]*?)\\n```\\s*$", "m");
+  const m = re.exec(text ?? "");
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * The review oracle: direction, product intent, must-not-change, settled
+ * decisions, now/next/never, tier, criticality -- agreed with David BEFORE the
+ * plan was written, which is what makes it an oracle rather than a summary of
+ * the plan. A plan reviewed only against itself can be perfectly coherent and
+ * still have dropped a requirement, and the contract asks the reviewer to
+ * catch exactly that. So a missing oracle is a refusal, never a round that
+ * quietly reviews the plan against its own reasoning.
+ */
+export function oracleFrom({ oracleText, planText }) {
+  for (const source of [oracleText, planText]) {
+    if (source == null) continue;
+    const fenced = extractFenced(source, "plan-oracle");
+    if (fenced) return fenced;
+  }
+  if (oracleText != null && oracleText.trim() !== "") return oracleText.trim();
+  throw new Error(
+    `no review oracle. Either pass --oracle <file>, or give the plan a fenced \`\`\`plan-oracle block at its head ` +
+      `carrying the direction, product intent, must-not-change, settled decisions and now/next/never boundaries ` +
+      `agreed before the plan was written. Reviewing a plan against itself is not the contract.`,
+  );
+}
+
+/**
+ * Prior findings, reduced to what crosses a round boundary: id, title,
+ * disposition, and at most one capped line of why.
+ *
+ * The full body deliberately does NOT cross. The reviewer starts fresh and
+ * re-derives from the current plan; handing it last round's argument invites
+ * it to reconcile against that argument instead of against the plan, which is
+ * the anchoring the fresh context exists to prevent. Extra keys are dropped
+ * rather than rejected, so a caller can pass the previous round's JSON through
+ * without hand-editing it.
+ */
+export function normalizePriors(raw) {
+  if (!Array.isArray(raw)) throw new Error("the --prior file must contain a JSON array of findings");
+  return raw.map((f, i) => {
+    const at = `--prior[${i}]`;
+    if (f === null || typeof f !== "object" || Array.isArray(f)) throw new Error(`${at} is not an object`);
+    if (typeof f.id !== "string" || f.id.trim() === "") throw new Error(`${at} has no "id"`);
+    if (typeof f.title !== "string" || f.title.trim() === "") throw new Error(`${at} (${f.id}) has no "title"`);
+    if (!DISPOSITIONS.includes(f.disposition)) {
+      throw new Error(
+        `${at} (${f.id}) has disposition ${JSON.stringify(f.disposition)}; it must be one of ${DISPOSITIONS.join(", ")}. ` +
+          `An unrecognised disposition would reach the reviewer as an unanswered finding, which is how a fix gets ` +
+          `silently re-litigated.`,
+      );
+    }
+    const note = typeof f.note === "string" ? f.note.trim().replace(/\s+/g, " ") : "";
+    return {
+      id: f.id.trim(),
+      title: f.title.trim(),
+      disposition: f.disposition,
+      note: note.length > MAX_NOTE_CHARS ? `${note.slice(0, MAX_NOTE_CHARS)}… (truncated)` : note,
+    };
+  });
+}
+
+/** The contract text and the path it was found at, in either payload layout. */
+export function readContract(root = REPO_ROOT) {
+  const tried = [];
+  for (const candidate of [CONTRACT_PATH, path.posix.join("core", CONTRACT_PATH)]) {
+    const abs = path.join(root, candidate);
+    if (fs.existsSync(abs)) return { path: candidate, text: fs.readFileSync(abs, "utf8") };
+    tried.push(candidate);
+  }
+  throw new Error(
+    `cannot find the plan-review contract in either payload layout -- tried ${tried.join(" and ")}. ` +
+      `The reviewer applies that file; without it there is no review to run.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The prompt
+// ---------------------------------------------------------------------------
+
+/**
+ * The standing half: identical bytes on every round of a loop.
+ *
+ * Note what is here and what is not. The plan arrives as a PATH -- the
+ * reviewer opens it itself, which both keeps this prefix stable while the
+ * plan is rewritten under it and keeps the reviewer's evidence its own. The
+ * contract arrives as a path too, for the same reason and because it is the
+ * file the reviewer is being asked to apply rather than quote.
+ */
+export function stablePrefix({ round, contractPath, oracle, planPath }) {
+  const reviewing =
+    round === 0
+      ? [
+          "## What you are looking at",
+          "",
+          "There is NO PLAN YET. This is the scope gate: David and the builder have agreed what",
+          "they think should be built, and before a line of the plan is written you are being asked",
+          "the cheapest question in the loop — **should this exist at all, and is the boundary in the",
+          "right place?** You are reviewing the intent below, nothing else.",
+          "",
+          "Inspect the repository before you answer. The claim that a thing is missing, or already",
+          "exists, or cannot work the way the intent assumes, is checkable — check it.",
+        ]
+      : [
+          "## The plan under review",
+          "",
+          `\`${planPath}\` in the current checkout. Read the whole file. The repository is checked out at`,
+          "the revision the plan was written against, so every path and line it cites is live.",
+        ];
+
+  return [
+    "You are the independent technical plan reviewer for this repository, in an AI-to-AI planning",
+    "loop with David (the human product owner) in control. You are reviewing a software-development",
+    "implementation PLAN, not code, and you must not implement anything.",
+    "",
+    "## The contract you apply",
+    "",
+    `Read \`${contractPath}\` in full before doing anything else, and apply it exactly. You are on its`,
+    "**full-assessment surface** (one complete document per round), not the GitHub structured-defect",
+    "surface. Every section of the assessment is produced every time; where a section is genuinely",
+    "empty, return an empty list rather than omitting it.",
+    "",
+    "Non-negotiables from that contract that bind you here:",
+    "- You do not approve plans. David does.",
+    "- Inspect the repository before concluding. Read the actual code and docs, run the inventory",
+    "  oracles you are given, and never guess about repo structure. If you lack the context to judge",
+    "  a claim, list it under `unable_to_verify` instead of guessing.",
+    ...(round === 0
+      ? [
+          "- Produce a complete answer even when nothing is wrong: what the intent gets right belongs in",
+          "  `should_this_exist_why` and `scope_assessment`, not only what it gets wrong.",
+          "- File as a `scope_concern` only what must change BEFORE a plan is written. Anything that is",
+          "  the plan's business to get right is not a scope concern — it is next round's finding.",
+        ]
+      : [
+          "- Produce a complete review even when nothing is critical: strengths, required revisions,",
+          "  recommendations, verified claims.",
+          "- Separate required revisions from recommended improvements. Do not block on the recommended",
+          "  tier — a recommendation never holds a round open, so anything you file as required is",
+          "  something you are willing to spend another whole round on.",
+        ]),
+    "- Escalate, don't decide: a genuine product or design fork goes in `product_decisions_for_david`",
+    "  with options and your recommendation, never settled by you.",
+    "",
+    ...reviewing,
+    "",
+    "## The review oracle (agreed with David before the plan was written)",
+    "",
+    "Compare against THIS, not only against internal coherence. A plan can be perfectly consistent",
+    "with itself and still have dropped a requirement the intent called for; flag any such omission.",
+    "",
+    oracle,
+    "",
+    "## Toolchain exclusion",
+    "",
+    "Do not report what a compiler, a linter or a test suite would catch. Report what would survive",
+    "into production invisibly: wrong invariants, unguarded paths, a check that can be satisfied",
+    "without the thing it exists to check, a refusal that fails open.",
+    "",
+    "## Output",
+    "",
+    "Return only the JSON document matching the schema you were given — no prose around it and no",
+    "code fence. Ground every finding in evidence you actually inspected: file paths with line",
+    "numbers, or commands you ran and their output. `summary_for_david` is for a product owner who",
+    "cannot read code and will not read a diff: outcome, never mechanism.",
+  ].join("\n");
+}
+
+/** The varying half. Everything that changes round to round lives here, and only here. */
+export function roundContext({ round, lens, priors, inventory }) {
+  const out = ["## This round", ""];
+  const subject = round === 0 ? "intent" : "plan";
+
+  if (round === 0) {
+    out.push("This is round 0, the scope gate. There are no previous findings; there is no plan file.");
+  } else if (priors.length === 0) {
+    out.push(
+      `This is round ${round}. No previous findings were carried over, so return \`previous_findings\` as an empty list.`,
+    );
+  } else {
+    out.push(
+      `This is round ${round}. Below is every finding from the previous rounds, with what the builder did`,
+      "with it. **Titles and dispositions only — deliberately not the original text.** You are not being",
+      "asked to agree with the builder's reasoning or to reconcile against your own memory of what you",
+      "wrote; you are being asked to look at the CURRENT plan and say, for each id, whether it is now",
+      "Resolved, Still open, or Superseded by a change that made the point moot. The note is the",
+      "builder's own account of its decision. It is not evidence. Check it against the plan.",
+      "",
+    );
+    for (const p of priors) {
+      const label = { fixed: "fixed", declined: "DECLINED by the builder", "to-david": "escalated to David", deferred: "deferred to a later increment" }[
+        p.disposition
+      ];
+      out.push(`- **${p.id}** — ${p.title} — ${label}${p.note ? `: ${p.note}` : ""}`);
+    }
+  }
+
+  if (inventory) {
+    out.push(
+      "",
+      "### The plan's own affected-file inventory",
+      "",
+      "A starting map, not a boundary — the plan's author listed these as the files the work touches.",
+      "Where it is wrong or incomplete, that is itself a finding.",
+      "",
+      inventory,
+    );
+  }
+
+  out.push(
+    "",
+    `### Lens for this round: ${lens ? lens : `none — assess the whole ${subject} evenly`}`,
+    "",
+    lens
+      ? `Attack from that angle specifically. It directs EMPHASIS, not scope: still read and assess the whole ${subject}, and a serious problem outside the lens is still a finding.`
+      : "No particular angle was requested.",
+  );
+
+  if (round > 2) {
+    out.push(
+      "",
+      "### New ground after round 2",
+      "",
+      "This is a late round. A concern you raise for the first time now, about a section of the plan",
+      "that has not changed since round 2, belongs in `recommended_improvements` — unless you can show",
+      "why it is required, in which case say so in `why_it_matters` and file it as required. This is not",
+      "an instruction to soften: it is the loop's rule that a reviewer who keeps finding new required",
+      "work in untouched text is expanding the plan rather than converging it.",
+    );
+  }
+
+  out.push("", "Return only the JSON document matching the schema.");
+  return out.join("\n");
+}
+
+export function assemblePrompt(parts) {
+  const { reaskErrors, previousOutput } = parts;
+  const body = [stablePrefix(parts), "", roundContext(parts)];
+  if (reaskErrors?.length) {
+    const echo =
+      previousOutput && previousOutput.length > MAX_ECHO_CHARS
+        ? `${previousOutput.slice(0, MAX_ECHO_CHARS)}\n… (truncated)`
+        : previousOutput;
+    body.push(
+      "",
+      "## Your previous attempt did not match the schema",
+      "",
+      "You already did this review. What came back could not be accepted, for these reasons:",
+      "",
+      ...reaskErrors.map((e) => `- ${e}`),
+      "",
+      "Below is your own previous output. Return the SAME assessment, corrected to satisfy the schema.",
+      "Do not re-open the review or change your findings to make the shape easier — fix the shape.",
+      "",
+      "```",
+      echo ?? "(the previous output could not be read)",
+      "```",
+    );
+  }
+  return body.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Codex
+// ---------------------------------------------------------------------------
+
+const codexBin = () => process.env.CODEX_BIN || "codex";
+
+/**
+ * Is there a ChatGPT sign-in in this container?
+ *
+ * `codex login status` exits 1 and prints "Not logged in" when there is not
+ * (measured, CLI 0.153.4). Both signals are read, because an exit code is a
+ * thin thing to hang a refusal on and a future version could change either.
+ * This function never touches $CODEX_HOME/auth.json — the bundle is David's
+ * ChatGPT account credential, and nothing in this repo reads, prints or
+ * copies it.
+ */
+export function signInStatus({ run = spawnSyncDefault } = {}) {
+  let result;
+  try {
+    result = run(codexBin(), ["login", "status"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    return { signedIn: false, missingBinary: true, detail: err.message };
+  }
+  if (result.error) {
+    return { signedIn: false, missingBinary: result.error.code === "ENOENT", detail: String(result.error.message) };
+  }
+  const text = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+  const signedIn = result.status === 0 && !/not logged in/i.test(text);
+  return { signedIn, missingBinary: false, detail: text };
+}
+
+const spawnSyncDefault = (...args) => spawnSync(...args);
+
+export const SIGN_IN_INSTRUCTIONS = [
+  "No ChatGPT sign-in in this container, so there is no reviewer to run.",
+  "",
+  "Sign-in is per session and is never stored (core/docs/ai-context/web-research.md). To get one:",
+  "",
+  "  1. npm install @openai/codex   (in a scratch directory; set CODEX_BIN to the binary)",
+  "  2. codex login --device-auth </dev/null",
+  "  3. Give David the URL and the code as a 🛑 blocking ask, with a push notification.",
+  "     He approves it on his phone; David never runs a command.",
+  "",
+  "The token bundle stays in $CODEX_HOME for the life of this container. It is never written to the",
+  "environment block, never sent through chat, and never handed over in a file.",
+].join("\n");
+
+/**
+ * One `codex exec` run.
+ *
+ * Every flag here is load-bearing:
+ *   -                        the prompt arrives on stdin. `codex exec` waits
+ *                            forever on an open stdin in this harness, so the
+ *                            stream is written and closed, never inherited.
+ *   --output-schema          constrains the final message to the contract's shape.
+ *   --output-last-message    writes that message to a file, so the result is
+ *                            read from disk rather than scraped out of a
+ *                            transcript that contains 45 tool calls.
+ *   --sandbox read-only      the reviewer reads the repo and cannot change it.
+ *                            (It also blocks /tmp — a reviewer that must run
+ *                            the suite needs workspace-write on a scratch
+ *                            checkout, or a TMPDIR inside the workspace.)
+ *   --ignore-user-config     a stray ~/.codex/config.toml must not steer this
+ *                            reviewer. It is also the guard on a measured
+ *                            defect: --output-schema is IGNORED when MCP tools
+ *                            are active, and user config is how MCP tools get
+ *                            turned on. Auth still comes from CODEX_HOME.
+ *   --ignore-rules           same reasoning for execpolicy .rules files.
+ *   --ephemeral              no session file on disk; each round is a fresh
+ *                            context by construction, not by convention.
+ *
+ * stdout and stderr are inherited so a long run shows progress where a human
+ * or a log file can see it; the answer never comes from either stream.
+ */
+export function runCodex({ prompt, schemaFile, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
+  const args = [
+    "exec",
+    "--model", model,
+    "-c", `model_reasoning_effort="${effort}"`,
+    "--sandbox", sandbox,
+    "--cd", cwd,
+    "--output-schema", schemaFile,
+    "--output-last-message", outFile,
+    "--ephemeral",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--color", "never",
+    "-",
+  ];
+  const started = Date.now();
+  const result = run(codexBin(), args, {
+    input: prompt,
+    encoding: "utf8",
+    stdio: ["pipe", "inherit", "inherit"],
+    timeout: timeoutMs,
+    cwd,
+  });
+  return { args, status: result.status, signal: result.signal, error: result.error, seconds: (Date.now() - started) / 1000 };
+}
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+
+/**
+ * The round's directory, with a `.gitignore` that ignores everything in it.
+ *
+ * Written by the script rather than shipped as a payload file, so it exists in
+ * every consumer the first time a round runs and cannot be half-installed. `*`
+ * ignores the `.gitignore` itself too, which is the intent: a plan under
+ * review is deliberately not published into git history, and neither is the
+ * reviewer's assessment of it. The durable record of a loop is the harvest
+ * comment on the workstream issue, not these files.
+ */
+export function ensureRoundDir(root, slug) {
+  const dir = path.join(root, REVIEWS_DIR, slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const ignore = path.join(root, REVIEWS_DIR, ".gitignore");
+  if (!fs.existsSync(ignore)) {
+    fs.writeFileSync(
+      ignore,
+      [
+        "# Plan-review rounds are session artifacts, not repo history.",
+        "#",
+        "# The plan under review is deliberately never published into git, which is",
+        "# what dissolved the disclosure gate the public [PLAN REVIEW] PR needed. The",
+        "# reviewer's assessment of it is the same class of thing. What survives a loop",
+        "# is the approved plan (if David asks for it) and the harvest comment on the",
+        "# workstream issue.",
+        "#",
+        "# `*` covers this file too. That is deliberate: nothing under here is tracked,",
+        "# so there is no half-state where the directory is committed but its contents",
+        "# are not. core/scripts/plan-review.mjs writes this file on first use.",
+        "*",
+        "",
+      ].join("\n"),
+    );
+  }
+  return dir;
+}
+
+const sha256 = (text) => crypto.createHash("sha256").update(text).digest("hex").slice(0, 12);
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+export function parseArgs(argv) {
+  const flags = { lens: null, prior: null, oracle: null, plan: null, slug: null, round: null };
+  const bools = { "dry-run": "dryRun", "no-prior": "noPrior", force: "force", help: "help" };
+  const values = {
+    round: "round", plan: "plan", oracle: "oracle", slug: "slug", lens: "lens", prior: "prior",
+    model: "model", effort: "effort", sandbox: "sandbox", timeout: "timeout",
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith("--")) throw new Error(`unexpected argument ${JSON.stringify(arg)}`);
+    const name = arg.slice(2);
+    if (bools[name]) {
+      flags[bools[name]] = true;
+      continue;
+    }
+    if (values[name]) {
+      const value = argv[++i];
+      if (value === undefined) throw new Error(`--${name} needs a value`);
+      flags[values[name]] = value;
+      continue;
+    }
+    throw new Error(`unknown flag --${name}`);
+  }
+  return flags;
+}
+
+export const USAGE = [
+  "Usage:",
+  "  node core/scripts/plan-review.mjs --round 0 --slug <slug> --oracle <file> [--lens <text>]",
+  "  node core/scripts/plan-review.mjs --round <N> --plan <file> [--slug <s>] [--oracle <f>]",
+  "                                    [--lens <text>] [--prior <file> | --no-prior]",
+  "",
+  "  --dry-run     assemble the prompt and schema, write them, spawn nothing",
+  "  --force       overwrite a round that already exists",
+  `  --model       default ${DEFAULT_MODEL}`,
+  `  --effort      default ${DEFAULT_EFFORT}`,
+  `  --sandbox     default ${DEFAULT_SANDBOX} (${SANDBOXES.join(" | ")})`,
+  "  --timeout     seconds, default 2700",
+  "",
+  "  CODEX_BIN     path to the codex binary, if it is not on PATH",
+].join("\n");
+
+export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spawnSyncDefault, log = console.error } = {}) {
+  let flags;
+  try {
+    flags = parseArgs(argv);
+  } catch (err) {
+    log(`plan-review: ${err.message}\n\n${USAGE}`);
+    return 1;
+  }
+  if (flags.help) {
+    log(USAGE);
+    return 0;
+  }
+
+  try {
+    // --- round -----------------------------------------------------------
+    if (flags.round === null) throw new Error(`--round is required.\n\n${USAGE}`);
+    const round = Number(flags.round);
+    if (!Number.isInteger(round) || round < 0) throw new Error(`--round must be an integer >= 0, got ${JSON.stringify(flags.round)}`);
+
+    // --- plan and oracle --------------------------------------------------
+    let planPath = null;
+    let planText = null;
+    if (round === 0) {
+      if (flags.plan) {
+        throw new Error(
+          "--round 0 is the scope gate, which runs BEFORE a plan exists; it takes --oracle, not --plan. " +
+            "If a plan is written, this is round 1 or later.",
+        );
+      }
+      if (!flags.oracle) throw new Error("--round 0 needs --oracle <file>: the scope gate reviews the intent, and the intent is all it gets.");
+    } else {
+      if (!flags.plan) throw new Error(`--round ${round} needs --plan <file>`);
+      planPath = path.relative(root, path.resolve(root, flags.plan));
+      const abs = path.join(root, planPath);
+      if (!fs.existsSync(abs)) throw new Error(`--plan ${flags.plan} does not exist at ${abs}`);
+      planText = fs.readFileSync(abs, "utf8");
+    }
+    const oracleText = flags.oracle ? fs.readFileSync(path.resolve(root, flags.oracle), "utf8") : null;
+    const oracle = oracleFrom({ oracleText, planText });
+
+    // --- slug -------------------------------------------------------------
+    const slug = flags.slug ? assertSlug(flags.slug) : slugFromPlanPath(planPath ?? "");
+
+    // --- prior findings ---------------------------------------------------
+    let priors = [];
+    if (flags.prior && flags.noPrior) throw new Error("--prior and --no-prior contradict each other");
+    if (flags.prior) {
+      priors = normalizePriors(JSON.parse(fs.readFileSync(path.resolve(root, flags.prior), "utf8")));
+    } else if (round >= 2 && !flags.noPrior) {
+      // The stop rule is "required_revisions empty AND every prior finding
+      // Resolved or Superseded". A round that never saw the prior findings
+      // cannot satisfy the second half, and would report a clean sheet it has
+      // no basis for. So this is a refusal with an explicit escape, not a
+      // default that quietly drops them.
+      throw new Error(
+        `round ${round} needs --prior <file> carrying every unresolved finding from the earlier rounds, as a JSON ` +
+          `array of {id, title, disposition, note?} with disposition one of ${DISPOSITIONS.join(" | ")}. ` +
+          `Pass --no-prior only when the previous round genuinely returned none — the loop's stop rule depends on ` +
+          `the reviewer reconciling them, so silently dropping them would fake convergence.`,
+      );
+    }
+
+    // --- the rest ---------------------------------------------------------
+    const lens = flags.lens ? flags.lens.trim().replace(/\s+/g, " ").slice(0, MAX_LENS_CHARS) : null;
+    const inventory = planText ? extractFenced(planText, "affected-files") : null;
+    const contract = readContract(root);
+    const model = flags.model ?? DEFAULT_MODEL;
+    const effort = flags.effort ?? DEFAULT_EFFORT;
+    const sandbox = flags.sandbox ?? DEFAULT_SANDBOX;
+    if (!SANDBOXES.includes(sandbox)) throw new Error(`--sandbox must be one of ${SANDBOXES.join(", ")}`);
+    const timeoutMs = Number(flags.timeout ?? 2700) * 1000;
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error(`--timeout must be a positive number of seconds`);
+
+    const schema = schemaFor(round);
+    assertSchemaSupported(schema);
+
+    const dir = ensureRoundDir(root, slug);
+    const outJson = path.join(dir, `round-${round}.json`);
+    if (fs.existsSync(outJson) && !flags.force) {
+      throw new Error(`${path.relative(root, outJson)} already exists. Pass --force to overwrite it, or use the next round number.`);
+    }
+
+    const promptFile = path.join(dir, `round-${round}.prompt.md`);
+    const schemaFile = path.join(dir, `round-${round}.schema.json`);
+    const lastMessage = path.join(dir, `round-${round}.last-message.txt`);
+    const metaFile = path.join(dir, `round-${round}.meta.json`);
+
+    const promptParts = { round, lens, priors, inventory, oracle, planPath, contractPath: contract.path };
+    const prompt = assemblePrompt(promptParts);
+    fs.writeFileSync(promptFile, `${prompt}\n`);
+    fs.writeFileSync(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);
+
+    if (flags.dryRun) {
+      log(
+        `plan-review: dry run — nothing spawned.\n` +
+          `  prompt  ${path.relative(root, promptFile)} (${prompt.length} chars)\n` +
+          `  schema  ${path.relative(root, schemaFile)}\n` +
+          `  oracle  ${oracle.length} chars, contract ${contract.path}\n` +
+          `  priors  ${priors.length}\n`,
+      );
+      return 0;
+    }
+
+    // --- sign-in ----------------------------------------------------------
+    const status = signInStatus({ run });
+    if (!status.signedIn) {
+      log(
+        status.missingBinary
+          ? `plan-review: no \`codex\` binary (set CODEX_BIN, or npm install @openai/codex).\n\n${SIGN_IN_INSTRUCTIONS}`
+          : `plan-review: ${SIGN_IN_INSTRUCTIONS}\n\n  codex login status said: ${status.detail}`,
+      );
+      return 2;
+    }
+
+    // --- the round, and one re-ask ---------------------------------------
+    const attempts = [];
+    let assessment = null;
+    let text = null;
+    for (let attempt = 1; attempt <= 2 && assessment === null; attempt++) {
+      if (fs.existsSync(lastMessage)) fs.rmSync(lastMessage);
+      const thisPrompt =
+        attempt === 1
+          ? prompt
+          : assemblePrompt({ ...promptParts, reaskErrors: attempts[0].problems, previousOutput: text });
+      if (attempt === 2) fs.writeFileSync(promptFile.replace(/\.md$/, ".reask.md"), `${thisPrompt}\n`);
+
+      log(`plan-review: round ${round} on ${model} (${effort}, ${sandbox})${attempt === 2 ? " — re-ask" : ""}…`);
+      const outcome = runCodex({ prompt: thisPrompt, schemaFile, outFile: lastMessage, model, effort, sandbox, cwd: root, timeoutMs, run });
+
+      let problems;
+      if (outcome.error || outcome.status !== 0) {
+        problems = [
+          `codex exec exited ${outcome.status ?? "(no status)"}${outcome.signal ? ` on signal ${outcome.signal}` : ""}` +
+            `${outcome.error ? `: ${outcome.error.message}` : ""}`,
+        ];
+        text = null;
+      } else {
+        text = fs.existsSync(lastMessage) ? fs.readFileSync(lastMessage, "utf8") : null;
+        try {
+          const parsed = parseAssessment(text);
+          problems = validate(parsed, schema);
+          if (problems.length === 0) assessment = parsed;
+        } catch (err) {
+          problems = [err.message];
+        }
+      }
+      attempts.push({ attempt, seconds: outcome.seconds, status: outcome.status ?? null, problems });
+      if (problems.length) log(`plan-review: attempt ${attempt} rejected —\n  ${problems.join("\n  ")}`);
+    }
+
+    const meta = {
+      slug,
+      round,
+      model,
+      effort,
+      sandbox,
+      lens,
+      plan: planPath,
+      planDigest: planText ? sha256(planText) : null,
+      oracleDigest: sha256(oracle),
+      contract: contract.path,
+      contractDigest: sha256(contract.text),
+      promptDigest: sha256(prompt),
+      priorFindings: priors.map((p) => ({ id: p.id, disposition: p.disposition })),
+      attempts,
+      finishedAt: new Date().toISOString(),
+      accepted: assessment !== null,
+    };
+    fs.writeFileSync(metaFile, `${JSON.stringify(meta, null, 2)}\n`);
+
+    if (assessment === null) {
+      log(
+        `plan-review: round ${round} produced no schema-valid assessment after a re-ask. ` +
+          `The reviewer's raw output is at ${path.relative(root, lastMessage)} and the attempt record at ` +
+          `${path.relative(root, metaFile)}. This round did not happen — do not count it, and do not summarise ` +
+          `an unvalidated document to David as a review.`,
+      );
+      return 1;
+    }
+
+    fs.writeFileSync(outJson, `${JSON.stringify(assessment, null, 2)}\n`);
+    const counted = round === 0 ? assessment.scope_concerns.length : assessment.required_revisions.length;
+    const label = round === 0 ? "scope concern(s)" : "required revision(s)";
+    log(
+      `plan-review: ${path.relative(root, outJson)}\n` +
+        `  status   ${assessment.review_status}\n` +
+        `  ${label.padEnd(8)} ${counted}\n` +
+        `  seconds  ${attempts.map((a) => Math.round(a.seconds)).join(" + ")}\n`,
+    );
+    process.stdout.write(`${path.relative(root, outJson)}\n`);
+    return 0;
+  } catch (err) {
+    log(`plan-review: ${err.message}`);
+    return 1;
+  }
+}
+
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) process.exit(main());
