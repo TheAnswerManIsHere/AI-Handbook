@@ -3,23 +3,20 @@
 # Plan-review contract (for Codex, ChatGPT, or any AI reviewer)
 
 > **The single canonical, cross-agent contract for reviewing a *plan* — not
-> code.** Whenever any AI reviewer (Codex on the automated draft-PR loop,
-> ChatGPT via manual upload, or a future reviewer) is asked to review a
+> code.** Whenever any AI reviewer — the in-session GPT-6 reviewer the plan
+> loop runs, ChatGPT via manual upload, or a future one — is asked to review a
 > software-development plan for the product whose repo it is working in, this
 > is the contract it applies.
-> Every reviewer-specific skill or prompt is a **thin enactment** of this file —
-> it adds only that reviewer's delivery mechanics (where feedback goes, what
-> format) and defers to this file for the review substance. The root
-> [`AGENTS.md`](../../AGENTS.md) points here for Codex; Claude Code's
-> the product's plan-review skill
-> skill and ChatGPT's plan-review skill are both thin enactments of this same
-> contract.
+> Every reviewer-specific skill or prompt is a **thin enactment** of this file:
+> it adds only that reviewer's delivery mechanics and defers to this file for
+> the review substance.
 >
-> Claude Code drives the *mechanics* of the automated plan-review loop (opening
-> the draft PR, subscribing, revising, closing) from its own `CLAUDE.md`; that
-> ceremony is Claude-specific and deliberately **not** restated here. This file
-> is only the **review contract** the reviewer executes — apply it regardless of
-> how the plan reached you (a PR, a pasted document, an uploaded file).
+> **This whole file is handed to the reviewer, every round.** So it must not
+> contain instructions for a transport the reviewer is not on — a contract that
+> describes two conflicting delivery surfaces gets half-followed rather than
+> visibly refused. The loop's own mechanics (which rounds run, what David sees,
+> when it stops) are the driving agent's and are deliberately **not** restated
+> here.
 
 ## When this applies
 
@@ -40,8 +37,8 @@ documentation prose. Review it as a *plan*: does it correctly and completely
 describe work that, if built as written, does the right thing safely. Do
 **not** review it as a diff, and do **not** implement any of it.
 
-That holds on **every** round, including re-reviews where GitHub shows you only
-a markdown diff — see [*Re-reviews*](#re-reviews-round-2-onward) below.
+That holds on **every** round, including re-reviews — see
+[*Re-reviews*](#re-reviews-round-2-onward) below.
 
 ## Role and posture
 
@@ -82,22 +79,13 @@ how he wants to be worked with.
   review that may stay silent absent a serious defect, a plan review is expected
   to return a full assessment — strengths, required revisions, recommendations —
   every time. Silence on a broadly-sound plan is not an acceptable output; say
-  what is strong and what could still be tightened. **This means what it says
-  literally on the full-document surface.** The GitHub structured-review surface
-  cannot comply with this the same way, and that gap is a **confirmed,
-  permanent limitation of the transport, not an open problem to keep
-  re-engineering**: the connector exposes only schema-validated defect findings
-  with no non-blocking/informational category and no freestanding-comment
-  channel (confirmed directly by Codex — see *Output*). On that surface,
-  "complete" is evidenced only by the round having actually run (the
-  connector's reviewed-commit confirmation) and, round 2 onward, by an empty
-  result answering a trigger that named specific prior findings — which is
-  weaker evidence than the full-document surface gives and is accepted as such.
-  Do not ask this surface for a way to positively confirm a clean round; there
-  isn't one, and further clever workarounds have twice produced a contradiction
-  instead of a fix.
-- **Never implement anything on a plan-review PR.** No commits, no code, no
-  "fixed it for you." The PR is a review channel that will be closed unmerged.
+  what is strong and what could still be tightened, and it means what it says
+  literally: a clean round is a complete document whose finding lists happen to
+  be empty, never a short one. You have a field for every section, so there is
+  no transport limitation to hide a thin pass behind.
+- **Never implement anything.** No commits, no code, no "fixed it for you." You
+  are reviewing a specification; changing it is the author's job, and a
+  reviewer that edits the thing it is judging has stopped being a reviewer.
 
 ## The review oracle
 
@@ -404,9 +392,15 @@ middle statuses for ordinary gaps.
 For each required revision, give: **why it matters** (risk, correctness,
 product concern, repo mismatch), **what should change** (concrete), and an
 **acceptance check** (pass/fail condition) — grounded in files/modules you
-actually verified, not guessed. Separate **required revisions** from
-**recommended improvements** from **safe-to-defer** items; don't block on the
-recommended tier.
+actually verified, not guessed.
+
+**There are exactly two tiers, and the split is yours to make.** A **required
+revision** is something you are willing to spend another whole review round on
+— because that is literally what filing one costs. Everything else is a
+**recommended improvement**: worth saying, never blocking. What used to be a
+third "safe-to-defer" tier is folded into recommended (2026-09-09), because a
+third tier the stop rule never read only invited filing a preference as
+required to make sure it got attention.
 
 ## Escalate — don't decide
 

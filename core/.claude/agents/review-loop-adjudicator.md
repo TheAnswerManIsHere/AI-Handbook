@@ -194,11 +194,13 @@ production, in one sentence, pointing at real code. Requirements, all of them:
 
 - The risk must be **behavioral**. Prose imprecision, naming, comment
   wording, and doc polish never qualify, however correct the finding.
-  **On a `[PLAN REVIEW]` loop the plan file IS the artifact** (Codex, #543
-  round 2): a specified-behavior risk in the plan — the increment would build
-  the wrong thing, violate a must-not-change, or contradict its cited
-  direction — is behavioral for this purpose, and `review-loop-record.mjs`
-  classifies `docs/plans/` as its own behavioral `plan` class accordingly.
+  **On a plan loop the plan file IS the artifact** (Codex, #543 round 2): a
+  specified-behavior risk in the plan — the increment would build the wrong
+  thing, violate a must-not-change, or contradict its cited direction — is
+  behavioral for this purpose, and `review-loop-record.mjs` classifies
+  `docs/plans/` as its own behavioral `plan` class accordingly. Plan loops
+  reach you only at the budget cap or on an `escalate` now (2026-09-09); the
+  round-3-onward dispatch is code loops only.
   What still never qualifies, plan or code: wording, structure, and polish.
 - It must be **unaddressed**, not merely raised.
 - It must be in **this loop's territory**. A defect in code the diff never

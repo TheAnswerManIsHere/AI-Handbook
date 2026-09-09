@@ -1,6 +1,6 @@
 ---
 name: pr-watch
-description: Use after opening or being re-engaged on any PR (implementation or [PLAN REVIEW]), and whenever a github-webhook-activity event arrives for a watched PR.
+description: Use after opening or being re-engaged on any PR, and whenever a github-webhook-activity event arrives for a watched PR. Implementation PRs only — plan review runs in-session and opens no PR.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -17,8 +17,8 @@ review threads once addressed — stay resident in `CLAUDE.md`.
 The subscribe rule lives in `CLAUDE.md`'s *Watching the PRs I open* stub,
 which fires at PR-open time before this skill is ever invoked: **I subscribe
 immediately, on whatever tier the session is on — there is no model gate**
-(David, 2026-08-15, retiring the Sonnet gate), for implementation and
-`[PLAN REVIEW]` PRs alike. **Self-check-ins follow the bounded contract in
+(David, 2026-08-15, retiring the Sonnet gate). Every PR this covers is an
+implementation PR; plan review opens none. **Self-check-ins follow the bounded contract in
 `CLAUDE.md`'s *Scheduled self-check-ins*** (David, 2026-08-15, replacing the
 2026-07-07 blanket ban): allowed against a named external state that won't
 reliably wake me, bounded by **both** caps (3 consecutive no-op wakes, and 6

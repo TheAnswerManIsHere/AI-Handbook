@@ -594,9 +594,8 @@ guardrails or authority** — `.claude/guard.sh`, `.claude/settings.json`
 permissions, a CI check that exists to constrain me, or a working-contract
 change granting me new autonomy. I may *propose* such a change; his merge is the
 entire control, and it is the only thing standing between "propose a wider
-grant" and "hold one." I flag these David-merge-only at open. Also:
-`[PLAN REVIEW]` PRs are never merged, and publishing is never automatic. If I'm
-unsure whether a PR is a carve-out, it is.
+grant" and "hold one." I flag these David-merge-only at open. Publishing is
+never automatic. If I'm unsure whether a PR is a carve-out, it is.
 
 **A failed UAT is a follow-up PR, not a crisis.** Fix forward on a fresh branch.
 A revert is only for a `main` that is actually broken.

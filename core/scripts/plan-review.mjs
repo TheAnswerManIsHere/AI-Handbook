@@ -106,6 +106,32 @@ export const MAX_ECHO_CHARS = 200_000;
 
 export const DISPOSITIONS = ["fixed", "declined", "to-david", "deferred"];
 
+/**
+ * Statuses that mean the reviewer could not do the job, not that the plan is
+ * sound. A round carrying one of these can still return zero required
+ * revisions -- because the reviewer never got far enough to have any -- so
+ * convergence must exclude them or an unreviewable plan converges. (Codex,
+ * #69 round 1.)
+ */
+export const BLOCKING_STATUSES = ["Human clarification required", "Repo context required"];
+
+/**
+ * Round budgets, by the tier of what is being planned. The plan loop takes the
+ * tier of the thing it plans, because a wrong plan becomes wrong code.
+ *
+ * These used to be enforced by `review-budget.mjs`, which is keyed to a PR
+ * number and reads receipts from a remote-tracking ref. There is no PR any
+ * more, so that machinery cannot run and the budget would have been prose
+ * (Codex, #69 round 1). It is enforced here instead, and the local version is
+ * simpler for the same reason the rest of this is: the round count is not
+ * stored anywhere, it is COUNTED from the round files on disk. A count that is
+ * derived cannot drift from the thing it counts.
+ */
+export const TIER_BUDGETS = { product: 5, sensitive: 5, internal: 3 };
+export const TIERS = Object.keys(TIER_BUDGETS);
+/** The self-serve leash above the budget; past it, only David grants. */
+export const LEASH = 3;
+
 // ---------------------------------------------------------------------------
 // The output schemas
 // ---------------------------------------------------------------------------
@@ -431,6 +457,151 @@ export function assertSchemaSupported(schema, at = "$") {
   }
   for (const [key, sub] of Object.entries(schema.properties ?? {})) assertSchemaSupported(sub, `${at}.${key}`);
   if (schema.items) assertSchemaSupported(schema.items, `${at}[]`);
+}
+
+/**
+ * Did the reviewer actually reconcile the findings it was handed?
+ *
+ * The schema cannot ask this: `previous_findings: []` is a well-formed array,
+ * and so is one naming ids nobody supplied. But the stop rule is "no required
+ * revisions AND every prior Resolved or Superseded", so a round that quietly
+ * drops a prior reports a clean sheet it has no basis for -- convergence
+ * faked by omission rather than by argument (Codex, #69 round 1).
+ *
+ * So this is checked with the schema, on the same footing: a round that fails
+ * it is re-asked, and the re-ask names the ids that went missing.
+ */
+export function reconciliationProblems(assessment, priors) {
+  if (priors.length === 0) return [];
+  const returned = new Map();
+  for (const f of assessment.previous_findings ?? []) {
+    if (returned.has(f.id)) return [`previous_findings names "${f.id}" twice; each prior finding is reconciled exactly once`];
+    returned.set(f.id, f);
+  }
+  const problems = [];
+  for (const p of priors) {
+    if (!returned.has(p.id)) {
+      problems.push(
+        `previous_findings does not reconcile "${p.id}" (${p.title}) -- every finding handed over must come back ` +
+          `Resolved, Still open or Superseded, because the loop stops on that answer`,
+      );
+    }
+  }
+  const supplied = new Set(priors.map((p) => p.id));
+  for (const id of returned.keys()) {
+    if (!supplied.has(id)) problems.push(`previous_findings reconciles "${id}", which was not handed over`);
+  }
+  return problems;
+}
+
+/**
+ * Whether this round meets the loop's stop rule -- computed, not judged.
+ *
+ * Three conditions, and the third is the one that is easy to forget: a
+ * BLOCKING status means the reviewer could not review, and such a round
+ * naturally has no required revisions to report. Reading that as convergence
+ * would take "I could not see enough of the repository to judge this" for
+ * "this is fine".
+ */
+export function convergence(assessment, priors) {
+  const reasons = [];
+  const required = assessment.required_revisions ?? assessment.scope_concerns ?? [];
+  if (required.length) reasons.push(`${required.length} required revision(s) open`);
+  if (BLOCKING_STATUSES.includes(assessment.review_status)) {
+    reasons.push(`review_status is "${assessment.review_status}" -- the reviewer could not complete the review`);
+  }
+  const unresolved = (assessment.previous_findings ?? []).filter((f) => f.status === "Still open");
+  if (unresolved.length) reasons.push(`${unresolved.length} prior finding(s) Still open: ${unresolved.map((f) => f.id).join(", ")}`);
+  if (priors.length && !(assessment.previous_findings ?? []).length) reasons.push("prior findings were not reconciled");
+  return { converged: reasons.length === 0, reasons };
+}
+
+/**
+ * The allowance this loop has, from its tier and any recorded grants.
+ *
+ * Mirrors the contract exactly: a finite grant opens `asOf + grant` rounds, so
+ * a mid-stage grant discards the interrupted stage's unspent remainder rather
+ * than stacking on it. Adjudicator grants self-serve only as far as the leash;
+ * past that the grant has to be David's.
+ */
+export function allowanceFor(tier, grants) {
+  const cap = TIER_BUDGETS[tier];
+  let allowance = cap;
+  for (const g of grants) {
+    const opened = g.asOf + g.grant;
+    if (g.kind === "adjudicator" && opened > cap + LEASH) {
+      throw new Error(
+        `an adjudicator grant cannot open round ${opened}: the self-serve leash ends at ${cap + LEASH} ` +
+          `(budget ${cap} + ${LEASH}). Past there the grant is David's, recorded with kind "david".`,
+      );
+    }
+    allowance = Math.max(allowance, opened);
+  }
+  return allowance;
+}
+
+/** Grants recorded for this loop, validated rather than trusted. */
+export function readGrants(dir) {
+  const file = path.join(dir, "extensions.json");
+  if (!fs.existsSync(file)) return [];
+  const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (!Array.isArray(raw)) throw new Error(`${file} must contain a JSON array of grants`);
+  return raw.map((g, i) => {
+    const at = `extensions.json[${i}]`;
+    for (const key of ["grant", "asOf"]) {
+      if (!Number.isInteger(g?.[key]) || g[key] < 0) throw new Error(`${at} needs an integer "${key}" >= 0`);
+    }
+    if (!["adjudicator", "david"].includes(g.kind)) throw new Error(`${at} needs "kind" of "adjudicator" or "david"`);
+    if (typeof g.reason !== "string" || g.reason.trim() === "") {
+      throw new Error(`${at} needs a "reason" -- a grant that names no unaddressed risk is a rubber stamp`);
+    }
+    return { grant: g.grant, asOf: g.asOf, kind: g.kind, reason: g.reason.trim() };
+  });
+}
+
+/** Rounds already run for this loop, counted from disk rather than stored. */
+export function roundsRun(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .map((n) => /^round-(\d+)\.json$/.exec(n))
+    .filter(Boolean)
+    .map((m) => Number(m[1]))
+    .sort((a, b) => a - b);
+}
+
+/**
+ * The oracle, pinned to the text David agreed, for the life of the loop.
+ *
+ * Without this the oracle is read from the plan file the builder rewrites
+ * every round, so deleting a requirement from the plan AND from its oracle
+ * block makes the next reviewer measure the plan against the rewritten intent
+ * (Codex, #69 round 1). That is the builder steering the reviewer -- the exact
+ * failure this whole design exists to prevent -- coming back in through the
+ * one input nobody was watching.
+ *
+ * So round 0 (or round 1, when there is no round 0) writes the oracle down,
+ * and every later round is measured against that file. A deliberate change is
+ * still possible; it just cannot be silent.
+ */
+export function pinOracle(dir, oracle, { changedReason = null } = {}) {
+  const file = path.join(dir, "oracle.txt");
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, `${oracle}\n`);
+    return { pinned: sha256Full(oracle), changed: false, firstPin: true };
+  }
+  const pinnedText = fs.readFileSync(file, "utf8").trim();
+  if (pinnedText === oracle.trim()) return { pinned: sha256Full(oracle), changed: false, firstPin: false };
+  if (!changedReason) {
+    throw new Error(
+      `the oracle differs from the one pinned at ${path.relative(process.cwd(), file)} when this loop started, and ` +
+        `nothing says why. The oracle is what David agreed BEFORE the plan was written; if it can be edited as the ` +
+        `plan is revised, the plan is being measured against itself. Restore it, or pass ` +
+        `--oracle-changed "<what David agreed to change>" so the change is recorded in the round's meta.`,
+    );
+  }
+  fs.writeFileSync(file, `${oracle}\n`);
+  return { pinned: sha256Full(oracle), changed: true, changedReason, firstPin: false };
 }
 
 /**
@@ -886,6 +1057,44 @@ export function ensureRoundDir(root, slug) {
   return dir;
 }
 
+/**
+ * `docs/plans/` ignored, because the disclosure guarantee cannot rest on my
+ * remembering.
+ *
+ * The whole reason the disclosure GATE could be retired is that the plan is
+ * never published. But nothing was stopping `git add -A` during implementation
+ * from staging it along with everything else (Codex, #69 round 1) -- and a
+ * plan is exactly the document that might name an unpatched vulnerability. A
+ * guarantee enforced by discipline is a guarantee that fails on the busy day.
+ *
+ * `git add -f` still works, which is the point: when David asks for a plan on
+ * `main`, committing it is a deliberate act with the disclosure check in front
+ * of it, not a side effect of a broad staging command.
+ */
+export function ensurePlansIgnored(root) {
+  const dir = path.join(root, "docs", "plans");
+  fs.mkdirSync(dir, { recursive: true });
+  const ignore = path.join(dir, ".gitignore");
+  if (fs.existsSync(ignore)) return;
+  fs.writeFileSync(
+    ignore,
+    [
+      "# A plan under review is never published, and this is what makes that true",
+      "# rather than merely intended: `git add -A` during implementation would",
+      "# otherwise stage it, and a plan is exactly the document that might name an",
+      "# unpatched vulnerability.",
+      "#",
+      "# `git add -f docs/plans/PLAN_X.md` still works. That is the design: when",
+      "# David asks for a plan on main, committing it is a deliberate act with the",
+      "# disclosure check in front of it, not a side effect of staging everything.",
+      "#",
+      "# `*` covers this file too -- core/scripts/plan-review.mjs writes it on first use.",
+      "*",
+      "",
+    ].join("\n"),
+  );
+}
+
 const sha256Full = (text) => crypto.createHash("sha256").update(text).digest("hex");
 /** Short digests, for telling two revisions apart in a log line. */
 const sha256 = (text) => sha256Full(text).slice(0, 12);
@@ -899,7 +1108,8 @@ export function parseArgs(argv) {
   const bools = { "dry-run": "dryRun", "no-prior": "noPrior", force: "force", help: "help" };
   const values = {
     round: "round", plan: "plan", oracle: "oracle", slug: "slug", lens: "lens", prior: "prior",
-    model: "model", effort: "effort", sandbox: "sandbox", timeout: "timeout",
+    model: "model", effort: "effort", sandbox: "sandbox", timeout: "timeout", tier: "tier",
+    unpinned: "unpinned", "oracle-changed": "oracleChanged",
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -926,13 +1136,16 @@ export const USAGE = [
   "  node core/scripts/plan-review.mjs --round <N> --plan <file> [--slug <s>] [--oracle <f>]",
   "                                    [--lens <text>] [--prior <file> | --no-prior]",
   "",
+  `  --tier        ${TIERS.join(" | ")} — required from round 1; sets the round budget`,
   "  --dry-run     assemble the prompt and schema, write them, spawn nothing",
-  "  --force       overwrite a round that already exists",
-  `  --model       default ${DEFAULT_MODEL}`,
-  `  --effort      default ${DEFAULT_EFFORT}`,
-  `  --sandbox     default ${DEFAULT_SANDBOX} (${SANDBOXES.join(" | ")})`,
-  "  --timeout     seconds, default 2700",
+  "  --force       re-run a round that already exists, discarding its result first",
+  "  --oracle-changed <reason>   the oracle differs from the pinned one, deliberately",
   "",
+  `  The reviewer is PINNED to ${DEFAULT_MODEL} at ${DEFAULT_EFFORT} in a ${DEFAULT_SANDBOX} sandbox.`,
+  "  --model / --effort / --sandbox are refused unless --unpinned <reason> is given,",
+  "  and danger-full-access is refused always. The reason is stamped on the round.",
+  "",
+  "  --timeout     seconds, default 2700",
   "  CODEX_BIN     path to the codex binary, if it is not on PATH",
 ].join("\n");
 
@@ -968,6 +1181,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       if (!flags.oracle) throw new Error("--round 0 needs --oracle <file>: the scope gate reviews the intent, and the intent is all it gets.");
     } else {
       if (!flags.plan) throw new Error(`--round ${round} needs --plan <file>`);
+      ensurePlansIgnored(root);
       planPath = path.relative(root, path.resolve(root, flags.plan));
       const abs = path.join(root, planPath);
       if (!fs.existsSync(abs)) throw new Error(`--plan ${flags.plan} does not exist at ${abs}`);
@@ -978,23 +1192,59 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
 
     // --- slug -------------------------------------------------------------
     const slug = flags.slug ? assertSlug(flags.slug) : slugFromPlanPath(planPath ?? "");
+    const dir = ensureRoundDir(root, slug);
+    const earlier = roundsRun(dir).filter((n) => n !== round);
+
+    // --- the oracle, pinned for the life of the loop -----------------------
+    const pin = pinOracle(dir, oracle, { changedReason: flags.oracleChanged ?? null });
+
+    // --- budget -----------------------------------------------------------
+    // Counted from the round files, never stored. The PR-keyed budget guard
+    // cannot run without a PR, so if this did not enforce the cap the cap
+    // would be prose (Codex, #69 round 1).
+    let budget = null;
+    if (round >= 1) {
+      if (!flags.tier) {
+        throw new Error(
+          `--tier is required from round 1 (${TIERS.join(" | ")}). The plan loop takes the tier of what it plans, ` +
+            `and the tier is the round budget: ${TIERS.map((t) => `${t} ${TIER_BUDGETS[t]}`).join(", ")}.`,
+        );
+      }
+      if (!TIERS.includes(flags.tier)) throw new Error(`--tier must be one of ${TIERS.join(", ")}`);
+      const grants = readGrants(dir);
+      const allowance = allowanceFor(flags.tier, grants);
+      if (round > allowance) {
+        throw new Error(
+          `round ${round} is past this loop's allowance of ${allowance} (tier ${flags.tier}, budget ` +
+            `${TIER_BUDGETS[flags.tier]}${grants.length ? `, ${grants.length} recorded grant(s)` : ""}). ` +
+            `At the budget the adjudicator owns the extension and may self-serve as far as round ` +
+            `${TIER_BUDGETS[flags.tier] + LEASH}; past that the grant is David's. Record it in ` +
+            `${path.relative(root, path.join(dir, "extensions.json"))} as ` +
+            `{"grant": <rounds>, "asOf": ${earlier.filter((n) => n >= 1).length}, "kind": "adjudicator"|"david", "reason": "<the risk it covers>"}.`,
+        );
+      }
+      budget = { tier: flags.tier, cap: TIER_BUDGETS[flags.tier], allowance, grants };
+    }
 
     // --- prior findings ---------------------------------------------------
     let priors = [];
     if (flags.prior && flags.noPrior) throw new Error("--prior and --no-prior contradict each other");
     if (flags.prior) {
       priors = normalizePriors(JSON.parse(fs.readFileSync(path.resolve(root, flags.prior), "utf8")));
-    } else if (round >= 2 && !flags.noPrior) {
+    } else if (earlier.length && !flags.noPrior) {
       // The stop rule is "required_revisions empty AND every prior finding
       // Resolved or Superseded". A round that never saw the prior findings
       // cannot satisfy the second half, and would report a clean sheet it has
-      // no basis for. So this is a refusal with an explicit escape, not a
-      // default that quietly drops them.
+      // no basis for. So this is a refusal with an explicit escape.
+      //
+      // Keyed to "an earlier round exists", not to "round >= 2" (Codex, #69
+      // round 1): round 0's scope concerns are findings like any other, and
+      // the round-2 form let round 1 silently drop every one of them.
       throw new Error(
-        `round ${round} needs --prior <file> carrying every unresolved finding from the earlier rounds, as a JSON ` +
-          `array of {id, title, disposition, note?} with disposition one of ${DISPOSITIONS.join(" | ")}. ` +
-          `Pass --no-prior only when the previous round genuinely returned none — the loop's stop rule depends on ` +
-          `the reviewer reconciling them, so silently dropping them would fake convergence.`,
+        `round ${round} needs --prior <file>: round(s) ${earlier.join(", ")} already ran for this plan, and their ` +
+          `findings have to be reconciled. A JSON array of {id, title, disposition, note?} with disposition one of ` +
+          `${DISPOSITIONS.join(" | ")}. Pass --no-prior only when those rounds genuinely returned none — the stop ` +
+          `rule depends on the reviewer reconciling them, so silently dropping them would fake convergence.`,
       );
     }
 
@@ -1002,20 +1252,45 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const lens = flags.lens ? flags.lens.trim().replace(/\s+/g, " ").slice(0, MAX_LENS_CHARS) : null;
     const inventory = planText ? extractFenced(planText, "affected-files") : null;
     const contract = readContract(root);
+    // The reviewer's identity is a settled decision, so departing from it is an
+    // explicit, recorded act rather than a flag nobody notices (Codex, #69
+    // round 1). Left open, a "normal" invocation could quietly substitute a
+    // weaker reviewer, or hand the reviewer write access to the live checkout
+    // -- defeating the two things this design is FOR.
+    const overrides = ["model", "effort", "sandbox"].filter((k) => flags[k] != null);
+    if (overrides.length && !flags.unpinned) {
+      throw new Error(
+        `--${overrides.join(", --")} would depart from the settled reviewer (${DEFAULT_MODEL}, ${DEFAULT_EFFORT}, ` +
+          `${DEFAULT_SANDBOX}). Pass --unpinned "<why>" to do it deliberately; the reason is stamped on the round, ` +
+          `so a loop run against a weaker reviewer says so.`,
+      );
+    }
     const model = flags.model ?? DEFAULT_MODEL;
     const effort = flags.effort ?? DEFAULT_EFFORT;
     const sandbox = flags.sandbox ?? DEFAULT_SANDBOX;
     if (!SANDBOXES.includes(sandbox)) throw new Error(`--sandbox must be one of ${SANDBOXES.join(", ")}`);
+    if (sandbox === "danger-full-access") {
+      throw new Error(
+        `--sandbox danger-full-access is refused, with or without --unpinned. The reviewer reads; nothing it does ` +
+          `needs to escape a sandbox. If it must run the suite, that is workspace-write on a scratch checkout.`,
+      );
+    }
     const timeoutMs = Number(flags.timeout ?? 2700) * 1000;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error(`--timeout must be a positive number of seconds`);
 
     const schema = schemaFor(round);
     assertSchemaSupported(schema);
 
-    const dir = ensureRoundDir(root, slug);
     const outJson = path.join(dir, `round-${round}.json`);
-    if (fs.existsSync(outJson) && !flags.force) {
-      throw new Error(`${path.relative(root, outJson)} already exists. Pass --force to overwrite it, or use the next round number.`);
+    if (fs.existsSync(outJson)) {
+      if (!flags.force) {
+        throw new Error(`${path.relative(root, outJson)} already exists. Pass --force to re-run it, or use the next round number.`);
+      }
+      // Discarded BEFORE the attempt, not overwritten after it. A forced
+      // re-run that then fails would otherwise leave the old accepted JSON at
+      // the canonical path, describing an earlier plan revision while the log
+      // says the round did not happen (Codex, #69 round 1).
+      if (!flags.dryRun) fs.rmSync(outJson);
     }
 
     const promptFile = path.join(dir, `round-${round}.prompt.md`);
@@ -1033,8 +1308,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         `plan-review: dry run — nothing spawned.\n` +
           `  prompt  ${path.relative(root, promptFile)} (${prompt.length} chars)\n` +
           `  schema  ${path.relative(root, schemaFile)}\n` +
-          `  oracle  ${oracle.length} chars, contract ${contract.path}\n` +
-          `  priors  ${priors.length}\n`,
+          `  oracle  ${oracle.length} chars${pin.firstPin ? " (pinned now)" : pin.changed ? " (CHANGED, recorded)" : " (matches the pin)"}\n` +
+          `  priors  ${priors.length}\n` +
+          (budget ? `  budget  round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : ""),
       );
       return 0;
     }
@@ -1077,6 +1353,10 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         try {
           const parsed = parseAssessment(text);
           problems = validate(parsed, schema);
+          // Reconciliation sits on the same footing as the schema: a round
+          // that dropped a prior is not a valid round, and the re-ask names
+          // exactly which ids went missing.
+          if (problems.length === 0) problems = reconciliationProblems(parsed, priors);
           if (problems.length === 0) assessment = parsed;
         } catch (err) {
           problems = [err.message];
@@ -1105,9 +1385,15 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       contractDigest: sha256(contract.text),
       promptDigest: sha256(prompt),
       priorFindings: priors.map((p) => ({ id: p.id, disposition: p.disposition })),
+      budget,
+      oraclePin: pin,
+      // Present only when the round departed from the settled reviewer, so its
+      // absence is the ordinary case and its presence is loud.
+      unpinned: flags.unpinned ?? null,
       attempts,
       finishedAt: new Date().toISOString(),
       accepted: assessment !== null,
+      convergence: assessment ? convergence(assessment, priors) : null,
     };
     fs.writeFileSync(metaFile, `${JSON.stringify(meta, null, 2)}\n`);
 
@@ -1123,12 +1409,15 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
 
     fs.writeFileSync(outJson, `${JSON.stringify(assessment, null, 2)}\n`);
     const counted = round === 0 ? assessment.scope_concerns.length : assessment.required_revisions.length;
-    const label = round === 0 ? "scope concern(s)" : "required revision(s)";
+    const label = round === 0 ? "scope concerns" : "required";
+    const { converged, reasons } = meta.convergence;
     log(
       `plan-review: ${path.relative(root, outJson)}\n` +
-        `  status   ${assessment.review_status}\n` +
-        `  ${label.padEnd(8)} ${counted}\n` +
-        `  seconds  ${attempts.map((a) => Math.round(a.seconds)).join(" + ")}\n`,
+        `  status    ${assessment.review_status}\n` +
+        `  ${label.padEnd(9)} ${counted}\n` +
+        `  seconds   ${attempts.map((a) => Math.round(a.seconds)).join(" + ")}\n` +
+        (budget ? `  budget    round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : "") +
+        `  ${converged ? "CONVERGED — the stop rule is met" : `not converged: ${reasons.join("; ")}`}\n`,
     );
     process.stdout.write(`${path.relative(root, outJson)}\n`);
     return 0;

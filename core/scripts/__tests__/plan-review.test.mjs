@@ -27,6 +27,17 @@ import {
   runCodex,
   ensureRoundDir,
   main,
+  reconciliationProblems,
+  convergence,
+  allowanceFor,
+  readGrants,
+  roundsRun,
+  pinOracle,
+  ensurePlansIgnored,
+  BLOCKING_STATUSES,
+  TIER_BUDGETS,
+  TIERS,
+  LEASH,
   CONTRACT_PATH,
   DISPOSITIONS,
   MAX_NOTE_CHARS,
@@ -505,7 +516,7 @@ test("a dry run writes the prompt and the schema and spawns nothing", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nDIRECTION\n```\n\nbody" } });
   const run = fakeRun([]);
   const log = quiet();
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run, log }), 0);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run, log }), 0);
   assert.equal(run.calls.length, 0, "a dry run must not reach codex");
   assert.ok(existsSync(join(root, ".agents/reviews/x/round-1.prompt.md")));
   assert.ok(existsSync(join(root, ".agents/reviews/x/round-1.schema.json")));
@@ -517,27 +528,53 @@ test("no sign-in exits 2 with the device-code instructions, and never runs a rou
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
   const run = fakeRun([{ status: 1, stdout: "Not logged in", stderr: "" }]);
   const log = quiet();
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 2);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 2);
   assert.equal(run.calls.length, 1, "only `login status` — no exec");
   assert.match(log.text(), /device-auth/);
   assert.match(log.text(), /never stored|never written/);
   drop(root);
 });
 
-test("round 2 without --prior is refused, because the stop rule depends on reconciliation", () => {
+/** A round that already ran, so the next one has something to reconcile. */
+function priorRound(root, slug, n) {
+  mkdirSync(join(root, ".agents/reviews", slug), { recursive: true });
+  writeFileSync(join(root, ".agents/reviews", slug, `round-${n}.json`), "{}");
+}
+
+test("a round is refused without --prior once an earlier round exists", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  priorRound(root, "x", 1);
   const log = quiet();
-  assert.equal(main(["--round", "2", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
+  assert.equal(main(["--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
   assert.match(log.text(), /needs --prior/);
   assert.match(log.text(), /fake convergence/);
   drop(root);
 });
 
-test("--no-prior is the explicit escape, and it is explicit", () => {
+test("round 1 is refused too when round 0 ran — scope concerns are findings like any other", () => {
+  // The round-number form (>= 2) let round 1 silently drop every scope concern
+  // round 0 raised, which is the one round most likely to have raised any.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  priorRound(root, "x", 0);
+  const log = quiet();
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
+  assert.match(log.text(), /round\(s\) 0 already ran/);
+  drop(root);
+});
+
+test("a first round with nothing before it needs no prior flag at all", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
   const log = quiet();
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 0);
+  drop(root);
+});
+
+test("--no-prior is the explicit escape, and it is explicit", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  priorRound(root, "x", 1);
+  const log = quiet();
   assert.equal(
-    main(["--round", "2", "--plan", "docs/plans/PLAN_X.md", "--no-prior", "--dry-run"], { root, run: fakeRun([]), log }),
+    main(["--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-prior", "--dry-run"], { root, run: fakeRun([]), log }),
     0,
   );
   drop(root);
@@ -556,7 +593,7 @@ test("round 0 takes an oracle, not a plan", () => {
 test("a plan with no oracle is refused before anything spawns", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "# Plan\n\nno oracle here" } });
   const log = quiet();
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
   assert.match(log.text(), /no review oracle/);
   drop(root);
 });
@@ -566,9 +603,9 @@ test("an existing round is not silently overwritten", () => {
   mkdirSync(join(root, ".agents/reviews/x"), { recursive: true });
   writeFileSync(join(root, ".agents/reviews/x/round-1.json"), "{}");
   const log = quiet();
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
   assert.match(log.text(), /already exists/);
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--dry-run", "--force"], { root, run: fakeRun([]), log }), 0);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run", "--force"], { root, run: fakeRun([]), log }), 0);
   drop(root);
 });
 
@@ -578,7 +615,7 @@ test("bad arguments are refused with the usage, never guessed at", () => {
   for (const argv of [["--round", "one"], ["--round", "-1"], ["--nope"], ["bare"], ["--round"]]) {
     assert.equal(main(argv, { root, run: fakeRun([]), log }), 1, `${argv.join(" ")} should be refused`);
   }
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--sandbox", "wide-open"], { root, run: fakeRun([]), log }), 1);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--sandbox", "wide-open"], { root, run: fakeRun([]), log }), 1);
   drop(root);
 });
 
@@ -600,7 +637,7 @@ test("a schema-valid round is written, and the meta records what produced it", (
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nDIRECTION\n```\n\nbody" } });
   const log = quiet();
   const run = scriptedRound(root, [JSON.stringify(assessment())]);
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--lens", "bypass"], { root, run, log }), 0);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--lens", "bypass"], { root, run, log }), 0);
 
   const written = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.json"), "utf8"));
   assert.deepEqual(written, assessment());
@@ -632,7 +669,7 @@ test("a schema-invalid round is re-asked exactly once, and the second answer is 
   const bad = assessment();
   delete bad.what_is_strong;
   const run = scriptedRound(root, [JSON.stringify(bad), JSON.stringify(assessment())]);
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 0);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 0);
   assert.equal(run.calls.length, 3, "login status, the round, one re-ask");
   const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
   assert.equal(meta.attempts.length, 2);
@@ -645,7 +682,7 @@ test("two invalid answers is a failed round: no JSON is written and the caller i
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
   const log = quiet();
   const run = scriptedRound(root, ["not json at all", "still not json"]);
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
   assert.equal(run.calls.length, 3, "one re-ask, never two");
   assert.ok(!existsSync(join(root, ".agents/reviews/x/round-1.json")));
   assert.match(log.text(), /This round did not happen/);
@@ -662,7 +699,7 @@ test("a reviewer that crashes is a failed round, not an empty one", () => {
     { status: 1, signal: null },
     { status: 1, signal: null },
   ]);
-  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
   assert.ok(!existsSync(join(root, ".agents/reviews/x/round-1.json")));
   drop(root);
 });
@@ -684,6 +721,370 @@ test("a full assessment offered at round 0 is rejected — the shapes are not in
   const log = quiet();
   const run = scriptedRound(root, [JSON.stringify(assessment()), JSON.stringify(assessment())]);
   assert.equal(main(["--round", "0", "--slug", "s", "--oracle", "oracle.md"], { root, run, log }), 1);
+  drop(root);
+});
+
+// ── reconciliation: convergence cannot be faked by omission ────────────────
+
+const somePriors = () =>
+  normalizePriors([
+    { id: "R1", title: "one", disposition: "fixed" },
+    { id: "R2", title: "two", disposition: "declined", note: "unreachable" },
+  ]);
+
+test("a round that drops a prior finding is rejected, by id", () => {
+  const priors = somePriors();
+  const bad = assessment({ previous_findings: [{ id: "R1", status: "Resolved", reason: "done" }] });
+  const problems = reconciliationProblems(bad, priors);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /does not reconcile "R2"/);
+});
+
+test("an empty previous_findings against supplied priors is rejected", () => {
+  // The schema accepts [] happily -- it is a well-formed array. This is the
+  // check that stops a clean-looking round with no basis for being clean.
+  const problems = reconciliationProblems(assessment({ previous_findings: [] }), somePriors());
+  assert.equal(problems.length, 2);
+});
+
+test("an id nobody handed over is rejected, and so is a duplicate", () => {
+  const priors = somePriors();
+  const invented = assessment({
+    previous_findings: [
+      { id: "R1", status: "Resolved", reason: "a" },
+      { id: "R2", status: "Resolved", reason: "b" },
+      { id: "R9", status: "Resolved", reason: "invented" },
+    ],
+  });
+  assert.ok(reconciliationProblems(invented, priors).some((p) => p.includes('"R9"')));
+
+  const twice = assessment({
+    previous_findings: [
+      { id: "R1", status: "Resolved", reason: "a" },
+      { id: "R1", status: "Still open", reason: "b" },
+    ],
+  });
+  assert.match(reconciliationProblems(twice, priors)[0], /twice/);
+});
+
+test("a full reconciliation passes, and no priors means nothing to reconcile", () => {
+  const priors = somePriors();
+  const good = assessment({
+    previous_findings: [
+      { id: "R1", status: "Resolved", reason: "a" },
+      { id: "R2", status: "Superseded", reason: "b" },
+    ],
+  });
+  assert.deepEqual(reconciliationProblems(good, priors), []);
+  assert.deepEqual(reconciliationProblems(assessment({ previous_findings: [] }), []), []);
+});
+
+// ── convergence ────────────────────────────────────────────────────────────
+
+const clean = (over = {}) =>
+  assessment({
+    review_status: "No major technical disagreement",
+    required_revisions: [],
+    previous_findings: [],
+    ...over,
+  });
+
+test("a clean round with nothing outstanding converges", () => {
+  assert.deepEqual(convergence(clean(), []), { converged: true, reasons: [] });
+});
+
+test("a blocking status never converges, however empty the findings are", () => {
+  // "I could not see enough of the repository to judge this" is not "this is
+  // fine" -- and such a round naturally has zero required revisions.
+  for (const status of BLOCKING_STATUSES) {
+    const { converged, reasons } = convergence(clean({ review_status: status }), []);
+    assert.equal(converged, false, status);
+    assert.ok(reasons.some((r) => r.includes("could not complete")), reasons.join());
+  }
+});
+
+test("an open required revision or a Still open prior blocks convergence", () => {
+  assert.equal(convergence(assessment(), []).converged, false);
+  const stillOpen = clean({ previous_findings: [{ id: "R2", status: "Still open", reason: "no" }] });
+  const { converged, reasons } = convergence(stillOpen, somePriors());
+  assert.equal(converged, false);
+  assert.ok(reasons.some((r) => r.includes("R2")));
+});
+
+test("priors handed over but never reconciled block convergence", () => {
+  assert.equal(convergence(clean(), somePriors()).converged, false);
+});
+
+// ── budget, counted rather than stored ─────────────────────────────────────
+
+test("each tier's budget is its allowance when nothing was granted", () => {
+  for (const tier of TIERS) assert.equal(allowanceFor(tier, []), TIER_BUDGETS[tier]);
+});
+
+test("a grant opens asOf + grant, so a mid-stage grant does not stack", () => {
+  // Same rule as the committed receipts: a finite grant discards the
+  // interrupted stage's unspent remainder rather than adding to it.
+  assert.equal(allowanceFor("internal", [{ grant: 2, asOf: 3, kind: "adjudicator", reason: "r" }]), 5);
+  assert.equal(allowanceFor("internal", [{ grant: 0, asOf: 3, kind: "david", reason: "stop" }]), 3);
+});
+
+test("an adjudicator cannot self-serve past the leash; David can", () => {
+  const cap = TIER_BUDGETS.internal;
+  assert.throws(
+    () => allowanceFor("internal", [{ grant: 5, asOf: cap, kind: "adjudicator", reason: "r" }]),
+    /self-serve leash ends at/,
+  );
+  assert.equal(
+    allowanceFor("internal", [{ grant: 5, asOf: cap, kind: "david", reason: "his call" }]),
+    cap + 5,
+  );
+  // Exactly at the leash is fine.
+  assert.equal(allowanceFor("internal", [{ grant: LEASH, asOf: cap, kind: "adjudicator", reason: "r" }]), cap + LEASH);
+});
+
+test("a grant is validated, not trusted", () => {
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  const write = (v) => writeFileSync(join(root, "extensions.json"), JSON.stringify(v));
+  assert.deepEqual(readGrants(root), [], "absent file is no grants");
+  write({ grant: 1 });
+  assert.throws(() => readGrants(root), /must contain a JSON array/);
+  write([{ grant: 1, asOf: 0, kind: "adjudicator" }]);
+  assert.throws(() => readGrants(root), /needs a "reason"/);
+  write([{ grant: 1, asOf: 0, kind: "someone", reason: "r" }]);
+  assert.throws(() => readGrants(root), /"adjudicator" or "david"/);
+  write([{ grant: -1, asOf: 0, kind: "david", reason: "r" }]);
+  assert.throws(() => readGrants(root), /integer "grant"/);
+  drop(root);
+});
+
+test("rounds run are counted from the round files, never stored", () => {
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  assert.deepEqual(roundsRun(root), []);
+  for (const n of [0, 1, 2]) writeFileSync(join(root, `round-${n}.json`), "{}");
+  writeFileSync(join(root, "round-1.meta.json"), "{}");
+  writeFileSync(join(root, "oracle.txt"), "x");
+  assert.deepEqual(roundsRun(root), [0, 1, 2], "only round-N.json counts");
+  drop(root);
+});
+
+test("a round past the allowance is refused, and the refusal says how to extend", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  const argv = ["--round", "4", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-prior", "--dry-run"];
+  assert.equal(main(argv, { root, run: fakeRun([]), log }), 1);
+  assert.match(log.text(), /past this loop's allowance of 3/);
+  assert.match(log.text(), /extensions\.json/);
+
+  writeFileSync(
+    join(root, ".agents/reviews/x/extensions.json"),
+    JSON.stringify([{ grant: 3, asOf: 3, kind: "adjudicator", reason: "the receipt chain is still unverified" }]),
+  );
+  assert.equal(main(argv, { root, run: fakeRun([]), log }), 0, "the recorded grant opens it");
+  drop(root);
+});
+
+test("--tier is required from round 1 and validated", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  assert.equal(main(["--round", "1", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }), 1);
+  assert.match(log.text(), /--tier is required/);
+  assert.equal(
+    main(["--round", "1", "--tier", "gold", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log }),
+    1,
+  );
+  drop(root);
+});
+
+test("round 0 needs no tier — the scope gate runs before the loop it budgets", () => {
+  const root = fixtureRoot();
+  writeFileSync(join(root, "oracle.md"), ORACLE);
+  const log = quiet();
+  assert.equal(main(["--round", "0", "--slug", "s", "--oracle", "oracle.md", "--dry-run"], { root, run: fakeRun([]), log }), 0);
+  drop(root);
+});
+
+// ── the oracle is pinned, so the plan cannot be measured against itself ────
+
+test("the first round pins the oracle, and a matching one passes", () => {
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  const first = pinOracle(root, "DIRECTION");
+  assert.equal(first.firstPin, true);
+  assert.equal(first.changed, false);
+  assert.equal(readFileSync(join(root, "oracle.txt"), "utf8").trim(), "DIRECTION");
+  const again = pinOracle(root, "DIRECTION");
+  assert.equal(again.firstPin, false);
+  assert.equal(again.changed, false);
+  drop(root);
+});
+
+test("an oracle that drifted from the pin is refused", () => {
+  // This is the builder steering the reviewer, coming back in through the one
+  // input nobody was watching: edit the plan AND its oracle block, and the
+  // next round measures the plan against the rewritten intent.
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  pinOracle(root, "DIRECTION: ship A and B");
+  assert.throws(() => pinOracle(root, "DIRECTION: ship A"), /differs from the one pinned/);
+  assert.throws(() => pinOracle(root, "DIRECTION: ship A"), /--oracle-changed/);
+  drop(root);
+});
+
+test("a deliberate oracle change is allowed, recorded, and re-pinned", () => {
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  pinOracle(root, "DIRECTION: ship A and B");
+  const changed = pinOracle(root, "DIRECTION: ship A", { changedReason: "David moved B to next" });
+  assert.equal(changed.changed, true);
+  assert.equal(changed.changedReason, "David moved B to next");
+  assert.equal(readFileSync(join(root, "oracle.txt"), "utf8").trim(), "DIRECTION: ship A");
+  assert.equal(pinOracle(root, "DIRECTION: ship A").changed, false, "the new text is the pin now");
+  drop(root);
+});
+
+test("the CLI refuses a drifted oracle and takes the recorded reason", () => {
+  const plan = (oracle) => ({ path: "docs/plans/PLAN_X.md", text: "```plan-oracle\n" + oracle + "\n```" });
+  const root = fixtureRoot({ plan: plan("ship A and B") });
+  const log = quiet();
+  const argv = (extra = []) => ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run", ...extra];
+  assert.equal(main(argv(), { root, run: fakeRun([]), log }), 0);
+
+  writeFileSync(join(root, "docs/plans/PLAN_X.md"), plan("ship A").text);
+  assert.equal(main(argv(["--force"]), { root, run: fakeRun([]), log }), 1);
+  assert.match(log.text(), /differs from the one pinned/);
+  assert.equal(main(argv(["--force", "--oracle-changed", "David moved B to next"]), { root, run: fakeRun([]), log }), 0);
+  drop(root);
+});
+
+// ── the plan file cannot be staged by accident ─────────────────────────────
+
+test("docs/plans ignores itself, so `git add -A` cannot publish a plan", () => {
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  ensurePlansIgnored(root);
+  const ignore = readFileSync(join(root, "docs/plans/.gitignore"), "utf8");
+  assert.ok(ignore.split("\n").some((l) => l.trim() === "*"));
+  // `git add -f` is the deliberate act that still works, and the file says so.
+  assert.match(ignore, /add -f/);
+  drop(root);
+});
+
+test("running a round writes that ignore", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"], { root, run: fakeRun([]), log });
+  assert.ok(existsSync(join(root, "docs/plans/.gitignore")));
+  drop(root);
+});
+
+// ── the reviewer's identity is pinned ──────────────────────────────────────
+
+test("model, effort and sandbox are refused without --unpinned", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  const base = ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run"];
+  for (const extra of [["--model", "gpt-4"], ["--effort", "low"], ["--sandbox", "workspace-write"]]) {
+    assert.equal(main([...base, ...extra], { root, run: fakeRun([]), log }), 1, extra.join(" "));
+    assert.match(log.text(), /settled reviewer/);
+  }
+  assert.equal(main([...base, "--effort", "low", "--unpinned", "smoke test"], { root, run: fakeRun([]), log }), 0);
+  drop(root);
+});
+
+test("danger-full-access is refused even with --unpinned", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  assert.equal(
+    main(
+      ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--dry-run",
+       "--sandbox", "danger-full-access", "--unpinned", "I really want to"],
+      { root, run: fakeRun([]), log },
+    ),
+    1,
+  );
+  assert.match(log.text(), /refused, with or without --unpinned/);
+  drop(root);
+});
+
+test("an unpinned round says so on the record", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  const run = scriptedRound(root, [JSON.stringify(assessment())]);
+  main(
+    ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--effort", "low", "--unpinned", "smoke test"],
+    { root, run, log },
+  );
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.unpinned, "smoke test");
+  assert.equal(meta.effort, "low");
+  drop(root);
+});
+
+// ── a forced re-run cannot leave stale evidence ────────────────────────────
+
+test("--force discards the old round before attempting, so a failed re-run leaves nothing", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  const good = scriptedRound(root, [JSON.stringify(assessment())]);
+  const argv = ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"];
+  assert.equal(main(argv, { root, run: good, log }), 0);
+  const out = join(root, ".agents/reviews/x/round-1.json");
+  assert.ok(existsSync(out));
+
+  // Now a forced re-run that fails outright.
+  const bad = scriptedRound(root, ["not json", "still not json"]);
+  assert.equal(main([...argv, "--force"], { root, run: bad, log }), 1);
+  assert.ok(
+    !existsSync(out),
+    "the old accepted round must not survive a failed re-run — it would read as current evidence for a plan revision it never saw",
+  );
+  drop(root);
+});
+
+// ── convergence reaches the record and the log ─────────────────────────────
+
+test("the meta and the log both state whether the round converged", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+    root,
+    run: scriptedRound(root, [JSON.stringify(clean())]),
+    log,
+  });
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.convergence.converged, true);
+  assert.equal(meta.budget.tier, "internal");
+  assert.equal(meta.budget.allowance, TIER_BUDGETS.internal);
+  assert.match(meta.oraclePin.pinned, /^[0-9a-f]{64}$/);
+  assert.match(log.text(), /CONVERGED/);
+  drop(root);
+});
+
+test("a round the reviewer could not complete is reported as not converged", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+    root,
+    run: scriptedRound(root, [JSON.stringify(clean({ review_status: "Repo context required" }))]),
+    log,
+  });
+  assert.match(log.text(), /not converged/);
+  assert.match(log.text(), /could not complete/);
+  drop(root);
+});
+
+test("a round that drops a prior is re-asked, not accepted", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  priorRound(root, "x", 1);
+  writeFileSync(join(root, "priors.json"), JSON.stringify([{ id: "R1", title: "one", disposition: "fixed" }]));
+  const log = quiet();
+  const dropped = clean({ previous_findings: [] });
+  const kept = clean({ previous_findings: [{ id: "R1", status: "Resolved", reason: "fixed in the revision" }] });
+  const run = scriptedRound(root, [JSON.stringify(dropped), JSON.stringify(kept)]);
+  assert.equal(
+    main(["--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--prior", "priors.json"], { root, run, log }),
+    0,
+  );
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-2.meta.json"), "utf8"));
+  assert.equal(meta.attempts.length, 2, "the dropped prior forced the re-ask");
+  assert.ok(meta.attempts[0].problems.some((p) => p.includes("R1")));
+  assert.equal(meta.convergence.converged, true);
   drop(root);
 });
 

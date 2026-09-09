@@ -113,9 +113,24 @@ page. Tell David it is up, and **keep going** — v1 will change anyway, and
 waiting for him to read it buys nothing. He interjects whenever he likes.
 
 ```
-node core/scripts/plan-review.mjs --round 1 --plan docs/plans/PLAN_<SLUG>.md \
+node core/scripts/plan-review.mjs --round 1 --tier <product|sensitive|internal> \
+     --plan docs/plans/PLAN_<SLUG>.md --prior priors.json \
      --lens "<the angle this round attacks from>"
 ```
+
+`--prior` carries round 0's `scope_concerns` with what the plan did about each.
+The script refuses round 1 without it whenever round 0 ran — a scope concern is
+a finding like any other, and the first plan review is exactly where it has to
+be answered. `--no-prior` if round 0 genuinely raised none.
+
+**The oracle is pinned on the first round and checked on every one after.**
+Without that, the oracle is read from the plan file I rewrite each round, so
+deleting a requirement from the plan *and* from its oracle block would make the
+next reviewer measure the plan against my rewritten intent — the builder
+steering the reviewer, coming back in through the one input nobody was
+watching. A deliberate change is still possible, with
+`--oracle-changed "<what David agreed to change>"`, and it is stamped on the
+round. Silence is what is refused.
 
 ### Every round after: relay, triage, revise
 
@@ -140,16 +155,22 @@ Four things happen every round, in this order, and none of them is optional.
 4. **Run the next round, handing over the dispositions.**
 
    ```
-   node core/scripts/plan-review.mjs --round N --plan <file> --prior priors.json \
-        --lens "<a fresh angle>"
+   node core/scripts/plan-review.mjs --round N --tier <tier> --plan <file> \
+        --prior priors.json --lens "<a fresh angle>"
    ```
 
    `priors.json` is a JSON array of `{id, title, disposition, note}` with
    disposition one of `fixed | declined | to-david | deferred`. The script
-   **refuses round 2 and later without it** — `--no-prior` is the explicit
-   escape for a round that genuinely returned none. That refusal is load-bearing:
-   the stop rule depends on the reviewer reconciling prior findings, so a round
-   that never saw them would report a clean sheet it has no basis for.
+   **refuses any round with an earlier round on disk without it** — `--no-prior`
+   is the explicit escape for a round that genuinely returned none.
+
+   Two refusals hold this together, and both close the same hole from opposite
+   ends. The script will not run a round that was not handed the prior findings,
+   **and it will not accept an assessment that failed to reconcile them** — a
+   returned `previous_findings` missing an id, inventing one, or naming one
+   twice is rejected on the same footing as a schema violation, and the re-ask
+   names exactly what went missing. The stop rule reads that reconciliation, so
+   without both, convergence could be faked by omission rather than argued.
 
 **Revisions are still class-level.** A finding names an instance; the fix owes
 the class. Name the class in the disposition note and sweep for siblings before
@@ -158,8 +179,20 @@ inconsistently, a section pattern repeated).
 
 ### The stop rule
 
-**Stop when `required_revisions` is empty AND every prior finding comes back
-`Resolved` or `Superseded`.** That is the whole rule.
+**Stop when `required_revisions` is empty, every prior finding comes back
+`Resolved` or `Superseded`, and the status is not a blocking one.**
+
+The script computes this — `convergence` in the round's `.meta.json`, and a
+`CONVERGED` / `not converged: <why>` line in its output. It is not a judgement
+I make about the round afterwards.
+
+The third condition is the one that is easy to leave out. **`Repo context
+required` and `Human clarification required` mean the reviewer could not do the
+job** — and such a round naturally carries no required revisions, because the
+reviewer never got far enough to have any. Reading that as convergence takes "I
+could not see enough of the repository to judge this" for "this is fine". Both
+route to their own escalation instead: repo context is mine to supply and
+re-run; human clarification is a numbered question for David.
 
 - **`recommended_improvements` never hold a round open.** The reviewer knows
   the difference and is told that anything it files as required is something it
@@ -190,9 +223,30 @@ inconsistently, a section pattern repeated).
 
 ## Budget, and the adjudicator's much smaller job
 
-The **round budget and the David gate are unchanged**: the loop takes the tier
-of what it plans, declares that tier's budget, and the David gate stands at
-budget + 3.
+The **round budget and the David gate are unchanged in substance, and enforced
+somewhere new.** The loop takes the tier of what it plans, that tier is the
+budget, and the David gate stands at budget + 3.
+
+`review-budget.mjs` cannot enforce it: it is keyed to a PR number and reads
+receipts from a remote-tracking ref, and there is no longer either. Left there,
+the budget would have been prose. **`plan-review.mjs` enforces it directly**:
+`--tier` is required from round 1, and a round past the allowance is refused.
+The round count is **counted from the round files on disk**, never stored —
+same principle as counting rounds fresh from GitHub, and for the same reason: a
+stored count is a cache of something already true somewhere else, and it drifts.
+
+An extension is `extensions.json` in the loop's directory, one entry per grant:
+
+```json
+[{ "grant": 3, "asOf": 3, "kind": "adjudicator", "reason": "<the unaddressed behavioral risk it covers>" }]
+```
+
+A grant opens exactly `asOf + grant` rounds, so a mid-stage grant discards the
+interrupted stage's unspent remainder rather than stacking on it — the same
+arithmetic as the committed receipts. An `adjudicator` grant is refused past
+budget + 3; beyond there the grant is David's, `kind: "david"`, and a `grant`
+of 0 endorses stopping. A grant with no stated risk is refused outright: a
+grant that names nothing is a rubber stamp.
 
 **The round-3-onward adjudicator dispatch is retired for plan loops** (David,
 2026-09-09). It existed because no one in the old loop could tell a required
@@ -215,6 +269,19 @@ script-generated record as its only input, and its verdict decides.
 
 **This does not touch code loops.** Their round-3 dispatch stands exactly as
 [`claude-core.md`](../../../.agents/core/claude-core.md) states it.
+
+## The reviewer's identity is pinned
+
+`gpt-6-astra`, `xhigh`, read-only. `--model`, `--effort` and `--sandbox` are
+**refused** unless `--unpinned "<why>"` is given, and the reason is stamped on
+the round — so a loop run against a weaker reviewer says so on its own record.
+`danger-full-access` is refused with or without it: the reviewer reads, and
+nothing it does needs to escape a sandbox. If it genuinely must run the suite,
+that is `workspace-write` on a **scratch checkout**, never the live tree.
+
+The point is not that the flags are dangerous to type. It is that the two
+things this design exists for — an independent reviewer, and one that cannot
+edit what it is judging — were both one unnoticed flag away from being lost.
 
 ## When the reviewer cannot run
 
@@ -257,7 +324,10 @@ cap. Both close the same way.
 2. **Ask David for approval**, linking that page. The ask carries the
    loop-close trail in product English: rounds run, the finding trend, what the
    reviewer still disagrees with and why I declined it, any adjudication that
-   fired. This is the first moment he re-enters a loop that ran without him, so
+   fired. **Rounds run also goes in the workstream issue's harvest comment**,
+   and that is not bookkeeping for its own sake: with no PR, the harvest
+   comment is the only place `/maintenance` can read plan-loop cost from. Leave
+   it out and the process-health numbers silently omit every plan loop. This is the first moment he re-enters a loop that ran without him, so
    the trail is what he audits before approving.
 3. **Plan approval is explicit only.** Reviewer convergence is not approval.
    The scope gate authorized the loop to *review* without check-ins, never to
@@ -312,7 +382,8 @@ of the old loop can find each piece's fate:
 |---|---|---|
 | The `[PLAN REVIEW]` PR, its branch, its body template, the findings ledger | The reviewer was remote and diff-anchored | A local round JSON and one Artifact page |
 | The `-combined` branch for a step-10 split | A split plan had no single URL | The Artifact page is the single URL |
-| Round counting from GitHub, the round-check receipt, the trigger guard | Round state lived on GitHub | `.agents/reviews/<slug>/round-N.json` |
+| Round counting from GitHub, the round-check receipt, the trigger guard | Round state lived on GitHub | Rounds counted from `.agents/reviews/<slug>/round-N.json`; the budget enforced by the script |
+| `review-budget.mjs` / `review-loop-record.mjs`, for plan loops | Both are keyed to a PR number | `--tier` plus `extensions.json`, local |
 | The disclosure gate on the plan | The channel was public | The plan is never published |
 | The three-round minimum and the fresh-lens stop condition | A defect-only reviewer could not say *done* | `required_revisions` empty and priors reconciled |
 | The round-3-onward adjudicator dispatch, for plan loops only | Nothing could tell required from recommended | The reviewer's own required/recommended split |
