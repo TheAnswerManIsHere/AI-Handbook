@@ -5,5 +5,10 @@
   "requiredChecks": [
     "REPLACE-WITH-A-REQUIRED-CI-JOB-NAME"
   ],
+  "contractBudgets": [
+    { "path": "CLAUDE.md", "lines": 0, "bytes": 0 },
+    { "path": ".agents/core/claude-core.md", "lines": 0, "bytes": 0 }
+  ],
+  "_contractBudgets": "The contract files loaded into EVERY Claude Code session, each pinned to its EXACT current size in lines and bytes. Seeded at 0/0 deliberately: the check refuses until they are pinned, and its failure message names the real numbers, so the first run tells you what to write. The exactness is the mechanism -- a budget with room left is satisfied by the very state it exists to prevent, so being UNDER budget fails too, and re-pinning is a visible one-line diff in a pull request. Add an entry for every file a session loads unconditionally; drop one that this repository does not have.",
   "_requiredChecks": "The CI jobs that must be PRESENT before a readiness receipt is honest -- every job that can appear late, not only the ones that must pass. A job gated on an earlier one is created late, so a snapshot taken too early sees a complete green set without it. Use the jobs.*.name values from this repo's workflows. Read from this file; a pull request that changes it is judged by what it commits, and that change is in the diff. An empty list is refused."
 }

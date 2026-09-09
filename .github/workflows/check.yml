@@ -184,6 +184,16 @@ jobs:
             exit 1
           fi
 
+      # Does the contract that loads into every session still fit its budget?
+      #
+      # The budget itself is enforced by the unit test in the Test job, which
+      # calls the same function this CLI does. What THIS step adds is that the
+      # entry point still runs: #54 shipped a script whose CLI no job exercised,
+      # so a regression in argument handling or root resolution could merge
+      # behind a green board while the unit suite passed.
+      - name: Check contract budgets
+        run: node core/scripts/check-claude-md-budget.mjs
+
       # The provenance-enabling gate was deleted with the staging system.
       # It asked whether a consumer would receive the provenance PARSER before
       # the documents that teach an author what to write -- a question only

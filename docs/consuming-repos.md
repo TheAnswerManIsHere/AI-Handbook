@@ -207,13 +207,17 @@ reaches a consumer as a dead link. It is a known gap, not a solved problem.
    hook exit 127, which `PreToolUse` treats as *allow*.
 
 6. **Fill in `.agents/machinery.json`**, which the sync seeds from a
-   self-documenting template. Two values, both facts about the consumer that
+   self-documenting template. Three values, all facts about the consumer that
    the handbook cannot know:
 
    ```json
    {
      "repo": "OWNER/REPO",
-     "requiredChecks": ["Classify changed paths", "Build", "Test"]
+     "requiredChecks": ["Classify changed paths", "Build", "Test"],
+     "contractBudgets": [
+       { "path": "CLAUDE.md", "lines": 0, "bytes": 0 },
+       { "path": ".agents/core/claude-core.md", "lines": 0, "bytes": 0 }
+     ]
    }
    ```
 
@@ -264,6 +268,17 @@ reaches a consumer as a dead link. It is a known gap, not a solved problem.
    still the template's placeholder, naming this file. So a consumer that
    skips this step gets a closed gate that says why, never an open one that
    says nothing.
+   - **`contractBudgets`** pins each always-loaded contract file to its
+     **exact** current size. Seeded at `0/0`, which refuses on the first run
+     and names the real numbers in the failure — so the first run tells you
+     what to write. The exactness is the whole mechanism: a budget with room
+     left is satisfied by exactly the state it exists to prevent, so a file
+     **under** its budget fails too, and re-pinning is a visible one-line diff
+     in a pull request rather than silent growth. Add an entry for every file
+     a session loads unconditionally, and drop one this repository does not
+     have. Run `node scripts/check-claude-md-budget.mjs`, and add it to CI —
+     the lock is worth nothing if it only runs when someone remembers.
+
 7. **If a session will hold more than one enrolled repository at once, set
    `HANDBOOK_ATTACHED_ROOTS` in that session's environment.** This is a
    *session* prerequisite rather than a repo one, and it is the step the
