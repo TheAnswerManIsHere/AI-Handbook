@@ -2,7 +2,7 @@
 
 # Implementation Plan Template
 
-> Use this template for **non-trivial** implementation work on Overhype.me. **Do
+> Use this template for **non-trivial** implementation work. **Do
 > not begin implementation until David approves the plan** (explicitly, in words —
 > see [`../docs/ai-context/agent-working-rules.md`](../docs/ai-context/agent-working-rules.md)).
 > Trivial, well-scoped fixes don't need the full template; a "bug fix" that is

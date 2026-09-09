@@ -7,7 +7,7 @@ description: The migration runner tracks "already applied" by SHA-256 of the who
 
 # Editing an already-merged migration file — even a comment — makes it replay
 
-`lib/db/src/migrate.ts`'s `applyMigrations()` decides whether a migration
+A hash-tracked migration runner decides whether a migration
 already ran by hashing the **entire file content**
 (`crypto.createHash("sha256").update(fs.readFileSync(path, "utf8"))`), not by
 tag, filename, or journal index. Change one byte of an already-applied
@@ -30,7 +30,7 @@ always a **new** forward-only migration, or (for pure prose) editing a
 different file that talks *about* the migration instead of the migration
 itself.
 
-**How to apply:** before editing anything under `lib/db/migrations/`, ask
+**How to apply:** before editing anything in the migrations directory, ask
 whether it's the migration *this* change is introducing (safe — nothing has
 run it yet) or someone else's already-merged one (never safe, regardless of
 how small the edit looks). If in doubt whether a file has been applied

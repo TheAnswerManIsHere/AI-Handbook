@@ -2,7 +2,7 @@
 
 # Agent Working Rules
 
-> **Canonical, cross-agent working rules** for Overhype.me — how David wants any
+> **Canonical, cross-agent working rules** — how David wants any
 > AI agent (Codex, Claude, future agents) to work. The root
 > [`AGENTS.md`](../../AGENTS.md) is the short constitution that points here.
 > Claude Code's [`CLAUDE.md`](../../CLAUDE.md) keeps only Claude-specific
@@ -241,7 +241,8 @@ sign-off.
 Match engineering depth to actual stakes, not to how thorough it's possible to
 be (David, 2026-08-07). The default instinct — think through every
 conceivable failure and design against all of them — is correct for payments,
-auth, migrations, and the visual pipeline. It is wrong for internal tooling,
+auth, migrations, and whatever subsystems the overlay marks sensitive. It is
+wrong for internal tooling,
 and applying it uniformly is a bug in judgment, not diligence. **Before
 designing, state what tier the thing is and let that set the bar:**
 

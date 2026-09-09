@@ -293,8 +293,8 @@ the PR back only delays the review that catches things.
 3. **Tier B, product-visible fix — ship the UAT doc on this same PR.** The
    test is whether the fix has *any* product-visible behavior, not which
    Q1/Q2 trigger put it in Tier B — a fix whose only surface is internal
-   (CI, build tooling, `lib/api-zod`/`lib/api-spec` codegen with no
-   frontend-visible type change) takes the **internal/infra-only exception**
+   (CI, build tooling, API-schema codegen with no frontend-visible type
+   change) takes the **internal/infra-only exception**
    instead: a written verification note in the PR body, no UAT doc (see
    [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-b--elevated-fix)).
    When a UAT doc is due, the filename needs the PR number, so the flow is
@@ -413,7 +413,7 @@ no classification at all.
 
 A feature, a behavior change, **any *database* schema change, migration, or
 backfill** (Tier C without exception, regardless of product consequence; not
-the `lib/api-zod` Zod schemas, which stay Q1 Tier B — see
+generated API-validation schemas, which stay Q1 Tier B — see
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-c--this-is-not-a-bug-fix-leave-bugfix-mode)),
 or anything where David needs to verify intent is out of the fast path — a
 non-trivial one goes to **feature mode**, a genuinely trivial database schema

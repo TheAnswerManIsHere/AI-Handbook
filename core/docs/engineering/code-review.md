@@ -136,7 +136,7 @@ and specifically ask:
 - **Is the tier right? Check Tier C first, then A vs. B.** The most
   consequential mis-tier is a PR labeled A or B that is actually **Tier C** —
   **any** of: a behavior/product change; any *database* schema, migration, or
-  backfill work (not the generated `lib/api-zod` Zod schemas, which are Q1's
+  backfill work (not generated API-validation schemas, which are Q1's
   own Tier B trigger); a design flaw rather than a defect; needing a new
   abstraction; or needing an external vendor (see
   [`working-modes.md`](../ai-context/working-modes.md#tier-c--this-is-not-a-bug-fix-leave-bugfix-mode))
@@ -157,9 +157,9 @@ and specifically ask:
   under-verified — flag the mis-tier, not just its consequences. Check
   **both** halves of the A/B checklist in
   [`working-modes.md`](../ai-context/working-modes.md#the-tier-is-chosen-after-diagnosis-never-at-intake):
-  the **subsystem** the fix lands in (payments/auth, tokenizer/grammar, the
-  visual pipeline, the async queue, enrichment/moderation, `lib/api-zod`,
-  dev-infra) as much as the fix's **shape** (shared code, a changed
+  the **subsystem** the fix lands in (payments/auth, the async queue,
+  generated API-validation schemas, dev-infra, and whatever the overlay marks
+  sensitive) as much as the fix's **shape** (shared code, a changed
   predicate/default, concurrency or async state, persisted data, a
   generalized fix, a shaky diagnosis, a previously untested path) — a leaf
   edit in a Tier B subsystem is Tier B even if none of the shape triggers
@@ -248,11 +248,10 @@ mattered. The full reasoning is in
 
 ## Repository fit
 
-- Does it follow existing patterns (generated API hooks on the frontend, Drizzle
-  schema conventions, the async job queue, the engines catalogue)?
-- Does it reuse the right shared module rather than reimplementing (e.g.
-  `resolveEnrichment`, `render-fact`, `compileForSubjectRenderMode`,
-  `useTaxonomyHealthActions`)?
+- Does it follow this repo's existing patterns — its generated API hooks, its
+  schema conventions, its job queue, its domain catalogues?
+- Does it reuse the right shared module rather than reimplementing one? The
+  overlay names the shared modules a reviewer should know.
 
 ## Security & validation
 
