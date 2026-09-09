@@ -60,16 +60,16 @@ anything else.>
 
 <The repo's own skills: design, implementation, plan review, subsystem work.>
 
-## Sensitive subsystems
+## What the shared rules ask this repo
 
-Declared in [`docs/ai-context/sensitive-subsystems.md`](docs/ai-context/sensitive-subsystems.md).
+Answered in [`docs/ai-context/overlay-declarations.md`](docs/ai-context/overlay-declarations.md).
 
-<A ROUTE, not the list. The list itself lives in that one document because
-`AGENTS.md` must reach it too — the ceremony rules that dereference it are in
-`agents-core.md` as well as `claude-core.md`, so a declaration living only in
-this file is invisible to Codex and to every other agent entering through
-`AGENTS.md`. Two copies would be two hand-maintained lists of one thing, which
-is the drift this whole repository exists to remove.>
+<A ROUTE, not the answers. They live in that one document because `AGENTS.md`
+must reach them too — the rules that dereference them are in `agents-core.md`
+as well as `claude-core.md`, so an answer living only in this file is invisible
+to Codex and to every other agent entering through `AGENTS.md`. Two copies
+would be two hand-maintained lists of one thing, which is the drift this whole
+repository exists to remove.>
 
 ## Environment
 
@@ -97,13 +97,13 @@ and if the core is wrong, fix the core.
 
 <The reading routes: which doc to read before which kind of work.>
 
-## Sensitive subsystems
+## What the shared rules ask this repo
 
-Declared in [`docs/ai-context/sensitive-subsystems.md`](docs/ai-context/sensitive-subsystems.md).
+Answered in [`docs/ai-context/overlay-declarations.md`](docs/ai-context/overlay-declarations.md).
 
 <The same route the CLAUDE.md template carries, to the same one document.
-`agents-core.md` routes ceremony through "whatever the overlay marks
-sensitive", so an agent entering here has to be able to reach the list.>
+`agents-core.md` dereferences these answers too, so an agent entering here has
+to be able to reach them.>
 
 ## Setup, verification, and the CI gate
 
@@ -130,7 +130,7 @@ destination.
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
 | `docs/ai-context/product-direction.md` | Product truth by definition. **The path is a default, not a route** — see below |
-| `docs/ai-context/sensitive-subsystems.md` | Which of *this* product's areas add the specialist review tier. Both overlays route to it, and the core's ceremony rules dereference it — see enrollment step 1 |
+| `docs/ai-context/overlay-declarations.md` | **The answers the shared rules dereference** — sensitive subsystems, and which of this repo's modules play the roles those rules name. Both overlays route to it; see enrollment step 1 and the list below |
 | `docs/ai-context/current-roadmap.md` | Same, and per-product. **The path is a default, not a route** — see below |
 | `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
@@ -170,11 +170,11 @@ the requirement by routing to it from the overlay, and creating an empty
 `current-roadmap.md` beside it would be the failure, not the fix. (Codex, #62
 round 4, catching a table that still described the routes this PR deleted.)
 
-`docs/ai-context/sensitive-subsystems.md` is deliberately **not** in that
+`docs/ai-context/overlay-declarations.md` is deliberately **not** in that
 category, and the difference is not arbitrary: the roadmap is product truth
-whose organisation belongs to the product, while sensitive-subsystem
-classification is a handbook concept every repo instantiates the same way, and
-both overlays route to it by the name given here.
+whose organisation belongs to the product, while this file answers questions
+the *handbook* asks, in a shape every repo instantiates the same way, and both
+overlays route to it by the name given here.
 
 Enforcing the rule mechanically — resolving every link in a payload file and
 failing when a target is neither in `core/` nor declared consumer-owned — is
@@ -206,25 +206,38 @@ to worry about strange links."*)
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
 
-   **Write `docs/ai-context/sensitive-subsystems.md` as part of this step.** It
+   **Write `docs/ai-context/overlay-declarations.md` as part of this step.** It
    is the one consumer document the payload *dereferences* rather than merely
-   links to, and it is the easiest to skip because nothing complains. The
-   core's ceremony rules — in `agents-core.md` as well as `claude-core.md`, so
-   this binds Codex too — route on "any subsystem the overlay marks
-   sensitive", a phrase that replaced a hardcoded list naming one product's
-   subsystems and that points nowhere until a repo answers it.
+   links to, and it is the easiest to skip because **nothing complains when it
+   is missing.** The shared rules ask this repo four questions — in
+   `agents-core.md` as well as `claude-core.md`, so this binds Codex too — and
+   each replaced a hardcoded answer naming one product's modules:
 
-   The universal entries (migrations, auth, payments, permissions, security
-   headers, the async job queue, dev-infra, generated API-validation schemas)
-   route regardless, so an unanswered route does not *break*: it quietly
-   removes the specialist review from whatever else that repo had been
-   treating as sensitive. **Write the list before the first sync**, not after
-   — after means the narrowing has already happened, in the one window where
-   nobody is looking for it.
+   | The rules ask | Where it is dereferenced | If unanswered |
+   |---|---|---|
+   | Which subsystems are **sensitive** (add the specialist review tier) | `working-modes.md`, `code-review.md`, `agent-working-rules.md`, `claude-core.md` | The universal entries still route; whatever else this repo treated as sensitive quietly stops getting the specialist review |
+   | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
+   | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
+   | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
 
-   **One document, routed from both overlays**, rather than a section in each.
-   Two copies are two hand-maintained lists of one thing, and this repository
-   exists because that shape drifts.
+   One payload route is deliberately **not** in that table: `/next` and the
+   tracking skills ask the overlay for the repo's **product direction and
+   roadmap**, and that is answered by the overlay's own *Product truth lives
+   here* section — a route to documents the repo already owns, not a fact it
+   has to declare. See *the path is a default, not a route*, above.
+
+   **None of these fail loudly.** Every one degrades into less ceremony or
+   weaker review, silently, which is why the answers are written *before* the
+   first sync rather than when something breaks. And **one document, routed
+   from both overlays**, rather than a section in each: two copies are two
+   hand-maintained lists of one thing, and this repository exists because that
+   shape drifts.
+
+   **A fifth question later gets a new section here, not a new file.** The
+   payload gained these four one at a time across #62, and each was installed
+   separately or not at all — three of the four were not installed until round
+   5 caught them. One document with a growing list is the shape that cannot
+   repeat that.
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
@@ -258,7 +271,7 @@ to worry about strange links."*)
    had a settings file never receives the seed at all — `mode: seed` writes
    only when the file is absent — so this table is the checklist for the
    by-hand merge in step 4, and it applies now. A repo that had *none* does
-   not receive the file until the sync runs at **step 9**, so its adaptation
+   not receive the file until the sync runs at **step 10**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
    decisions are identical either way, which is why they are one step and not
    two.
@@ -419,7 +432,25 @@ to worry about strange links."*)
    "ran and allowed" is distinguishable from "never ran"), after which this
    step can be deleted.
 
-9. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
+9. **🛑 RE-SYNC ONLY — if the repo was enrolled before a payload change added
+   a declaration, update its overlay FIRST.** The sync overwrites `core/` and
+   deliberately never touches a consumer-owned file, so a payload rule that
+   starts dereferencing a new answer arrives **fully armed against an overlay
+   that has never heard of it.** Nothing errors. The rule simply resolves to
+   nothing, and the repo silently gets less ceremony than it had the day
+   before.
+
+   Before a re-sync, diff step 1's table against that repo's
+   `docs/ai-context/overlay-declarations.md` and land the missing answers in
+   that repo first. This is a real step and not a hypothetical: #62 added four
+   such questions to the payload, and the enrollment text covering them reaches
+   **new** consumers only.
+
+   (A first sync cannot hit this — step 1 wrote the answers. It is the second
+   and later syncs that can, which is exactly why it sits here rather than in
+   step 1. Codex, #62 round 5.)
+
+10. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
    review the resulting diff as a pull request in that repo and merge. **On a
    clean enrollment this is where step 5 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
@@ -428,17 +459,24 @@ to worry about strange links."*)
 **The order is the point, and the sync goes last.** A vendored core that
 nothing imports is inert: the files are present, the rules are not loaded, and
 the repo looks governed without being governed, which is the worst of the three
-states. Steps 1 and 2 prevent that — and step 1's sensitive-subsystem list
-is the part of them that fails quietly rather than loudly; steps 3 and 4
+states. Steps 1 and 2 prevent that — and step 1's declarations are
+the part of them that fails quietly rather than loudly; steps 3 and 4
 prevent the security equivalent, where a repo holds `bypassPermissions` without the controls that
 constrain it, or the guard without the hooks that invoke it; step 6 keeps its
 merge gate usable; step 7 is what lets a session hold more than one consumer at
 once; step 8 is the one that is currently a promise rather than a mechanism.
 
+**Steps 1 and 9 are the same requirement at two moments**, and both fail
+silently rather than loudly: step 1 asks a *new* consumer the questions the
+shared rules dereference, and step 9 asks whether an *already-enrolled* one has
+been asked anything new since. Without the second, enrollment text covering a
+new declaration reaches new repos only, and every repo enrolled before it
+quietly loses whatever that rule used to route.
+
 There is no longer an `enrolled` flag, and nothing fires a sync automatically —
 running it is a deliberate act, so "eligible" and "ready" are the same moment by
 construction rather than by a flag anyone has to remember to flip last. A step
-added to this list later belongs above step 9, not below it.
+added to this list later belongs above step 10, not below it.
 
 ## Rules for changing shared content
 
