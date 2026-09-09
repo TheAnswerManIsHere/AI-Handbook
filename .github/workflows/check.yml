@@ -1,8 +1,8 @@
 name: Check
 
 # The whole gate for this repo. There is no product build here — what can
-# actually break is the machinery's behaviour and the manifest's coverage, so
-# those are what run.
+# actually break is the machinery's behaviour and this repo's wiring to its own
+# payload, so those are what run.
 #
 # Both jobs are named so they can be added to the branch ruleset's required
 # status checks. Adding them there is a one-time repo setting, not something
@@ -46,14 +46,15 @@ jobs:
       # The payload is code, and until this ran it was code nobody tested here:
       # a regression in the review-budget, receipt, guard or readiness scripts
       # could merge behind a green Test job because the step above only covers
-      # this repo's own 33-test manifest suite.
+      # this repo's own root-level suite.
       #
       # One file is excluded, by name rather than by skipping the suite:
       # check-contract-consistency.test.mjs asserts the scanned corpus contains
       # CLAUDE.md at the corpus root. That is true in a consumer and false here,
       # where the contract is deliberately split into a vendored core plus an
-      # overlay. It is the second half of the `machinery` group's blocker, and
-      # it is a fact about this repo's layout, not a failing behaviour.
+      # overlay. It is a fact about this repo's layout, not a failing
+      # behaviour. (It was also half of the old `machinery` group's blocker;
+      # groups and blockers are gone, the exclusion and its reason are not.)
       - name: Run payload machinery tests
         run: |
           node --test $(ls core/scripts/__tests__/*.test.mjs \
@@ -107,8 +108,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - name: Check payload coverage
-        run: node scripts/check-manifest.mjs
+      # NOTE ON THIS JOB'S NAME. It is called `Manifest` and there is no
+      # longer a manifest. The name is load-bearing anyway: it is a REQUIRED
+      # status check in `.agents/machinery.json` and in the branch ruleset, so
+      # renaming it here would mean the required check never reports and every
+      # PR blocks until the ruleset is edited. Renaming it is a settings change
+      # David makes, not a code change, and it is deliberately not bundled in.
+      #
+      # Payload coverage used to run here, asking whether every file under
+      # core/ was routed by sync-manifest.yml. The sync now routes core/**
+      # by construction, so there is nothing a file can fall out of -- the
+      # check became vacuous rather than needing a replacement. What could
+      # still go wrong (two payload files colliding on one destination, a
+      # seed failing to land) is covered by scripts/__tests__/sync.test.mjs
+      # in the Test job.
 
       # Every place a repository identity enters a decision, classified.
       #
@@ -127,9 +140,9 @@ jobs:
       # consumer; in the handbook they sit one directory too deep, so a session
       # working ON the handbook had the core rules but none of the skills those
       # rules invoke. Per-entry symlinks fix that with ONE copy, and adding a
-      # skill to the payload is then only half the change -- the same failure
-      # `check-manifest` exists for on the sync side, which is why this sits
-      # beside it rather than in Test.
+      # skill to the payload is then only half the change -- the sync side of
+      # that failure is now impossible by construction (core/** ships whole),
+      # but the root-wiring side is not, which is why this check remains.
       - name: Check root wiring
         run: node scripts/check-root-wiring.mjs
 
@@ -152,19 +165,33 @@ jobs:
       - name: Check settings fields
         run: node scripts/check-settings-fields.mjs
 
-      # Would a consumer receive the provenance PARSER before the documents
-      # that teach an author what to write?
+      # Does the sync actually run?
       #
-      # `requires` does not answer that, and should not: `machinery` requires
-      # only `machinery-config`, and its references to the skills are recorded
-      # as `mentions` -- evidence, not dependencies, because the generator
-      # opens the PR body and never opens a skill. That classification is
-      # correct, which is exactly why the sequencing needs a gate of its own. A
-      # consumer whose producers lag gets its own PRs refused by the parser it
-      # just received.
+      # Everything above imports the module; nothing exercised the CLI, so a
+      # regression in argument handling, the self-sync refusal, or the payload
+      # materialization could merge behind a green board while the unit suite
+      # passed. AGENTS.md listed this command among those that run in the
+      # required checks, and that was false until this step existed.
       #
-      # Sits in Manifest for the same reason as the three above: it is a claim
-      # about what the payload delivers and in what order, and this reads the
-      # manifest instead of trusting someone's memory of it.
-      - name: Check provenance enabling
-        run: node scripts/check-provenance-enabling.mjs
+      # A dry run writes nothing, so it is safe to point at a scratch
+      # directory; what it proves is that the entry point still works.
+      - name: Sync dry-run reaches a consumer
+        run: |
+          dest="$(mktemp -d)"
+          node scripts/sync.mjs --to "$dest" --dry-run
+          if [ -n "$(find "$dest" -type f)" ]; then
+            echo "::error::a dry run wrote files into $dest"
+            exit 1
+          fi
+
+      # The provenance-enabling gate was deleted with the staging system.
+      # It asked whether a consumer would receive the provenance PARSER before
+      # the documents that teach an author what to write -- a question only
+      # meaningful while groups could ship separately. The payload now ships
+      # whole, so the parser and its producer documents always arrive in the
+      # same copy and the ordering hazard cannot occur.
+      #
+      # The invariant that DOES survive -- that the producer documents and the
+      # parser agree about the declaration format -- was never this gate's job.
+      # It is scripts/__tests__/plan-provenance-producers.test.mjs, which still
+      # runs in the Test job.

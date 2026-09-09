@@ -136,29 +136,25 @@ and the payload keeps acquiring references.
 So the rule, rather than the list, is what to rely on:
 
 > **Any path the payload references that `core/` does not ship is
-> consumer-owned, and must exist in the consumer before the group referencing
-> it goes ready.**
+> consumer-owned, and must exist in the consumer before the payload is synced
+> there.**
 
 The rows above are the cases worth explaining — the ones where *why* it cannot
 be shared is not obvious. They are examples of the rule, not its boundary.
 
-Enforcing the rule mechanically — resolving every link in a group's files and
+Enforcing the rule mechanically — resolving every link in a payload file and
 failing when a target is neither in `core/` nor declared consumer-owned — is
-the check that would actually close this, and it belongs with the groups whose
-files carry the references. It is recorded in the `skills` and `contracts`
-blockers as an unstaging requirement, because until those groups travel the
-gap has no consumer to affect. **Do not read a passing `check-manifest` as
-evidence this table is complete**; the check covers payload coverage and
-readiness, not link resolution.
+the check that would actually close this, and it does not exist. **Nothing in
+CI proves this table is complete**, so a broken cross-reference in the payload
+reaches a consumer as a dead link. It is a known gap, not a solved problem.
 
 ## Enrolling a repo
 
-1. Add it to `consumers:` in `sync-manifest.yml` with `enrolled: false`.
-2. Land the repo's own overlay `CLAUDE.md` and `AGENTS.md` from the templates
+1. Land the repo's own overlay `CLAUDE.md` and `AGENTS.md` from the templates
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
-3. Create the required consumer documents above.
-4. **Verify the repo's `main` ruleset is in place** — block force pushes,
+2. Create the required consumer documents above.
+3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
    status checks. The seeded `.claude/settings.json` sets
    `defaultMode: bypassPermissions`, and `guard.sh` deliberately delegates
@@ -167,16 +163,16 @@ readiness, not link resolution.
    without the ruleset has neither: the local guard does not cover it and the
    server is not configured to. Settings are a repo-level thing the sync cannot
    write, so this is a human step and it gates the ones below.
-5. **If the repo already has `.claude/settings.json`, merge the template's
-   three `PreToolUse` hooks into it by hand.** `settings-template` is
-   `mode: seed`, which writes only when the file is absent — correct, because a
+4. **If the repo already has `.claude/settings.json`, merge the template's
+   three `PreToolUse` hooks into it by hand.** The settings file is a
+   **seed**, which writes only when the file is absent — correct, because a
    consumer's permissions and env are its own and a sync that overwrote them
    would delete grants it needs. But the consequence is that an existing file
    is left untouched, so the vendored `guard.sh` arrives and **nothing ever
    invokes it**. That failure is silent: the guard is present, the hooks are
    not, and no diff shows it. This applies to the first consumer immediately —
    Overhype already has a settings file — so it is a step, not a footnote.
-6. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
+5. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
    `core/.claude/settings.template.json` and is **yours from the moment it
    lands** — the sync never rewrites it, and no "do not edit this vendored
    file" rule applies to it. Four fields need a decision, and the guidance
@@ -189,7 +185,7 @@ readiness, not link resolution.
    **When you do this depends on which repo you have.** A repo that *already*
    had a settings file never receives the seed at all — `mode: seed` writes
    only when the file is absent — so this table is the checklist for the
-   by-hand merge in step 5, and it applies now. A repo that had *none* does
+   by-hand merge in step 4, and it applies now. A repo that had *none* does
    not receive the file until the sync runs at **step 9**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
    decisions are identical either way, which is why they are one step and not
@@ -210,7 +206,7 @@ readiness, not link resolution.
    against the current working directory, so one persisting `cd` makes every
    hook exit 127, which `PreToolUse` treats as *allow*.
 
-7. **Fill in `.agents/machinery.json`**, which `machinery-config` seeds from a
+6. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Two values, both facts about the consumer that
    the handbook cannot know:
 
@@ -268,7 +264,7 @@ readiness, not link resolution.
    still the template's placeholder, naming this file. So a consumer that
    skips this step gets a closed gate that says why, never an open one that
    says nothing.
-8. **If a session will hold more than one enrolled repository at once, set
+7. **If a session will hold more than one enrolled repository at once, set
    `HANDBOOK_ATTACHED_ROOTS` in that session's environment.** This is a
    *session* prerequisite rather than a repo one, and it is the step the
    handbook previously had nowhere to state.
@@ -318,28 +314,43 @@ readiness, not link resolution.
    asked *which* repository something is: that answer always comes from the
    receipt found there, compared against the call's target. So a wrong entry
    can only cause a refusal, never an unearned approval.
-9. Flip `enrolled: true`. **This is the last step before the sync, and it comes
-   after every prerequisite above — not before them.** An earlier version put
-   the flip at step 4 and then grew steps 5 and 6 underneath it, which put a
-   repo into the sync's target set while the controls those steps install were
-   still missing. Since the intended sync is merge-triggered, "eligible" and
-   "ready" have to be the same moment: a repo flipped early can receive
-   `bypassPermissions` before the ruleset that constrains it exists, and an
-   inert guard before the hooks that invoke it are merged.
-9. Run the sync, review the pull request it opens, merge. **On a clean
-   enrollment this is where step 6 actually happens**: the seeded
+8. **🛑 Do not sync to a repo that will run `defaultMode: bypassPermissions`
+   until issue #16 is closed.** `guard.sh` treats **any** exit from
+   `guard-decision.mjs` other than 2 as *allow*, so a crash, a missing `node`,
+   or a path it cannot launch does not refuse a destructive command — it
+   permits one, silently. In this repository that is survivable: the `main`
+   ruleset is server-side and catches what the guard misses. In a consumer
+   running `bypassPermissions`, the guard is the control that is supposed to
+   stand in front of exactly those commands, and a guard that fails open is
+   worse than no guard because it is trusted.
+
+   This used to be enforced mechanically — the `guard` group was staged, so it
+   could not travel. Deleting staging removed that mechanism and left this
+   checklist item in its place, which is weaker: it depends on a person
+   honouring it. It is written as a step rather than a footnote for that
+   reason. **The real close is landing #16** (a sentinel on the allow path, so
+   "ran and allowed" is distinguishable from "never ran"), after which this
+   step can be deleted.
+
+9. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
+   review the resulting diff as a pull request in that repo and merge. **On a
+   clean enrollment this is where step 5 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
    is the last moment before a session runs under it.
 
-`enrolled` means "every prerequisite is in place, so send it the core" — not
-"the core has arrived." A vendored core that nothing imports is inert: the
-files are present, the rules are not loaded, and the repo looks governed
-without being governed, which is the worst of the three states. Steps 2 and 3
-prevent that; steps 4 and 5 prevent the security equivalent, where a repo holds
-the bypass without the controls; step 7 keeps its merge gate usable; step 8 is what lets a session hold more than one of them at once. **The flip goes last because the flip is what
-makes the sync fire** — anything that must be true before delivery has to be
-true before the flip, and a step added to this list later belongs above it, not
-below.
+**The order is the point, and the sync goes last.** A vendored core that
+nothing imports is inert: the files are present, the rules are not loaded, and
+the repo looks governed without being governed, which is the worst of the three
+states. Steps 1 and 2 prevent that; steps 3 and 4 prevent the security
+equivalent, where a repo holds `bypassPermissions` without the controls that
+constrain it, or the guard without the hooks that invoke it; step 6 keeps its
+merge gate usable; step 7 is what lets a session hold more than one consumer at
+once; step 8 is the one that is currently a promise rather than a mechanism.
+
+There is no longer an `enrolled` flag, and nothing fires a sync automatically —
+running it is a deliberate act, so "eligible" and "ready" are the same moment by
+construction rather than by a flag anyone has to remember to flip last. A step
+added to this list later belongs above step 9, not below it.
 
 ## Rules for changing shared content
 
@@ -348,24 +359,24 @@ below.
   so. The non-Markdown payload is **partly** there: everything `machinery`
   delivers — `core/scripts/*.mjs`, `retry-on-eagain.sh` and their tests — now
   carries the notice too, placed after the shebang. Skill helper executables and
-  `guard.sh` do **not** yet, which is why the groups containing them stay
-  staged: each one's blocker requires the ownership comment before it can
-  travel. `core/.claude/settings.template.json` is a third case and **is the
+  `guard.sh` do **not** yet — a real gap, and now one that ships, since the
+  payload no longer waits behind a staging flag.
+  `core/.claude/settings.template.json` is a third case and **is the
   one payload file that cannot carry a notice at all**: JSON has no comments,
   and Claude Code refuses a settings file over any unrecognised top-level key —
   which is what a notice would have to be. It once carried one anyway, in the
   `_comment` array that `node scripts/check-settings-fields.mjs` now rejects.
-  It does not need one: `mode: seed` means the delivered
+  It does not need one: it is a **seed** — the delivered
   `.claude/settings.json` is **consumer-owned from the moment it lands**, so
   the rule this bullet states does not apply to it. That ownership is stated in
-  enrollment step 6 instead, where whoever adapts the file is already reading.
+  enrollment step 5 instead, where whoever adapts the file is already reading.
 - **Change the handbook, let the sync carry it.** One edit, every repo, each
   through review.
-- **A `staged` group does not sync.** It is in the payload with a named blocker
-  saying what must land first. Check `sync-manifest.yml` before assuming a file
-  has reached a consumer.
-- **Seeded files diverge on purpose.** `mode: seed` writes once and never
-  again; a consumer's `.claude/settings.json` is meant to differ. The cost is
+- **Everything in `core/` syncs.** There is no staging and no per-group status:
+  if a file is in the payload it reaches every consumer on the next sync. If it
+  is not ready for that, it is not ready to merge here.
+- **Seeded files diverge on purpose.** A `*.template.*` file writes once and
+  never again; a consumer's `.claude/settings.json` is meant to differ. The cost is
   that seeding is a no-op in a repo that already has the file, so anything the
   template contributes which is *not* optional — the `PreToolUse` hooks — has
   to be merged by hand at enrollment. A seed cannot deliver a requirement; it

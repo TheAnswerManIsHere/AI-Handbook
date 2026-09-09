@@ -207,8 +207,8 @@ export function checkFile(relPath, root = ROOT) {
   // template is what seeds a consumer's. Treating a missing file as "nothing
   // to validate" meant a deleted or renamed `.claude/settings.json` printed
   // OK while every local guard had silently disappeared -- and nothing else in
-  // CI covers it, since `check-root-wiring` explicitly excludes this file and
-  // `check-manifest` only sees the payload. A check that reports success when
+  // CI covers it, since `check-root-wiring` explicitly excludes this file.
+  // A check that reports success when
   // its subject is gone is the failure mode this whole workstream is about.
   // (Codex, #23 round 1.)
   if (!existsSync(full)) return { file: relPath, missing: true, bad: [] };

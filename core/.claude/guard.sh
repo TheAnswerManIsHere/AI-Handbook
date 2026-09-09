@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 # Hard guard: blocks irreversible/destructive commands even under bypassPermissions.
 #
 # This hook is the THIRD line of defence for `main`, not the first. Above it sit

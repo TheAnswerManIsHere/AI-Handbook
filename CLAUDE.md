@@ -7,7 +7,8 @@
 The shared working contract for every product David builds with AI agents. It
 ships no product. Its payload — `core/` — is vendored into each consumer repo
 by the sync described in [`docs/consuming-repos.md`](docs/consuming-repos.md),
-and `sync-manifest.yml` is the single declaration of what goes where.
+and `scripts/sync.mjs` copies `core/**` into place, one rule with one
+exception for seeded files.
 
 This repo governs itself with the same file it ships: the import above is the
 handbook's own core, read from the payload. If a rule is uncomfortable to work
@@ -33,10 +34,13 @@ risk. So:
   those hooks are installed. Everything else under `core/` still reaches this
   repo only by import — the `@core/.agents/core/claude-core.md` line at the top
   of this file. See *How this repo reaches its own payload* below.
-- **Adding a file to `core/` is only half the change.** If it is not in
-  `sync-manifest.yml` it never travels, and the sync reports success anyway.
-  `node scripts/check-manifest.mjs` is what makes that loud; it runs in CI and
-  should be run before pushing.
+- **Adding a file to `core/` ships it.** The sync routes `core/**` by
+  construction, so there is no routing table a new file can fall out of — this
+  used to be a real hazard guarded by a 1,176-line checker, and it is now
+  impossible rather than checked. The flip side is that there is no staging
+  left to hide behind: a payload file that merges here reaches every consumer
+  on the next sync, so "not ready to ship" and "not ready to merge" are the
+  same judgement.
 - **Where a rule lives is a decision, not a formality.** Fleet rule → the core
   here. Product rule → that product's overlay. Rationale and history → the
   product's `decisions.md`. The test is in
@@ -61,7 +65,7 @@ widens authority, it does.
 
 ```
 node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-manifest.mjs      # every payload file is actually routed
+node scripts/sync.mjs --to <repo> --dry-run   # what a consumer would receive
 node scripts/check-identity-sources.mjs  # every identity touchpoint classified
 node scripts/check-root-wiring.mjs   # this repo actually reaches its payload
 node scripts/check-settings-fields.mjs   # no settings field Claude Code would refuse
@@ -104,7 +108,7 @@ Two things are deliberately NOT symlinks:
   guard with nothing saying so. `node scripts/check-settings-fields.mjs` is
   what makes that loud. The prose those blocks held now lives where whoever
   adapts the file will actually read it: the adaptation record above, and
-  [`docs/consuming-repos.md`](docs/consuming-repos.md) step 6 for a consumer's
+  [`docs/consuming-repos.md`](docs/consuming-repos.md) step 5 for a consumer's
   copy.
 - **`.agents/receipts/.gitignore`** is a real file, mirrored rather than
   pointed at, because **git does not follow a symlinked `.gitignore`** — its
@@ -149,5 +153,12 @@ and closing it closed a route rather than the shape: `guard.sh` still reads
 **any** non-2 exit as allow, so the next way a verdict fails to be produced
 fails open the same way. That is issue #16, and it wants the hook protocol
 changed — a sentinel on the allow path, so "ran and allowed" is
-distinguishable from "never ran". It should land before the `guard` group
-unstages.
+distinguishable from "never ran".
+
+**#16 now gates the first real sync, and that is a downgrade worth naming.**
+It used to be held by the `guard` group being staged — a mechanical hold,
+enforced by a check. Deleting staging removed the mechanism, so the hold is now
+a line in the enrollment checklist that a human has to honour. Weaker, and
+deliberately so: staging was managing this one real risk at the cost of an
+entire subsystem that managed nothing else. The right close is landing #16, not
+rebuilding the machine that was standing in front of it.

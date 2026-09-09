@@ -19,9 +19,11 @@
  * problem: the failure would look like "no skills here", which is the state
  * this is fixing. So the wiring uses only the shape that is specified.
  *
- * WHY A CHECK AND NOT A CONVENTION. Adding a skill to the payload is then only
- * half the change -- exactly the failure `check-manifest.mjs` exists for on the
- * sync side. Without this, a new skill is invisible in the handbook and nothing
+ * WHY A CHECK AND NOT A CONVENTION. Adding a skill to the payload is only half
+ * the change. The SYNC half is now impossible to get wrong -- `core/**` ships
+ * whole, so nothing can fall out of a routing table -- but the handbook's own
+ * wiring is still per-entry symlinks, and those can be forgotten. Without this,
+ * a new skill is invisible in the handbook and nothing
  * says so. Both directions fail: an unlinked payload entry, and a root link
  * that dangles or points outside the payload.
  *
