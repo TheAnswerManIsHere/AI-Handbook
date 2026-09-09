@@ -1,0 +1,9 @@
+{
+  "pr": 62,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 60,
+  "artifact": "check-payload-portability.mjs plus the edit pass that takes it to zero: 2 fleet docs shipped, 4 declared consumer-owned, 37 references de-linked or reworded, and tier routing/review criteria abstracted off one product's modules",
+  "declaredAt": "2026-09-09T04:13:24.239Z"
+}

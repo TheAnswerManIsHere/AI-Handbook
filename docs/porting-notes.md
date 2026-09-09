@@ -70,6 +70,14 @@ as opposed to merely mentioning Overhype:
   rule said "migrations/auth/payments/visual-pipeline"; the visual pipeline is
   one product's subsystem. It now reads "any subsystem the overlay marks
   sensitive", and each repo names its own.
+
+  **A pointer is only as good as the thing it points at, and at the time this
+  abstraction was made, no overlay marked anything.** The universal entries
+  still routed, so the abstraction did not break — it narrowed, silently, for
+  whichever repo had subsystems in the deleted half of the list. Enrollment
+  step 1 in [`consuming-repos.md`](consuming-repos.md) now makes writing that
+  declaration part of enrolling, before the first sync. Generalising a rule and
+  landing the thing it now depends on are one change, not two.
 - **Relative links repointed** for the core files' new depth
   (`.agents/core/` is two levels down from the repo root).
 

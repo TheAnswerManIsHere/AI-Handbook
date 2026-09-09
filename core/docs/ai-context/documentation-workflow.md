@@ -139,21 +139,21 @@ other mention links to it.
 | Settled decision + why | [`decisions.md`](./decisions.md) — append-only, newest first, its **date · title — Decision / Why / Reference / Revisit if** format |
 | Product-level failure pattern / retired mistake | [`known-failure-patterns.md`](./known-failure-patterns.md) |
 | Engineering/repo gotcha (build, tests, codegen, env) | A note in `.agents/memory/` **plus** its one-line entry in `.agents/memory/MEMORY.md` |
-| New term of art | [`glossary.md`](./glossary.md) |
-| Shipped slice / new open question | [`current-roadmap.md`](./current-roadmap.md) (move shipped work to "recently merged"; trim per its header) |
+| New term of art | the repo's glossary |
+| Shipped slice / new open question | the repo's roadmap (move shipped work to "recently merged"; trim per its header) |
 | Engineering practice changed (testing, migrations, review) | The matching `docs/engineering/` doc |
 | A brand-new context doc was created | Add it to [`AGENTS.md`](../../AGENTS.md) routing |
-| How the area works + why, for humans | The area's chapter in [`docs/manual/`](../manual/README.md) (Step 3) |
+| How the area works + why, for humans | The area's chapter in the repo's Manual, where it keeps one (Step 3) |
 
 Worked routing examples:
 
 | Example learning | Where it goes |
 | --- | --- |
 | "The Visual Concept is now the authoritative scene." | `decisions.md` (the decision + why) **+** `visual-pipeline.md` (the spec); the manual chapter links both |
-| "Never hand-edit the generated admin field reference." | Link to [`ADMIN_FIELD_REFERENCE.md`](../ADMIN_FIELD_REFERENCE.md); no restatement anywhere |
+| "Never hand-edit a generated reference." | Link to the generated document itself; no restatement anywhere |
 | "A command failed because the test DB was missing." | `.agents/memory/` **only if it recurs / generalizes**; a one-off run detail is not durable |
-| "We coined the term 'candidate concept'." | `glossary.md` |
-| "We want a manual-chapter backfill, but later." | `current-roadmap.md` deferred work |
+| "We coined a new term of art." | the repo's glossary |
+| "We want a manual-chapter backfill, but later." | the repo's roadmap, deferred work |
 
 **Edit the existing docs in place** — extend and correct them so they describe
 *current* truth. Do **not** append "learnings from PR #N" journal sections; the
@@ -162,7 +162,7 @@ chronology lives in `decisions.md` and git history.
 ## Step 3 — Update the manual chapter (only when it clears the quality bar)
 
 The manual is human-facing narrative — what an area does, how it behaves, and
-**why it's built that way** — governed by [`docs/manual/README.md`](../manual/README.md)
+**why it's built that way** — governed by the Manual's own README, where the repo keeps one
 (audience, tone, chapter template, TOC). Follow that charter.
 
 **Quality bar — no empty chapters.** Create a chapter *only* when there is
@@ -172,7 +172,7 @@ the relevant ai-context / decision / roadmap / memory doc (or an existing
 chapter) — it does **not** spawn a skeletal chapter with headings and no
 substance. When a real chapter is added, add it to the README's TOC in the
 same commit. **Link, don't fork:** deep spec stays in `docs/ai-context/` and
-generated references stay generated ([`ADMIN_FIELD_REFERENCE.md`](../ADMIN_FIELD_REFERENCE.md));
+generated references stay generated;
 the chapter links to them.
 
 ## Step 4 — Cross-check before committing

@@ -758,7 +758,8 @@ Authorization boundaries — the mechanics live in
   normal case, never an incident to escalate. My duty is the sweep, not an
   alarm: when a session touches `main` and finds one, I read it then (skim
   display/copy, actually read anything touching data, logic, migrations, auth,
-  payments, or the visual pipeline) and route anything real to a `/bugfix` PR.
+  payments, or a subsystem the overlay marks sensitive) and route anything real
+  to a `/bugfix` PR.
   Re-sweeping is expected; there is no ledger. Boundary, ceremony and cadence:
   [`replit-environment.md`](../../docs/ai-context/replit-environment.md).
 - **Scope every request and say what it must not touch** — Replit Agent defaults

@@ -37,10 +37,9 @@ non-trivial database schema change of any kind (see *Tier C* below) needs a
 plan and David's approval before anything runs. A database schema change is
 feature mode by default; it stays out of the full plan only if it's genuinely
 trivial, in which case it runs migration ceremony directly per Tier C. (This
-is the *database* schema — Drizzle/`lib/db`, migrations, table structure —
-not the generated Zod API-validation schemas under `lib/api-zod`/
-`lib/api-spec`, which have their own explicit Tier B routing; see *Tier C*
-below.)
+is the *database* schema — migrations and table structure — not **generated
+API-validation schemas**, which have their own explicit Tier B routing; see
+*Tier C* below. A repo that generates such schemas names them in its overlay.)
 
 ### Feature-mode ceremony scales to blast radius, not to phrasing (David, 2026-08-05)
 
@@ -63,7 +62,7 @@ to review.
 | **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **Write it, ship it, never loop on it.** Codex's automatic first pass happens (it reviews every PR); its findings get one triage and the loop ends there — no re-request. The cap ends the *loop*, never a fix: the one triage still fixes anything safety-relevant (see the next column). | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and gets fixed in the single triage. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **Write it, one review pass, ship.** No plan document, no convergence loop. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
 | **Product code** | Today's full feature ceremony — plan, review to convergence, approval. | Codex's review is a real net, but a subtly wrong behavior can reach users. |
-| **Migrations, backfills, auth, payments, the visual pipeline** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
+| **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient
 checklist, deleted after one run — findings triaged once, no re-review"),
@@ -128,7 +127,7 @@ The front of the process worked. The artifact fed to it contained three
 projects.
 
 **A direction that duplicates or contradicts an existing canonical doc is not
-a new artifact — it's a routing bug.** [`product-direction.md`](./product-direction.md)
+a new artifact — it's a routing bug.** The repo's product direction
 already exists and already declares itself the winning source for current
 direction and settled decisions; most subsystems already have a canonical
 `docs/ai-context/<subsystem>.md`. Writing a direction means updating the
@@ -861,8 +860,8 @@ persisted state — and none of that is knowable until the cause is found.
 
 So: **diagnose first, then classify, then fix.** **Check Tier C first** (below)
 — **any** of its triggers (a behavior/product change; any *database* schema,
-migration, or backfill work — not the `lib/api-zod` Zod schemas, which are a
-Q1 trigger, not this one; a design flaw rather than a defect; needing a new
+migration, or backfill work — not generated API-validation schemas, which are
+a Q1 trigger, not this one; a design flaw rather than a defect; needing a new
 abstraction; needing an external vendor) is Tier C regardless of whether the
 change also trips a Q1/Q2 item; those triggers only decide Tier A vs. Tier B
 *within* work that's already confirmed to be a bug fix, not before. Once Tier
@@ -872,13 +871,13 @@ Tier B.** With this list, Tier A is the exception — that is intended, not a
 mis-calibration.
 
 **Q1 — Where does the fix land?** Any of these subsystems → **Tier B**:
-payments / auth / permissions / security headers; the tokenizer, grammar, or
-`render-fact`; the visual pipeline (planner, compiler, render policy, Visual
-Concept); the async job queue, worker lanes, or any enqueue helper; enrichment or
-moderation source-of-truth (`facts.*`, `resolveEnrichment`, override layers);
-`lib/api-zod/` or `lib/api-spec/` (the codegen allowlist trap — these are
-generated Zod *API-validation* schemas, distinct from Tier C's *database*
-schema trigger below; a fix confined to them is Q1 Tier B, not Tier C); dev-infra and
+payments / auth / permissions / security headers; the async job queue, worker
+lanes, or any enqueue helper; **generated API-validation schemas** (the codegen
+allowlist trap — these are distinct from Tier C's *database* schema trigger
+below; a fix confined to them is Q1 Tier B, not Tier C); **any subsystem this
+repo's overlay marks sensitive** — a product's own rendering pipeline, its
+source-of-truth layers, its domain engines; the overlay is where those are
+named, because only that repo knows them; dev-infra and
 build tooling (Vite/esbuild config, the dev supervisor, retry/reload paths, CI
 workflows).
 
@@ -965,9 +964,9 @@ mode** (plan + David's approval).
 **A *database* schema change, migration, or backfill is Tier C without
 exception** — there is no size or scope of database schema change that stays
 on bugfix mode's fast path. **"Schema" here means the persisted database
-schema** (Drizzle/`lib/db`, migrations, table structure) — not the generated
-Zod API-validation schemas under `lib/api-zod`/`lib/api-spec`, which are Q1's
-own explicit Tier B trigger (the codegen allowlist trap); a fix confined to
+schema** (migrations, table structure) — not **generated API-validation
+schemas**, which are Q1's own explicit Tier B trigger (the codegen allowlist
+trap); a fix confined to
 those stays Q1/Q2-governed, not Tier C, unless it *also* changes the database
 schema, which puts it here on that separate basis. It always runs
 [`../engineering/migrations-and-backfills.md`](../engineering/migrations-and-backfills.md)'s
@@ -1162,7 +1161,7 @@ bugfix path — routed, `/bugfix`-forced, or prefix-declared — if it looks lik
 **building or changing product functionality** (a feature, a behavior
 change), or diagnosis reveals **any *database* schema change, migration, or
 backfill** (Tier C without exception, regardless of product consequence —
-not the `lib/api-zod` Zod schemas, which stay Q1 Tier B — see *Tier C*
+not generated API-validation schemas, which stay Q1 Tier B — see *Tier C*
 above), **do not silently treat it as a fix** — **ask** whether it should
 take the feature workflow, or (for a genuinely trivial database schema fix)
 proceed straight to migration ceremony per Tier C. Guessing wrong is
@@ -1174,7 +1173,7 @@ confirm costs one question.
 
 Features, behavior changes, **any *database* schema change, migration, or
 backfill** (Tier C without exception — see above; not gated on product
-consequence; not the `lib/api-zod` Zod schemas, which stay Q1 Tier B), or
+consequence; not generated API-validation schemas, which stay Q1 Tier B), or
 anything where David needs to verify intent — that's **feature mode**, or for a
 trivial database schema fix, migration ceremony run directly per Tier C. Don't
 use bugfix mode to sneak a feature through the lightweight path. **And a

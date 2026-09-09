@@ -242,9 +242,9 @@ it, before concluding the queue is empty.
 Once it genuinely is empty, the question becomes **what should we build
 next**, and this is a real recommendation, not a menu:
 
-1. Read [`product-direction.md`](../../../docs/ai-context/product-direction.md)
-   and [`current-roadmap.md`](../../../docs/ai-context/current-roadmap.md) —
-   near-term slices, pre-launch hardening, open product questions.
+1. Read the repo's **product direction** and **roadmap** — the overlay names
+   them — for near-term slices, pre-launch hardening, and open product
+   questions.
 2. **Weight pre-launch hardening heavily.** The roadmap's own framing is
    that we're moving from prototype to production-ready; an item marked
    must-do-before-go-live outranks a new capability by default.

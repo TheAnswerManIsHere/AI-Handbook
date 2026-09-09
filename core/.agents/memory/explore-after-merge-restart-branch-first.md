@@ -67,7 +67,7 @@ it will report local-file truth as if it were repo truth.
 
 This surfaced on the Stale-Fact Refresh PR4 build (session ending in PR #205).
 See the corrected vocabulary in
-[`moderation-workflow.md`](../../docs/ai-context/moderation-workflow.md)
+`moderation-workflow.md`
 (Step 2 = `concept_review`, Step 3 = `production_review`) and the "Stale
 historical docs treated as current truth" entry in
 [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md) —

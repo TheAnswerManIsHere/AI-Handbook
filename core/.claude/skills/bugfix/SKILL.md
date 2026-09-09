@@ -234,8 +234,8 @@ the PR back only delays the review that catches things.
    *before* the parent's PR is merged, not after** — this repo auto-deletes a
    merged branch with no reliable window afterward (deletion can happen as
    part of the merge itself), and a documented prior incident
-   ([`CODEX_GITHUB_REVIEW_WORKFLOW.md`](../../../docs/CODEX_GITHUB_REVIEW_WORKFLOW.md))
-   shows exactly this orphaning; that doc's own required workflow says to
+   (recorded in the repo's own review-workflow notes)
+   shows exactly this orphaning; that record's required workflow says to
    retarget before squash-merging, not after. Retargeting early leaves the
    diff temporarily broad (it still shows the parent's unmerged commits) —
    accept that, it's cosmetic. Once the parent has actually merged, narrow the
@@ -293,8 +293,8 @@ the PR back only delays the review that catches things.
 3. **Tier B, product-visible fix — ship the UAT doc on this same PR.** The
    test is whether the fix has *any* product-visible behavior, not which
    Q1/Q2 trigger put it in Tier B — a fix whose only surface is internal
-   (CI, build tooling, `lib/api-zod`/`lib/api-spec` codegen with no
-   frontend-visible type change) takes the **internal/infra-only exception**
+   (CI, build tooling, API-schema codegen with no frontend-visible type
+   change) takes the **internal/infra-only exception**
    instead: a written verification note in the PR body, no UAT doc (see
    [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-b--elevated-fix)).
    When a UAT doc is due, the filename needs the PR number, so the flow is
@@ -413,7 +413,7 @@ no classification at all.
 
 A feature, a behavior change, **any *database* schema change, migration, or
 backfill** (Tier C without exception, regardless of product consequence; not
-the `lib/api-zod` Zod schemas, which stay Q1 Tier B — see
+generated API-validation schemas, which stay Q1 Tier B — see
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-c--this-is-not-a-bug-fix-leave-bugfix-mode)),
 or anything where David needs to verify intent is out of the fast path — a
 non-trivial one goes to **feature mode**, a genuinely trivial database schema

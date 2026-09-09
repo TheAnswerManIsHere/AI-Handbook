@@ -1,0 +1,9 @@
+{
+  "pr": 62,
+  "kind": "david",
+  "grant": 3,
+  "asOf": 3,
+  "authorization": "\"Three rounds granted\" — in reply to a 🛑 offering (1) grant 3, the standard leash, (2) grant 1, the minimum that discharges the write-gate obligation, or (3) merge the unreviewed head. He chose 1.",
+  "decidedAt": "2026-09-09T05:20:00.000Z",
+  "reasoning": "The budget of 3 was spent on ca49b1f, b191a6c and fb7c42f, and the head f0a9eaa carries a wholesale rewrite with no review — so the write-gate rule makes a fourth round mandatory while the extension rule has no branch that authorizes one. At exhaustion the adjudicator owns the extension and must name an actual unaddressed behavioral risk, with 'the last round's fixes are unreviewed' explicitly excluded. That exclusion is sound under its own assumption — a stop always precedes a new commit, so an unreviewed head should not exist — but round 3's findings raised a product-shaped fork (patch the six defects, or replace the primitive), which correctly went straight to David rather than to the adjudicator, and his answer authorized the rewrite that consumed the last round. I did not dispatch the adjudicator to find some other grounds: that is the same self-serving reading I was caught making one layer down in this PR, and an unclassified judgement does not dispatch. It went to David with a recommendation, and this receipt is his answer. The seam itself — which authority opens a round when a product escalation lands at or near budget — is to be filed as its own issue rather than re-decided each time."
+}

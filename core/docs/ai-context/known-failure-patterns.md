@@ -101,7 +101,7 @@ the Runtime Compiled Prompt preview and production both go through
 hardcoding different names ("David" vs "David Franklin"); standardized on
 `RUNTIME_PREVIEW_DEFAULT_NAME`. (Residual prose difference is **temperature 0.4**,
 not caching — don't misdiagnose it.) See
-[`visual-pipeline.md`](./visual-pipeline.md#admin-previewdebug-surfaces-runtime-compiled-prompt).
+`visual-pipeline.md`.
 
 ## Human override overwrite
 
@@ -114,7 +114,7 @@ preserves overrides; bulk jobs skip admin-edited rows unless explicitly forced.
 (path-keyed) merged by `resolveEnrichment()`; `runEnrichmentForFact` is "sticky";
 `factEnrichmentBackfillJob` skips admin-edited rows unless
 `forceOverwriteAdminEdited`. See
-[`taxonomy-and-enrichment.md`](./taxonomy-and-enrichment.md#re-enrichment-safety).
+`taxonomy-and-enrichment.md`.
 
 ## Raw AI context injected into the final prompt
 
@@ -141,7 +141,7 @@ like a broad, mysterious cascade (dozens of unrelated suites failing at load,
 including ones that pass in isolation), not an export problem. Earlier green runs
 were on a stale build that still had the export. **Root cause:** codegen OWNS
 `api-zod/src/index.ts` — it rewrites the file from the allowlist in
-[`lib/api-spec/patch-generated.mjs`](../../lib/api-spec/patch-generated.mjs)
+`lib/api-spec/patch-generated.mjs`
 (`apiZodIndexLines`). A hand-edit to `index.ts` is not a source of truth; the
 allowlist is. **The real fix:** add the new module to the `apiZodIndexLines`
 array in `patch-generated.mjs`, then run codegen and confirm the export survives
@@ -170,7 +170,7 @@ work and looks like a cascade of broken tests, not a one-line miss.
 **Now automated (2026-07-23, PR #236):** a doc reminder didn't stop this from
 recurring once already (PR #228), so the mechanical check above is no longer
 opt-in. CI's `Build` job runs `pnpm run check:codegen-drift`
-([`scripts/check-codegen-drift.sh`](../../scripts/check-codegen-drift.sh)) on
+(`scripts/check-codegen-drift.sh`) on
 every PR, which reruns codegen and fails the merge on any resulting drift —
 same command works locally. **One correctness detail if you ever touch that
 guard:** it checks `git status --porcelain -- lib/`, not
@@ -450,7 +450,7 @@ set (which the Stale-for-reprocess card's own docs note can be "nearly the
 whole corpus," especially after a "Mark major update" bump) in one call —
 caught by Codex review on PR #205, not by the original tests (which only
 exercised small id sets). See
-[`taxonomy-and-enrichment.md`](./taxonomy-and-enrichment.md#known-failure-modes).
+`taxonomy-and-enrichment.md`.
 
 ## Dedupe key coalesces two distinct intents
 
@@ -471,7 +471,7 @@ force-enqueues `review_render_scenarios_prepare` with **no** key and guards the
 `concept_review → production_review` advance with a compare-and-set — two
 concurrent approvals yield exactly one force batch. Re-prep/regenerate is blocked
 while `visual_concept_status = "pending"` for the same reason. See
-[`moderation-workflow.md`](./moderation-workflow.md) and the PR #179 decision in
+`moderation-workflow.md` and the PR #179 decision in
 [`decisions.md`](./decisions.md).
 
 ## Repairing state on a caught async error races the thing it's repairing
@@ -508,7 +508,7 @@ next input. **Avoid:** fix the mechanism and add a test that asserts the
 `autoConjugatePersonSubjectVerbs` net solves the *general* "person-subject verb
 must agree" rule (not just "They keeps"), with a narrow anchor so it never
 mis-wraps non-person subjects ("Sharks have …"), plus idempotency tests. See
-[`token-rendering-and-grammar.md`](./token-rendering-and-grammar.md#regression-examples-must-stay-green).
+`token-rendering-and-grammar.md`.
 
 ### When the mechanism cannot be fixed either: abandon the layer
 
@@ -602,7 +602,7 @@ complementary `{NAME}`-subject *collapse*
 (`collapseNameSubjectConjugationPairs`) safely reaches further because it only
 removes an existing pair, bounded by clause/brace/punctuation stops — it never
 creates a new wrap. See
-[`token-rendering-and-grammar.md`](./token-rendering-and-grammar.md#the-core-conjugation-invariant).
+`token-rendering-and-grammar.md`.
 
 ## Uniform default over a falsely-ambiguous space
 
@@ -627,7 +627,7 @@ assumed-ambiguous set was actually uniform. Fixed with
 `HAS_ONLY_FOLLOWING_WORDS`, a small next-word peek that resolves the
 unambiguous subset before falling back to the copula for truly ambiguous words
 (e.g. "done"). See
-[`token-rendering-and-grammar.md`](./token-rendering-and-grammar.md#retiring-theys).
+`token-rendering-and-grammar.md`.
 
 ## Migration/backfill blind spots
 
@@ -698,7 +698,7 @@ hardcoding the pronoun instead of resolving it per-render. Caught by a Codex
 review before merge (PR #206); fixed by also requiring no plain subject
 pronoun, mirroring the check the sibling `hasNoLikelySubjectReference`
 predicate already had. See
-[`token-rendering-and-grammar.md`](./token-rendering-and-grammar.md#shared-core-fact-submission-and-admin-visual-concept-authoring-pr-206).
+`token-rendering-and-grammar.md`.
 
 ## Self-retriggering recovery with no bounded exit
 
@@ -746,7 +746,7 @@ surface to maintain and break, slower to launch, harder to review. **Avoid:** ma
 the **smallest coherent change** that satisfies the approved plan; defer
 speculative generality. **Overhype:** pre-launch priorities are stability + content
 quality — new external vendors and new abstractions need a strong reason and
-David's sign-off (see [`product-direction.md`](./product-direction.md)).
+David's sign-off (see `product-direction.md`).
 
 ## Security classification by URL path instead of resolved authorization
 
@@ -765,7 +765,7 @@ input. **Overhype:** cross-origin CORP is set in `setPublicCors()`
 (`cacheHeaders.ts`), called *only* on confirmed-public responses; private
 responses call `setNoStore` and stay `same-origin`. The style preview key goes
 through `safeStylePreviewKey()`. See
-[`security-model.md`](./security-model.md#http-security-headers-c5) (C5/C9).
+`security-model.md` (C5/C9).
 
 ## Trusting self-set mutable metadata as a security assertion across a deploy
 
@@ -781,7 +781,7 @@ Session line items), not the flag you wrote. **Overhype:** the one-time
 membership grant reads `session.line_items[].price.product` and ignores the
 `membership=true` PI stamp our own checkout set, closing the window where a
 legacy pre-allowlist session mints Legendary after deploy. See
-[`security-model.md`](./security-model.md#payment-trust--membership-grants-c6) (C6).
+`security-model.md` (C6).
 
 ## Head-of-line blocking in a shared background worker
 
@@ -806,12 +806,12 @@ drained all 9 queues through one loop; a pure-DB admin action (Taxonomy Health
 sit in "Queued…" for 30s+ behind unrelated LLM/image-gen or bulk-backfill work.
 Fixed in PR #216 by splitting into `fast` / `render` / `bulk` lanes — see
 [`decisions.md`](./decisions.md#2026-07--split-the-async-jobs-worker-into-fastrenderbulk-lanes)
-and [`architecture-map.md`](./architecture-map.md#async-jobs-and-queues).
+and `architecture-map.md`.
 
 A related engineering gotcha surfaced while fixing this — defaulting a new
 lane-specific config knob to a fresh literal instead of the old shared knob's
 resolved value — is in
-[`.agents/memory/env-knob-split-preserve-legacy-default.md`](../../.agents/memory/env-knob-split-preserve-legacy-default.md).
+`.agents/memory/env-knob-split-preserve-legacy-default.md`.
 
 **A related but distinct lesson from the same claim-then-dispatch shape,
 caught during NCMEC phase 3 review (PR #349, known gap G15, not yet built):**
@@ -883,7 +883,7 @@ source for that input. **Overhype:**
   disagreed. Fixed by `prepareImagePromptAttemptInputs()` freezing a
   `PromptIdentitySnapshot` + `ResolvedRenderStyleSnapshot` once and rendering
   the fact text from that same identity (PR #223). See
-  [`visual-pipeline.md`](./visual-pipeline.md#frozen-render-inputs-identity--style-reproducibility).
+  `visual-pipeline.md`.
 - The Queue Health surface's `abandoned_no_retry` classification re-resolved
   a queue's retry ceiling from **current** `admin_config` at read time for
   any row still carrying the `0` sentinel (the common case — no per-row
@@ -919,7 +919,7 @@ required-content overflow now surfaces `diagnostics.requiredBudgetOverflow`
 and the async worker fails terminal (`required_budget_overflow`) instead of
 shipping a truncated prompt; save-time validation (below) makes new
 over-budget content essentially unreachable. See
-[`visual-pipeline.md`](./visual-pipeline.md#render-time-prompt-budget).
+`visual-pipeline.md`.
 
 ## Predicting a downstream system's output by summing raw component inputs
 
@@ -947,7 +947,7 @@ overflow at render. Caught by Codex mid-review (PR #224); fixed by
 `measureModeratorAdditionsEmission()`, which compiles the fixed shape twice
 (once with worst-case-projected content, once empty) and takes the delta, so
 every fixed cost cancels and only the true additions contribution remains. See
-[`visual-pipeline.md`](./visual-pipeline.md#render-time-prompt-budget).
+`visual-pipeline.md`.
 
 ## Not merged ≠ not disclosed (public-repo PR history)
 
@@ -1020,7 +1020,7 @@ prices whose product carries the membership allowlist tag before doing so.
 `/api/stripe/plans` returns **every** active product in the catalog (not just
 membership ones), and the grant layer (`/stripe/checkout`, the confirm
 endpoint, the webhook — see
-[`security-model.md`](./security-model.md#payment-trust--membership-grants-c6))
+`security-model.md`)
 already enforces `overhype_membership=true` as the sole gate; a display/
 selection surface that skips the same filter can advertise a future
 non-membership SKU (render credits, merch, tips) as a Legendary plan, which
@@ -1125,7 +1125,7 @@ at all (use `invoicePayments.list` as the reverse lookup instead); and
 `(subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end`
 and stored `null` on every refreshed entitlement source until PR #287's round
 9 review caught it. See
-[`membership-entitlements.md`](./membership-entitlements.md#the-trust-boundary--w1a).
+`membership-entitlements.md`.
 
 ## A sequence's `last_value` is not a commit-order watermark
 
@@ -1151,7 +1151,7 @@ user's sources, then compared each source's `source_state_as_of` against it —
 exactly the race above, confirmed independently by review. Replaced with
 `loadSourceStateVersions`, which snapshots each source's own version before and
 after. See
-[`membership-entitlements.md`](./membership-entitlements.md#the-admin-surfaces-are-entitlements-not-fake-payments-or-a-tier-field).
+`membership-entitlements.md`.
 
 ## A transaction alone doesn't give two reads one consistent snapshot
 
@@ -1539,7 +1539,7 @@ third, separate lane"), which round 6 caught as the same lane count restated
 as an ordinal instead of removed; the round-6 fix describes the split
 qualitatively with no number in any form, which is what a genuine fix looks
 like for this pattern — but that fix was never independently re-reviewed
-before merge (see [`loop-ledger.md`](../../.agents/metrics/loop-ledger.md)
+before merge (see `loop-ledger.md`
 row 22), so its correctness is this PR's own claim, not a confirmed close.
 Separately, the guard's own detection had to grow across rounds to
 cover markdown emphasis/links hiding a value from the regex, a hard-wrapped
@@ -1593,7 +1593,7 @@ cannot execute) the actor available to the migration cannot actually
 provide. David cut the scope after the concentration became visible: the
 migration now creates the objects and reports the residual state; closing
 the boundary moved to a superuser runbook
-([`docs/engineering/ncmec-audit-ledger-hardening.md`](../engineering/ncmec-audit-ledger-hardening.md)).
+(`docs/engineering/ncmec-audit-ledger-hardening.md`).
 The tell was available well before round 17 — a scope-vs-blast-radius check
 at round 5 or so, once "every fix targets the same reachability model,"
 would have caught it much earlier than a David-initiated review of the
@@ -2171,7 +2171,7 @@ calls the gate. The ordering variant appeared *inside the fix for that*:
 resolving the fallback eagerly in `checkBudget`'s argument list put a fallible
 `engines` read ahead of the admin exemption, refusing admins a check they are
 exempt from. `scripts/check-budget-gate-unconditional.mjs` is the CI backstop;
-see also [`security-model.md`](./security-model.md)'s generation-spend section.
+see also `security-model.md`'s generation-spend section.
 
 ## A boot-time check written as a statement runs after every import, not before
 
