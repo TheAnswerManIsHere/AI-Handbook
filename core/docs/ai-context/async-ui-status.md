@@ -4,14 +4,15 @@
 
 > **Canonical, cross-agent principle** (applies to Codex, Claude, and any agent
 > building UI). This is the single source of truth for how asynchronous work must
-> report status; other docs link here rather than restating it. Where a repo
-> already has a panel that does this well, its overlay should name it as **the
-> reference implementation** — copying a working one beats re-deriving this.
+> report status; other docs link here rather than restating it. Two things about
+> *this* repo are answered in its overlay declarations rather than assumed here:
+> which panel is the **reference implementation** (copying a working one beats
+> re-deriving this) and which **status transport** it already uses.
 
-We built the async job queue (`async_jobs`) so requests to external systems are
-robust — but the human watching the screen still needs to know exactly what's
-happening, **visually and in text**, at all times. Robust delivery is only half
-the job; legible status is the other half.
+A durable job queue makes requests to external systems robust — but the human
+watching the screen still needs to know exactly what's happening, **visually and
+in text**, at all times. Robust delivery is only half the job; legible status is
+the other half. (**Overhype:** the `async_jobs` queue is where this was learned.)
 
 ## The two altitudes
 
@@ -42,12 +43,15 @@ must report status at **two altitudes**:
   take an hour, and that's fine. Poll at a steady cadence (~1s) and keep showing
   live per-line status until every item is terminal, no matter how long it takes. A
   page refresh must **never** be required to see current status.
-- The backend's retry/`maxAttempts` is what fails a crash-looping job; the UI just
+- The backend's own retry limit is what fails a crash-looping job; the UI just
   reflects `done`/`failed`. The only reason the *frontend* stops polling early is an
   extreme stall (~24h of zero progress = a dead/stuck worker) — and then it says so
   loudly ("something went wrong"); it does not silently give up or pretend success.
-- **Prefer this repo's existing polling helpers** — a job-status-by-id endpoint
-  and whatever the frontend already uses — over inventing a new status channel.
+- **Prefer this repo's existing status transport** — the one its overlay
+  declares, and whatever the frontend already uses — over inventing a second
+  status channel. Polling a job-status-by-id endpoint, a subscription over SSE
+  or WebSockets, and a task-specific API all satisfy this doc; the rule is to
+  reuse the transport this repo already has, not to add another.
 
 ## Enqueue is not completion
 

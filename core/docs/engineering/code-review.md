@@ -229,7 +229,8 @@ mattered. The full reasoning is in
 
 - Does it do what the plan/intent says, including edge cases?
 - Async: is a job's **terminal** state used, not enqueue-as-done?
-- Visual/enrichment: does runtime match the admin preview path?
+- Where a surface has a **preview** or draft path beside the real one, does
+  runtime actually match what the preview showed?
 - When concurrent changes are possible, are validation and mutation tied to the
   **same authoritative state** — through a transaction, version check,
   conditional write, or equivalent stale-state guard? Checking one version of
@@ -244,7 +245,9 @@ mattered. The full reasoning is in
   competing one? (See
   [`../ai-context/known-failure-patterns.md`](../ai-context/known-failure-patterns.md).)
 - Are **human overrides preserved** across AI reprocessing?
-- Is `facts.*` still the sole active enrichment truth (versions table = archive)?
+- Where a concept has an **active** record and an archived or versioned one, is
+  the active record still the only thing read as truth? (**Overhype:** `facts.*`
+  is active enrichment truth; the versions table is archive.)
 
 ## Repository fit
 
@@ -280,8 +283,8 @@ mattered. The full reasoning is in
 - Regression fixtures added for the bug class?
 - If this fixes a **recurring** pattern (a second occurrence of something
   already in [`known-failure-patterns.md`](../ai-context/known-failure-patterns.md)),
-  did the fix add a deterministic CI guard
-  (`.github/workflows/build.yml`) rather than just a one-off correction or a
+  did the fix add a deterministic CI guard to the repo's CI workflow, rather
+  than just a one-off correction or a
   stronger doc warning? A doc reminder didn't stop the `api-zod` codegen-revert
   mistake from recurring once already; a mechanical check can't be skipped by
   not reading the doc. See
@@ -327,7 +330,7 @@ What to take from it, as a reviewer or an author:
 ## Observability
 
 - Failures reported (Sentry where appropriate)? Bulk operations expose what
-  happened? Enough logging to debug a bad render/enrichment/job?
+  happened? Enough logging to debug a failed job, render, or pipeline run?
 
 ## Scope control
 

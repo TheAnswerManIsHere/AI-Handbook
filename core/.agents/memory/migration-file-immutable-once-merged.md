@@ -1,13 +1,13 @@
 ---
 name: A migration file already on main is byte-for-byte immutable
-description: The migration runner tracks "already applied" by SHA-256 of the whole file — editing even a comment in an already-merged migration makes it replay.
+description: Editing an already-merged migration is unsafe whatever the runner does — a hash-tracked runner replays the whole file, and a runner journaling by filename or revision silently skips it, leaving schema drift. Treat a migration on main as immutable.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
-# Editing an already-merged migration file — even a comment — makes it replay
+# Editing an already-merged migration file — even a comment — is never safe
 
-A hash-tracked migration runner decides whether a migration
+**Overhype:** a hash-tracked migration runner decides whether a migration
 already ran by hashing the **entire file content**
 (`crypto.createHash("sha256").update(fs.readFileSync(path, "utf8"))`), not by
 tag, filename, or journal index. Change one byte of an already-applied
@@ -23,12 +23,25 @@ PR's migration that happened to be sitting in the diff.** Verified before
 fixing: the edited file's hash matched zero rows in a real database's applied
 set; the restored, byte-identical file's hash matched a row already there.
 
+**A runner that journals by filename, tag or revision fails differently — and
+worse.** It does not replay, because the identifier it recorded has not
+changed; it simply never applies the edit. Every database that already ran the
+old text keeps the old schema while the file in `main` describes a new one, and
+nothing reports it. So the two mechanisms invert the symptom — a spurious
+replay you can see, or silent drift you cannot — and **the verification differs
+with them**: check the applied-set hash where the runner hashes, and compare
+live schema against the file where it journals by name.
+
 **Rule: a migration file on `main` is immutable, full stop** — no "just a
-comment" exception, because the hash function has no concept of cosmetic vs.
-substantive. Wrong comment, wrong behavior, whatever the reason: the fix is
-always a **new** forward-only migration, or (for pure prose) editing a
-different file that talks *about* the migration instead of the migration
-itself.
+comment" exception. It holds either way, which is why it is stated without
+reference to the mechanism: a hash function has no concept of cosmetic vs.
+substantive, and a filename journal cannot see a change at all. Wrong comment,
+wrong behavior, whatever the reason: the fix is always a **new** forward-only
+migration, or (for pure prose) editing a different file that talks *about* the
+migration instead of the migration itself.
+
+**Which kind this repo has is worth knowing before you need it** — the answer
+is in whatever its overlay routes to for migrations.
 
 **How to apply:** before editing anything in the migrations directory, ask
 whether it's the migration *this* change is introducing (safe — nothing has

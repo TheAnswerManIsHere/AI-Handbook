@@ -209,15 +209,16 @@ to worry about strange links."*)
    **Write `docs/ai-context/overlay-declarations.md` as part of this step.** It
    is the one consumer document the payload *dereferences* rather than merely
    links to, and it is the easiest to skip because **nothing complains when it
-   is missing.** The shared rules ask this repo four questions — in
+   is missing.** The shared rules ask this repo five questions — in
    `agents-core.md` as well as `claude-core.md`, so this binds Codex too — and
    each replaced a hardcoded answer naming one product's modules:
 
    | The rules ask | Where it is dereferenced | If unanswered |
    |---|---|---|
-   | Which subsystems are **sensitive** (add the specialist review tier) | `working-modes.md`, `code-review.md`, `agent-working-rules.md`, `claude-core.md` | The universal entries still route; whatever else this repo treated as sensitive quietly stops getting the specialist review |
+   | Which subsystems are **sensitive** (add the specialist review tier) | `working-modes.md`, `code-review.md`, `agent-working-rules.md`, `claude-core.md`, the `maintenance` skill's direct-push sweep | The universal entries still route; whatever else this repo treated as sensitive quietly stops getting the specialist review |
    | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
    | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
+   | Which **status transport** its async surfaces already use — a job-status-by-id endpoint, SSE, WebSockets, a task-specific API | `async-ui-status.md` | An agent invents a second status channel beside the one that already works |
    | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
 
    One payload route is deliberately **not** in that table: `/next` and the
@@ -233,11 +234,14 @@ to worry about strange links."*)
    hand-maintained lists of one thing, and this repository exists because that
    shape drifts.
 
-   **A fifth question later gets a new section here, not a new file.** The
-   payload gained these four one at a time across #62, and each was installed
-   separately or not at all — three of the four were not installed until round
-   5 caught them. One document with a growing list is the shape that cannot
-   repeat that.
+   **Each further question gets a new row here and a new section in that
+   document, never a new file.** The payload gained the first four one at a
+   time across #62, and each was installed separately or not at all — three of
+   the four were not installed until round 5 caught them. One document with a
+   growing list is the shape that cannot repeat that. The fifth row above
+   arrived exactly that way in #65: `async-ui-status.md` had been naming one
+   product's status endpoint, and generalising it and landing the answer it now
+   dereferences were the same change.
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
@@ -248,6 +252,29 @@ to worry about strange links."*)
    without the ruleset has neither: the local guard does not cover it and the
    server is not configured to. Settings are a repo-level thing the sync cannot
    write, so this is a human step and it gates the ones below.
+
+   **Create the workstream labels in the same pass.**
+   [`workstream-tracking.md`](../core/docs/ai-context/workstream-tracking.md)
+   is built end to end on a label taxonomy, and every tracking skill —
+   `/status`, `/status-all`, `/next`, `pr-watch` — reads or writes it. The
+   payload ships the contract and can ship nothing else: labels are repository
+   data, the sync writes files, and **there is no GitHub MCP tool that creates
+   a label** (`.agents/memory/github-mcp-no-label-creation-tool.md`). So an
+   unenrolled repo gives every one of those skills a taxonomy that silently
+   matches nothing. Twenty-two labels, four prefixes, exactly one label per
+   prefix per issue:
+
+   | Prefix | Slugs |
+   |---|---|
+   | `stage:` | `discovery`, `planning`, `plan-approval`, `coding`, `code-review`, `merge`, `test-run`, `uat`, `close-out`, `done` |
+   | `waiting:` | `david`, `claude`, `codex`, `replit`, `ci` |
+   | `mode:` | `feature`, `bugfix`, `docs`, `devops` |
+   | `queue:` | `now`, `next`, `later` |
+
+   This is the same failure shape as the declarations in step 1 — a payload
+   rule deferring to something enrollment never lands — and it fails the same
+   way, quietly. Nothing throws on a missing label; the issue just never gets
+   one, and the fleet view goes blind to that workstream.
 4. **If the repo already has `.claude/settings.json`, merge the template's
    three `PreToolUse` hooks into it by hand.** The settings file is a
    **seed**, which writes only when the file is absent — correct, because a

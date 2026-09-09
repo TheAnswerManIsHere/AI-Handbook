@@ -1,6 +1,6 @@
 ---
-name: `pnpm --filter @workspace/db push-force` blocked by the sandbox's auto-mode classifier
-description: Even with a session-provisioned test DB running, the drizzle-kit push-force command was denied by the Claude Code auto-mode permission classifier as a category, not a one-off. Rely on equivalent CI evidence instead of fighting it.
+name: A DB-schema-push command is blocked by the sandbox's auto-mode classifier
+description: The Claude Code auto-mode permission classifier denies schema-push commands as a category, not as a one-off — so provisioning a working test DB does not unblock one. Don't fight it; ship on equivalent CI evidence instead.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
