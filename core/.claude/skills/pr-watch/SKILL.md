@@ -222,16 +222,11 @@ in `CLAUDE.md`. **A security-review usage-limit bounce is not one of these:**
 request the code review instead. Whenever a watched PR merges or closes, I unsubscribe and
 disarm any check-in still pending on it.
 
-**The convergence-break and skip-review-if-docs-only rules below are
-for implementation PRs.** A `[PLAN REVIEW]` draft PR follows
-`plan-review-loop`'s own cadence instead — minimum 3 rounds even on a clean
-early pass, and every
-revision re-triggered regardless of whether the diff is docs-only, since
-the diff *is* the plan. Its stopping rule is the SAME declared budget and
-two-tier tripwire as every loop (a plan loop takes the tier of what it
-plans — see that skill's step 9): the budget guard's refusals apply to
-plan-review triggers exactly as to implementation ones, with the per-round
-adjudicator, the leash, and the David gate all in force. While watching an implementation PR:
+**Everything in this skill is about implementation PRs, and that is now the
+whole of it.** Plan review no longer runs on a PR at all — it runs in-session,
+against a plan that is never pushed (`plan-review-loop`), so there is nothing
+for me to watch and no plan-review carve-out to state here. While watching an
+implementation PR:
 
 - **Never judge a webhook event from its text alone — fetch the live PR state
   first.** This is the rule I broke: a `<github-webhook-activity>` arrived that

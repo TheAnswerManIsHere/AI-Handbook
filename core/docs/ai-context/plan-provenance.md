@@ -55,6 +55,16 @@ optional keys, so present-or-absent is never ambiguous.
 | `trivial` | *(none)* |
 | `plan-review` | *(none)* |
 
+**Which plan kind applies, since the plan loop changed transport (David,
+2026-09-09).** A plan reviewed **in-session** is never committed and never
+pushed, so it declares **`private-plan`** — the kind's keys already describe
+exactly that (a filename, a digest, and who approved it when), and it is now
+the ordinary case rather than the confidentiality carve-out it was named for.
+**`approved-plan` and `approved-plan-split` both require a plan-review PR**,
+which the in-session loop does not produce; they stay in the format because
+they are still the correct declaration for the PRs that used them, and nothing
+about validating an existing body changes. Neither is emitted by a new loop.
+
 ## Value grammars
 
 | Key | Grammar |
@@ -64,7 +74,7 @@ optional keys, so present-or-absent is never ambiguous.
 | `plan_commit`, `combined_plan_commit` | 7–40 lowercase hexadecimal characters |
 | `combined_branch` | `plan-review/`, then a slug of 1–100 characters from `[A-Za-z0-9._-]`, then `-combined`. The slug may not be empty, may not begin or end with `.`, `_` or `-`, and may not contain two adjacent separators. |
 | `plan_file` | a repository-relative path matching `docs/plans/PLAN_[A-Z0-9_]{1,100}\.md` |
-| `plan_filename` | a bare filename matching `PLAN_[A-Z0-9_]{1,100}\.md`, no path separators — a private plan is handed to David as a file and never committed, so it has a name and no repository path |
+| `plan_filename` | a bare filename matching `PLAN_[A-Z0-9_]{1,100}\.md`, no path separators — a `private-plan` was never committed, so it has a name and no repository path |
 | `plan_sha256` | exactly 64 lowercase hexadecimal characters |
 | `approved_by` | exactly `David` |
 | `approved_on` | `YYYY-MM-DD` |

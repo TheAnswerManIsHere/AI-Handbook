@@ -886,7 +886,9 @@ export function ensureRoundDir(root, slug) {
   return dir;
 }
 
-const sha256 = (text) => crypto.createHash("sha256").update(text).digest("hex").slice(0, 12);
+const sha256Full = (text) => crypto.createHash("sha256").update(text).digest("hex");
+/** Short digests, for telling two revisions apart in a log line. */
+const sha256 = (text) => sha256Full(text).slice(0, 12);
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -1093,6 +1095,11 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       lens,
       plan: planPath,
       planDigest: planText ? sha256(planText) : null,
+      // The FULL digest, because it leaves this file and goes into the
+      // implementation PR's `private-plan` provenance block. With no commit
+      // and no PR page holding the approved revision, this is the only thing
+      // that pins WHICH text David approved.
+      planSha256: planText ? sha256Full(planText) : null,
       oracleDigest: sha256(oracle),
       contract: contract.path,
       contractDigest: sha256(contract.text),

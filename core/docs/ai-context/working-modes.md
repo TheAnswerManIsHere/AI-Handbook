@@ -98,10 +98,10 @@ three rounds that ran 24 → 14 → 21 findings.
   makes true — never what the end state is.
 - **The plan-review loop only ever runs on plans, never on a direction.** A
   direction has no implementation to be wrong about, so adversarial review of
-  one produces specification rather than correction. (This is about the
-  `[PLAN REVIEW]` loop specifically — it says nothing about code-review loops
-  on implementation PRs, feature or bugfix, which keep running exactly as
-  described elsewhere in this doc and in the `bugfix` skill.)
+  one produces specification rather than correction. (This is about the plan
+  loop specifically — it says nothing about code-review loops on implementation
+  PRs, feature or bugfix, which keep running exactly as described elsewhere in
+  this doc and in the `bugfix` skill.)
 
 **Why the split is load-bearing.** PR #404's Product Intent was David's own
 totalising sentence — "any and all permissions… exclusively… one source of
@@ -142,8 +142,9 @@ skip the step just because it's the "totalising" artifact type.
 **A direction is subject to the same public-disclosure check a plan is, before
 it is committed — not after.** A totalising end-state statement can itself
 contain unpatched-vulnerability details, an auth-bypass shape, or an
-abuse/fraud path, and unlike a plan-review PR (closed, unmerged, still public
-history but never on `main`), a direction that updates a canonical
+abuse/fraud path — and a direction is published where a plan now is not. A plan
+reviewed in-session is never committed and never pushed, so it has nothing to
+screen for publication; a direction that updates a canonical
 `docs/ai-context/` doc goes live on `main` directly. Run the canonical
 disclosure check —
 [`workstream-tracking.md`](./workstream-tracking.md#what-must-never-happen)'s
@@ -737,13 +738,20 @@ decisions, the explicit scope boundaries (what is already decided to be
 **That agreement is the loop's authority to run autonomously to
 convergence** — it replaces the retired per-round check-in (below) as
 David's control point at the front of the loop, paired with explicit plan
-approval at the back. The corollary is the escalation rule: anything that
+approval at the back. **The agreed scope of work is also the review oracle
+itself** — it is handed to the reviewer verbatim, every round, as the thing the
+plan is checked against. The corollary is the escalation rule: anything that
 would *change* the agreed scope of work — a mid-loop scope addition, a
 split, a product/design fork — is outside the loop's authority and goes to
-David, however the loop is otherwise pacing itself. (Claude's enactment of
-the gate's mechanics lives in the `plan-review-loop` skill; the SOW's
-content is the same material the plan-review PR body template already
-carries, agreed *before* the loop starts instead of discovered during it.)
+David, however the loop is otherwise pacing itself. (Claude's enactment of the gate's
+mechanics lives in the `plan-review-loop` skill.)
+
+**The scope gate now carries a second opinion (David, 2026-09-09).** Before the
+plan is written, the reviewer is given the oracle alone and asked whether the
+thing should exist and whether the boundary is in the right place. David sees
+its answer beside the driving agent's before he says go. It is the cheapest
+place in the system to catch "we are about to build the wrong thing", and it
+costs one round against a document a page long.
 
 ### The post-round adjudication
 
@@ -771,6 +779,17 @@ nit" is precisely the trade the loop must not settle for itself.
 whichever agent is driving it. Plan-review loops take the tier of what they are
 planning: a plan for product code is a product loop, because a wrong plan
 becomes wrong code.
+
+**One carve-out, for plan loops only (David, 2026-09-09): the round-3-onward
+dispatch is retired there.** It existed because nothing in the old plan loop
+could tell a required revision from a nice-to-have — the GitHub connector marks
+everything "Required Revision" because that is its job — so a judge was needed
+to rule on whether a finding was worth writing for. The in-session plan reviewer
+performs that triage itself, in a schema field, and the stop rule reads it
+directly; a per-round judge on top would be a second opinion on a judgement
+already made mechanically. **The budget, the David gate, the extension
+adjudication at the cap, and dispatch on an `escalate` are all unchanged**, and
+**code loops are untouched.**
 
 
 ## Bugfix mode (routed or declared, one bug per PR, tiered by what the fix touches)

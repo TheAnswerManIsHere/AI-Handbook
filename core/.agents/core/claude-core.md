@@ -264,10 +264,13 @@ enactment is `.claude/skills/document/`.
    lists some of its items invites skipping the ones it omits. A plan specifies
    invariants, not implementation — applied line by line as I draft, not as a
    trimming pass afterwards.
-3. **The disclosure check runs before the FIRST PUSH of any plan document**, not
-   before the PR. This repo is public: a plan naming unpatched vulnerabilities,
-   auth-bypass specifics, secrets, payment-fraud paths, private customer data,
-   or embargoed plans stays on the private path.
+3. **A plan is never published, so the pre-push disclosure gate is gone**
+   (David, 2026-09-09): working tree, in-session reviewer, private Artifact
+   page — no public channel. What survives is narrower and still binding: a
+   `docs/plans/` file reaches `main` only if David asks, and **the disclosure
+   check runs before it does** — unpatched vulnerabilities, auth-bypass
+   specifics, secrets, payment-fraud paths, private customer data or embargoed
+   work never get committed. Directions are unchanged.
 4. **The scope-of-work gate opens the loop.** Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
    boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
@@ -276,13 +279,21 @@ enactment is `.claude/skills/document/`.
    ramifications, default **next**. A two-option scope question is a bug in the
    question. Override only when the current plan cannot be *correct* without the
    addition.
-6. **The plan-review PR is never merged and its branch is never reused for
-   implementation.** It is the plan's delivery surface, so no `SendUserFile` and
-   no Artifact page for a plan going through the loop; the private path is the
-   exception and I say when I'm on it. A `docs/plans/` file reaches `main` only
-   if David asks.
-7. **Genuine product/design forks escalate to David** as numbered questions. The
-   loop never settles product intent on its own.
+6. **One private Artifact page is the plan's delivery surface, redeployed in
+   place each round** (David, 2026-09-09, superseding the plan-review PR): same
+   URL all loop, "what changed this round" on top, so a link he saved on round 1
+   is still current on round 5. No `SendUserFile`, no plan file pushed anywhere.
+   **v1 is shown and the loop proceeds without waiting** — it changes anyway.
+7. **Genuine product/design forks escalate to David** as numbered questions
+   carrying the reviewer's view and mine side by side — never absorbed into a
+   revision. So does a decline the reviewer keeps `Still open` for **two**
+   consecutive rounds: twice is evidence the disagreement is real, not evidence
+   I explained it badly.
+8. **Every round is relayed in plain English before the revision, never after**
+   — what the reviewer disagrees with, then one line per finding saying what I
+   am doing with it (fix / decline with the reason / bring to David). A clean
+   round still relays its `summary_for_david`; that paragraph is the
+   independent plan opinion, free with every round.
 
 Planning runs in my main loop end to end — continuous, stateful, judgment-dense,
 never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
@@ -365,7 +376,12 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
 
 2. **From round 3 onward, dispatch the external adjudicator on any round
    that returned findings — before anything is written for them** (David,
-   2026-08-22, superseding the 2026-08-20 beyond-the-first cadence). Rounds
+   2026-08-22, superseding the 2026-08-20 beyond-the-first cadence).
+   **Code loops only: retired for plan loops** (David, 2026-09-09) — the
+   in-session plan reviewer splits required from recommended itself, in a
+   field, so a per-round judge would be a second opinion on a judgement
+   already made mechanically. There the adjudicator runs at the budget cap
+   and on an `escalate`, and nowhere else. Rounds
    1–2 findings are triaged and written for by default, because the judge
    would have nothing to decide there: the loop ledger's 41 reviewed loops
    contain **zero clean round 1s** and three round-2 convergences, so a
@@ -469,8 +485,8 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    first; if one exists it picks up the push. Base is **always `main`** —
    **bugfixes are never stacked** (David, 2026-08-20): a dependent bug waits for
    its parent to merge and branches off fresh `main`, or the two are one bug in
-   one PR. Exceptions: pure exploration, an explicit "no PR," and plan-review
-   channel branches.
+   one PR. Exceptions: pure exploration and an explicit "no PR."
+
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** (bugfix and internal PRs exempt). Not announced
    beyond a line in the PR body — it buys a cleaner diff and so fewer rounds.
@@ -491,10 +507,9 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    [`plan-provenance.md`](../../docs/ai-context/plan-provenance.md), which is
    the format's only statement — never restate it here. The block replaces the
    legacy selector for its kind and a body carrying both refuses; the oracle
-   prose a reviewer reads is untouched. A `-combined` branch is the one branch
-   that must never be deleted — no PR retains its commit. An ordinary
-   `plan-review/<slug>` branch is safe to delete once its work ships; its PR
-   retains the commit.
+   prose a reviewer reads is untouched. A plan approved through the in-session
+   loop was never committed, so it declares `private-plan` — `approved-plan`
+   requires a review PR that this loop does not produce.
 5. **Post-merge verification + UAT doc** for product-visible feature PRs, per
    the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done
@@ -603,13 +618,13 @@ false alarm recorded in
 [`replit-direct-push-to-main-is-sanctioned.md`](../../.agents/memory/replit-direct-push-to-main-is-sanctioned.md).
 And **`.claude/guard.sh`**, whose jobs are making the
 lease mandatory on my own branches and refusing `curl`/`wget`. The ruleset does
-**not** target `claude/*` or `plan-review/*`, so on those branches the hook is
+**not** target `claude/*`, so on those branches the hook is
 the only line, and both its jobs live in `guard-decision.mjs` and are absent
 from the node-unavailable fallback.
 
 | Command | Result |
 |---|---|
-| `git push --force-with-lease origin <claude/…\|plan-review/…>` (explicit refspec) | **works** — the only permitted force shape |
+| `git push --force-with-lease origin <claude/…>` (explicit refspec) | **works** — the only permitted force shape |
 | bare `--force` / `-f` / `--force-if-includes` / `--mirror` | blocked everywhere |
 | any force push at `main` | blocked twice (guard, then ruleset) |
 | `--force-with-lease` with no refspec | blocked — the guard can't see my upstream |

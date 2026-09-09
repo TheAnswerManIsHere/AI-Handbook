@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -614,6 +615,14 @@ test("a schema-valid round is written, and the meta records what produced it", (
   // later say which text this assessment was about.
   assert.match(meta.planDigest, /^[0-9a-f]{12}$/);
   assert.match(meta.contractDigest, /^[0-9a-f]{12}$/);
+  // The full digest goes into the implementation PR's `private-plan` block,
+  // whose grammar is exactly 64 lowercase hex characters, and it must be the
+  // digest of the plan file itself -- not of anything this script assembled.
+  const expected = createHash("sha256")
+    .update(readFileSync(join(root, "docs/plans/PLAN_X.md"), "utf8"))
+    .digest("hex");
+  assert.match(meta.planSha256, /^[0-9a-f]{64}$/);
+  assert.equal(meta.planSha256, expected);
   drop(root);
 });
 

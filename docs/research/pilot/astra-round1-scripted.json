@@ -1,0 +1,154 @@
+{
+  "review_status": "Substantive technical concerns",
+  "lens_applied": "Authority, bypass, and sync/bootstrap ordering, with a full-plan assessment against the supplied oracle.",
+  "summary_for_david": "This would give the independent judge consistent evidence, fuller requirements, and a recorded model choice. I recommend waiting for revisions because verdict records could still misstate the judge’s settings or escape validation. Decide how internal changes that intentionally have no approved plan should reach the judge.",
+  "what_is_strong": [
+    "The git-derived artifact design addresses the underlying split source of truth, including binary files, renames, endpoint failures, and record-file exclusions.",
+    "Compatibility follows the cited record’s format rather than a date, avoiding a backdating bypass.",
+    "The resolver accounts for both handbook symlinks and consumer files without adding consumer configuration.",
+    "The plan preserves the existing verdicts, budgets, David gate, and record-only input, while explicitly deferring the next workstream increments.",
+    "The distinction between declared settings and the model actually served is appropriately acknowledged."
+  ],
+  "required_revisions": [
+    {
+      "id": "R1",
+      "title": "Bind the launched definition to the definition recorded",
+      "why_it_matters": "Reading frontmatter at the reviewed head does not establish what the dispatch declared. The generator explicitly supports a main or stale checkout: the record could say best/xhigh while the session launches its locally loaded fable definition without an effort setting. Copying the record’s values into the receipt would satisfy both proposed comparisons despite the wrong declaration. This is separate from the accepted uncertainty about what the provider actually served.",
+      "what_should_change": "Specify a dispatch precondition that loads the reviewed definition and establishes that it is the definition used for this invocation, or refuses the dispatch. Cover the implementation PR itself and stale or attached checkouts; keep receipt validation based on the committed record and keep configuration reads out of the hook.",
+      "acceptance_check": "With different definitions at the reviewed head and in the dispatching session, the workflow either launches using the reviewed declaration or explicitly refuses before producing a verdict receipt. Matching stamps alone must not make this scenario pass.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:190-209",
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:240-247",
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:491-492",
+        "core/.claude/agents/review-loop-adjudicator.md:1-6",
+        "CLAUDE.md:74-85",
+        "Read the current [Claude Code subagent documentation](https://code.claude.com/docs/en/sub-agents): definitions are loaded from agent scopes on disk; reading a git blob does not select that definition for dispatch."
+      ],
+      "class": "Recorded configuration is not bound to runtime selection"
+    },
+    {
+      "id": "R2",
+      "title": "Check stamps on every readiness path",
+      "why_it_matters": "The plan targets the terminal-adjudication fallback, but evaluate skips that fallback when a direct Codex pass succeeds. Its always-run checkRail calls validateExtension with io:null, which skips reading the cited record. A receipt with incorrect stamps could therefore still participate in a READY decision through this route.",
+      "what_should_change": "Require the record-derived stamp comparison on the always-run readiness path for adjudication receipts it consumes, including preceding receipts and David-endorsed recommendations. Preserve schema-based legacy compatibility without allowing the pure-validation shortcut to bypass the comparison.",
+      "acceptance_check": "A fresh direct Codex pass cannot produce READY when a consumed new-format adjudication receipt has missing or mismatched stamps. The same cases must fail through the adjudication fallback, while supported legacy receipts retain their prior behavior.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:232-239",
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:614-616",
+        "core/scripts/pr-ready.mjs:1592-1610",
+        "core/scripts/pr-ready.mjs:1706-1720",
+        "core/scripts/review-budget.mjs:1054-1061"
+      ],
+      "class": "Validation bypass through an alternate acceptance path"
+    },
+    {
+      "id": "R3",
+      "title": "Make the total record cap achievable without finding text",
+      "why_it_matters": "The specified fallback only removes finding bodies, although metadata and arrays remain unbounded. Once those fields alone exceed 600,000 characters, removing every body cannot satisfy the cap. This contradicts the explicit requirement to bound every variable-length field and leaves the overflow behavior undefined.",
+      "what_should_change": "State numeric bounds and deterministic degradation for the remaining variable-length fields and collections. Preserve aggregate counts, identify omitted content, reserve space for truncation metadata, and define a terminating serialization procedure that also works after all finding text has been removed.",
+      "acceptance_check": "A metadata-only oversized record emits valid JSON within 600,000 characters, including formatting, newline, and truncation metadata. Original counts remain truthful and every omission is named; the artifact patch retains its agreed cap and exclusion behavior.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:306-335",
+        "core/scripts/review-loop-record.mjs:301-323",
+        "core/scripts/review-loop-record.mjs:470-565",
+        "core/scripts/review-loop-record.mjs:738",
+        "Ran buildRecord in memory with 6,000 sinceLastReview.files entries, no findings, and empty patches: emitted JSON was 961,391 characters. There was no finding text available to remove."
+      ],
+      "class": "Incomplete resource bounding and non-terminating degradation"
+    },
+    {
+      "id": "R4",
+      "title": "Resolve the new mandatory citation’s delivery dependency",
+      "why_it_matters": "The internal record will refuse without the threat-model note, but that note belongs to the separately staged memory group. Machinery currently bootstraps with machinery-config alone. Simply adding a dependency on memory expands that delivery closure from two groups to eight, changing bootstrap sequencing beyond what the plan acknowledges.",
+      "what_should_change": "Specify how the mandatory note reaches a consumer with the machinery that reads it. Resolve payload ownership or coordinated delivery explicitly, retaining the consumer path and a single source. Do not treat this runtime read as an optional mention or silently expand the bootstrap unit.",
+      "acceptance_check": "A consumer assembled from the earliest permitted machinery delivery contains the required citation and can generate an internal record. The manifest and documented ordering agree about all prerequisites, without requiring consumer configuration changes.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:287-296",
+        "sync-manifest.yml:346-350",
+        "sync-manifest.yml:678-691",
+        "docs/porting-notes.md:338-349",
+        "Computed dependency closures using parseManifestYaml: machinery currently requires two groups; adding memory requires agent-definitions, contracts, engineering, machinery, machinery-config, memory, planning, and skills.",
+        "node scripts/check-manifest.mjs: 180 payload files, 13 staged groups, zero ready groups."
+      ],
+      "class": "Mandatory runtime dependency omitted from bootstrap design"
+    },
+    {
+      "id": "R5",
+      "title": "Make the producer inventory cover its claimed producers",
+      "why_it_matters": "The class-5 expression does not match either refusal recipe it claims to cover. A check built from that inventory could report complete producer coverage while those instructions omit mandatory stamps. The plan also records no class-5 result and retains the old class-4 classification despite adding an independent honourer.",
+      "what_should_change": "Repair the producer inventory to discover complete receipt-writing recipes, including multiline refusal strings, and classify its hits. Record actual results for all five agreed oracles with explicit search scopes; use that inventory to verify producer coverage.",
+      "acceptance_check": "The producer oracle finds both README examples and both refusal recipes. Omitting stamps from either refusal recipe fails the coverage check. The plan records all five current results and classifies the merge gate’s independent consumption paths.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:362-406",
+        "core/.agents/receipts/README.md:108-120",
+        "core/scripts/review-budget.mjs:1580-1593",
+        "core/scripts/review-budget.mjs:1609-1611",
+        "Ran git grep -nE '\"kind\": ?\"adjudication\"|kind.*adjudication.*verdict': neither refusal recipe matched; live matches included the two README examples and validator/state-reader expressions.",
+        "Ran git grep -nE 'kind (===|!==) \"adjudication\"': seven core-script lines across two files, including pr-ready.mjs:1311."
+      ],
+      "class": "Incomplete inventory creates a false assurance of coverage"
+    }
+  ],
+  "product_decisions_for_david": [
+    {
+      "question": "What should the judge use for substantial internal skills or contracts that intentionally have no approved plan? Existing rules permit that ceremony, but the proposed permitted no-plan forms exclude it (core/.agents/core/claude-core.md:173-175; core/docs/ai-context/working-modes.md:574-588; plan:264-286).",
+      "options": [
+        "Keep the existing ceremony and define an explicit no-plan internal form.",
+        "Require an approved plan before these internal changes can enter adjudication."
+      ],
+      "recommendation": "Keep the existing lightweight ceremony. Define its positive form without pretending the change is trivial or introducing session-authored narrative as the judge’s evidence."
+    }
+  ],
+  "recommended_improvements": [
+    {
+      "title": "Correct the record lifecycle and compatibility baseline",
+      "what": "Replace the assertion that committed records are never re-read. Document the durable readers and distinguish existing legacy failures from regressions introduced by this change.",
+      "why": "Both validators already read committed records. A read-only loadLoop check against HEAD also found PR 10 already rejected because its final record has five passes against a stage floor of seven; the plan’s blanket claim that every existing loop is currently usable is not an established baseline."
+    }
+  ],
+  "verified_claims": [
+    {
+      "claim": "The reported artifact contradiction exists in committed evidence.",
+      "how_verified": "Read .agents/adjudications/33-1.json: files/added/removed are zero, artifact.patch contains 52,156 characters, and territory reports zero inside and seven outside. Inspected review-loop-record.mjs:497 and :538 using derived.files, separately from artifactDiff."
+    },
+    {
+      "claim": "The existing git patch cap and generated-record exclusion are distinct, reusable mechanisms.",
+      "how_verified": "Read core/scripts/review-loop-record.mjs:133-278: PATCH_CAP_CHARS is 60,000; generated filenames are excluded before truncation, while scaffolding remains eligible."
+    },
+    {
+      "claim": "Both repository layouts need the proposed resolver behavior.",
+      "how_verified": "git ls-tree HEAD showed .claude/agents/review-loop-adjudicator.md as mode 120000, its core source as a regular blob, and the threat-model note only under core/.agents/memory/."
+    },
+    {
+      "claim": "The configuration change can be avoided.",
+      "how_verified": "Read .agents/machinery.json, core/.agents/machinery.template.json, and machineryConfig at core/scripts/review-budget.mjs:217-264. The required operational fields are repo and requiredChecks; the hook’s loadLoop path obtains identity from the durable budget."
+    },
+    {
+      "claim": "The documented model and effort mechanisms broadly support the proposed approach.",
+      "how_verified": "Checked current [model configuration](https://code.claude.com/docs/en/model-config) and [subagent documentation](https://code.claude.com/docs/en/sub-agents): best has a Fable/Opus fallback, and frontmatter supports effort including xhigh. These documents do not establish this account’s actual dispatch behavior."
+    },
+    {
+      "claim": "All five inventory searches were executed independently.",
+      "how_verified": "The model-pin search returned eight hits; the Fable search returned 111. The artifact search found six core-script lines. The adjudication-consumer search found seven core-script lines. The producer search missed both refusal recipes, as detailed in R5."
+    },
+    {
+      "claim": "The repository’s structural checks pass in this checkout.",
+      "how_verified": "check-manifest, check-identity-sources, check-root-wiring, and check-settings-fields all passed: 180 payload files, 65 classified identity touchpoints, 36 linked skills, three linked agents, and two valid settings files. No repository files were changed."
+    }
+  ],
+  "unable_to_verify": [
+    {
+      "claim": "The installed dispatching harness accepts the selected alias and applies the intended effort.",
+      "why": "This review environment does not expose that Claude harness. The plan’s implementation-time empirical check remains necessary; provider-served identity remains the explicitly accepted uncertainty."
+    },
+    {
+      "claim": "Regenerating PR 33 at 703b230 produces nine artifact files and seven findings inside the diff.",
+      "why": "The committed record is available, but git could not resolve 703b230dda227aeeaea6e6c1b401e3c2c1e31c01 in this clone. I could verify the stored anomaly, not recompute that historical range."
+    },
+    {
+      "claim": "The full mandated unit-test command passes.",
+      "why": "The command returned exit 1 in this read-only environment: two test-file subtests passed and three failed. A focused run reported ERR_TEST_FAILURE without a more specific diagnostic. These failures were not used as plan findings."
+    }
+  ],
+  "previous_findings": []
+}

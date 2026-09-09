@@ -24,12 +24,14 @@
 ## When this applies
 
 Whenever you are reviewing a **software-development implementation plan** for
-this repo's product — usually written by Claude Code, unless told otherwise. On the
-automated Codex loop, that means a PR whose title is prefixed
-**`[PLAN REVIEW]`** (equivalently, carrying a `plan-review` label); for a normal
-code PR, ignore this file — it is not a code-review checklist, and a code diff
-should not receive a plan audit. Outside the automated loop (a pasted or
-uploaded plan document), this file applies the same way.
+this repo's product — usually written by Claude Code, unless told otherwise.
+The plan reaches you as a **file in the checkout you are running in**, named in
+the instructions you were given, with its review oracle alongside it. It may
+also reach you as a pasted or uploaded document; this file applies the same way
+either way.
+
+For a normal code PR, ignore this file — it is not a code-review checklist, and
+a code diff should not receive a plan audit.
 
 ## What you are reviewing
 
@@ -97,11 +99,12 @@ how he wants to be worked with.
 - **Never implement anything on a plan-review PR.** No commits, no code, no
   "fixed it for you." The PR is a review channel that will be closed unmerged.
 
-## The review oracle: the PR body
+## The review oracle
 
-The PR body carries **Product Intent**, **Must Not Change**, and **Settled
-Decisions** — the intent agreed *before* the plan, which is the source of truth
-the plan is verified against (see
+You are given **Direction**, **Product Intent**, **Must Not Change**, **Settled
+Decisions** and the **now/next/never boundaries** — the intent agreed *before*
+the plan was written, which is the source of truth the plan is verified against
+(see
 [`agent-working-rules.md`](./agent-working-rules.md#pre-plan-intent-is-the-source-of-truth)).
 Compare the plan against that oracle: a plan can be internally coherent yet drop
 a requirement the intent called for. Flag any such omission even if the plan
@@ -112,13 +115,18 @@ itself never mentions the missing piece.
 A plan review is a loop: you review, the author revises, you review again. From
 the second round on, four additional obligations apply.
 
-**1. The diff is not the scope.** GitHub presents a re-review as a markdown diff
-— a handful of changed paragraphs. **That diff tells you what moved; it does not
+**1. What you are handed is not the scope.** You get a fresh context every
+round, and the previous rounds' findings reach you as **ids, titles and
+dispositions only** — deliberately not their original text, and not your own
+reasoning from last time. **That list tells you what was disputed; it does not
 define what to review.** Re-read the complete current plan and re-verify it
 against the repository each round. A revision that fixes one section can
 invalidate a claim three sections away, and a plan that was sound in round 1 can
-be made unsound by edits you were not shown. Never conclude a round having read
-only the changed lines.
+be made unsound by an edit nobody drew your attention to. Never conclude a round
+having reconciled the list and read nothing else.
+
+The disposition note attached to a finding is the plan author's own account of
+what it did. **It is not evidence.** Check it against the plan.
 
 **2. Reconcile every previous finding.** Before writing new findings, go through
 each finding from your earlier reviews on this PR and classify it:
@@ -158,20 +166,12 @@ reviewed and started being written**, and the correct output is a split, not
 another round. See
 [*A plan that grew during its own review*](./known-failure-patterns.md#a-plan-that-grew-during-its-own-review).
 
-**How this obligation is discharged depends on delivery surface, same as
-everything else in *Output* below.** On full-document delivery, say so
-plainly in your own write-up whether or not a defect accompanies it — this
-surface has no constraint against a freestanding observation. **On the GitHub
-structured-review transport, this surface's own limits apply** (see *Output*
-→ *Structured defect pass*): there is no channel for a non-defect note, so a
-new mechanism with no accompanying finding is not something you post here —
-naming growth with no defect is the **loop driver's** job (Claude tracks the
-plan's line count in the findings ledger every round; that is the mechanical
-substitute for this obligation on this surface). What you owe on this
-transport: when a new mechanism **does** produce a finding, fold the growth
-observation into that finding's text, the same way *Verified*/*Unable to
-verify* fold into a Required Revision or Recommended Improvement per the
-structured-pass rules below.
+**Say so plainly, whether or not a defect accompanies it.** You have a
+freestanding observation channel — *recommended improvements* when the growth
+is merely worth noticing, *required revisions* when the new mechanism is
+genuinely unsound, and the round's summary when it is neither. There is no
+longer a surface that forces a growth observation to travel inside some other
+finding, and no line-count proxy standing in for this judgement.
 
 **4. Apply at least one lens you have not applied yet.** Convergence measures
 *consistency*, not *quality* — a reviewer that missed a major issue in round 1
@@ -381,12 +381,10 @@ instances and anchors):
   into the immediate fix.
 - Creating admin UI noise instead of clearer state modeling.
 
-## Review-status labels (pick one) — full-document surface only
+## Review-status labels (pick one)
 
-On the GitHub structured-review surface you don't pick or post one of these
-(see *Output*) — the loop driver derives status from your findings. These
-labels are for the full-document surface: Claude's review skill and
-ChatGPT's manual-upload path.
+Every plan review picks exactly one. It is a field in the assessment you
+return, not something the loop driver derives on your behalf.
 
 ```
 No major technical disagreement
@@ -420,22 +418,14 @@ revising, include it as a required revision instead of blocking on David.
 
 ## Output
 
-**Two delivery surfaces exist, and they do not support the same shape.** Use
-whichever applies to how you were asked to review. Their short names, shared
-with the [code-review guide](../engineering/code-review.md#review-output-format)
-so both contracts use one vocabulary: a **full assessment** (one complete
-document per round, with a status label) and a **structured defect pass**
-(diff-anchored findings only, no status label). The names are shorthand for the
-two shapes below — they change nothing about what either surface owes.
-
-### Full assessment — full-document delivery (Claude Code's review skill, a pasted/uploaded plan)
-
-When you are free to post one document — no diff, no per-line constraint — post
-one complete assessment per round, in this shape:
+**A plan review is one complete assessment per round.** Not a set of
+diff-anchored comments — every section below is produced every round, and where
+a section is genuinely empty it is an empty list, never a missing one. A missing
+section reads as an omission; an empty one reads as a pass.
 
 ```
 **Review status:** <one of the six labels above>
-**Lens applied this round:** <the angle you attacked from — round 2 onward>
+**Lens applied this round:** <the angle you attacked from>
 
 ## What is strong
 ## Required revisions
@@ -447,93 +437,42 @@ one complete assessment per round, in this shape:
    Resolved / Still open / Superseded
 ```
 
-A sound plan still gets every section — silence is not an acceptable output, per
-the *Non-negotiables* above. Where a section is genuinely empty, write "none"
-rather than deleting the heading; a missing section should read as an omission,
-not as a pass.
+**When you are given a JSON output schema, that schema is this shape** and it
+is what you return — no prose around it and no code fence. The schema exists so
+that "every section every round" is enforced rather than requested: a reviewer
+having a bad round still has to say what is strong, and still has to reconcile
+the prior findings.
 
-### Structured defect pass — GitHub structured review (the `@codex review` transport)
+**Required and recommended are a real split, and you own it.** A recommendation
+never holds a round open, so anything you file as *required* is something you
+are willing to spend another whole review round on. Do not file a preference as
+required to make sure it gets attention; file it as recommended and say why it
+matters.
 
-**This surface does not support a freestanding top-level write-up.** Confirmed
-against this repo's own review history (PR #252, 20+ rounds): every round's
-top-level review body was the connector's fixed boilerplate, never custom text.
-The only content surface is a **set of findings, each anchored to a location in
-the current diff** — there is no channel for a status label, a lens
-declaration, or a ledger that isn't attached to a line. Do not attempt the
-skeleton above here; it cannot be posted, and a contract that asks for the
-impossible gets silently half-followed instead of visibly refused.
+### Where the other shape went
 
-On this surface, every piece of information above six-shape output is carried
-**inside individual findings**, not as a separate post:
+This contract used to describe a second delivery surface — a **structured
+defect pass**, diff-anchored findings with no status label — because plans were
+reviewed through the GitHub review connector, which can post nothing else. Plan
+review no longer runs through GitHub, so that surface is retired **for plans**
+(David, 2026-09-09).
 
-- **Each finding is its own inline comment**, anchored to the most relevant
-  line. For a finding that doesn't map to one line (a missing product
-  decision, an omission), anchor it to the most defensible nearby line (e.g.
-  the section it should have appeared under) rather than skipping it for lack
-  of a perfect anchor.
-- **Lead each finding with a category tag — only categories that can stand as
-  their own defect-shaped finding on this surface.** That's: Required
-  Revision, Recommended Improvement, Product Decision, or Reconciliation
-  (**Still Open only** — naming the prior finding it addresses; see the
-  clean-round bullet below for why Resolved/Superseded aren't here). Verified
-  and Unable to Verify are **not** standalone tags on this surface — they
-  don't represent a defect, so nothing here would give the connector to post.
-  Fold them into the text of whatever Required Revision or Recommended
-  Improvement finding they support ("Unable to verify: needs prod-DB access —
-  flagging as Required Revision until the plan states how this gets checked").
-  The full six-way taxonomy applies unscoped only on the full-document
-  surface, where each is its own section regardless of whether it accompanies
-  a defect.
-- **The lens is not something you attest to — it's something you're asked to
-  apply.** The `@codex review` trigger comment states the lens for that round
-  and names the specific prior findings to reconcile (see the
-  `plan-review-loop` skill) — review under that stated lens, don't invent your
-  own framing for it, and don't re-declare it in a finding (there is no
-  surface-specific requirement that you do — the *Re-reviews* section's lens
-  obligation is satisfied by the full-document surface only, or by this
-  surface's trigger comment, never by you naming it here).
-- **A clean round is an empty findings list — confirmed, not merely assumed.**
-  Codex has confirmed directly on this PR that the connector exposes only
-  schema-validated defect findings: there is no non-blocking, informational, or
-  "no-longer-a-problem" category, and no freestanding-comment channel to fall
-  back to. Posting a finding for an item that no longer represents a live
-  problem would misclassify it as a defect. This rules out a dedicated
-  Reconciliation finding for **both** Resolved and Superseded — neither is a
-  current defect, so neither is postable, whatever their conceptual
-  difference. Only **Still Open** genuinely is a live defect and gets posted
-  as a Reconciliation finding, same as any other finding. When a named prior
-  finding is Resolved or Superseded, **post nothing about it** — do not
-  manufacture a comment to prove you checked. You don't need to distinguish
-  Resolved from Superseded here: whoever drives the loop already knows which
-  is which from their own fix history and records that distinction in the
-  ledger independently — your silence only tells them "not Still Open," it
-  isn't the source of that split. An empty result against a trigger that
-  named specific items is read as "all Resolved or Superseded" — that reading
-  is the accepted ceiling of what *this surface* can prove, not a gap to
-  close. Absent a named request, an empty list means only "no new
-  objections" — post nothing and let the connector's default (a 👍 reaction)
-  stand.
-- **You do not compute or post the overall review-status label or the
-  round-level ledger on this surface.** Whoever is driving the loop (Claude
-  Code) reads your findings after each round and derives the status and
-  ledger from them — that is not extra work assigned to you, and duplicating
-  it here would go nowhere. If you believe the *overall* status is something
-  stronger than any individual finding conveys (e.g., **Strong disagreement on
-  direction**), say so explicitly inside one finding's text so it isn't lost
-  in translation.
+**It is not retired for code.** The structured defect pass is still exactly how
+a code review is delivered on a pull request, and the vocabulary is still shared
+with the [code-review guide](../engineering/code-review.md#review-output-format),
+which is that surface's contract. Nothing about how code PRs are reviewed
+changed.
 
-### Both surfaces
+The practical consequence for you, if you are reviewing a plan: every
+limitation that section documented — no channel for a status label, no way to
+report a Resolved finding, no place to say a pass ran short — **no longer
+applies.** You have a field for each of those. Use them.
 
-Keep it specific and grounded in the repo you actually inspected. If you lack
-the repo context to review responsibly, say so and stop rather than reviewing
-from the plan text alone. **On the full-document surface**, use the **Repo
-context required** label. **On the GitHub surface, missing repo context is not
-itself a plan defect** — same limitation as an incomplete pass (see *If you
-cannot do all of this in one pass*): there's no finding to hang it on unless
-the gap is narrow enough to state as a concrete Required Revision (e.g., "needs
-David to confirm X — I lack access to verify it against the repo"). A broad
-loss of context has no dedicated channel and falls inside the same accepted
-ceiling; don't manufacture a finding just to report it.
+### If you lack the repo context to review responsibly
+
+Say so and stop, rather than reviewing from the plan text alone. Use the **Repo
+context required** label, and list what you could not reach under *Unable to
+verify*. A guess presented as a finding costs more than a stated gap.
 
 ## If you cannot do all of this in one pass
 
@@ -544,16 +483,13 @@ order → the required review checks → external claims → verification report
 and reconciliation → the status label and output shape.** The failure-pattern
 list is the first thing to sample rather than sweep.
 
-**Say when you did this — on the full-document surface, where you have
-somewhere to say it.** A review that ran short is useful; a review that ran
-short and presents as complete is worse than no review, because the loop
-treats it as coverage. Name what you did not get to.
+**Say when you did this.** A review that ran short is useful; a review that ran
+short and presents as complete is worse than no review, because the loop treats
+it as coverage. Name what you did not get to, under *Unable to verify* if it
+fits there and in the status label if it does not.
 
-**On the GitHub structured-review surface, this has no dedicated channel
-either, for the same confirmed reason as everything else in *Output*: there is
-no non-defect finding to post it in.** A short-but-genuinely-clean pass and a
-short-and-incomplete pass that happened to find nothing both look identical
-from outside — an empty findings list. Don't manufacture a finding to flag
-incompleteness; that's the same mistake as manufacturing one to prove
-verification. This ambiguity is already inside the accepted evidence ceiling
-this surface operates under — it isn't a new gap to close.
+**There is no longer an ambiguity here to accept.** On the retired GitHub
+surface a short-but-clean pass and a short-and-incomplete pass looked identical
+from outside — both an empty findings list — and that ambiguity was an accepted
+ceiling of the transport. It is not accepted now, because you have somewhere to
+say it. An incomplete pass that presents as clean is a defect in the review.
