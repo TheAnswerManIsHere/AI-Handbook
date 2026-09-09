@@ -279,3 +279,65 @@ Blast radius: the bundle is David's ChatGPT account credential, uncapped,
 readable by anyone using the environment. That is exactly what the
 current `web-research.md` rule forbids; storing it anyway is David's
 override, to be recorded in `decisions.md` with the dissent.
+
+## Pilot round, measured (2026-09-09)
+
+Setup: ChatGPT Pro sign-in via device code (worked headless through the
+proxy); Codex CLI 0.153.4; `gpt-6-astra` at `model_reasoning_effort=xhigh`;
+`--sandbox read-only`; `--output-schema` = the contract's full-assessment
+shape (`docs/research/pilot/review-schema.json`); prompt =
+`docs/research/pilot/prompt-round1.md` (apply the contract, the PR #37
+oracle inline, lens "authority, bypass, sync/bootstrap ordering", the
+toolchain exclusion). Reviewed the #36 phase 1a plan at the exact commit
+Codex's round 3 reviewed (`e0b08b6`, worktree), so the two are
+apples-to-apples. Output: `docs/research/pilot/astra-round1.json`; Codex's
+round 3 on the same revision: `docs/research/pilot/codex-round3-same-revision.md`.
+
+| Measure | Value |
+|---|---|
+| Wall clock, prompt to schema-valid JSON | 522 s |
+| Repository commands the reviewer ran unprompted | 45 |
+| Input tokens (of which cached) | 3,089,593 (2,893,824) |
+| Output tokens (of which reasoning) | 13,248 (5,199) |
+| Cost on the Pro plan | $0 marginal; one Codex "turn" of allowance |
+| Same round at API list price | ≈ $5.50 (196k uncached × $10/M + 2.89M cached × $1/M + 13k × $50/M) |
+| Smoke call at `low` effort | 12 s |
+
+Behaviour: it read the contract, the agents core, the plan, PLANS.md and
+the working rules before anything else; opened the adjudication record
+`33-1.json` and confirmed the zero-size anomaly; ran `loadLoop` over every
+committed receipt chain and found PR #10's fails today; ran the four
+read-only repo checks; ran a Node probe to show the record-size policy
+cannot terminate; tried the test suite and hit EROFS (read-only sandbox
+blocks `/tmp`). Every required revision cites file:line evidence; I
+spot-checked R1 (`pr-ready.mjs` 1592-1610, 1706-1720;
+`review-budget.mjs` 1054) and R3 (`sync-manifest.yml` 346-350, 678-691)
+and the lines say what the findings say.
+
+Side by side with Codex's round 3 on the same revision (4 findings):
+
+| Codex round 3 | Astra round 1 |
+|---|---|
+| Bind stamps to the definition the harness actually loads (P1) | **R2**, same defect, same stale-checkout route |
+| Make the producer oracle find the refusal recipes (P2) | **R5**, same two line ranges, plus the missing fifth inventory result and a 6-vs-7 consumer count |
+| Require the plan-review title before selecting the head oracle (P2) | not raised |
+| Accept legitimate empty diffs with distinct endpoints (P2) | not raised |
+| — | **R1** the always-run rail path validates receipts with `io:null`, so a clean Codex pass never opens the cited record: decision 8a is bypassable. On the lens; Codex missed it |
+| — | **R3** the decline citation ships in the `memory` group, `machinery` requires only `machinery-config`: a first sync can deliver the reader without its mandatory input. On the lens; Codex missed it |
+| — | **R4** the 600k total-size policy has no terminal behaviour once finding text is empty; probe serialised 919k chars of metadata alone |
+| — | one product decision (PR #10's chain already fails; preserve or repair), two recommendations, seven verified claims, four honest unable-to-verify |
+
+Reading: two of Codex's four reproduced independently, two not (both
+P2), three new required revisions all on the requested lens and all
+code-grounded, plus the full-assessment sections the GitHub transport
+could never carry. Status returned: *Substantive technical concerns*.
+
+Gotchas for the script:
+- `codex exec` waits forever on an open stdin in this harness; run it
+  with `</dev/null`, or pass the prompt on stdin with `-`.
+- `--sandbox read-only` also blocks `/tmp`; if the reviewer should run
+  the suite, use `workspace-write` on a scratch checkout or set `TMPDIR`.
+- `pkill -f 'codex exec'` kills the calling shell too (the pattern matches
+  its own command line); match on the binary path instead.
+- `setsid nohup … &` is the shape that survives the tool timeout; a
+  background waiter on the exit-file gives one wake-up.
