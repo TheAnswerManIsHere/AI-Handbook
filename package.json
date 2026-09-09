@@ -1,8 +1,0 @@
-{
-  "name": "ai-handbook",
-  "private": true,
-  "description": "Tooling dependencies for the handbook's own checks. The PAYLOAD (core/) stays dependency-free; this file is the handbook's, and ships nowhere. NO \"type\" FIELD, deliberately: every check here is .mjs and so is ESM regardless, while two payload files under core/.claude/skills/ are CommonJS .js -- \"type\": \"module\" reinterprets THOSE and render-graphs.js dies on its first require(). A root manifest added for one check reaches every unscoped file beneath it.",
-  "devDependencies": {
-    "marked": "^18.0.12"
-  }
-}

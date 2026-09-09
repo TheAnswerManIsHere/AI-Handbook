@@ -62,16 +62,14 @@ anything else.>
 
 ## Sensitive subsystems
 
-<Which areas add the specialist review tier — the core's ceremony rules refer
-to "any subsystem the overlay marks sensitive", and this is where that list
-lives. Migrations, auth and payments are sensitive everywhere; name the ones
-particular to this product.
+Declared in [`docs/ai-context/sensitive-subsystems.md`](docs/ai-context/sensitive-subsystems.md).
 
-Omitting this section does not fail anything, which is exactly why it is
-worth writing down. The universal entries still route, so what happens
-instead is that ceremony NARROWS SILENTLY: a subsystem that was getting the
-specialist review before enrollment stops getting it after, and nothing
-says so.>
+<A ROUTE, not the list. The list itself lives in that one document because
+`AGENTS.md` must reach it too — the ceremony rules that dereference it are in
+`agents-core.md` as well as `claude-core.md`, so a declaration living only in
+this file is invisible to Codex and to every other agent entering through
+`AGENTS.md`. Two copies would be two hand-maintained lists of one thing, which
+is the drift this whole repository exists to remove.>
 
 ## Environment
 
@@ -99,6 +97,14 @@ and if the core is wrong, fix the core.
 
 <The reading routes: which doc to read before which kind of work.>
 
+## Sensitive subsystems
+
+Declared in [`docs/ai-context/sensitive-subsystems.md`](docs/ai-context/sensitive-subsystems.md).
+
+<The same route the CLAUDE.md template carries, to the same one document.
+`agents-core.md` routes ceremony through "whatever the overlay marks
+sensitive", so an agent entering here has to be able to reach the list.>
+
 ## Setup, verification, and the CI gate
 
 <The repo's actual commands, and what CI requires.>
@@ -124,6 +130,7 @@ destination.
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
 | `docs/ai-context/product-direction.md` | The next-work skill resolves its recommendation through it. Product truth by definition |
+| `docs/ai-context/sensitive-subsystems.md` | Which of *this* product's areas add the specialist review tier. Both overlays route to it, and the core's ceremony rules dereference it — see enrollment step 1 |
 | `docs/ai-context/current-roadmap.md` | Same — the maintenance, status and next skills all read it, and it is per-product |
 | `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
@@ -148,26 +155,29 @@ So the rule, rather than the list, is what to rely on:
 The rows above are the cases worth explaining — the ones where *why* it cannot
 be shared is not obvious. They are examples of the rule, not its boundary.
 
-**This is now enforced mechanically.** `node scripts/check-payload-portability.mjs`
-resolves every markdown link in every payload file against the file's
-*destination* path and fails when a target is neither shipped in `core/` nor
-declared consumer-owned. It runs in CI, so a broken cross-reference cannot
-reach a consumer as a dead link.
+Enforcing the rule mechanically — resolving every link in a payload file and
+failing when a target is neither in `core/` nor declared consumer-owned — is
+the check that would actually close this, and **it does not exist yet.**
+Nothing in CI proves this table is complete, so a broken cross-reference in the
+payload reaches a consumer as a dead link. It is a known gap, tracked in #64.
 
-**The declared set lives in that script, not here.** `CONSUMER_OWNED` is the
-source of truth; the table above is the explanation. Adding an entry there is a
-decision that a consumer must produce that file — enrollment is not complete
-until it exists — and it is not a way to silence a broken link.
+**What this pass did instead was work the references to zero by hand**, and the
+rule it applied is the one the check will eventually enforce: **an example may
+name a product's document; it may not link to it.** The prose survives a move;
+the link does not. Zero today is a measurement, not a guarantee — which is
+exactly why the check is still owed.
 
-Two things the check deliberately does not do, because a check that cries wolf
-gets suppressed and then protects nothing: it ignores links inside fenced code
-(a skill illustrating layout with a fictional example is not a broken
-reference — twelve of those were reported by a first pass) and it ignores
-`{placeholder}` targets. It also does not police product *names* in prose: a
-worked example naming one product is blessed by the fleet contract, and the
-rule it enforces is narrower and sharper — **an example may name a product's
-document; it may not link to it.** The prose survives a move; the link does
-not.
+The check was built inside this pass and taken back out, and the reason is
+worth recording where the next person will look. It tried to understand every
+link form Markdown permits, and each review round found another it got wrong —
+raw HTML, percent-encoding, query strings, directory targets, host-absolute
+paths. Four rounds returned 2, 2, 6 and 7 findings: **going up.** The premise
+was wrong. Nobody is writing hostile Markdown into the payload; we write every
+line of it. So the check being rebuilt in #64 does not parse everything — it
+accepts **one canonical link form** and reports anything else as something to
+rewrite, which turns an unbounded parsing problem into a style rule the payload
+can simply obey. (David, 2026-09-09: *"You control everything so you don't have
+to worry about strange links."*)
 
 ## Enrolling a repo
 
@@ -175,18 +185,25 @@ not.
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
 
-   **The overlay's *Sensitive subsystems* section is the one part of it the
-   payload dereferences**, and it is the step most likely to be skipped
-   because nothing complains. The core's ceremony rules route on "any
-   subsystem the overlay marks sensitive" — a phrase that replaced a hardcoded
-   list naming one product's subsystems, and which points nowhere until a repo
-   answers it. The universal entries (migrations, auth, payments, permissions,
-   security headers, the async job queue, dev-infra, generated
-   API-validation schemas) route regardless, so an unanswered pointer does not
-   break: it quietly removes the specialist review from whatever else that
-   repo had been treating as sensitive. **Write the list before the first
-   sync**, not after — after means the narrowing has already happened, in the
-   one window where nobody is looking for it.
+   **Write `docs/ai-context/sensitive-subsystems.md` as part of this step.** It
+   is the one consumer document the payload *dereferences* rather than merely
+   links to, and it is the easiest to skip because nothing complains. The
+   core's ceremony rules — in `agents-core.md` as well as `claude-core.md`, so
+   this binds Codex too — route on "any subsystem the overlay marks
+   sensitive", a phrase that replaced a hardcoded list naming one product's
+   subsystems and that points nowhere until a repo answers it.
+
+   The universal entries (migrations, auth, payments, permissions, security
+   headers, the async job queue, dev-infra, generated API-validation schemas)
+   route regardless, so an unanswered route does not *break*: it quietly
+   removes the specialist review from whatever else that repo had been
+   treating as sensitive. **Write the list before the first sync**, not after
+   — after means the narrowing has already happened, in the one window where
+   nobody is looking for it.
+
+   **One document, routed from both overlays**, rather than a section in each.
+   Two copies are two hand-maintained lists of one thing, and this repository
+   exists because that shape drifts.
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
