@@ -65,7 +65,13 @@ anything else.>
 <Which areas add the specialist review tier — the core's ceremony rules refer
 to "any subsystem the overlay marks sensitive", and this is where that list
 lives. Migrations, auth and payments are sensitive everywhere; name the ones
-particular to this product.>
+particular to this product.
+
+Omitting this section does not fail anything, which is exactly why it is
+worth writing down. The universal entries still route, so what happens
+instead is that ceremony NARROWS SILENTLY: a subsystem that was getting the
+specialist review before enrollment stops getting it after, and nothing
+says so.>
 
 ## Environment
 
@@ -168,6 +174,19 @@ not.
 1. Land the repo's own overlay `CLAUDE.md` and `AGENTS.md` from the templates
    above — before the first sync, so the vendored core has something importing
    it the moment it arrives.
+
+   **The overlay's *Sensitive subsystems* section is the one part of it the
+   payload dereferences**, and it is the step most likely to be skipped
+   because nothing complains. The core's ceremony rules route on "any
+   subsystem the overlay marks sensitive" — a phrase that replaced a hardcoded
+   list naming one product's subsystems, and which points nowhere until a repo
+   answers it. The universal entries (migrations, auth, payments, permissions,
+   security headers, the async job queue, dev-infra, generated
+   API-validation schemas) route regardless, so an unanswered pointer does not
+   break: it quietly removes the specialist review from whatever else that
+   repo had been treating as sensitive. **Write the list before the first
+   sync**, not after — after means the narrowing has already happened, in the
+   one window where nobody is looking for it.
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
@@ -371,8 +390,9 @@ not.
 **The order is the point, and the sync goes last.** A vendored core that
 nothing imports is inert: the files are present, the rules are not loaded, and
 the repo looks governed without being governed, which is the worst of the three
-states. Steps 1 and 2 prevent that; steps 3 and 4 prevent the security
-equivalent, where a repo holds `bypassPermissions` without the controls that
+states. Steps 1 and 2 prevent that — and step 1's sensitive-subsystem list
+is the part of them that fails quietly rather than loudly; steps 3 and 4
+prevent the security equivalent, where a repo holds `bypassPermissions` without the controls that
 constrain it, or the guard without the hooks that invoke it; step 6 keeps its
 merge gate usable; step 7 is what lets a session hold more than one consumer at
 once; step 8 is the one that is currently a promise rather than a mechanism.

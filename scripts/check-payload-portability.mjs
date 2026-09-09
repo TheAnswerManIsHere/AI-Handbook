@@ -35,19 +35,33 @@
  *   - **Inline code is not a link.** A path inside backticks is being talked
  *     about, not linked to.
  *
- * So this reads MARKDOWN LINKS ONLY, outside fenced blocks and inline code.
- * A check that cries wolf gets suppressed wholesale, and then it protects
- * nothing — which is the same failure as not having it.
+ * SO THIS USES A REAL MARKDOWN PARSER, AND THAT IS THE SECOND DESIGN, NOT THE
+ * FIRST. The first read links by hand with regular expressions, and across
+ * three review rounds that reader was wrong EIGHT times: it could not see
+ * reference definitions, it left angle brackets on one of its two branches,
+ * it swallowed a link title into the destination, it mistook a footnote for a
+ * definition, it broke on multi-backtick code spans, it accepted four-space
+ * indentation as a fence opener, and its scheme allowlist knew only lowercase
+ * http(s) and mailto.
  *
- * BOTH LINK SYNTAXES, because a check with a syntax hole is a check that
- * silently passes. Inline `[text](target)` and reference definitions
- * `[label]: target` are both read. The payload uses no reference links today,
- * which is exactly why it had to be closed now rather than recorded: this file
- * exists because "we fixed the three we found" says nothing about how many
- * remain, and a form the check cannot see would be the next three. Checking
- * DEFINITIONS rather than usages is sufficient by construction — every usage
- * resolves through a definition, and a usage with no definition is not a link
- * at all, it renders literally. (Codex, #62 round 1.)
+ * Each of those was individually a small fix. Taking them one at a time is
+ * precisely the trap: after two rounds of patching I twice said the class was
+ * closed and was twice wrong, which is the same shape as #54's path defects —
+ * ended there by changing the primitive rather than by a better audit.
+ *
+ * `marked` is CommonMark-compliant and, checked before adopting it, has ZERO
+ * transitive dependencies. It gives fenced code, indented code, inline code
+ * spans of any delimiter length, link titles, angle-bracketed destinations and
+ * reference definitions correctly **by construction** — a code span is simply
+ * a different token type, so a link inside one never exists to be found.
+ *
+ * WHY A DEPENDENCY IS ACCEPTABLE HERE AND NOT IN THE PAYLOAD. The rule that
+ * kept this repository dependency-free protects `core/`, which is vendored
+ * into consumers that must run it with no install step. **This file ships
+ * nowhere.** It is the handbook's own check, so its cost is one devDependency
+ * and one CI install step, and it buys the elimination of a defect class
+ * rather than of eight defects. (David, 2026-09-09, choosing this over
+ * patching the six or narrowing what the check claims.)
  *
  * WHAT IT DOES NOT CHECK. Product names in prose. A worked example naming one
  * product is explicitly blessed by the fleet contract — `known-failure-patterns.md`
@@ -59,6 +73,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { marked } from "marked";
 
 import { payloadFiles, routeOf } from "./sync.mjs";
 
@@ -137,65 +153,88 @@ export const CONSUMER_OWNED = new Set([
 const isPlaceholder = (t) => /[{}<>]/.test(t) || t.includes("...");
 
 /**
- * Strip the angle brackets Markdown allows around a destination.
+ * Any URI scheme, or a protocol-relative URL — not a file in this repository.
  *
- * ONE helper for both link syntaxes, because doing it in one branch and not
- * the other is how round 2's finding happened: `<…>` survived on the inline
- * branch and `isPlaceholder` then swallowed it.
+ * Matched GENERICALLY rather than by allowlist. The allowlist knew `http`,
+ * `https` and `mailto` in lowercase, so `tel:`, `data:`, `ftp:` and even
+ * `HTTPS:` were resolved as local paths and reported as missing files —
+ * failing a required check over correct documentation. Schemes are
+ * case-insensitive and open-ended, so enumerating them is the wrong shape.
+ * (Codex, #62 round 3.)
  */
-const unwrap = (t) => t.trim().replace(/^<([^>]*)>$/, "$1");
+const isExternal = (t) => /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(t) || t.startsWith("//");
 
 /**
- * Markdown link targets in `text`, ignoring fenced blocks and inline code.
+ * Every token that can hold children, walked without enumerating token types.
  *
- * Fence handling follows CommonMark rather than toggling on ``` : a fence
- * closes only on a run of the SAME character at least as long as the opener.
- * The best-practices file nests ``` inside ````, and a naive toggle reads the
- * whole rest of that file as prose.
+ * Enumerating them is how a link inside a table cell or a nested list gets
+ * missed silently — the failure mode this whole file exists to prevent, so it
+ * is not reintroduced in the walker.
  */
-export function linkTargets(text) {
-  const targets = [];
-  let fence = null;
-  for (const line of text.split("\n")) {
-    const opener = line.match(/^\s*(`{3,}|~{3,})/);
-    if (fence) {
-      if (opener && opener[1][0] === fence[0] && opener[1].length >= fence.length) fence = null;
-      continue;
-    }
-    if (opener) {
-      fence = opener[1];
-      continue;
-    }
-    const bare = line.replace(/`[^`]*`/g, "");
-    for (const m of bare.matchAll(/\]\(([^)]+)\)/g)) {
-      // `[x](<./a b.md>)` is standard Markdown for a destination containing
-      // spaces. Unwrapped HERE as well as in the definition branch below:
-      // fixing one branch and not the other left `<…>` intact, and the
-      // placeholder filter then suppressed it as a `<placeholder>` -- a false
-      // negative hiding inside a false-positive guard. (Codex, #62 round 2:
-      // the round-1 fix was applied to one of the two branches that needed it.)
-      const target = unwrap(m[1]).split("#")[0].trim();
-      if (target) targets.push(target);
-    }
-    // A reference definition: `[label]: target "optional title"`. The target
-    // may be angle-bracketed, which is ordinary link syntax rather than the
-    // `{placeholder}` shape, so the brackets come off before it is judged.
-    const def = bare.match(/^\s{0,3}\[[^\]]+\]:\s*(\S+)/);
-    if (def) {
-      const target = unwrap(def[1]).split("#")[0].trim();
-      if (target) targets.push(target);
-    }
+function collectLinks(node, out) {
+  if (Array.isArray(node)) {
+    for (const item of node) collectLinks(item, out);
+    return;
   }
-  return targets;
+  if (!node || typeof node !== "object") return;
+  if ((node.type === "link" || node.type === "image") && typeof node.href === "string") {
+    out.push(node.href);
+  }
+  for (const value of Object.values(node)) {
+    if (value && typeof value === "object") collectLinks(value, out);
+  }
 }
 
-/** Resolve a link target against the file's DESTINATION path, `/`-separated. */
+/**
+ * Markdown link destinations in `text`: inline links, images, and reference
+ * definitions — whether or not a definition is ever used.
+ *
+ * Code spans and code blocks are absent by construction rather than stripped:
+ * the parser gives them their own token types, so a link inside one is never a
+ * link token at all.
+ */
+export function linkTargets(text) {
+  const lexer = new marked.Lexer();
+  const tokens = lexer.lex(text);
+  const out = [];
+  collectLinks(tokens, out);
+  // A definition nothing references still names a file that has to exist.
+  for (const def of Object.values(lexer.tokens?.links ?? {})) {
+    if (def && typeof def.href === "string") out.push(def.href);
+  }
+  // The FILE is what has to exist, so a fragment is dropped: `./a.md#section`
+  // and `./a.md` ask the same question. A bare `#section` drops to the empty
+  // string and falls out below -- a same-document link names no file at all,
+  // which is why this needs no separate anchor case downstream.
+  const files = out.map((href) => href.split("#")[0].trim());
+  return [...new Set(files.filter(Boolean))];
+}
+
+/**
+ * Resolve a link target against the file's DESTINATION path, `/`-separated.
+ *
+ * Returns `null` when the target climbs ABOVE the repository root, because
+ * there is no path to return and normalising it away is worse than useless:
+ * `docs/a.md -> ../../CLAUDE.md` popped an empty array to no effect and came
+ * back as `CLAUDE.md`, which is in CONSUMER_OWNED — so a link that escapes the
+ * repository entirely was reported as fine. A broken reference laundered into
+ * a pass is the exact failure this check exists to prevent. (Codex, #62
+ * round 3.)
+ *
+ * A leading `/` is root-absolute and resets to the root rather than being
+ * skipped as an empty segment, which had `/docs/a.md` resolving under the
+ * linking file's own directory.
+ */
 export function resolveFrom(fromDest, target) {
-  const parts = fromDest.split("/").slice(0, -1);
+  const parts = target.startsWith("/") ? [] : fromDest.split("/").slice(0, -1);
   for (const segment of target.split("/")) {
     if (segment === "." || segment === "") continue;
-    if (segment === "..") parts.pop();
-    else parts.push(segment);
+    if (segment === "..") {
+      if (parts.length === 0) return null;
+      parts.pop();
+    } else {
+      parts.push(segment);
+    }
   }
   return parts.join("/");
 }
@@ -206,6 +245,8 @@ export function resolveFrom(fromDest, target) {
  * Returns `{ from, target, resolved }` rows — `from` and `resolved` are
  * DESTINATION paths, because a consumer is where the breakage happens and
  * naming `core/…` there would describe a layout the reader does not have.
+ * `resolved` is `null` for a target that climbs above the repository root:
+ * there is no such path, and reporting it is the point.
  */
 export function danglingReferences(payloadRoot = resolve(REPO_ROOT, "core")) {
   const files = payloadFiles(payloadRoot);
@@ -216,9 +257,9 @@ export function danglingReferences(payloadRoot = resolve(REPO_ROOT, "core")) {
     const dest = routeOf(file).to;
     const text = readFileSync(resolve(payloadRoot, file), "utf8");
     for (const target of linkTargets(text)) {
-      if (/^(https?:|mailto:|#)/.test(target) || isPlaceholder(target)) continue;
+      if (isExternal(target) || isPlaceholder(target)) continue;
       const resolved = resolveFrom(dest, target);
-      if (shipped.has(resolved) || CONSUMER_OWNED.has(resolved)) continue;
+      if (resolved !== null && (shipped.has(resolved) || CONSUMER_OWNED.has(resolved))) continue;
       rows.push({ from: dest, target, resolved });
     }
   }
@@ -233,15 +274,18 @@ function main() {
   }
   const byTarget = new Map();
   for (const row of rows) {
-    if (!byTarget.has(row.resolved)) byTarget.set(row.resolved, []);
-    byTarget.get(row.resolved).push(row.from);
+    const key = row.resolved ?? `${row.target}  ← climbs above the repository root`;
+    if (!byTarget.has(key)) byTarget.set(key, []);
+    byTarget.get(key).push(row.from);
   }
   console.error(
     `✗ ${rows.length} payload reference(s) to ${byTarget.size} path(s) a consumer will not have.\n` +
       `  A consumer's agent following one of these finds nothing.\n` +
       `  Fix each by: shipping the target in core/, adding it to CONSUMER_OWNED in this\n` +
       `  file if a consumer is genuinely required to create it, or removing the link and\n` +
-      `  keeping the prose — an example may NAME a product's document, it may not LINK to it.\n`,
+      `  keeping the prose — an example may NAME a product's document, it may not LINK to it.\n` +
+      `  A target marked as climbing above the root has too many \`..\` segments to name\n` +
+      `  anything inside the repository; fix the depth.\n`,
   );
   for (const [target, froms] of [...byTarget.entries()].sort((a, b) => b[1].length - a[1].length)) {
     console.error(`  ${String(froms.length).padStart(3)}  ${target}`);

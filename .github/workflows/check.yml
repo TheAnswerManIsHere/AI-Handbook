@@ -32,10 +32,21 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      # No install step: the machinery is deliberately dependency-free, and
-      # keeping it that way is why this line is a comment rather than an
-      # `npm ci`. If a dependency ever becomes necessary, that is a decision
-      # to make explicitly, not by adding it here quietly.
+      # THE PAYLOAD IS STILL DEPENDENCY-FREE. This install is the handbook's
+      # own, and the distinction is the whole reason it is allowed: `core/` is
+      # vendored into consumers that must run it with no install step, so a
+      # dependency there would be a cost paid by every repo. `package.json`
+      # here holds one devDependency (`marked`) used by ONE check that ships
+      # nowhere. The rule this comment used to state -- that adding a
+      # dependency is an explicit decision rather than a quiet edit -- is
+      # intact; this is that decision, made on #62 after a hand-rolled
+      # markdown reader was wrong eight times in three review rounds.
+      #
+      # `npm ci` rather than `npm install`: it installs the lockfile exactly
+      # and fails if the two disagree, so CI cannot silently resolve a
+      # different tree than the one that was reviewed.
+      - name: Install the handbook's own tooling
+        run: npm ci
       # The glob is required, not stylistic: Node 22 resolves a bare directory
       # argument to `--test` as a MODULE path and dies with MODULE_NOT_FOUND
       # before running anything. It fails as "1 test, 1 failed", which reads
@@ -108,6 +119,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+      # The payload portability check below parses markdown with `marked`.
+      # See the Test job for why a dependency is acceptable here and would not
+      # be in `core/`.
+      - name: Install the handbook's own tooling
+        run: npm ci
       # NOTE ON THIS JOB'S NAME. It is called `Manifest` and there is no
       # longer a manifest. The name is load-bearing anyway: it is a REQUIRED
       # status check in `.agents/machinery.json` and in the branch ruleset, so

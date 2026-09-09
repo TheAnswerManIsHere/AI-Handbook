@@ -30,6 +30,11 @@ test("a plain markdown link is a reference", () => {
 
 test("an anchor is stripped, because the file is what has to exist", () => {
   assert.deepEqual(linkTargets("[x](./a.md#section)"), ["./a.md"]);
+  // A same-document link names no file, so it drops out here rather than
+  // needing a `#` case in the external filter. The parser rewrite regressed
+  // this — it returned the href verbatim — which is why the fragment split is
+  // now explicit rather than incidental.
+  assert.deepEqual(linkTargets("[x](#section)"), []);
 });
 
 test("FENCED CODE IS NOT PROSE", () => {
@@ -38,6 +43,11 @@ test("FENCED CODE IS NOT PROSE", () => {
   // example links were reported as breakage by a first pass that did not
   // understand fences. Flagging correct documentation is how a check gets
   // suppressed wholesale, and a suppressed check protects nothing.
+  //
+  // These assertions outlived the implementation they were written against.
+  // They are kept ON PURPOSE: the reader was replaced wholesale, and a rewrite
+  // that quietly regressed the behaviour the old one got right would be a
+  // straight trade rather than a fix.
   const text = [
     "real [a](./a.md)",
     "```",
@@ -55,6 +65,8 @@ test("a nested fence closes only on a run at least as long as its opener", () =>
   // there, fence parity hid the link under both implementations, so it passed
   // against the naive toggle and proved nothing. Here the link sits between
   // the two inner fences, which a naive toggle reads as OUTSIDE the block.
+  // CommonMark gets this by construction; the assertion stays because the
+  // property is what matters, not which implementation supplies it.
   const text = [
     "````",
     "```",
@@ -82,6 +94,10 @@ test("a reference definition is a link, or the syntax is a hole in the check", (
   assert.deepEqual(linkTargets("See [the guide][g].\n\n[g]: ./missing.md\n"), ["./missing.md"]);
   assert.deepEqual(linkTargets('[g]: ./missing.md "Title"'), ["./missing.md"]);
   assert.deepEqual(linkTargets("[g]: <./missing.md>"), ["./missing.md"], "angle brackets are link syntax, not a placeholder");
+  // A definition NOTHING references still names a file that must exist, so it
+  // is collected from the lexer's definition table rather than from the token
+  // tree, where an unused definition never appears.
+  assert.deepEqual(linkTargets("[unused]: ./orphan.md\n"), ["./orphan.md"]);
 });
 
 test("a reference definition inside a fence is still an example", () => {
@@ -99,6 +115,86 @@ test("a dangling reference-style link is reported end to end", () => {
   }
 });
 
+// ── the six round-3 findings, one test each ────────────────────────────────
+//
+// Every one of these is a case the hand-rolled reader got wrong. They are
+// written as behaviour, not as "the parser handles it", so they stay
+// meaningful if the parser is ever swapped again — and each was watched
+// failing against the previous implementation before the rewrite landed.
+// The reader was wrong EIGHT times across three rounds; that count, not any
+// individual defect, is what bought a real parser. (Codex, #62 rounds 1-3.)
+
+test("a link title is not part of the destination", () => {
+  // `[x](./guide.md "Title")` resolved to `./guide.md "Title"`, which exists
+  // nowhere — a false positive on correct markdown, and the kind that gets a
+  // required check disabled rather than fixed.
+  assert.deepEqual(linkTargets('[x](./guide.md "Title")'), ["./guide.md"]);
+  assert.deepEqual(linkTargets("[x](./guide.md 'Title')"), ["./guide.md"]);
+  assert.deepEqual(linkTargets("[x](./guide.md (Title))"), ["./guide.md"]);
+});
+
+test("a footnote definition is not a reference definition", () => {
+  // `[^1]: text` matched the `[label]: dest` shape, so the footnote's first
+  // word was resolved as a path. Same false-positive class, different syntax.
+  assert.deepEqual(linkTargets("Text.[^1]\n\n[^1]: a note about ./nothing.md\n"), []);
+});
+
+test("a code span of any delimiter length is code", () => {
+  // The reader knew single backticks only, so ``a `b` c`` — the form used
+  // precisely when the content itself contains a backtick — leaked its links.
+  assert.deepEqual(linkTargets("``a `b` [x](./nope.md)`` then [y](./y.md)"), ["./y.md"]);
+  assert.deepEqual(linkTargets("```[x](./nope.md)``` then [y](./y.md)"), ["./y.md"]);
+});
+
+test("four leading spaces open an indented code block, not a fence", () => {
+  // The reader treated an indented ``` as a fence opener and read everything
+  // after it as code — silently blinding the check to the whole rest of the
+  // file. This is the dangerous direction: a FALSE NEGATIVE, which no one
+  // sees, unlike the noisy false positives above.
+  assert.deepEqual(linkTargets("    ```\nreal [a](./missing.md)\n"), ["./missing.md"]);
+});
+
+test("a URI scheme is any scheme, not a three-name allowlist", () => {
+  // The allowlist held lowercase http, https and mailto. Schemes are
+  // case-insensitive and open-ended, so `tel:`, `data:` and `HTTPS:` were
+  // resolved as local paths and reported as missing files.
+  const root = payloadWith({
+    "a.md": "[a](tel:+15551234) [b](HTTPS://example.com/x.md) [c](data:text/plain,hi) [d](//host/p.md)",
+  });
+  try {
+    assert.deepEqual(danglingReferences(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a target that climbs above the root is REPORTED, not normalised away", () => {
+  // `parts.pop()` on an empty array does nothing, so `../../CLAUDE.md` from
+  // `docs/a.md` came back as `CLAUDE.md` — which is in CONSUMER_OWNED, so a
+  // link escaping the repository entirely was laundered into a pass. The
+  // worst shape a check can have: it reported success about the exact case it
+  // was asked to judge.
+  assert.equal(resolveFrom("docs/a.md", "../../CLAUDE.md"), null);
+  assert.equal(resolveFrom("a.md", "../CLAUDE.md"), null);
+  const root = payloadWith({ "docs/a.md": "see [x](../../CLAUDE.md)" });
+  try {
+    const rows = danglingReferences(root);
+    assert.equal(rows.length, 1, "an escaping link must be reported");
+    assert.equal(rows[0].resolved, null);
+    assert.equal(rows[0].target, "../../CLAUDE.md");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a root-absolute target resolves from the root, not from the linking file", () => {
+  // Found while fixing the one above: `/docs/a.md` split to an empty leading
+  // segment, which the loop skipped, so the path was appended to the linking
+  // file's own directory. Not a Codex finding — a neighbour of one, and the
+  // reason to look around a defect rather than only at it.
+  assert.equal(resolveFrom("docs/ai-context/y.md", "/docs/a.md"), "docs/a.md");
+});
+
 // ── resolution ─────────────────────────────────────────────────────────────
 
 test("targets resolve against the file's DESTINATION path", () => {
@@ -106,6 +202,7 @@ test("targets resolve against the file's DESTINATION path", () => {
   assert.equal(resolveFrom("docs/ai-context/a.md", "./b.md"), "docs/ai-context/b.md");
   assert.equal(resolveFrom("docs/ai-context/a.md", "../tests/b.md"), "docs/tests/b.md");
   assert.equal(resolveFrom(".claude/skills/x/SKILL.md", "../../../docs/a.md"), "docs/a.md");
+  assert.equal(resolveFrom("docs/a.md", "b.md"), "docs/b.md", "a bare name is a sibling");
 });
 
 // ── what gets reported ─────────────────────────────────────────────────────
@@ -218,6 +315,29 @@ test("every consumer document the enrollment guide requires is in CONSUMER_OWNED
   assert.ok(rows.length > 5, `expected the consumer-owned table, found ${rows.length} rows`);
   const missing = rows.filter((r) => !CONSUMER_OWNED.has(r));
   assert.deepEqual(missing, [], "add these to CONSUMER_OWNED, or remove the row if the document is optional");
+});
+
+// ── the handbook's own manifest must not change how payload files execute ──
+
+test("the root package.json declares no `type`, because payload .js is CommonJS", () => {
+  // Found by looking around this PR's change rather than at it. `package.json`
+  // was added for ONE check's dependency, and a root manifest governs every
+  // unscoped file beneath it -- including `core/.claude/skills/`, which holds
+  // two CommonJS `.js` files. With `"type": "module"`, render-graphs.js dies
+  // on its first `require()` (reproduced: "require is not defined in ES module
+  // scope"). Nothing needed the field: every check here is `.mjs`, which is
+  // ESM whatever the manifest says.
+  //
+  // This is a test rather than a comment because the field is exactly what a
+  // future editor adds without thinking -- it is the default shape of a modern
+  // manifest, and the breakage is two directories away from the edit.
+  const pkg = JSON.parse(readFileSync(resolve(REPO_ROOT, "package.json"), "utf8"));
+  assert.equal(
+    pkg.type,
+    undefined,
+    'adding "type" to the root manifest reinterprets every unscoped .js beneath it, ' +
+      "core/.claude/skills/ included — scope it to a nested package.json instead",
+  );
 });
 
 // ── the live invariant ─────────────────────────────────────────────────────
