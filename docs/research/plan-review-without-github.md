@@ -5,6 +5,23 @@ Repo-local, outside `core/`, so nothing here ships to a consumer. This is
 the working-notes doc for the "better way to do planning" ask; the decision
 lives in chat until David makes it, then belongs in `decisions.md`.
 
+## Decision (David, 2026-09-09)
+
+1. **The plan reviewer moves in-session**: Codex CLI run by a script inside
+   the Claude cloud container, `gpt-6-astra` at `xhigh`, read-only sandbox,
+   output constrained to the plan-review contract's full-assessment shape.
+   The Codex GitHub connector keeps reviewing **code**; this replaces only
+   the plan loop. Building it is the next increment, its own PR,
+   David-merge-only because it rewrites the working contract.
+2. **Sign-in is per session, by ChatGPT device code, never stored.** Chosen
+   over persisting the token bundle (mechanically proven to work) and over a
+   metered API key (which does not draw on the Pro allowance). The rule is
+   in `core/docs/ai-context/web-research.md`, beside the credential rule it
+   extends.
+3. **Recorded gap, deliberately**: the token bundle transiting chat was
+   refused by the harness classifier before anything was written; that
+   refusal is treated as the rule working, not an obstacle to route around.
+
 ## The ask, and what it actually constrains
 
 David's ask: a plan-review loop that (1) does not run through PRs/GitHub,
