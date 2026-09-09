@@ -243,3 +243,39 @@ same reviewer, same contract, same schema.
   in-session now, where speed is the goal; the Action is the *next* if a
   durable asynchronous review is ever needed, or if David decides the
   secret-store argument outweighs the capped-project key.
+
+## Using the ChatGPT Pro allowance instead of API billing (David, 2026-09-09)
+
+No API key draws on a ChatGPT subscription; the API is metered by design.
+The credential that does draw on it is the ChatGPT sign-in bundle Codex
+keeps in `$CODEX_HOME/auth.json` (access token, refresh token, account
+id). OpenAI documents persisting it for headless runners ("Maintain Codex
+account auth in CI/CD", `learn.chatgpt.com/codex/auth/ci-cd-auth`):
+
+- Seed `auth.json` from one real sign-in; Codex refreshes the bundle
+  itself when `last_refresh` is older than about 8 days and writes the
+  refreshed tokens back. Refresh tokens do not rotate on their own.
+- The refreshed file should be persisted back after each run. Our
+  container cannot write to the environment env block, so the stored seed
+  ages; a seed too old or revoked yields 401 and needs a fresh sign-in.
+  Whether a weeks-old seed still refreshes is the pilot's first
+  measurement.
+- One bundle per runner; treat it like a password; never in the repo,
+  logs, chat, or tickets.
+
+Flow that fits "David never runs CLI": I run `codex login --device-auth`
+in the session, David approves the URL and code on his phone, the bundle
+lands in the container. To persist it he pastes it into the environment
+settings as one variable (e.g. `CODEX_AUTH_JSON`), which means it transits
+this session's chat or a sent file once. Every later session writes the
+variable to `$CODEX_HOME/auth.json` before spawning Codex.
+
+Only two routes draw on the Pro allowance at all: the managed Codex
+GitHub connector (today's), and Codex CLI signed in with ChatGPT. The
+GitHub Action route bills an API key. So the subscription requirement by
+itself selects the in-session design.
+
+Blast radius: the bundle is David's ChatGPT account credential, uncapped,
+readable by anyone using the environment. That is exactly what the
+current `web-research.md` rule forbids; storing it anyway is David's
+override, to be recorded in `decisions.md` with the dissent.
