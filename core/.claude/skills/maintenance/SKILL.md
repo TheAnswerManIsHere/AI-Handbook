@@ -204,6 +204,32 @@ the standing recommendation on file is the delete list from the #541 review.
 Below three qualifying loops, say "not yet informative" rather than dressing two
 data points as a trend.
 
+### Step 6c — the Fable-role scoreboard (issue #36)
+
+**Measure from day one, because retirement is the design.** The previous
+attempt at Fable review ran to zero-for-fifteen before anyone counted, and it
+was retired on that number. These roles are held to the same bar, so the count
+has to exist before anyone argues about their value.
+
+Since the last pass, per role:
+
+| Role | The number that matters |
+|---|---|
+| **B1** conformance triage | findings whose classification changed what the builder did — a decline it would not otherwise have made, or a fix it would have skipped |
+| **B2** delta review | self-inflicted defects caught **before** a re-request, plus hollow oracles it refused |
+| **B3** check synthesis | checks proposed, and how many became issues |
+| **D1–D4** | **David decisions changed** — a plan not approved as posed, a merge held, a gap escalated, an option added to a framing |
+
+**A role at zero across fifteen dispatches is retired in that pass**, not
+discussed. Say so in the report and open the PR that deletes its definition,
+its `ROLES` entry and its route. **A role reporting activity on every dispatch
+is the other failure** — it is padding to look useful, and its number should be
+read as zero until a specific instance is named.
+
+Read the counts from the loop record and the receipts, never from recollection.
+Where a role has no dispatches yet, report `0 dispatches` rather than omitting
+the row: an absent row reads as "fine" and a zero row reads as "not yet used".
+
 ## 7. Replit commit review
 
 Retrospective read of what Replit pushed straight to `main` this week — the

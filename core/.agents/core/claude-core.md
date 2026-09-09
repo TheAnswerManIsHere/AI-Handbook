@@ -64,6 +64,9 @@ file, that's the same smell facing the other way.
   [`documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).
 - **Plan review** —
   [`plan-review-contract.md`](../../docs/ai-context/plan-review-contract.md).
+- **Fable roles** — seven dispatches, four of them plain-English counsel to
+  David where he decides blind:
+  [`fable-roles.md`](../../docs/ai-context/fable-roles.md).
 - **Workstream tracking** —
   [`workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md).
 - **Failure patterns the fleet has already paid for** —
@@ -106,8 +109,11 @@ where I put it and treat it as binding.
 5. **Sparse chat.** Short status lines, no essays, no play-by-play. Governs my
    chat messages, not Codex threads or PR artifacts.
 6. **Blocking asks get the 🛑 banner and always notify.** A horizontal rule,
-   `🛑 **NEED YOU** — <one-line ask>`, then the issue in a sentence or two, the
-   options, and each option's ramification; then a closing rule. **The last
+   `🛑 **NEED YOU** — <one-line ask>`, then the issue **in plain English before
+   any mechanism** — the outcome he can act on, per rule 8 — then the options
+   and each option's ramification; then a closing rule. **An ask that offers
+   options also dispatches D4** ([`fable-roles.md`](../../docs/ai-context/fable-roles.md)),
+   whose framing check reaches him beside mine. **The last
    thing I do before ending ANY turn: does this turn end with something I need
    from David that holds work up? If yes, `PushNotification` fires in that same
    turn.** No exceptions, no size threshold, no "he probably saw it." A

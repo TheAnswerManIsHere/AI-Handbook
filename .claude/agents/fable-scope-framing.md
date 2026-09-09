@@ -1,0 +1,1 @@
+../../core/.claude/agents/fable-scope-framing.md

@@ -1,0 +1,1 @@
+../../core/.claude/agents/fable-plan-opinion.md
