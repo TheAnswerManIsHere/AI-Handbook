@@ -35,6 +35,23 @@ and reaches no customer data, no payment path, and no other system. Never put a
 credential with real blast radius (Stripe, OpenAI, the database, GitHub) in this
 env block on the strength of this precedent.
 
+**The same rule, applied to the Codex CLI's ChatGPT sign-in (David,
+2026-09-09).** When Codex CLI runs inside a cloud session — as the in-session
+GPT-6 plan reviewer does — it is signed in **per session, by device code**:
+the session runs `codex login --device-auth`, David opens the printed URL on
+his phone and enters the one-time code, and the token bundle lives in
+`$CODEX_HOME/auth.json` for the life of that container and nowhere else. Never
+store that bundle in the environment block, never hand it through chat or a
+sent file so it can be pasted somewhere durable, and never substitute an API
+key for it on the assumption that it draws on the ChatGPT subscription — no
+API key does; the API is metered separately. OpenAI documents seeding
+`auth.json` onto headless runners, so persistence was available and was
+declined on purpose: the bundle is the whole ChatGPT account, uncapped, and
+the harness classifier refuses to write it out for hand-off, which is the rule
+working. A session that needs the reviewer and finds no sign-in asks for the
+thirty-second phone step as a 🛑 with a push notification; it does not look
+for a stored copy.
+
 **A missing key degrades, it does not break.** Claude Code still loads a
 `.mcp.json` whose variable is unset; it warns and passes the literal
 `${FIRECRAWL_API_KEY}` through, so the server simply fails to connect. If the

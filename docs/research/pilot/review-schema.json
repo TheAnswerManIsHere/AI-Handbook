@@ -1,0 +1,84 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["review_status", "lens_applied", "summary_for_david", "what_is_strong", "required_revisions", "product_decisions_for_david", "recommended_improvements", "verified_claims", "unable_to_verify", "previous_findings"],
+  "properties": {
+    "review_status": {
+      "type": "string",
+      "enum": ["No major technical disagreement", "Directionally good, revisions needed", "Substantive technical concerns", "Strong disagreement on direction", "Human clarification required", "Repo context required"]
+    },
+    "lens_applied": { "type": "string" },
+    "summary_for_david": { "type": "string", "description": "Three plain-English sentences for a non-coding product owner: what this plan builds, whether it is safe to approve, and the one thing he should decide or watch." },
+    "what_is_strong": { "type": "array", "items": { "type": "string" } },
+    "required_revisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "why_it_matters", "what_should_change", "acceptance_check", "evidence", "class"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "why_it_matters": { "type": "string" },
+          "what_should_change": { "type": "string" },
+          "acceptance_check": { "type": "string", "description": "A pass/fail condition a reviser can run or check." },
+          "evidence": { "type": "array", "items": { "type": "string" }, "description": "File paths with line numbers, or commands you ran, that ground this finding." },
+          "class": { "type": "string", "description": "The general class of defect this instance belongs to, so the reviser can sweep for siblings." }
+        }
+      }
+    },
+    "product_decisions_for_david": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question", "options", "recommendation"],
+        "properties": {
+          "question": { "type": "string" },
+          "options": { "type": "array", "items": { "type": "string" } },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "recommended_improvements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "what", "why"],
+        "properties": { "title": { "type": "string" }, "what": { "type": "string" }, "why": { "type": "string" } }
+      }
+    },
+    "verified_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "how_verified"],
+        "properties": { "claim": { "type": "string" }, "how_verified": { "type": "string" } }
+      }
+    },
+    "unable_to_verify": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "why"],
+        "properties": { "claim": { "type": "string" }, "why": { "type": "string" } }
+      }
+    },
+    "previous_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "reason"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["Resolved", "Still open", "Superseded"] },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

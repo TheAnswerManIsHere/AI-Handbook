@@ -1,0 +1,158 @@
+{
+  "review_status": "Substantive technical concerns",
+  "lens_applied": "Authority, bypass, and sync/bootstrap ordering, focused on ordinary operator mistakes rather than deliberate circumvention.",
+  "summary_for_david": "This would give the judge consistent evidence, fuller context, and a reliable account of its requested settings. It is not ready for your approval because some routes could still accept unchecked evidence. Decide whether this increment should also repair older review records that already fail today.",
+  "what_is_strong": [
+    "The git-derived artifact design addresses the conflicting sources directly, including endpoint validation, renames, binary files, and record exclusions.",
+    "The plan preserves the existing adjudicator role, verdicts, budgets, and David\u2019s authority while explicitly deferring later work.",
+    "Compatibility based on the cited record\u2019s format avoids a backdating loophole.",
+    "The layout-aware resolver correctly accounts for the handbook\u2019s symlinked agent definition and absent consumer-path memory file.",
+    "Approved-plan provenance, a positive plan-review form, and reviewer-only finding bodies substantially improve the judge\u2019s evidence."
+  ],
+  "required_revisions": [
+    {
+      "id": "R1",
+      "title": "Validate cited records on every readiness path",
+      "why_it_matters": "Decision 8a targets the terminal adjudication fallback, but a clean Codex pass skips that fallback entirely. The always-run checkRail path calls validateExtension with io:null, which explicitly skips opening the record. Consequently, adding the proposed comparisons only to the described validators can still leave readiness satisfiable with mismatched stamps or no cited record.",
+      "what_should_change": "Require record-backed validation wherever readiness consumes an adjudication receipt, including checkRail and its extension chain. Missing or unreadable records must refuse before deciding whether compatibility applies; they cannot count as legacy records. Preserve David\u2019s separate direct-stop authority and the legitimate case where no adjudication receipt exists.",
+      "acceptance_check": "With a clean current-head Codex pass and otherwise passing readiness inputs, an adjudication receipt with mismatched stamps, missing required stamps, or a missing cited record produces NOT READY. Valid legacy and new-format chains retain their intended behavior.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:232-239 targets the terminal fallback.",
+        "core/scripts/pr-ready.mjs:1592-1610 skips checkAdjudicatedCodex on a clean pass but always runs checkRail.",
+        "core/scripts/pr-ready.mjs:1706-1720 validates the chain with io:null.",
+        "core/scripts/review-budget.mjs:1054 returns success without reading a record when io is absent.",
+        "Read-only Node probe: validateExtension(999, 'internal', a terminal receipt citing nonexistent .agents/adjudications/999-missing.json, {io:null, ref:null}) returned null."
+      ],
+      "class": "Validation bypass through an alternate acceptance path"
+    },
+    {
+      "id": "R2",
+      "title": "Bind the recorded definition to the definition used for dispatch",
+      "why_it_matters": "Reading frontmatter at the reviewed head establishes what that commit declares, but does not establish what the dispatching session declares. The plan expressly supports generation from a stale checkout. During an update or first sync, the session can therefore use an older or differently selected agent definition while both receipt validators accept stamps copied from the newer record. This is distinct from the accepted uncertainty about which model the provider ultimately served.",
+      "what_should_change": "Specify a pre-dispatch procedure that establishes that the session loads the definition represented by dispatch.source and dispatch.sha, including reload requirements and higher-priority declaration overrides. Keep generation head-pinned and perform this outside the configuration-free hook path. If the active declaration cannot be established, report that limitation rather than claiming the receipt proves it.",
+      "acceptance_check": "Start with an old definition, then review a head that changes model and effort. Dispatch either demonstrably uses the reviewed definition or stops with a named mismatch; copying the record\u2019s stamps alone cannot satisfy this check. Exercise the same sequence when the first sync creates the agents directory.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:190-197 equates the reviewed definition with the dispatch declaration.",
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:287-294 explicitly permits a main or stale checkout.",
+        "core/.claude/skills/pr-watch/SKILL.md:205-215 invokes the named session subagent after record generation.",
+        "Current [Claude Code subagent documentation](https://code.claude.com/docs/en/sub-agents#write-subagent-files) describes disk-based loading and restart exceptions; its scope and model-selection sections also document higher-priority definitions and forced model overrides."
+      ],
+      "class": "Recorded provenance is not bound to the execution source"
+    },
+    {
+      "id": "R3",
+      "title": "Deliver the decline citation with the machinery that requires it",
+      "why_it_matters": "The new internal-tier record cannot be generated without the threat-model file. Today machinery requires only machinery-config, while that file belongs to the separately staged memory group. The documented ordering therefore permits machinery to arrive first and makes its new mandatory input unavailable in a clean consumer. A core/ retry cannot recover a file that was never delivered.",
+      "what_should_change": "Update the manifest ownership or dependency ordering so the specific decline-citation file is delivered before or atomically with its new reader. Record this as a runtime dependency, not a documentation mention. Keep unrelated staged blockers intact; moving this one existing file\u2019s delivery ownership is an option that avoids unstaging the whole memory group.",
+      "acceptance_check": "Assemble a consumer containing only the groups permitted to accompany the machinery\u2019s first delivery. It contains the agent definition and internal decline citation, and can generate its first internal adjudication record without manually copying payload or changing consumer configuration.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:207-212 requires refusal when neither layout resolves.",
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:287-296 makes the internal citation mandatory.",
+        "sync-manifest.yml:346-350 and 440-442 place the citation in memory.",
+        "sync-manifest.yml:678-691 makes machinery depend only on machinery-config.",
+        "sync-manifest.yml:1007-1070 describes machinery as an early, independently unstageable group.",
+        "node scripts/check-manifest.mjs returned: 180 payload files, 0 ready groups, 13 staged groups."
+      ],
+      "class": "New runtime dependency omitted from delivery ordering"
+    },
+    {
+      "id": "R4",
+      "title": "Make the total-size policy terminate when metadata exceeds the cap",
+      "why_it_matters": "Decision 12a leaves metadata collections uncapped and says the final overflow is resolved by shedding more finding text. That cannot work once finding text is empty: finding metadata, outsideDiffPaths, round history, or sinceLastReview.files can independently exceed 600,000 characters. The prescribed algorithm must then exceed its limit, fail to terminate, or invent an unspecified fallback.",
+      "what_should_change": "State numeric bounds and deterministic overflow handling for every variable-length collection and string, including metadata and truncation bookkeeping. Compute truthful totals and territory from the complete inputs before any display truncation, retain required validation facts, and explicitly count omitted entries. Define behavior when no finding text remains to shed.",
+      "acceptance_check": "A metadata-dominated record with empty finding bodies terminates and emits at most 600,000 characters, including formatting, newline, and truncation metadata. Reported totals remain accurate and every omission is named.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:306-335 leaves metadata individually uncapped and specifies finding-text removal as the final overflow mechanism.",
+        "core/scripts/review-loop-record.mjs:347-375 retains metadata for every reviewer finding.",
+        "core/scripts/review-loop-record.mjs:385-398 accumulates outsideDiffPaths without a bound.",
+        "Read-only Node probe using reviewerFindings and findingsByTerritory: 1,500 findings with empty bodies and ordinary-length paths serialized to 919,327 characters before adding other record fields."
+      ],
+      "class": "Incomplete resource bound with no terminal overflow behavior"
+    },
+    {
+      "id": "R5",
+      "title": "Repair the producer inventory and record all five results",
+      "why_it_matters": "The fifth oracle does not find the two refusal recipes it claims to cover: their relevant wording spans different lines. A grep-based check using this oracle can therefore pass while canonical receipt instructions omit the new stamps. Decision 15 also records no fifth result and retains the obsolete six-site consumer inventory.",
+      "what_should_change": "Use an inventory that actually identifies complete receipt-producing recipes, with explicit classification where no reliable single-line signature exists. Record current results for all five agreed inventories, including the two refusal recipes and all independent receipt consumers.",
+      "acceptance_check": "The producer inventory identifies README examples and both review-budget refusal recipes. Removing stamps from either recipe is detected. The plan records five executed inventories and classifies every production adjudication consumer.",
+      "evidence": [
+        "docs/plans/PLAN_FABLE_REVIEW_FOUNDATIONS.md:362-406 defines the fifth oracle but records only four results.",
+        "git grep -nE '\"kind\": ?\"adjudication\"|kind.*adjudication.*verdict' -- core/.agents/receipts/README.md core/scripts/review-budget.mjs returned README lines 111 and 118 plus validator expressions at 421, 1134, and 1399; neither refusal recipe appeared.",
+        "core/scripts/review-budget.mjs:1580-1593 and 1606-1611 contain the missed producers.",
+        "The class-4 oracle, restricted to production scripts, returned seven sites across pr-ready.mjs and review-budget.mjs, rather than the recorded six."
+      ],
+      "class": "Incomplete inventory falsely presented as exhaustive coverage"
+    }
+  ],
+  "product_decisions_for_david": [
+    {
+      "question": "An older review decision for PR #10 already fails today\u2019s checks; should this increment preserve currently accepted history or also repair that historical decision?",
+      "options": [
+        "Preserve currently accepted receipts and track the existing PR #10 failure separately.",
+        "Include a bounded repair of the historical chain while preserving the current budget and David-gate rules."
+      ],
+      "recommendation": "Preserve current acceptance behavior and track PR #10 separately, but explicitly amend the literal promise that every existing chain loads. Do not weaken the budget rules merely to make that promise pass."
+    }
+  ],
+  "recommended_improvements": [
+    {
+      "title": "Make the empirical dispatch check reproducible",
+      "what": "Record the harness version, invocation, reload procedure, and observed result for the selected alias and fallback.",
+      "why": "The plan\u2019s external verification is dated, but actual definition loading and override behavior depend on the installed harness."
+    },
+    {
+      "title": "Correct the record lifecycle description",
+      "what": "Replace the assertion that committed records are never reread with their actual durable-reference lifecycle.",
+      "why": "Both current validators already reread committed records, and the new compatibility rule depends on those reads."
+    }
+  ],
+  "verified_claims": [
+    {
+      "claim": "The recorded zero-size anomaly exists.",
+      "how_verified": "Read .agents/adjudications/33-1.json: files, added, and removed are zero beside a 52,156-character patch; territory reports seven findings outside the diff."
+    },
+    {
+      "claim": "Artifact counts and territory currently use snapshot files, while the patch uses git.",
+      "how_verified": "Inspected core/scripts/review-loop-record.mjs:274-279, 497, and 538, and core/scripts/review-counting.mjs:371-377 and 585-593."
+    },
+    {
+      "claim": "The handbook needs the proposed layout-aware resolution.",
+      "how_verified": "git ls-tree HEAD reports mode 120000 for .claude/agents/review-loop-adjudicator.md; git show returns its relative target. The threat-model file exists only under core/.agents/memory/."
+    },
+    {
+      "claim": "The existing configuration does not need a model key.",
+      "how_verified": "Read .agents/machinery.json and core/.agents/machinery.template.json: their operational fields are repo and requiredChecks. The agent definition already owns its model declaration."
+    },
+    {
+      "claim": "Current documentation supports the basic alias and effort approach, subject to harness verification.",
+      "how_verified": "Checked [model configuration](https://code.claude.com/docs/en/model-config) for best\u2019s Fable/Opus resolution and [subagent documentation](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields) for effort frontmatter and session inheritance."
+    },
+    {
+      "claim": "Existing receipt compatibility is not uniformly passing at this checkout.",
+      "how_verified": "Ran loadLoop against committed HEAD using the existing I/O adapter: PRs 14, 15, 18, 23, 33, and 37 loaded; PR #10 refused because loop-extension-10-5.json cites a record with five completed passes below its stage floor of seven. Confirmed .agents/adjudications/10-7.json:25 and 50."
+    },
+    {
+      "claim": "The four read-only repository checks pass.",
+      "how_verified": "Ran check-manifest, check-identity-sources, check-root-wiring, and check-settings-fields; all exited 0. Results included 65 classified identity touchpoints and 36 skills plus three agents wired to the payload."
+    }
+  ],
+  "unable_to_verify": [
+    {
+      "claim": "Regenerating #33 at 703b230 produces exactly nine files and seven in-diff findings.",
+      "why": "The committed historical record is available, but the original snapshot is absent and git cat-file reports that its referenced commit is unavailable in this clone."
+    },
+    {
+      "claim": "This dispatching harness accepts best and xhigh and uses the intended loaded definition.",
+      "why": "This review environment is not the plan author\u2019s Claude Code session. Documentation is available, but the empirical dispatch check remains implementation-time work."
+    },
+    {
+      "claim": "The mandated test suite passes.",
+      "why": "node --test scripts/__tests__/*.test.mjs exited 1. A direct diagnostic run confirmed EROFS when fixtures attempted mkdtemp under /tmp; this read-only environment prevents completing those tests."
+    },
+    {
+      "claim": "A live consumer\u2019s first sync succeeds with the new record format.",
+      "why": "Both consumers are marked unenrolled and all payload groups are staged in this checkout; no live consumer rollout was available to exercise."
+    }
+  ],
+  "previous_findings": []
+}
