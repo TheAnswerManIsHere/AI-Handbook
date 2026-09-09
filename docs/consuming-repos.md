@@ -129,9 +129,9 @@ destination.
 | `docs/tests/uat-doc-format.md` | The UAT skill and `check-uat-format.mjs` define a run through this file's structure, which names this repo's own surfaces |
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
-| `docs/ai-context/product-direction.md` | The next-work skill resolves its recommendation through it. Product truth by definition |
+| `docs/ai-context/product-direction.md` | Product truth by definition. **The path is a default, not a route** — see below |
 | `docs/ai-context/sensitive-subsystems.md` | Which of *this* product's areas add the specialist review tier. Both overlays route to it, and the core's ceremony rules dereference it — see enrollment step 1 |
-| `docs/ai-context/current-roadmap.md` | Same — the maintenance, status and next skills all read it, and it is per-product |
+| `docs/ai-context/current-roadmap.md` | Same, and per-product. **The path is a default, not a route** — see below |
 | `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
 A consumer needs these before or alongside its first sync. They may be started
@@ -154,6 +154,27 @@ So the rule, rather than the list, is what to rely on:
 
 The rows above are the cases worth explaining — the ones where *why* it cannot
 be shared is not obvious. They are examples of the rule, not its boundary.
+
+**Two rows name a path the payload no longer follows, and the distinction is
+worth stating because it is easy to read them as broken.** Their reasons used
+to be "the next-work skill resolves its recommendation through it" and "the
+maintenance, status and next skills all read it" — both true when the skills
+linked those exact filenames, both **false** after this pass de-linked them.
+The skills now ask the overlay for "the repo's roadmap", which is the point: a
+payload that dictates a consumer's filenames is the coupling this whole pass
+removes.
+
+So for these two, the **document is required and the path is only the default
+the templates assume.** A repo that keeps its roadmap at `ROADMAP.md` satisfies
+the requirement by routing to it from the overlay, and creating an empty
+`current-roadmap.md` beside it would be the failure, not the fix. (Codex, #62
+round 4, catching a table that still described the routes this PR deleted.)
+
+`docs/ai-context/sensitive-subsystems.md` is deliberately **not** in that
+category, and the difference is not arbitrary: the roadmap is product truth
+whose organisation belongs to the product, while sensitive-subsystem
+classification is a handbook concept every repo instantiates the same way, and
+both overlays route to it by the name given here.
 
 Enforcing the rule mechanically — resolving every link in a payload file and
 failing when a target is neither in `core/` nor declared consumer-owned — is
