@@ -371,7 +371,7 @@ implementation PR:
   shape, and a reply missing any line of it does not get posted:
 
   ```
-  Worth: <the chance this situation occurs in real use, and what it costs when it does — or "decline: <which is missing>">
+  Worth: <the chance this CLASS occurs in real use, and what it costs at its worst — or "decline: <which half is missing>">
   Class: <what the whole class of this finding is>
   Oracle: `<the exact command>`
   Result: <its output — a count, or "0 matches">
@@ -388,7 +388,23 @@ implementation PR:
   on review, roughly half were refusals for situations that will not occur.
   A reviewer's badge is not a likelihood; the `Worth:` line is where the
   likelihood is actually stated, so it cannot be skipped by treating the
-  badge as one. Sensitive-tier code keeps full depth and is the exception.
+  badge as one.
+
+  **Weigh the class, never the reviewer's example.** Codex reports whichever
+  instance it saw, and that instance is usually not the worst one the class
+  reaches — so write the `Class:` line first and answer `Worth:` against
+  *it*. On AI-Handbook #73 this went wrong in exactly the way that reads
+  like diligence: an unsafe `--out` path was declined as "one gitignored
+  JSON lands one directory over", and the next round returned the same class
+  as `--out .git/HEAD`, which truncates the checkout. The tell is a
+  consequence clause quoting details specific to the reviewer's scenario;
+  strip them and ask what remains reachable. Full write-up:
+  `docs/ai-context/known-failure-patterns.md`.
+
+  **Sensitive-tier code is bound by the line, not exempt from it** — the bar
+  moves rather than lifting: consequence dominates, so an unlikely situation
+  with a severe one is fixed. Exempting it would drop the reasoning where it
+  should be most explicit.
 
   Four things follow from that, and they are the point:
 

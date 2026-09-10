@@ -471,8 +471,17 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    round and the aggregate is never weighed at the moment of the decision.
    This is *engineer-to-the-blast-radius* fired at triage, which is where a
    review loop actually over-builds: the design-time rule never collides
-   with a P2 badge. Sensitive-tier code is the exception and keeps its full
-   depth.
+   with a P2 badge. Three bindings, without which the rule is a licence to
+   decline anything described narrowly enough —
+   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
+   carries what each one cost:
+   **the consequence is the class's, never the reported instance's**, since
+   a reviewer names one example and the decline must answer the worst case
+   the class reaches; **sensitive tiers are bound by the line, not exempt
+   from it** — consequence dominates there, so an unlikely situation with a
+   severe one is fixed; and **a declined class the reviewer raises again is
+   the decline being wrong**, re-triaged on the new instance, naming which
+   half of the earlier `Worth:` line was mis-sized.
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in

@@ -2695,3 +2695,41 @@ it, or write down why it doesn't apply here. That is a ten-minute read against
 a review round per omission. If the two are close enough, extract the
 validation itself rather than the counting, which is the half that was actually
 hard-won.
+
+## A decline scoped to the reviewer's example instead of the finding's class
+
+**The pattern.** Triage weighs a finding's consequence and finds it small, so
+the finding ships as a recorded gap. But the consequence that was weighed is
+the one the *reviewer's example* reaches, not the one the *class* reaches — and
+a reviewer picks whichever instance it happened to see, not the worst one. The
+decline then reads as careful engineering while resting on a boundary nobody
+drew deliberately.
+
+This is the specific way a worth-based triage rule fails. The rule itself is
+sound and exists because, under a write-gate, every fix costs a full review
+round; what makes it dangerous is that mis-scoping the consequence is
+indistinguishable, in the moment and in the written reply, from applying it
+correctly.
+
+**The worked example (AI-Handbook #73).** Round 3 reported that
+`fable-dispatch.mjs` checked its `--out` path *lexically*, so a symlinked
+component could put the receipt outside the repository. The decline weighed
+that as *"what escapes is a single gitignored receipt JSON written to a
+directory I chose by hand"* — likelihood near zero, consequence trivial — and
+it shipped as a gap over an oracle that had genuinely been run.
+
+Round 4 returned the same class without the symlink: `--out .git/HEAD` is
+inside the repository, passes the containment check, and `writeFileSync`
+**truncates it**. Same code, same class, a destroyed checkout instead of a
+misplaced JSON. The question the triage answered was *where does the file
+land*; the question the class asked was *what does this write destroy*. Nothing
+about the reported instance hinted at the second one, which is the point.
+
+**Avoid:** state the class in the `Worth:` line before the consequence, then
+answer the consequence *of that class at its worst*, not of the example in
+front of you. The tell is a decline whose consequence clause quotes details
+specific to the reviewer's scenario — "gitignored", "one directory over", "a
+file I chose by hand". Those are properties of the example. Strip them and ask
+what remains reachable. And treat a class the reviewer raises a second time as
+evidence the first decline was mis-sized, not as repetition: re-triage it on
+the new instance and name which half of the original judgement was wrong.
