@@ -371,7 +371,7 @@ implementation PR:
   shape, and a reply missing any line of it does not get posted:
 
   ```
-  Worth: <the chance this CLASS occurs in real use, and what it costs at its worst — or "decline: <which half is missing>">
+  Worth: <who supplies the value — if this code or its operator, "decline: derive it instead of checking it"; otherwise the chance this CLASS occurs in real use, and what it costs at its worst — or "decline: <which half is missing>">
   Class: <what the whole class of this finding is>
   Oracle: `<the exact command>`
   Result: <its output — a count, or "0 matches">

@@ -464,9 +464,14 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    ended up with compare-and-swap semantics. Product/design forks, scope
    additions, splits and disclosure questions go to David.
    **A fix needs both a real likelihood and a real consequence** (David,
-   2026-09-10). Every reply carries a **`Worth:`** line naming the chance the
-   finding's situation occurs in actual use and what it costs when it does;
-   a finding missing either is a one-line decline shipped as a recorded gap,
+   2026-09-10). Every reply carries a **`Worth:`** line that answers, in
+   order: **who supplies the value** — if this code or its operator does,
+   the disposition is *derive it and decline*, never a check, because a
+   check whose two sides I own guards nothing (David, 2026-09-10: *"you
+   control both sides"*; #73 spent four rounds on one flag before deleting
+   it) — then the chance the situation occurs in actual use, then what it
+   costs when it does. A finding missing any of those is a one-line decline
+   shipped as a recorded gap,
    never a fix — however small the diff looks, because each one costs a
    round and the aggregate is never weighed at the moment of the decision.
    This is *engineer-to-the-blast-radius* fired at triage, which is where a

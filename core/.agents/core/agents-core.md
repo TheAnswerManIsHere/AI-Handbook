@@ -113,6 +113,20 @@ Prefer, in order:
 - **Runtime behavior must match admin preview and debug surfaces.**
 - **Avoid duplicate sources of truth.**
 - **Do not patch only the latest example — solve the general mechanism.**
+- **A check earns its place only when the value can differ from what you
+  intended — which requires something outside your control to have produced
+  it.** A harness report, a network response, a real user, another program's
+  output: observe those and refuse on disagreement. A value this code or its
+  own operator produces: **derive it instead of checking it.** A check whose
+  two sides you both own carries no independent information — it fails only
+  when the code between them is wrong, and that code is exactly as likely to
+  be wrong as the check. The machinery under `scripts/` is the standing case:
+  its threat model is the operator's own mistakes, never an adversary, and a
+  local script is not a security boundary. A finding that needs the operator
+  to supply a hostile value is out of scope, and the useful response is to
+  remove the input, not to guard it (AI-Handbook #7: eleven findings and no
+  added safety; AI-Handbook #73: four review rounds on one flag, then the
+  flag was deleted).
 - **Prefer database-backed config for tunable operational settings.**
 - **Migrations must be idempotent and observable.**
 - **Async work must show status** at two altitudes (per-item + aggregate) — see

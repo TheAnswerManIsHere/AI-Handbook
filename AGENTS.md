@@ -49,6 +49,18 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   product's code, paths, skills or subsystems is not.
   [`docs/porting-notes.md`](docs/porting-notes.md) records how the current
   split was drawn.
+- **The scripts' threat model is the operator's own mistakes, not an
+  adversary.** Every input to `scripts/` and `core/scripts/` comes from the
+  person running them, on a command line they wrote. The controls against
+  deliberate action are David's merge and GitHub's server-side ruleset; a
+  local script is not a security boundary. So a finding that needs the
+  operator to supply a hostile value — a planted symlink, a hard link, a path
+  they would have to type on purpose — is out of scope here, however real the
+  shape would be elsewhere. Where a value is under the script's own control,
+  the fix worth proposing is **derive it instead of accepting it as input**,
+  which removes the class rather than guarding one instance of it. History:
+  [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
+  the general rule is in `agents-core.md`'s product principles.
 
 ## Setup, verification, and the CI gate
 
