@@ -910,6 +910,8 @@ test("the first round pins the oracle, and a matching one passes", () => {
   const first = pinOracle(root, "DIRECTION");
   assert.equal(first.firstPin, true);
   assert.equal(first.changed, false);
+  assert.ok(!existsSync(join(root, "oracle.txt")), "the decision is made now; the write waits for commit()");
+  first.commit();
   assert.equal(readFileSync(join(root, "oracle.txt"), "utf8").trim(), "DIRECTION");
   const again = pinOracle(root, "DIRECTION");
   assert.equal(again.firstPin, false);
@@ -922,7 +924,7 @@ test("an oracle that drifted from the pin is refused", () => {
   // input nobody was watching: edit the plan AND its oracle block, and the
   // next round measures the plan against the rewritten intent.
   const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
-  pinOracle(root, "DIRECTION: ship A and B");
+  pinOracle(root, "DIRECTION: ship A and B").commit();
   assert.throws(() => pinOracle(root, "DIRECTION: ship A"), /differs from the one pinned/);
   assert.throws(() => pinOracle(root, "DIRECTION: ship A"), /--oracle-changed/);
   drop(root);
@@ -930,10 +932,14 @@ test("an oracle that drifted from the pin is refused", () => {
 
 test("a deliberate oracle change is allowed, recorded, and re-pinned", () => {
   const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
-  pinOracle(root, "DIRECTION: ship A and B");
+  pinOracle(root, "DIRECTION: ship A and B").commit();
   const changed = pinOracle(root, "DIRECTION: ship A", { changedReason: "David moved B to next" });
   assert.equal(changed.changed, true);
   assert.equal(changed.changedReason, "David moved B to next");
+  // Not yet written: a run that is refused after this point must not have
+  // made the new oracle authoritative.
+  assert.equal(readFileSync(join(root, "oracle.txt"), "utf8").trim(), "DIRECTION: ship A and B");
+  changed.commit();
   assert.equal(readFileSync(join(root, "oracle.txt"), "utf8").trim(), "DIRECTION: ship A");
   assert.equal(pinOracle(root, "DIRECTION: ship A").changed, false, "the new text is the pin now");
   drop(root);
@@ -1085,6 +1091,70 @@ test("a round that drops a prior is re-asked, not accepted", () => {
   assert.equal(meta.attempts.length, 2, "the dropped prior forced the re-ask");
   assert.ok(meta.attempts[0].problems.some((p) => p.includes("R1")));
   assert.equal(meta.convergence.converged, true);
+  drop(root);
+});
+
+// ── round 2's fixes ────────────────────────────────────────────────────────
+
+test("an --oracle-changed run that is refused does not re-pin", () => {
+  const plan = (oracle) => ({ path: "docs/plans/PLAN_X.md", text: "```plan-oracle\n" + oracle + "\n```" });
+  const root = fixtureRoot({ plan: plan("ship A and B") });
+  const log = quiet();
+  const base = ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"];
+  assert.equal(main([...base, "--dry-run"], { root, run: fakeRun([]), log }), 0);
+  writeFileSync(join(root, "docs/plans/PLAN_X.md"), plan("ship A").text);
+  // Refused for a reason unrelated to the oracle (no sign-in) -- the changed
+  // oracle must not become authoritative on the way out.
+  const noSignIn = fakeRun([{ status: 1, stdout: "Not logged in", stderr: "" }]);
+  assert.equal(main([...base, "--force", "--oracle-changed", "David moved B"], { root, run: noSignIn, log }), 2);
+  assert.equal(readFileSync(join(root, ".agents/reviews/x/oracle.txt"), "utf8").trim(), "ship A and B");
+  drop(root);
+});
+
+test("an existing docs/plans/.gitignore that ignores nothing useful is extended, not trusted", () => {
+  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
+  mkdirSync(join(root, "docs/plans"), { recursive: true });
+  writeFileSync(join(root, "docs/plans/.gitignore"), "# consumer's own\n*.tmp\n");
+  ensurePlansIgnored(root);
+  const text = readFileSync(join(root, "docs/plans/.gitignore"), "utf8");
+  assert.match(text, /^\*\.tmp$/m, "the consumer's pattern survives");
+  assert.match(text, /^PLAN_\*\.md$/m, "the managed pattern is appended");
+  // Already covered: left alone, not appended twice.
+  ensurePlansIgnored(root);
+  assert.equal((readFileSync(join(root, "docs/plans/.gitignore"), "utf8").match(/PLAN_\*\.md/g) ?? []).length, 1);
+  drop(root);
+});
+
+test("a round-0 verdict against the work is not convergence", () => {
+  const no = scopeAssessment({ review_status: "Scope is right", should_this_exist: "No", scope_concerns: [] });
+  assert.equal(convergence(no, []).converged, false);
+  const wrong = scopeAssessment({ review_status: "Scope is wrong", should_this_exist: "Yes", scope_concerns: [] });
+  assert.equal(convergence(wrong, []).converged, false);
+  const yes = scopeAssessment({ review_status: "Scope is right", should_this_exist: "Yes", scope_concerns: [] });
+  assert.equal(convergence(yes, []).converged, true);
+});
+
+test("a reviewer that crashed is not re-asked", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  const run = fakeRun([{ status: 0, stdout: "Logged in using ChatGPT" }, { status: 1, signal: null }]);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
+  assert.equal(run.calls.length, 2, "login status, one exec -- no re-ask for a reviewer that gave no answer");
+  drop(root);
+});
+
+test("--force clears the old meta and last message too", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  const log = quiet();
+  const argv = ["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"];
+  assert.equal(main(argv, { root, run: scriptedRound(root, [JSON.stringify(assessment())]), log }), 0);
+  const meta = join(root, ".agents/reviews/x/round-1.meta.json");
+  assert.ok(existsSync(meta));
+  // The forced re-run dies at sign-in: nothing of the old round may survive.
+  const noSignIn = fakeRun([{ status: 1, stdout: "Not logged in", stderr: "" }]);
+  assert.equal(main([...argv, "--force"], { root, run: noSignIn, log }), 2);
+  assert.ok(!existsSync(meta), "old meta must not outlive the assessment it described");
+  assert.ok(!existsSync(join(root, ".agents/reviews/x/round-1.json")));
   drop(root);
 });
 

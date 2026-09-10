@@ -515,6 +515,13 @@ export function convergence(assessment, priors) {
   if (BLOCKING_STATUSES.includes(assessment.review_status)) {
     reasons.push(`review_status is "${assessment.review_status}" -- the reviewer could not complete the review`);
   }
+  // Round 0 answers a different question, and "this should not be built" has
+  // no required revisions to file -- so it read as converged (Codex, #69
+  // round 2). A verdict against the work is the opposite of the stop rule.
+  if (assessment.review_status === "Scope is wrong") reasons.push('review_status is "Scope is wrong"');
+  if (["No", "Not yet"].includes(assessment.should_this_exist)) {
+    reasons.push(`should_this_exist is "${assessment.should_this_exist}" -- a product question for David, not a pass`);
+  }
   const unresolved = (assessment.previous_findings ?? []).filter((f) => f.status === "Still open");
   if (unresolved.length) reasons.push(`${unresolved.length} prior finding(s) Still open: ${unresolved.map((f) => f.id).join(", ")}`);
   if (priors.length && !(assessment.previous_findings ?? []).length) reasons.push("prior findings were not reconciled");
@@ -591,12 +598,18 @@ export function roundsRun(dir) {
  */
 export function pinOracle(dir, oracle, { changedReason = null } = {}) {
   const file = path.join(dir, "oracle.txt");
+  // The DECISION is made now, so a drifted oracle refuses before anything
+  // runs; the WRITE waits for `commit()`, which main calls only when the
+  // round completes. Written up front, an --oracle-changed run that was then
+  // refused -- or exited 2 without a sign-in -- had already made the new
+  // oracle authoritative, and the next run reported it as matching with no
+  // reason ever stamped (Codex, #69 round 2).
+  const commit = () => fs.writeFileSync(file, `${oracle}\n`);
   if (!fs.existsSync(file)) {
-    fs.writeFileSync(file, `${oracle}\n`);
-    return { pinned: sha256Full(oracle), changed: false, firstPin: true };
+    return { pinned: sha256Full(oracle), changed: false, firstPin: true, commit };
   }
   const pinnedText = fs.readFileSync(file, "utf8").trim();
-  if (pinnedText === oracle.trim()) return { pinned: sha256Full(oracle), changed: false, firstPin: false };
+  if (pinnedText === oracle.trim()) return { pinned: sha256Full(oracle), changed: false, firstPin: false, commit: () => {} };
   if (!changedReason) {
     throw new Error(
       `the oracle differs from the one pinned at ${path.relative(process.cwd(), file)} when this loop started, and ` +
@@ -605,8 +618,7 @@ export function pinOracle(dir, oracle, { changedReason = null } = {}) {
         `--oracle-changed "<what David agreed to change>" so the change is recorded in the round's meta.`,
     );
   }
-  fs.writeFileSync(file, `${oracle}\n`);
-  return { pinned: sha256Full(oracle), changed: true, changedReason, firstPin: false };
+  return { pinned: sha256Full(oracle), changed: true, changedReason, firstPin: false, commit };
 }
 
 /**
@@ -1080,7 +1092,23 @@ export function ensurePlansIgnored(root) {
   const dir = path.join(root, "docs", "plans");
   fs.mkdirSync(dir, { recursive: true });
   const ignore = path.join(dir, ".gitignore");
-  if (fs.existsSync(ignore)) return;
+  if (fs.existsSync(ignore)) {
+    // A consumer that already has one is verified, not trusted: the file's
+    // existence said nothing about whether it ignores a plan (Codex, #69
+    // round 2). Append the managed pattern when it is missing; never rewrite
+    // what a consumer put there.
+    const patterns = fs
+      .readFileSync(ignore, "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#"));
+    if (patterns.some((l) => l === "*" || l === "PLAN_*.md" || l === "/PLAN_*.md")) return;
+    fs.appendFileSync(
+      ignore,
+      "\n# Added by core/scripts/plan-review.mjs: a plan under review is never committed by accident.\nPLAN_*.md\n",
+    );
+    return;
+  }
   fs.writeFileSync(
     ignore,
     [
@@ -1295,7 +1323,11 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // re-run that then fails would otherwise leave the old accepted JSON at
       // the canonical path, describing an earlier plan revision while the log
       // says the round did not happen (Codex, #69 round 1).
-      if (!flags.dryRun) fs.rmSync(outJson);
+      if (!flags.dryRun) {
+        for (const stale of [outJson, `${dir}/round-${round}.meta.json`, `${dir}/round-${round}.last-message.txt`]) {
+          fs.rmSync(stale, { force: true });
+        }
+      }
     }
 
     const promptFile = path.join(dir, `round-${round}.prompt.md`);
@@ -1317,6 +1349,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           `  priors  ${priors.length}\n` +
           (budget ? `  budget  round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : ""),
       );
+      pin.commit();
       return 0;
     }
 
@@ -1347,7 +1380,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       const outcome = runCodex({ prompt: thisPrompt, schemaFile, outFile: lastMessage, model, effort, sandbox, cwd: root, timeoutMs, run });
 
       let problems;
+      let executionFailed = false;
       if (outcome.error || outcome.status !== 0) {
+        executionFailed = true;
         problems = [
           `codex exec exited ${outcome.status ?? "(no status)"}${outcome.signal ? ` on signal ${outcome.signal}` : ""}` +
             `${outcome.error ? `: ${outcome.error.message}` : ""}`,
@@ -1369,6 +1404,11 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       }
       attempts.push({ attempt, seconds: outcome.seconds, status: outcome.status ?? null, problems });
       if (problems.length) log(`plan-review: attempt ${attempt} rejected —\n  ${problems.join("\n  ")}`);
+      // The re-ask exists to fix a malformed ANSWER. A reviewer that crashed
+      // or timed out gave none, so re-asking spends another full timeout on
+      // the same failure and tells the reviewer to correct output that does
+      // not exist (Codex, #69 round 2). One execution failure ends the round.
+      if (executionFailed) break;
     }
 
     const meta = {
@@ -1391,7 +1431,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       promptDigest: sha256(prompt),
       priorFindings: priors.map((p) => ({ id: p.id, disposition: p.disposition })),
       budget,
-      oraclePin: pin,
+      oraclePin: { pinned: pin.pinned, changed: pin.changed, firstPin: pin.firstPin, changedReason: pin.changedReason ?? null },
       // Present only when the round departed from the settled reviewer, so its
       // absence is the ordinary case and its presence is loud.
       unpinned: flags.unpinned ?? null,
@@ -1413,6 +1453,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     }
 
     fs.writeFileSync(outJson, `${JSON.stringify(assessment, null, 2)}\n`);
+    pin.commit();
     const counted = round === 0 ? assessment.scope_concerns.length : assessment.required_revisions.length;
     const label = round === 0 ? "scope concerns" : "required";
     const { converged, reasons } = meta.convergence;

@@ -345,7 +345,14 @@ cap. Both close the same way.
    fired. **Rounds run also goes in the workstream issue's harvest comment**,
    and that is not bookkeeping for its own sake: with no PR, the harvest
    comment is the only place `/maintenance` can read plan-loop cost from. Leave
-   it out and the process-health numbers silently omit every plan loop. This is the first moment he re-enters a loop that ran without him, so
+   it out and the process-health numbers silently omit every plan loop.
+   **A private-path workstream has no public issue**, deliberately — its
+   tracking is the draft Project item
+   ([`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md)).
+   The same trail goes in that item's note instead, and never on any public
+   surface; `/maintenance` reads it from there. If there is no item either,
+   the trail goes in the approval ask and `/maintenance` is told the loop is
+   uncounted, rather than a public issue being created to hold it. This is the first moment he re-enters a loop that ran without him, so
    the trail is what he audits before approving.
 3. **Plan approval is explicit only.** Reviewer convergence is not approval.
    The scope gate authorized the loop to *review* without check-ins, never to
