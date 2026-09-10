@@ -27,7 +27,9 @@ produced this file spent three of its five rounds on exactly that risk.
 
 ### P1 — the instruction frame is script-owned; brief content is not authenticated
 
-`core/scripts/fable-dispatch.mjs` composes every instruction a role receives:
+`scripts/fable-dispatch.mjs` (under `core/` in the handbook — the sync routes
+`core/X -> X`, and every path in this file is written in the consumer's layout)
+composes every instruction a role receives:
 the system prompt is the role definition's body, read with `git show` at a
 pinned commit; the user message is a fixed frame written in that script, with
 the brief quoted inside it. The caller passes a role id and a path. Free text
@@ -58,8 +60,12 @@ fresh `--session-id` and does not persist.
 **The construct is the harness's own report.** The run is launched with
 `--output-format stream-json`, and its first event is a `system init` the
 harness emits before the model is asked anything. The script reads that event
-and **refuses the run if the reported `tools` or `mcp_servers` exceed what the
-role allows**, then copies `tools`, `mcp_servers`, `agents`, `skills`,
+**on every attempt, before deciding whether to retry**, and **refuses the run
+if the reported `tools` or `mcp_servers` exceed what the role allows** — the
+refusal cannot wait for a valid document, because a retry cannot un-launch a
+reviewer that already held a forbidden tool. It also **compares the reported
+session id against the one the dispatch asked for**, so the fresh-session
+boundary is verified rather than asserted. Then it copies `tools`, `mcp_servers`, `agents`, `skills`,
 `plugins`, `permissionMode`, `apiKeySource` and `claude_code_version` into the
 receipt. A reviewer that wanted to misreport its own surface has no opportunity
 to: this is not the reviewer describing itself.
@@ -108,7 +114,14 @@ not happen, and a receipt describing it would be the fail-open this repository
 has shipped three times already (AI-Handbook #11, #16, #59).
 
 Exit codes: `0` a receipt was written; `1` a refusal or a reviewer failure; `2`
-no provider was reachable and nothing was dispatched.
+no provider was reachable and nothing was dispatched. Argument refusals that
+are knowable from the command line — an `--out` outside the repository — happen
+**before** the launch, so a deterministic mistake never bills a reviewer.
+
+**Cost is recorded per attempt and summed.** A first attempt that returns
+nothing valid still spent money; a receipt carrying only the winning attempt's
+totals under-reports what the dispatch cost, and later phases budget from these
+numbers.
 
 ### P5 — spawn-time facts are stamped as spawn-time
 
@@ -143,6 +156,12 @@ only on its whole stated evidence.
 unpredictable challenge, writes it into a brief **it creates itself**, and
 compares the returned value **exactly**. A schema-valid answer with the wrong
 challenge fails even when the model evidence is perfect.
+
+The probe also reports the tools it believes it holds, and the script compares
+that to the launch report: a tool it claims that was not launched, or a real
+tool it omits, refuses the run. The harness's own additions (`StructuredOutput`)
+are exempt from the omission half — a reviewer has no reason to think of one as
+a tool it holds, and refusing it for that would be a false refusal.
 
 Hashing stays in the script. An earlier design asked the reviewer to return the
 brief's digest, which a `Read`-only reviewer cannot compute — `plan-review.mjs`
@@ -200,18 +219,15 @@ and noted here for whoever decides the adjudicator's future.
   script, and none claims to.
 - **Not an isolation proof.** See P2.
 - **Not a review of anything.** Phase 0 ships a probe.
-- **Not the only way to reach a role definition.** A definition under
-  `.claude/agents/` is also registered with the harness as an ordinary
-  subagent, so any session can dispatch it directly — with no brief, no
-  receipt, no launch report and no model binding. Nothing here prevents that;
-  the properties above describe what `fable-dispatch.mjs` establishes when it
-  is the caller, and say nothing about a direct dispatch.
-
-  For the probe this costs nothing: it echoes a challenge it will not have
-  been given, and its own definition tells it to report that rather than
-  invent one. **For an advisory role it would be a hole**, and closing it —
-  by moving role definitions off the harness's agent path, or by making a
-  role refuse a dispatch that carries no receipt — is a **Phase 1
-  prerequisite alongside the two named above**. Recorded on the day it was
-  found, because a contract that claimed sole-caller status while the harness
-  offered a second door would be this increment's own defect, one level up.
+- **Not reachable except through the script — now.** A definition under
+  `.claude/agents/` is registered with the harness as an ordinary subagent, so
+  any session could dispatch it directly with a caller-written prompt, skipping
+  the frame, the launch check, the model binding and the receipt at once. The
+  first version of this work put the probe there and merely *described* that
+  second door as a Phase 1 prerequisite; Codex (AI-Handbook #73, round 1) said
+  correctly that describing it is not closing it, and that the fix was
+  available. Role definitions now live in **`.agents/fable-roles/`**, which the
+  harness does not scan, and there is no root agent entry for them. One way in
+  rather than two. The lesson is the increment's own: a contract that named the
+  second door while leaving it open would have been the defect this work
+  exists to remove, one level up.

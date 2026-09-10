@@ -22,7 +22,11 @@
  *
  * WHAT THIS ENFORCES, AND WHAT IT DOES NOT
  * ----------------------------------------
- * The full statement is core/docs/ai-context/fable-dispatch.md. In short:
+ * The full statement is docs/ai-context/fable-dispatch.md -- under `core/` in
+ * the handbook, at the root in a consumer, because the sync routes
+ * `core/X -> X`. Every path this file PRINTS is resolved the same way, by
+ * `shipped()` below: a diagnostic naming a directory the reader does not have
+ * is a diagnostic they cannot act on (Codex, #73 round 1). In short:
  *
  *   P1  the instruction FRAME is script-owned. Brief CONTENT is not
  *       authenticated -- a file the builder typed passes through unchanged,
@@ -50,7 +54,7 @@
  *   node <this file> --role probe --out .agents/receipts/fable-probe.json
  *   node <this file> --role probe            # receipt to stdout, as JSON
  *
- *   --role <id>     a role with a definition under .claude/agents/fable-<id>.md
+ *   --role <id>     a role with a definition under .agents/fable-roles/
  *   --brief <path>  the brief file. REFUSED for the probe, whose brief this
  *                   script generates; REQUIRED for every other role, all of
  *                   which are themselves refused in Phase 0.
@@ -111,6 +115,19 @@ export const PHASE0_PERMITTED_ROLES = ["probe"];
 /** Flags this file accepts. Anything else is free text wearing a flag's hat. */
 const KNOWN_FLAGS = new Set(["--role", "--brief", "--out", "--timeout"]);
 
+/**
+ * Where a payload file lives in THIS checkout, for prose the reader will act on.
+ *
+ * The sync routes `core/X -> X`, so a message hardcoding either prefix is
+ * wrong in one of the two layouts -- and wrong silently, since a path in an
+ * error message is never resolved by anything. Asked of the filesystem rather
+ * than assumed, the same shape the plan-review skill uses for its own script
+ * path.
+ */
+export function shipped(root, rel) {
+  return fs.existsSync(path.join(root, "core", rel)) ? `core/${rel}` : rel;
+}
+
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
@@ -162,17 +179,29 @@ export function frontmatterBody(text) {
 // ---------------------------------------------------------------------------
 
 /**
+ * The working tree is what a reviewer greps; the definition is what instructs
+ * it. Reading the instruction from a commit means an edit in progress cannot
+ * change what a dispatch says while it is being judged, and the receipt can
+ * name the commit the instruction came from -- the same reasoning as
+ * `dispatchDeclaration` in review-loop-record.mjs.
+ */
+export const ROLE_DIR = ".agents/fable-roles";
+
+/**
  * Read a role's definition from a COMMIT, not the working tree.
  *
- * The working tree is what the reviewer greps; the definition is what
- * instructs it. Reading the instruction from a commit means an edit in
- * progress cannot change what a dispatch says while it is being judged, and
- * the receipt can name the commit the instruction came from. Same reasoning as
- * `dispatchDeclaration` in review-loop-record.mjs, which reads the
- * adjudicator's frontmatter at the reviewed commit for exactly this reason.
+ * WHY `.agents/fable-roles/` AND NOT `.claude/agents/`. A definition under
+ * `.claude/agents/` is registered with the harness as an ordinary subagent, so
+ * any session can select it through the Agent tool with a caller-written
+ * prompt -- bypassing the script-owned frame, the launch check, the model
+ * binding and the receipt, all at once. The first version of this file put the
+ * probe there and merely DESCRIBED the second door; that is this increment's
+ * own defect one level up, and Codex said so (#73 round 1). `.agents/` is this
+ * repository's own convention directory and the harness does not scan it, so
+ * there is now one way in rather than two.
  */
 export function readDefinitionAt(root, role, commit, { runGit = defaultGit } = {}) {
-  const rel = `.claude/agents/fable-${role}.md`;
+  const rel = `${ROLE_DIR}/fable-${role}.md`;
   const tried = [];
   for (const candidate of [rel, `core/${rel}`]) {
     const entry = runGit(["ls-tree", "-z", commit, "--", candidate], root);
@@ -181,10 +210,11 @@ export function readDefinitionAt(root, role, commit, { runGit = defaultGit } = {
       continue;
     }
     const read = (target) => runGit(["show", `${commit}:${target}`], root);
-    // A ROOT ENTRY IS USUALLY A SYMLINK, AND GIT STORES ITS TARGET PATH AS THE
-    // BLOB. Reading it with `git show` therefore returns the string
-    // "../../core/.claude/agents/fable-probe.md", not a definition -- which
-    // parses as a file with no frontmatter and refuses for the wrong reason.
+    // A ROOT ENTRY MAY BE A SYMLINK, AND GIT STORES ITS TARGET PATH AS THE
+    // BLOB. Reading it with `git show` then returns a path string, not a
+    // definition -- which parses as a file with no frontmatter and refuses for
+    // entirely the wrong reason. Found by the first live run, when the root
+    // entry was still a link into the payload.
     // The mode is what distinguishes them; `readAtCommit` in
     // review-loop-record.mjs resolves the same hazard the same way, and this
     // was found by the first live run rather than by any test.
@@ -361,7 +391,7 @@ export function parseStream(text) {
  * capabilities. Recording them rather than refusing keeps the receipt honest
  * about what was present without inventing a violation.
  */
-export function assertLaunchSurface(init, contract) {
+export function assertLaunchSurface(init, contract, { expectedSessionId = null } = {}) {
   if (!init) {
     throw new Error(
       "the run emitted no `system init` event, so nothing reports what surface the reviewer was given. " +
@@ -396,6 +426,18 @@ export function assertLaunchSurface(init, contract) {
     throw new Error(
       `the reviewer was launched with MCP server(s) attached: ${mcp.map((s) => s?.name ?? String(s)).join(", ")}. ` +
         `A reviewer's surface is its allowlisted built-ins and nothing else.`,
+    );
+  }
+  // P2's fresh-session boundary, VERIFIED rather than asserted. The dispatch
+  // generates a session id and passes `--session-id`; copying the harness's
+  // reported id without comparing would let a CLI that ignored or substituted
+  // the flag produce a receipt claiming a boundary that was never established
+  // (Codex, #73 round 1). That is this file's own subject -- a property the
+  // receipt states and nothing checks -- so it is checked.
+  if (expectedSessionId != null && init.session_id != null && init.session_id !== expectedSessionId) {
+    throw new Error(
+      `the harness reports session ${init.session_id} but the dispatch asked for ${expectedSessionId}. The ` +
+        `fresh-session boundary was not established, so the receipt would assert one that does not hold.`,
     );
   }
   return {
@@ -471,7 +513,7 @@ export function probeBrief(nonce) {
  * and P2 says so. Refusing on it would dress a self-report as a construct,
  * which is the whole class of defect this increment exists to remove.
  */
-export function assertProbeRoundTrip(output, nonce) {
+export function assertProbeRoundTrip(output, nonce, surface = null) {
   if (!output || typeof output !== "object") throw new Error("the probe returned no structured output");
   if (output.challenge !== nonce) {
     throw new Error(
@@ -479,7 +521,57 @@ export function assertProbeRoundTrip(output, nonce) {
         `The brief this script generated did not reach the reviewer intact, or the answer did not come from it.`,
     );
   }
+  // The probe reports the tools it believes it holds; the harness reports the
+  // tools it launched. A receipt carrying both without comparing them can
+  // carry two contradictory answers and call itself evidence (Codex, #73
+  // round 1).
+  //
+  // The bar is NOT set equality, and the difference matters in both
+  // directions. A tool the probe claims but the harness did not launch is a
+  // contradiction. A tool the harness launched that the probe omits is one
+  // too -- EXCEPT for the harness's own additions, which a reviewer has no
+  // reason to think of as tools it holds; demanding it list `StructuredOutput`
+  // would refuse a reviewer for being reasonable, which is how a check earns a
+  // reputation for crying wolf and stops being read.
+  if (surface && Array.isArray(output.tools)) {
+    const claimed = new Set(output.tools);
+    const launched = new Set(surface.tools);
+    const invented = [...claimed].filter((x) => !launched.has(x)).sort();
+    const omitted = [...launched].filter((x) => !claimed.has(x) && !HARNESS_ADDED_TOOLS.includes(x)).sort();
+    if (invented.length || omitted.length) {
+      const parts = [];
+      if (invented.length) parts.push(`claims ${invented.join(", ")}, which the harness did not launch`);
+      if (omitted.length) parts.push(`omits ${omitted.join(", ")}, which the harness did launch`);
+      throw new Error(
+        `the probe's tool report contradicts the launch report: it ${parts.join("; and it ")}. ` +
+          `One of the two is wrong and the receipt would record both as evidence.`,
+      );
+    }
+  }
   return true;
+}
+
+/**
+ * Sum per-model usage across attempts, keeping the shape the CLI emits.
+ *
+ * Numeric fields add; anything else (canonicalModel, provider, contextWindow)
+ * is taken from the first attempt that reported it, because those describe the
+ * model rather than the spend.
+ */
+export function mergeUsage(list) {
+  const out = {};
+  for (const usage of list) {
+    if (!usage || typeof usage !== "object") continue;
+    for (const [model, stats] of Object.entries(usage)) {
+      if (!out[model]) out[model] = { ...stats };
+      else {
+        for (const [k, v] of Object.entries(stats)) {
+          if (typeof v === "number" && typeof out[model][k] === "number") out[model][k] += v;
+        }
+      }
+    }
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -516,7 +608,7 @@ export function dispatch({
     throw new Error(
       `role "${role}" is refused. Phase 0 dispatches only ${permittedRoles.join(", ")}, because it does not ` +
         `authenticate brief content (P1) and does not observe instruction loading (P2). Phase 1 lifts this ` +
-        `once BOTH are established -- see core/docs/ai-context/fable-dispatch.md.`,
+        `once BOTH are established -- see ${shipped(root, "docs/ai-context/fable-dispatch.md")}.`,
     );
   }
   const isProbe = role === "probe";
@@ -572,8 +664,6 @@ export function dispatch({
   let surface;
   let answerModel;
   let output;
-  let usage = null;
-  let costUsd = null;
 
   // P4's one re-ask. A model that returns something unparseable once is worth
   // asking again; twice is a failure to report, not a parser to widen.
@@ -585,11 +675,30 @@ export function dispatch({
       throw err;
     }
     const { init, result, answerModel: stampedModel } = parseStream(run.stdout);
+
+    // THE SURFACE IS CHECKED FIRST, ON EVERY ATTEMPT, BEFORE ANY RETRY
+    // DECISION. It used to be checked only once a valid document existed --
+    // so an attempt launched with a forbidden tool, returning nothing
+    // parseable, was silently retried, and a clean second attempt wrote a
+    // receipt while the first reviewer had already held the prohibited
+    // capability and could have used it (Codex, #73 round 1, P1). A retry
+    // cannot un-launch that, so the refusal cannot wait for one.
+    surface = assertLaunchSurface(init, contract, { expectedSessionId: sessionId });
+
     const problems = [];
     if (!result) problems.push("no `result` event");
     else if (result.is_error) problems.push(`the run reported an error: ${String(result.result).slice(0, 200)}`);
     else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
-    attempts.push({ attempt, problems });
+    // Spend is recorded per attempt, always -- including the attempts that
+    // produced nothing. A receipt carrying only the successful attempt's
+    // totals under-reports what the dispatch actually cost (Codex, #73 round
+    // 1), and the budget conversation for later phases runs on these numbers.
+    attempts.push({
+      attempt,
+      problems,
+      costUsd: result?.total_cost_usd ?? null,
+      modelUsage: result?.modelUsage ?? null,
+    });
 
     if (problems.length) {
       if (attempt === 2) {
@@ -601,18 +710,16 @@ export function dispatch({
       continue;
     }
 
-    // These three are checked AFTER a valid document exists, and each throws
-    // rather than retrying: a wrong surface or a wrong model is not something
-    // asking again would fix, and retrying would hide it.
-    surface = assertLaunchSurface(init, contract);
     answerModel = assertAnswerModel(stampedModel, contract);
     output = result.structured_output;
-    usage = result.modelUsage ?? null;
-    costUsd = result.total_cost_usd ?? null;
     break;
   }
 
-  if (isProbe) assertProbeRoundTrip(output, probeNonce);
+  // Totals across every attempt, not just the one that succeeded.
+  const costUsd = attempts.reduce((sum, a) => (a.costUsd == null ? sum : sum + a.costUsd), 0);
+  const usage = mergeUsage(attempts.map((a) => a.modelUsage));
+
+  if (isProbe) assertProbeRoundTrip(output, probeNonce, surface);
 
   return {
     role,
@@ -704,6 +811,19 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
   const root = repoRoot();
+
+  // BEFORE the dispatch, not after. A deterministic argument refusal that runs
+  // afterwards has already launched and billed a reviewer to reject something
+  // knowable from the command line (Codex, #73 round 1).
+  let outAbs = null;
+  if (args.out) {
+    outAbs = path.resolve(root, args.out);
+    if (!outAbs.startsWith(path.resolve(root) + path.sep)) {
+      process.stderr.write(`fable-dispatch: --out is outside the repository: ${args.out}\n`);
+      return 1;
+    }
+  }
+
   let receipt;
   try {
     receipt = dispatch({ root, role: args.role, briefPath: args.brief, timeoutSec: args.timeout });
@@ -712,14 +832,9 @@ export function main(argv = process.argv.slice(2)) {
     return e.exitCode ?? 1;
   }
   const json = `${JSON.stringify(receipt, null, 2)}\n`;
-  if (args.out) {
-    const abs = path.resolve(root, args.out);
-    if (!abs.startsWith(path.resolve(root) + path.sep)) {
-      process.stderr.write(`fable-dispatch: --out is outside the repository: ${args.out}\n`);
-      return 1;
-    }
-    fs.mkdirSync(path.dirname(abs), { recursive: true });
-    fs.writeFileSync(abs, json);
+  if (outAbs) {
+    fs.mkdirSync(path.dirname(outAbs), { recursive: true });
+    fs.writeFileSync(outAbs, json);
     process.stderr.write(`fable-dispatch: receipt -> ${args.out}\n`);
   } else {
     // With --out omitted stdout must PARSE. Every human-facing line above goes

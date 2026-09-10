@@ -11,6 +11,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   FORBIDDEN_TOOLS,
+  ROLE_DIR,
+  main,
+  mergeUsage,
+  shipped,
   HARNESS_ADDED_TOOLS,
   PHASE0_PERMITTED_ROLES,
   assertAnswerModel,
@@ -62,7 +66,7 @@ const initEvent = (over = {}) =>
     permissionMode: "default",
     apiKeySource: "none",
     claude_code_version: "2.1.267",
-    session_id: "s-1",
+    session_id: null,
     ...over,
   });
 
@@ -92,7 +96,7 @@ const goodStream = (nonce, { model = "claude-fable-5-1", init = initEvent() } = 
  * that caused it rather than the shape that would have passed.
  */
 function fakeGit({ definition = DEFINITION, schema = SCHEMA, clean = true, head = "abc123", rootIsLink = true } = {}) {
-  const ROOT_REL = ".claude/agents/fable-probe.md";
+  const ROOT_REL = ".agents/fable-roles/fable-probe.md";
   const PAYLOAD_REL = `core/${ROOT_REL}`;
   return (args) => {
     const [cmd, a, b, , candidate] = args;
@@ -107,7 +111,7 @@ function fakeGit({ definition = DEFINITION, schema = SCHEMA, clean = true, head 
       if (candidate?.endsWith("schemas/fable-probe.schema.json")) return { status: 0, stdout: `100644 blob f00d\t${candidate}\0` };
       return { status: 1, stdout: "" };
     }
-    if (cmd === "show" && a === `${head}:${ROOT_REL}`) return { status: 0, stdout: "../../core/.claude/agents/fable-probe.md\n" };
+    if (cmd === "show" && a === `${head}:${ROOT_REL}`) return { status: 0, stdout: "../../core/.agents/fable-roles/fable-probe.md\n" };
     if (cmd === "show" && a === `${head}:${PAYLOAD_REL}`) return { status: 0, stdout: definition };
     if (cmd === "show" && a.endsWith("schemas/fable-probe.schema.json")) return { status: 0, stdout: schema };
     return { status: 1, stdout: "" };
@@ -360,9 +364,9 @@ test("P5: the receipt names its facts as spawn-time and records a dirty tree", (
 test("P5: the definition is read at the commit, and its digest recorded", () => {
   const r = runProbe();
   assert.equal(r.definitionCommit, "abc123");
-  assert.equal(r.definitionPath, "core/.claude/agents/fable-probe.md");
+  assert.equal(r.definitionPath, "core/.agents/fable-roles/fable-probe.md");
   assert.match(r.roleDefinitionSha256, /^[0-9a-f]{64}$/);
-  assert.equal(r.schemaPath, "core/.claude/agents/schemas/fable-probe.schema.json");
+  assert.equal(r.schemaPath, "core/.agents/fable-roles/schemas/fable-probe.schema.json");
 });
 
 // --- definition and stream handling ----------------------------------------
@@ -396,7 +400,7 @@ test("the root symlink is followed rather than read as a definition", () => {
   // The live-run defect: `git show` on a symlink returns its TARGET PATH, and
   // a target path parses as a file with no frontmatter.
   const r = runProbe();
-  assert.equal(r.definitionPath, "core/.claude/agents/fable-probe.md");
+  assert.equal(r.definitionPath, "core/.agents/fable-roles/fable-probe.md");
   const direct = dispatch({
     root: ROOT,
     role: "probe",
@@ -404,7 +408,7 @@ test("the root symlink is followed rather than read as a definition", () => {
     runner: runnerFor(goodStream("n5")),
     nonce: "n5",
   });
-  assert.equal(direct.definitionPath, "core/.claude/agents/fable-probe.md", "a consumer layout resolves too");
+  assert.equal(direct.definitionPath, "core/.agents/fable-roles/fable-probe.md", "a consumer layout resolves too");
 });
 
 test("a symlink chain and an escaping symlink both refuse", () => {
@@ -415,7 +419,7 @@ test("a symlink chain and an escaping symlink both refuse", () => {
   assert.throws(() => dispatch({ root: ROOT, role: "probe", runGit: chain, runner: runnerFor("") }), /symlink to another symlink/);
 
   const escaping = (args) => {
-    if (args[0] === "show" && args[1].endsWith(".claude/agents/fable-probe.md") && !args[1].includes(":core/")) {
+    if (args[0] === "show" && args[1].endsWith(".agents/fable-roles/fable-probe.md") && !args[1].includes(":core/")) {
       return { status: 0, stdout: "../../../elsewhere/definition.md\n" };
     }
     return fakeGit()(args);
@@ -443,16 +447,16 @@ test("frontmatter parsing handles quoted and unquoted scalars", () => {
 // --- the shipped payload matches what this file requires --------------------
 
 test("the shipped probe definition and schema satisfy the contract", () => {
-  const defPath = path.join(ROOT, "core/.claude/agents/fable-probe.md");
+  const defPath = path.join(ROOT, "core/.agents/fable-roles/fable-probe.md");
   const text = fs.readFileSync(defPath, "utf8");
   const contract = roleContract(text, {
     role: "probe",
-    definitionPath: "core/.claude/agents/fable-probe.md",
+    definitionPath: "core/.agents/fable-roles/fable-probe.md",
     definitionCommit: "HEAD",
   });
   assert.equal(contract.model, "claude-fable-5-1");
   assert.ok(contract.budgetUsd > 0);
-  const schemaPath = path.join(ROOT, "core/.claude/agents/schemas", path.basename(contract.schemaPath));
+  const schemaPath = path.join(ROOT, "core/.agents/fable-roles/schemas", path.basename(contract.schemaPath));
   const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
   assert.deepEqual(schema.required, ["challenge", "claudemd", "tools"]);
   assert.equal(schema.additionalProperties, false);
@@ -465,4 +469,110 @@ test("the entry-point guard uses pathToFileURL, not a hand-built file:// string"
   const src = fs.readFileSync(path.join(ROOT, "core/scripts/fable-dispatch.mjs"), "utf8");
   assert.match(src, /import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/);
   assert.doesNotMatch(src, /`file:\/\/\$\{/);
+});
+
+// --- Codex #73 round 1 -----------------------------------------------------
+
+test("R1: a forbidden launch surface refuses on the FIRST attempt, before any retry", () => {
+  // The defect: the surface was checked only once a valid document existed, so
+  // an attempt launched with Bash and returning nothing parseable was retried,
+  // and a clean second attempt wrote a receipt.
+  let calls = 0;
+  const runner = () => {
+    calls += 1;
+    return { stdout: calls === 1 ? initEvent({ tools: ["Read", "Bash"] }) : goodStream("n") };
+  };
+  assert.throws(
+    () => dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner, nonce: "n" }),
+    /forbidden tool\(s\): Bash/,
+  );
+  assert.equal(calls, 1, "the bad launch is refused, never retried past");
+});
+
+test("R1: an attached MCP server on a failed attempt also refuses immediately", () => {
+  let calls = 0;
+  const runner = () => {
+    calls += 1;
+    return { stdout: calls === 1 ? initEvent({ mcp_servers: [{ name: "github" }] }) : goodStream("n") };
+  };
+  assert.throws(() => dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner, nonce: "n" }), /MCP server\(s\) attached/);
+  assert.equal(calls, 1);
+});
+
+test("R4: a session id the harness did not honour is refused", () => {
+  const contract = roleContract(DEFINITION, { role: "probe", definitionPath: "p", definitionCommit: "c" });
+  const init = JSON.parse(initEvent({ session_id: "some-other-session" }));
+  assert.throws(() => assertLaunchSurface(init, contract, { expectedSessionId: "asked-for" }), /fresh-session boundary was not established/);
+  // Absent is tolerated (nothing to contradict); equal passes.
+  assert.ok(assertLaunchSurface(JSON.parse(initEvent({ session_id: null })), contract, { expectedSessionId: "asked-for" }));
+  assert.ok(assertLaunchSurface(JSON.parse(initEvent({ session_id: "asked-for" })), contract, { expectedSessionId: "asked-for" }));
+});
+
+test("R3: cost and usage are summed across every attempt, not just the winner", () => {
+  const nonce = "n6";
+  let calls = 0;
+  const runner = () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        stdout: [initEvent(), assistantEvent(), resultEvent(null, { is_error: true, result: "boom", total_cost_usd: 0.04 })].join("\n"),
+      };
+    }
+    return { stdout: goodStream(nonce) };
+  };
+  const r = dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner, nonce });
+  assert.equal(Math.round(r.costUsd * 1000) / 1000, 0.125, "0.04 from the failed attempt + 0.085 from the good one");
+  assert.equal(r.attempts[0].costUsd, 0.04);
+  assert.equal(r.attempts[1].costUsd, 0.085);
+  assert.equal(r.modelUsage["claude-fable-5-1"].outputTokens, 80, "40 + 40 across both attempts");
+});
+
+test("R5: a probe whose tool self-report contradicts the launch report is refused", () => {
+  const omits = [initEvent(), assistantEvent(), resultEvent({ challenge: "n7", claudemd: "no", tools: [] })].join("\n");
+  assert.throws(
+    () => dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(omits), nonce: "n7" }),
+    /omits Read, which the harness did launch/,
+  );
+  const invents = [initEvent(), assistantEvent(), resultEvent({ challenge: "n9", claudemd: "no", tools: ["Read", "Bash"] })].join("\n");
+  assert.throws(
+    () => dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(invents), nonce: "n9" }),
+    /claims Bash, which the harness did not launch/,
+  );
+});
+
+test("R5: omitting only the harness's own additions is not a contradiction", () => {
+  // A reviewer has no reason to think of `StructuredOutput` as a tool it
+  // holds. Refusing it for that would be a false refusal, and a check that
+  // cries wolf stops being read.
+  const ok = [initEvent(), assistantEvent(), resultEvent({ challenge: "n8", claudemd: "no", tools: ["Read"] })].join("\n");
+  assert.equal(dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(ok), nonce: "n8" }).nonceMatched, true);
+  // Naming it is equally fine.
+  const also = [initEvent(), assistantEvent(), resultEvent({ challenge: "na", claudemd: "no", tools: ["StructuredOutput", "Read"] })].join("\n");
+  assert.equal(dispatch({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(also), nonce: "na" }).nonceMatched, true);
+});
+
+test("R7: role definitions live outside the harness's agent directory", () => {
+  assert.equal(ROLE_DIR, ".agents/fable-roles");
+  assert.ok(!ROLE_DIR.startsWith(".claude/agents"), "a definition under .claude/agents is a second, unchecked door");
+  assert.ok(fs.existsSync(path.join(ROOT, "core/.agents/fable-roles/fable-probe.md")));
+  assert.ok(!fs.existsSync(path.join(ROOT, ".claude/agents/fable-probe.md")), "no root agent entry for a script-only role");
+});
+
+test("R2: shipped paths resolve to the layout the reader actually has", () => {
+  assert.equal(shipped(ROOT, "docs/ai-context/fable-dispatch.md"), "core/docs/ai-context/fable-dispatch.md");
+  const consumerish = path.join(ROOT, "core");
+  assert.equal(shipped(consumerish, "docs/ai-context/fable-dispatch.md"), "docs/ai-context/fable-dispatch.md");
+});
+
+test("R6: an --out outside the repository refuses without launching anything", () => {
+  let launched = 0;
+  const originalCwd = process.cwd();
+  process.chdir(ROOT);
+  try {
+    const code = main(["--role", "probe", "--out", "../escape.json"]);
+    assert.equal(code, 1);
+  } finally {
+    process.chdir(originalCwd);
+  }
+  assert.equal(launched, 0);
 });
