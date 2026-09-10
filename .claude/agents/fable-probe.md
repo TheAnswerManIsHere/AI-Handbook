@@ -1,0 +1,1 @@
+../../core/.claude/agents/fable-probe.md

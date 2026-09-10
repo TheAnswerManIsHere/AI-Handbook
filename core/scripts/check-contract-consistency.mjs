@@ -62,6 +62,18 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const RETIRED = [
   {
+    phrase: "no text the session writes reaches a role",
+    retired: "2026-09-10",
+    why: "AI-Handbook PR #70's steering guarantee, which nothing enforced -- the builder wrote every dispatch prompt while the payload said it could not",
+    instead: "the instruction FRAME is script-owned by construction; brief CONTENT is not authenticated, and every role but the probe is refused until it is (core/docs/ai-context/fable-dispatch.md, P1)",
+  },
+  {
+    phrase: "the builder cannot steer",
+    retired: "2026-09-10",
+    why: "the same unenforced guarantee in its shorter form -- a claim about a mechanism that did not exist, which is the defect Phase 0 exists to remove",
+    instead: "name the property that is enforced (the frame) and the one that is not (brief content), never the unqualified claim",
+  },
+  {
     phrase: "minimum 3 rounds",
     retired: "2026-09-09",
     why: "retired plan-loop convergence floor -- it compensated for a GitHub reviewer that had no way to signal 'done', and the in-session reviewer signals it in a field",

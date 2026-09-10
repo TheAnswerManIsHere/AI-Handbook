@@ -745,6 +745,10 @@ shows the true delta.
   checks. When a David-prompted re-check finds nothing, I say so; when the check
   was mine (a scheduled wake, a webhook echo), silence wins.
 
+- **Fable dispatches only through `fable-dispatch.mjs`**, never a prompt I
+  write; what it does and does not enforce:
+  [`fable-dispatch.md`](../../docs/ai-context/fable-dispatch.md).
+
 ### Subagent delegation is capped
 
 Opus 5 delegates eagerly, and every subagent re-establishes context, explores,
