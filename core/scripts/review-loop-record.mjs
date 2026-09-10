@@ -1625,12 +1625,47 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
     return { mode: null, sha: null, path: null, sections: null, reason: check.reason, declaredBy: "declaration" };
   }
 
+  if (kind === "private-plan") {
+    // THE PLAN IS UNREACHABLE; THE ORACLE IS NOT. A private-plan PR has no
+    // commit and no PR page holding the approved text, so there is no file to
+    // read -- which is why this returned a bare "private path" and no
+    // sections. But the reason the adjudicator needs an oracle at all is to
+    // compare the work against the scope David approved, and `claude-core.md`
+    // Pull requests rule 3 requires that scope quoted into the PR body. So it
+    // is right here, in `live`, read by exactly the machinery the prose path
+    // uses.
+    //
+    // Without this, every implementation PR from the in-session loop reached a
+    // round-3 adjudication with `sections: null`, and the judge -- whose only
+    // input is this record -- had nothing to check the diff or the findings
+    // against (Codex, #69 round 5). The plan loop replaced the transport, not
+    // the requirement that an implementation be judged against agreed scope.
+    //
+    // Sections that are absent come back null individually, so a body missing
+    // one is visible to the judge as that section missing rather than as the
+    // whole oracle being unavailable.
+    const sections = Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(body, h)]));
+    const found = ORACLE_SECTIONS.filter((h) => sections[h] !== null && sections[h] !== undefined);
+    return {
+      mode: "private-plan",
+      sha: null,
+      path: values.plan_file ?? null,
+      sections,
+      reason: found.length ? null : "private path — and the PR body quotes none of the oracle sections",
+      declaredBy: "declaration",
+      note:
+        "The approved scope, quoted into the PR body because the plan itself was never committed. " +
+        `\`plan_sha256\` pins which text was approved; the body is where its oracle lives. ${found.length} of ` +
+        `${ORACLE_SECTIONS.length} sections present.`,
+    };
+  }
+
   return {
     mode: null,
     sha: null,
     path: null,
     sections: null,
-    reason: kind === "private-plan" ? "private path" : "trivial change",
+    reason: "trivial change",
     declaredBy: "declaration",
   };
 }

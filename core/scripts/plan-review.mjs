@@ -508,6 +508,27 @@ export function assertSchemaSupported(schema, at = "$") {
  * it is re-asked, and the re-ask names the ids that went missing.
  */
 export function reconciliationProblems(assessment, priors) {
+  // The ids this round MINTS are checked first, and unconditionally --
+  // before the no-priors early return, because round 1 has no priors and is
+  // exactly where a duplicate id is born. These findings become the next
+  // round's `--prior` entries, where a collision would let one answer
+  // reconcile two findings; catching it at the source names the round that
+  // produced it instead of failing an hour later with the collision already
+  // baked into a file.
+  const minted = new Set();
+  for (const key of ["required_revisions", "scope_concerns"]) {
+    for (const f of assessment[key] ?? []) {
+      if (typeof f?.id !== "string") continue;
+      if (minted.has(f.id)) {
+        return [
+          `${key} names "${f.id}" twice; a finding id identifies one finding, and two sharing it would be ` +
+            `reconciled by a single answer next round`,
+        ];
+      }
+      minted.add(f.id);
+    }
+  }
+
   if (priors.length === 0) return [];
   const returned = new Map();
   for (const f of assessment.previous_findings ?? []) {
@@ -742,6 +763,7 @@ export function oracleFrom({ oracleText, planText }) {
  */
 export function normalizePriors(raw) {
   if (!Array.isArray(raw)) throw new Error("the --prior file must contain a JSON array of findings");
+  const seen = new Map();
   return raw.map((f, i) => {
     const at = `--prior[${i}]`;
     if (f === null || typeof f !== "object" || Array.isArray(f)) throw new Error(`${at} is not an object`);
@@ -754,9 +776,30 @@ export function normalizePriors(raw) {
           `silently re-litigated.`,
       );
     }
+    // A DUPLICATE ID IS FAKE CONVERGENCE, so it is refused here rather than
+    // deduplicated. Reconciliation matches priors to the reviewer's
+    // `previous_findings` through `Map`/`Set` membership, which is keyed by
+    // id: two distinct priors sharing one id therefore both count as
+    // reconciled the moment the reviewer answers that id once, and the stop
+    // rule can read `converged: true` with a required revision never
+    // addressed. Nothing makes reviewer-generated ids unique -- they are
+    // free text from a model, across rounds that never see each other -- so
+    // the collision is ordinary rather than adversarial. Refusing names both
+    // positions, which a silent merge could not.
+    const id = f.id.trim();
+    if (seen.has(id)) {
+      throw new Error(
+        `${at} repeats id ${JSON.stringify(id)}, already used by --prior[${seen.get(id)}] ` +
+          `(${JSON.stringify(raw[seen.get(id)]?.title ?? "")}). Reconciliation is keyed by id, so two findings ` +
+          `sharing one would both read as answered when the reviewer answers it once -- and the stop rule would ` +
+          `call that converged. Give them distinct ids (a round prefix, say) before re-running.`,
+      );
+    }
+    seen.set(id, i);
+
     const note = typeof f.note === "string" ? f.note.trim().replace(/\s+/g, " ") : "";
     return {
-      id: f.id.trim(),
+      id,
       title: f.title.trim(),
       disposition: f.disposition,
       note: note.length > MAX_NOTE_CHARS ? `${note.slice(0, MAX_NOTE_CHARS)}… (truncated)` : note,
@@ -1138,7 +1181,10 @@ export function ensureRoundDir(root, slug) {
  * `main`, committing it is a deliberate act with the disclosure check in front
  * of it, not a side effect of a broad staging command.
  */
-export function ensurePlansIgnored(root) {
+/** `git` for the ignore verification below. Injectable so tests can drive it. */
+const defaultGit = (args, cwd) => spawnSync("git", args, { cwd, encoding: "utf8" });
+
+export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
   const dir = path.join(root, "docs", "plans");
   fs.mkdirSync(dir, { recursive: true });
   const ignore = path.join(dir, ".gitignore");
@@ -1152,11 +1198,13 @@ export function ensurePlansIgnored(root) {
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith("#"));
-    if (patterns.some((l) => l === "*" || l === "PLAN_*.md" || l === "/PLAN_*.md")) return;
-    fs.appendFileSync(
-      ignore,
-      "\n# Added by core/scripts/plan-review.mjs: a plan under review is never committed by accident.\nPLAN_*.md\n",
-    );
+    if (!patterns.some((l) => l === "*" || l === "PLAN_*.md" || l === "/PLAN_*.md")) {
+      fs.appendFileSync(
+        ignore,
+        "\n# Added by core/scripts/plan-review.mjs: a plan under review is never committed by accident.\nPLAN_*.md\n",
+      );
+    }
+    verifyIgnored(root, planPath, git);
     return;
   }
   fs.writeFileSync(
@@ -1175,6 +1223,44 @@ export function ensurePlansIgnored(root) {
       "*",
       "",
     ].join("\n"),
+  );
+  verifyIgnored(root, planPath, git);
+}
+
+/**
+ * Ask GIT whether this plan is actually ignored, instead of believing a
+ * pattern that looks right.
+ *
+ * A `.gitignore` is not a set of patterns, it is an ordered program whose
+ * LAST match decides. So `*` followed by `!PLAN_SECRET.md` leaves that one
+ * plan exposed, and the pattern scan above -- which asks only whether an
+ * ignoring-looking line occurs anywhere -- reads it as protected and returns
+ * early having appended nothing (Codex, #69 round 5). Every rule this file
+ * has added for that hazard was another guess about what git would conclude.
+ * Git is right here and free to ask, so it is asked.
+ *
+ * `--untracked-files=all` with a `??` prefix is the exact condition that
+ * matters: that is a file `git add -A` would stage. A plan already TRACKED
+ * reports differently and is not refused -- David asking for a plan on
+ * `main` is a supported, deliberate act with the disclosure check in front
+ * of it.
+ *
+ * Not being able to ask is not the same as a bad answer, and is not refused:
+ * outside a git repository (which is where `git` fails here) there is no
+ * commit to make by accident, so there is nothing to protect against.
+ */
+function verifyIgnored(root, planPath, git) {
+  if (!planPath) return;
+  const out = git(["status", "--porcelain", "--untracked-files=all", "--", planPath], root);
+  if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
+  const exposed = out.stdout.split("\n").some((l) => l.startsWith("??"));
+  if (!exposed) return;
+  throw new Error(
+    `${planPath} is NOT ignored by git -- \`git status --porcelain --untracked-files=all\` reports it as "??", ` +
+      `so \`git add -A\` during implementation would stage it. docs/plans/.gitignore exists and carries an ` +
+      `ignoring pattern, but a later negation overrides it: a .gitignore is an ordered program and the last ` +
+      `matching rule wins. A plan is exactly the document that might name an unpatched vulnerability, so this ` +
+      `round is refused rather than run against an unprotected file. Fix the negation, or move the plan.`,
   );
 }
 
@@ -1264,10 +1350,12 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       if (!flags.oracle) throw new Error("--round 0 needs --oracle <file>: the scope gate reviews the intent, and the intent is all it gets.");
     } else {
       if (!flags.plan) throw new Error(`--round ${round} needs --plan <file>`);
-      ensurePlansIgnored(root);
       planPath = path.relative(root, path.resolve(root, flags.plan));
       const abs = path.join(root, planPath);
       if (!fs.existsSync(abs)) throw new Error(`--plan ${flags.plan} does not exist at ${abs}`);
+      // After the path is known, so the ignore can be verified against THIS
+      // plan rather than against a pattern that looks convincing.
+      ensurePlansIgnored(root, planPath);
       planText = fs.readFileSync(abs, "utf8");
     }
     const oracleText = flags.oracle ? fs.readFileSync(path.resolve(root, flags.oracle), "utf8") : null;

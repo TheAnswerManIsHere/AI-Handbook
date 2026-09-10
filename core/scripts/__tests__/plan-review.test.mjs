@@ -1307,3 +1307,100 @@ test("round 0 takes its output shape from the schema, not from the plan contract
   assert.match(one, /full-assessment surface/);
   assert.doesNotMatch(one, /the contract does not describe it/);
 });
+
+// ── a duplicate finding id is fake convergence ─────────────────────────────
+
+test("two priors sharing an id are refused, because one answer would reconcile both", () => {
+  // Reconciliation is keyed by id through Map/Set membership, so two distinct
+  // priors carrying one id both read as answered the moment the reviewer
+  // answers it once -- and the stop rule then reports converged with a
+  // required revision never addressed. Reviewer-minted ids are free text
+  // across rounds that never see each other, so the collision is ordinary.
+  const dup = [
+    { id: "R1", title: "first thing", disposition: "fixed" },
+    { id: "R1", title: "a different thing", disposition: "declined" },
+  ];
+  assert.throws(() => normalizePriors(dup), /repeats id "R1"/);
+  assert.throws(() => normalizePriors(dup), /converged/);
+
+  // Proof it was fake convergence before: one response, both priors, clean.
+  const priors = dup.map((p) => ({ ...p, note: "" }));
+  const oneAnswer = assessment({
+    required_revisions: [],
+    previous_findings: [{ id: "R1", status: "Resolved", note: "done" }],
+  });
+  assert.deepEqual(reconciliationProblems(oneAnswer, priors), [], "the old path saw nothing wrong");
+  assert.equal(convergence(oneAnswer, priors).converged, true, "and called it converged");
+
+  // Distinct ids are untouched.
+  assert.equal(normalizePriors([{ id: "R1", title: "a", disposition: "fixed" }, { id: "R2", title: "b", disposition: "fixed" }]).length, 2);
+});
+
+test("a round that MINTS two findings with one id is refused at the source", () => {
+  // These become the next round's priors, where the collision would bite. The
+  // check runs before the no-priors early return because round 1 has no
+  // priors and is exactly where such an id is born.
+  const twin = assessment({
+    required_revisions: [
+      { id: "N1", title: "one", why_required: "because", evidence: "a.js:1", suggested_change: "do it" },
+      { id: "N1", title: "two", why_required: "because", evidence: "b.js:2", suggested_change: "do it" },
+    ],
+  });
+  assert.match(reconciliationProblems(twin, [])[0] ?? "", /required_revisions names "N1" twice/);
+  // Unique ids on a round with no priors stay clean.
+  assert.deepEqual(reconciliationProblems(assessment(), []), []);
+});
+
+// ── the ignore is verified by git, not by pattern-spotting ─────────────────
+
+/** A `git status --porcelain` stand-in reporting whatever the test scripts. */
+const fakeGit = (stdout, over = {}) => () => ({ status: 0, stdout, stderr: "", ...over });
+
+test("a .gitignore whose negation re-exposes the plan refuses the round", () => {
+  // `*` then `!PLAN_SECRET.md` leaves that one plan staged by `git add -A`.
+  // The pattern scan saw `*`, called it protected and returned early; a
+  // .gitignore is an ordered program whose LAST match decides.
+  const root = fixtureRoot({});
+  mkdirSync(join(root, "docs/plans"), { recursive: true });
+  writeFileSync(join(root, "docs/plans/.gitignore"), "*\n!PLAN_SECRET.md\n");
+
+  assert.throws(
+    () => ensurePlansIgnored(root, "docs/plans/PLAN_SECRET.md", fakeGit("?? docs/plans/PLAN_SECRET.md\n")),
+    /is NOT ignored by git/,
+  );
+  // The pattern is still there and still looks convincing — which is the point.
+  assert.match(readFileSync(join(root, "docs/plans/.gitignore"), "utf8"), /^\*$/m);
+  drop(root);
+});
+
+test("an actually-ignored plan passes, and a tracked one is not mistaken for exposed", () => {
+  const root = fixtureRoot({});
+  // Ignored: git reports nothing.
+  ensurePlansIgnored(root, "docs/plans/PLAN_X.md", fakeGit(""));
+  assert.match(readFileSync(join(root, "docs/plans/.gitignore"), "utf8"), /^\*$/m);
+  // Tracked and modified is a deliberate act David asked for, not an accident:
+  // only `??` means `git add -A` would stage something unignored.
+  ensurePlansIgnored(root, "docs/plans/PLAN_X.md", fakeGit(" M docs/plans/PLAN_X.md\n"));
+  drop(root);
+});
+
+test("git being unavailable does not refuse — outside a repo there is nothing to commit", () => {
+  const root = fixtureRoot({});
+  for (const broken of [{ status: 128, stdout: "" }, { status: 0, stdout: undefined }, { error: new Error("ENOENT"), status: null }]) {
+    ensurePlansIgnored(root, "docs/plans/PLAN_X.md", () => broken);
+  }
+  assert.ok(existsSync(join(root, "docs/plans/.gitignore")), "the ignore file is still written");
+  drop(root);
+});
+
+test("an existing ignore file without any plan pattern is appended to, then verified", () => {
+  const root = fixtureRoot({});
+  mkdirSync(join(root, "docs/plans"), { recursive: true });
+  writeFileSync(join(root, "docs/plans/.gitignore"), "# notes\nscratch/\n");
+  ensurePlansIgnored(root, "docs/plans/PLAN_X.md", fakeGit(""));
+  const text = readFileSync(join(root, "docs/plans/.gitignore"), "utf8");
+  assert.match(text, /scratch\//, "what the consumer wrote is never rewritten");
+  assert.match(text, /PLAN_\*\.md/);
+  assert.ok(text.indexOf("PLAN_*.md") > text.indexOf("scratch/"), "appended last, so it wins the ordering");
+  drop(root);
+});
