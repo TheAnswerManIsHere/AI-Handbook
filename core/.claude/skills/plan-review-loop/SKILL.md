@@ -409,6 +409,24 @@ exists — and a plan loop that runs without one is invisible to the Project, to
 `/status-all` and to `/maintenance` for its whole life. Do this at the scope
 gate, before the first label below is touched:
 
+0. **First ask whether this work may have a public issue at all.** Sensitive
+   and disclosure-carve-out work — an unpatched vulnerability, auth-bypass
+   specifics, payment-fraud paths, private customer data, embargoed work —
+   **never becomes a public issue**, per
+   [`agents-core.md`](../../../.agents/core/agents-core.md)'s *Workstream
+   tracking*. It is a **private draft Project item** instead: create or reuse
+   that, and skip steps 2 and 3 entirely. Step 1 still applies if a public
+   issue legitimately already exists for non-sensitive work.
+
+   **This step is numbered zero because it has to run before the others, not
+   alongside them.** Steps 2 and 3 both end in a public issue, so a carve-out
+   that reaches them has already lost — the title alone can carry the thing
+   the carve-out exists to protect. This is also the one step in the recipe
+   whose failure mode is disclosure rather than bad bookkeeping, so when it is
+   unclear whether a plan is sensitive, treat it as sensitive and ask David;
+   an unnecessary draft item costs nothing and is trivially promoted, while a
+   public issue cannot be unpublished.
+
 1. **The issue may already exist** at `stage:planning` — a workstream that was
    already being tracked. Nothing to do.
 2. **Otherwise check the backlog first**, per

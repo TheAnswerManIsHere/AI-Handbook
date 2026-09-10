@@ -1,0 +1,7 @@
+{
+  "pr": 69,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 6,
+  "authorization": "David, 2026-09-10, verbatim: \"Grant 2, fix only the confidentiality one\" — answering the 🛑 raised when round 6 on 71ae1ef returned 2 findings and tripped the condition registered before that round ran (any findings on the grant's last round go to him rather than into another round). He took the recommendation exactly: fix the P1 only — the workstream-intake step opening a public issue for disclosure-carve-out work, whose failure mode is publishing the material the carve-out protects — and record the P2 (an apostrophe in the lens breaking the detached-round command) as a gap, on the reasoning that the smallest possible edit is worth more than completeness when the last two rounds found defects in prose just written. His grant opens exactly two rounds from a completed count of six."
+}
