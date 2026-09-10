@@ -176,12 +176,16 @@ non-canonical filename (`loop-extension-1-01.json`), two receipts claiming one
 sequence, an unlistable directory, a `continue` citing a record that does not
 exist or was generated below the cap, and a round-check receipt that is
 stale, already consumed, already claimed, or carrying an incoherent
-delivered/pending split — all **refuse the post** and name the file. A
-round-check receipt that is simply **missing** does not (2026-09-10): the
-post is allowed with a note that the cap is unenforced on it. So does a
+delivered/pending split — all **refuse the post** and name the file. So does a
 snapshot that names no repository, carries no capture time, was captured more
 than an hour ago, or omits a body where the count reads one. A guard that
 ignores what it cannot read is a guard a syntax error switches off.
+
+**The one thing that does not refuse (2026-09-10): a round-check receipt that
+is simply missing.** The post is allowed, with a note that the cap is
+unenforced on it — below the cap that is the intended cost. Everything above
+still refuses: a broken receipt, a broken snapshot, a standing terminal
+verdict, a zero-round David receipt, a foreign budget.
 
 **One check authorizes one post.** The receipt is marked `consumedAt` when the
 guard allows a request, so the same evidence cannot wave through a second
