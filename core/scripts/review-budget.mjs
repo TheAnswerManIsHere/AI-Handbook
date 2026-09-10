@@ -39,9 +39,12 @@
  * complete, recent) and counts rounds with `review-counting.mjs`'s own
  * `reviewerPasses()` -- plus at most one
  * pending request visible in the comments themselves. The result is an
- * EPHEMERAL round-check receipt the PreToolUse hook demands, one post per
- * receipt. GitHub is the durable store; the receipt is evidence about a
- * moment and dies with the session (gitignored, per the receipts README).
+ * EPHEMERAL round-check receipt, one post per receipt, which the PreToolUse
+ * hook CONSUMES WHEN PRESENT and enforces the cap against. Since 2026-09-10
+ * it is not demanded on every post: below the cap the hook allows an
+ * uncounted request and says so; near the cap the operator runs `check` and
+ * the hook counts. GitHub is the durable store; the receipt is evidence about
+ * a moment and dies with the session (gitignored, per the receipts README).
  *
  * Two things ARE durable, because they are decisions rather than evidence:
  *
@@ -105,11 +108,14 @@
  * defend against its own author is a false assurance. The committed receipts
  * and the weekly digest are the control.
  *
- * FAIL-CLOSED, in every direction it can be wrong: an unreadable, malformed,
- * or mismatched receipt refuses and names the file; a missing, stale,
- * consumed, or foreign round-check receipt refuses; an unlistable receipts
- * directory refuses. A budget guard that ignores what it cannot read is a
- * budget guard a syntax error switches off.
+ * FAIL-CLOSED wherever it has read something: an unreadable, malformed, or
+ * mismatched receipt refuses and names the file; a stale, consumed, or
+ * foreign round-check receipt refuses; an unlistable receipts directory
+ * refuses. A budget guard that ignores what it cannot read is a budget guard
+ * a syntax error switches off. The one deliberate opening (2026-09-10): a
+ * round-check receipt that is simply ABSENT allows, with a note -- below the
+ * cap that is the intended cost, and the two things that make the cap real
+ * (a standing terminal verdict, a foreign budget) refuse without one.
  */
 
 import crypto from "node:crypto";
@@ -1572,6 +1578,18 @@ const terminalVerdictStanding = (extensions) => {
   return last.kind === "adjudication" && last.verdict !== "continue";
 };
 
+/**
+ * David said stop: the latest receipt is his, and it grants zero rounds. With
+ * a round-check receipt present the allowance arithmetic refuses this on its
+ * own; without one it has to be recognised by shape, or a missing ephemeral
+ * file would bypass his durable decision (Codex, #72 round 1).
+ */
+const davidStopStanding = (extensions) => {
+  if (!extensions.length) return false;
+  const last = extensions[extensions.length - 1];
+  return last.kind === "david" && last.grant === 0;
+};
+
 // ---------------------------------------------------------------------------
 // Counting rounds from evidence
 // ---------------------------------------------------------------------------
@@ -1801,10 +1819,12 @@ function refusal(pr, state, spent, tiedCount = false) {
  * Judge one review-request tool call. `{ blocked, reason }`, matching
  * `decide()`'s contract in `guard-decision.mjs`.
  *
- * The hook cannot reach GitHub, so it demands the evidence be brought to it:
- * a fresh round-check receipt written by `check` from a validated snapshot.
- * Missing, stale, consumed, or foreign receipts refuse -- the same posture as
- * the merge gate's readiness receipt, because it is the same problem.
+ * The hook cannot reach GitHub, so the evidence is brought to it: a fresh
+ * round-check receipt written by `check` from a validated snapshot. Stale,
+ * consumed, or foreign receipts refuse -- the same posture as the merge
+ * gate's readiness receipt. A MISSING one does not (2026-09-10): the post is
+ * allowed uncounted, with a note, unless a terminal verdict or a zero-round
+ * David receipt is standing.
  *
  * On allow, the receipt is marked consumed, so one check authorizes exactly
  * one post.
@@ -2006,10 +2026,49 @@ export function judgeReviewRequest(
 
   const check = readJson(io, checkPath(pr));
   if (check.state === "absent") {
-    return {
-      blocked: true,
-      reason: `no round-check receipt for PR #${pr} -- the round count is evidence, not recollection. ${CHECK_HOWTO(pr, slug)}`,
-    };
+    // NO RECEIPT IS NOT A REFUSAL (David, 2026-09-10). It was, and the cost
+    // was paid on every round of every loop: a snapshot captured, a receipt
+    // minted and claimed, ten minutes of ceremony to establish "2 of 3" for
+    // a post nowhere near the cap. The precision was real and worth nothing
+    // below the boundary, and the loop it documented most thoroughly (#38,
+    // nine extensions) it did not shorten by a round. What actually stops a
+    // runaway is a cap with a human at it -- and the two things that make
+    // THAT real are still refused below: a terminal verdict standing, and a
+    // budget declared for some other repository. Everything between the
+    // number and David was overhead, and it is gone.
+    //
+    // What a missing receipt costs, stated: the cap is not enforced by this
+    // hook on this post. The round number is in the loop's own context
+    // comment, the count is one `get_reviews` away, and the David gate is a
+    // 🛑 the contract already requires. Run `check` when the loop is near the
+    // cap and the hook enforces it mechanically; below it, post.
+    if (terminalVerdictStanding(state.extensions)) {
+      const last = state.extensions[state.extensions.length - 1];
+      return {
+        blocked: true,
+        reason:
+          `a TERMINAL adjudication verdict is standing on PR #${pr} ("${last.verdict}", ` +
+          `${extensionPath(pr, last.seq)}) and a dispatched verdict decides. No round-check receipt is ` +
+          `present, and none would change this: only a "david"-kind extension receipt reopens the loop. ` +
+          `Take it to David as a 🛑 NEED YOU.`,
+      };
+    }
+    if (davidStopStanding(state.extensions)) {
+      const last = state.extensions[state.extensions.length - 1];
+      return {
+        blocked: true,
+        reason:
+          `David's latest receipt on PR #${pr} grants zero rounds (${extensionPath(pr, last.seq)}): that is a ` +
+          `stop, and it stands with or without a round-check receipt. Only a later "david"-kind receipt with a ` +
+          `positive grant reopens the loop.`,
+      };
+    }
+    process.stderr.write(
+      `Guard: allowing the review request for PR #${pr} with NO round-check receipt -- the cap is not ` +
+        `enforced on this post. Below the cap that is the intended cost; near it, run ` +
+        `\`node scripts/review-budget.mjs check --pr ${pr} --mcp-snapshot <file>\` first so the hook counts.\n`,
+    );
+    return { blocked: false, reason: null };
   }
   if (check.state !== "ok") {
     return {
@@ -2131,7 +2190,8 @@ const USAGE = `usage:
 
 declare writes the committed budget receipt (refuses to overwrite one).
 check validates a fresh snapshot, counts rounds from it, and writes the
-ephemeral round-check receipt the guard demands before an @codex review post.
+ephemeral round-check receipt that makes the guard COUNT the next @codex review
+post. Below the cap the guard allows an uncounted post; run check near the cap.
 `;
 
 const requirePr = (flags) => {

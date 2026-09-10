@@ -816,12 +816,49 @@ test("the no-budget refusal routes internal tooling to the internal tier, not ar
   assert.doesNotMatch(reason, /Do NOT declare a budget/, "the old carve-out's instruction must be gone, not merely contradicted");
 });
 
-test("a declared budget with no round-check receipt still refuses", () => {
-  const { blocked, reason } = judgeReviewRequest(post(1), fakeIo({ [budgetPath(1)]: budget(1) }), NOW);
+test("a declared budget with no round-check receipt allows the post, and says the cap is not enforced", () => {
+  // David, 2026-09-10: below the cap, post. The per-round receipt was
+  // ceremony that established "2 of 3" for posts nowhere near the boundary.
+  const written = [];
+  const orig = process.stderr.write;
+  process.stderr.write = (chunk) => (written.push(String(chunk)), true);
+  try {
+    const { blocked } = judgeReviewRequest(post(1), fakeIo({ [budgetPath(1)]: budget(1) }), NOW);
+    assert.equal(blocked, false);
+  } finally {
+    process.stderr.write = orig;
+  }
+  assert.match(written.join(""), /NO round-check receipt/);
+  assert.match(written.join(""), /cap is not enforced on this post/);
+  assert.match(written.join(""), /review-budget\.mjs check/, "it still says how to make the hook count");
+});
+
+test("David's zero-round receipt refuses even with no round-check receipt", () => {
+  // The counted path refuses this through the allowance arithmetic; the
+  // uncounted path has to recognise it by shape, or losing the ephemeral
+  // receipt would bypass his durable stop. (Codex, #72 round 1.)
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json({ pr: 1, kind: "david", grant: 0, asOf: 3, authorization: "stop here" }),
+  });
+  const { blocked, reason } = judgeReviewRequest(post(1), io, NOW);
   assert.equal(blocked, true);
-  assert.match(reason, /no round-check receipt/);
-  assert.match(reason, /evidence, not recollection/);
-  assert.match(reason, /review-budget\.mjs check/);
+  assert.match(reason, /grants zero rounds/);
+  assert.match(reason, /with or without a round-check receipt/);
+});
+
+test("a standing terminal verdict refuses even with no round-check receipt", () => {
+  // The one thing a missing receipt must not wave through: a dispatched stop
+  // decides, and no count is needed to know it is standing.
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json(adjudication(1, { verdict: "ship-with-gaps-recorded", grant: 0, recordPath: RECORD(1) })),
+    [RECORD(1)]: recordFile(1, 5),
+  });
+  const { blocked, reason } = judgeReviewRequest(post(1), io, NOW);
+  assert.equal(blocked, true);
+  assert.match(reason, /TERMINAL adjudication verdict is standing/);
+  assert.match(reason, /No round-check receipt is present, and none would change this/);
 });
 
 test("an in-budget round is allowed, and consumes its receipt", () => {
