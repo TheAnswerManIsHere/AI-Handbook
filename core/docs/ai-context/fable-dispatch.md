@@ -154,31 +154,22 @@ are printed with the refusal. Argument refusals that
 are knowable from the command line happen **before** the launch, so a
 deterministic mistake never bills a reviewer.
 
-**`--out` may name a `fable-*.json` file under `.agents/receipts/` and nothing
-else** — an allowlist of one directory and one filename shape, rather than a
-blocklist of the destinations that happen to be dangerous.
+**The receipt path is derived, not supplied.** It is
+`.agents/receipts/fable-<role>-<head>.json`, built by the script.
 
-It took two corrections to get there, and both are worth stating because each
-one *looked* sufficient. The first version asked only whether the path was
-*inside the repository*, which is not a question about safety at all:
-`writeFileSync` truncates, so `--out .git/HEAD` passed and destroyed the
-checkout. Being inside a repository never made a destination safe to
-overwrite. The second confined writes to `.agents/receipts/` and called
-clobbering inside it the intended semantic — but that directory is shared with
-the review machinery's own **tracked** receipts, the `loop-budget-*` and
-`loop-extension-*` files the merge gates read, so a typo could still replace
-review evidence with a Fable receipt. Being in the right *place* is not being
-the right *file*.
+An earlier version took the path as a flag and then defended it: four review
+rounds went into a symlinked component, a path anywhere in the repository, a
+tracked file inside the receipts directory, and a hard link aliasing an inode.
+Every one of those needed the *operator* to type the bad path, on a command
+line the operator wrote — which is not the threat model this machinery has
+(`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`, and the
+increment's own first settled decision). A symlink or a hard link is not a
+mistake; someone has to plant it.
 
-The allowed name is exactly the family the receipts `.gitignore` covers, which
-is what keeps the two honest: an accepted name that git tracks would be the
-same defect returning, and a test asserts the pattern and the ignore rule still
-agree. Within that family clobbering *is* intended — re-running a dispatch
-replaces its own output.
-
-The directory is resolved with `realpathSync` rather than by string prefix,
-because a lexical test answers "inside" about a symlinked component that points
-outside, and a confinement that can be walked around does not confine.
+**If naming the file is the script's job, the script names it, and the class
+of findings disappears with the input that carried it** (David, 2026-09-10).
+That is the general rule, not a fact about this flag: a check whose two sides
+you both control is a check against yourself.
 
 **Cost is recorded per attempt, and summed only when every attempt's spend was
 observed.** A first attempt that returns nothing valid still spent money; a

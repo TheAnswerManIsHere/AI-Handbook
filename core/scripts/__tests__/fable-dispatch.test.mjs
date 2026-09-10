@@ -13,10 +13,9 @@ import {
   CUMULATIVE_USAGE_FIELDS,
   FORBIDDEN_TOOLS,
   RECEIPTS_DIR,
-  RECEIPT_NAME,
+  receiptPath,
   ROLE_DIR,
   main,
-  outProblem,
   mergeUsage,
   shipped,
   HARNESS_ADDED_TOOLS,
@@ -576,127 +575,16 @@ test("R2: shipped paths resolve to the layout the reader actually has", () => {
   assert.equal(shipped(consumerish, "docs/ai-context/fable-dispatch.md"), "docs/ai-context/fable-dispatch.md");
 });
 
-test("R6: an --out outside the repository refuses without launching anything", () => {
-  let launched = 0;
-  const originalCwd = process.cwd();
-  process.chdir(ROOT);
-  try {
-    const code = main(["--role", "probe", "--out", "../escape.json"]);
-    assert.equal(code, 1);
-  } finally {
-    process.chdir(originalCwd);
-  }
-  assert.equal(launched, 0);
-});
 
-// --- Codex #73 round 4: --out may not clobber ------------------------------
+// --- The receipt path is derived, so there is nothing to validate ----------
 
-test("R4-1: an --out inside the repository but outside the receipts directory refuses", () => {
-  // The round-1 fix asked only whether the path was INSIDE the repository, so
-  // every one of these passed it and `writeFileSync` truncated the target.
-  for (const target of [".git/HEAD", ".git/refs/heads/main", "core/scripts/fable-dispatch.mjs", "README.md"]) {
-    const problem = outProblem(ROOT, path.resolve(ROOT, target));
-    assert.ok(problem, `${target} should refuse`);
-    assert.match(problem, /must name a file under \.agents\/receipts\//);
-  }
-});
-
-test("R4-1: the destructive case refuses through main() without launching anything", () => {
-  // Compare the file to ITSELF across the call. The first version asserted
-  // that `.git/HEAD` matches /^ref: /, which is a property of the checkout
-  // rather than of the code under test: `actions/checkout` leaves a PR build
-  // on a DETACHED HEAD, where the file holds a bare sha, so the assertion
-  // failed in CI while passing on every branch checkout. Asserting an
-  // unestablished property is this PR's own subject, reproduced in its tests.
-  const head = path.join(ROOT, ".git", "HEAD");
-  const before = fs.readFileSync(head, "utf8");
-  const originalCwd = process.cwd();
-  process.chdir(ROOT);
-  try {
-    // No runner is injected, so a launch would have to reach the real binary.
-    assert.equal(main(["--role", "probe", "--out", ".git/HEAD"]), 1);
-  } finally {
-    process.chdir(originalCwd);
-  }
-  assert.equal(fs.readFileSync(head, "utf8"), before, ".git/HEAD was written to");
-});
-
-test("R4-1: a fable receipt under the receipts directory is accepted", () => {
-  assert.equal(outProblem(ROOT, path.resolve(ROOT, RECEIPTS_DIR, "fable-probe-x.json")), null);
-  assert.equal(outProblem(ROOT, path.resolve(ROOT, RECEIPTS_DIR, "fable-probe-1a69d40.json")), null);
-});
-
-// --- Codex #73 round 5: the directory is shared with the review machinery ---
-
-test("R5-1: no file the review machinery tracks can be named by --out", () => {
-  // The real directory, not a fixture: it holds this repo's own loop-budget
-  // and loop-extension receipts, which the merge gates read. The round-4 fix
-  // confined --out to this directory and called clobbering inside it "the
-  // intended semantic", which was true only of the fable-* family.
-  const dir = path.join(ROOT, RECEIPTS_DIR);
-  const entries = fs.readdirSync(dir).filter((n) => fs.statSync(path.join(dir, n)).isFile());
-  const others = entries.filter((n) => !/^fable-.*\.json$/.test(n));
-  // Guard the guard: if the directory ever holds only fable receipts this
-  // test would pass vacuously and prove nothing.
-  assert.ok(others.length > 5, `expected the machinery's own receipts to be present, saw ${others.length}`);
-  for (const name of others) {
-    const problem = outProblem(ROOT, path.join(dir, name));
-    assert.ok(problem, `${name} should refuse`);
-    assert.match(problem, /must name a fable-\*\.json receipt/);
-  }
-  assert.match(outProblem(ROOT, path.join(dir, "loop-budget-73.json")), /loop-budget and loop-extension/);
-});
-
-test("R5-1: the accepted name and the ignored family are the same pattern", () => {
-  // An accepted name that git TRACKS would be the same defect back again. The
-  // two live in different files, so this asserts they still agree.
-  const ignore = fs.readFileSync(path.join(ROOT, RECEIPTS_DIR, ".gitignore"), "utf8");
-  assert.ok(
-    ignore.split("\n").some((l) => l.trim() === "fable-*.json"),
-    "the receipts .gitignore no longer carries fable-*.json",
-  );
-  assert.ok(RECEIPT_NAME.test("fable-probe-abc123.json"));
-  assert.ok(!RECEIPT_NAME.test("fable-probe.txt"));
-  assert.ok(!RECEIPT_NAME.test("loop-budget-73.json"));
-  assert.ok(!RECEIPT_NAME.test("fable-.json"), "the glob needs at least one character after the dash");
-});
-
-test("R4-1: the confinement resolves symlinks rather than comparing strings", () => {
-  // A lexical prefix test says "inside .agents/receipts" about a directory
-  // that is a link to somewhere else entirely -- the same defect one level up
-  // from the one being fixed, so the check must not be lexical.
-  const io = {
-    existsSync: (p) => p === path.join(ROOT, RECEIPTS_DIR, "linked") || p === path.join(ROOT, RECEIPTS_DIR),
-    realpathSync: (p) =>
-      p === path.join(ROOT, RECEIPTS_DIR, "linked") ? "/somewhere/else" : p,
-    lstatSync: () => ({ isSymbolicLink: () => false, isFile: () => true }),
-  };
-  const problem = outProblem(ROOT, path.join(ROOT, RECEIPTS_DIR, "linked", "receipt.json"), io);
-  assert.match(problem, /resolves outside it/);
-});
-
-test("R4-1: an --out that is itself a symlink refuses rather than writing through it", () => {
-  const io = {
-    existsSync: () => true,
-    realpathSync: (p) => p,
-    lstatSync: () => ({ isSymbolicLink: () => true, isFile: () => false }),
-  };
-  // A well-named receipt, so the refusal is the symlink and not the name.
-  const problem = outProblem(ROOT, path.join(ROOT, RECEIPTS_DIR, "fable-link.json"), io);
-  assert.match(problem, /is a symlink and would be written through/);
-});
-
-test("R4-1: an observation that fails refuses rather than allowing", () => {
-  const io = {
-    existsSync: () => true,
-    realpathSync: () => {
-      const e = new Error("boom");
-      e.code = "EACCES";
-      throw e;
-    },
-    lstatSync: () => ({ isSymbolicLink: () => false, isFile: () => true }),
-  };
-  assert.match(outProblem(ROOT, path.join(ROOT, RECEIPTS_DIR, "r.json"), io), /could not be resolved \(EACCES\)/);
+test("the receipt path is built by the script, not supplied by the caller", () => {
+  // Four review rounds were spent defending an --out flag against paths the
+  // OPERATOR would have had to type. David, 2026-09-10: if it is this script's
+  // job to name the file, this script names it, and the whole class goes away.
+  assert.throws(() => parseArgs(["--role", "probe", "--out", ".git/HEAD"]), /unknown flag --out/);
+  const p = receiptPath(ROOT, "probe", "1c9411c0bc01e4bedefff52c02de456319dfc496");
+  assert.equal(p, path.join(ROOT, RECEIPTS_DIR, "fable-probe-1c9411c.json"));
 });
 
 // --- Codex #73 round 2: observed, or refused -- never coerced ----------------

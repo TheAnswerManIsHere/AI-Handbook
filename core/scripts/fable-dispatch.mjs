@@ -61,14 +61,14 @@
  *
  * USAGE
  * -----
- *   node <this file> --role probe --out .agents/receipts/fable-probe.json
+ *   node <this file> --role probe
  *   node <this file> --role probe            # receipt to stdout, as JSON
  *
  *   --role <id>     a role with a definition under .agents/fable-roles/
  *   --brief <path>  the brief file. REFUSED for the probe, whose brief this
  *                   script generates; REQUIRED for every other role, all of
  *                   which are themselves refused in Phase 0.
- *   --out <path>    where the receipt goes. Omitted => stdout, parseable JSON.
+ *   The receipt is written to .agents/receipts/fable-<role>-<head>.json
  *   --timeout <s>   default 600.
  *
  * EXIT CODES
@@ -123,7 +123,7 @@ export const HARNESS_ADDED_TOOLS = ["StructuredOutput"];
 export const PHASE0_PERMITTED_ROLES = ["probe"];
 
 /** Flags this file accepts. Anything else is free text wearing a flag's hat. */
-const KNOWN_FLAGS = new Set(["--role", "--brief", "--out", "--timeout"]);
+const KNOWN_FLAGS = new Set(["--role", "--brief", "--timeout"]);
 
 /**
  * Where a payload file lives in THIS checkout, for prose the reader will act on.
@@ -197,94 +197,30 @@ export function frontmatterBody(text) {
  */
 export const ROLE_DIR = ".agents/fable-roles";
 
-/**
- * The ONLY directory `--out` may name.
- *
- * Containment was the wrong question. The first version asked whether the
- * path was inside the repository and wrote it with `writeFileSync`, which
- * truncates -- so `--out .git/HEAD` passed the check and destroyed the
- * checkout, and `--out <any working file>` silently replaced it. Nothing
- * about "inside the repository" makes a destination safe to overwrite
- * (Codex, #73 round 4, P1).
- *
- * A receipt has exactly one home, so the check is an allowlist of one
- * directory rather than a blocklist of the paths that happen to be
- * dangerous.
- *
- * THE DIRECTORY ALONE IS NOT ENOUGH, and the first version of this fix said
- * "clobbering another receipt is the intended semantic" while `.agents/
- * receipts/` holds 46 TRACKED files -- `README.md`, `.gitignore`, and every
- * `loop-budget-*.json` and `loop-extension-*.json` the review machinery reads
- * as a merge gate. Overwriting one of those with a Fable receipt is
- * corruption of the tracking machinery other agents depend on, which is a
- * named critical class, not a tidy-up (Codex, #73 round 5).
- *
- * So the name is checked too, and the allowed shape is exactly the family
- * this file's own `.gitignore` entry covers: `fable-*.json`. The two must
- * agree -- an allowed name that git tracks would be the same defect back
- * again -- and they agree by being the same pattern, stated here and there.
- * Within that family, clobbering IS the intended semantic: re-running a
- * dispatch replaces its own output.
- *
- * The resolution is through `realpathSync`, not lexical: a prefix test on a
- * path with a symlinked component says "inside" about a directory that is
- * outside, which is the defect one level up from the one being fixed.
- */
+/** Where a receipt goes. The script builds the path; nothing validates it. */
 export const RECEIPTS_DIR = ".agents/receipts";
 
 /**
- * The only basenames `--out` may write, and the same family the receipts
- * `.gitignore` covers with `fable-*.json`. Stated as a pattern rather than a
- * prefix test so the two can be read side by side and seen to agree.
- */
-export const RECEIPT_NAME = /^fable-[A-Za-z0-9._-]+\.json$/;
-
-/**
- * Why a receipt may not be written to `outAbs`, or null if it may be.
+ * The receipt path for a run, derived rather than supplied.
  *
- * Exported so the refusal is testable without a launch, and evaluated in
- * `main()` BEFORE `dispatch()`, because a deterministic argument refusal that
- * runs afterwards has already billed a reviewer (Codex, #73 round 1).
+ * `--out` used to take an arbitrary path, and four review rounds were then
+ * spent defending it: a symlinked component, a path anywhere in the
+ * repository, a tracked file inside the receipts directory, a hard link
+ * aliasing an inode. Every one of those needs the OPERATOR to name the bad
+ * path -- and the operator is the person running this script, on a command
+ * line they wrote.
+ *
+ * `.agents/memory/machinery-threat-model-is-my-own-mistakes.md` says the same
+ * thing about this whole machinery, and the approved plan's first settled
+ * decision repeats it: the threat model is my own mistakes, not forgery. A
+ * symlink or a hard link is not a mistake; somebody has to plant it.
+ *
+ * So there is nothing to check. If naming the receipt is this script's job,
+ * this script does it, and the entire class of findings goes away because the
+ * input that carried it no longer exists (David, 2026-09-10).
  */
-export function outProblem(root, outAbs, io = { realpathSync: fs.realpathSync, existsSync: fs.existsSync, lstatSync: fs.lstatSync }) {
-  const home = path.join(path.resolve(root), RECEIPTS_DIR);
-  // The deepest ancestor that exists is the one whose real path can be taken;
-  // anything below it will be created by `mkdirSync` inside that real parent.
-  let probe = path.dirname(outAbs);
-  while (!io.existsSync(probe) && path.dirname(probe) !== probe) probe = path.dirname(probe);
-  let realParent;
-  let realHome;
-  try {
-    realParent = io.realpathSync(probe);
-    realHome = io.existsSync(home) ? io.realpathSync(home) : home;
-  } catch (e) {
-    // An observation that failed is not permission to proceed.
-    return `--out could not be resolved (${e.code ?? e.message}): ${outAbs}`;
-  }
-  if (realParent !== realHome && !realParent.startsWith(realHome + path.sep)) {
-    return `--out must name a file under ${RECEIPTS_DIR}/, and ${outAbs} resolves outside it`;
-  }
-  // The directory is shared with the review machinery's own tracked receipts,
-  // so being in the right place is not being the right file.
-  if (!RECEIPT_NAME.test(path.basename(outAbs))) {
-    return (
-      `--out must name a fable-*.json receipt, not ${path.basename(outAbs)}: ` +
-      `${RECEIPTS_DIR}/ also holds the tracked loop-budget and loop-extension receipts the review gates read`
-    );
-  }
-  // A receipt path that is itself a symlink writes THROUGH the link, so the
-  // directory check above would be satisfied while the bytes land elsewhere.
-  if (io.existsSync(outAbs)) {
-    let st;
-    try {
-      st = io.lstatSync(outAbs);
-    } catch (e) {
-      return `--out could not be inspected (${e.code ?? e.message}): ${outAbs}`;
-    }
-    if (st.isSymbolicLink()) return `--out is a symlink and would be written through: ${outAbs}`;
-    if (!st.isFile()) return `--out exists and is not a regular file: ${outAbs}`;
-  }
-  return null;
+export function receiptPath(root, role, head) {
+  return path.join(path.resolve(root), RECEIPTS_DIR, `fable-${role}-${head.slice(0, 7)}.json`);
 }
 
 /**
@@ -994,19 +930,6 @@ export function main(argv = process.argv.slice(2)) {
   }
   const root = repoRoot();
 
-  // BEFORE the dispatch, not after. A deterministic argument refusal that runs
-  // afterwards has already launched and billed a reviewer to reject something
-  // knowable from the command line (Codex, #73 round 1).
-  let outAbs = null;
-  if (args.out) {
-    outAbs = path.resolve(root, args.out);
-    const problem = outProblem(root, outAbs);
-    if (problem) {
-      process.stderr.write(`fable-dispatch: ${problem}\n`);
-      return 1;
-    }
-  }
-
   let receipt;
   try {
     receipt = dispatch({ root, role: args.role, briefPath: args.brief, timeoutSec: args.timeout });
@@ -1017,16 +940,10 @@ export function main(argv = process.argv.slice(2)) {
     }
     return e.exitCode ?? 1;
   }
-  const json = `${JSON.stringify(receipt, null, 2)}\n`;
-  if (outAbs) {
-    fs.mkdirSync(path.dirname(outAbs), { recursive: true });
-    fs.writeFileSync(outAbs, json);
-    process.stderr.write(`fable-dispatch: receipt -> ${args.out}\n`);
-  } else {
-    // With --out omitted stdout must PARSE. Every human-facing line above goes
-    // to stderr for this reason.
-    process.stdout.write(json);
-  }
+  const out = receiptPath(root, receipt.role, receipt.headAtSpawn);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
+  process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
   return 0;
 }
 
