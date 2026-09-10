@@ -548,6 +548,26 @@ export function assertAnswerModel(answerModel, contract) {
  * and compared here moves the hashing to the side that can do it, and makes a
  * wrong answer fail even when the model evidence is perfect.
  */
+/**
+ * Run a post-launch assertion, and attach what was already spent if it throws.
+ *
+ * `main()` prints accounting from `e.attempts` and nowhere else, so any refusal
+ * raised AFTER the subprocess ran drops the cost record unless it carries one.
+ * Round 7 fixed that for the two-invalid-attempts path only -- the instance,
+ * not the class -- and the model, probe, surface and usage refusals still
+ * threw bare (Codex, #73 round 8). Every one of them now goes through here, so
+ * a new assertion added later inherits it by being written in the same place
+ * rather than by anyone remembering.
+ */
+export function withSpend(fn, attempts) {
+  try {
+    return fn();
+  } catch (e) {
+    if (e && !e.attempts) e.attempts = attempts;
+    throw e;
+  }
+}
+
 export const newNonce = () => crypto.randomBytes(16).toString("hex");
 
 export function probeBrief(nonce) {
@@ -797,7 +817,7 @@ export function dispatch({
     // receipt while the first reviewer had already held the prohibited
     // capability and could have used it (Codex, #73 round 1, P1). A retry
     // cannot un-launch that, so the refusal cannot wait for one.
-    surface = assertLaunchSurface(init, contract, { expectedSessionId: sessionId });
+    surface = withSpend(() => assertLaunchSurface(init, contract, { expectedSessionId: sessionId }), attempts);
 
     const problems = [];
     if (!result) problems.push("no `result` event");
@@ -832,7 +852,7 @@ export function dispatch({
       continue;
     }
 
-    answerModel = assertAnswerModel(stampedModel, contract);
+    answerModel = withSpend(() => assertAnswerModel(stampedModel, contract), attempts);
     output = result.structured_output;
     break;
   }
@@ -844,9 +864,9 @@ export function dispatch({
   // top-level total exists only when nothing is missing from it.
   const costComplete = attempts.every((a) => typeof a.costUsd === "number");
   const costUsd = costComplete ? attempts.reduce((sum, a) => sum + a.costUsd, 0) : null;
-  const usage = mergeUsage(attempts.map((a) => a.modelUsage));
+  const usage = withSpend(() => mergeUsage(attempts.map((a) => a.modelUsage)), attempts);
 
-  if (isProbe) assertProbeRoundTrip(output, probeNonce, surface);
+  if (isProbe) withSpend(() => assertProbeRoundTrip(output, probeNonce, surface), attempts);
 
   return {
     role,

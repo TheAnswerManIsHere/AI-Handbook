@@ -120,13 +120,19 @@ Prefer, in order:
   own operator produces: **derive it instead of checking it.** A check whose
   two sides you both own carries no independent information — it fails only
   when the code between them is wrong, and that code is exactly as likely to
-  be wrong as the check. The machinery under `scripts/` is the standing case:
-  its threat model is the operator's own mistakes, never an adversary, and a
-  local script is not a security boundary. A finding that needs the operator
-  to supply a hostile value is out of scope, and the useful response is to
-  remove the input, not to guard it (AI-Handbook #7: eleven findings and no
-  added safety; AI-Handbook #73: four review rounds on one flag, then the
-  flag was deleted).
+  be wrong as the check. A hand-run script's **argv** is the standing case:
+  its threat model is the operator's own mistakes, never an adversary, so a
+  finding that needs that operator to supply a hostile value to their own
+  command is out of scope, and the useful response is to remove the input,
+  not to guard it (AI-Handbook #7: eleven findings and no added safety;
+  AI-Handbook #73: four review rounds on one flag, then the flag was
+  deleted).
+  **Ask who produced the value, never which directory the file sits in.** A
+  script that parses a hook payload, a fetched document, a webhook body or
+  another program's output is reading something it does not control, however
+  local it looks — and where that script exists to *constrain* the producer,
+  its input is adversarial by construction and validating it is the entire
+  job. Getting this backwards disarms exactly the code that matters most.
 - **Prefer database-backed config for tunable operational settings.**
 - **Migrations must be idempotent and observable.**
 - **Async work must show status** at two altitudes (per-item + aggregate) — see
