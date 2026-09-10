@@ -587,6 +587,46 @@ test("the receipt path is built by the script, not supplied by the caller", () =
   assert.equal(p, path.join(ROOT, RECEIPTS_DIR, "fable-probe-1c9411c.json"));
 });
 
+// --- Codex #73 round 7 -----------------------------------------------------
+
+test("R7-1: a definition with no `tools` refuses rather than defaulting to Read", () => {
+  // P2 says the allowlist comes from frontmatter. A silent `?? "Read"` made
+  // that false whenever the field was absent or misspelled.
+  const noTools = DEFINITION.replace("tools: Read\n", "");
+  assert.throws(
+    () => roleContract(noTools, { role: "probe", definitionPath: "p", definitionCommit: "c" }),
+    /declares no `tools`/,
+  );
+  const typo = DEFINITION.replace("tools: Read", "tool: Read");
+  assert.throws(
+    () => roleContract(typo, { role: "probe", definitionPath: "p", definitionCommit: "c" }),
+    /declares no `tools`/,
+  );
+});
+
+test("R7-2: two failed attempts carry their spend on the error", () => {
+  // main() prints accounting only from e.attempts, so the path where the most
+  // was spent for nothing was the one reporting no cost at all.
+  const bad = [initEvent(), assistantEvent(), resultEvent(null)].join("\n");
+  let calls = 0;
+  try {
+    dispatchP({
+      root: ROOT,
+      role: "probe",
+      runGit: fakeGit(),
+      runner: () => { calls += 1; return { stdout: bad }; },
+      nonce: "n0nce",
+    });
+    assert.fail("expected a refusal");
+  } catch (e) {
+    assert.match(e.message, /no schema-valid document in two attempts/);
+    assert.equal(calls, 2);
+    assert.equal(e.attempts.length, 2, "both attempts are attached");
+    assert.equal(e.attempts[0].costUsd, 0.085);
+    assert.equal(e.attempts[1].costUsd, 0.085);
+  }
+});
+
 // --- Codex #73 round 2: observed, or refused -- never coerced ----------------
 
 test("R2-1: exit 2 is reserved for a dispatch where nothing ran", () => {

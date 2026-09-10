@@ -464,15 +464,18 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    ended up with compare-and-swap semantics. Product/design forks, scope
    additions, splits and disclosure questions go to David.
    **A fix needs both a real likelihood and a real consequence** (David,
-   2026-09-10). Every reply carries a **`Worth:`** line that answers, in
-   order: **who supplies the value** — if this code or its operator does,
-   the disposition is *derive it and decline*, never a check, because a
-   check whose two sides I own guards nothing (David, 2026-09-10: *"you
-   control both sides"*; #73 spent four rounds on one flag before deleting
-   it) — then the chance the situation occurs in actual use, then what it
-   costs when it does. A finding missing any of those is a one-line decline
-   shipped as a recorded gap,
-   never a fix — however small the diff looks, because each one costs a
+   2026-09-10). The reply names the **`Class:`** first, then a **`Worth:`**
+   line answered against that class, then one of three dispositions.
+   `Worth:` asks **who supplies the value** before anything else: if this
+   code or its own operator does, the answer is **`simplify-away`** — remove
+   the input, derive the value — never a check, because a check whose two
+   sides I own guards nothing (David, 2026-09-10: *"you control both
+   sides"*; #73 spent four rounds on one flag before deleting it), and
+   never a decline either, since the code moves and so a review round is
+   owed. Only for a value from outside my control does it go on to ask the
+   chance the class occurs and what it costs at its worst; missing either,
+   the disposition is **`decline-as-gap`** —
+   however small the diff looks, because each one costs a
    round and the aggregate is never weighed at the moment of the decision.
    This is *engineer-to-the-blast-radius* fired at triage, which is where a
    review loop actually over-builds: the design-time rule never collides
@@ -491,7 +494,9 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in
    a batch. No standalone summary comment in place of per-thread replies.
-   **Every reply carries `Worth:` / `Class:` / `Oracle:` / `Result:`** — the
+   **Every reply carries `Class:` / `Worth:` / `Disposition:` / `Oracle:` /
+   `Result:`, in that order** — the class first because `Worth:` is answered
+   against it, and the
    command ran before the reply was written, and its real output is
    transcribed. A reply missing those lines is malformed and doesn't get
    posted; declines included, because declining without an oracle asserts the

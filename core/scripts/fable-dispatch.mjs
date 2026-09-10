@@ -302,7 +302,14 @@ export function roleContract(definitionText, { role, definitionPath, definitionC
     );
   }
 
-  const tools = (front.tools ?? "Read")
+  // Declared, never defaulted. P2 says a role's built-in tools come from its
+  // frontmatter allowlist, and a silent `?? "Read"` made that false whenever
+  // the field was omitted or misspelled -- the claim and the mechanism
+  // disagreeing, which is this increment's whole subject (Codex, #73 round 7).
+  // This is not a new check: it removes a default, so the field joins `model`,
+  // `budgetUsd` and `schema` in being required.
+  if (!front.tools?.trim()) throw new Error(`${definitionPath} declares no \`tools\``);
+  const tools = front.tools
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
@@ -810,10 +817,17 @@ export function dispatch({
 
     if (problems.length) {
       if (attempt === 2) {
-        throw new Error(
+        const err = new Error(
           `the reviewer produced no schema-valid document in two attempts: ${problems.join("; ")}. ` +
             `No receipt is written -- a round that returns nothing valid did not happen.`,
         );
+        // Both attempts spent money. `main()` prints accounting only from
+        // `e.attempts`, so without this the one path where the MOST was spent
+        // for nothing is the one that reports no cost at all -- the same
+        // under-reporting the round-1 cost fix removed from the receipt, left
+        // behind on the error (Codex, #73 round 7).
+        err.attempts = attempts;
+        throw err;
       }
       continue;
     }
