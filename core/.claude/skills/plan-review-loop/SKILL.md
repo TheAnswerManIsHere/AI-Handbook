@@ -306,12 +306,18 @@ saying "unchanged" here was wrong in a way that made the cap's escape hatch
 undefined for every consumer (Codex, #69 round 7):
 
 - **Its input is this loop's round files**, `.agents/reviews/<slug>/round-*.json`
-  and their `.meta.json` siblings. They are script-generated, complete, and
-  carry the trend the judge needs: findings per round, dispositions, statuses,
-  convergence. `review-loop-record.mjs` is **not** available here — it requires
-  `--pr` and a PR snapshot, and a plan loop has neither. The rule those two
-  share is the one that matters and it is unchanged: **the judge reads what the
-  script wrote, never my prose and never a case for continuing written by me.**
+  and their `.meta.json` siblings, **plus the plan snapshot each round writes
+  beside them** (`plan-round-<N>.md`, named by `meta.planSnapshot`). They are
+  script-generated, complete, and carry the trend the judge needs: findings per
+  round, dispositions, statuses, convergence — and the artifact itself, because
+  the judge has `Read` and nothing else, so it cannot hash a plan it fetches by
+  path, and a digest is not a document to rule on (Codex, #69 round 9).
+  `review-loop-record.mjs` is **not** available here — it requires `--pr` and a
+  PR snapshot, and a plan loop has neither. The rule those two share is the one
+  that matters and it is unchanged: **the judge reads what the script wrote,
+  never my prose and never a case for continuing written by me** — and now
+  everything it needs is inside that one directory, so there is nothing to
+  hand it from outside.
 - **Its verdict is recorded as a grant in `extensions.json`**, `kind:
   "adjudicator"`, with the specific unaddressed behavioural risk in `reason`.
   That is the file the budget gate actually reads, so a verdict written

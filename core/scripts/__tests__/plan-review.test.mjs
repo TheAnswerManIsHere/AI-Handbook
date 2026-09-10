@@ -32,8 +32,7 @@ import {
   allowanceFor,
   readGrants,
   roundsRun,
-  assertInputIgnored,
-  assertOracleIgnored,
+  assertIgnored,
   assertTierPinned,
   assertPriorsCoverLastRound,
   findRepoRoot,
@@ -1049,6 +1048,56 @@ test("--force discards the old round before attempting, so a failed re-run leave
   drop(root);
 });
 
+// ── the record carries the artifact, not just its digest ──────────────────
+
+test("the round snapshots the plan the reviewer actually read, beside its assessment", () => {
+  // The adjudicator at the cap has `Read` and nothing else: it cannot hash, so
+  // it cannot verify a plan it fetches by path -- and a digest is not an
+  // artifact. Round 8's mapping handed it `planSha256` in place of the
+  // document, which left it ruling on a hash (Codex, #69 round 9). The bytes
+  // now sit in the record, so the judge's rule stays absolute: everything it
+  // reads was written by this script, inside one ignored directory.
+  const text = "```plan-oracle\nD\n```\nthe plan body";
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text } });
+  const log = quiet();
+  main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+    root,
+    run: scriptedRound(root, [JSON.stringify(clean())]),
+    log,
+  });
+
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.planSnapshot, "plan-round-1.md", "the record names its own artifact");
+  const snap = readFileSync(join(root, ".agents/reviews/x", meta.planSnapshot), "utf8");
+  assert.equal(snap, text, "byte-for-byte what the reviewer read");
+  assert.equal(
+    createHash("sha256").update(snap).digest("hex"),
+    meta.planSha256,
+    "the snapshot cannot disagree with the digest -- both come from the same bytes",
+  );
+  drop(root);
+});
+
+test("round 0 has no plan to snapshot, and says so rather than writing an empty one", () => {
+  // Round 0 runs before a plan exists; its artifact is the oracle. A null
+  // field is what tells the judge that, instead of a zero-byte file it would
+  // have to interpret.
+  const root = fixtureRoot({});
+  mkdirSync(join(root, "docs/plans"), { recursive: true });
+  writeFileSync(join(root, "docs/plans/oracle-x.md"), "DIRECTION: ship the thing");
+  const log = quiet();
+  main(["--round", "0", "--slug", "x", "--oracle", "docs/plans/oracle-x.md"], {
+    root,
+    run: scriptedRound(root, [JSON.stringify(scopeAssessment())]),
+    log,
+  });
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-0.meta.json"), "utf8"));
+  assert.equal(meta.planSnapshot, null);
+  assert.equal(meta.planSha256, null);
+  assert.ok(!existsSync(join(root, ".agents/reviews/x/plan-round-0.md")));
+  drop(root);
+});
+
 // ── convergence reaches the record and the log ─────────────────────────────
 
 test("the meta and the log both state whether the round converged", () => {
@@ -1368,6 +1417,9 @@ test("a .gitignore whose negation re-exposes the plan refuses the round", () => 
   const root = fixtureRoot({});
   mkdirSync(join(root, "docs/plans"), { recursive: true });
   writeFileSync(join(root, "docs/plans/.gitignore"), "*\n!PLAN_SECRET.md\n");
+  // The plan exists, so the chokepoint asks `git status` -- the probe that can
+  // tell an untracked file from a tracked one.
+  writeFileSync(join(root, "docs/plans/PLAN_SECRET.md"), "the CVE is in the webhook");
 
   assert.throws(
     () => ensurePlansIgnored(root, "docs/plans/PLAN_SECRET.md", fakeGit("?? docs/plans/PLAN_SECRET.md\n")),
@@ -1412,30 +1464,85 @@ test("an existing ignore file without any plan pattern is appended to, then veri
 
 // ── the oracle is as sensitive as the plan ─────────────────────────────────
 
-test("an oracle git would stage refuses the round, on every round not just zero", () => {
-  // `ensurePlansIgnored` protects the PLAN. A standalone --oracle at an
-  // ordinary path was left unprotected, so `git add -A` staged the agreed
-  // scope -- the document where an unpatched vulnerability or an embargoed
-  // launch is written down, one document before the plan exists. Round 0 is
-  // the worst case (the oracle is the only document there is), but --oracle
-  // is read on every round.
+test("the ignore chokepoint asks git two ways, and picks by whether the path exists", () => {
+  // ONE DOOR. Four rounds added four hand-written checks -- plan (5), oracle
+  // (7), prior file (8), review directory (9) -- each correct and each leaving
+  // the next site open, because the design kept asking "did you remember this
+  // one?". `assertIgnored` is the only place that question is asked now.
+  //
+  // A path with no file behind it takes the `check-ignore` probe, where exit 1
+  // is the only exposed answer.
+  const notIgnored = () => ({ status: 1, stdout: "", stderr: "" });
   assert.throws(
-    () => assertOracleIgnored("/repo", "scope-oracle.md", fakeGit("?? scope-oracle.md\n")),
-    /oracle scope-oracle\.md is NOT ignored by git/,
+    () => assertIgnored("/repo", "scope-oracle.md", notIgnored, "oracle"),
+    /the oracle scope-oracle\.md is NOT ignored by git/,
   );
   assert.throws(
-    () => assertOracleIgnored("/repo", "scope-oracle.md", fakeGit("?? scope-oracle.md\n")),
-    /docs\/plans\//,
-    "the message names the ignored home rather than moving the file",
+    () => assertIgnored("/repo", "scope-oracle.md", notIgnored, "oracle"),
+    /check-ignore/,
+    "the message names the probe that produced the verdict",
+  );
+  assert.throws(
+    () => assertIgnored("/repo", "priors.json", notIgnored, "prior"),
+    /the prior-findings file priors\.json is NOT ignored by git/,
+  );
+  assert.throws(
+    () => assertIgnored("/repo", ".agents/reviews/x", notIgnored, "reviews"),
+    /the review directory \.agents\/reviews\/x is NOT ignored by git/,
+  );
+  assert.throws(
+    () => assertIgnored("/repo", ".agents/reviews/x", notIgnored, "reviews"),
+    /prompt CONTAINS THE WHOLE ORACLE/,
+    "the reviews case says what makes that directory the worst one to leave open",
   );
 
-  // Ignored, tracked, and an unanswerable git all pass — same three
-  // non-refusals as the plan's check, for the same reasons.
-  assertOracleIgnored("/repo", "docs/plans/oracle.md", fakeGit(""));
-  assertOracleIgnored("/repo", "docs/oracle.md", fakeGit(" M docs/oracle.md\n"));
-  for (const broken of [{ status: 128, stdout: "" }, { status: 0, stdout: undefined }, { error: new Error("ENOENT") }]) {
-    assertOracleIgnored("/repo", "docs/oracle.md", () => broken);
+  // 0 is ignored; 128 and a failed spawn are git DECLINING to answer, which is
+  // not evidence of exposure -- outside a repository there is no commit to
+  // make by accident.
+  for (const ok of [{ status: 0 }, { status: 128 }, { error: new Error("ENOENT") }]) {
+    assertIgnored("/repo", "scope-oracle.md", () => ok, "oracle");
   }
+
+  // A path that IS a file takes the `git status` probe instead, where `??` is
+  // the exposed answer and a tracked file is deliberate rather than refused.
+  const root = fixtureRoot({});
+  writeFileSync(join(root, "o.md"), "scope");
+  assert.throws(
+    () => assertIgnored(root, "o.md", fakeGit("?? o.md\n"), "oracle"),
+    /git status --porcelain/,
+    "an existing file is asked the question that distinguishes untracked from tracked",
+  );
+  assertIgnored(root, "o.md", fakeGit(" M o.md\n"), "oracle");
+  assertIgnored(root, "o.md", fakeGit(""), "oracle");
+  for (const broken of [{ status: 128, stdout: "" }, { status: 0, stdout: undefined }, { error: new Error("x") }]) {
+    assertIgnored(root, "o.md", () => broken, "oracle");
+  }
+  drop(root);
+});
+
+test("ensureRoundDir VERIFIES an existing ignore file instead of trusting it", () => {
+  // Round 2 made `ensurePlansIgnored` verify rather than trust. Its sibling,
+  // written the same day, stayed `if (!exists) write it` for seven more rounds
+  // -- and that directory holds the composed prompt, which contains the whole
+  // oracle (Codex, #69 round 9). Reproduced: a consumer with an unrelated
+  // .gitignore already in place.
+  const root = fixtureRoot({});
+  mkdirSync(join(root, ".agents/reviews"), { recursive: true });
+  writeFileSync(join(root, ".agents/reviews/.gitignore"), "# consumer had one\nrun.log\n");
+
+  // The managed pattern is APPENDED to what the consumer wrote, never a rewrite.
+  ensureRoundDir(root, "x", () => ({ status: 0 }));
+  const after = readFileSync(join(root, ".agents/reviews/.gitignore"), "utf8");
+  assert.match(after, /# consumer had one/, "what the consumer put there survives");
+  assert.match(after, /^\*$/m, "and the managed pattern is now present");
+
+  // Present is not the question -- what git concludes is. A negation elsewhere
+  // still refuses, and it refuses before any round work.
+  assert.throws(
+    () => ensureRoundDir(root, "x", () => ({ status: 1, stdout: "" })),
+    /the review directory \.agents\/reviews\/x is NOT ignored by git/,
+  );
+  drop(root);
 });
 
 test("round 0 refuses an exposed oracle before it spends a reviewer round", () => {
@@ -1464,27 +1571,8 @@ test("round 0 refuses an exposed oracle before it spends a reviewer round", () =
 });
 
 test("an exposed --prior file refuses the round, and says PRIOR rather than oracle", () => {
-  // The prior file was the third input read from an operator-chosen path and
-  // the only one with no ignore check. It carries the loop's finding titles
-  // and disposition notes, which restate the plan's concerns -- so `git add
-  // -A` during implementation would commit the material the plan and the
-  // oracle are both protected for.
-  assert.throws(
-    () => assertInputIgnored("/repo", "priors.json", fakeGit("?? priors.json\n"), "prior"),
-    /the prior-findings file priors\.json is NOT ignored by git/,
-  );
-  assert.throws(
-    () => assertInputIgnored("/repo", "priors.json", fakeGit("?? priors.json\n"), "prior"),
-    /\.agents\/reviews\/<slug>\//,
-    "the remedy names the loop's own ignored directory, which is where the recipe writes it",
-  );
-  // The oracle's wording is unchanged by the parameterisation.
-  assert.throws(
-    () => assertOracleIgnored("/repo", "o.md", fakeGit("?? o.md\n")),
-    /the oracle o\.md is NOT ignored by git/,
-  );
-
-  // End to end: a round 2 with an exposed prior file is refused before any
+  // The wording per kind is asserted on the chokepoint above. What is only
+  // provable end to end: a round 2 with an exposed prior file is refused before any
   // subprocess -- the reviewer round is never spent, and the credential path
   // is never touched.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
@@ -1593,7 +1681,7 @@ test("--prior that omits a finding the previous round raised is refused", () => 
   roundFindings(root, "x", 2, ["R1", "R2"]);
 
   const p = (...ids) => ids.map((id) => ({ id, title: id, disposition: "fixed", note: "" }));
-  assert.throws(() => assertPriorsCoverLastRound(dir, [1, 2], p("R1")), /omits 1 finding\(s\) round 2 raised: R2/);
+  assert.throws(() => assertPriorsCoverLastRound(dir, [1, 2], p("R1")), /omits 1 finding\(s\) round 2 raised or left open: R2/);
   assertPriorsCoverLastRound(dir, [1, 2], p("R1", "R2"));
 
   // Extra ids are fine: a Still-open finding travelling several rounds is
@@ -1611,10 +1699,52 @@ test("--prior that omits a finding the previous round raised is refused", () => 
   roundFindings(zero, "z", 0, ["S1"], "scope_concerns");
   assert.throws(
     () => assertPriorsCoverLastRound(join(zero, ".agents/reviews/z"), [0], p("other")),
-    /round 0 raised: S1/,
+    /round 0 raised or left open: S1/,
   );
   drop(root);
   drop(zero);
+});
+
+test("a round that raised nothing new but left a prior OPEN still has to carry it", () => {
+  // The escape the first version left: a round can return `required_revisions:
+  // []` and still be carrying R1 as `Still open` in `previous_findings`. The
+  // check read only the two "newly raised" fields, so that round looked like it
+  // had returned nothing -- the next one could pass a --prior without R1, come
+  // back clean, and the stop rule would call it converged with R1 never
+  // resolved (Codex, #69 round 9). Unanswered is unanswered whichever field
+  // it arrives in.
+  const root = fixtureRoot({});
+  const dir = join(root, ".agents/reviews/x");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "round-2.json"),
+    JSON.stringify({
+      required_revisions: [],
+      previous_findings: [
+        { id: "R1", status: "Still open", reason: "the revision did not address it" },
+        { id: "R0", status: "Resolved", reason: "fixed" },
+        { id: "R9", status: "Superseded", reason: "moot now" },
+      ],
+    }),
+  );
+  const p = (...ids) => ids.map((id) => ({ id, title: id, disposition: "fixed", note: "" }));
+
+  assert.throws(
+    () => assertPriorsCoverLastRound(dir, [1, 2], []),
+    /omits 1 finding\(s\) round 2 raised or left open: R1/,
+    "the exact reproduction: an empty --prior after a round that raised nothing new",
+  );
+  assert.throws(() => assertPriorsCoverLastRound(dir, [1, 2], p("R0", "R9")), /R1/);
+  assert.throws(
+    () => assertPriorsCoverLastRound(dir, [1, 2], []),
+    /--no-prior is not an answer here/,
+    "and the message closes the other door, which the operator would otherwise reach for",
+  );
+
+  // Resolved and Superseded are ANSWERED -- carrying them forever is the rule
+  // that cannot be followed, so they are not demanded.
+  assertPriorsCoverLastRound(dir, [1, 2], p("R1"));
+  drop(root);
 });
 
 test("an unparseable or absent round file is not read as an omission", () => {

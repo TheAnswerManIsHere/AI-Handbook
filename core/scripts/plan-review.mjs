@@ -671,6 +671,12 @@ export function assertTierPinned(dir, earlier, tier) {
  * been answered by anyone is the last round's output, so that is what must be
  * carried. Extra ids are fine — a Still-open finding travelling several rounds
  * is exactly right.
+ *
+ * **"The last round's output" is three fields, not two.** A round answers the
+ * priors it was given in `previous_findings`, and one it marks `Still open` is
+ * unanswered by definition — so it carries forward exactly like a newly raised
+ * finding. Omitting that field left the whole check bypassable by a round that
+ * raised nothing new (Codex, #69 round 9).
  */
 export function assertPriorsCoverLastRound(dir, earlier, priors) {
   if (!earlier.length) return;
@@ -684,7 +690,16 @@ export function assertPriorsCoverLastRound(dir, earlier, priors) {
   } catch {
     return; // A round file we cannot parse is not evidence of an omission.
   }
-  const raised = [...(assessment.required_revisions ?? []), ...(assessment.scope_concerns ?? [])]
+  // THREE SOURCES, not one. `required_revisions` and `scope_concerns` are what
+  // the round newly RAISED; `previous_findings` still marked "Still open" are
+  // what it re-reported as unanswered. Reading only the first two let a round
+  // that raised nothing new but left R1 open be treated as having returned
+  // nothing at all, so the next round could pass an empty --prior, come back
+  // clean, and be reported as converged with R1 never resolved (Codex, #69
+  // round 9) -- the same false convergence this check was built to close,
+  // reached through the field it did not read.
+  const stillOpen = (assessment.previous_findings ?? []).filter((f) => f?.status === "Still open");
+  const raised = [...(assessment.required_revisions ?? []), ...(assessment.scope_concerns ?? []), ...stillOpen]
     .map((f) => f?.id)
     .filter((id) => typeof id === "string");
   if (!raised.length) return;
@@ -694,10 +709,11 @@ export function assertPriorsCoverLastRound(dir, earlier, priors) {
   if (!missing.length) return;
 
   throw new Error(
-    `--prior omits ${missing.length} finding(s) round ${last} raised: ${missing.join(", ")}. Reconciliation only ` +
-      `checks the ids it is given, so a dropped finding is never asked about and never comes back — and the stop ` +
-      `rule would then read as converged with a required revision unaddressed. Add them with their dispositions, ` +
-      `or pass --no-prior if round ${last} genuinely returned none.`,
+    `--prior omits ${missing.length} finding(s) round ${last} raised or left open: ${missing.join(", ")}. ` +
+      `Reconciliation only checks the ids it is given, so a dropped finding is never asked about and never ` +
+      `comes back — and the stop rule would then read as converged with it unaddressed. Add them with their ` +
+      `dispositions. --no-prior is not an answer here: round ${last} raised or left ${raised.length} finding(s) ` +
+      `open, so "that round returned none" is not true of it.`,
   );
 }
 
@@ -1218,11 +1234,30 @@ export function runCodex({ prompt, schemaFile, outFile, model, effort, sandbox, 
  * reviewer's assessment of it. The durable record of a loop is the harvest
  * comment on the workstream issue, not these files.
  */
-export function ensureRoundDir(root, slug) {
+export function ensureRoundDir(root, slug, git = defaultGit) {
   const dir = path.join(root, REVIEWS_DIR, slug);
   fs.mkdirSync(dir, { recursive: true });
   const ignore = path.join(root, REVIEWS_DIR, ".gitignore");
-  if (!fs.existsSync(ignore)) {
+  if (fs.existsSync(ignore)) {
+    // A consumer that already has one is VERIFIED, not trusted -- the same
+    // correction `ensurePlansIgnored` took at round 2, which this sibling did
+    // not, for seven more rounds (Codex, #69 round 9). Append the managed
+    // pattern when the file does not carry one; never rewrite what a consumer
+    // put there. Then ask git, because the pattern being present is not the
+    // question -- whether git concludes "ignored" is.
+    const patterns = fs
+      .readFileSync(ignore, "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#"));
+    if (!patterns.includes("*")) {
+      fs.appendFileSync(
+        ignore,
+        "\n# Added by core/scripts/plan-review.mjs: a round's prompt contains the whole\n" +
+          "# oracle, so nothing under here is ever committed by accident.\n*\n",
+      );
+    }
+  } else {
     fs.writeFileSync(
       ignore,
       [
@@ -1242,6 +1277,11 @@ export function ensureRoundDir(root, slug) {
       ].join("\n"),
     );
   }
+  // The directory does not exist in git's eyes until something is written into
+  // it, so this asks about the SLUG PATH rather than a file: `check-ignore`
+  // answers from the rules alone. It runs on both branches -- a file this
+  // script just wrote can still be overridden by a negation further up.
+  assertIgnored(root, `${REVIEWS_DIR}/${slug}`, git, "reviews");
   return dir;
 }
 
@@ -1282,7 +1322,7 @@ export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
         "\n# Added by core/scripts/plan-review.mjs: a plan under review is never committed by accident.\nPLAN_*.md\n",
       );
     }
-    verifyIgnored(root, planPath, git);
+    assertIgnored(root, planPath, git, "plan");
     return;
   }
   fs.writeFileSync(
@@ -1302,7 +1342,7 @@ export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
       "",
     ].join("\n"),
   );
-  verifyIgnored(root, planPath, git);
+  assertIgnored(root, planPath, git, "plan");
 }
 
 /**
@@ -1328,62 +1368,115 @@ export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
  * commit to make by accident, so there is nothing to protect against.
  */
 /**
- * What each protected side input is, said in one clause — so the refusal
- * explains the specific exposure rather than a generic one. Both hold the
- * same material the plan is kept out of git for; they hold it in different
- * words, and the operator reading the refusal needs the words for the file
- * they actually passed.
+ * ONE DOOR for "would git publish this?", and every path the loop touches goes
+ * through it.
+ *
+ * This replaced four hand-written checks that were added one at a time, each
+ * when a reviewer happened to reach the site it guarded: the plan (round 5),
+ * the oracle (round 7), the prior-findings file (round 8) and the review
+ * directory itself (round 9, which held the composed prompt -- the document
+ * that contains the whole oracle -- and had no check at all). Four rounds,
+ * four sites, one class. The fixes were each correct and each left the next
+ * site open, because "did I remember to guard this one?" is a question the
+ * design kept asking and a person kept having to answer.
+ *
+ * So the question is asked in one place and every caller names only WHAT it is
+ * protecting. A new path added to this script cannot be quietly unguarded:
+ * there is nowhere else to put the check.
+ *
+ * TWO PROBES, because git answers the question differently depending on
+ * whether the thing exists yet:
+ *
+ * - **A file that exists** is asked with `git status --porcelain
+ *   --untracked-files=all`. A `??` prefix is exactly "a file `git add -A`
+ *   would stage". A TRACKED file reports differently and is not refused --
+ *   David asking for a plan on `main` is a supported, deliberate act with the
+ *   disclosure check in front of it.
+ * - **A path that does not exist yet** -- the review directory, before the
+ *   round writes a prompt into it -- is asked with `git check-ignore`, which
+ *   answers from the ignore rules alone and so works on a path with no file
+ *   behind it. Exit 0 is ignored, 1 is not ignored, anything else is git
+ *   declining to answer. Nothing that does not exist can be tracked, so the
+ *   tracked-file allowance has no work to do on this branch.
+ *
+ * Both ask GIT rather than reading patterns, which is the round-5 lesson and
+ * still the load-bearing one: a `.gitignore` is not a set of patterns, it is
+ * an ordered program whose LAST match decides, so `*` followed by
+ * `!PLAN_SECRET.md` leaves that one plan exposed while every pattern scan
+ * calls it protected.
+ *
+ * Not being able to ask is not the same as a bad answer, and is never
+ * refused: outside a git repository there is no commit to make by accident,
+ * so there is nothing to protect against.
  */
-const IGNORED_INPUTS = {
-  oracle:
-    "The oracle is the agreed scope, which is where an unpatched vulnerability, an auth-bypass specific, a " +
-    "customer name or an embargoed launch gets written down -- the same material the disclosure carve-out " +
-    "protects, one document before the plan.",
-  prior:
-    "The prior-findings file carries this loop's finding titles and disposition notes, which restate the plan's " +
-    "concerns in the reviewer's words -- so it holds the same material the plan and the oracle are protected " +
-    "for, in a file that looks like bookkeeping.",
+const PROTECTED = {
+  plan: {
+    noun: (p) => p,
+    why:
+      "A plan is exactly the document that might name an unpatched vulnerability, an auth-bypass specific, a " +
+      "customer or an embargoed launch.",
+    remedy:
+      "docs/plans/.gitignore exists and carries an ignoring pattern, but a later negation overrides it. Fix the " +
+      "negation, or move the plan.",
+  },
+  oracle: {
+    noun: (p) => `the oracle ${p}`,
+    why:
+      "The oracle is the agreed scope, which is where an unpatched vulnerability, an auth-bypass specific, a " +
+      "customer name or an embargoed launch gets written down -- the same material the disclosure carve-out " +
+      "protects, one document before the plan.",
+    remedy: null,
+  },
+  prior: {
+    noun: (p) => `the prior-findings file ${p}`,
+    why:
+      "The prior-findings file carries this loop's finding titles and disposition notes, which restate the " +
+      "plan's concerns in the reviewer's words -- so it holds the same material the plan and the oracle are " +
+      "protected for, in a file that looks like bookkeeping.",
+    remedy: null,
+  },
+  reviews: {
+    noun: (p) => `the review directory ${p}`,
+    why:
+      "Every round writes its composed prompt there, and the prompt CONTAINS THE WHOLE ORACLE -- so this " +
+      "directory holds the most sensitive text in the loop, in the file least likely to be looked at. The " +
+      "assessments beside it restate the plan's concerns.",
+    remedy:
+      `${REVIEWS_DIR}/.gitignore exists but does not actually ignore this slug -- most likely a negation ` +
+      `elsewhere, since a .gitignore is an ordered program and the last matching rule wins. Fix it, or move ` +
+      `the loop under a slug that is ignored.`,
+  },
 };
 
 /**
- * Refuse a side input that git would stage.
- *
- * Same evidence as the plan's check and the same non-refusals — a tracked
- * file is a deliberate act, and an unanswerable git means no repository and
- * so nothing to commit into. What differs is the remedy: the plan has a
- * managed home this script maintains, while an oracle or a prior file can
- * legitimately live anywhere, so this names an ignored home rather than
- * moving the file. An operator who chose a path should be the one to change
- * it.
+ * Refuse anything git would publish. `kind` selects only the WORDS -- what
+ * this particular file exposes, and how to fix it -- never the logic.
  */
-export function assertInputIgnored(root, filePath, git = defaultGit, kind = "oracle") {
-  const out = git(["status", "--porcelain", "--untracked-files=all", "--", filePath], root);
-  if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
-  if (!out.stdout.split("\n").some((l) => l.startsWith("??"))) return;
-  throw new Error(
-    `the ${kind === "prior" ? "prior-findings file" : "oracle"} ${filePath} is NOT ignored by git -- ` +
-      `\`git status --porcelain --untracked-files=all\` reports it as "??", so \`git add -A\` would stage it. ` +
-      `${IGNORED_INPUTS[kind] ?? IGNORED_INPUTS.oracle} Move it under docs/plans/ (which this script keeps ` +
-      `ignored), under the loop's own .agents/reviews/<slug>/ directory, or another ignored path, then re-run.`,
-  );
-}
+export function assertIgnored(root, relPath, git = defaultGit, kind = "oracle") {
+  if (!relPath) return;
+  const spec = PROTECTED[kind] ?? PROTECTED.oracle;
+  const abs = path.join(root, relPath);
+  const isFile = fs.existsSync(abs) && fs.statSync(abs).isFile();
 
-/** The oracle's case, kept as its own name because callers read better for it. */
-export const assertOracleIgnored = (root, oraclePath, git = defaultGit) =>
-  assertInputIgnored(root, oraclePath, git, "oracle");
+  let probe;
+  if (isFile) {
+    const out = git(["status", "--porcelain", "--untracked-files=all", "--", relPath], root);
+    if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
+    if (!out.stdout.split("\n").some((l) => l.startsWith("??"))) return;
+    probe = '`git status --porcelain --untracked-files=all` reports it as "??"';
+  } else {
+    const out = git(["check-ignore", "-q", "--", relPath], root);
+    // 1 is the ONLY exposed answer. 0 is ignored; 128 (and a failed spawn) is
+    // git declining to answer, which is not evidence of exposure.
+    if (out.error || out.status !== 1) return;
+    probe = "`git check-ignore` reports it as not ignored";
+  }
 
-function verifyIgnored(root, planPath, git) {
-  if (!planPath) return;
-  const out = git(["status", "--porcelain", "--untracked-files=all", "--", planPath], root);
-  if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
-  const exposed = out.stdout.split("\n").some((l) => l.startsWith("??"));
-  if (!exposed) return;
   throw new Error(
-    `${planPath} is NOT ignored by git -- \`git status --porcelain --untracked-files=all\` reports it as "??", ` +
-      `so \`git add -A\` during implementation would stage it. docs/plans/.gitignore exists and carries an ` +
-      `ignoring pattern, but a later negation overrides it: a .gitignore is an ordered program and the last ` +
-      `matching rule wins. A plan is exactly the document that might name an unpatched vulnerability, so this ` +
-      `round is refused rather than run against an unprotected file. Fix the negation, or move the plan.`,
+    `${spec.noun(relPath)} is NOT ignored by git -- ${probe}, so \`git add -A\` would stage it. ${spec.why} ` +
+      `${spec.remedy ?? `Move it under docs/plans/ (which this script keeps ignored), under the loop's own ` +
+        `${REVIEWS_DIR}/<slug>/ directory, or another ignored path.`} This round is refused rather than run ` +
+      `against an unprotected path.`,
   );
 }
 
@@ -1513,14 +1606,14 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     let oraclePath = null;
     if (flags.oracle) {
       oraclePath = path.relative(root, path.resolve(root, flags.oracle));
-      assertOracleIgnored(root, oraclePath, git);
+      assertIgnored(root, oraclePath, git, "oracle");
     }
     const oracleText = flags.oracle ? fs.readFileSync(path.join(root, oraclePath), "utf8") : null;
     const oracle = oracleFrom({ oracleText, planText });
 
     // --- slug -------------------------------------------------------------
     const slug = flags.slug ? assertSlug(flags.slug) : slugFromPlanPath(planPath ?? "");
-    const dir = ensureRoundDir(root, slug);
+    const dir = ensureRoundDir(root, slug, git);
     const earlier = roundsRun(dir).filter((n) => n !== round);
 
     // --- the oracle, pinned for the life of the loop -----------------------
@@ -1577,7 +1670,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // customer or embargoed context the plan and oracle are protected for.
       // It was the third input with no ignore check (Codex, #69 round 8).
       const priorPath = path.relative(root, path.resolve(root, flags.prior));
-      assertInputIgnored(root, priorPath, git, "prior");
+      assertIgnored(root, priorPath, git, "prior");
       priors = normalizePriors(JSON.parse(fs.readFileSync(path.join(root, priorPath), "utf8")));
       assertPriorsCoverLastRound(dir, earlier, priors);
     } else if (earlier.length && !flags.noPrior) {
@@ -1770,6 +1863,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // and no PR page holding the approved revision, this is the only thing
       // that pins WHICH text David approved.
       planSha256: planText ? sha256Full(planText) : null,
+      // The snapshot beside this file, which is what the adjudicator reads.
+      // Present whenever there was a plan; null on round 0, which has none.
+      planSnapshot: planText ? `plan-round-${round}.md` : null,
       oracleDigest: sha256(oracle),
       contract: contract.path,
       contractDigest: sha256(contract.text),
@@ -1785,6 +1881,22 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       accepted: assessment !== null && planDrift === null,
       convergence: assessment && planDrift === null ? convergence(assessment, priors) : null,
     };
+    // THE ARTIFACT, SNAPSHOTTED INTO THE RECORD. The adjudicator at the cap has
+    // `Read` and nothing else -- it cannot hash a file, so it cannot verify a
+    // plan it fetches by path, and a digest is not an artifact: a hash shows
+    // nothing about whether a remaining finding describes a critical flaw.
+    // Round 8's mapping told the judge `planSha256` stood in for the code
+    // loop's `artifact.patch`, which left it deciding without the document
+    // (Codex, #69 round 9).
+    //
+    // These are the exact bytes the reviewer read -- the same `planText`
+    // `planSha256` is computed from, so the copy cannot disagree with the
+    // digest. Written into the ignored review directory, which keeps the
+    // judge's rule absolute: everything it reads was written by this script,
+    // and nothing it needs is outside that directory.
+    if (planText !== null) {
+      fs.writeFileSync(path.join(dir, `plan-round-${round}.md`), planText);
+    }
     fs.writeFileSync(metaFile, `${JSON.stringify(meta, null, 2)}\n`);
 
     if (planDrift) {
