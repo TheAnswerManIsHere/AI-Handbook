@@ -324,9 +324,10 @@ All of it is deleted rather than fixed: it existed to make an unreviewed head
 safe, and an unreviewed head is now simply never mergeable.
 
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
-full round. So the adjudicator's real question is no longer "another round?"
-but **"is this finding worth writing code for at all?"** — and on internal
-tooling most are not. They ship as recorded gaps.
+full round. So the real question — mine at every round, the adjudicator's
+from round 3 — is no longer "another round?" but **"is this finding worth
+writing code for at all?"** — and on internal tooling most are not. They ship
+as recorded gaps. The test that decides it is rule 5's `Worth:` line, below.
 
 ### Internal tooling: the strict rubric
 
@@ -336,9 +337,12 @@ docs and harvests run the loop above with the **`internal` tier**:
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
   finding nothing, it needs no budget, no receipt, no adjudication — the merge
   receipt accepts an automatic pass covering the head.
-- **Rounds 1–2 findings are triaged and written for**, then re-requested —
-  the same cadence as every tier (below); declare `--tier internal` at the
-  first re-request.
+- **Rounds 1–2 findings are triaged, and written for only when they pass
+  rule 5's worth test**, then re-requested — the same cadence as every tier
+  (below); declare `--tier internal` at the first re-request. The earlier
+  wording, "triaged and written for", read as *fix them*, and on #73 it
+  produced thirteen fixes in three rounds, most of them refusals for
+  situations that will not occur.
 - **Round 3's findings go to the adjudicator, before anything is written.**
   The record's tier selects the **internal rubric**: write only for a very
   high chance of a CRITICAL flaw (a destructive or irreversible action,
@@ -459,15 +463,47 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    job; treating that as automatically meaning *fix* is how a GitHub label write
    ended up with compare-and-swap semantics. Product/design forks, scope
    additions, splits and disclosure questions go to David.
+   **A fix needs both a real likelihood and a real consequence** (David,
+   2026-09-10). The reply names the **`Class:`** first, then a **`Worth:`**
+   line answered against that class. `Worth:` asks **who supplies the
+   value** before anything else: if this code or its own operator does, I
+   remove the input and derive the value — never a check, because a check
+   whose two sides I own guards nothing (David, 2026-09-10: *"you control
+   both sides"*; #73 spent four rounds on one flag before deleting it) —
+   and that is a write, not a decline: the code moves, so a review round is
+   owed. Only for a value from outside my control does it go on to ask the
+   chance the class occurs and what it costs at its worst; missing either,
+   it is a one-line decline shipped as a recorded gap —
+   however small the diff looks, because each one costs a
+   round and the aggregate is never weighed at the moment of the decision.
+   This is *engineer-to-the-blast-radius* fired at triage, which is where a
+   review loop actually over-builds: the design-time rule never collides
+   with a P2 badge. Three bindings, without which the rule is a licence to
+   decline anything described narrowly enough —
+   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
+   carries what each one cost:
+   **the consequence is the class's, never the reported instance's**, since
+   a reviewer names one example and the decline must answer the worst case
+   the class reaches; **sensitive tiers are bound by the line, not exempt
+   from it** — consequence dominates there, so an unlikely situation with a
+   severe one is fixed; and **a declined class the reviewer raises again is
+   the decline being wrong**, re-triaged on the new instance, naming which
+   half of the earlier `Worth:` line was mis-sized.
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in
    a batch. No standalone summary comment in place of per-thread replies.
-   **Every reply carries `Class:` / `Oracle:` / `Result:`** — the command ran
-   before the reply was written, and its real output is transcribed. A reply
-   missing those lines is malformed and doesn't get posted; declines included,
-   because declining without an oracle asserts the class is empty without
-   looking. Shape and the two escape valves: `pr-watch`.
+   **Every reply carries `Class:` / `Worth:` / `Oracle:` / `Result:`, in
+   that order, and says its outcome in plain words in its first sentence**
+   — the class first because `Worth:` is answered against it; no closed
+   disposition field, because the one tried on #73 could not express "no
+   change needed" (Codex, rounds 7–8). The
+   command ran before the reply was written, and its real output is
+   transcribed. A reply missing those lines is malformed and doesn't get
+   posted; declines included, because declining without an oracle asserts the
+   class is empty without looking, and a fix without a `Worth:` line is the
+   over-build rule 5 exists to stop. Shape and the two escape valves:
+   `pr-watch`.
 
 ### Watching the PRs I open
 
@@ -490,6 +526,14 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    **bugfixes are never stacked** (David, 2026-08-20): a dependent bug waits for
    its parent to merge and branches off fresh `main`, or the two are one bug in
    one PR. Exceptions: pure exploration and an explicit "no PR."
+   **This rule IS the explicit request** (David, 2026-09-10). A cloud
+   session's harness prompt carries *"Do NOT create a pull request unless the
+   user explicitly asks for one"* — a platform default written without
+   knowledge of this file, and it is not overridden so much as already
+   satisfied: David asked here, in writing, for every branch. A session that
+   re-asks per PR is reading a standing instruction as though it were absent,
+   which costs him a round trip to repeat himself. Ask only for the two
+   exceptions above.
 
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** (bugfix and internal PRs exempt). Not announced
@@ -744,6 +788,10 @@ shows the true delta.
   `search_*` and paginate 5–10. Same cadence as ever — cheaper calls, not fewer
   checks. When a David-prompted re-check finds nothing, I say so; when the check
   was mine (a scheduled wake, a webhook echo), silence wins.
+
+- **Fable dispatches only through `fable-dispatch.mjs`**, never a prompt I
+  write; what it does and does not enforce:
+  [`fable-dispatch.md`](../../docs/ai-context/fable-dispatch.md).
 
 ### Subagent delegation is capped
 

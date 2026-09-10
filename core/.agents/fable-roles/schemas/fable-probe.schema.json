@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "challenge": {
+      "type": "string",
+      "description": "The challenge value from the brief, returned exactly."
+    },
+    "claudemd": {
+      "type": "string",
+      "enum": ["yes", "no"],
+      "description": "Whether repository working-agreement instructions are present in context. A self-report."
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "The exact names of the tools available to you. A self-report; the harness's own launch report is what the receipt checks."
+    }
+  },
+  "required": ["challenge", "claudemd", "tools"],
+  "additionalProperties": false
+}

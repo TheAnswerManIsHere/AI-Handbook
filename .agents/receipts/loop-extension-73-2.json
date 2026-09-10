@@ -1,0 +1,7 @@
+{
+  "pr": 73,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 3,
+  "authorization": "David's standing grant of 2026-09-07 for a mechanical round: the head moved only by bookkeeping (the adjudication record .agents/adjudications/73-1.json and the terminal receipt loop-extension-73-1.json, both in commit 00aa777), no finding is being written for, and the pass requested covers exactly that commit. All seven round-3 findings ship as recorded gaps under the terminal verdict; none is being written for now or later in this loop. Once per loop, per claude-core.md Review loops rule 3."
+}

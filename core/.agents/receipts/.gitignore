@@ -38,3 +38,4 @@ loop-round-check-*.json
 # file -- so the pattern is written to cover the whole family rather than one
 # spelling of it.
 loop-round-check-*.claim
+fable-*.json

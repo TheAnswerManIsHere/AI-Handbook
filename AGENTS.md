@@ -49,6 +49,33 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   product's code, paths, skills or subsystems is not.
   [`docs/porting-notes.md`](docs/porting-notes.md) records how the current
   split was drawn.
+- **For values an operator types, the threat model is that operator's own
+  mistakes, not an adversary.** Where a script's input arrives as **argv or a
+  path a human typed** — most of `scripts/` and `core/scripts/` — the controls
+  against deliberate action are David's merge and GitHub's server-side
+  ruleset, and a local script run by hand is not a security boundary. So a
+  finding that needs the operator to supply a hostile value *to their own
+  command* — a planted symlink, a hard link, a path they would have to type on
+  purpose — is out of scope here, however real the shape would be elsewhere.
+  Two kinds of argv, and the response differs: a value the script could
+  **derive** from what it already holds should not be an input at all — the
+  fix worth proposing is *derive it*, which removes the class rather than
+  guarding one instance; a value that encodes the operator's **choice**
+  (`--role`, `--timeout`, a destination repo) stays an input, and a cheap
+  well-formedness check on it — non-empty, numeric, exists — is in scope as
+  a mistake catch, while a hostile-value defence on it is not.
+- **This does NOT extend to input produced by another program, and the guard
+  is the case that matters.** `core/scripts/guard-decision.mjs` reads a
+  `PreToolUse` payload from stdin and evaluates the `tool_input.command` an
+  *agent* proposed — it exists to refuse that agent's destructive commands,
+  force pushes and merges. Its input is adversarial by construction relative
+  to the thing it constrains, so hostile-value and parser findings there are
+  fully in scope and must not be waved off by the bullet above. Same for any
+  other hook payload, fetched document, webhook body, or third-party output:
+  **the question is who produced the value, never which directory the file
+  lives in.** History:
+  [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
+  the general rule is in `agents-core.md`'s product principles.
 
 ## Setup, verification, and the CI gate
 
