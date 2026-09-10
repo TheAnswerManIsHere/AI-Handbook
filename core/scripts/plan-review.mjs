@@ -1411,6 +1411,11 @@ export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
  */
 const PROTECTED = {
   plan: {
+    // The ONLY kind that tolerates a tracked file. David asking for a plan on
+    // `main` is a supported, deliberate act with the disclosure check in front
+    // of it. Nothing else here has an equivalent case: an oracle and a prior
+    // file are session inputs, and a review directory is scratch.
+    allowTracked: true,
     noun: (p) => p,
     why:
       "A plan is exactly the document that might name an unpatched vulnerability, an auth-bypass specific, a " +
@@ -1458,18 +1463,26 @@ export function assertIgnored(root, relPath, git = defaultGit, kind = "oracle") 
   const abs = path.join(root, relPath);
   const isFile = fs.existsSync(abs) && fs.statSync(abs).isFile();
 
+  // The `status` probe is what tells a tracked file from an untracked one, so
+  // it is used ONLY where being tracked is an allowed answer. Everywhere else
+  // `check-ignore` decides, and it refuses a tracked file too -- correctly: a
+  // tracked oracle reports " M" or "M " rather than "??", so the status probe
+  // waved through a modified-and-staged oracle that `git add -A` publishes
+  // (Codex, #69 round 10). A tracked file is not protected, it is committed.
   let probe;
-  if (isFile) {
+  if (isFile && spec.allowTracked) {
     const out = git(["status", "--porcelain", "--untracked-files=all", "--", relPath], root);
     if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
     if (!out.stdout.split("\n").some((l) => l.startsWith("??"))) return;
     probe = '`git status --porcelain --untracked-files=all` reports it as "??"';
   } else {
     const out = git(["check-ignore", "-q", "--", relPath], root);
-    // 1 is the ONLY exposed answer. 0 is ignored; 128 (and a failed spawn) is
-    // git declining to answer, which is not evidence of exposure.
+    // 1 is the ONLY exposed answer, and it covers both ways a path is exposed:
+    // untracked with no rule ignoring it, and already tracked. 0 is ignored;
+    // 128 (and a failed spawn) is git declining to answer, which is not
+    // evidence of exposure.
     if (out.error || out.status !== 1) return;
-    probe = "`git check-ignore` reports it as not ignored";
+    probe = "`git check-ignore` reports it as not ignored (untracked with no rule covering it, or already tracked)";
   }
 
   throw new Error(
@@ -1857,15 +1870,21 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       lens,
       plan: planPath,
       planDrift,
-      planDigest: planText ? sha256(planText) : null,
+      // `planText !== null`, never truthiness: an empty plan file is still a
+      // plan, and the snapshot below is written on exactly that condition. The
+      // truthy form recorded planSnapshot: null while writing the file, which
+      // tells the adjudicator "this is round 0, there is no artifact" beside an
+      // artifact that exists -- the round-9 P1 reopened through an edge case
+      // (Codex, #69 round 10).
+      planDigest: planText !== null ? sha256(planText) : null,
       // The FULL digest, because it leaves this file and goes into the
       // implementation PR's `private-plan` provenance block. With no commit
       // and no PR page holding the approved revision, this is the only thing
       // that pins WHICH text David approved.
-      planSha256: planText ? sha256Full(planText) : null,
+      planSha256: planText !== null ? sha256Full(planText) : null,
       // The snapshot beside this file, which is what the adjudicator reads.
       // Present whenever there was a plan; null on round 0, which has none.
-      planSnapshot: planText ? `plan-round-${round}.md` : null,
+      planSnapshot: planText !== null ? `plan-round-${round}.md` : null,
       oracleDigest: sha256(oracle),
       contract: contract.path,
       contractDigest: sha256(contract.text),

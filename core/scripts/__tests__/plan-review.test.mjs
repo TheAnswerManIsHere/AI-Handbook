@@ -1078,6 +1078,32 @@ test("the round snapshots the plan the reviewer actually read, beside its assess
   drop(root);
 });
 
+test("an EMPTY plan is still a plan, so its metadata is not read as round 0", () => {
+  // `planText ? ... : null` recorded planSnapshot: null for a zero-byte plan
+  // while the snapshot itself was written under `planText !== null` -- so the
+  // record told the adjudicator "round 0, no artifact, do not go looking"
+  // beside an artifact sitting right there. That is the round-9 P1 reopened
+  // through an edge case, one commit after fixing it (Codex, #69 round 10).
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "" } });
+  writeFileSync(join(root, "oracle.md"), "DIRECTION: ship the thing");
+  const log = quiet();
+  main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--oracle", "oracle.md"], {
+    root,
+    run: scriptedRound(root, [JSON.stringify(clean())]),
+    log,
+  });
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.planSnapshot, "plan-round-1.md", "the field agrees with the file that was written");
+  assert.ok(existsSync(join(root, ".agents/reviews/x/plan-round-1.md")));
+  assert.equal(readFileSync(join(root, ".agents/reviews/x/plan-round-1.md"), "utf8"), "");
+  assert.equal(
+    meta.planSha256,
+    createHash("sha256").update("").digest("hex"),
+    "the digest of an empty plan is the digest of empty, not null -- the implementation PR copies it",
+  );
+  drop(root);
+});
+
 test("round 0 has no plan to snapshot, and says so rather than writing an empty one", () => {
   // Round 0 runs before a plan exists; its artifact is the oracle. A null
   // field is what tells the judge that, instead of a zero-byte file it would
@@ -1503,20 +1529,33 @@ test("the ignore chokepoint asks git two ways, and picks by whether the path exi
     assertIgnored("/repo", "scope-oracle.md", () => ok, "oracle");
   }
 
-  // A path that IS a file takes the `git status` probe instead, where `??` is
-  // the exposed answer and a tracked file is deliberate rather than refused.
+  // THE PLAN, and only the plan, takes the `git status` probe -- the one that
+  // can tell a tracked file from an untracked one, because a tracked plan is
+  // David committing it deliberately with the disclosure check in front.
   const root = fixtureRoot({});
-  writeFileSync(join(root, "o.md"), "scope");
+  writeFileSync(join(root, "p.md"), "plan");
   assert.throws(
-    () => assertIgnored(root, "o.md", fakeGit("?? o.md\n"), "oracle"),
+    () => assertIgnored(root, "p.md", fakeGit("?? p.md\n"), "plan"),
     /git status --porcelain/,
-    "an existing file is asked the question that distinguishes untracked from tracked",
+    "the plan is asked the question that distinguishes untracked from tracked",
   );
-  assertIgnored(root, "o.md", fakeGit(" M o.md\n"), "oracle");
-  assertIgnored(root, "o.md", fakeGit(""), "oracle");
+  assertIgnored(root, "p.md", fakeGit(" M p.md\n"), "plan", );
+  assertIgnored(root, "p.md", fakeGit(""), "plan");
   for (const broken of [{ status: 128, stdout: "" }, { status: 0, stdout: undefined }, { error: new Error("x") }]) {
-    assertIgnored(root, "o.md", () => broken, "oracle");
+    assertIgnored(root, "p.md", () => broken, "plan");
   }
+
+  // NOTHING ELSE tolerates a tracked file. A tracked oracle reports " M" or
+  // "M " rather than "??", so the status probe waved through a modified,
+  // already-staged oracle that `git add -A` publishes (Codex, #69 round 10).
+  // These kinds go to `check-ignore` even when the file exists, and it answers
+  // 1 for a tracked path -- correctly, because a tracked file is not
+  // protected, it is committed.
+  writeFileSync(join(root, "o.md"), "scope");
+  const asked = [];
+  const record = (args) => (asked.push(args[0]), { status: 1, stdout: "" });
+  assert.throws(() => assertIgnored(root, "o.md", record, "oracle"), /already tracked/);
+  assert.deepEqual(asked, ["check-ignore"], "an existing oracle is NOT asked the tracked-tolerant question");
   drop(root);
 });
 
@@ -1555,13 +1594,13 @@ test("round 0 refuses an exposed oracle before it spends a reviewer round", () =
   const log = quiet();
   const run = fakeRun([{ status: 0, stdout: "Logged in using ChatGPT", stderr: "" }]);
 
-  // A scripted git that reports the oracle as untracked-and-unignored.
+  // A scripted git that reports the oracle as one git would not ignore.
   assert.equal(
     main(["--round", "0", "--slug", "x", "--oracle", "scope-oracle.md", "--dry-run"], {
       root,
       run,
       log,
-      git: fakeGit("?? scope-oracle.md\n"),
+      git: (args) => ({ status: args[0] === "check-ignore" ? 1 : 0, stdout: "", stderr: "" }),
     }),
     1,
   );
@@ -1587,7 +1626,12 @@ test("an exposed --prior file refuses the round, and says PRIOR rather than orac
       log,
       // Path-aware: the plan is protected, the prior file is not — otherwise
       // the plan's own check fires first and this proves nothing about --prior.
-      git: (args) => ({ status: 0, stderr: "", stdout: args.at(-1) === "priors.json" ? "?? priors.json\n" : "" }),
+      // The prior file goes through `check-ignore` now, where 1 is exposed.
+      git: (args) => ({
+        status: args[0] === "check-ignore" && args.at(-1) === "priors.json" ? 1 : 0,
+        stdout: "",
+        stderr: "",
+      }),
     }),
     1,
   );
