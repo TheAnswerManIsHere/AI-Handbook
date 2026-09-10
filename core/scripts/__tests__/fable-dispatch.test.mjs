@@ -747,3 +747,63 @@ test("a result event whose subtype is not success is a problem", () => {
   const stream = [initEvent(), assistantEvent(), resultEvent({ challenge: "n" }, { subtype: "error_max_turns" })].join("\n");
   assert.throws(() => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" }), /two attempts/);
 });
+
+// --- Codex #73 round 10 (AI-Handbook #76): the accounting class, not a site ---
+
+test("R10-1: a launch-surface refusal still records the attempt that ran, with its cost", () => {
+  // The class: `main()` prints accounting from `e.attempts` and nowhere else,
+  // so any refusal raised after the subprocess returned but BEFORE
+  // `attempts.push` drops the record of an attempt that already billed. Rounds
+  // 7, 8, 9 and 10 each found one site of it; this is round 10's -- the
+  // launch-surface refusal, which ran before the push.
+  const stream = [initEvent({ tools: ["Read", "Bash"] }), assistantEvent(), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
+  try {
+    dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" });
+    assert.fail("expected a refusal");
+  } catch (e) {
+    assert.match(e.message, /forbidden tool\(s\): Bash/);
+    assert.equal(e.attempts?.length, 1, "the attempt that ran is present in the accounting");
+    assert.equal(e.attempts[0].attempt, 1);
+    assert.equal(e.attempts[0].costUsd, 0.085, "its cost was observed and is reported");
+    assert.deepEqual(e.attempts[0].modelUsage, { "claude-haiku-4-5-20251001": { outputTokens: 9 }, "claude-fable-5-1": { outputTokens: 40 } });
+  }
+});
+
+test("R10-1: the answer-model refusal also records its attempt's cost", () => {
+  // The same class through a different assertion. Both attempts run (the model
+  // refusal is not a retry), so both must appear.
+  const stream = [initEvent(), assistantEvent("claude-opus-5"), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
+  try {
+    dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" });
+    assert.fail("expected a refusal");
+  } catch (e) {
+    assert.equal(e.attempts?.length, 1);
+    assert.equal(e.attempts[0].costUsd, 0.085);
+  }
+});
+
+test("R10-1: no post-launch assertion can precede the attempt record", () => {
+  // The enumeration, written down. Round 9's context comment claimed its site
+  // was "the last by construction" without searching, and round 10 found a
+  // fourth. What actually makes it the last is ordering inside the attempt
+  // loop: the push happens before the first assertion, so a new assertion
+  // added later inherits the accounting by position rather than by anyone
+  // remembering. This check fails if that order is ever reversed.
+  const src = fs.readFileSync(path.join(ROOT, "core/scripts/fable-dispatch.mjs"), "utf8");
+  // Comment lines are dropped before the search. This check first read the raw
+  // source and failed on the prose above the push, which names `withSpend()`
+  // -- the repo's own regex-over-prose class, caught by running it. Line
+  // comments are all this file uses on these paths; a trailing comment on a
+  // code line would still be read as code, which is the safe direction.
+  const code = src
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//"))
+    .join("\n");
+  const start = code.indexOf("for (let attempt = 1; attempt <= 2; attempt += 1) {");
+  assert.ok(start > 0, "the attempt loop is findable");
+  const loop = code.slice(start);
+  const push = loop.indexOf("attempts.push(");
+  const assertion = loop.indexOf("withSpend(");
+  assert.ok(push > 0 && assertion > 0, "both the push and a post-launch assertion are present");
+  assert.ok(push < assertion, "the attempt is recorded before the first post-launch assertion runs");
+});

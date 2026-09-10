@@ -801,6 +801,22 @@ export function dispatch({
       err.attempts = attempts;
       throw err;
     }
+    // THE ATTEMPT IS RECORDED HERE, BEFORE ANY POST-LAUNCH ASSERTION RUNS.
+    // Past this line the subprocess has run and may have billed, so from here
+    // the record exists and later code only fills it in. That ordering is the
+    // fix for a class with four known sites -- rounds 7, 8, 9 and 10 each
+    // found one refusal that threw before `attempts.push` and so dropped an
+    // attempt from the accounting `main()` prints (Codex, #73 rounds 7-10).
+    // Patching the sites one at a time is what produced four of them, and
+    // round 9's claim that its site was "the last by construction" was made
+    // without a search. Position is what makes this the last: a new assertion
+    // added below inherits the accounting by being below, and `withSpend()`
+    // becomes a guarantee rather than a convention. Nothing was dispatched on
+    // an `unavailable` attempt, which is why the push follows that check and
+    // not the `runner()` call.
+    const record = { attempt, problems: [], costUsd: null, modelUsage: null };
+    attempts.push(record);
+
     // A process that did not exit cleanly did not produce evidence, whatever
     // its stdout says. A CLI killed by the timeout after emitting a result
     // event would otherwise pass every check below and mint a receipt for a
@@ -812,18 +828,19 @@ export function dispatch({
         : run.error
           ? `spawn error ${run.error.code ?? run.error.message}`
           : `exit status ${run.status}`;
-      // The attempt ran and may have billed; record it with its cost UNKNOWN
-      // rather than dropping it, so main() can still print what was spent.
-      // This was the one post-launch throw site left outside the accounting
-      // after rounds 7 and 8 (Codex, #73 round 9) -- it threw before the
-      // attempt was pushed, so withSpend() would have attached an array
-      // missing exactly the attempt in question.
-      attempts.push({ attempt, problems: [`process did not exit cleanly (${why})`], costUsd: null, modelUsage: null });
+      // Its cost stays UNKNOWN: a process that died did not produce a result
+      // event to price it from, and a missing figure is not a zero.
+      record.problems.push(`process did not exit cleanly (${why})`);
       const err = new Error(`the reviewer process did not exit cleanly (${why}); its output is not evidence and no receipt is written`);
       err.attempts = attempts;
       throw err;
     }
     const { init, result, answerModel: stampedModel } = parseStream(run.stdout);
+    // Spend is observable the moment the stream is parsed, so it is filled in
+    // before anything can throw -- otherwise a refused attempt is present in
+    // the accounting but reports its cost as unknown when it was known.
+    record.costUsd = result?.total_cost_usd ?? null;
+    record.modelUsage = result?.modelUsage ?? null;
 
     // THE SURFACE IS CHECKED FIRST, ON EVERY ATTEMPT, BEFORE ANY RETRY
     // DECISION. It used to be checked only once a valid document existed --
@@ -834,21 +851,16 @@ export function dispatch({
     // cannot un-launch that, so the refusal cannot wait for one.
     surface = withSpend(() => assertLaunchSurface(init, contract, { expectedSessionId: sessionId }), attempts);
 
-    const problems = [];
+    // Filled in afterwards, into the record that already exists. Spend is
+    // recorded per attempt, always -- including the attempts that produced
+    // nothing. A receipt carrying only the successful attempt's totals
+    // under-reports what the dispatch actually cost (Codex, #73 round 1), and
+    // the budget conversation for later phases runs on these numbers.
+    const problems = record.problems;
     if (!result) problems.push("no `result` event");
     else if (result.is_error) problems.push(`the run reported an error: ${String(result.result).slice(0, 200)}`);
     else if (result.subtype != null && result.subtype !== "success") problems.push(`the result event's subtype is ${JSON.stringify(result.subtype)}, not "success"`);
     else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
-    // Spend is recorded per attempt, always -- including the attempts that
-    // produced nothing. A receipt carrying only the successful attempt's
-    // totals under-reports what the dispatch actually cost (Codex, #73 round
-    // 1), and the budget conversation for later phases runs on these numbers.
-    attempts.push({
-      attempt,
-      problems,
-      costUsd: result?.total_cost_usd ?? null,
-      modelUsage: result?.modelUsage ?? null,
-    });
 
     if (problems.length) {
       if (attempt === 2) {
