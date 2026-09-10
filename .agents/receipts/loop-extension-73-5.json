@@ -1,0 +1,7 @@
+{
+  "pr": 73,
+  "kind": "david",
+  "grant": 3,
+  "asOf": 7,
+  "authorization": "David, 2026-09-10, verbatim: \"Grant up to 3 additional rounds so that you have the budget to get this closed in case some other stupid thing comes up.\" Asked at an exhausted allowance (7 of 7) after round 7 returned four findings, all correct and all fixed in 69b4d03. Two were self-contradictions in the triage rule written earlier the same day -- the reply template ordered Worth before Class while the prose said to write Class first, and it instructed the agent to record `decline` while telling it to derive the value, which is a code change and therefore a write. Both are now fixed: Class leads, and the disposition vocabulary has three values with simplify-away stated as a WRITE. The other two were a frontmatter field with a silent default and spend dropped on one of two throw paths. The adjudicator was not dispatched -- its record still cannot be built honestly at this loop length (AI-Handbook issue 75), which is the third decision that has cost. Grant 3 opens rounds 8 through 10; the David gate moves to 10. Round 8 is the mandatory write-gate review of 69b4d03 and this receipt."
+}
