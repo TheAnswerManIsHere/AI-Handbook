@@ -154,18 +154,31 @@ are printed with the refusal. Argument refusals that
 are knowable from the command line happen **before** the launch, so a
 deterministic mistake never bills a reviewer.
 
-**`--out` may name a file under `.agents/receipts/` and nowhere else**, and
-that is an allowlist of one directory rather than a blocklist of dangerous
-destinations. The first version asked only whether the path was *inside the
-repository*, which is not a question about safety: `writeFileSync` truncates,
-so `--out .git/HEAD` passed and destroyed the checkout, and any working file
-named by a typo was silently replaced. Being inside a repository never made a
-destination safe to overwrite. Overwriting another receipt is the intended
-semantic — re-running a dispatch replaces its own output — and everything else
-is now unreachable. The directory is resolved with `realpathSync` rather than
-by string prefix, because a lexical test answers "inside" about a symlinked
-component that points outside, and a confinement that can be walked around
-does not confine.
+**`--out` may name a `fable-*.json` file under `.agents/receipts/` and nothing
+else** — an allowlist of one directory and one filename shape, rather than a
+blocklist of the destinations that happen to be dangerous.
+
+It took two corrections to get there, and both are worth stating because each
+one *looked* sufficient. The first version asked only whether the path was
+*inside the repository*, which is not a question about safety at all:
+`writeFileSync` truncates, so `--out .git/HEAD` passed and destroyed the
+checkout. Being inside a repository never made a destination safe to
+overwrite. The second confined writes to `.agents/receipts/` and called
+clobbering inside it the intended semantic — but that directory is shared with
+the review machinery's own **tracked** receipts, the `loop-budget-*` and
+`loop-extension-*` files the merge gates read, so a typo could still replace
+review evidence with a Fable receipt. Being in the right *place* is not being
+the right *file*.
+
+The allowed name is exactly the family the receipts `.gitignore` covers, which
+is what keeps the two honest: an accepted name that git tracks would be the
+same defect returning, and a test asserts the pattern and the ignore rule still
+agree. Within that family clobbering *is* intended — re-running a dispatch
+replaces its own output.
+
+The directory is resolved with `realpathSync` rather than by string prefix,
+because a lexical test answers "inside" about a symlinked component that points
+outside, and a confinement that can be walked around does not confine.
 
 **Cost is recorded per attempt, and summed only when every attempt's spend was
 observed.** A first attempt that returns nothing valid still spent money; a

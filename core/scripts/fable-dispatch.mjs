@@ -209,14 +209,35 @@ export const ROLE_DIR = ".agents/fable-roles";
  *
  * A receipt has exactly one home, so the check is an allowlist of one
  * directory rather than a blocklist of the paths that happen to be
- * dangerous. Clobbering another receipt is the intended semantic -- re-running
- * a dispatch replaces its own output -- and everything else is unreachable.
+ * dangerous.
+ *
+ * THE DIRECTORY ALONE IS NOT ENOUGH, and the first version of this fix said
+ * "clobbering another receipt is the intended semantic" while `.agents/
+ * receipts/` holds 46 TRACKED files -- `README.md`, `.gitignore`, and every
+ * `loop-budget-*.json` and `loop-extension-*.json` the review machinery reads
+ * as a merge gate. Overwriting one of those with a Fable receipt is
+ * corruption of the tracking machinery other agents depend on, which is a
+ * named critical class, not a tidy-up (Codex, #73 round 5).
+ *
+ * So the name is checked too, and the allowed shape is exactly the family
+ * this file's own `.gitignore` entry covers: `fable-*.json`. The two must
+ * agree -- an allowed name that git tracks would be the same defect back
+ * again -- and they agree by being the same pattern, stated here and there.
+ * Within that family, clobbering IS the intended semantic: re-running a
+ * dispatch replaces its own output.
  *
  * The resolution is through `realpathSync`, not lexical: a prefix test on a
  * path with a symlinked component says "inside" about a directory that is
  * outside, which is the defect one level up from the one being fixed.
  */
 export const RECEIPTS_DIR = ".agents/receipts";
+
+/**
+ * The only basenames `--out` may write, and the same family the receipts
+ * `.gitignore` covers with `fable-*.json`. Stated as a pattern rather than a
+ * prefix test so the two can be read side by side and seen to agree.
+ */
+export const RECEIPT_NAME = /^fable-[A-Za-z0-9._-]+\.json$/;
 
 /**
  * Why a receipt may not be written to `outAbs`, or null if it may be.
@@ -242,6 +263,14 @@ export function outProblem(root, outAbs, io = { realpathSync: fs.realpathSync, e
   }
   if (realParent !== realHome && !realParent.startsWith(realHome + path.sep)) {
     return `--out must name a file under ${RECEIPTS_DIR}/, and ${outAbs} resolves outside it`;
+  }
+  // The directory is shared with the review machinery's own tracked receipts,
+  // so being in the right place is not being the right file.
+  if (!RECEIPT_NAME.test(path.basename(outAbs))) {
+    return (
+      `--out must name a fable-*.json receipt, not ${path.basename(outAbs)}: ` +
+      `${RECEIPTS_DIR}/ also holds the tracked loop-budget and loop-extension receipts the review gates read`
+    );
   }
   // A receipt path that is itself a symlink writes THROUGH the link, so the
   // directory check above would be satisfied while the bytes land elsewhere.
