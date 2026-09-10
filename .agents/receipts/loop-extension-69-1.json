@@ -16,5 +16,7 @@
     "P2 core/scripts/plan-review.mjs:1329 -- a forced rerun of a non-latest round removes only that round's artifacts, leaving later round-N.json and converged metadata that were produced from the superseded plan.",
     "P2 core/scripts/plan-review.mjs:206 -- schema and local validator enforce presence and type only, so a required revision with an empty acceptance_check or evidence: [] is accepted and can hold the loop open.",
     "P2 core/.claude/skills/plan-review-loop/SKILL.md:398 -- the approval-ask recipe sets waiting:david but never moves the issue to stage:plan-approval, contradicting the ownership table at core/docs/ai-context/workstream-tracking.md:344-348."
-  ]
+  ],
+  "modelRequested": "best",
+  "effortRequested": "xhigh"
 }
