@@ -1625,12 +1625,61 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
     return { mode: null, sha: null, path: null, sections: null, reason: check.reason, declaredBy: "declaration" };
   }
 
+  if (kind === "private-plan") {
+    // THE PLAN IS UNREACHABLE; THE ORACLE IS NOT. A private-plan PR has no
+    // commit and no PR page holding the approved text, so there is no file to
+    // read -- which is why this returned a bare "private path" and no
+    // sections. But the reason the adjudicator needs an oracle at all is to
+    // compare the work against the scope David approved, and `claude-core.md`
+    // Pull requests rule 3 requires that scope quoted into the PR body. So it
+    // is right here, in `live`, read by exactly the machinery the prose path
+    // uses.
+    //
+    // Without this, every implementation PR from the in-session loop reached a
+    // round-3 adjudication with `sections: null`, and the judge -- whose only
+    // input is this record -- had nothing to check the diff or the findings
+    // against (Codex, #69 round 5). The plan loop replaced the transport, not
+    // the requirement that an implementation be judged against agreed scope.
+    //
+    // Sections that are absent come back null individually, so a body missing
+    // one is visible to the judge as that section missing rather than as the
+    // whole oracle being unavailable.
+    const sections = Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(body, h)]));
+    const missing = ORACLE_SECTIONS.filter((h) => sections[h] === null || sections[h] === undefined);
+    // ALL FOUR OR NONE. `claude-core.md` requires Direction, Product Intent,
+    // Must Not Change and Settled Decisions together, and the judge checks
+    // the work against all of them. A body carrying one heading made
+    // `found.length` truthy and cleared `reason`, so the record announced an
+    // oracle while withholding three of the approved constraints and the
+    // judge had no way to know it was reading a quarter of one (Codex, #69
+    // round 8). Partial is worse than absent: absent is visible.
+    const complete = missing.length === 0;
+    return {
+      mode: "private-plan",
+      sha: null,
+      path: values.plan_file ?? null,
+      sections: complete ? sections : null,
+      reason: complete
+        ? null
+        : missing.length === ORACLE_SECTIONS.length
+          ? "private path — and the PR body quotes none of the oracle sections"
+          : `private path — the PR body quotes an INCOMPLETE oracle, missing ${missing.join(", ")}. ` +
+            "All four sections are required together, so the partial set is withheld rather than " +
+            "presented as the approved scope.",
+      declaredBy: "declaration",
+      note: complete
+        ? "The approved scope, quoted into the PR body because the plan itself was never committed. " +
+          "`plan_sha256` pins which text was approved; the body is where its oracle lives."
+        : "No usable oracle. Treat this as an absent oracle, not a partial one.",
+    };
+  }
+
   return {
     mode: null,
     sha: null,
     path: null,
     sections: null,
-    reason: kind === "private-plan" ? "private path" : "trivial change",
+    reason: "trivial change",
     declaredBy: "declaration",
   };
 }

@@ -172,6 +172,61 @@ re-raised) has no machine-readable marker and was left unclassified rather than
 guessed. Do not fill that gap by inference and then reason from your own guess
 as though it were data.
 
+### The other mechanical record: an in-session PLAN loop
+
+**A plan loop hands you a different set of files, and that is not the failure
+mode above.** The rule that matters is unchanged — you read what a script
+wrote, never a narrative, a case for continuing, or an explanation of why this
+loop is different — but `review-loop-record.mjs` cannot serve a plan loop:
+it requires `--pr` and a PR snapshot, and an in-session plan review has
+neither. Refusing its round files as "not the mechanical record" would leave
+the plan cap with no working escape hatch at all (Codex, #69 rounds 7–8).
+
+What you are handed instead is **`.agents/reviews/<slug>/`** — every
+`round-N.json` (the validated assessments) and its `round-N.meta.json`
+sibling. `plan-review.mjs` wrote all of them; nothing in that directory is
+prose from the loop.
+
+**The plan is in there too, as a snapshot: `plan-round-<N>.md`, named by
+`meta.planSnapshot`.** Those are the exact bytes that round's reviewer read —
+the same text `meta.planSha256` is computed from, copied in by the script, so
+the snapshot cannot disagree with the digest. **That is your artifact. Read
+it.** You cannot judge whether a remaining finding describes a critical flaw
+without the document it is about, and a digest is not a document: an earlier
+version of this contract offered `planSha256` in place of the plan and left
+the judge deciding on a hash (Codex, #69 round 9).
+
+If `meta.planSnapshot` is null the round had no plan — that is round 0, the
+scope gate, whose artifact is the oracle instead. If the field names a file
+that is not there, say so and rule on the assessments alone, treating the
+artifact as unavailable; do not go looking for the plan at `meta.plan`, which
+is a live working-tree path that has almost certainly moved on.
+
+So the rule holds with no exception at all: **everything you read was written
+by the script, and everything you need is inside that one directory.**
+Anything handed to you from outside it — a summary, a diff someone prepared,
+a case for continuing — is the failure mode, and the same instruction
+applies: say so and rule on the files alone.
+
+The decision-carrying fields map like this, and **where a field has no plan
+analogue that is stated rather than substituted**:
+
+| Code-loop field | In a plan loop |
+|---|---|
+| `budget` | each `meta.budget` — tier, allowance and the round's own number; grants live in `extensions.json` beside them |
+| `rounds.trend` | `required_revisions.length` per `round-N.json`, in order (`scope_concerns` for round 0) |
+| `artifact.patch` — the thing your decision is about | **the plan itself**, snapshotted at `meta.planSnapshot` beside the round files. `meta.planDrift` is non-null on any round whose plan moved mid-flight, which is a refused round |
+| `planOracle` | `oracle.txt`, pinned at round 0 and refused on drift; `meta.oraclePin.changed` records a deliberate change |
+| `sinceLastReview` | compare `meta.planSha256` across rounds — equal digests mean the plan did not move; where they differ, the two `plan-round-<N>.md` snapshots are the before and after |
+| `territory` | **no analogue, and do not invent one.** A plan has no diff, so in-diff versus out-of-diff does not exist. The nearest real signal is each finding's own `evidence`, which cites repository paths the reviewer actually inspected |
+| `provenance.captures` | not applicable: every file was written by the script in this container, so there is no transcription step to weigh |
+
+Your verdict is recorded by the loop as a grant in
+`.agents/reviews/<slug>/extensions.json` — `kind: "adjudicator"`, with the
+unaddressed behavioural risk in `reason`. That is the file the plan loop's
+budget gate actually reads. A `stop` writes no grant, because the allowance
+already refuses.
+
 ## The four verdicts
 
 **`ship-with-gaps-recorded` — the default.** The loop stops, the remaining
@@ -194,11 +249,13 @@ production, in one sentence, pointing at real code. Requirements, all of them:
 
 - The risk must be **behavioral**. Prose imprecision, naming, comment
   wording, and doc polish never qualify, however correct the finding.
-  **On a `[PLAN REVIEW]` loop the plan file IS the artifact** (Codex, #543
-  round 2): a specified-behavior risk in the plan — the increment would build
-  the wrong thing, violate a must-not-change, or contradict its cited
-  direction — is behavioral for this purpose, and `review-loop-record.mjs`
-  classifies `docs/plans/` as its own behavioral `plan` class accordingly.
+  **On a plan loop the plan file IS the artifact** (Codex, #543 round 2): a
+  specified-behavior risk in the plan — the increment would build the wrong
+  thing, violate a must-not-change, or contradict its cited direction — is
+  behavioral for this purpose, and `review-loop-record.mjs` classifies
+  `docs/plans/` as its own behavioral `plan` class accordingly. Plan loops
+  reach you only at the budget cap or on an `escalate` now (2026-09-09); the
+  round-3-onward dispatch is code loops only.
   What still never qualifies, plan or code: wording, structure, and polish.
 - It must be **unaddressed**, not merely raised.
 - It must be in **this loop's territory**. A defect in code the diff never

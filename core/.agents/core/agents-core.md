@@ -128,24 +128,23 @@ For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
 approves the plan.**
 
-**Reviewing a plan (not code).** When asked to review a pull request whose title
-is prefixed **`[PLAN REVIEW]`** (a plan document, not a code diff), apply the
-[plan-review contract](../../docs/ai-context/plan-review-contract.md): review the
-markdown as an implementation *specification* against the PR body's stated intent
-and the repo, return a **complete** assessment even when nothing is critical, and
-never implement anything on that PR. **Status labels are a full-document-surface
-concept only** (never approval language there either — only David approves); on
-your actual GitHub review transport you don't compute or post one — see the
-contract's *Output* section for what you do instead.
+**Reviewing a plan (not code).** Plan review does not run on a pull request
+(2026-09-09). A plan reaches you as a **file in the checkout you are running
+in**, named in the instructions you are given, with its review oracle
+alongside. Apply the
+[plan-review contract](../../docs/ai-context/plan-review-contract.md): review
+the markdown as an implementation *specification* against that oracle and
+against the repo, return a **complete** assessment every round even when
+nothing is critical, pick one status label (never approval language — only
+David approves), and never implement anything.
 
-**On a re-review, the diff is not the scope.** Round 2 onward you are shown a
-markdown diff of the plan — re-read the *whole* plan and re-verify it against the
-repo anyway, reconcile every finding you raised earlier (Resolved / Still open /
+**On a re-review, what you are handed is not the scope.** You get a fresh
+context each round, with the previous rounds' findings as ids, titles and
+dispositions only. Re-read the *whole* current plan and re-verify it against
+the repo anyway, reconcile every one of those findings (Resolved / Still open /
 Superseded, where "the wording changed" is never Resolved), attack from a lens
 you haven't used yet, and report what you actually inspected — including the
-searches you ran — plus what you could not verify and why. **On your actual
-GitHub review transport, most of this is carried inside individual findings,
-not a separate report** — the contract's *Re-reviews*, *Report what you
-verified*, and *Output* sections are the full, surface-scoped rules; this
-paragraph is a summary, not the authority.
+searches you ran — plus what you could not verify and why. The contract's
+*Re-reviews*, *Report what you verified* and *Output* sections are the
+authority; this paragraph is a summary.
 

@@ -154,27 +154,20 @@ common case: an *active* workstream's PR is recent by definition, so one
 batched call covers nearly everyone.
 
 **More than one PR can carry the same marker for one issue over its
-lifetime** — most commonly a closed `[PLAN REVIEW]` draft PR from Planning
-alongside the later, real implementation PR once Coding opens. When the
+lifetime** — on a workstream old enough to predate 2026-09-09, a closed
+`[PLAN REVIEW]` draft PR from Planning alongside the later, real
+implementation PR once Coding opens. When the
 map-building finds multiple matches for one issue number, don't take
 whichever came first or last in the list: prefer an **open** PR over a
 closed one (a closed plan-review PR is superseded evidence, not the
 current state — its CI/comments/activity belong to a phase that's over).
 
-**Multiple *open* matches at `stage:planning`/`stage:plan-approval` are not
-necessarily a tie to break by recency** — `plan-review-loop`'s own
-multi-subsystem path (see that skill's step 10) deliberately opens one
-plan-review PR per independent subsystem and runs their Codex loops in
-parallel, so a workstream genuinely spanning several subsystems can have
-more than one open `[PLAN REVIEW]` PR at once, all equally current. Picking
-"most recently updated" among them would silently drop the others' CI,
-reviews, and unanswered threads — exactly the activity this report exists
-to surface. At those two stages, treat every open match as belonging to the
-same workstream and pull/report all of them, not just one. Outside
-Planning/Plan-approval — where an open match is the current implementation
-PR, not a plan-review artifact — more than one open match isn't an expected
-shape; if it happens, the most-recently-updated one remains the right
-single pick. Only fall back to
+**More than one open match is no longer an expected shape at any stage.**
+It used to be, at `stage:planning`/`stage:plan-approval`: the plan loop's
+multi-subsystem path opened one plan-review PR per subsystem and ran them in
+parallel. Plan review runs in-session now (2026-09-09) and opens no PR at
+all, so if several open matches turn up, the most-recently-updated one is
+the right single pick. Only fall back to
 a closed PR if it's the *sole* match — and then check `merged_at` before
 looking at stage at all: a non-null `merged_at` means it's the genuine
 implementation history (a `[PLAN REVIEW]` PR is never merged, per
@@ -189,6 +182,15 @@ that's the *obsolete* plan-review PR outliving its usefulness, not the
 current state — treat the issue as having no linked PR instead (Step 4's
 no-PR path, using its own comment history) rather than computing status
 from a thread that belongs to a phase that's already over.
+
+**`stage:planning` and `stage:plan-approval` have no PR by design
+(2026-09-09), and that is health, not absence.** The plan loop runs
+in-session against a plan that is never pushed, so a workstream in either
+stage has nothing to find and no targeted lookup is warranted. Report it
+from the issue's own labels and comment history — Step 4's no-PR path —
+and never as missing, unlinked or stalled on the strength of having no PR.
+Reading a healthy planning workstream as stalled is the specific
+misclassification this paragraph exists to prevent (Codex, #69 round 1).
 
 **Once the implementation PR itself merges, both matches are closed** — the
 plan-review PR (never merged, per `plan-review-loop`'s own contract) and
@@ -209,11 +211,8 @@ activity — its own PR isn't updating, so 50 *other*, busier PRs (routine
 bugfixes, devops, docs) can push it off the page even though it's still
 genuinely linked. Don't treat every issue the top-50 scan didn't match as
 stalled: for any workstream at a stage that structurally implies a PR
-should already exist — **`planning` onward**, not just `coding` onward: a
-`[PLAN REVIEW]` draft PR opens while the issue is still at
-`stage:planning` per `plan-review-loop`'s own contract, so Planning is
-not PR-less by default either — with no match in the map, do one targeted
-lookup instead of assuming — search for `"Workstream: #<N>"` in PR bodies
+should already exist — **`coding` onward** — with no match in the map, do
+one targeted lookup instead of assuming — search for `"Workstream: #<N>"` in PR bodies
 (`search_pull_requests`, query `"Workstream: #<N>" in:body
 repo:<owner>/<repo>`) before concluding it's actually unlinked. **Run every
 hit through the same two checks as the batched scan above — `author_association

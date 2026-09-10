@@ -1,6 +1,6 @@
 ---
 name: pr-watch
-description: Use after opening or being re-engaged on any PR (implementation or [PLAN REVIEW]), and whenever a github-webhook-activity event arrives for a watched PR.
+description: Use after opening or being re-engaged on any PR, and whenever a github-webhook-activity event arrives for a watched PR. Implementation PRs only — plan review runs in-session and opens no PR.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -17,8 +17,8 @@ review threads once addressed — stay resident in `CLAUDE.md`.
 The subscribe rule lives in `CLAUDE.md`'s *Watching the PRs I open* stub,
 which fires at PR-open time before this skill is ever invoked: **I subscribe
 immediately, on whatever tier the session is on — there is no model gate**
-(David, 2026-08-15, retiring the Sonnet gate), for implementation and
-`[PLAN REVIEW]` PRs alike. **Self-check-ins follow the bounded contract in
+(David, 2026-08-15, retiring the Sonnet gate). Every PR this covers is an
+implementation PR; plan review opens none. **Self-check-ins follow the bounded contract in
 `CLAUDE.md`'s *Scheduled self-check-ins*** (David, 2026-08-15, replacing the
 2026-07-07 blanket ban): allowed against a named external state that won't
 reliably wake me, bounded by **both** caps (3 consecutive no-op wakes, and 6
@@ -225,16 +225,11 @@ in `CLAUDE.md`. **A security-review usage-limit bounce is not one of these:**
 request the code review instead. Whenever a watched PR merges or closes, I unsubscribe and
 disarm any check-in still pending on it.
 
-**The convergence-break and skip-review-if-docs-only rules below are
-for implementation PRs.** A `[PLAN REVIEW]` draft PR follows
-`plan-review-loop`'s own cadence instead — minimum 3 rounds even on a clean
-early pass, and every
-revision re-triggered regardless of whether the diff is docs-only, since
-the diff *is* the plan. Its stopping rule is the SAME declared budget and
-two-tier tripwire as every loop (a plan loop takes the tier of what it
-plans — see that skill's step 9): the budget guard's refusals apply to
-plan-review triggers exactly as to implementation ones, with the per-round
-adjudicator, the leash, and the David gate all in force. While watching an implementation PR:
+**Everything in this skill is about implementation PRs, and that is now the
+whole of it.** Plan review no longer runs on a PR at all — it runs in-session,
+against a plan that is never pushed (`plan-review-loop`), so there is nothing
+for me to watch and no plan-review carve-out to state here. While watching an
+implementation PR:
 
 - **Never judge a webhook event from its text alone — fetch the live PR state
   first.** This is the rule I broke: a `<github-webhook-activity>` arrived that

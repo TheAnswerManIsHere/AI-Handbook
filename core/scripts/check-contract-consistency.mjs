@@ -62,6 +62,30 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const RETIRED = [
   {
+    phrase: "minimum 3 rounds",
+    retired: "2026-09-09",
+    why: "retired plan-loop convergence floor -- it compensated for a GitHub reviewer that had no way to signal 'done', and the in-session reviewer signals it in a field",
+    instead: "stop when required_revisions is empty AND every prior finding is Resolved or Superseded",
+  },
+  {
+    phrase: "three completed Codex review rounds",
+    retired: "2026-09-09",
+    why: "the same retired floor's other attested wording (the plan-review-loop skill's step 7)",
+    instead: "stop when required_revisions is empty AND every prior finding is Resolved or Superseded",
+  },
+  {
+    phrase: "full-document surface only",
+    retired: "2026-09-09",
+    why: "retired surface qualifier -- the full assessment is now the only plan surface, so the status label is never something the loop driver derives",
+    instead: "every plan review picks a status label and returns it as a field",
+  },
+  {
+    phrase: "plan-review PR is the plan's delivery surface",
+    retired: "2026-09-09",
+    why: "retired delivery surface -- plan review runs in-session and the plan is never pushed",
+    instead: "one private Artifact page, redeployed in place each round",
+  },
+  {
     phrase: "adjudicatedStop",
     retired: "2026-08-22",
     why: "deleted tier property — it existed to make an unreviewed head mergeable, which the write-gate rule forbids outright",

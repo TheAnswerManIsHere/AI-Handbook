@@ -1,0 +1,6 @@
+{
+  "pr": 69,
+  "kind": "david",
+  "grant": "uncapped",
+  "authorization": "David, 2026-09-10, verbatim: \"Take as many rounds as you need to finish. I don't want to have to keep granting. Just get it done.\" — after round 7 returned four findings, one of which (the unprotected oracle) I fixed under the standing condition and three of which I took to him. He removed the round gate rather than answering the three-way choice, so all three are written for and the loop runs to a clean round without returning to him for another grant. What this does NOT remove, and I am not treating as removed: the write-gate rule still means every commit is reviewed before merge, and the PR is still David-merge-only because it widens my own authority. If the loop stops converging I stop and report rather than spending his allowance indefinitely — an uncapped grant is permission to finish, not a reason to keep going."
+}

@@ -1,0 +1,7 @@
+{
+  "pr": 69,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 5,
+  "authorization": "David, 2026-09-10, verbatim: \"Grant 2 more, fix the three real ones\" — answering the 🛑 raised when round 5 on bd445a0 returned 5 findings and tripped the flip condition registered before that round ran (stop at more than 3). He took the recommendation as given: fix the three P1s — duplicate prior ids producing false convergence, the ignore check that pattern-matched instead of asking git, and private-plan provenance handing a code-loop adjudicator no oracle — and record the two P2s as gaps. His grant opens exactly two rounds from a completed count of five (rounds 1-3, the covering pass, and round 5)."
+}

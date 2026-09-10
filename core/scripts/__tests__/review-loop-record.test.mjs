@@ -2385,3 +2385,90 @@ test("an inherited property name is an unknown kind, not a crash", () => {
     assert.match(found?.refuse ?? "", /is not a kind this contract defines/, `kind: ${kind} should refuse cleanly`);
   }
 });
+
+test("a private-plan PR hands the adjudicator the oracle QUOTED IN ITS BODY", () => {
+  // The plan itself was never committed, so there is no file to read -- which
+  // is why this path returned a bare "private path" and no sections at all.
+  // But the scope David approved is required in the PR body by claude-core's
+  // Pull requests rule 3, and the adjudicator's ONLY input is this record: at
+  // round 3 it had nothing to check the diff or the findings against.
+  const body = [
+    decl(
+      "kind: private-plan",
+      "plan_filename: PLAN_SOMETHING.md",
+      "plan_sha256: " + "a".repeat(64),
+      "approved_by: David",
+      "approved_on: 2026-09-06",
+    ),
+    "",
+    "## Direction",
+    "the direction",
+    "",
+    "## Product Intent",
+    "the intent",
+    "",
+    "## Must Not Change",
+    "the invariants",
+    "",
+    "## Settled Decisions",
+    "1. a decision",
+  ].join("\n");
+
+  const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([]) });
+  assert.equal(oracle.mode, "private-plan");
+  assert.equal(oracle.reason, null, "an oracle that was found is not also a reason it is missing");
+  assert.deepEqual(oracle.sections, {
+    Direction: "the direction",
+    "Product Intent": "the intent",
+    "Must Not Change": "the invariants",
+    "Settled Decisions": "1. a decision",
+  });
+  assert.equal(oracle.sha, null, "there is no commit to pin -- plan_sha256 does that");
+});
+
+test("a private-plan body quoting NO oracle section says so, rather than passing silently", () => {
+  const body = decl(
+    "kind: private-plan",
+    "plan_filename: PLAN_SOMETHING.md",
+    "plan_sha256: " + "a".repeat(64),
+    "approved_by: David",
+    "approved_on: 2026-09-06",
+  );
+  const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([]) });
+  assert.equal(oracle.mode, "private-plan");
+  assert.match(oracle.reason ?? "", /quotes none of the oracle sections/);
+  // `sections` is null rather than an object of nulls: round 8 tightened this
+  // so a partial oracle is withheld too, and "none" is the same withholding.
+  assert.equal(oracle.sections, null);
+});
+
+test("a private-plan body quoting SOME oracle sections is refused as incomplete, not offered as partial", () => {
+  // claude-core requires all four together and the judge checks the work
+  // against all four. One heading made the old check truthy and cleared
+  // `reason`, so the record announced an oracle while withholding three
+  // approved constraints — and the judge had no way to know it was reading a
+  // quarter of one. Partial is worse than absent, because absent is visible.
+  const decl4 = decl(
+    "kind: private-plan",
+    "plan_filename: PLAN_SOMETHING.md",
+    "plan_sha256: " + "a".repeat(64),
+    "approved_by: David",
+    "approved_on: 2026-09-06",
+  );
+  const body = [decl4, "", "## Direction", "the direction", "", "## Must Not Change", "the invariants"].join("\n");
+
+  const oracle = planOracleFor({ title: "Implement the thing", body }, "head", { runGit: planGit([]) });
+  assert.equal(oracle.mode, "private-plan");
+  assert.equal(oracle.sections, null, "the partial set is withheld rather than presented as the approved scope");
+  assert.match(oracle.reason ?? "", /INCOMPLETE/);
+  assert.match(oracle.reason ?? "", /Product Intent/);
+  assert.match(oracle.reason ?? "", /Settled Decisions/);
+  assert.doesNotMatch(oracle.reason ?? "", /Direction,/, "sections that ARE present are not listed as missing");
+  assert.match(oracle.note ?? "", /absent oracle, not a partial one/);
+
+  // All four still pass, unchanged.
+  const whole = [decl4, "", "## Direction", "d", "", "## Product Intent", "p", "", "## Must Not Change", "m", "", "## Settled Decisions", "s"].join("\n");
+  const full = planOracleFor({ title: "Implement the thing", body: whole }, "head", { runGit: planGit([]) });
+  assert.equal(full.reason, null);
+  assert.deepEqual(Object.keys(full.sections ?? {}).length, 4);
+});
