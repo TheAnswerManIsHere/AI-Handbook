@@ -173,22 +173,44 @@ export function frontmatterBody(text) {
  */
 export function readDefinitionAt(root, role, commit, { runGit = defaultGit } = {}) {
   const rel = `.claude/agents/fable-${role}.md`;
-  const show = runGit(["show", `${commit}:${rel}`], root);
-  if (show.status !== 0) {
-    // A payload path is the fallback, not the primary: in the handbook the
-    // definition lives under `core/`, and the root entry is a symlink git
-    // resolves for us. In a consumer it is the root path and there is no
-    // `core/`. Trying both means one file works in both layouts.
-    const payload = runGit(["show", `${commit}:core/${rel}`], root);
-    if (payload.status !== 0) {
-      throw new Error(
-        `no definition for role "${role}" at ${commit} (looked for ${rel} and core/${rel}). ` +
-          `A role without a definition has no instructions, and this file will not invent them.`,
-      );
+  const tried = [];
+  for (const candidate of [rel, `core/${rel}`]) {
+    const entry = runGit(["ls-tree", "-z", commit, "--", candidate], root);
+    if (entry.status !== 0 || !entry.stdout) {
+      tried.push(`${candidate} (absent at ${commit})`);
+      continue;
     }
-    return { path: `core/${rel}`, text: payload.stdout };
+    const read = (target) => runGit(["show", `${commit}:${target}`], root);
+    // A ROOT ENTRY IS USUALLY A SYMLINK, AND GIT STORES ITS TARGET PATH AS THE
+    // BLOB. Reading it with `git show` therefore returns the string
+    // "../../core/.claude/agents/fable-probe.md", not a definition -- which
+    // parses as a file with no frontmatter and refuses for the wrong reason.
+    // The mode is what distinguishes them; `readAtCommit` in
+    // review-loop-record.mjs resolves the same hazard the same way, and this
+    // was found by the first live run rather than by any test.
+    if (entry.stdout.slice(0, 6) !== "120000") {
+      return { path: candidate, text: read(candidate).stdout, followedLink: null };
+    }
+    const target = read(candidate).stdout.trim();
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(candidate), target));
+    if (resolved.startsWith("../") || path.posix.isAbsolute(resolved)) {
+      throw new Error(`${candidate} at ${commit} is a symlink to ${target}, which escapes the repository`);
+    }
+    const inner = runGit(["ls-tree", "-z", commit, "--", resolved], root);
+    if (inner.status !== 0 || !inner.stdout) {
+      throw new Error(`${candidate} at ${commit} is a symlink to ${resolved}, which is not present at that commit`);
+    }
+    // One hop only: a chain is a repository mistake, and following it would
+    // make this resolver the thing that has to reason about cycles.
+    if (inner.stdout.slice(0, 6) === "120000") {
+      throw new Error(`${candidate} at ${commit} is a symlink to another symlink (${resolved}) -- refusing to follow a chain`);
+    }
+    return { path: resolved, text: read(resolved).stdout, followedLink: candidate };
   }
-  return { path: rel, text: show.stdout };
+  throw new Error(
+    `no definition for role "${role}" at ${commit} -- tried ${tried.join("; ")}. A role without a definition ` +
+      `has no instructions, and this file will not invent them.`,
+  );
 }
 
 /**

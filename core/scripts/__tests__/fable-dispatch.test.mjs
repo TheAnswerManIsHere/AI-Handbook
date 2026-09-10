@@ -82,18 +82,34 @@ const resultEvent = (structured, over = {}) =>
 const goodStream = (nonce, { model = "claude-fable-5-1", init = initEvent() } = {}) =>
   [init, assistantEvent(model), resultEvent({ challenge: nonce, claudemd: "no", tools: ["Read"] })].join("\n");
 
-/** git that answers only the calls `dispatch` makes, from fixtures. */
-function fakeGit({ definition = DEFINITION, schema = SCHEMA, clean = true, head = "abc123" } = {}) {
+/**
+ * git that answers only the calls `dispatch` makes, from fixtures.
+ *
+ * Modelled on the HANDBOOK layout, where the root entry is a symlink whose
+ * blob is its target path and the real definition lives under `core/`. The
+ * first live run refused with "no frontmatter" because the resolver read the
+ * link's target string as a definition, so the fixture reproduces the shape
+ * that caused it rather than the shape that would have passed.
+ */
+function fakeGit({ definition = DEFINITION, schema = SCHEMA, clean = true, head = "abc123", rootIsLink = true } = {}) {
+  const ROOT_REL = ".claude/agents/fable-probe.md";
+  const PAYLOAD_REL = `core/${ROOT_REL}`;
   return (args) => {
-    const [cmd, a] = args;
+    const [cmd, a, b, , candidate] = args;
     if (cmd === "rev-parse") return { status: 0, stdout: `${head}\n` };
     if (cmd === "status") return { status: 0, stdout: clean ? "" : " M core/scripts/fable-dispatch.mjs\n" };
-    if (cmd === "show" && a.endsWith(".claude/agents/fable-probe.md")) {
-      // The root path misses and the payload path hits, as in the handbook.
-      return a.startsWith(`${head}:core/`) ? { status: 0, stdout: definition } : { status: 1, stdout: "" };
+    if (cmd === "ls-tree") {
+      if (candidate === ROOT_REL) {
+        if (!rootIsLink) return { status: 1, stdout: "" };
+        return { status: 0, stdout: `120000 blob deadbeef\t${ROOT_REL}\0` };
+      }
+      if (candidate === PAYLOAD_REL) return { status: 0, stdout: `100644 blob cafe\t${PAYLOAD_REL}\0` };
+      if (candidate?.endsWith("schemas/fable-probe.schema.json")) return { status: 0, stdout: `100644 blob f00d\t${candidate}\0` };
+      return { status: 1, stdout: "" };
     }
+    if (cmd === "show" && a === `${head}:${ROOT_REL}`) return { status: 0, stdout: "../../core/.claude/agents/fable-probe.md\n" };
+    if (cmd === "show" && a === `${head}:${PAYLOAD_REL}`) return { status: 0, stdout: definition };
     if (cmd === "show" && a.endsWith("schemas/fable-probe.schema.json")) return { status: 0, stdout: schema };
-    if (cmd === "show") return { status: 1, stdout: "" };
     return { status: 1, stdout: "" };
   };
 }
@@ -363,17 +379,48 @@ test("a definition with no frontmatter, model, budget or schema is refused", () 
 });
 
 test("a missing definition refuses rather than inventing instructions", () => {
-  const git = (args) => (args[0] === "rev-parse" ? { status: 0, stdout: "abc123\n" } : { status: 1, stdout: "" });
+  const git = (args) =>
+    args[0] === "rev-parse" ? { status: 0, stdout: "abc123\n" } : args[0] === "status" ? { status: 0, stdout: "" } : { status: 1, stdout: "" };
   assert.throws(() => dispatch({ root: ROOT, role: "probe", runGit: git, runner: runnerFor("") }), /no definition for role "probe"/);
 });
 
 test("a schema missing at the commit refuses", () => {
   const git = (args) => {
-    const base = fakeGit()(args);
     if (args[0] === "show" && args[1].endsWith(".json")) return { status: 1, stdout: "" };
-    return base;
+    return fakeGit()(args);
   };
   assert.throws(() => dispatch({ root: ROOT, role: "probe", runGit: git, runner: runnerFor("") }), /names a schema that does not exist/);
+});
+
+test("the root symlink is followed rather than read as a definition", () => {
+  // The live-run defect: `git show` on a symlink returns its TARGET PATH, and
+  // a target path parses as a file with no frontmatter.
+  const r = runProbe();
+  assert.equal(r.definitionPath, "core/.claude/agents/fable-probe.md");
+  const direct = dispatch({
+    root: ROOT,
+    role: "probe",
+    runGit: fakeGit({ rootIsLink: false }),
+    runner: runnerFor(goodStream("n5")),
+    nonce: "n5",
+  });
+  assert.equal(direct.definitionPath, "core/.claude/agents/fable-probe.md", "a consumer layout resolves too");
+});
+
+test("a symlink chain and an escaping symlink both refuse", () => {
+  const chain = (args) => {
+    if (args[0] === "ls-tree") return { status: 0, stdout: `120000 blob x\t${args[4]}\0` };
+    return fakeGit()(args);
+  };
+  assert.throws(() => dispatch({ root: ROOT, role: "probe", runGit: chain, runner: runnerFor("") }), /symlink to another symlink/);
+
+  const escaping = (args) => {
+    if (args[0] === "show" && args[1].endsWith(".claude/agents/fable-probe.md") && !args[1].includes(":core/")) {
+      return { status: 0, stdout: "../../../elsewhere/definition.md\n" };
+    }
+    return fakeGit()(args);
+  };
+  assert.throws(() => dispatch({ root: ROOT, role: "probe", runGit: escaping, runner: runnerFor("") }), /escapes the repository/);
 });
 
 test("the stream parser skips a torn line but never invents an event", () => {
