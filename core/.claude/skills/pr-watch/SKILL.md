@@ -58,11 +58,13 @@ process doc, a documentation harvest:
 - **Clean automatic pass on PR-open → merge on it.** No budget, no receipts,
   no adjudication; the merge receipt accepts an automatic pass covering the
   head.
-- **Rounds 1–2: the pass found things → triage once, decline out-of-scope
-  findings in one line, fix the rest, push — then declare `--tier internal`
-  and re-request.** No judge yet: the ledger says these rounds always carry
-  findings worth writing for, and the mandatory re-review of the push is
-  the write-gate working.
+- **Rounds 1–2: the pass found things → triage each finding under
+  `claude-core.md` rule 5, write only for what passes it, push — then
+  declare `--tier internal` and re-request.** No judge yet: the ledger says
+  these rounds always carry *some* finding worth writing for, and the
+  mandatory re-review of the push is the write-gate working. (This bullet
+  used to say "fix the rest", which contradicted the contract it enacts —
+  Codex, AI-Handbook #73 round 8. It now points rather than restates.)
 - **Round 3's findings → the adjudicator, before anything is written.** On
   this tier the entry point IS the cap decision: it rules under the internal
   rubric (write only for a very high chance of a CRITICAL flaw), or
@@ -373,7 +375,6 @@ implementation PR:
   ```
   Class: <what the whole class of this finding is>
   Worth: <who supplies the value; then the chance this CLASS occurs in real use and what it costs at its worst>
-  Disposition: fix | simplify-away | decline-as-gap
   Oracle: `<the exact command>`
   Result: <its output — a count, or "0 matches">
   ```
@@ -384,29 +385,32 @@ implementation PR:
   first and then told you to write `Class:` first, which is an instruction
   no one can follow (Codex, AI-Handbook #73 round 7).
 
-  **`Worth:` decides which disposition is honest**, and it has two
-  questions in order:
+  **`Worth:` decides what happens next**, in two questions, in order:
 
   1. **Who supplies the value?** If it is this code or its own operator,
-     stop: a check whose two sides you both own guards nothing. The answer
-     is **`simplify-away`** — remove the input, derive the value — never a
-     check, and never a decline either.
+     stop: a check whose two sides you both own guards nothing. Remove the
+     input and derive the value — never a check. **That is a write**: the
+     code moves, so it owes a review round like any fix, and a thread
+     recorded as a shipped gap while the diff moved is the loop's records
+     disagreeing with the loop (Codex, AI-Handbook #73 round 7). #73's
+     `--out` is the worked example — four rounds narrowing a check, then the
+     flag was deleted.
   2. **Only if the value comes from outside your control:** the chance the
      class occurs in real use, and what it costs at its worst. Both must be
-     real. Missing either, the disposition is **`decline-as-gap`**, however
-     small the diff would be: every fix costs a round, and the aggregate of
-     "it's only three lines" is never weighed at the moment each one is
-     chosen. AI-Handbook #73 fixed thirteen findings in three rounds under
-     the old shape; on review, roughly half were refusals for situations
-     that will not occur.
+     real. Missing either, decline in one line and ship it as a recorded
+     gap, however small the diff would be: every fix costs a round, and the
+     aggregate of "it's only three lines" is never weighed at the moment
+     each one is chosen. AI-Handbook #73 fixed thirteen findings in three
+     rounds under the old shape; on review, roughly half were refusals for
+     situations that will not occur.
 
-  **`simplify-away` is a WRITE, not a gap** — it changes code and so owes a
-  review round like any other fix. It is called out separately because the
-  two are easy to conflate and the loop's own bookkeeping goes wrong when
-  they are: a thread recorded as a shipped gap while the diff actually moved
-  (Codex, AI-Handbook #73 round 7). #73's `--out` is the worked example —
-  four rounds of narrowing a check, then the flag was deleted, which was a
-  fix that made the class unreachable rather than a gap anyone shipped.
+  **Say the outcome in the reply's first sentence, in words** — fixed in
+  `<sha>`, declined, escalated to David, already addressed, no change needed.
+  An earlier version of this block made that a closed `Disposition:` field
+  with three values; it could not express "no change needed" or an
+  escalation, and a vocabulary designed in one afternoon under review is
+  wrong on arrival (Codex, AI-Handbook #73 rounds 7 and 8). The four lines
+  above are the required shape; the outcome is prose.
 
   A reviewer's badge is not a likelihood; the `Worth:` line is where the
   likelihood is actually stated, so it cannot be skipped by treating the
@@ -442,10 +446,9 @@ implementation PR:
      Oracle line carries the command that proves the class has exactly one
      member, and Result carries its `1`.
 
-  4. **The `Disposition:` line is what makes the choice visible**, so a fix
-     cannot happen by default and a decline cannot happen by silence. It is
-     also what the loop's records read: `fix` and `simplify-away` both owe a
-     review round, `decline-as-gap` does not.
+  4. **The `Worth:` line is what makes the choice visible**, so a fix cannot
+     happen by default and a decline cannot happen by silence — and anything
+     that moved code, including removing an input, owes a review round.
 
   This applies to **every** thread reply — fixes, declines, and "no change
   needed" alike. A decline especially: declining without an oracle is
