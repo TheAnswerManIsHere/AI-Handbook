@@ -356,12 +356,16 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
 
    State the budget in the PR body too. Receipts are committed **and pushed** —
    they are read from the remote-tracking ref, so an unpushed receipt does not
-   exist. Before each `@codex review` post, capture a snapshot and run
-   `node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>`, which
-   writes the one-post round-check receipt the guard demands. **The round count
-   is never stored — it is counted fresh from GitHub every time.** A committed
-   tally is a cache of state GitHub already holds, and it failed exactly that
-   way when it was tried.
+   exist. **Below the cap, post** (David, 2026-09-10). The per-post round-check
+   receipt is retired as a gate: it cost a snapshot and a receipt on every
+   round to establish "2 of 3" for posts nowhere near the boundary, and the
+   loop it documented most thoroughly it did not shorten by a round. Near the
+   cap, run `node scripts/review-budget.mjs check --pr <n> --mcp-snapshot
+   <file>` and the guard enforces the cap mechanically; without it the guard
+   allows and says so. What it still refuses with or without one: a standing
+   terminal verdict, and a budget declared for another repository. **The round
+   count is never stored** — the context comment states it, and when it is
+   counted it is counted fresh from GitHub.
 
 2. **From round 3 onward, dispatch the external adjudicator on any round
    that returned findings — before anything is written for them** (David,
