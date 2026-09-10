@@ -151,8 +151,21 @@ Exit codes: `0` a receipt was written; `1` a refusal or a reviewer failure; `2`
 no provider was reachable **and nothing was dispatched** — once any attempt has
 run, a provider that then disappears is a `1`, and the attempts that did run
 are printed with the refusal. Argument refusals that
-are knowable from the command line — an `--out` outside the repository — happen
-**before** the launch, so a deterministic mistake never bills a reviewer.
+are knowable from the command line happen **before** the launch, so a
+deterministic mistake never bills a reviewer.
+
+**`--out` may name a file under `.agents/receipts/` and nowhere else**, and
+that is an allowlist of one directory rather than a blocklist of dangerous
+destinations. The first version asked only whether the path was *inside the
+repository*, which is not a question about safety: `writeFileSync` truncates,
+so `--out .git/HEAD` passed and destroyed the checkout, and any working file
+named by a typo was silently replaced. Being inside a repository never made a
+destination safe to overwrite. Overwriting another receipt is the intended
+semantic — re-running a dispatch replaces its own output — and everything else
+is now unreachable. The directory is resolved with `realpathSync` rather than
+by string prefix, because a lexical test answers "inside" about a symlinked
+component that points outside, and a confinement that can be walked around
+does not confine.
 
 **Cost is recorded per attempt, and summed only when every attempt's spend was
 observed.** A first attempt that returns nothing valid still spent money; a

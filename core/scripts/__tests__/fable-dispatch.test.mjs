@@ -12,8 +12,10 @@ import { fileURLToPath } from "node:url";
 import {
   CUMULATIVE_USAGE_FIELDS,
   FORBIDDEN_TOOLS,
+  RECEIPTS_DIR,
   ROLE_DIR,
   main,
+  outProblem,
   mergeUsage,
   shipped,
   HARNESS_ADDED_TOOLS,
@@ -584,6 +586,73 @@ test("R6: an --out outside the repository refuses without launching anything", (
     process.chdir(originalCwd);
   }
   assert.equal(launched, 0);
+});
+
+// --- Codex #73 round 4: --out may not clobber ------------------------------
+
+test("R4-1: an --out inside the repository but outside the receipts directory refuses", () => {
+  // The round-1 fix asked only whether the path was INSIDE the repository, so
+  // every one of these passed it and `writeFileSync` truncated the target.
+  for (const target of [".git/HEAD", ".git/refs/heads/main", "core/scripts/fable-dispatch.mjs", "README.md"]) {
+    const problem = outProblem(ROOT, path.resolve(ROOT, target));
+    assert.ok(problem, `${target} should refuse`);
+    assert.match(problem, /must name a file under \.agents\/receipts\//);
+  }
+});
+
+test("R4-1: the destructive case refuses through main() without launching anything", () => {
+  const originalCwd = process.cwd();
+  process.chdir(ROOT);
+  try {
+    // No runner is injected, so a launch would have to reach the real binary.
+    assert.equal(main(["--role", "probe", "--out", ".git/HEAD"]), 1);
+  } finally {
+    process.chdir(originalCwd);
+  }
+  // The file the mistyped path names is untouched.
+  assert.match(fs.readFileSync(path.join(ROOT, ".git", "HEAD"), "utf8"), /^ref: /);
+});
+
+test("R4-1: a path under the receipts directory is accepted", () => {
+  assert.equal(outProblem(ROOT, path.resolve(ROOT, RECEIPTS_DIR, "fable-probe-x.json")), null);
+  assert.equal(outProblem(ROOT, path.resolve(ROOT, RECEIPTS_DIR, "nested", "later.json")), null);
+});
+
+test("R4-1: the confinement resolves symlinks rather than comparing strings", () => {
+  // A lexical prefix test says "inside .agents/receipts" about a directory
+  // that is a link to somewhere else entirely -- the same defect one level up
+  // from the one being fixed, so the check must not be lexical.
+  const io = {
+    existsSync: (p) => p === path.join(ROOT, RECEIPTS_DIR, "linked") || p === path.join(ROOT, RECEIPTS_DIR),
+    realpathSync: (p) =>
+      p === path.join(ROOT, RECEIPTS_DIR, "linked") ? "/somewhere/else" : p,
+    lstatSync: () => ({ isSymbolicLink: () => false, isFile: () => true }),
+  };
+  const problem = outProblem(ROOT, path.join(ROOT, RECEIPTS_DIR, "linked", "receipt.json"), io);
+  assert.match(problem, /resolves outside it/);
+});
+
+test("R4-1: an --out that is itself a symlink refuses rather than writing through it", () => {
+  const io = {
+    existsSync: () => true,
+    realpathSync: (p) => p,
+    lstatSync: () => ({ isSymbolicLink: () => true, isFile: () => false }),
+  };
+  const problem = outProblem(ROOT, path.join(ROOT, RECEIPTS_DIR, "link.json"), io);
+  assert.match(problem, /is a symlink and would be written through/);
+});
+
+test("R4-1: an observation that fails refuses rather than allowing", () => {
+  const io = {
+    existsSync: () => true,
+    realpathSync: () => {
+      const e = new Error("boom");
+      e.code = "EACCES";
+      throw e;
+    },
+    lstatSync: () => ({ isSymbolicLink: () => false, isFile: () => true }),
+  };
+  assert.match(outProblem(ROOT, path.join(ROOT, RECEIPTS_DIR, "r.json"), io), /could not be resolved \(EACCES\)/);
 });
 
 // --- Codex #73 round 2: observed, or refused -- never coerced ----------------

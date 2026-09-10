@@ -198,6 +198,67 @@ export function frontmatterBody(text) {
 export const ROLE_DIR = ".agents/fable-roles";
 
 /**
+ * The ONLY directory `--out` may name.
+ *
+ * Containment was the wrong question. The first version asked whether the
+ * path was inside the repository and wrote it with `writeFileSync`, which
+ * truncates -- so `--out .git/HEAD` passed the check and destroyed the
+ * checkout, and `--out <any working file>` silently replaced it. Nothing
+ * about "inside the repository" makes a destination safe to overwrite
+ * (Codex, #73 round 4, P1).
+ *
+ * A receipt has exactly one home, so the check is an allowlist of one
+ * directory rather than a blocklist of the paths that happen to be
+ * dangerous. Clobbering another receipt is the intended semantic -- re-running
+ * a dispatch replaces its own output -- and everything else is unreachable.
+ *
+ * The resolution is through `realpathSync`, not lexical: a prefix test on a
+ * path with a symlinked component says "inside" about a directory that is
+ * outside, which is the defect one level up from the one being fixed.
+ */
+export const RECEIPTS_DIR = ".agents/receipts";
+
+/**
+ * Why a receipt may not be written to `outAbs`, or null if it may be.
+ *
+ * Exported so the refusal is testable without a launch, and evaluated in
+ * `main()` BEFORE `dispatch()`, because a deterministic argument refusal that
+ * runs afterwards has already billed a reviewer (Codex, #73 round 1).
+ */
+export function outProblem(root, outAbs, io = { realpathSync: fs.realpathSync, existsSync: fs.existsSync, lstatSync: fs.lstatSync }) {
+  const home = path.join(path.resolve(root), RECEIPTS_DIR);
+  // The deepest ancestor that exists is the one whose real path can be taken;
+  // anything below it will be created by `mkdirSync` inside that real parent.
+  let probe = path.dirname(outAbs);
+  while (!io.existsSync(probe) && path.dirname(probe) !== probe) probe = path.dirname(probe);
+  let realParent;
+  let realHome;
+  try {
+    realParent = io.realpathSync(probe);
+    realHome = io.existsSync(home) ? io.realpathSync(home) : home;
+  } catch (e) {
+    // An observation that failed is not permission to proceed.
+    return `--out could not be resolved (${e.code ?? e.message}): ${outAbs}`;
+  }
+  if (realParent !== realHome && !realParent.startsWith(realHome + path.sep)) {
+    return `--out must name a file under ${RECEIPTS_DIR}/, and ${outAbs} resolves outside it`;
+  }
+  // A receipt path that is itself a symlink writes THROUGH the link, so the
+  // directory check above would be satisfied while the bytes land elsewhere.
+  if (io.existsSync(outAbs)) {
+    let st;
+    try {
+      st = io.lstatSync(outAbs);
+    } catch (e) {
+      return `--out could not be inspected (${e.code ?? e.message}): ${outAbs}`;
+    }
+    if (st.isSymbolicLink()) return `--out is a symlink and would be written through: ${outAbs}`;
+    if (!st.isFile()) return `--out exists and is not a regular file: ${outAbs}`;
+  }
+  return null;
+}
+
+/**
  * Read a role's definition from a COMMIT, not the working tree.
  *
  * WHY `.agents/fable-roles/` AND NOT `.claude/agents/`. A definition under
@@ -910,8 +971,9 @@ export function main(argv = process.argv.slice(2)) {
   let outAbs = null;
   if (args.out) {
     outAbs = path.resolve(root, args.out);
-    if (!outAbs.startsWith(path.resolve(root) + path.sep)) {
-      process.stderr.write(`fable-dispatch: --out is outside the repository: ${args.out}\n`);
+    const problem = outProblem(root, outAbs);
+    if (problem) {
+      process.stderr.write(`fable-dispatch: ${problem}\n`);
       return 1;
     }
   }

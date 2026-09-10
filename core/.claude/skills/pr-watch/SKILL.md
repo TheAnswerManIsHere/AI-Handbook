@@ -371,12 +371,26 @@ implementation PR:
   shape, and a reply missing any line of it does not get posted:
 
   ```
+  Worth: <the chance this situation occurs in real use, and what it costs when it does — or "decline: <which is missing>">
   Class: <what the whole class of this finding is>
   Oracle: `<the exact command>`
   Result: <its output — a count, or "0 matches">
   ```
 
-  Three things follow from that, and they are the point:
+  **`Worth:` comes first because it decides whether the other three are
+  written for a fix or for a decline** (David, 2026-09-10). A finding is
+  fixed only when both halves are real — a likelihood that is not a corner
+  of a corner, and a consequence someone would notice. Missing either, the
+  disposition is a one-line decline shipped as a recorded gap, however small
+  the diff would be: every fix costs a round, and the aggregate of "it's
+  only three lines" is never weighed at the moment each one is chosen. AI-
+  Handbook #73 fixed thirteen findings in three rounds under the old shape;
+  on review, roughly half were refusals for situations that will not occur.
+  A reviewer's badge is not a likelihood; the `Worth:` line is where the
+  likelihood is actually stated, so it cannot be skipped by treating the
+  badge as one. Sensitive-tier code keeps full depth and is the exception.
+
+  Four things follow from that, and they are the point:
 
   1. **The command runs before the reply is written**, not after. The Result
      line is transcribed from real output; there is no version of this rule
@@ -390,6 +404,11 @@ implementation PR:
   3. **`instance = class` is still an oracle line**, not an exemption: the
      Oracle line carries the command that proves the class has exactly one
      member, and Result carries its `1`.
+
+  4. **A `Worth:` line that names a real likelihood and a real consequence
+     is a commitment to fix; one that names neither is a decline** — the
+     line is what makes the choice visible, so a fix cannot happen by
+     default and a decline cannot happen by silence.
 
   This applies to **every** thread reply — fixes, declines, and "no change
   needed" alike. A decline especially: declining without an oracle is

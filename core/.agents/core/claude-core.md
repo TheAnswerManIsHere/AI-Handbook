@@ -324,9 +324,10 @@ All of it is deleted rather than fixed: it existed to make an unreviewed head
 safe, and an unreviewed head is now simply never mergeable.
 
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
-full round. So the adjudicator's real question is no longer "another round?"
-but **"is this finding worth writing code for at all?"** — and on internal
-tooling most are not. They ship as recorded gaps.
+full round. So the real question — mine at every round, the adjudicator's
+from round 3 — is no longer "another round?" but **"is this finding worth
+writing code for at all?"** — and on internal tooling most are not. They ship
+as recorded gaps. The test that decides it is rule 5's `Worth:` line, below.
 
 ### Internal tooling: the strict rubric
 
@@ -336,9 +337,12 @@ docs and harvests run the loop above with the **`internal` tier**:
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
   finding nothing, it needs no budget, no receipt, no adjudication — the merge
   receipt accepts an automatic pass covering the head.
-- **Rounds 1–2 findings are triaged and written for**, then re-requested —
-  the same cadence as every tier (below); declare `--tier internal` at the
-  first re-request.
+- **Rounds 1–2 findings are triaged, and written for only when they pass
+  rule 5's worth test**, then re-requested — the same cadence as every tier
+  (below); declare `--tier internal` at the first re-request. The earlier
+  wording, "triaged and written for", read as *fix them*, and on #73 it
+  produced thirteen fixes in three rounds, most of them refusals for
+  situations that will not occur.
 - **Round 3's findings go to the adjudicator, before anything is written.**
   The record's tier selects the **internal rubric**: write only for a very
   high chance of a CRITICAL flaw (a destructive or irreversible action,
@@ -459,15 +463,27 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    job; treating that as automatically meaning *fix* is how a GitHub label write
    ended up with compare-and-swap semantics. Product/design forks, scope
    additions, splits and disclosure questions go to David.
+   **A fix needs both a real likelihood and a real consequence** (David,
+   2026-09-10). Every reply carries a **`Worth:`** line naming the chance the
+   finding's situation occurs in actual use and what it costs when it does;
+   a finding missing either is a one-line decline shipped as a recorded gap,
+   never a fix — however small the diff looks, because each one costs a
+   round and the aggregate is never weighed at the moment of the decision.
+   This is *engineer-to-the-blast-radius* fired at triage, which is where a
+   review loop actually over-builds: the design-time rule never collides
+   with a P2 badge. Sensitive-tier code is the exception and keeps its full
+   depth.
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in
    a batch. No standalone summary comment in place of per-thread replies.
-   **Every reply carries `Class:` / `Oracle:` / `Result:`** — the command ran
-   before the reply was written, and its real output is transcribed. A reply
-   missing those lines is malformed and doesn't get posted; declines included,
-   because declining without an oracle asserts the class is empty without
-   looking. Shape and the two escape valves: `pr-watch`.
+   **Every reply carries `Worth:` / `Class:` / `Oracle:` / `Result:`** — the
+   command ran before the reply was written, and its real output is
+   transcribed. A reply missing those lines is malformed and doesn't get
+   posted; declines included, because declining without an oracle asserts the
+   class is empty without looking, and a fix without a `Worth:` line is the
+   over-build rule 5 exists to stop. Shape and the two escape valves:
+   `pr-watch`.
 
 ### Watching the PRs I open
 
