@@ -32,6 +32,7 @@ import {
   allowanceFor,
   readGrants,
   roundsRun,
+  assertInputIgnored,
   assertOracleIgnored,
   assertTierPinned,
   assertPriorsCoverLastRound,
@@ -1458,6 +1459,51 @@ test("round 0 refuses an exposed oracle before it spends a reviewer round", () =
     1,
   );
   assert.match(log.text(), /NOT ignored by git/);
+  assert.equal(run.calls.length, 0, "refused before ANY subprocess -- not even the sign-in probe ran");
+  drop(root);
+});
+
+test("an exposed --prior file refuses the round, and says PRIOR rather than oracle", () => {
+  // The prior file was the third input read from an operator-chosen path and
+  // the only one with no ignore check. It carries the loop's finding titles
+  // and disposition notes, which restate the plan's concerns -- so `git add
+  // -A` during implementation would commit the material the plan and the
+  // oracle are both protected for.
+  assert.throws(
+    () => assertInputIgnored("/repo", "priors.json", fakeGit("?? priors.json\n"), "prior"),
+    /the prior-findings file priors\.json is NOT ignored by git/,
+  );
+  assert.throws(
+    () => assertInputIgnored("/repo", "priors.json", fakeGit("?? priors.json\n"), "prior"),
+    /\.agents\/reviews\/<slug>\//,
+    "the remedy names the loop's own ignored directory, which is where the recipe writes it",
+  );
+  // The oracle's wording is unchanged by the parameterisation.
+  assert.throws(
+    () => assertOracleIgnored("/repo", "o.md", fakeGit("?? o.md\n")),
+    /the oracle o\.md is NOT ignored by git/,
+  );
+
+  // End to end: a round 2 with an exposed prior file is refused before any
+  // subprocess -- the reviewer round is never spent, and the credential path
+  // is never touched.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
+  priorRound(root, "x", 1);
+  writeFileSync(join(root, "priors.json"), JSON.stringify([{ id: "R1", title: "one", disposition: "fixed" }]));
+  const log = quiet();
+  const run = fakeRun([{ status: 0, stdout: "Logged in using ChatGPT", stderr: "" }]);
+  assert.equal(
+    main(["--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--prior", "priors.json"], {
+      root,
+      run,
+      log,
+      // Path-aware: the plan is protected, the prior file is not — otherwise
+      // the plan's own check fires first and this proves nothing about --prior.
+      git: (args) => ({ status: 0, stderr: "", stdout: args.at(-1) === "priors.json" ? "?? priors.json\n" : "" }),
+    }),
+    1,
+  );
+  assert.match(log.text(), /prior-findings file priors\.json is NOT ignored by git/);
   assert.equal(run.calls.length, 0, "refused before ANY subprocess -- not even the sign-in probe ran");
   drop(root);
 });

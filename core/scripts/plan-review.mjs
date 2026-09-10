@@ -1328,27 +1328,49 @@ export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
  * commit to make by accident, so there is nothing to protect against.
  */
 /**
- * Refuse an oracle file that git would stage.
+ * What each protected side input is, said in one clause — so the refusal
+ * explains the specific exposure rather than a generic one. Both hold the
+ * same material the plan is kept out of git for; they hold it in different
+ * words, and the operator reading the refusal needs the words for the file
+ * they actually passed.
+ */
+const IGNORED_INPUTS = {
+  oracle:
+    "The oracle is the agreed scope, which is where an unpatched vulnerability, an auth-bypass specific, a " +
+    "customer name or an embargoed launch gets written down -- the same material the disclosure carve-out " +
+    "protects, one document before the plan.",
+  prior:
+    "The prior-findings file carries this loop's finding titles and disposition notes, which restate the plan's " +
+    "concerns in the reviewer's words -- so it holds the same material the plan and the oracle are protected " +
+    "for, in a file that looks like bookkeeping.",
+};
+
+/**
+ * Refuse a side input that git would stage.
  *
  * Same evidence as the plan's check and the same non-refusals — a tracked
  * file is a deliberate act, and an unanswerable git means no repository and
  * so nothing to commit into. What differs is the remedy: the plan has a
- * managed home this script maintains, while an oracle can legitimately live
- * anywhere, so this names the ignored home rather than moving the file. An
- * operator who chose a path should be the one to change it.
+ * managed home this script maintains, while an oracle or a prior file can
+ * legitimately live anywhere, so this names an ignored home rather than
+ * moving the file. An operator who chose a path should be the one to change
+ * it.
  */
-export function assertOracleIgnored(root, oraclePath, git = defaultGit) {
-  const out = git(["status", "--porcelain", "--untracked-files=all", "--", oraclePath], root);
+export function assertInputIgnored(root, filePath, git = defaultGit, kind = "oracle") {
+  const out = git(["status", "--porcelain", "--untracked-files=all", "--", filePath], root);
   if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
   if (!out.stdout.split("\n").some((l) => l.startsWith("??"))) return;
   throw new Error(
-    `the oracle ${oraclePath} is NOT ignored by git -- \`git status --porcelain --untracked-files=all\` ` +
-      `reports it as "??", so \`git add -A\` would stage it. The oracle is the agreed scope, which is where an ` +
-      `unpatched vulnerability, an auth-bypass specific, a customer name or an embargoed launch gets written ` +
-      `down -- the same material the disclosure carve-out protects, one document before the plan. Move it under ` +
-      `docs/plans/ (which this script keeps ignored) or another ignored path, then re-run.`,
+    `the ${kind === "prior" ? "prior-findings file" : "oracle"} ${filePath} is NOT ignored by git -- ` +
+      `\`git status --porcelain --untracked-files=all\` reports it as "??", so \`git add -A\` would stage it. ` +
+      `${IGNORED_INPUTS[kind] ?? IGNORED_INPUTS.oracle} Move it under docs/plans/ (which this script keeps ` +
+      `ignored), under the loop's own .agents/reviews/<slug>/ directory, or another ignored path, then re-run.`,
   );
 }
+
+/** The oracle's case, kept as its own name because callers read better for it. */
+export const assertOracleIgnored = (root, oraclePath, git = defaultGit) =>
+  assertInputIgnored(root, oraclePath, git, "oracle");
 
 function verifyIgnored(root, planPath, git) {
   if (!planPath) return;
@@ -1555,7 +1577,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // customer or embargoed context the plan and oracle are protected for.
       // It was the third input with no ignore check (Codex, #69 round 8).
       const priorPath = path.relative(root, path.resolve(root, flags.prior));
-      assertOracleIgnored(root, priorPath, git);
+      assertInputIgnored(root, priorPath, git, "prior");
       priors = normalizePriors(JSON.parse(fs.readFileSync(path.join(root, priorPath), "utf8")));
       assertPriorsCoverLastRound(dir, earlier, priors);
     } else if (earlier.length && !flags.noPrior) {
