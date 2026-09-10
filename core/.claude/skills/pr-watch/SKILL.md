@@ -62,9 +62,13 @@ process doc, a documentation harvest:
   `claude-core.md` rule 5, write only for what passes it, push — then
   declare `--tier internal` and re-request.** No judge yet: the ledger says
   these rounds always carry *some* finding worth writing for, and the
-  mandatory re-review of the push is the write-gate working. (This bullet
-  used to say "fix the rest", which contradicted the contract it enacts —
-  Codex, AI-Handbook #73 round 8. It now points rather than restates.)
+  mandatory re-review of the push is the write-gate working. **If every
+  finding fails the worth test there is nothing to push, and the loop ends
+  there** — `claude-core.md` *Product loops* rule 2's all-declined clause: an
+  all-declined round ends the loop on the already-reviewed head, with no
+  dispatch, and rule 4 forbids a re-request with no behavioral change. (This
+  bullet used to say "fix the rest", which contradicted the contract it enacts
+  — Codex, AI-Handbook #73 round 8. It now points rather than restates.)
 - **Round 3's findings → the adjudicator, before anything is written.** On
   this tier the entry point IS the cap decision: it rules under the internal
   rubric (write only for a very high chance of a CRITICAL flaw), or
@@ -387,14 +391,22 @@ implementation PR:
 
   **`Worth:` decides what happens next**, in two questions, in order:
 
-  1. **Who supplies the value?** If it is this code or its own operator,
-     stop: a check whose two sides you both own guards nothing. Remove the
-     input and derive the value — never a check. **That is a write**: the
-     code moves, so it owes a review round like any fix, and a thread
-     recorded as a shipped gap while the diff moved is the loop's records
-     disagreeing with the loop (Codex, AI-Handbook #73 round 7). #73's
-     `--out` is the worked example — four rounds narrowing a check, then the
-     flag was deleted.
+  1. **Who supplies the value?** If it is this code or its own operator, it
+     is one of two kinds and the answer differs:
+     - **Derivable** — this code already holds everything needed to compute
+       it (a receipt path from role and head). **Remove the input and derive
+       the value — never a check**, because a check whose two sides you both
+       own guards nothing. **That is a write**: the code moves, so it owes a
+       review round like any fix, and a thread recorded as a shipped gap
+       while the diff moved is the loop's records disagreeing with the loop
+       (Codex, AI-Handbook #73 round 7). #73's `--out` is the worked example
+       — four rounds narrowing a check, then the flag was deleted.
+     - **A choice** — it encodes intent this code cannot know (`--role`,
+       `--timeout`, `sync --to <repo>`). **It stays an input.** A cheap
+       well-formedness check on it — non-empty, numeric where a number is
+       expected, a path that exists — catches the operator's own mistake,
+       which is exactly the threat model, and is in scope. A defence against
+       a *hostile* value of it is not, and such a finding is declined.
   2. **Only if the value comes from outside your control:** the chance the
      class occurs in real use, and what it costs at its worst. Both must be
      real. Missing either, decline in one line and ship it as a recorded
