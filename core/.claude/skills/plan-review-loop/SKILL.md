@@ -1,17 +1,31 @@
 ---
 name: plan-review-loop
-description: Use in feature-building mode once the pre-plan conversation has settled intent, or whenever a plan needs to be delivered to David for approval. Runs the reviewer in-session with core/scripts/plan-review.mjs — no PR, no branch, no GitHub. NOT for bugfix mode, which skips plan review entirely.
+description: Use in feature-building mode once the pre-plan conversation has settled intent, or whenever a plan needs to be delivered to David for approval. Runs the reviewer in-session with the plan-review script — no PR, no branch, no GitHub. NOT for bugfix mode, which skips plan review entirely.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
 # The in-session plan-review loop
 
-The reviewer runs **here**, in this container: `core/scripts/plan-review.mjs`
-spawns Codex CLI with `gpt-6-astra` at `xhigh` in a read-only sandbox, and the
-output is constrained by JSON schema to the plan-review contract's
-full-assessment shape. The plan is a file in my working tree that is never
-pushed. David reads it on one private Artifact page.
+The reviewer runs **here**, in this container: the plan-review script spawns
+Codex CLI with `gpt-6-astra` at `xhigh` in a read-only sandbox, and the output
+is constrained by JSON schema to the plan-review contract's full-assessment
+shape. The plan is a file in my working tree that is never pushed. David reads
+it on one private Artifact page.
+
+**The script's path differs by repository, so resolve it once per session**
+rather than typing either form. The sync routes `core/X -> X`, so the file is
+`core/scripts/plan-review.mjs` in the handbook and `scripts/plan-review.mjs`
+in every consumer — a hardcoded path is wrong in one of the two, and wrong
+loudly (`MODULE_NOT_FOUND`) only if I am lucky:
+
+```
+P=core/scripts/plan-review.mjs; [ -f "$P" ] || P=scripts/plan-review.mjs
+```
+
+Every command below uses `$P`. Run it from the repository root; the script
+itself finds the root by walking up to `.git`, so its output lands inside the
+repository whichever layout it is in.
 
 **This replaces the plan loop only. The Codex GitHub review of CODE is
 untouched and remains David's safety net** — every implementation PR still gets
@@ -93,7 +107,7 @@ and catching exactly that is what the oracle is for.
 one question: should this exist, and is the boundary in the right place.
 
 ```
-node core/scripts/plan-review.mjs --round 0 --slug <slug> --oracle <file>
+node "$P" --round 0 --slug <slug> --oracle <file>
 ```
 
 Round 0 is the one round short enough to run in the foreground — it reads a
@@ -119,7 +133,7 @@ waiting for him to read it buys nothing. He interjects whenever he likes.
 
 ```
 S=.agents/reviews/<slug>
-setsid nohup bash -c "cd $PWD && node core/scripts/plan-review.mjs \
+setsid nohup bash -c "cd $PWD && node $PWD/$P \
   --round 1 --tier <product|sensitive|internal> \
   --plan docs/plans/PLAN_<SLUG>.md --prior priors.json \
   --lens '<the angle this round attacks from>' > $S/run.log 2>&1; echo \$? > $S/run.exit" &
@@ -173,7 +187,7 @@ Four things happen every round, in this order, and none of them is optional.
    Detached, like every round — same shape as round 1 above:
 
    ```
-   node core/scripts/plan-review.mjs --round N --tier <tier> --plan <file> \
+   node "$P" --round N --tier <tier> --plan <file> \
         --prior priors.json --lens "<a fresh angle>"
    ```
 
@@ -385,7 +399,34 @@ matters more here than it used to: there is no commit and no PR page holding
 the approved revision. Keys, grammars and what the block does not replace:
 [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md).
 
-## Keeping the workstream issue's labels current
+## The workstream issue
+
+### First: make sure it exists
+
+**A label transition needs an issue to carry it.** The loop no longer opens a
+PR, so the issue is the *only* spine this work has until an implementation PR
+exists — and a plan loop that runs without one is invisible to the Project, to
+`/status-all` and to `/maintenance` for its whole life. Do this at the scope
+gate, before the first label below is touched:
+
+1. **The issue may already exist** at `stage:planning` — a workstream that was
+   already being tracked. Nothing to do.
+2. **Otherwise check the backlog first**, per
+   [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md)'s
+   *The backlog* section. This plan may be exactly a `queue:`-labeled item
+   David is now starting rather than a brand-new workstream. If a matching
+   backlog issue exists, **promote it** — drop `queue:`, add the full label
+   set — rather than opening a second issue for the same work. Skipping this
+   search duplicates the issue and orphans the backlog one open forever.
+3. **Only when no backlog match exists** — a Discovery conversation that went
+   straight to a plan without ever getting an issue — open a genuinely new
+   one, with the full initial label set (`stage:planning`, `waiting:claude`,
+   `mode:feature`) **and** a State of Play block, not just the issue itself.
+   An issue without those labels is invisible to `/status-all`, which filters
+   on `stage:`, and to the board's sync Action — so skipping them is not a
+   lighter kind of tracking, it is none.
+
+### Then: keep its labels current
 
 Per [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
 for a workstream at `stage:planning`:
@@ -396,6 +437,30 @@ for a workstream at `stage:planning`:
   I am waiting on, not a remote reviewer, so I am the holder throughout.
 - **The approval ask posts** → `waiting:david`.
 - **David approves** → `stage:coding`, `waiting:claude`.
+
+### And at approval, if the plan ships in phases: write the checklist
+
+**This is this loop's one phase obligation, and nothing else performs it.**
+`workstream-tracking.md`'s ownership table assigns the Phases checklist to
+this skill by name, at exactly this moment; there is no second trigger
+anywhere that would catch a miss.
+
+At David's approval of a **phased** plan, write the **Phases checklist** into
+the parent workstream issue's body, with *every* phase listed and each marked
+`not yet opened`. Writing only the phases that start immediately defeats the
+point: the checklist is the sole durable record of what the feature still
+owes, and a phase absent from it is a phase `/next` cannot see and nobody will
+remember.
+
+**This loop never opens a phase sub-issue itself, for any phase, including the
+first.** Its lifecycle ends at this approval handoff and does not run again for
+phase 2 onward, so putting phase-opening here would work by accident for phase
+1 and silently fail for every phase after it. Opening a phase's sub-issue
+happens uniformly when that phase's implementation starts, which is the product
+implementation skill's job — the same skill for phase 1 as for phase 8.
+
+**A split is proposed to David, never declared silently.** The checklist is
+written *after* he approves the phased shape, never as a way of announcing one.
 
 ## What this skill no longer does
 

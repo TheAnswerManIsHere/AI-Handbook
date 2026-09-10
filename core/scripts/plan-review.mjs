@@ -81,9 +81,40 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+/**
+ * The repository root, found by walking up to `.git` rather than counting
+ * directories.
+ *
+ * THIS FILE SITS AT A DIFFERENT DEPTH IN EVERY REPOSITORY THAT RUNS IT. The
+ * sync routes `core/X -> X`, so the handbook's `core/scripts/plan-review.mjs`
+ * lands at `scripts/plan-review.mjs` in a consumer. A fixed `"..", ".."` is
+ * therefore correct in exactly one of the two layouts: it finds the repo root
+ * here and the repo's PARENT in every consumer, where the script would then
+ * read the contract, create `docs/plans/` and write `.agents/reviews/`
+ * OUTSIDE the repository — silently, since every one of those paths is
+ * created on demand. The same two-layout problem `CONTRACT_PATH` below
+ * already solves by retrying under `core/`.
+ *
+ * `.git` is the anchor because it is what makes a directory the root, in both
+ * layouts and in a worktree (where `.git` is a file — `existsSync` covers
+ * both). The two-up fallback is kept for the one case with no `.git` at all,
+ * an extracted tarball, where the old behaviour is no worse than a throw.
+ */
+export function findRepoRoot(startDir) {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    if (fs.existsSync(path.join(dir, ".git"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
 export const REPO_ROOT = process.env.PLAN_REVIEW_ROOT
   ? path.resolve(process.env.PLAN_REVIEW_ROOT)
-  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  : (findRepoRoot(SCRIPT_DIR) ?? path.resolve(SCRIPT_DIR, "..", ".."));
 
 /** Settled: GPT-6 Astra at xhigh, read-only. Overridable only for smoke tests. */
 export const DEFAULT_MODEL = "gpt-6-astra";
@@ -788,10 +819,29 @@ export function stablePrefix({ round, contractPath, oracle, planPath }) {
     "",
     "## The contract you apply",
     "",
-    `Read \`${contractPath}\` in full before doing anything else, and apply it exactly. You are on its`,
-    "**full-assessment surface** (one complete document per round), not the GitHub structured-defect",
-    "surface. Every section of the assessment is produced every time; where a section is genuinely",
-    "empty, return an empty list rather than omitting it.",
+    `Read \`${contractPath}\` in full before doing anything else, and apply its standards exactly.`,
+    ...(round === 0
+      ? [
+          // Round 0 runs BEFORE a plan exists, so it cannot be on the
+          // contract's plan surface: that surface reviews an implementation
+          // plan and defines a six-status, required-revisions document. It
+          // does not define `should_this_exist`, `scope_assessment` or
+          // `scope_concerns` at all. Pointing this round at it anyway told
+          // the reviewer to apply criteria to a document that will not exist
+          // for another hour, and the schema could enforce the JSON shape
+          // without touching the contradiction underneath (Codex, #69).
+          "**Your output surface for this round is the scope assessment defined by the JSON schema you were",
+          "given, and the contract does not describe it.** The contract's assessment surface reviews an",
+          "existing implementation plan; there is no plan yet. Take from the contract its standards — what",
+          "counts as evidence, what makes a finding required rather than recommended, the non-negotiables",
+          "below — and take the SHAPE of your answer from the schema alone. Where a section is genuinely",
+          "empty, return an empty list rather than omitting it.",
+        ]
+      : [
+          "You are on its **full-assessment surface** (one complete document per round), not the GitHub",
+          "structured-defect surface. Every section of the assessment is produced every time; where a",
+          "section is genuinely empty, return an empty list rather than omitting it.",
+        ]),
     "",
     "Non-negotiables from that contract that bind you here:",
     "- You do not approve plans. David does.",
@@ -1411,6 +1461,34 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       if (executionFailed) break;
     }
 
+    // --- the plan must not have moved under the reviewer ------------------
+    //
+    // A round runs ~9-10 minutes DETACHED, and the working tree stays
+    // editable for every second of it: David interjects, I fix something he
+    // raised, an editor writes. The reviewer reads the plan by its LIVE PATH,
+    // so what it actually reviewed is whatever the file said while it was
+    // reading -- while `planSha256` below is computed from the bytes captured
+    // before `codex exec` started.
+    //
+    // That digest is not decoration. With no commit and no PR page holding
+    // the approved revision, it is the ONLY thing pinning which text David
+    // approved once it reaches an implementation PR's `private-plan` block.
+    // If the file moved, the digest names a document the assessment does not
+    // describe, and the pin silently certifies the wrong bytes.
+    //
+    // So a moved plan REFUSES the round rather than reconciling it. Nothing
+    // here can know which half of a mid-flight edit the reviewer saw, and a
+    // round nobody can locate in time is not evidence about any version of
+    // the plan. Re-run it; the reviewer's context is fresh every round
+    // anyway, so nothing is lost but the wall clock.
+    let planDrift = null;
+    if (planText !== null) {
+      const abs = path.join(root, planPath);
+      const after = fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : null;
+      if (after === null) planDrift = { before: sha256(planText), after: null, gone: true };
+      else if (after !== planText) planDrift = { before: sha256(planText), after: sha256(after), gone: false };
+    }
+
     const meta = {
       slug,
       round,
@@ -1419,6 +1497,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       sandbox,
       lens,
       plan: planPath,
+      planDrift,
       planDigest: planText ? sha256(planText) : null,
       // The FULL digest, because it leaves this file and goes into the
       // implementation PR's `private-plan` provenance block. With no commit
@@ -1437,10 +1516,21 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       unpinned: flags.unpinned ?? null,
       attempts,
       finishedAt: new Date().toISOString(),
-      accepted: assessment !== null,
-      convergence: assessment ? convergence(assessment, priors) : null,
+      accepted: assessment !== null && planDrift === null,
+      convergence: assessment && planDrift === null ? convergence(assessment, priors) : null,
     };
     fs.writeFileSync(metaFile, `${JSON.stringify(meta, null, 2)}\n`);
+
+    if (planDrift) {
+      log(
+        `plan-review: ${planPath} ${planDrift.gone ? "was deleted" : "changed"} while round ${round} was running ` +
+          `(${planDrift.before} -> ${planDrift.after ?? "gone"}). The reviewer read the file live, so this ` +
+          `assessment describes bytes that no longer exist and the digest that would pin it names a different ` +
+          `document. This round did not happen — do not count it and do not summarise it to David. Re-run the ` +
+          `round against the plan as it now stands. The attempt record is at ${path.relative(root, metaFile)}.`,
+      );
+      return 1;
+    }
 
     if (assessment === null) {
       log(

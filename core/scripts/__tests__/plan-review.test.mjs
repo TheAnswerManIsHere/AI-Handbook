@@ -32,6 +32,7 @@ import {
   allowanceFor,
   readGrants,
   roundsRun,
+  findRepoRoot,
   pinOracle,
   ensurePlansIgnored,
   BLOCKING_STATUSES,
@@ -1168,4 +1169,141 @@ test("the entry-point guard compares URLs, not a hand-built file:// string", () 
   assert.match(src, /import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/);
   assert.doesNotMatch(src, /`file:\/\/\$\{/, "no interpolated file:// URL built by hand");
   assert.doesNotMatch(src, /"file:\/\/" ?\+/, "no concatenated file:// URL built by hand");
+});
+
+// ── the two layouts this file runs in ──────────────────────────────────────
+
+test("the repo root is found by walking up to .git, not by counting directories", () => {
+  // This file lives at core/scripts/ in the handbook and at scripts/ in every
+  // consumer, because the sync routes `core/X -> X`. A fixed number of `..`
+  // is therefore right in exactly one of them: two-up found the repo root
+  // here and the repo's PARENT in a consumer, where the script would then
+  // read the contract, create docs/plans/ and write .agents/reviews/ outside
+  // the repository -- silently, since it creates each of those on demand.
+  const repo = mkdtempSync(join(tmpdir(), "plan-review-layout-"));
+  mkdirSync(join(repo, ".git"), { recursive: true });
+
+  for (const layout of ["core/scripts", "scripts"]) {
+    const dir = join(repo, layout);
+    mkdirSync(dir, { recursive: true });
+    assert.equal(findRepoRoot(dir), repo, `${layout}/ must resolve to the repository root`);
+  }
+
+  // A worktree's .git is a FILE, not a directory. existsSync covers both, and
+  // a resolver that used statSync().isDirectory() would not.
+  const wt = mkdtempSync(join(tmpdir(), "plan-review-worktree-"));
+  writeFileSync(join(wt, ".git"), "gitdir: /elsewhere/.git/worktrees/wt\n");
+  mkdirSync(join(wt, "scripts"), { recursive: true });
+  assert.equal(findRepoRoot(join(wt, "scripts")), wt);
+
+  // No .git anywhere above: null, so the caller's fallback decides.
+  const bare = mkdtempSync(join(tmpdir(), "plan-review-bare-"));
+  assert.equal(findRepoRoot(bare), null);
+
+  drop(repo);
+  drop(wt);
+  drop(bare);
+});
+
+test("the skill invokes the script by a resolved path, never a hardcoded layout", () => {
+  // The skill ships to consumers too, where `core/scripts/plan-review.mjs`
+  // does not exist and node exits MODULE_NOT_FOUND. Every invocation has to
+  // go through the resolution line, or the documented command is wrong in
+  // whichever repo the reader is standing in.
+  const skill = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", ".claude/skills/plan-review-loop/SKILL.md"),
+    "utf8",
+  );
+  assert.match(skill, /P=core\/scripts\/plan-review\.mjs; \[ -f "\$P" \] \|\| P=scripts\/plan-review\.mjs/);
+  for (const line of skill.split("\n")) {
+    if (!line.includes("node ")) continue;
+    assert.doesNotMatch(line, /node\s+core\/scripts\/plan-review\.mjs/, `hardcoded invocation: ${line.trim()}`);
+  }
+});
+
+// ── the plan must not move under the reviewer ──────────────────────────────
+
+test("a plan edited while the round ran refuses the round rather than pinning the wrong bytes", () => {
+  // A round is ~9-10 minutes detached and the working tree stays editable
+  // throughout. The reviewer reads the plan by its live path, so an edit
+  // mid-round leaves the assessment describing bytes that planSha256 -- the
+  // only thing pinning what David approved -- does not name.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nDIRECTION\n```\n\nv1" } });
+  const log = quiet();
+  const run = fakeRun([
+    { status: 0, stdout: "Logged in using ChatGPT", stderr: "" },
+    ({ args }) => {
+      // David interjects while the reviewer is still working.
+      writeFileSync(join(root, "docs/plans/PLAN_X.md"), "```plan-oracle\nDIRECTION\n```\n\nv2");
+      writeFileSync(args[args.indexOf("--output-last-message") + 1], JSON.stringify(assessment()));
+      return { status: 0 };
+    },
+  ]);
+
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
+  assert.ok(!existsSync(join(root, ".agents/reviews/x/round-1.json")), "no assessment is written for a moved plan");
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.accepted, false);
+  assert.equal(meta.convergence, null, "a refused round can never read as converged");
+  assert.ok(meta.planDrift, "the drift is on the record");
+  assert.notEqual(meta.planDrift.before, meta.planDrift.after);
+  assert.match(log.text(), /changed while round 1 was running/);
+  assert.match(log.text(), /did not happen/);
+  drop(root);
+});
+
+test("a plan deleted while the round ran is refused the same way", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nDIRECTION\n```\n\nv1" } });
+  const log = quiet();
+  const run = fakeRun([
+    { status: 0, stdout: "Logged in using ChatGPT", stderr: "" },
+    ({ args }) => {
+      rmSync(join(root, "docs/plans/PLAN_X.md"));
+      writeFileSync(args[args.indexOf("--output-last-message") + 1], JSON.stringify(assessment()));
+      return { status: 0 };
+    },
+  ]);
+  assert.equal(main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], { root, run, log }), 1);
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.planDrift.gone, true);
+  assert.equal(meta.planDrift.after, null);
+  assert.match(log.text(), /was deleted while round 1 was running/);
+  drop(root);
+});
+
+test("an untouched plan still accepts the round, so the check costs nothing when nothing moved", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nDIRECTION\n```\n\nv1" } });
+  const log = quiet();
+  assert.equal(
+    main(["--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+      root,
+      run: scriptedRound(root, [JSON.stringify(assessment())]),
+      log,
+    }),
+    0,
+  );
+  const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
+  assert.equal(meta.planDrift, null);
+  assert.equal(meta.accepted, true);
+  drop(root);
+});
+
+// ── round zero is not on the contract's plan surface ───────────────────────
+
+test("round 0 takes its output shape from the schema, not from the plan contract", () => {
+  // The contract reviews an existing implementation plan and defines a
+  // six-status, required-revisions document. It never defines
+  // should_this_exist, scope_assessment or scope_concerns -- so telling round
+  // 0 to apply that surface "exactly" set the reviewer's instructions against
+  // the schema it was handed, and schema enforcement can fix the JSON shape
+  // without touching the contradiction in the criteria.
+  const zero = stablePrefix({ round: 0, contractPath: CONTRACT_PATH, oracle: "DIRECTION", planPath: null });
+  assert.doesNotMatch(zero, /full-assessment surface/);
+  assert.match(zero, /the contract does not describe it/);
+  assert.match(zero, /Take from the contract its standards/);
+
+  // Every later round still claims that surface, because it is the one it is on.
+  const one = stablePrefix({ round: 1, contractPath: CONTRACT_PATH, oracle: "DIRECTION", planPath: "docs/plans/PLAN_X.md" });
+  assert.match(one, /full-assessment surface/);
+  assert.doesNotMatch(one, /the contract does not describe it/);
 });
