@@ -44,6 +44,16 @@
  *   P5  spawn-time facts are stamped as spawn-time. A tree that changes
  *       during a run is not detected, and the field names say `AtSpawn`.
  *
+ * THE RULE UNDER ALL FIVE: A FACT IS OBSERVED, OR THE RUN IS REFUSED. NEVER
+ * COERCED. Every value the receipt carries is one of three things -- observed
+ * true, observed false, could not observe -- and the third refuses. It never
+ * becomes `false` because an `&&` swallowed a failure, never becomes "verified"
+ * because a `!= null` skipped the comparison, never becomes a total because a
+ * sum ignored the attempt it could not see, and never becomes "succeeded"
+ * because stdout looked fine while the process was dying. Codex #73 round 2
+ * found six of those in one pass, three of them inside round 1's own fixes;
+ * the rule exists so the seventh is caught by the person writing it.
+ *
  * FAIL LOUD, NEVER OPEN. Every refusal here is a dispatch that does not run.
  * This repository has shipped three controls that reported success when they
  * could not read their input (AI-Handbook #11, #16, #59); the lesson recorded
@@ -434,11 +444,25 @@ export function assertLaunchSurface(init, contract, { expectedSessionId = null }
   // the flag produce a receipt claiming a boundary that was never established
   // (Codex, #73 round 1). That is this file's own subject -- a property the
   // receipt states and nothing checks -- so it is checked.
-  if (expectedSessionId != null && init.session_id != null && init.session_id !== expectedSessionId) {
-    throw new Error(
-      `the harness reports session ${init.session_id} but the dispatch asked for ${expectedSessionId}. The ` +
-        `fresh-session boundary was not established, so the receipt would assert one that does not hold.`,
-    );
+  if (expectedSessionId != null) {
+    // Round 1 tolerated an ABSENT id as "nothing to contradict" (and a test
+    // blessed it). Wrong: the receipt states the boundary, so an unobserved
+    // boundary is a claim the receipt cannot make -- and a CLI that ignored
+    // `--session-id` would show up as exactly this absence (Codex, #73 round
+    // 2). Absent refuses like a mismatch.
+    if (init.session_id == null) {
+      throw new Error(
+        `the harness's init event reports no session id, so whether the dispatch's --session-id ` +
+          `${expectedSessionId} was honoured cannot be observed. The receipt would assert a fresh-session ` +
+          `boundary nothing established -- refusing.`,
+      );
+    }
+    if (init.session_id !== expectedSessionId) {
+      throw new Error(
+        `the harness reports session ${init.session_id} but the dispatch asked for ${expectedSessionId}. The ` +
+          `fresh-session boundary was not established, so the receipt would assert one that does not hold.`,
+      );
+    }
   }
   return {
     tools: reported,
@@ -558,15 +582,42 @@ export function assertProbeRoundTrip(output, nonce, surface = null) {
  * is taken from the first attempt that reported it, because those describe the
  * model rather than the spend.
  */
+/**
+ * The fields that are SPEND, and therefore add across attempts. Named rather
+ * than inferred from "is a number": `contextWindow` and `maxOutputTokens` are
+ * numbers too, and adding them turned two 200k windows into a 400k one (Codex,
+ * #73 round 2) while the docstring above said metadata was kept from the first
+ * attempt -- code contradicting its own contract.
+ */
+export const CUMULATIVE_USAGE_FIELDS = [
+  "inputTokens",
+  "outputTokens",
+  "cacheReadInputTokens",
+  "cacheCreationInputTokens",
+  "webSearchRequests",
+  "thinkingTokens",
+  "costUSD",
+];
+
 export function mergeUsage(list) {
   const out = {};
   for (const usage of list) {
     if (!usage || typeof usage !== "object") continue;
     for (const [model, stats] of Object.entries(usage)) {
-      if (!out[model]) out[model] = { ...stats };
-      else {
-        for (const [k, v] of Object.entries(stats)) {
-          if (typeof v === "number" && typeof out[model][k] === "number") out[model][k] += v;
+      if (!out[model]) {
+        out[model] = { ...stats };
+        continue;
+      }
+      for (const [k, v] of Object.entries(stats)) {
+        if (CUMULATIVE_USAGE_FIELDS.includes(k)) {
+          if (typeof v === "number") out[model][k] = (typeof out[model][k] === "number" ? out[model][k] : 0) + v;
+        } else if (k in out[model] && out[model][k] !== v) {
+          // Two attempts of one model disagreeing about its own metadata is not
+          // something a receipt can average or pick from. Refuse.
+          throw new Error(
+            `attempts disagree about ${model}.${k} (${JSON.stringify(out[model][k])} vs ${JSON.stringify(v)}); ` +
+              `a receipt cannot record a fact its own evidence contradicts.`,
+          );
         }
       }
     }
@@ -602,6 +653,7 @@ export function dispatch({
   runner = defaultRunner,
   now = () => new Date().toISOString(),
   nonce = null,
+  sessionId = null,
   permittedRoles = PHASE0_PERMITTED_ROLES,
 } = {}) {
   if (!permittedRoles.includes(role)) {
@@ -624,7 +676,12 @@ export function dispatch({
   if (headRes.status !== 0) throw new Error("could not read HEAD");
   const headAtSpawn = headRes.stdout.trim();
   const statusRes = runGit(["status", "--porcelain"], root);
-  const treeCleanAtSpawn = statusRes.status === 0 && statusRes.stdout.trim() === "";
+  if (statusRes.status !== 0) {
+    // `status === 0 && clean` collapsed "git failed" into `false`, and the
+    // receipt then stamped a tree it never saw as dirty (Codex, #73 round 2).
+    throw new Error("could not observe the working tree (`git status --porcelain` failed); refusing rather than stamping a state that was not seen");
+  }
+  const treeCleanAtSpawn = statusRes.stdout.trim() === "";
 
   const { path: definitionPath, text: definitionText } = readDefinitionAt(root, role, headAtSpawn, { runGit });
   const contract = roleContract(definitionText, { role, definitionPath, definitionCommit: headAtSpawn });
@@ -655,7 +712,9 @@ export function dispatch({
   const briefText = isProbe ? probeBrief(probeNonce) : readBrief(root, briefPath);
   const briefSha256 = sha256(briefText);
 
-  const sessionId = crypto.randomUUID();
+  // Injectable for the suite, which must be able to make the harness fixture
+  // echo the id it asked for; a real run always generates a fresh one.
+  sessionId = sessionId ?? crypto.randomUUID();
   const argv = buildArgv(contract, { schemaJson, sessionId });
   const message = userMessage(briefText);
 
@@ -670,9 +729,32 @@ export function dispatch({
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const run = runner({ argv, message, cwd: root, timeoutSec });
     if (run.unavailable) {
-      const err = new Error(SIGN_IN_HINT);
-      err.exitCode = 2;
+      // Exit 2 means NOTHING WAS DISPATCHED. If an earlier attempt already ran
+      // -- and possibly billed -- that is no longer true, and a caller reading
+      // 2 as "pre-launch provider failure" would be misled (Codex, #73 round
+      // 2). The refusal is a plain 1 once any attempt exists.
+      const err = new Error(
+        attempts.length === 0
+          ? SIGN_IN_HINT
+          : `the provider became unavailable before attempt ${attempt}, after attempt ${attempts.length} had ` +
+              `already run. Not exit 2: something was dispatched.`,
+      );
+      err.exitCode = attempts.length === 0 ? 2 : 1;
+      err.attempts = attempts;
       throw err;
+    }
+    // A process that did not exit cleanly did not produce evidence, whatever
+    // its stdout says. A CLI killed by the timeout after emitting a result
+    // event would otherwise pass every check below and mint a receipt for a
+    // failed run (Codex, #73 round 2). This is a refusal, not a retry: the
+    // buffered output of a dying process is not "junk to ask again for".
+    if (run.signal || (run.status !== undefined && run.status !== 0) || run.error) {
+      const why = run.signal
+        ? `killed by ${run.signal}${run.error?.code === "ETIMEDOUT" ? " (timeout)" : ""}`
+        : run.error
+          ? `spawn error ${run.error.code ?? run.error.message}`
+          : `exit status ${run.status}`;
+      throw new Error(`the reviewer process did not exit cleanly (${why}); its output is not evidence and no receipt is written`);
     }
     const { init, result, answerModel: stampedModel } = parseStream(run.stdout);
 
@@ -688,6 +770,7 @@ export function dispatch({
     const problems = [];
     if (!result) problems.push("no `result` event");
     else if (result.is_error) problems.push(`the run reported an error: ${String(result.result).slice(0, 200)}`);
+    else if (result.subtype != null && result.subtype !== "success") problems.push(`the result event's subtype is ${JSON.stringify(result.subtype)}, not "success"`);
     else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
     // Spend is recorded per attempt, always -- including the attempts that
     // produced nothing. A receipt carrying only the successful attempt's
@@ -715,8 +798,13 @@ export function dispatch({
     break;
   }
 
-  // Totals across every attempt, not just the one that succeeded.
-  const costUsd = attempts.reduce((sum, a) => (a.costUsd == null ? sum : sum + a.costUsd), 0);
+  // Totals across every attempt, not just the one that succeeded -- and only
+  // when every attempt's spend was observed. An attempt that produced no
+  // result event has an UNKNOWN cost, and a sum that skips it is a number
+  // presented as a total. So: per-attempt figures carry their nulls, and the
+  // top-level total exists only when nothing is missing from it.
+  const costComplete = attempts.every((a) => typeof a.costUsd === "number");
+  const costUsd = costComplete ? attempts.reduce((sum, a) => sum + a.costUsd, 0) : null;
   const usage = mergeUsage(attempts.map((a) => a.modelUsage));
 
   if (isProbe) assertProbeRoundTrip(output, probeNonce, surface);
@@ -735,6 +823,7 @@ export function dispatch({
     answerModel,
     modelUsage: usage,
     costUsd,
+    costComplete,
     sessionId,
     init: surface,
     instructionCanary: output?.claudemd ?? null,
@@ -771,7 +860,10 @@ export function defaultRunner({ argv, message, cwd, timeoutSec }) {
   // error string, not as a non-zero exit. Treating it as "unavailable" is what
   // makes exit 2 mean "nothing ran" rather than "something ran badly".
   if (/Authentication error/i.test(stdout) && !/"type":"assistant"/.test(stdout)) return { unavailable: true };
-  return { stdout, status: res.status };
+  // Everything about how the process ended travels with its output, so the
+  // caller can refuse a run that did not exit cleanly rather than trusting
+  // whatever was buffered before it died.
+  return { stdout, status: res.status, signal: res.signal ?? null, error: res.error ?? null };
 }
 
 // ---------------------------------------------------------------------------
@@ -829,6 +921,9 @@ export function main(argv = process.argv.slice(2)) {
     receipt = dispatch({ root, role: args.role, briefPath: args.brief, timeoutSec: args.timeout });
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    if (Array.isArray(e.attempts) && e.attempts.length) {
+      process.stderr.write(`fable-dispatch: ${e.attempts.length} attempt(s) had already run: ${JSON.stringify(e.attempts)}\n`);
+    }
     return e.exitCode ?? 1;
   }
   const json = `${JSON.stringify(receipt, null, 2)}\n`;

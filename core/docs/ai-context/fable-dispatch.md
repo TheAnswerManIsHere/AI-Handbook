@@ -23,6 +23,26 @@ what it leaves open, and the open ones are named rather than implied. A reader
 who takes only the strong halves has misread it, and the round of review that
 produced this file spent three of its five rounds on exactly that risk.
 
+## The rule under all five: observed, or refused — never coerced
+
+Every value the receipt carries is one of three things: **observed true**,
+**observed false**, or **could not observe**. The third refuses the run. It is
+never turned into one of the other two by the shape of an expression — a
+failed `git status` is not a dirty tree, an absent session id is not a verified
+boundary, a summed metadata field is not a total, a process killed after
+emitting output is not a successful run, and a total that skips an attempt it
+could not price is not a total.
+
+This is stated as a rule because it was violated six times in one review round
+(AI-Handbook #73, round 2), three of them inside the previous round's own
+fixes. Each instance was small; the class is the whole subject of this file.
+The mechanism in code is uniform: the observation is checked, and the receipt
+field exists only when the check passed. Fields that are informational copies
+— `agents`, `skills`, `plugins`, `permissionMode`, `apiKeySource`,
+`claudeCodeVersion` — are recorded as `null` when the harness did not report
+them, and **nothing reads them as facts**; every field that *is* read as a fact
+refuses on absence.
+
 ## The five properties
 
 ### P1 — the instruction frame is script-owned; brief content is not authenticated
@@ -35,10 +55,18 @@ pinned commit; the user message is a fixed frame written in that script, with
 the brief quoted inside it. The caller passes a role id and a path. Free text
 on the command line, and any unknown flag, are refused before anything spawns.
 
-This holds **by construction rather than by refusal**: the script builds the
-subprocess argv, so there is no channel through which caller-written text could
-reach the reviewer. It is the same guarantee `plan-review.mjs` has for the
-Codex plan reviewer, on the same kind of transport.
+This holds **by construction rather than by refusal** — for the frame. The
+script builds the subprocess argv and the wrapper around the brief, so the
+caller cannot alter the *instructions*: not the system prompt, not the schema,
+not the flags, not the sentences that tell the reviewer what the brief is. It
+is the same guarantee `plan-review.mjs` has for the Codex plan reviewer.
+
+**It does not extend to the brief's content.** The brief is inserted verbatim
+inside that frame, so caller-written text *does* reach the reviewer — as
+material to assess, labelled as such, but it reaches it. An earlier revision of
+this paragraph said "no channel through which caller-written text could reach
+the reviewer" while the next paragraph admitted the opposite; that was this
+document's own defect in its own subject (Codex, AI-Handbook #73 round 2).
 
 **What it does not do.** It does not establish who wrote the brief. A file the
 builder typed passes through unchanged; the receipt records the brief's sha256
@@ -64,8 +92,9 @@ harness emits before the model is asked anything. The script reads that event
 if the reported `tools` or `mcp_servers` exceed what the role allows** — the
 refusal cannot wait for a valid document, because a retry cannot un-launch a
 reviewer that already held a forbidden tool. It also **compares the reported
-session id against the one the dispatch asked for**, so the fresh-session
-boundary is verified rather than asserted. Then it copies `tools`, `mcp_servers`, `agents`, `skills`,
+session id against the one the dispatch asked for** — and refuses when the
+harness reports none at all, since an unobserved boundary is one the receipt
+cannot claim — so the fresh-session boundary is verified rather than asserted. Then it copies `tools`, `mcp_servers`, `agents`, `skills`,
 `plugins`, `permissionMode`, `apiKeySource` and `claude_code_version` into the
 receipt. A reviewer that wanted to misreport its own surface has no opportunity
 to: this is not the reviewer describing itself.
@@ -113,20 +142,34 @@ The run's `structured_output` must validate against it. The script re-asks
 not happen, and a receipt describing it would be the fail-open this repository
 has shipped three times already (AI-Handbook #11, #16, #59).
 
+**A reviewer process that does not exit cleanly produced no evidence**,
+whatever its stdout contains: a non-zero status, a signal, or a spawn error
+refuses the run outright rather than retrying, because the buffered output of
+a dying process is not "junk to ask again for".
+
 Exit codes: `0` a receipt was written; `1` a refusal or a reviewer failure; `2`
-no provider was reachable and nothing was dispatched. Argument refusals that
+no provider was reachable **and nothing was dispatched** — once any attempt has
+run, a provider that then disappears is a `1`, and the attempts that did run
+are printed with the refusal. Argument refusals that
 are knowable from the command line — an `--out` outside the repository — happen
 **before** the launch, so a deterministic mistake never bills a reviewer.
 
-**Cost is recorded per attempt and summed.** A first attempt that returns
-nothing valid still spent money; a receipt carrying only the winning attempt's
-totals under-reports what the dispatch cost, and later phases budget from these
-numbers.
+**Cost is recorded per attempt, and summed only when every attempt's spend was
+observed.** A first attempt that returns nothing valid still spent money; a
+receipt carrying only the winning attempt's totals under-reports what the
+dispatch cost. But an attempt that produced no result event has an *unknown*
+cost, and a sum that skips it is a number presented as a total — so the receipt
+carries `costComplete`, and `costUsd` is `null` whenever it is false. Usage
+merges only the spend counters; per-model metadata (`contextWindow`,
+`maxOutputTokens`, `canonicalModel`, `provider`) is taken once and must agree
+across attempts.
 
 ### P5 — spawn-time facts are stamped as spawn-time
 
 The receipt records `headAtSpawn`, `treeCleanAtSpawn`, the brief's sha256 and
-the role definition's sha256 at its commit — **all observed at spawn**. A tree
+the role definition's sha256 at its commit — **all observed at spawn**, and
+each refusing if the observation itself fails: a `git status` that errors is
+not a dirty tree, it is a tree that was not seen. A tree
 that changes during a run is not detected. The field names carry the boundary
 for that reason, and a clean tree at spawn is **not** a reproducible reviewed
 snapshot. Snapshotting is not in Phase 0.
