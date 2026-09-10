@@ -601,6 +601,14 @@ test("R4-1: an --out inside the repository but outside the receipts directory re
 });
 
 test("R4-1: the destructive case refuses through main() without launching anything", () => {
+  // Compare the file to ITSELF across the call. The first version asserted
+  // that `.git/HEAD` matches /^ref: /, which is a property of the checkout
+  // rather than of the code under test: `actions/checkout` leaves a PR build
+  // on a DETACHED HEAD, where the file holds a bare sha, so the assertion
+  // failed in CI while passing on every branch checkout. Asserting an
+  // unestablished property is this PR's own subject, reproduced in its tests.
+  const head = path.join(ROOT, ".git", "HEAD");
+  const before = fs.readFileSync(head, "utf8");
   const originalCwd = process.cwd();
   process.chdir(ROOT);
   try {
@@ -609,8 +617,7 @@ test("R4-1: the destructive case refuses through main() without launching anythi
   } finally {
     process.chdir(originalCwd);
   }
-  // The file the mistyped path names is untouched.
-  assert.match(fs.readFileSync(path.join(ROOT, ".git", "HEAD"), "utf8"), /^ref: /);
+  assert.equal(fs.readFileSync(head, "utf8"), before, ".git/HEAD was written to");
 });
 
 test("R4-1: a path under the receipts directory is accepted", () => {
