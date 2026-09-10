@@ -2006,10 +2006,39 @@ export function judgeReviewRequest(
 
   const check = readJson(io, checkPath(pr));
   if (check.state === "absent") {
-    return {
-      blocked: true,
-      reason: `no round-check receipt for PR #${pr} -- the round count is evidence, not recollection. ${CHECK_HOWTO(pr, slug)}`,
-    };
+    // NO RECEIPT IS NOT A REFUSAL (David, 2026-09-10). It was, and the cost
+    // was paid on every round of every loop: a snapshot captured, a receipt
+    // minted and claimed, ten minutes of ceremony to establish "2 of 3" for
+    // a post nowhere near the cap. The precision was real and worth nothing
+    // below the boundary, and the loop it documented most thoroughly (#38,
+    // nine extensions) it did not shorten by a round. What actually stops a
+    // runaway is a cap with a human at it -- and the two things that make
+    // THAT real are still refused below: a terminal verdict standing, and a
+    // budget declared for some other repository. Everything between the
+    // number and David was overhead, and it is gone.
+    //
+    // What a missing receipt costs, stated: the cap is not enforced by this
+    // hook on this post. The round number is in the loop's own context
+    // comment, the count is one `get_reviews` away, and the David gate is a
+    // 🛑 the contract already requires. Run `check` when the loop is near the
+    // cap and the hook enforces it mechanically; below it, post.
+    if (terminalVerdictStanding(state.extensions)) {
+      const last = state.extensions[state.extensions.length - 1];
+      return {
+        blocked: true,
+        reason:
+          `a TERMINAL adjudication verdict is standing on PR #${pr} ("${last.verdict}", ` +
+          `${extensionPath(pr, last.seq)}) and a dispatched verdict decides. No round-check receipt is ` +
+          `present, and none would change this: only a "david"-kind extension receipt reopens the loop. ` +
+          `Take it to David as a 🛑 NEED YOU.`,
+      };
+    }
+    process.stderr.write(
+      `Guard: allowing the review request for PR #${pr} with NO round-check receipt -- the cap is not ` +
+        `enforced on this post. Below the cap that is the intended cost; near it, run ` +
+        `\`node scripts/review-budget.mjs check --pr ${pr} --mcp-snapshot <file>\` first so the hook counts.\n`,
+    );
+    return { blocked: false, reason: null };
   }
   if (check.state !== "ok") {
     return {

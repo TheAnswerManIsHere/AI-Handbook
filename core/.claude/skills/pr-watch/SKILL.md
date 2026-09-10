@@ -95,7 +95,9 @@ working tree, so an unpushed receipt reads as *no budget declared* and `check`
 refuses. (Committing without pushing gets a refusal that says exactly this,
 rather than sending you back to `declare`.)
 
-**Then, before every `@codex review` post, count the rounds fresh:**
+**Below the cap, just post** (David, 2026-09-10) — the guard allows a request
+with no round-check receipt and says on stderr that the cap is not enforced on
+that post. **Near the cap, count the rounds fresh so the guard enforces it:**
 
 ```
 node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>
@@ -174,10 +176,11 @@ checkout declares in `.agents/machinery.json`) and the moment GitHub was read
 freshness is a property of the evidence rather than of when the command was
 typed. Bodies are required on every issue comment and every reviewer-authored
 review, because that is where the count actually reads. `check` writes an
-ephemeral round-check receipt that authorizes exactly **one** post — the same
-evidence-at-decision-time pattern the merge gate uses, because the round count
-is evidence, not something to remember. There is no tally to maintain and
-nothing to reconcile if a request stalls.
+ephemeral round-check receipt that, when present, makes the guard **count** and
+refuse a post past the cap; it authorizes exactly **one** post. When absent,
+the guard allows and notes that the cap is unenforced on that post — a
+standing terminal verdict is refused either way. There is no tally to maintain
+and nothing to reconcile if a request stalls.
 
 **Post the request as an issue comment.** The guard refuses a trigger sent
 through a thread reply or a review body: those land where the round count
@@ -507,7 +510,7 @@ adjudicator, the leash, and the David gate all in force. While watching an imple
      one that was already true when written — fires the adversarial subagent
      before the round proceeds.
 
-  The round count itself is no longer mine to track or remember: the guard
+  The round count is stated in each round's context comment; the guard
   counts it from fresh GitHub evidence (a round-check receipt) and refuses
   past the budget. Because a round is a *completed reviewer pass*, a request
   that stalls and gets retried costs one round, not two — the count corrects

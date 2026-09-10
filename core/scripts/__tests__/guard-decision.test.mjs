@@ -824,10 +824,16 @@ test("an @codex review post with no declared budget is refused", () => {
   assert.match(reason, /no round budget declared for PR #991/);
 });
 
-test("an @codex review post with a budget but no counted evidence is refused", () => {
-  const { blocked: isBlocked, reason } = decide(reviewPayload("@codex review"), { io: budgeted(), now: NOW_MS });
-  assert.equal(isBlocked, true);
-  assert.match(reason, /no round-check receipt/);
+test("an @codex review post with a budget but no counted evidence is allowed below the cap", () => {
+  // David, 2026-09-10: the receipt makes the hook COUNT; its absence no longer
+  // blocks. A standing terminal verdict still does (review-budget.test).
+  const orig = process.stderr.write;
+  process.stderr.write = () => true;
+  try {
+    assert.equal(decide(reviewPayload("@codex review"), { io: budgeted(), now: NOW_MS }).blocked, false);
+  } finally {
+    process.stderr.write = orig;
+  }
 });
 
 test("an @codex review post inside its counted budget is allowed", () => {

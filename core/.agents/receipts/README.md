@@ -63,7 +63,9 @@ tally was: a cache of something GitHub already holds authoritatively. This
 repo's own measured lesson is that recalled numbers are wrong (3 out of 3)
 and counted ones are right (3 out of 3) — and a tally is a recalled number.
 
-So rounds are counted fresh, from evidence, at the moment of the decision:
+So when rounds are counted they are counted fresh, from evidence — and since
+2026-09-10 that count is run **near the cap**, not before every post; below it
+the guard allows an uncounted post and says so:
 
 ```
 node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>
@@ -173,8 +175,10 @@ A receipt the guard cannot parse, one that names another PR or repo, a
 non-canonical filename (`loop-extension-1-01.json`), two receipts claiming one
 sequence, an unlistable directory, a `continue` citing a record that does not
 exist or was generated below the cap, and a round-check receipt that is
-missing, stale, already consumed, already claimed, or carrying an incoherent
-delivered/pending split — all **refuse the post** and name the file. So does a
+stale, already consumed, already claimed, or carrying an incoherent
+delivered/pending split — all **refuse the post** and name the file. A
+round-check receipt that is simply **missing** does not (2026-09-10): the
+post is allowed with a note that the cap is unenforced on it. So does a
 snapshot that names no repository, carries no capture time, was captured more
 than an hour ago, or omits a body where the count reads one. A guard that
 ignores what it cannot read is a guard a syntax error switches off.
