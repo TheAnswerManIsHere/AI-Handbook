@@ -200,3 +200,18 @@ and noted here for whoever decides the adjudicator's future.
   script, and none claims to.
 - **Not an isolation proof.** See P2.
 - **Not a review of anything.** Phase 0 ships a probe.
+- **Not the only way to reach a role definition.** A definition under
+  `.claude/agents/` is also registered with the harness as an ordinary
+  subagent, so any session can dispatch it directly — with no brief, no
+  receipt, no launch report and no model binding. Nothing here prevents that;
+  the properties above describe what `fable-dispatch.mjs` establishes when it
+  is the caller, and say nothing about a direct dispatch.
+
+  For the probe this costs nothing: it echoes a challenge it will not have
+  been given, and its own definition tells it to report that rather than
+  invent one. **For an advisory role it would be a hole**, and closing it —
+  by moving role definitions off the harness's agent path, or by making a
+  role refuse a dispatch that carries no receipt — is a **Phase 1
+  prerequisite alongside the two named above**. Recorded on the day it was
+  found, because a contract that claimed sole-caller status while the harness
+  offered a second door would be this increment's own defect, one level up.
