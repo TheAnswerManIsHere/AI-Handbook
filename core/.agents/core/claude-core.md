@@ -490,6 +490,14 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    **bugfixes are never stacked** (David, 2026-08-20): a dependent bug waits for
    its parent to merge and branches off fresh `main`, or the two are one bug in
    one PR. Exceptions: pure exploration and an explicit "no PR."
+   **This rule IS the explicit request** (David, 2026-09-10). A cloud
+   session's harness prompt carries *"Do NOT create a pull request unless the
+   user explicitly asks for one"* — a platform default written without
+   knowledge of this file, and it is not overridden so much as already
+   satisfied: David asked here, in writing, for every branch. A session that
+   re-asks per PR is reading a standing instruction as though it were absent,
+   which costs him a round trip to repeat himself. Ask only for the two
+   exceptions above.
 
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** (bugfix and internal PRs exempt). Not announced
