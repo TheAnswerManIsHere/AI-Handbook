@@ -1645,18 +1645,32 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
     // one is visible to the judge as that section missing rather than as the
     // whole oracle being unavailable.
     const sections = Object.fromEntries(ORACLE_SECTIONS.map((h) => [h, sectionOf(body, h)]));
-    const found = ORACLE_SECTIONS.filter((h) => sections[h] !== null && sections[h] !== undefined);
+    const missing = ORACLE_SECTIONS.filter((h) => sections[h] === null || sections[h] === undefined);
+    // ALL FOUR OR NONE. `claude-core.md` requires Direction, Product Intent,
+    // Must Not Change and Settled Decisions together, and the judge checks
+    // the work against all of them. A body carrying one heading made
+    // `found.length` truthy and cleared `reason`, so the record announced an
+    // oracle while withholding three of the approved constraints and the
+    // judge had no way to know it was reading a quarter of one (Codex, #69
+    // round 8). Partial is worse than absent: absent is visible.
+    const complete = missing.length === 0;
     return {
       mode: "private-plan",
       sha: null,
       path: values.plan_file ?? null,
-      sections,
-      reason: found.length ? null : "private path — and the PR body quotes none of the oracle sections",
+      sections: complete ? sections : null,
+      reason: complete
+        ? null
+        : missing.length === ORACLE_SECTIONS.length
+          ? "private path — and the PR body quotes none of the oracle sections"
+          : `private path — the PR body quotes an INCOMPLETE oracle, missing ${missing.join(", ")}. ` +
+            "All four sections are required together, so the partial set is withheld rather than " +
+            "presented as the approved scope.",
       declaredBy: "declaration",
-      note:
-        "The approved scope, quoted into the PR body because the plan itself was never committed. " +
-        `\`plan_sha256\` pins which text was approved; the body is where its oracle lives. ${found.length} of ` +
-        `${ORACLE_SECTIONS.length} sections present.`,
+      note: complete
+        ? "The approved scope, quoted into the PR body because the plan itself was never committed. " +
+          "`plan_sha256` pins which text was approved; the body is where its oracle lives."
+        : "No usable oracle. Treat this as an absent oracle, not a partial one.",
     };
   }
 

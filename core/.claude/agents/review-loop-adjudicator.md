@@ -172,6 +172,42 @@ re-raised) has no machine-readable marker and was left unclassified rather than
 guessed. Do not fill that gap by inference and then reason from your own guess
 as though it were data.
 
+### The other mechanical record: an in-session PLAN loop
+
+**A plan loop hands you a different set of files, and that is not the failure
+mode above.** The rule that matters is unchanged — you read what a script
+wrote, never a narrative, a case for continuing, or an explanation of why this
+loop is different — but `review-loop-record.mjs` cannot serve a plan loop:
+it requires `--pr` and a PR snapshot, and an in-session plan review has
+neither. Refusing its round files as "not the mechanical record" would leave
+the plan cap with no working escape hatch at all (Codex, #69 rounds 7–8).
+
+What you are handed instead is **`.agents/reviews/<slug>/`** — every
+`round-N.json` (the validated assessments) and its `round-N.meta.json`
+sibling. `plan-review.mjs` wrote all of them; nothing in that directory is
+prose from the loop. If you are handed anything from outside it, that is the
+failure mode, and the same instruction applies: say so and rule on the files
+alone.
+
+The decision-carrying fields map like this, and **where a field has no plan
+analogue that is stated rather than substituted**:
+
+| Code-loop field | In a plan loop |
+|---|---|
+| `budget` | each `meta.budget` — tier, allowance and the round's own number; grants live in `extensions.json` beside them |
+| `rounds.trend` | `required_revisions.length` per `round-N.json`, in order (`scope_concerns` for round 0) |
+| `artifact.patch` — the thing your decision is about | **the plan**, pinned by `meta.planSha256`; `meta.planDrift` is non-null on any round whose plan moved mid-flight, which is a refused round |
+| `planOracle` | `oracle.txt`, pinned at round 0 and refused on drift; `meta.oraclePin.changed` records a deliberate change |
+| `sinceLastReview` | compare `meta.planSha256` across rounds — equal digests mean the plan did not move |
+| `territory` | **no analogue, and do not invent one.** A plan has no diff, so in-diff versus out-of-diff does not exist. The nearest real signal is each finding's own `evidence`, which cites repository paths the reviewer actually inspected |
+| `provenance.captures` | not applicable: every file was written by the script in this container, so there is no transcription step to weigh |
+
+Your verdict is recorded by the loop as a grant in
+`.agents/reviews/<slug>/extensions.json` — `kind: "adjudicator"`, with the
+unaddressed behavioural risk in `reason`. That is the file the plan loop's
+budget gate actually reads. A `stop` writes no grant, because the allowance
+already refuses.
+
 ## The four verdicts
 
 **`ship-with-gaps-recorded` — the default.** The loop stops, the remaining

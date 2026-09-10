@@ -33,6 +33,8 @@ import {
   readGrants,
   roundsRun,
   assertOracleIgnored,
+  assertTierPinned,
+  assertPriorsCoverLastRound,
   findRepoRoot,
   pinOracle,
   ensurePlansIgnored,
@@ -1485,4 +1487,100 @@ test("USAGE names the invocation path by computing it, never by hardcoding a lay
   const second = lines.find((l) => l.includes("--round <N>"));
   const cont = lines[lines.indexOf(second) + 1];
   assert.equal(cont.indexOf("["), second.indexOf("--round <N>"), "continuation aligns to the flag column");
+});
+
+// ── the tier is pinned by the loop, not re-supplied each round ─────────────
+
+/** Write a round's meta as the script would, with just the fields under test. */
+function roundMeta(root, slug, n, meta) {
+  const dir = join(root, ".agents/reviews", slug);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `round-${n}.meta.json`), JSON.stringify(meta));
+}
+
+test("a tier that disagrees with the loop's first round is refused", () => {
+  // The tier sets the budget AND the adjudicator's rubric, so `--tier product`
+  // typed on round 4 of an internal loop recomputes the allowance as 5 and
+  // proceeds without any grant. Not the driver-as-adversary class declined in
+  // round 2 — the failure is a typo on a long command.
+  const root = fixtureRoot({});
+  const dir = join(root, ".agents/reviews/x");
+  roundMeta(root, "x", 1, { budget: { tier: "internal" } });
+  roundMeta(root, "x", 2, { budget: { tier: "internal" } });
+
+  assert.throws(() => assertTierPinned(dir, [1, 2], "product"), /ran round 1 as tier "internal"/);
+  assert.throws(() => assertTierPinned(dir, [1, 2], "product"), /--tier internal/);
+  assertTierPinned(dir, [1, 2], "internal"); // agreeing is silent
+
+  // The pin is the tier the loop STARTED on, so a later round that already
+  // drifted cannot re-anchor it.
+  roundMeta(root, "x", 3, { budget: { tier: "product" } });
+  assert.throws(() => assertTierPinned(dir, [1, 2, 3], "product"), /round 1 as tier "internal"/);
+
+  // Round 0 runs before --tier is required; a meta without one is skipped
+  // rather than read as a mismatch.
+  const fresh = fixtureRoot({});
+  roundMeta(fresh, "y", 0, { budget: null });
+  roundMeta(fresh, "y", 1, { budget: { tier: "sensitive" } });
+  assertTierPinned(join(fresh, ".agents/reviews/y"), [0, 1], "sensitive");
+  assert.throws(() => assertTierPinned(join(fresh, ".agents/reviews/y"), [0, 1], "internal"), /round 1/);
+  drop(root);
+  drop(fresh);
+});
+
+// ── a prior file cannot silently drop the last round's findings ────────────
+
+/** A round's assessment on disk, carrying just the ids under test. */
+function roundFindings(root, slug, n, ids, key = "required_revisions") {
+  const dir = join(root, ".agents/reviews", slug);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `round-${n}.json`), JSON.stringify({ [key]: ids.map((id) => ({ id })) }));
+}
+
+test("--prior that omits a finding the previous round raised is refused", () => {
+  // Reconciliation only checks the ids it is GIVEN, so an omission is never
+  // asked about, never comes back, and the stop rule reads as converged with
+  // a required revision unaddressed. Same false-convergence family as the
+  // duplicate id, reached by subtraction instead of collision.
+  const root = fixtureRoot({});
+  const dir = join(root, ".agents/reviews/x");
+  roundFindings(root, "x", 2, ["R1", "R2"]);
+
+  const p = (...ids) => ids.map((id) => ({ id, title: id, disposition: "fixed", note: "" }));
+  assert.throws(() => assertPriorsCoverLastRound(dir, [1, 2], p("R1")), /omits 1 finding\(s\) round 2 raised: R2/);
+  assertPriorsCoverLastRound(dir, [1, 2], p("R1", "R2"));
+
+  // Extra ids are fine: a Still-open finding travelling several rounds is
+  // exactly right, and demanding the full history would force carrying every
+  // closed finding forever.
+  assertPriorsCoverLastRound(dir, [1, 2], p("R1", "R2", "R0-carried"));
+
+  // The invariant is the PREVIOUS round only — round 1's findings were
+  // reconciled by round 2 and are legitimately gone.
+  roundFindings(root, "x", 1, ["OLD1", "OLD2"]);
+  assertPriorsCoverLastRound(dir, [1, 2], p("R1", "R2"));
+
+  // Round 0's scope concerns are findings like any other.
+  const zero = fixtureRoot({});
+  roundFindings(zero, "z", 0, ["S1"], "scope_concerns");
+  assert.throws(
+    () => assertPriorsCoverLastRound(join(zero, ".agents/reviews/z"), [0], p("other")),
+    /round 0 raised: S1/,
+  );
+  drop(root);
+  drop(zero);
+});
+
+test("an unparseable or absent round file is not read as an omission", () => {
+  // Fail-open here on purpose: a round file we cannot read is not evidence
+  // that a finding was dropped, and refusing on it would block a loop over a
+  // corrupted artifact rather than over a real omission.
+  const root = fixtureRoot({});
+  const dir = join(root, ".agents/reviews/x");
+  mkdirSync(dir, { recursive: true });
+  assertPriorsCoverLastRound(dir, [1], []); // no file at all
+  writeFileSync(join(dir, "round-1.json"), "{not json");
+  assertPriorsCoverLastRound(dir, [1], []);
+  assertPriorsCoverLastRound(dir, [], []); // no earlier rounds
+  drop(root);
 });

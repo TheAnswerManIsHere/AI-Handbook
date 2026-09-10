@@ -624,6 +624,83 @@ export function readGrants(dir) {
   });
 }
 
+/**
+ * Refuse a tier that disagrees with the one this loop already ran under.
+ *
+ * Read from the earliest meta that recorded one, so the pin is the tier the
+ * loop *started* on rather than whatever the last round happened to pass.
+ * A meta without a tier (round 0 runs before `--tier` is required) is skipped
+ * rather than treated as a mismatch.
+ */
+export function assertTierPinned(dir, earlier, tier) {
+  for (const n of [...earlier].sort((a, b) => a - b)) {
+    const file = path.join(dir, `round-${n}.meta.json`);
+    if (!fs.existsSync(file)) continue;
+    let meta;
+    try {
+      meta = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      continue;
+    }
+    const pinned = meta?.budget?.tier;
+    if (typeof pinned !== "string" || pinned === "") continue;
+    if (pinned === tier) return;
+    throw new Error(
+      `this loop ran round ${n} as tier "${pinned}", and this round says "${tier}". The tier sets both the round ` +
+        `budget (${TIER_BUDGETS[pinned] ?? "?"} vs ${TIER_BUDGETS[tier] ?? "?"}) and the rubric the adjudicator ` +
+        `applies, so changing it mid-loop buys rounds that were never granted. Re-run with --tier ${pinned}, or ` +
+        `start a new loop under a new slug if the work genuinely changed tier.`,
+    );
+  }
+}
+
+/**
+ * Refuse a `--prior` file that drops a finding the previous round raised.
+ *
+ * The file is assembled by hand, and an omission is silent in the worst way:
+ * reconciliation only ever checks the ids it was *given*, so a dropped finding
+ * is never asked about, comes back in nobody's `previous_findings`, and the
+ * stop rule reports convergence with a required revision unaddressed (Codex,
+ * #69 round 8). Same false-convergence family as the duplicate-id refusal,
+ * reached by subtraction instead of collision.
+ *
+ * **The invariant is the PREVIOUS round, not every round.** Findings resolved
+ * two rounds ago were reconciled by the round after them and are legitimately
+ * gone; demanding the full history would force carrying every closed finding
+ * forever, and a rule that cannot be followed gets bypassed. What has *not*
+ * been answered by anyone is the last round's output, so that is what must be
+ * carried. Extra ids are fine — a Still-open finding travelling several rounds
+ * is exactly right.
+ */
+export function assertPriorsCoverLastRound(dir, earlier, priors) {
+  if (!earlier.length) return;
+  const last = Math.max(...earlier);
+  const file = path.join(dir, `round-${last}.json`);
+  if (!fs.existsSync(file)) return;
+
+  let assessment;
+  try {
+    assessment = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return; // A round file we cannot parse is not evidence of an omission.
+  }
+  const raised = [...(assessment.required_revisions ?? []), ...(assessment.scope_concerns ?? [])]
+    .map((f) => f?.id)
+    .filter((id) => typeof id === "string");
+  if (!raised.length) return;
+
+  const supplied = new Set(priors.map((p) => p.id));
+  const missing = raised.filter((id) => !supplied.has(id));
+  if (!missing.length) return;
+
+  throw new Error(
+    `--prior omits ${missing.length} finding(s) round ${last} raised: ${missing.join(", ")}. Reconciliation only ` +
+      `checks the ids it is given, so a dropped finding is never asked about and never comes back — and the stop ` +
+      `rule would then read as converged with a required revision unaddressed. Add them with their dispositions, ` +
+      `or pass --no-prior if round ${last} genuinely returned none.`,
+  );
+}
+
 /** Rounds already run for this loop, counted from disk rather than stored. */
 export function roundsRun(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -1440,6 +1517,20 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         );
       }
       if (!TIERS.includes(flags.tier)) throw new Error(`--tier must be one of ${TIERS.join(", ")}`);
+      // THE TIER IS PINNED BY THE FIRST ROUND THAT SET ONE. It decides both
+      // the round budget and the adjudicator's rubric, so a changed flag on a
+      // later round silently buys rounds the loop was never granted: an
+      // internal loop three rounds deep, invoked once with `--tier product`,
+      // recomputes its allowance as five and proceeds without any grant
+      // (Codex, #69 round 8). Every round already stamps its tier on the
+      // meta, so the pin costs a read rather than new state.
+      //
+      // This is NOT the driver-as-adversary class declined in round 2 — the
+      // failure here is a typo'd flag on a long command, and the loop driver
+      // gains nothing by it. It is the same shape as the oracle pin: a value
+      // agreed once, then read rather than re-supplied.
+      assertTierPinned(dir, earlier, flags.tier);
+
       const grants = readGrants(dir);
       const allowance = allowanceFor(flags.tier, grants);
       if (round > allowance) {
@@ -1459,7 +1550,14 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     let priors = [];
     if (flags.prior && flags.noPrior) throw new Error("--prior and --no-prior contradict each other");
     if (flags.prior) {
-      priors = normalizePriors(JSON.parse(fs.readFileSync(path.resolve(root, flags.prior), "utf8")));
+      // The prior file carries finding titles and disposition notes, which
+      // restate the plan's concerns -- so it can hold the same vulnerability,
+      // customer or embargoed context the plan and oracle are protected for.
+      // It was the third input with no ignore check (Codex, #69 round 8).
+      const priorPath = path.relative(root, path.resolve(root, flags.prior));
+      assertOracleIgnored(root, priorPath, git);
+      priors = normalizePriors(JSON.parse(fs.readFileSync(path.join(root, priorPath), "utf8")));
+      assertPriorsCoverLastRound(dir, earlier, priors);
     } else if (earlier.length && !flags.noPrior) {
       // The stop rule is "required_revisions empty AND every prior finding
       // Resolved or Superseded". A round that never saw the prior findings

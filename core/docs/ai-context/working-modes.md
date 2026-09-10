@@ -96,9 +96,16 @@ three rounds that ran 24 → 14 → 21 findings.
 - A **plan** builds **one bounded increment** toward a direction and **cites
   the direction it serves**. Its intent sentence says what *this increment*
   makes true — never what the end state is.
-- **The plan-review loop only ever runs on plans, never on a direction.** A
-  direction has no implementation to be wrong about, so adversarial review of
-  one produces specification rather than correction. (This is about the plan
+- **The plan-review loop only ever runs on an increment, never on a
+  direction.** A direction has no implementation to be wrong about, so
+  adversarial review of one produces specification rather than correction.
+  **This does not exclude round 0**, the scope gate's second opinion (David,
+  2026-09-09): round 0 reviews *this increment's agreed scope* before its plan
+  is written, which is the increment's own oracle rather than the standing
+  direction — so it is inside this rule, not an exception to it. Reading the
+  sentence as "never before a plan exists" would skip the loop's cheapest
+  round, which is the one that catches building the wrong thing at all.
+  (This is about the plan
   loop specifically — it says nothing about code-review loops on implementation
   PRs, feature or bugfix, which keep running exactly as described elsewhere in
   this doc and in the `bugfix` skill.)

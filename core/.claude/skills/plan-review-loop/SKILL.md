@@ -101,13 +101,21 @@ refuses to run without one. A plan reviewed only against itself can be
 perfectly coherent and still have dropped a requirement the intent called for,
 and catching exactly that is what the oracle is for.
 
+**Put that file, and the `priors.json` later rounds need, under
+`.agents/reviews/<slug>/`.** Both restate the plan's concerns, so both can
+carry the vulnerability, customer or embargoed context the plan itself is kept
+out of git for — and that directory is the one the script keeps ignored. The
+script refuses either file if git reports it as stageable, so a path outside
+an ignored directory stops the round rather than leaking quietly.
+
 ### Round 0 — the scope gate's second opinion
 
 **Before the plan is written**, the reviewer gets the oracle alone and answers
 one question: should this exist, and is the boundary in the right place.
 
 ```
-node "$P" --round 0 --slug <slug> --oracle <file>
+S=.agents/reviews/<slug>; mkdir -p "$S"   # write the oracle here, not at the root
+node "$P" --round 0 --slug <slug> --oracle $S/oracle-<slug>.md
 ```
 
 Round 0 is the one round short enough to run in the foreground — it reads a
@@ -133,9 +141,11 @@ waiting for him to read it buys nothing. He interjects whenever he likes.
 
 ```
 S=.agents/reviews/<slug>
+mkdir -p "$S"          # bash opens the redirects below BEFORE node runs, so on
+                       # a first round the directory must already exist
 setsid nohup bash -c "cd $PWD && node $PWD/$P \
   --round 1 --tier <product|sensitive|internal> \
-  --plan docs/plans/PLAN_<SLUG>.md --prior priors.json \
+  --plan docs/plans/PLAN_<SLUG>.md --prior $S/priors.json \
   --lens '<the angle this round attacks from>' > $S/run.log 2>&1; echo \$? > $S/run.exit" &
 ```
 
@@ -188,10 +198,10 @@ Four things happen every round, in this order, and none of them is optional.
 
    ```
    node "$P" --round N --tier <tier> --plan <file> \
-        --prior priors.json --lens "<a fresh angle>"
+        --prior $S/priors.json --lens "<a fresh angle>"
    ```
 
-   `priors.json` is a JSON array of `{id, title, disposition, note}` with
+   `$S/priors.json` is a JSON array of `{id, title, disposition, note}` with
    disposition one of `fixed | declined | to-david | deferred`. The script
    **refuses any round with an earlier round on disk without it** — `--no-prior`
    is the explicit escape for a round that genuinely returned none.
