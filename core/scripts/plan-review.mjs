@@ -891,12 +891,21 @@ export function normalizePriors(raw) {
     }
     seen.set(id, i);
 
-    const note = typeof f.note === "string" ? f.note.trim().replace(/\s+/g, " ") : "";
+    // BOTH free-text fields are flattened and capped, not just the note.
+    // `roundContext` interpolates them into a markdown bullet, so a title
+    // carrying newlines became a new TOP-LEVEL SECTION of the reviewer's
+    // prompt -- and this file is assembled by the session driving the loop.
+    // That is the steering channel #36's rule closes ("the script composes the
+    // prompt, and I never do"), reopened through the one field that was left
+    // raw (Codex, #69 round 11). The note was capped for exactly this reason
+    // and the title was missed.
+    const flat = (v) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "");
+    const cap = (v) => (v.length > MAX_NOTE_CHARS ? `${v.slice(0, MAX_NOTE_CHARS)}… (truncated)` : v);
     return {
       id,
-      title: f.title.trim(),
+      title: cap(flat(f.title)),
       disposition: f.disposition,
-      note: note.length > MAX_NOTE_CHARS ? `${note.slice(0, MAX_NOTE_CHARS)}… (truncated)` : note,
+      note: cap(flat(f.note)),
     };
   });
 }
@@ -1616,6 +1625,21 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // protects, one document earlier. Refused rather than relocated: moving a
     // file the operator named would be a surprise, and the fix is one `git
     // mv` they should make deliberately.
+    // --- slug, and the review directory's own protection -------------------
+    //
+    // THIS RUNS BEFORE THE ORACLE CHECK, and the order is the whole fix for a
+    // first-run blocker (Codex, #69 round 11). The documented round-0 recipe
+    // writes the oracle to `.agents/reviews/<slug>/oracle-<slug>.md`, and in a
+    // fresh consumer `.agents/reviews/.gitignore` does not exist yet -- so
+    // checking the oracle first refused every first round in every consumer,
+    // with a message advising the operator to move the file somewhere it
+    // already was. `ensureRoundDir` is what CREATES that protection, and it
+    // verifies itself, so establishing it first is both correct and ordered
+    // the way the recipe reads.
+    const slug = flags.slug ? assertSlug(flags.slug) : slugFromPlanPath(planPath ?? "");
+    const dir = ensureRoundDir(root, slug, git);
+    const earlier = roundsRun(dir).filter((n) => n !== round);
+
     let oraclePath = null;
     if (flags.oracle) {
       oraclePath = path.relative(root, path.resolve(root, flags.oracle));
@@ -1623,11 +1647,6 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     }
     const oracleText = flags.oracle ? fs.readFileSync(path.join(root, oraclePath), "utf8") : null;
     const oracle = oracleFrom({ oracleText, planText });
-
-    // --- slug -------------------------------------------------------------
-    const slug = flags.slug ? assertSlug(flags.slug) : slugFromPlanPath(planPath ?? "");
-    const dir = ensureRoundDir(root, slug, git);
-    const earlier = roundsRun(dir).filter((n) => n !== round);
 
     // --- the oracle, pinned for the life of the loop -----------------------
     const pin = pinOracle(dir, oracle, { changedReason: flags.oracleChanged ?? null });
