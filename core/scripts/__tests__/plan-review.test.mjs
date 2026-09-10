@@ -32,6 +32,7 @@ import {
   allowanceFor,
   readGrants,
   roundsRun,
+  assertOracleIgnored,
   findRepoRoot,
   pinOracle,
   ensurePlansIgnored,
@@ -1402,5 +1403,58 @@ test("an existing ignore file without any plan pattern is appended to, then veri
   assert.match(text, /scratch\//, "what the consumer wrote is never rewritten");
   assert.match(text, /PLAN_\*\.md/);
   assert.ok(text.indexOf("PLAN_*.md") > text.indexOf("scratch/"), "appended last, so it wins the ordering");
+  drop(root);
+});
+
+// ── the oracle is as sensitive as the plan ─────────────────────────────────
+
+test("an oracle git would stage refuses the round, on every round not just zero", () => {
+  // `ensurePlansIgnored` protects the PLAN. A standalone --oracle at an
+  // ordinary path was left unprotected, so `git add -A` staged the agreed
+  // scope -- the document where an unpatched vulnerability or an embargoed
+  // launch is written down, one document before the plan exists. Round 0 is
+  // the worst case (the oracle is the only document there is), but --oracle
+  // is read on every round.
+  assert.throws(
+    () => assertOracleIgnored("/repo", "scope-oracle.md", fakeGit("?? scope-oracle.md\n")),
+    /oracle scope-oracle\.md is NOT ignored by git/,
+  );
+  assert.throws(
+    () => assertOracleIgnored("/repo", "scope-oracle.md", fakeGit("?? scope-oracle.md\n")),
+    /docs\/plans\//,
+    "the message names the ignored home rather than moving the file",
+  );
+
+  // Ignored, tracked, and an unanswerable git all pass — same three
+  // non-refusals as the plan's check, for the same reasons.
+  assertOracleIgnored("/repo", "docs/plans/oracle.md", fakeGit(""));
+  assertOracleIgnored("/repo", "docs/oracle.md", fakeGit(" M docs/oracle.md\n"));
+  for (const broken of [{ status: 128, stdout: "" }, { status: 0, stdout: undefined }, { error: new Error("ENOENT") }]) {
+    assertOracleIgnored("/repo", "docs/oracle.md", () => broken);
+  }
+});
+
+test("round 0 refuses an exposed oracle before it spends a reviewer round", () => {
+  // End to end: the refusal has to happen before `codex exec`, or the cost of
+  // the mistake is a ten-minute round as well as the exposure. It lands
+  // earlier still -- ahead of the sign-in probe -- so an exposed oracle costs
+  // nothing and never reaches the credential path at all.
+  const root = fixtureRoot({});
+  writeFileSync(join(root, "scope-oracle.md"), "DIRECTION: ship the thing");
+  const log = quiet();
+  const run = fakeRun([{ status: 0, stdout: "Logged in using ChatGPT", stderr: "" }]);
+
+  // A scripted git that reports the oracle as untracked-and-unignored.
+  assert.equal(
+    main(["--round", "0", "--slug", "x", "--oracle", "scope-oracle.md", "--dry-run"], {
+      root,
+      run,
+      log,
+      git: fakeGit("?? scope-oracle.md\n"),
+    }),
+    1,
+  );
+  assert.match(log.text(), /NOT ignored by git/);
+  assert.equal(run.calls.length, 0, "refused before ANY subprocess -- not even the sign-in probe ran");
   drop(root);
 });

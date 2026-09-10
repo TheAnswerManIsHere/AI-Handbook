@@ -1249,6 +1249,29 @@ export function ensurePlansIgnored(root, planPath = null, git = defaultGit) {
  * outside a git repository (which is where `git` fails here) there is no
  * commit to make by accident, so there is nothing to protect against.
  */
+/**
+ * Refuse an oracle file that git would stage.
+ *
+ * Same evidence as the plan's check and the same non-refusals — a tracked
+ * file is a deliberate act, and an unanswerable git means no repository and
+ * so nothing to commit into. What differs is the remedy: the plan has a
+ * managed home this script maintains, while an oracle can legitimately live
+ * anywhere, so this names the ignored home rather than moving the file. An
+ * operator who chose a path should be the one to change it.
+ */
+export function assertOracleIgnored(root, oraclePath, git = defaultGit) {
+  const out = git(["status", "--porcelain", "--untracked-files=all", "--", oraclePath], root);
+  if (out.error || out.status !== 0 || typeof out.stdout !== "string") return;
+  if (!out.stdout.split("\n").some((l) => l.startsWith("??"))) return;
+  throw new Error(
+    `the oracle ${oraclePath} is NOT ignored by git -- \`git status --porcelain --untracked-files=all\` ` +
+      `reports it as "??", so \`git add -A\` would stage it. The oracle is the agreed scope, which is where an ` +
+      `unpatched vulnerability, an auth-bypass specific, a customer name or an embargoed launch gets written ` +
+      `down -- the same material the disclosure carve-out protects, one document before the plan. Move it under ` +
+      `docs/plans/ (which this script keeps ignored) or another ignored path, then re-run.`,
+  );
+}
+
 function verifyIgnored(root, planPath, git) {
   if (!planPath) return;
   const out = git(["status", "--porcelain", "--untracked-files=all", "--", planPath], root);
@@ -1318,7 +1341,7 @@ export const USAGE = [
   "  CODEX_BIN     path to the codex binary, if it is not on PATH",
 ].join("\n");
 
-export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spawnSyncDefault, log = console.error } = {}) {
+export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spawnSyncDefault, log = console.error, git = defaultGit } = {}) {
   let flags;
   try {
     flags = parseArgs(argv);
@@ -1355,10 +1378,29 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       if (!fs.existsSync(abs)) throw new Error(`--plan ${flags.plan} does not exist at ${abs}`);
       // After the path is known, so the ignore can be verified against THIS
       // plan rather than against a pattern that looks convincing.
-      ensurePlansIgnored(root, planPath);
+      ensurePlansIgnored(root, planPath, git);
       planText = fs.readFileSync(abs, "utf8");
     }
-    const oracleText = flags.oracle ? fs.readFileSync(path.resolve(root, flags.oracle), "utf8") : null;
+    // THE ORACLE IS AS SENSITIVE AS THE PLAN, and until now only the plan was
+    // protected. `ensurePlansIgnored` runs on the plan alone, so a standalone
+    // `--oracle` file at an ordinary path -- `scope-oracle.md`, say -- was
+    // staged by the next `git add -A`. Round 0 is the worst case because the
+    // oracle is the ONLY document that exists then, but the hole is not
+    // round-0-specific: `--oracle` is read on every round (Codex, #69 round 7,
+    // which reported the round-0 case; the sweep found the rest).
+    //
+    // The agreed scope is exactly where an unpatched vulnerability, an
+    // auth-bypass specific, a customer name or an embargoed launch gets
+    // written down -- it is the same material the disclosure carve-out
+    // protects, one document earlier. Refused rather than relocated: moving a
+    // file the operator named would be a surprise, and the fix is one `git
+    // mv` they should make deliberately.
+    let oraclePath = null;
+    if (flags.oracle) {
+      oraclePath = path.relative(root, path.resolve(root, flags.oracle));
+      assertOracleIgnored(root, oraclePath, git);
+    }
+    const oracleText = flags.oracle ? fs.readFileSync(path.join(root, oraclePath), "utf8") : null;
     const oracle = oracleFrom({ oracleText, planText });
 
     // --- slug -------------------------------------------------------------
