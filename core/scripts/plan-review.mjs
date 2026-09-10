@@ -48,13 +48,14 @@
  * bodies. The reviewer starts fresh every round and reconciles against the
  * CURRENT WHOLE PLAN, not against its own memory of what it said last time.
  *
- * USAGE
+ * USAGE  (`--help` prints these with the path THIS checkout actually has:
+ *         `core/scripts/…` in the handbook, `scripts/…` in a consumer)
  * -----
  *   # Round 0, at the scope gate: the oracle alone, before a plan exists.
- *   node core/scripts/plan-review.mjs --round 0 --slug <slug> --oracle <file>
+ *   node <this file> --round 0 --slug <slug> --oracle <file>
  *
  *   # Round N: the plan, its oracle, a lens, and last round's dispositions.
- *   node core/scripts/plan-review.mjs --round 2 --plan docs/plans/PLAN_X.md \
+ *   node <this file> --round 2 --plan docs/plans/PLAN_X.md \
  *        --lens "auth boundaries and failure modes" --prior priors.json
  *
  *   --dry-run  assembles the prompt and schema, writes them, spawns nothing.
@@ -1322,11 +1323,26 @@ export function parseArgs(argv) {
   return flags;
 }
 
+/**
+ * How to invoke THIS copy, computed rather than written down.
+ *
+ * The sync routes `core/X -> X`, so the same file is `core/scripts/…` in the
+ * handbook and `scripts/…` in every consumer. A hardcoded usage line is
+ * therefore wrong in one of them, and wrong in the place a reader is most
+ * likely to trust it: `--help` and every argument-error response, which is
+ * exactly what someone copies when they are already confused (Codex, #69
+ * round 7).
+ */
+const INVOCATION = path.relative(REPO_ROOT, fileURLToPath(import.meta.url)).split(path.sep).join("/");
+// The continuation line aligns under the first flag: `"  node "` is 7
+// characters, then the path, then the space before `--round`.
+const FLAG_COLUMN = " ".repeat("  node ".length + INVOCATION.length + 1);
+
 export const USAGE = [
   "Usage:",
-  "  node core/scripts/plan-review.mjs --round 0 --slug <slug> --oracle <file> [--lens <text>]",
-  "  node core/scripts/plan-review.mjs --round <N> --plan <file> [--slug <s>] [--oracle <f>]",
-  "                                    [--lens <text>] [--prior <file> | --no-prior]",
+  `  node ${INVOCATION} --round 0 --slug <slug> --oracle <file> [--lens <text>]`,
+  `  node ${INVOCATION} --round <N> --plan <file> [--slug <s>] [--oracle <f>]`,
+  `${FLAG_COLUMN}[--lens <text>] [--prior <file> | --no-prior]`,
   "",
   `  --tier        ${TIERS.join(" | ")} — required from round 1; sets the round budget`,
   "  --dry-run     assemble the prompt and schema, write them, spawn nothing",

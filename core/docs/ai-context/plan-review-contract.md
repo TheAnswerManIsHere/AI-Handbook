@@ -117,7 +117,7 @@ The disposition note attached to a finding is the plan author's own account of
 what it did. **It is not evidence.** Check it against the plan.
 
 **2. Reconcile every previous finding.** Before writing new findings, go through
-each finding from your earlier reviews on this PR and classify it:
+each finding handed to you from an earlier round and classify it:
 
 - **Resolved** — the engineering concern is genuinely addressed in the current
   plan.
@@ -134,14 +134,13 @@ Resolved. Restating a concern as a reassurance is the most common way a plan
 review gets defeated.
 
 Never drop a previous finding silently. If you no longer believe something you
-raised, say so and give the reason. **On the GitHub structured-review surface,
-this classification still happens — it just isn't always posted.** You still
-work through Resolved / Still Open / Superseded for every prior finding before
-writing anything new; only **Still Open** gets a posted Reconciliation finding
-(see *Output*). Resolved and Superseded are silent there, and "silently" in
-this paragraph means *without having done the classification*, not "without
-posting a comment about it" — the GitHub surface's silence is a transport
-limitation you've confirmed, not the failure this paragraph is warning against.
+raised, say so and give the reason. **Every prior finding comes back with a
+status, including the ones you are closing** — Resolved and Superseded are
+reported exactly as Still open is. "Silently" here means *without having done
+the classification*; on the plan surface it also means without reporting it,
+because the assessment has room for all three and the loop's stop rule reads
+them. A prior finding that does not come back is a rejected round, not a
+tidier one.
 
 **3. Report scope the plan did not have last round (David, 2026-08-11).** A
 plan under review is supposed to shrink toward correctness, not grow. Each
@@ -280,16 +279,15 @@ revision. Do not substitute your own model memory for current documentation.
 
 Inspecting the repository is already required above; **showing that you did is
 required too.** An obligation nobody can check is an obligation that decays.
-**This is unconditional on the full-document surface — every review reports it,
-every round.** On the GitHub structured-review surface, this evidence attaches
-to findings that exist (a Required Revision or a genuine Still Open
-Reconciliation states what was checked to reach that verdict) — it is not a
-separate, independent report, and it shares the same accepted ceiling as
-everything else on that surface (see *Non-negotiables* and *Output*): a clean
-round proves nothing was found, not that a search was run. Don't try to
-re-invent a channel for it there; the limitation is already documented and
-accepted. What follows describes the full-document shape and the standard all
-verification is held to, regardless of which surface can fully report it:
+**This is unconditional — every review reports it, every round.** If you are
+reviewing a plan, that is the whole rule and the rest of this paragraph is not
+about you: the full-document surface is the only plan surface, so there is no
+second shape to reconcile with. (For completeness, because the retirement note
+below is about a surface that still exists elsewhere: on the GitHub
+structured-review surface used for **code**, this evidence attaches to findings
+that exist rather than forming a separate report, and a clean round there proves
+nothing was found rather than that a search was run.) What follows describes the
+full-document shape and the standard all verification is held to:
 
 - **Verified** — the plan's material claims you independently checked against
   the repository and confirmed. Name *what you inspected*, not just the

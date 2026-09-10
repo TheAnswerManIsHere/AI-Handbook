@@ -41,6 +41,7 @@ import {
   TIERS,
   LEASH,
   CONTRACT_PATH,
+  USAGE,
   DISPOSITIONS,
   MAX_NOTE_CHARS,
   DEFAULT_MODEL,
@@ -1457,4 +1458,31 @@ test("round 0 refuses an exposed oracle before it spends a reviewer round", () =
   assert.match(log.text(), /NOT ignored by git/);
   assert.equal(run.calls.length, 0, "refused before ANY subprocess -- not even the sign-in probe ran");
   drop(root);
+});
+
+// ── the printed usage names the path THIS checkout has ────────────────────
+
+test("USAGE names the invocation path by computing it, never by hardcoding a layout", () => {
+  // `--help` and every argument-error response print this, which is exactly
+  // what someone copies when they are already confused. The sync routes
+  // `core/X -> X`, so a hardcoded line is wrong in one of the two layouts.
+  // Here that path is core/scripts/; a consumer's is scripts/.
+  const here = "core/scripts/plan-review.mjs";
+  const lines = USAGE.split("\n");
+  assert.ok(
+    lines.includes(`  node ${here} --round 0 --slug <slug> --oracle <file> [--lens <text>]`),
+    "the round-0 line names this checkout's own path",
+  );
+
+  // The source must not carry a hardcoded usage line for either layout —
+  // that is the regression, and it reads as correct from inside the handbook.
+  const src = readFileSync(SCRIPT, "utf8");
+  const usageBlock = src.slice(src.indexOf("export const USAGE"), src.indexOf("export function parseArgs"));
+  assert.doesNotMatch(usageBlock, /node (core\/)?scripts\/plan-review\.mjs/, "usage lines must interpolate, not hardcode");
+
+  // The continuation line aligns under the first flag rather than at a
+  // fixed column, which would drift the moment the path length changes.
+  const second = lines.find((l) => l.includes("--round <N>"));
+  const cont = lines[lines.indexOf(second) + 1];
+  assert.equal(cont.indexOf("["), second.indexOf("--round <N>"), "continuation aligns to the flag column");
 });

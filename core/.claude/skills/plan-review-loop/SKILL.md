@@ -289,15 +289,35 @@ schema field, and the stop rule reads it directly. Keeping a per-round judge on
 top would be a second opinion on a judgement that has already been made
 mechanically.
 
-**The adjudicator still runs in exactly two places**, and both are unchanged:
+**The adjudicator still runs in exactly two places** — at the budget cap,
+where it owns the extension decision, and on an `escalate`, at any round.
+**What changed is where its input comes from and where its verdict goes**, and
+saying "unchanged" here was wrong in a way that made the cap's escape hatch
+undefined for every consumer (Codex, #69 round 7):
 
-- **At the budget cap**, where it owns the extension decision and its verdict
-  is written to the committed `loop-extension-<pr>-<n>.json` receipt.
-- **On an `escalate`**, at any round.
+- **Its input is this loop's round files**, `.agents/reviews/<slug>/round-*.json`
+  and their `.meta.json` siblings. They are script-generated, complete, and
+  carry the trend the judge needs: findings per round, dispositions, statuses,
+  convergence. `review-loop-record.mjs` is **not** available here — it requires
+  `--pr` and a PR snapshot, and a plan loop has neither. The rule those two
+  share is the one that matters and it is unchanged: **the judge reads what the
+  script wrote, never my prose and never a case for continuing written by me.**
+- **Its verdict is recorded as a grant in `extensions.json`**, `kind:
+  "adjudicator"`, with the specific unaddressed behavioural risk in `reason`.
+  That is the file the budget gate actually reads, so a verdict written
+  anywhere else changes nothing — and the old text sent it to a
+  `loop-extension-<pr>-<n>.json` receipt that no plan loop can key. A `stop`
+  verdict writes no grant: the allowance already refuses, and the loop ends
+  there.
+
+`allowanceFor` enforces the leash on that grant mechanically — an `adjudicator`
+grant cannot open a round past budget + 3, and past there the grant is David's,
+`kind: "david"`. So the judge cannot extend itself indefinitely even if a
+verdict tried to.
 
 Everything else about dispatch is unchanged: agent type
-`review-loop-adjudicator`, no per-invocation model or effort, the
-script-generated record as its only input, and its verdict decides.
+`review-loop-adjudicator`, no per-invocation model or effort, and its verdict
+decides.
 
 **This does not touch code loops.** Their round-3 dispatch stands exactly as
 [`claude-core.md`](../../../.agents/core/claude-core.md) states it.
