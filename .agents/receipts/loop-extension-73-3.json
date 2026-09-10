@@ -1,0 +1,7 @@
+{
+  "pr": 73,
+  "kind": "david",
+  "grant": 1,
+  "asOf": 5,
+  "authorization": "David, 2026-09-10, in session, verbatim: \"Round granted.\" Asked directly rather than through an adjudication, and he was told why: round 5 returned one P2 in the round-4 --out fix, which tripped a pre-registered flip condition, so the adjudicator was due to rule before anything was written. Building its record had itself become the expensive part of the loop -- at 30 reviews and 25 threads the captures run to ~40KB of JSON that three of four collections require an agent to transcribe by hand, and mid-transcription I caught myself RECONSTRUCTING the pull request body from an older draft rather than recording what GitHub returned. That is generation, not evidence, and it would have passed every provenance check because the file would have been internally consistent. I deleted it and put the choice to David instead of shipping a record I did not trust. The finding itself is in the internal rubric's critical class: .agents/receipts/ holds 46 tracked files including the loop-budget and loop-extension receipts the merge gates read, and the round-4 fix would have let a typo overwrite one. Grant 1 opens exactly round 6, which is the mandatory write-gate review of commit 75ec6ce and nothing more; the David gate at budget+3 stands where it did. The evidence-path defect is filed as AI-Handbook issue 75."
+}
