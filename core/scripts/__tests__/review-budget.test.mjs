@@ -833,6 +833,20 @@ test("a declared budget with no round-check receipt allows the post, and says th
   assert.match(written.join(""), /review-budget\.mjs check/, "it still says how to make the hook count");
 });
 
+test("David's zero-round receipt refuses even with no round-check receipt", () => {
+  // The counted path refuses this through the allowance arithmetic; the
+  // uncounted path has to recognise it by shape, or losing the ephemeral
+  // receipt would bypass his durable stop. (Codex, #72 round 1.)
+  const io = fakeIo({
+    [budgetPath(1)]: budget(1),
+    [extensionPath(1, 1)]: json({ pr: 1, kind: "david", grant: 0, asOf: 3, authorization: "stop here" }),
+  });
+  const { blocked, reason } = judgeReviewRequest(post(1), io, NOW);
+  assert.equal(blocked, true);
+  assert.match(reason, /grants zero rounds/);
+  assert.match(reason, /with or without a round-check receipt/);
+});
+
 test("a standing terminal verdict refuses even with no round-check receipt", () => {
   // The one thing a missing receipt must not wave through: a dispatched stop
   // decides, and no count is needed to know it is standing.

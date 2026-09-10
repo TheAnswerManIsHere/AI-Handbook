@@ -510,9 +510,10 @@ adjudicator, the leash, and the David gate all in force. While watching an imple
      one that was already true when written — fires the adversarial subagent
      before the round proceeds.
 
-  The round count is stated in each round's context comment; the guard
-  counts it from fresh GitHub evidence (a round-check receipt) and refuses
-  past the budget. Because a round is a *completed reviewer pass*, a request
+  The round count is stated in each round's context comment; when handed a
+  round-check receipt the guard counts it from that fresh GitHub evidence and
+  refuses past the budget, and without one it allows the post uncounted and
+  says so. Because a round is a *completed reviewer pass*, a request
   that stalls and gets retried costs one round, not two — the count corrects
   itself the moment the retry's pass lands, with nothing to reconcile.
 

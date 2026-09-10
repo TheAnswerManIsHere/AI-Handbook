@@ -603,9 +603,12 @@ the safety net a non-code-reading product manager depends on.
 - **The budget is declared before round 1** — `product` (5 rounds) or
   `sensitive` (5 rounds; auth/payments/migrations) — and enforced by
   `scripts/review-budget.mjs`, which refuses the `@codex review` post when the
-  loop is out of rounds. Rounds are **counted fresh from GitHub every time**,
-  never stored: a committed tally is a cache of state GitHub already holds, and
-  it failed exactly that way when it was tried.
+  loop is out of rounds **and it has been handed a count** — below the cap a
+  post with no round-check receipt is allowed and noted (David, 2026-09-10);
+  near the cap the count is run so the guard enforces it. When rounds are
+  counted they are **counted fresh from GitHub**, never stored: a committed
+  tally is a cache of state GitHub already holds, and it failed exactly that
+  way when it was tried.
 - **From round 3 onward, the external adjudicator rules on any round that
   returned findings — before anything is written for them** (David,
   2026-08-22, superseding the 2026-08-20 beyond-the-first cadence). Rounds
