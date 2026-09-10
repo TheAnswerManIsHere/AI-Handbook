@@ -62,7 +62,6 @@
  * USAGE
  * -----
  *   node <this file> --role probe
- *   node <this file> --role probe            # receipt to stdout, as JSON
  *
  *   --role <id>     a role with a definition under .agents/fable-roles/
  *   --brief <path>  the brief file. REFUSED for the probe, whose brief this
@@ -912,7 +911,6 @@ export function parseArgs(argv) {
     i += 1;
     if (a === "--role") out.role = v;
     else if (a === "--brief") out.brief = v;
-    else if (a === "--out") out.out = v;
     else if (a === "--timeout") out.timeout = Number(v);
   }
   if (!out.role) throw new Error("--role is required");
