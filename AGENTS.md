@@ -57,9 +57,13 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   finding that needs the operator to supply a hostile value *to their own
   command* — a planted symlink, a hard link, a path they would have to type on
   purpose — is out of scope here, however real the shape would be elsewhere.
-  Where such a value is under the script's own control, the fix worth
-  proposing is **derive it instead of accepting it as input**, which removes
-  the class rather than guarding one instance of it.
+  Two kinds of argv, and the response differs: a value the script could
+  **derive** from what it already holds should not be an input at all — the
+  fix worth proposing is *derive it*, which removes the class rather than
+  guarding one instance; a value that encodes the operator's **choice**
+  (`--role`, `--timeout`, a destination repo) stays an input, and a cheap
+  well-formedness check on it — non-empty, numeric, exists — is in scope as
+  a mistake catch, while a hostile-value defence on it is not.
 - **This does NOT extend to input produced by another program, and the guard
   is the case that matters.** `core/scripts/guard-decision.mjs` reads a
   `PreToolUse` payload from stdin and evaluates the `tool_input.command` an

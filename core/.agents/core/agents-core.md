@@ -116,17 +116,25 @@ Prefer, in order:
 - **A check earns its place only when the value can differ from what you
   intended — which requires something outside your control to have produced
   it.** A harness report, a network response, a real user, another program's
-  output: observe those and refuse on disagreement. A value this code or its
-  own operator produces: **derive it instead of checking it.** A check whose
-  two sides you both own carries no independent information — it fails only
-  when the code between them is wrong, and that code is exactly as likely to
-  be wrong as the check. A hand-run script's **argv** is the standing case:
-  its threat model is the operator's own mistakes, never an adversary, so a
-  finding that needs that operator to supply a hostile value to their own
-  command is out of scope, and the useful response is to remove the input,
-  not to guard it (AI-Handbook #7: eleven findings and no added safety;
-  AI-Handbook #73: four review rounds on one flag, then the flag was
-  deleted).
+  output: observe those and refuse on disagreement. Everything a hand-run
+  script gets from its own operator's argv falls into one of two kinds, and
+  the rule differs:
+  - **Derivable** — the script already holds every input needed to compute
+    it (a receipt path from role and head). **Derive it; do not take it as
+    input at all.** A check whose two sides you both own carries no
+    independent information — it fails only when the code between them is
+    wrong, and that code is exactly as likely to be wrong as the check
+    (AI-Handbook #73: four review rounds on one flag, then the flag was
+    deleted).
+  - **A choice** — it encodes intent the script cannot know (`--role`,
+    `--timeout`, `sync --to <repo>`). Take it. A cheap check that it is
+    well-formed — non-empty, numeric where a number is expected, a path that
+    exists — is catching the operator's own mistake, which is exactly the
+    threat model, and stays. A defence against a *hostile* value of it — a
+    planted symlink, a traversal, a hard link the operator would have to
+    create on purpose — is not, and the response to such a finding is to
+    decline it, not to guard (AI-Handbook #7: eleven findings and no added
+    safety).
   **Ask who produced the value, never which directory the file sits in.** A
   script that parses a hook payload, a fetched document, a webhook body or
   another program's output is reading something it does not control, however

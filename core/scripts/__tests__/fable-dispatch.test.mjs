@@ -627,6 +627,45 @@ test("R7-2: two failed attempts carry their spend on the error", () => {
   }
 });
 
+// --- Codex #73 round 9 -----------------------------------------------------
+
+test("R9-1: a process that did not exit cleanly is still recorded as an attempt", () => {
+  // The throw used to happen before attempts.push, so the one attempt that
+  // failed was the one missing from the accounting main() prints.
+  try {
+    dispatchP({
+      root: ROOT,
+      role: "probe",
+      runGit: fakeGit(),
+      runner: () => ({ stdout: goodStream("n0nce"), status: 1 }),
+      nonce: "n0nce",
+    });
+    assert.fail("expected a refusal");
+  } catch (e) {
+    assert.match(e.message, /did not exit cleanly/);
+    assert.equal(e.attempts.length, 1, "the failed attempt is recorded");
+    assert.equal(e.attempts[0].costUsd, null, "its cost is unknown, not zero");
+    assert.match(e.attempts[0].problems[0], /exit status 1/);
+  }
+});
+
+test("R9-2: an unstamped final assistant event clears an earlier stamp", () => {
+  // Earlier: `if (e.message?.model)` kept the first stamp alive through an
+  // unstamped final event, and the receipt then named a model that was
+  // observed on a message which did not produce the answer.
+  const stream = [
+    initEvent(),
+    assistantEvent("claude-fable-5-1"),
+    JSON.stringify({ type: "assistant", message: { content: [] } }),
+    resultEvent({ challenge: "n0nce", claudemd: "no", tools: ["Read"] }),
+  ].join("\n");
+  assert.equal(parseStream(stream).answerModel, null, "the stamp is the LAST event's, or null");
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n0nce" }),
+    /final assistant message carried no `model` stamp/,
+  );
+});
+
 // --- Codex #73 round 2: observed, or refused -- never coerced ----------------
 
 test("R2-1: exit 2 is reserved for a dispatch where nothing ran", () => {

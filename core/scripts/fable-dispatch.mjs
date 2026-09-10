@@ -414,7 +414,12 @@ export function parseStream(text) {
       continue;
     }
     if (e.type === "system" && e.subtype === "init") init = e;
-    else if (e.type === "assistant" && e.message?.model) answerModel = e.message.model;
+    // Every assistant event REPLACES the stamp, an unstamped one included.
+    // Keeping only stamped events let an earlier stamp survive an unstamped
+    // final event, and the receipt then named a model observed on a message
+    // that did not produce the answer (Codex, #73 round 9). Now the stamp is
+    // the last assistant event's or it is null, and null refuses downstream.
+    else if (e.type === "assistant") answerModel = e.message?.model ?? null;
     else if (e.type === "result") result = e;
   }
   return { init, result, answerModel };
@@ -521,8 +526,9 @@ export function assertLaunchSurface(init, contract, { expectedSessionId = null }
 export function assertAnswerModel(answerModel, contract) {
   if (!answerModel) {
     throw new Error(
-      "no assistant message in the stream carried a `model` stamp, so nothing says which model produced the " +
-        "answer. Refusing rather than falling back to the run's aggregate usage, which cannot attribute.",
+      "the final assistant message carried no `model` stamp, so nothing says which model produced the " +
+        "answer -- an earlier message's stamp does not attribute a later one. Refusing rather than falling " +
+        "back to the run's aggregate usage, which cannot attribute either.",
     );
   }
   if (answerModel !== contract.model) {
@@ -806,7 +812,16 @@ export function dispatch({
         : run.error
           ? `spawn error ${run.error.code ?? run.error.message}`
           : `exit status ${run.status}`;
-      throw new Error(`the reviewer process did not exit cleanly (${why}); its output is not evidence and no receipt is written`);
+      // The attempt ran and may have billed; record it with its cost UNKNOWN
+      // rather than dropping it, so main() can still print what was spent.
+      // This was the one post-launch throw site left outside the accounting
+      // after rounds 7 and 8 (Codex, #73 round 9) -- it threw before the
+      // attempt was pushed, so withSpend() would have attached an array
+      // missing exactly the attempt in question.
+      attempts.push({ attempt, problems: [`process did not exit cleanly (${why})`], costUsd: null, modelUsage: null });
+      const err = new Error(`the reviewer process did not exit cleanly (${why}); its output is not evidence and no receipt is written`);
+      err.attempts = attempts;
+      throw err;
     }
     const { init, result, answerModel: stampedModel } = parseStream(run.stdout);
 
