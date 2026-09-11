@@ -433,19 +433,31 @@ export function buildArgv(contract, { schemaJson, sessionId, debugFile = null })
  * this script did not itself compose.
  *
  * MEASURED, not guessed, and the measurement is the whole basis for the
- * number. On Claude Code 2.1.268 in this container, with a replaced system
- * prompt and no tools, a dispatch's first request carried 804 prompt tokens
- * against ~56 characters of composed content -- so the harness's own framing
- * was ~790 tokens. A role holding `Read` and a JSON schema carries more, and
- * the live probe run recorded in `fable-dispatch.md` is what sets the figure
- * below.
+ * number. Claude Code 2.1.268 in this container, 2026-09-11:
  *
- * The same host, with DEFAULT setting sources, carried 17,810 tokens for the
- * same request: the repository's instructions arriving despite the replaced
- * system prompt. That is the contamination this bound exists to refuse, and
- * the gap between 804 and 17,810 is why a generous allowance still catches it.
+ *   - a replaced system prompt and NO tools: 804 prompt tokens against ~56
+ *     characters of composed content, so framing alone was ~790 tokens.
+ *   - the real probe, holding `Read` and a JSON schema (which adds
+ *     `StructuredOutput`): 3,269 observed against 3,575 characters composed.
+ *     English and JSON tokenize at roughly 3.5-4 characters each, so the
+ *     composed half is ~950 tokens and the framing is **~2,300** -- the tool
+ *     definitions, and the harness's own system additions.
+ *
+ * 3,500 leaves about 50% headroom over that. The first figure the probe ran
+ * against was 2,000, which the live run passed only because material the run
+ * itself delivered padded the bound -- material that was not in the request
+ * being measured. A bound that passes for the wrong reason is a bound that
+ * refuses the next legitimate dispatch, so it is set from the framing itself.
+ *
+ * It still catches what it exists to catch by a wide margin. The same host
+ * with DEFAULT setting sources carried 17,810 tokens for the trivial request
+ * above -- the repository's instructions arriving despite a replaced system
+ * prompt. Against a probe-sized bound of ~7,500 that is refused several times
+ * over, which is the asymmetry this number is chosen for: a false refusal
+ * costs a dispatch every run, and the thing being caught is an order of
+ * magnitude away.
  */
-export const HARNESS_FRAMING_TOKENS = 2_000;
+export const HARNESS_FRAMING_TOKENS = 3_500;
 
 /**
  * Characters per token, for turning what the script sent into a token bound.
