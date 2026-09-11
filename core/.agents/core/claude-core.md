@@ -466,12 +466,17 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    **A fix needs both a real likelihood and a real consequence** (David,
    2026-09-10). The reply names the **`Class:`** first, then a **`Worth:`**
    line answered against that class. `Worth:` asks **who supplies the
-   value** before anything else: if this code or its own operator does, I
-   remove the input and derive the value — never a check, because a check
-   whose two sides I own guards nothing (David, 2026-09-10: *"you control
-   both sides"*; #73 spent four rounds on one flag before deleting it) —
-   and that is a write, not a decline: the code moves, so a review round is
-   owed. Only for a value from outside my control does it go on to ask the
+   value** before anything else. If this code or its own operator does, two
+   kinds differ: **derivable** — this code already holds everything needed to
+   compute it — and I remove the input and derive the value, never a check,
+   because a check whose two sides I own guards nothing (David, 2026-09-10:
+   *"you control both sides"*; #73 spent four rounds on one flag before
+   deleting it); that is a write, not a decline, so a review round is owed.
+   **A choice** — intent this code cannot know (`--role`, `--timeout`,
+   `sync --to`) — stays an input: a cheap well-formedness check (non-empty,
+   numeric, a path that exists) catches the operator's own mistake and is in
+   scope; a hostile-value defence on it is not, and that finding is declined.
+   Only for a value from outside my control does it go on to ask the
    chance the class occurs and what it costs at its worst; missing either,
    it is a one-line decline shipped as a recorded gap —
    however small the diff looks, because each one costs a

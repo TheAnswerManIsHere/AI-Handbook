@@ -473,7 +473,7 @@ test("the entry-point guard uses pathToFileURL, not a hand-built file:// string"
   // AI-Handbook #11: a hand-built `file://` string differs from
   // `import.meta.url` whenever the checkout path needs escaping, and the
   // script then exits 0 having evaluated nothing.
-  const src = fs.readFileSync(path.join(ROOT, "core/scripts/fable-dispatch.mjs"), "utf8");
+  const src = fs.readFileSync(path.join(HERE, "..", "fable-dispatch.mjs"), "utf8");
   assert.match(src, /import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/);
   assert.doesNotMatch(src, /`file:\/\/\$\{/);
 });
@@ -746,4 +746,75 @@ test("R2-7 (found in the audit): a total is only a total when every attempt was 
 test("a result event whose subtype is not success is a problem", () => {
   const stream = [initEvent(), assistantEvent(), resultEvent({ challenge: "n" }, { subtype: "error_max_turns" })].join("\n");
   assert.throws(() => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" }), /two attempts/);
+});
+
+// --- Codex #73 round 10 (AI-Handbook #76): the accounting class, not a site ---
+
+test("R10-1: a launch-surface refusal still records the attempt that ran, with its cost", () => {
+  // The class: `main()` prints accounting from `e.attempts` and nowhere else,
+  // so any refusal raised after the subprocess returned but BEFORE
+  // `attempts.push` drops the record of an attempt that already billed. Rounds
+  // 7, 8, 9 and 10 each found one site of it; this is round 10's -- the
+  // launch-surface refusal, which ran before the push.
+  const stream = [initEvent({ tools: ["Read", "Bash"] }), assistantEvent(), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
+  try {
+    dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" });
+    assert.fail("expected a refusal");
+  } catch (e) {
+    assert.match(e.message, /forbidden tool\(s\): Bash/);
+    assert.equal(e.attempts?.length, 1, "the attempt that ran is present in the accounting");
+    assert.equal(e.attempts[0].attempt, 1);
+    assert.equal(e.attempts[0].costUsd, 0.085, "its cost was observed and is reported");
+    assert.deepEqual(e.attempts[0].modelUsage, { "claude-haiku-4-5-20251001": { outputTokens: 9 }, "claude-fable-5-1": { outputTokens: 40 } });
+  }
+});
+
+test("R10-1: the answer-model refusal also records its attempt's cost", () => {
+  // The same class through a different assertion. Both attempts run (the model
+  // refusal is not a retry), so both must appear.
+  const stream = [initEvent(), assistantEvent("claude-opus-5"), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
+  try {
+    dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" });
+    assert.fail("expected a refusal");
+  } catch (e) {
+    assert.equal(e.attempts?.length, 1);
+    assert.equal(e.attempts[0].costUsd, 0.085);
+  }
+});
+
+test("R10-1: a bare post-launch exception still carries the attempt record", () => {
+  // The invariant, exercised rather than asserted. An earlier version of this
+  // test compared the lexical positions of `attempts.push(` and the first
+  // guarded call, which establishes ordering and NOT that every error carries
+  // the accounting: `parseStream` threw a bare TypeError on a malformed stream,
+  // after the push and outside any guard, and `main()` printed nothing for an
+  // attempt that had billed (Codex, AI-Handbook #77 round 1).
+  //
+  // `stdout` is read only after the attempt is recorded, so a getter that
+  // throws is an arbitrary unexpected exception in the post-launch region --
+  // the class, not one instance of it, and no seam in the script to allow it.
+  try {
+    dispatchP({
+      root: ROOT,
+      role: "probe",
+      runGit: fakeGit(),
+      runner: () => ({ get stdout() { throw new Error("something nobody anticipated"); } }),
+      nonce: "n",
+    });
+    assert.fail("expected the exception to propagate");
+  } catch (e) {
+    assert.match(e.message, /something nobody anticipated/);
+    assert.equal(e.attempts?.length, 1, "the billed attempt reaches main()'s accounting");
+    assert.equal(e.attempts[0].attempt, 1);
+  }
+});
+
+test("R10-1: a stream line that is valid JSON but not an object is skipped, not fatal", () => {
+  // `JSON.parse("null")` returns null without throwing, and reading `.type`
+  // off it threw out of a parser whose contract is to skip what it cannot use.
+  assert.deepEqual(parseStream("null"), { init: null, result: null, answerModel: null });
+  for (const junk of ["null", "42", '"a string"', "true"]) {
+    const stream = [junk, initEvent(), assistantEvent(), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
+    assert.equal(dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" }).nonceMatched, true, junk);
+  }
 });
