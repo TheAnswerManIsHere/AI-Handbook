@@ -275,9 +275,63 @@ export function machineryConfig(io = nodeIo()) {
           MACHINERY_CONFIG_HOWTO,
       );
     }
-    CONFIG_CACHE.set(key, { repo, requiredChecks: list });
+    CONFIG_CACHE.set(key, { repo, requiredChecks: list, models: parsed?.models ?? null });
   }
   return CONFIG_CACHE.get(key);
+}
+
+/**
+ * The model a TIER resolves to, and the effort it runs at.
+ *
+ * "Fable" and "Astra" name the strongest model from each family, not a
+ * version (David, 2026-09-11). Every role definition and every reviewer pin
+ * names a tier; this is the one place a tier becomes an id, so a new model
+ * release is a one-value edit rather than a sweep through definitions,
+ * scripts and documents.
+ *
+ * A FULL ID, NEVER AN ALIAS, and the refusal is the same one the role
+ * definitions used to carry: a dispatch stamps the id it asked for against
+ * the id that answered, and `fable` compared to `claude-fable-5-1` establishes
+ * nothing. Moving the id into configuration moves that check here; it does not
+ * remove it.
+ *
+ * Fails closed on every shape: no block, no tier, no id, an alias-shaped id.
+ * The alternative is a dispatch that silently runs on whatever the provider
+ * picks, which is precisely the "probably ran on 5.1" this machinery exists
+ * to replace with an observation.
+ */
+export const MODEL_TIERS = ["strongestClaude", "strongestCodex"];
+
+const FULL_MODEL_ID = /^[a-z][a-z0-9.]*(-[a-z0-9.]+)+$/;
+
+export function modelTier(tier, io = nodeIo()) {
+  const { models } = machineryConfig(io);
+  if (!models || typeof models !== "object") {
+    throw new Error(
+      `${MACHINERY_CONFIG_FILE} declares no "models" block, so the tier "${tier}" cannot be resolved to a ` +
+        `model id. Add it: {"models": {"strongestClaude": {"id": "<full model id>", "effort": "<level>"}, ` +
+        `"strongestCodex": {"id": "<full model id>", "effort": "<level>"}}}.`,
+    );
+  }
+  const entry = models[tier];
+  if (!entry || typeof entry !== "object") {
+    throw new Error(
+      `${MACHINERY_CONFIG_FILE}'s "models" block declares no "${tier}". Known tiers: ${MODEL_TIERS.join(", ")}.`,
+    );
+  }
+  const id = typeof entry.id === "string" ? entry.id.trim() : "";
+  if (!id) throw new Error(`${MACHINERY_CONFIG_FILE}'s models.${tier} declares no "id"`);
+  if (!FULL_MODEL_ID.test(id)) {
+    throw new Error(
+      `${MACHINERY_CONFIG_FILE}'s models.${tier}.id is ${JSON.stringify(id)}, which is an alias or an ` +
+        `unrecognised id. A dispatch stamps the model it asked for against the model that answered, and an ` +
+        `alias cannot be compared -- "it ran on the strongest tier" would be probably-true and never ` +
+        `established. Declare a full model id (for example claude-fable-5-1, or gpt-6-astra).`,
+    );
+  }
+  const effort = typeof entry.effort === "string" ? entry.effort.trim() : "";
+  if (!effort) throw new Error(`${MACHINERY_CONFIG_FILE}'s models.${tier} declares no "effort"`);
+  return { tier, id, effort };
 }
 
 export function repoSlug(io = nodeIo()) {

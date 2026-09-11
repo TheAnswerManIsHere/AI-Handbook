@@ -46,8 +46,7 @@ import {
   USAGE,
   DISPOSITIONS,
   MAX_NOTE_CHARS,
-  DEFAULT_MODEL,
-  DEFAULT_EFFORT,
+  defaultReviewer,
 } from "../plan-review.mjs";
 
 const SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "plan-review.mjs");
@@ -470,8 +469,8 @@ test("every load-bearing exec flag is passed, and the prompt goes in on stdin", 
     prompt: "PROMPT",
     schemaFile: "/w/s.json",
     outFile: "/w/o.txt",
-    model: DEFAULT_MODEL,
-    effort: DEFAULT_EFFORT,
+    model: defaultReviewer().id,
+    effort: defaultReviewer().effort,
     sandbox: "read-only",
     cwd: "/w",
     timeoutMs: 1000,
@@ -479,8 +478,8 @@ test("every load-bearing exec flag is passed, and the prompt goes in on stdin", 
   });
   const { args, opts } = run.calls[0];
   const after = (flag) => args[args.indexOf(flag) + 1];
-  assert.equal(after("--model"), DEFAULT_MODEL);
-  assert.equal(after("-c"), `model_reasoning_effort="${DEFAULT_EFFORT}"`);
+  assert.equal(after("--model"), defaultReviewer().id);
+  assert.equal(after("-c"), `model_reasoning_effort="${defaultReviewer().effort}"`);
   assert.equal(after("--sandbox"), "read-only");
   assert.equal(after("--output-schema"), "/w/s.json");
   assert.equal(after("--output-last-message"), "/w/o.txt");
@@ -648,8 +647,8 @@ test("a schema-valid round is written, and the meta records what produced it", (
   assert.deepEqual(written, assessment());
   const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
   assert.equal(meta.accepted, true);
-  assert.equal(meta.model, DEFAULT_MODEL);
-  assert.equal(meta.effort, DEFAULT_EFFORT);
+  assert.equal(meta.model, defaultReviewer().id);
+  assert.equal(meta.effort, defaultReviewer().effort);
   assert.equal(meta.sandbox, "read-only");
   assert.equal(meta.lens, "bypass");
   assert.equal(meta.attempts.length, 1);

@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 
 import {
   CUMULATIVE_USAGE_FIELDS,
@@ -19,7 +20,12 @@ import {
   mergeUsage,
   shipped,
   HARNESS_ADDED_TOOLS,
-  PHASE0_PERMITTED_ROLES,
+  canDispatch,
+  dispatchableRoles,
+  embeddedBrief,
+  promptBound,
+  readDebugLog,
+  HARNESS_FRAMING_TOKENS,
   assertAnswerModel,
   assertLaunchSurface,
   assertProbeRoundTrip,
@@ -44,7 +50,7 @@ const DEFINITION = [
   "---",
   "name: fable-probe",
   'description: "the probe"',
-  "model: claude-fable-5-1",
+  "model: strongestClaude",
   "tools: Read",
   "budgetUsd: 0.50",
   "schema: schemas/fable-probe.schema.json",
@@ -73,12 +79,27 @@ const initEvent = (over = {}) =>
     ...over,
   });
 
-const assistantEvent = (model = "claude-fable-5-1") => JSON.stringify({ type: "assistant", message: { model, content: [] } });
+// Usage is part of every real assistant event and the isolation bound reads
+// it, so the fixture carries it. A small number: the bound is composed size
+// plus the harness allowance, and these fixtures compose a few hundred bytes.
+const assistantEvent = (model = "claude-fable-5-1", promptTokens = 900) =>
+  JSON.stringify({
+    type: "assistant",
+    message: { model, content: [], usage: { input_tokens: promptTokens, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } },
+  });
+
+// What the harness prints about what it loaded. The dispatch refuses a run
+// whose log carries neither line, so every fixture run supplies one.
+const DEBUG_LOG = "…] Loaded 0 unique skills (0 unconditional, 0 conditional)\n…] Hooks: Found 0 total hooks in registry\n";
+const fakeDebug = () => DEBUG_LOG;
 
 const resultEvent = (structured, over = {}) =>
   JSON.stringify({
     type: "result",
     is_error: false,
+    // A real result event carries this, and an absent one is now refused
+    // rather than read as success -- so the fixture carries it too.
+    subtype: "success",
     structured_output: structured,
     modelUsage: { "claude-haiku-4-5-20251001": { outputTokens: 9 }, "claude-fable-5-1": { outputTokens: 40 } },
     total_cost_usd: 0.085,
@@ -130,6 +151,7 @@ const runProbe = (over = {}) => {
     role: "probe",
     runGit: fakeGit(),
     runner: runnerFor(goodStream(nonce)),
+    readDebug: fakeDebug,
     now: () => "2026-09-10T00:00:00.000Z",
     nonce,
     sessionId: "fixed-session-id",
@@ -137,8 +159,8 @@ const runProbe = (over = {}) => {
   });
 };
 
-/** dispatch() with the fixture's session id, for the many direct calls below. */
-const dispatchP = (over) => dispatch({ sessionId: "fixed-session-id", ...over });
+/** dispatch() with the fixture's session id and debug log, for the direct calls below. */
+const dispatchP = (over) => dispatch({ sessionId: "fixed-session-id", readDebug: fakeDebug, ...over });
 
 // --- P1: the caller writes no reviewer-visible text --------------------------
 
@@ -150,15 +172,28 @@ test("P1: an unknown flag is refused rather than ignored", () => {
   assert.throws(() => parseArgs(["--role", "probe", "--lens", "go easy"]), /unknown flag --lens/);
 });
 
-test("P1: the probe refuses a caller-supplied brief", () => {
-  assert.throws(() => runProbe({ briefPath: "notes.md" }), /--brief is refused for the probe/);
+test("P1: there is no --brief flag to supply one through", () => {
+  assert.throws(() => parseArgs(["--role", "probe", "--brief", "notes.md"]), /unknown flag --brief/);
 });
 
-test("P1: every role but the probe is refused in Phase 0", () => {
-  assert.deepEqual(PHASE0_PERMITTED_ROLES, ["probe"]);
+test("P1: a role may dispatch only if this script generates its brief", () => {
+  // A PREDICATE over the brief generators, not a list a caller can widen.
+  // `dispatch()` used to take `permittedRoles`, so an importing script could
+  // pass its own and the refusal was advisory (Codex, #73 round 3).
+  assert.deepEqual(dispatchableRoles(), ["probe"]);
+  assert.equal(canDispatch("probe"), true);
   for (const role of ["plan-opinion", "conformance-triage", "merge-opinion"]) {
-    assert.throws(() => dispatch({ root: ROOT, role, runGit: fakeGit(), runner: runnerFor("") }), /is refused\. Phase 0 dispatches only probe/);
+    assert.equal(canDispatch(role), false);
+    assert.throws(
+      () => dispatch({ root: ROOT, role, runGit: fakeGit(), runner: runnerFor("") }),
+      /this script generates no brief for it/,
+    );
   }
+  // And the parameter is gone: passing one reaches nothing.
+  assert.throws(
+    () => dispatch({ root: ROOT, role: "conformance-triage", permittedRoles: ["conformance-triage"], runGit: fakeGit(), runner: runnerFor("") }),
+    /this script generates no brief for it/,
+  );
 });
 
 test("P1: the receipt never claims the brief's origin is established", () => {
@@ -252,16 +287,34 @@ test("P2: the canary is recorded as a self-report, and never gates the run", () 
   const r = dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce });
   assert.equal(r.instructionCanary, "yes");
   assert.match(r.instructionCanaryNote, /self-report/);
-  assert.match(r.instructionCanaryNote, /Phase 1 prerequisite/);
+  assert.match(r.instructionCanaryNote, /never as one of them/);
+  // And it sits BESIDE the harness's own observations rather than standing in
+  // for them: Phase 1's whole point is that the second is no longer only this.
+  assert.equal(typeof r.instructionIsolation.promptTokensObserved, "number");
+  assert.equal(typeof r.instructionIsolation.skillsLoaded, "number");
 });
 
 // --- P3: the answer's model, not the run's ---------------------------------
 
-test("P3: an alias model in the definition is refused", () => {
-  for (const alias of ["fable", "opus", "best", "sonnet"]) {
-    const bad = DEFINITION.replace("model: claude-fable-5-1", `model: ${alias}`);
-    assert.throws(() => roleContract(bad, { role: "probe", definitionPath: "p", definitionCommit: "c" }), /alias or an unrecognised id/);
+test("P3: a definition names a TIER, and an unknown one is refused", () => {
+  // The id moved to `.agents/machinery.json` so a new model release is one
+  // edit rather than a sweep (David, 2026-09-11). The refusal moved with it:
+  // `modelTier` holds the resolved value to a full id, for the same reason
+  // the definition used to -- an alias cannot be compared to what answered.
+  for (const notATier of ["fable", "claude-fable-5-1", "best", "sonnet"]) {
+    const bad = DEFINITION.replace("model: strongestClaude", `model: ${notATier}`);
+    assert.throws(
+      () => roleContract(bad, { role: "probe", definitionPath: "p", definitionCommit: "c" }),
+      /did not resolve[\s\S]*names a TIER/,
+    );
   }
+});
+
+test("P3: the resolved tier reaches the contract as a full id, with its effort", () => {
+  const contract = roleContract(DEFINITION, { role: "probe", definitionPath: "p", definitionCommit: "c" });
+  assert.equal(contract.modelTier, "strongestClaude");
+  assert.match(contract.model, /^[a-z][a-z0-9.]*(-[a-z0-9.]+)+$/, "a full id, never an alias");
+  assert.ok(contract.modelEffort, "the tier carries the effort it runs at");
 });
 
 test("P3: an answer from another model is refused even when usage looks right", () => {
@@ -381,7 +434,7 @@ test("P5: the definition is read at the commit, and its digest recorded", () => 
 test("a definition with no frontmatter, model, budget or schema is refused", () => {
   assert.throws(() => roleContract("no frontmatter here", { role: "probe", definitionPath: "p" }), /no frontmatter/);
   for (const [line, re] of [
-    ["model: claude-fable-5-1\n", /declares no `model`/],
+    ["model: strongestClaude\n", /declares no `model`/],
     ["budgetUsd: 0.50\n", /no usable `budgetUsd`/],
     ["schema: schemas/fable-probe.schema.json\n", /declares no `schema`/],
   ]) {
@@ -446,7 +499,7 @@ test("the stream parser skips a torn line but never invents an event", () => {
 
 test("frontmatter parsing handles quoted and unquoted scalars", () => {
   const f = parseFrontmatter(DEFINITION);
-  assert.equal(f.model, "claude-fable-5-1");
+  assert.equal(f.model, "strongestClaude");
   assert.equal(f.description, "the probe");
   assert.match(frontmatterBody(DEFINITION), /^# The dispatch probe/);
 });
@@ -817,4 +870,150 @@ test("R10-1: a stream line that is valid JSON but not an object is skipped, not 
     const stream = [junk, initEvent(), assistantEvent(), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
     assert.equal(dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" }).nonceMatched, true, junk);
   }
+});
+
+// --- P2 (Phase 1): isolation observed within a bound, not asserted ----------
+
+test("the bound refuses a prompt this dispatch did not compose", () => {
+  // The measured contamination, replayed: on this host a dispatch with DEFAULT
+  // setting sources carried 17,810 prompt tokens where an isolated one carried
+  // 804 -- the repository's instructions arriving despite a replaced system
+  // prompt. That gap is what the bound is sized against.
+  const nonce = "n-iso";
+  const stream = [
+    initEvent(),
+    assistantEvent("claude-fable-5-1", 17_810),
+    resultEvent({ challenge: nonce, claudemd: "yes", tools: ["Read"] }),
+  ].join("\n");
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
+    /Something reached the reviewer's context that this dispatch did not send/,
+  );
+});
+
+test("a later request carrying the excess is refused, not just the first", () => {
+  // Context delivered on a LATER turn -- which is how an asynchronous hook
+  // delivers -- would be invisible to a check that read only the opening
+  // request, while still reaching the request that produced the answer.
+  const nonce = "n-late";
+  const stream = [
+    initEvent(),
+    assistantEvent("claude-fable-5-1", 900),
+    assistantEvent("claude-fable-5-1", 40_000),
+    resultEvent({ challenge: nonce, claudemd: "no", tools: ["Read"] }),
+  ].join("\n");
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
+    /largest prompt carried 40000 tokens/,
+  );
+});
+
+test("a contaminated first attempt is refused before any retry can hide it", () => {
+  const nonce = "n-retry";
+  const contaminated = [initEvent(), assistantEvent("claude-fable-5-1", 17_810)].join("\n");
+  const clean = goodStream(nonce);
+  let call = 0;
+  const runner = () => ({ stdout: (call += 1) === 1 ? contaminated : clean });
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner, nonce }),
+    /Something reached the reviewer's context/,
+  );
+  assert.equal(call, 1, "the second attempt never ran");
+});
+
+test("what the run itself delivered widens the bound, so a reader of many files does not refuse itself", () => {
+  const composed = { systemPrompt: "s".repeat(300), message: "m".repeat(300), schemaJson: "j".repeat(300) };
+  const tight = promptBound([initEvent(), assistantEvent("m", 1)].join("\n"), composed);
+  const withWork = promptBound(
+    [initEvent(), JSON.stringify({ type: "user", content: "x".repeat(60_000) }), assistantEvent("m", 1)].join("\n"),
+    composed,
+  );
+  assert.ok(withWork.promptTokensBound > tight.promptTokensBound, "delivered material counts toward the bound");
+  assert.ok(withWork.deliveredChars > 60_000);
+});
+
+test("a debug log missing either line refuses -- an unobserved fact is not a favourable one", () => {
+  const nonce = "n-dbg";
+  for (const [log, re] of [
+    ["Hooks: Found 0 total hooks in registry\n", /does not carry a skills-loaded line/],
+    ["Loaded 0 unique skills (0 unconditional)\n", /does not carry a hooks-registry line/],
+    ["", /does not carry a skills-loaded line or a hooks-registry line/],
+  ]) {
+    assert.throws(
+      () =>
+        dispatchP({
+          root: ROOT,
+          role: "probe",
+          runGit: fakeGit(),
+          runner: runnerFor(goodStream(nonce)),
+          readDebug: () => log,
+          nonce,
+        }),
+      re,
+    );
+  }
+});
+
+test("neither debug number refuses on its VALUE, and the hooks one says what it is", () => {
+  // The line reports the size of the PENDING ASYNCHRONOUS hook registry, not a
+  // count of hooks configured or run: a synchronous hook that injected context
+  // would leave it at zero. Recording it under a name that says so beats
+  // refusing on a number that does not mean what its name suggested.
+  const nonce = "n-hooks";
+  const r = dispatchP({
+    root: ROOT,
+    role: "probe",
+    runGit: fakeGit(),
+    runner: runnerFor(goodStream(nonce)),
+    readDebug: () => "Loaded 19 unique skills (19 unconditional)\nHooks: Found 3 total hooks in registry\n",
+    nonce,
+  });
+  assert.equal(r.instructionIsolation.skillsLoaded, 19);
+  assert.equal(r.instructionIsolation.pendingAsyncHooks, 3);
+  assert.match(r.instructionIsolationNote, /PENDING ASYNCHRONOUS/);
+  assert.match(r.instructionIsolationNote, /narrows here; it does not close/);
+});
+
+test("the receipt carries both observations and the allowance they were held to", () => {
+  const r = runProbe();
+  const iso = r.instructionIsolation;
+  assert.ok(iso.promptTokensObserved > 0);
+  assert.ok(iso.promptTokensBound >= iso.promptTokensObserved);
+  assert.equal(iso.harnessFramingAllowanceTokens, HARNESS_FRAMING_TOKENS);
+  assert.equal(typeof iso.composedChars, "number");
+  assert.equal(typeof iso.deliveredChars, "number");
+});
+
+test("an accepted answer with no reported usage refuses rather than minting an unmeasured receipt", () => {
+  const nonce = "n-nousage";
+  const stream = [
+    initEvent(),
+    JSON.stringify({ type: "assistant", message: { model: "claude-fable-5-1", content: [] } }),
+    resultEvent({ challenge: nonce, claudemd: "no", tools: ["Read"] }),
+  ].join("\n");
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
+    /no assistant event reported its prompt usage/,
+  );
+});
+
+// --- the two remaining #73 gaps --------------------------------------------
+
+test("briefSha256 is the digest of what the reviewer read, not of what was handed in", () => {
+  const brief = "challenge: abc\n\n\n";
+  assert.equal(embeddedBrief(brief), "challenge: abc");
+  assert.ok(userMessage(brief).includes("challenge: abc\n----- END BRIEF -----"), "the frame embeds the trimmed text");
+  const r = runProbe();
+  assert.equal(r.briefSha256, createHash("sha256").update(embeddedBrief(probeBrief("n0nce"))).digest("hex"));
+});
+
+test("a result event with no subtype is refused -- absent is not success", () => {
+  const nonce = "n-sub";
+  const stream = [initEvent(), assistantEvent(), resultEvent({ challenge: nonce, claudemd: "no", tools: ["Read"] }, { subtype: undefined })].join(
+    "\n",
+  );
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
+    /carries no `subtype`[\s\S]*absent fact is not a "success"/,
+  );
 });

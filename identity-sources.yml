@@ -88,6 +88,19 @@
     own parent, which was only the root by coincidence of where the sync
     lands the payload.
 
+- key: "review-budget.mjs :: modelTier :: const { models } = machineryConfig(io);"
+  source: config
+  why: >-
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig), for the models block rather than the repository
+    identity: a role definition names a model TIER and this resolves it to
+    today's full id, so a new model release is one edit here rather than a
+    sweep through every definition and script (David, 2026-09-11). Working
+    tree, by design, and the same threat model as every other reader: a
+    mistake, not an adversary. What it refuses is an alias -- a dispatch
+    stamps the id it asked for against the id that answered, and "fable"
+    cannot be compared to what came back.
+
 - key: "pr-ready.mjs :: localConfig :: return machineryConfig(nodeIo(resolve(cwd)));"
   source: config
   why: >-
