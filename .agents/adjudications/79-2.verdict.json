@@ -1,0 +1,108 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 79,
+  "recordPath": ".agents/adjudications/79-2.json",
+  "recordSha256": "02b0da569292f061159059115e4fd699442e632b9f9fd34a6ce0ee3b48fd50ea",
+  "toolUseId": "toolu_01Cd8hU4twVxTPzRtxcn2egp",
+  "agentId": "ac613c1cd60ecfbb5",
+  "decidedAt": "2026-09-11T22:25:14.399Z",
+  "transcript": "00070c3a-8145-5c7b-ab08-225a88325831.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, declared budget 3, roundsSpent 3 — this is the cap, and the trend is converging (6 → 5 → 3) with all 14 findings inside the diff (territory.outsideDiff 0) and nothing truncated (321,940 of 600,000 chars). None of the three open findings clears the internal critical bar: the sync.mjs non-atomic `writeFileSync` in `topUpSeed` corrupts a git-tracked consumer config only on an interrupted write and fails closed and loudly (the authority-widening shape — topping up `settings.template.json` keys — was already fixed in round 2 by `TOPPED_UP_SEEDS = new Set([\".agents/machinery.json\"])`); the missing per-capture `call.result.at` can only mis-date evidence if a review pass lands between four calls in one session, and the merge bar still requires every thread resolved; and the `all-declined` no-dispatch clause is pre-existing contract text carried forward, whose effect is to END a loop on a reviewed head, i.e. the safe direction. sinceLastReview.noChange is true, so stopping here lands exactly on 4894b11, the commit round 3 reviewed. Worth naming: I classed none of the 14 findings outside the agreed scope, which is the agreeing-with-everything shape the new /maintenance B1 note warns about — but each one points at real code or real contradiction in this diff, and manufacturing an out-of-scope class to avoid a flat zero would be the failure the classification rule names as mine.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6hp8H2 — claude-core.md's `all-declined` round ends the loop with no dispatch, which sits against the same increment's rule that every finding-bearing round is dispatched and that a decline must cite a classification; pr-watch/SKILL.md repeats it. Recorded rather than written for: it can only end a loop early on an already-reviewed head.",
+      "PRRT_kwDOUKOPKc6hp8H- — `topUpSeed` writes the consumer's `.agents/machinery.json` with a bare `writeFileSync` rather than the script's temp-file-plus-rename primitive, so an interrupted or ENOSPC sync can leave partial JSON. Recorded: the file is version-controlled in the consumer and every reader refuses loudly rather than misbehaving.",
+      "PRRT_kwDOUKOPKc6hp8IC — `recoverCapture` returns `capturedAt: call.result.at` but only prints it; the snapshot assembler takes one operator-supplied `--fetched-at` for all four collections (this record's own provenance shows `capturedAtSource: \"declared\"` on every capture), so a pass landing mid-sequence could leave a stale collection dated fresh. Recorded: a derivable-input fix by the fleet rule, but the merge bar's every-thread-resolved requirement bounds what an under-dated snapshot can hide."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLK2",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 7 makes a `models` block required configuration, and sync seeds `machinery.json` only when absent, so existing consumers would have had `modelTier()` refuse every dispatch — a real defect in what this increment set out to do."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLK9",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 2 makes the conformance array binding from round 3, and recovery accepted any object with a string `verdict`, so a dropped or duplicated threadId would have been committed as a complete classification."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLE",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Selecting a capture by PR number alone is the wrong-PR mistake the threat-model memory names explicitly ('capturing the wrong PR's snapshot because every repository has a #7'), and the repo identity is derivable from config, so this is inside the threat model rather than outside it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLM",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 5 is the isolation bound itself, and totalling later stream lines before comparing the run's maximum would let material delivered after a contaminated request widen that request's allowance — a defect in the observation this increment ships."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLQ",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The always-loaded contract rewritten by this diff required committing `<record>.verdict.json` while the same section still said the verdict is never a file; an internal contradiction in the text this increment wrote is a real defect in it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLR",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The `models` block this increment adds declares `effort` as the tier's reasoning depth, so a resolved effort that `buildArgv()` never passes makes the new configuration value inert — squarely inside Product Intent 7."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjmW",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Routing every JSON seed through the top-up would have restored template `permissions`, `hooks`, `env` and `model` keys a consumer deliberately omitted — the one finding in this loop that reached the widening-authority class, and it was fixed."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjme",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 2 requires each class to carry a citation and says a decline must cite it, so a validator checking only `threadId` and `class` left the binding half of the contract unenforced."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjmj",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Must Not Change forbids builder in-loop prose in any judge's input, and running the last bugfix field to `live.length` would push the PR body's later narrative into `planOracle.sections`."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjms",
+        "class": "in-scope",
+        "citation": "",
+        "why": "'Written for by default' in working-modes.md contradicts the `Worth:` rule that the same increment states in claude-core.md and pr-watch, and a contract that mandates fixing every early finding is the over-build this PR's own rule 5 revision exists to stop."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjm0",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 2 makes round-1 conformance dispatch apply to code loops generally, and leaving the internal-tier text saying there is no judge before round 3 would disable the new behaviour for most work in this repository."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hp8H2",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 2 dispatches on any round that returned findings and requires a decline to cite a classification, so the surviving `all-declined` no-dispatch clause contradicts the increment's own stated reason for the early dispatch; the Must Not Change bullet protects the verdict's round-3 boundary, not this exemption, so the oracle does not clearly exclude it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hp8H-",
+        "class": "in-scope",
+        "citation": "",
+        "why": "An interrupted process or ENOSPC is an environmental failure rather than an operator mistake or a hostile input, so the producer-scoped threat model does not exclude it, and `topUpSeed` is new code in this diff writing a consumer-owned config non-atomically."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hp8IC",
+        "class": "in-scope",
+        "citation": "",
+        "why": "`recoverCapture` already holds `call.result.at` and only prints it, making the assembler's `--fetched-at` a derivable operator input — and the fleet threat model's derivable branch says to derive such a value rather than take it, which puts the finding inside the threat model rather than outside it."
+      }
+    ]
+  }
+}
