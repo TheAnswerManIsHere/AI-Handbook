@@ -56,21 +56,21 @@ const countFiles = (dir) => {
 // ── routing ────────────────────────────────────────────────────────────────
 
 test("a plain payload file keeps its path, minus the core/ prefix", () => {
-  assert.deepEqual(routeOf("scripts/pr-ready.mjs"), { to: "scripts/pr-ready.mjs", seed: false });
-  assert.deepEqual(routeOf(".claude/guard.sh"), { to: ".claude/guard.sh", seed: false });
+  assert.deepEqual(routeOf("scripts/pr-ready.mjs"), { to: "scripts/pr-ready.mjs", seed: false, topUp: false });
+  assert.deepEqual(routeOf(".claude/guard.sh"), { to: ".claude/guard.sh", seed: false, topUp: false });
 });
 
 test("a .template. file lands under its real name and is marked a seed", () => {
   // Reading `.template` as a suffix of the stem before the FIRST dot matched
   // nothing, so the template shipped under its own name. Caught by an
   // equivalence oracle against the deleted manifest, not by review.
-  assert.deepEqual(routeOf(".agents/machinery.template.json"), { to: ".agents/machinery.json", seed: true });
-  assert.deepEqual(routeOf(".claude/settings.template.json"), { to: ".claude/settings.json", seed: true });
+  assert.deepEqual(routeOf(".agents/machinery.template.json"), { to: ".agents/machinery.json", seed: true, topUp: true });
+  assert.deepEqual(routeOf(".claude/settings.template.json"), { to: ".claude/settings.json", seed: true, topUp: false });
 });
 
 test("'template' elsewhere in a name is not a seed", () => {
-  assert.deepEqual(routeOf("docs/template-guide.md"), { to: "docs/template-guide.md", seed: false });
-  assert.deepEqual(routeOf("docs/the.template"), { to: "docs/the.template", seed: false });
+  assert.deepEqual(routeOf("docs/template-guide.md"), { to: "docs/template-guide.md", seed: false, topUp: false });
+  assert.deepEqual(routeOf("docs/the.template"), { to: "docs/the.template", seed: false, topUp: false });
 });
 
 test("only the two known seeds are seeds, across the real payload", () => {
@@ -167,21 +167,37 @@ test("a re-sync never clobbers a value the consumer has edited", () => {
   }
 });
 
-test("a settings seed the consumer owns is left byte-identical", () => {
-  // The top-up is JSON-shaped and additive, but `settings.json` carries a
-  // consumer's permissions: nothing here may add to those silently. It has no
-  // template keys absent from a real consumer copy, so it stays untouched --
-  // asserted rather than assumed.
+test("a settings key the consumer DELETED stays deleted across a re-sync", () => {
+  // THE CASE THE FIRST VERSION OF THIS TEST COULD NOT FAIL. It re-synced an
+  // untouched copy and asserted the bytes matched -- which they did, because a
+  // fresh copy carries every template key, so there was nothing to top up. The
+  // top-up then applied to every JSON seed, and a consumer that had removed a
+  // top-level key would have had the template's value restored silently, in
+  // the file carrying its permissions, hooks and environment. This repository
+  // is that consumer: its own `.claude/settings.json` has no `env` block
+  // because it has no database. (Codex, #79 round 2.)
   const dest = fresh();
   try {
     run(dest);
     const owned = join(dest, ".claude/settings.json");
-    const before = readFileSync(owned, "utf8");
+    const settings = JSON.parse(readFileSync(owned, "utf8"));
+    assert.ok(settings.env?.DATABASE_URL, "the template must still seed an env block for this test to mean anything");
+    delete settings.env;
+    delete settings.model;
+    const deliberate = `${JSON.stringify(settings, null, 2)}\n`;
+    writeFileSync(owned, deliberate);
     run(dest);
-    assert.equal(readFileSync(owned, "utf8"), before);
+    assert.equal(readFileSync(owned, "utf8"), deliberate, "an absent settings key is a decision, not a gap to backfill");
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }
+});
+
+test("machinery.json is the only seed a sync tops up", () => {
+  // The restriction is a list, and a second entry is a decision rather than an
+  // accident -- so the list itself is asserted against the real payload.
+  const toppedUp = payloadFiles(PAYLOAD).filter((f) => routeOf(f).topUp).map((f) => routeOf(f).to);
+  assert.deepEqual(toppedUp, [".agents/machinery.json"]);
 });
 
 test("the sync never deletes anything, including files it no longer ships", () => {

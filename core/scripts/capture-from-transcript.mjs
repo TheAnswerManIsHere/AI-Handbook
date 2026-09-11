@@ -195,6 +195,76 @@ export function spilledPath(text) {
   return m ? m[1] : null;
 }
 
+/**
+ * A BACKGROUNDED dispatch's paired result is not its answer.
+ *
+ * The harness launches a background `Agent` and immediately pairs the
+ * `tool_use` with a launch notice carrying the agent's id; the judge's answer
+ * arrives later, out of band, and is written to that agent's own transcript.
+ * So `resultText` on the paired result returns the notice, and recovery
+ * refused with "does not parse as a JSON object carrying a `verdict` field" --
+ * blaming the judge for the harness's bookkeeping, and telling the operator to
+ * re-dispatch, which costs a whole adjudication and would fail the same way.
+ *
+ * Found by running it, not by review: this PR's own round-2 dispatch was
+ * backgrounded because that is the tool's default.
+ *
+ * The id is the link, and it is in the notice. Matched loosely on purpose --
+ * the notice's prose is the harness's to change; the id's shape is not.
+ */
+const BACKGROUND_AGENT_ID_RE = /\bagentId:\s*([A-Za-z0-9_-]{6,})/;
+
+export function backgroundAgentId(text) {
+  const m = BACKGROUND_AGENT_ID_RE.exec(text ?? "");
+  return m ? m[1] : null;
+}
+
+/**
+ * The last thing a backgrounded agent said, from its own transcript.
+ *
+ * Its final assistant text block is its answer -- the same bytes the paired
+ * result would have carried had the dispatch run in the foreground, and
+ * notably NOT the copy the harness renders back into this session, which is
+ * neutralized where it matched an instruction-shaped pattern.
+ *
+ * A missing transcript is its own refusal rather than a fallback to the
+ * launch notice: the notice never parses, so falling through would only
+ * restore the misleading message this exists to replace.
+ */
+export function agentAnswer(transcriptFile, agentId, { readFile = fs.readFileSync, exists = fs.existsSync } = {}) {
+  const dir = transcriptFile.replace(/\.jsonl$/, "");
+  const file = path.join(dir, "subagents", `agent-${agentId}.jsonl`);
+  if (!exists(file)) {
+    throw new Error(
+      `the adjudicator ran in the BACKGROUND (agent ${agentId}) and its own transcript is not at ${file}, so ` +
+        `its answer cannot be recovered. Re-dispatch it in the foreground -- a verdict is what the loop waits ` +
+        `on, so there is nothing to run beside it.`,
+    );
+  }
+  let last = null;
+  for (const line of String(readFile(file, "utf8")).split("\n")) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type !== "assistant" || !Array.isArray(entry.message?.content)) continue;
+    const text = entry.message.content
+      .filter((b) => b?.type === "text" && typeof b.text === "string")
+      .map((b) => b.text)
+      .join("");
+    if (text.trim()) last = { text, at: entry.timestamp ?? null };
+  }
+  if (!last) {
+    throw new Error(
+      `agent ${agentId}'s transcript at ${file} holds no assistant text, so it produced no answer to recover`,
+    );
+  }
+  return last;
+}
+
 // ---------------------------------------------------------------------------
 // Selection
 // ---------------------------------------------------------------------------
@@ -312,6 +382,33 @@ export function assertConformance(verdict, record) {
           `one was meant is how a binding classification becomes fiction.`,
       );
     }
+    // THE EVIDENCE, NOT ONLY THE LABEL. Round 1 of this PR enforced the
+    // COVERAGE half of the contract clause -- every finding classified, nothing
+    // outside the record -- and left the EVIDENCE half in prose, which is the
+    // same defect one field over (Codex, #79 round 2). The contract says each
+    // entry carries "a `class`, a `citation` into the record, and a
+    // one-sentence `why`", and the citation is what the builder is required to
+    // quote when declining a Codex finding on a classification. A bare
+    // `{threadId, class: "out-of-threat-model"}` would have been a binding
+    // reason to leave a finding unfixed with no evidence in it at all.
+    if (typeof entry.why !== "string" || !entry.why.trim()) {
+      throw new Error(
+        `conformance entry for ${entry.threadId} carries no \`why\`. Every classification states its reason in ` +
+          `one sentence; a class with no reasoning behind it cannot be weighed, only obeyed.`,
+      );
+    }
+    // `in-scope` is the DEFAULT READING and needs no citation: there is no
+    // oracle line or diff hunk to point at for "this is a real defect in what
+    // the increment set out to do". Every other class asserts something about
+    // the oracle, the threat model or the code, and must point at it.
+    if (entry.class !== "in-scope" && (typeof entry.citation !== "string" || !entry.citation.trim())) {
+      throw new Error(
+        `conformance entry for ${entry.threadId} is classed \`${entry.class}\` with no \`citation\`. Only ` +
+          `\`in-scope\` may cite nothing; every other class is an assertion about the oracle, the threat model ` +
+          `or the diff, and the builder may decline a Codex finding on it ONLY by quoting the citation -- so an ` +
+          `uncited class is a decline that cannot be made and must not be recorded as though it could.`,
+      );
+    }
   }
 
   const expected = Array.isArray(record?.findings?.items)
@@ -398,7 +495,14 @@ export function recoverVerdict({ root = REPO_ROOT, pr, recordPath, transcript = 
   if (!fs.existsSync(recordAbs)) throw new Error(`the record ${recordPath} does not exist -- a verdict file sits beside its record`);
   const file = findTranscript(root, { explicit: transcript });
   const call = selectVerdictCall(readCalls(file), recordPath);
-  const verdict = parseVerdict(resultText(call.result));
+  // A foreground dispatch's answer is its paired result; a backgrounded one's
+  // paired result is only the launch notice, and the answer is in that agent's
+  // own transcript. Same dispatch either way -- this follows the link rather
+  // than asking for a second adjudication of a record already judged.
+  const paired = resultText(call.result);
+  const backgrounded = backgroundAgentId(paired);
+  const answer = backgrounded ? agentAnswer(file, backgrounded) : { text: paired, at: call.result.at };
+  const verdict = parseVerdict(answer.text);
   const recordText = fs.readFileSync(recordAbs, "utf8");
   let record;
   try {
@@ -415,7 +519,8 @@ export function recoverVerdict({ root = REPO_ROOT, pr, recordPath, transcript = 
     recordPath,
     recordSha256: sha256(recordText),
     toolUseId: call.id,
-    decidedAt: call.result.at,
+    agentId: backgrounded,
+    decidedAt: answer.at ?? call.result.at,
     transcript: path.basename(file),
     note:
       "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. " +
@@ -423,7 +528,11 @@ export function recoverVerdict({ root = REPO_ROOT, pr, recordPath, transcript = 
       "judge's answer is committed once, verbatim, and counted from one place.",
     verdict,
   };
-  return { path: write(root, out, `${JSON.stringify(document, null, 2)}\n`), decidedAt: call.result.at, toolUseId: call.id };
+  return {
+    path: write(root, out, `${JSON.stringify(document, null, 2)}\n`),
+    decidedAt: answer.at ?? call.result.at,
+    toolUseId: call.id,
+  };
 }
 
 // ---------------------------------------------------------------------------

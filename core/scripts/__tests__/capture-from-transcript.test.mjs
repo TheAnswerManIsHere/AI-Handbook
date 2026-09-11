@@ -214,6 +214,53 @@ test("the verdict file carries the judge's own answer, out of the harness's reco
   assert.equal(written.recordPath, ".agents/adjudications/80-1.json");
 });
 
+test("a BACKGROUNDED dispatch's answer comes from the agent's own transcript", () => {
+  // The harness pairs a background `Agent` tool_use with a launch notice, not
+  // with the judge's answer -- so recovery read the notice, failed to parse it,
+  // and blamed the judge while telling the operator to re-dispatch. Background
+  // is the tool's default, and this PR's own round-2 dispatch hit it.
+  // (Found by running it.)
+  const root = repoWithRecord();
+  const file = transcript([
+    agentCall("a1", ".agents/adjudications/80-1.json"),
+    result("a1", "Async agent launched successfully.\nagentId: bg123abc (internal ID - do not mention to user.)"),
+  ]);
+  const subagents = path.join(file.replace(/\.jsonl$/, ""), "subagents");
+  fs.mkdirSync(subagents, { recursive: true });
+  fs.writeFileSync(
+    path.join(subagents, "agent-bg123abc.jsonl"),
+    [
+      JSON.stringify({ type: "assistant", timestamp: "2026-09-11T12:00:00.000Z", message: { role: "assistant", content: [{ type: "thinking", thinking: "hm" }] } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-09-11T12:00:05.000Z", message: { role: "assistant", content: [{ type: "text", text: "one moment" }] } }),
+      JSON.stringify({ type: "assistant", timestamp: "2026-09-11T12:00:09.000Z", message: { role: "assistant", content: [{ type: "text", text: `\`\`\`json\n${JSON.stringify(VERDICT)}\n\`\`\`` }] } }),
+    ].join("\n"),
+  );
+
+  const out = recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file });
+
+  const written = JSON.parse(fs.readFileSync(path.join(root, out.path), "utf8"));
+  assert.deepEqual(written.verdict, VERDICT);
+  assert.equal(written.agentId, "bg123abc");
+  // The agent's OWN timestamp, not the launch notice's: the launch is when the
+  // dispatch started, and the decision is what is being dated.
+  assert.equal(written.decidedAt, "2026-09-11T12:00:09.000Z");
+});
+
+test("a backgrounded dispatch with no agent transcript names its own cause", () => {
+  // The old message said the judge returned something that was not JSON and
+  // told the operator to re-dispatch -- which costs a full adjudication and
+  // fails identically. A refusal that misdiagnoses is worse than a loud one.
+  const root = repoWithRecord();
+  const file = transcript([
+    agentCall("a1", ".agents/adjudications/80-1.json"),
+    result("a1", "Async agent launched successfully.\nagentId: missing99"),
+  ]);
+  assert.throws(
+    () => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }),
+    /ran in the BACKGROUND \(agent missing99\)[\s\S]*foreground/,
+  );
+});
+
 test("a verdict answer that is not the verdict refuses", () => {
   const root = repoWithRecord();
   const file = transcript([agentCall("a1", ".agents/adjudications/80-1.json"), result("a1", "I think you should keep going.")]);
@@ -359,9 +406,25 @@ test("the conformance check refuses every shape the contract calls malformed", (
     [{ verdict: "stop", conformance: [entry("A"), entry("B"), entry("A")] }, /names A more than once/],
     [{ verdict: "stop", conformance: [entry("A", "invented"), entry("B")] }, /which is not one of/],
     [{ verdict: "stop", conformance: [{ class: "in-scope" }] }, /carries no `threadId`/],
+    // THE EVIDENCE HALF, which round 1's fix left in prose (Codex, #79 round 2).
+    // A class with no reasoning cannot be weighed, and an uncited non-`in-scope`
+    // class is a decline the builder is not permitted to make -- so recording
+    // one as binding would license exactly the decline the citation rule exists
+    // to prevent.
+    [{ verdict: "stop", conformance: [{ threadId: "A", class: "in-scope", citation: "" }, entry("B")] }, /carries no `why`/],
+    [{ verdict: "stop", conformance: [{ threadId: "A", class: "in-scope", citation: "", why: "   " }, entry("B")] }, /carries no `why`/],
+    [{ verdict: "stop", conformance: [{ threadId: "A", class: "out-of-threat-model", why: "w" }, entry("B")] }, /with no `citation`/],
+    [{ verdict: "stop", conformance: [{ threadId: "A", class: "misdirection", citation: "  ", why: "w" }, entry("B")] }, /with no `citation`/],
   ]) {
     assert.throws(() => assertConformance(bad, record), re);
   }
+
+  // `in-scope` is the one class that may cite nothing: it is the default
+  // reading, with no oracle line or diff hunk to point at.
+  assertConformance(
+    { verdict: "stop", conformance: [{ threadId: "A", class: "in-scope", why: "a real defect" }, entry("B")] },
+    record,
+  );
 });
 
 test("a record with no findings block still requires the array, and checks no coverage", () => {
@@ -375,7 +438,7 @@ test("a malformed verdict is refused before any file is written", () => {
   const root = repoWithRecord();
   const file = transcript([
     agentCall("a1", ".agents/adjudications/80-1.json"),
-    result("a1", JSON.stringify({ ...VERDICT, conformance: [{ threadId: "T1", class: "in-scope" }] })),
+    result("a1", JSON.stringify({ ...VERDICT, conformance: [{ threadId: "T1", class: "in-scope", why: "a real defect" }] })),
   ]);
   assert.throws(() => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }), /omits 1 finding/);
   assert.equal(fs.existsSync(path.join(root, ".agents/adjudications/80-1.verdict.json")), false, "nothing was written");

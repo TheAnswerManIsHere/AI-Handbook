@@ -750,6 +750,65 @@ test("a bugfix oracle's validated fields become sections the judge can read", ()
   assert.match(sections["Fix tier"], /contained/);
 });
 
+test("the last bugfix field stops at the block's end, not at the end of the PR body", () => {
+  // `Blast radius` is the last label a tier A/B body carries, and every real
+  // one is followed by Post-merge verification, a checklist and the builder's
+  // own narrative. Running to `live.length` put all of it inside the oracle the
+  // judge rules against -- the never-list's "no builder in-loop prose in any
+  // judge's input", arriving through the oracle instead of around it.
+  // (Codex, #79 round 2.)
+  const body = [
+    "**Fix tier:** A — contained",
+    "**Tier rationale:** Q1 ruled out",
+    "**Reported symptom:** the receipt mints twice",
+    "**Intended correct behavior:** one receipt per round",
+    "**Must not change:** the merge gate",
+    "**Root cause:** the nonce was reused",
+    "**Blast radius:** every guarded post.",
+    "",
+    "Checked with `git grep -n nonce`: 4 hits.",
+    "",
+    "## Post-merge verification",
+    "",
+    "- [ ] re-run the guard",
+    "",
+    "## Why the reviewer is wrong about the other thing",
+    "A long argument that is not the oracle.",
+  ].join("\n");
+
+  const sections = bugfixSections(body, "A");
+
+  // The multi-paragraph note still survives whole -- the bound is the block's
+  // end, not the next blank line.
+  assert.match(sections["Blast radius"], /every guarded post[\s\S]*4 hits/);
+  assert.doesNotMatch(sections["Blast radius"], /Post-merge verification/);
+  assert.doesNotMatch(sections["Blast radius"], /reviewer is wrong/);
+  assert.doesNotMatch(sections["Blast radius"], /re-run the guard/);
+});
+
+test("a thematic break also ends the bugfix block", () => {
+  // A body that separates the oracle from what follows with a rule rather than
+  // a heading is the same case; both terminators are cheap and the bodies in
+  // this repository use both.
+  const body = [
+    "**Fix tier:** C — schema only",
+    "**Tier rationale:** David authorized the ceremony directly",
+    "**Reported symptom:** the column is misspelled",
+    "**Root cause:** a typo in the migration",
+    "**Why this is trivial:** no data reads it yet",
+    "**David's go-ahead:** 2026-09-11, in chat",
+    "**Migration ceremony checklist:** waived, per the above.",
+    "",
+    "---",
+    "",
+    "Some closing narrative that is not the oracle.",
+  ].join("\n");
+
+  const sections = bugfixSections(body, "C");
+
+  assert.equal(sections["Migration ceremony checklist"], "waived, per the above.");
+});
+
 // ---------------------------------------------------------------------------
 // The plan oracle, both modes
 // ---------------------------------------------------------------------------

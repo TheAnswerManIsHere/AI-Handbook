@@ -117,7 +117,27 @@ export function payloadFiles(root) {
 }
 
 /**
- * Where one payload file lands, and whether it is a seed.
+ * The one seed a sync may add absent keys to.
+ *
+ * NOT EVERY JSON SEED, which is where this landed first and was wrong.
+ * `machinery.json` is a REGISTRY: the payload's own scripts read it, and a key
+ * absent from it means the consumer was seeded before that key existed --
+ * there is no other reading. `settings.json` is CONFIGURATION: its absent keys
+ * are decisions. This very repository is the proof, and its `CLAUDE.md` says
+ * so in as many words -- the handbook's own `.claude/settings.json` carries no
+ * `env` block because it has no database, and a top-up would have restored the
+ * template's placeholder `DATABASE_URL` on the next sync, silently, in the
+ * file that also carries permissions and hooks. (Codex, #79 round 2, on a
+ * round-1 fix of mine that sized the mechanism instead of the need.)
+ *
+ * So the list is a list, and a second entry needs the same argument made
+ * again: absent means never-seeded, not deliberately-removed.
+ */
+export const TOPPED_UP_SEEDS = new Set([".agents/machinery.json"]);
+
+/**
+ * Where one payload file lands, whether it is a seed, and whether an existing
+ * copy may be topped up with keys it lacks.
  *
  * A SEED is copied under its real name and ONLY when absent.
  * `settings.json` and `machinery.json` are consumer-owned from the moment
@@ -129,8 +149,11 @@ export function routeOf(rel) {
   // `.template` sits immediately before the final extension
   // (`machinery.template.json`), NOT at the end of the stem.
   const seeded = name.replace(/\.template(?=\.[^.]+$)/, "");
-  if (seeded !== name) return { to: [...parts.slice(0, -1), seeded].join("/"), seed: true };
-  return { to: rel, seed: false };
+  if (seeded !== name) {
+    const to = [...parts.slice(0, -1), seeded].join("/");
+    return { to, seed: true, topUp: TOPPED_UP_SEEDS.has(to) };
+  }
+  return { to: rel, seed: false, topUp: false };
 }
 
 /**
@@ -145,11 +168,11 @@ export function routeOf(rel) {
  * the file by hand -- the review machinery disabled fleet-wide by a sync that
  * reported success (Codex, #79 round 1).
  *
- * So a JSON seed is topped up: keys the template declares and the consumer's
- * copy does not get added, with the template's values. Nothing the consumer
- * already has is touched -- not its identity, not its required checks, not a
- * `models` block it has already tuned. Adding an absent key cannot overwrite a
- * decision nobody made.
+ * So `machinery.json` -- and only the seeds in `TOPPED_UP_SEEDS`, for the
+ * reason stated there -- is topped up: keys the template declares and the
+ * consumer's copy does not get added, with the template's values. Nothing the
+ * consumer already has is touched -- not its identity, not its required
+ * checks, not a `models` block it has already tuned.
  *
  * A copy that is not parseable JSON is left entirely alone and reported: the
  * sync does not get to guess at a file it cannot read.
@@ -240,7 +263,7 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
 
   try {
     for (const rel of payloadFiles(root)) {
-      const { to, seed } = routeOf(rel);
+      const { to, seed, topUp } = routeOf(rel);
       assertNoSymlinkOnPath(destReal, to);
       const target = join(destReal, to);
 
@@ -250,7 +273,7 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
       let present = true;
       try { lstatSync(target); } catch { present = false; }
       if (seed && present) {
-        const added = dryRun ? topUpKeys(join(root, rel), target) : topUpSeed(join(root, rel), target);
+        const added = !topUp ? [] : dryRun ? topUpKeys(join(root, rel), target) : topUpSeed(join(root, rel), target);
         if (added.length) {
           counts.toppedUp += 1;
           log(`  top up ${to}  (seed, consumer owns it -- added absent key(s): ${added.join(", ")})`);

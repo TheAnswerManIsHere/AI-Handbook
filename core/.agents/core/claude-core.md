@@ -333,15 +333,15 @@ docs and harvests run the loop above with the **`internal` tier**:
   receipt accepts an automatic pass covering the head.
 - **Rounds 1–2 findings are triaged, and written for only when they pass
   rule 5's worth test**, then re-requested — the same cadence as every tier
-  (below); declare `--tier internal` at the first re-request. The earlier
-  wording, "triaged and written for", read as *fix them*, and on #73 it
-  produced thirteen fixes in three rounds, most of them refusals for
-  situations that will not occur.
-- **Round 3's findings go to the adjudicator, before anything is written.**
-  The record's tier selects the **internal rubric**: write only for a very
-  high chance of a CRITICAL flaw (a destructive or irreversible action,
-  corruption of the receipt/tracking machinery, a widening of my authority).
-  Everything softer ships with gaps recorded.
+  (below), **rule 2's round-1 conformance dispatch included**; declare
+  `--tier internal` at the first re-request. This is the tier that declines
+  most, and a decline cites a class — so no judge before round 3 leaves
+  nothing to cite exactly where the declining happens.
+- **The adjudicator's VERDICT begins deciding at round 3**, before anything
+  is written. The record's tier selects the **internal rubric**: write only
+  for a very high chance of a CRITICAL flaw (a destructive or irreversible
+  action, corruption of the receipt/tracking machinery, a widening of my
+  authority). Everything softer ships with gaps recorded.
 - **Budget 3, two-tier tripwire like every tier** (David, 2026-08-26,
   superseding straight-to-David-at-3): the adjudicator's grants self-serve
   to at most round 6, where the David gate stands.
@@ -392,9 +392,8 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    judge's answer is recovered from the harness's record of it and committed
    beside the record it ruled on, so what is counted later is what the judge
    actually said.
-   **The verdict's own boundary is unchanged and the evidence for it is
-   unchanged** (David, 2026-08-22, superseding the 2026-08-20 beyond-the-first
-   cadence).
+   **The verdict's own boundary is unchanged** (David, 2026-08-22, superseding
+   the 2026-08-20 beyond-the-first cadence).
    **Code loops only: retired for plan loops** (David, 2026-09-09) — the
    in-session plan reviewer splits required from recommended itself, in a
    field, so a per-round judge would be a second opinion on a judgement

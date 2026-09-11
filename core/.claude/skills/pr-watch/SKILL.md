@@ -58,18 +58,20 @@ process doc, a documentation harvest:
 - **Clean automatic pass on PR-open → merge on it.** No budget, no receipts,
   no adjudication; the merge receipt accepts an automatic pass covering the
   head.
-- **Rounds 1–2: the pass found things → triage each finding under
-  `claude-core.md` rule 5, write only for what passes it, push — then
-  declare `--tier internal` and re-request.** No judge yet: the ledger says
-  these rounds always carry *some* finding worth writing for, and the
-  mandatory re-review of the push is the write-gate working. **If every
-  finding fails the worth test there is nothing to push, and the loop ends
-  there** — `claude-core.md` *Product loops* rule 2's all-declined clause: an
-  all-declined round ends the loop on the already-reviewed head, with no
-  dispatch, and rule 4 forbids a re-request with no behavioral change. (This
-  bullet used to say "fix the rest", which contradicted the contract it enacts
-  — Codex, AI-Handbook #73 round 8. It now points rather than restates.)
-- **Round 3's findings → the adjudicator, before anything is written.** On
+- **Rounds 1–2: the pass found things → dispatch the adjudicator for
+  conformance, triage each finding under `claude-core.md` rule 5 with the
+  classification in hand, write only for what passes it, push — then declare
+  `--tier internal` and re-request.** The judge **classifies and does not yet
+  decide**: the ledger says these rounds always carry *some* finding worth
+  writing for, so a verdict here would only ever say "write", and the
+  mandatory re-review of the push is the write-gate working. The
+  classification is what a decline cites, and this is the tier that declines
+  most — which is why it is dispatched here and not only at the cap. **If
+  every finding fails the worth test there is nothing to push, and the loop
+  ends there** — `claude-core.md` *Product loops* rule 2's all-declined
+  clause: an all-declined round ends the loop on the already-reviewed head,
+  with no dispatch, and rule 4 forbids a re-request with no behavioral change.
+- **Round 3: the VERDICT starts deciding**, before anything is written. On
   this tier the entry point IS the cap decision: it rules under the internal
   rubric (write only for a very high chance of a CRITICAL flaw), or
   everything ships as recorded gaps on the round-3-reviewed head.
@@ -346,13 +348,15 @@ implementation PR:
   written earlier is rejected as malformed and **not even a David grant can
   reopen that loop**. Covered by process instead: both verdicts go to David
   as a 🛑 by construction, and READY is not a merge. A **split-to-David** likewise posts no trigger; it goes to David
-  as a 🛑. **A round with no adjudication keeps the normal next-round
-  trigger** — rounds 1 and 2 have no judge by design (measured: zero clean
-  round 1s and three round-2 convergences in the ledger's 41 reviewed
-  loops), and a zero-findings round dispatches none — so after those
-  rounds' fixes are pushed, the next bare trigger goes out as usual (it is
-  mandatory: pushed code is reviewed code): the rule gates on verdicts that
-  exist, and the absence of a dispatch is not a stop (Codex, #548). But a verdict at **budget exhaustion** is an
+  as a 🛑. **A round with no VERDICT keeps the normal next-round
+  trigger** — rounds 1 and 2 are dispatched for conformance but return no
+  deciding verdict by design (measured: zero clean round 1s and three
+  round-2 convergences in the ledger's 41 reviewed loops, so a verdict there
+  would only ever say "write"), and a zero-findings round dispatches nothing
+  at all — so after those rounds' fixes are pushed, the next bare trigger
+  goes out as usual (it is mandatory: pushed code is reviewed code): the rule
+  gates on verdicts that decide, and the absence of one is not a stop
+  (Codex, #548). But a verdict at **budget exhaustion** is an
   extension decision, on every tier (David, 2026-08-26 — sensitive and
   internal loops write adjudication receipts like product ones now). The
   guard reads extensions only from committed receipts — so that verdict is written to

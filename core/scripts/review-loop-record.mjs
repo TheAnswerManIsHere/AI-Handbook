@@ -1774,13 +1774,32 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
  * prose-path behavior, which Must Not Change forbids.
  */
 /**
+ * Where the bugfix oracle block ENDS, when no further label does it.
+ *
+ * A markdown heading or a thematic break. The last recognised label --
+ * `Blast radius` on tier A/B, `Migration ceremony checklist` on tier C -- is
+ * followed in every real body by the rest of the PR description: Post-merge
+ * verification, the checklist, the narrative. Running that field to the end of
+ * the body put all of it inside `planOracle.sections` and handed it to a judge
+ * whose input is supposed to be the oracle and not the builder's surrounding
+ * prose -- which is the never-list's "no builder in-loop prose in any judge's
+ * input", arriving through the oracle rather than around it. (Codex, #79
+ * round 2.)
+ *
+ * Applied to EVERY field, not only the last: a body missing an intermediate
+ * label would otherwise let the field before it swallow the same prose one
+ * position earlier, which is the identical defect with a different trigger.
+ */
+const BUGFIX_BLOCK_END_RE = /^(?:#{1,6}\s|(?:-{3,}|_{3,}|\*{3,})\s*$)/m;
+
+/**
  * The bugfix oracle's fields, as text, keyed by label.
  *
  * A field runs from its own label line to the next field's, which is how the
  * schema in `bugfix/SKILL.md` is actually written -- one bolded label per
  * line, its value beside or beneath it. Bounded by the NEXT LABEL rather than
  * by a blank line, because a blast-radius note is routinely several
- * paragraphs.
+ * paragraphs -- and, failing a next label, by the block's end above.
  *
  * `Fix tier` is included: its line carries the tier rationale a reviewer uses
  * to challenge a mis-tiering, so dropping it would hand the judge a tier with
@@ -1797,8 +1816,10 @@ export function bugfixSections(live, tier) {
   starts.sort((a, b) => a.at - b.at);
   const out = {};
   starts.forEach((start, i) => {
-    const end = i + 1 < starts.length ? starts[i + 1].at : live.length;
-    out[start.label] = live.slice(start.after, end).trim();
+    const nextLabel = i + 1 < starts.length ? starts[i + 1].at : live.length;
+    const rest = live.slice(start.after, nextLabel);
+    const blockEnd = BUGFIX_BLOCK_END_RE.exec(rest);
+    out[start.label] = (blockEnd ? rest.slice(0, blockEnd.index) : rest).trim();
   });
   return Object.keys(out).length ? out : null;
 }

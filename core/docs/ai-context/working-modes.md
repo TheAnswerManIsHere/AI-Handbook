@@ -624,11 +624,11 @@ the safety net a non-code-reading product manager depends on.
   #36 Phase 1, which added per-finding conformance triage to the same
   dispatch). The classification is advisory in rounds 1–2 and binding from
   round 3; the verdict's own boundary did not move, because the evidence that
-  set it did not move. Rounds 1–2 findings are triaged and written for by
-  default: the loop ledger's 41
+  set it did not move. Rounds 1–2 findings are triaged and written for **only
+  when they pass the worth test**, never automatically: the loop ledger's 41
   reviewed loops contain zero clean round 1s and three round-2 convergences,
-  so a judge there only ever says "write", and round 3 heads the measured
-  runaway tail (26 of 41 loops ran 4+ rounds) — the one place a dispatch
+  so a judge there would only ever say "write", and round 3 heads the measured
+  runaway tail (26 of 41 loops ran 4+ rounds) — the one place its *verdict*
   changes outcomes. A clean or all-declined round at any point ends the loop
   with no dispatch: nothing was written, so the head is already reviewed.
   The judge's only input is the script-generated mechanical record
@@ -785,10 +785,12 @@ so nothing gets written — needs no adjudication: the loop ends on the head
 that round reviewed. Note one status line so the discipline stays visible.
 
 **Trivial nits no longer skip the judge** (David, 2026-08-22, the write-gate
-rule). Before round 3 they are simply fixed like any finding, and from round
-3 onward writing for them is the decision the judge exists to make: under
-this rule a typo fix costs a full mandatory review round, so "it's only a
-nit" is precisely the trade the loop must not settle for itself.
+rule). Before round 3 they go through the worth test like any finding, and
+from round 3 onward writing for them is the decision the judge exists to
+make: under this rule a typo fix costs a full mandatory review round, so
+"it's only a nit" is precisely the trade the loop must not settle for
+itself — in either direction, since the same arithmetic that forbids
+skipping the judge is what makes an unworthy fix expensive.
 
 **Scope: every review loop** — plan review and code review, feature and bugfix,
 whichever agent is driving it. Plan-review loops take the tier of what they are
