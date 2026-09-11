@@ -1,6 +1,6 @@
 ---
 name: An inline tool result can be recovered byte-exact from the session transcript
-description: A tool response small enough to come back inline is normally re-typed into a capture file, which is where evidence gets corrupted. The same bytes are already on disk in ~/.claude/projects/<session>.jsonl as tool_result blocks — read them instead of retyping.
+description: A tool response small enough to come back inline is normally re-typed into a capture file, which is where evidence gets corrupted. The same bytes are on disk at ~/.claude/projects/<encoded-project>/<session-id>.jsonl as tool_result blocks. Write the extract OUTSIDE any tool-results directory, or captureSource() will classify it harness-capture and discard your declared fetch time.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -9,8 +9,24 @@ description: A tool response small enough to come back inline is normally re-typ
 
 Never retype a tool response into a capture file from what is on screen. The
 harness has already written the bytes to
-`~/.claude/projects/<session>.jsonl`, where each tool response is a
-`tool_result` block. Read them from there.
+
+```
+~/.claude/projects/<encoded-project>/<session-id>.jsonl
+```
+
+where each tool response is a `tool_result` block. Read them from there.
+
+**The project directory segment is not optional.** The encoded project name
+sits between `projects/` and the session file — measured 2026-09-11, this
+repo's transcript is at
+`/root/.claude/projects/-home-user-AI-Handbook/<session-id>.jsonl`, and no
+`.jsonl` exists directly under `projects/`. A path written without that
+segment finds nothing and sends you back to the transcription step this note
+exists to remove.
+
+**Write the extract outside any `tool-results/` directory.** See the trap
+below; it is the one way this note can make provenance *worse* instead of
+better.
 
 ## The mechanic
 
@@ -32,12 +48,34 @@ first place (AI-Handbook #38, round 4: a snapshot carrying invented ids).
 The transcript closes that gap for the inline case. The bytes exist; the
 retyping step is optional.
 
+## The trap: where you save the extract decides how it is classified
+
+`captureSource()` in `snapshot-from-captures.mjs` classifies **solely from the
+path**:
+
+```js
+/(^|\/)\.claude\/projects\/(?:[^/]+\/)+tool-results\//.test(resolve(file))
+  ? "harness-capture"
+  : "agent-written"
+```
+
+So a recovered block saved alongside genuine harness captures under
+`~/.claude/projects/<project>/<session>/tool-results/` is classified
+**`harness-capture`** — and `resolveCaptureTime()` then takes the file's mtime
+and **ignores a declared `--fetched-at` entirely** (`if (source ===
+"harness-capture") return { capturedAt: mtime, capturedAtSource: "file-mtime" }`).
+
+That inverts the note's purpose: an inline result recovered and saved later
+would present a fresh save time as the fetch time, with the stronger
+evidentiary weight of a harness capture. **Save the extract anywhere else**
+— a scratch directory — and pass `--fetched-at` with the real fetch time.
+
 ## What this does NOT do
 
-It does not make the capture `harness-capture`. The file is still written by
-the machinery's own classification as `agent-written`, and the adjudicator's
+Saved correctly, the file stays classified `agent-written`. The adjudicator's
 contract still weighs a wholly agent-written record as slightly weaker
-evidence. This removes the **corruption** risk, not the provenance caveat.
+evidence, and the provenance caveat is unchanged. This removes the
+**corruption** risk, not the provenance caveat.
 
 Hand-typed values do drift in practice, not just in theory: transcribed
 issue-comment `created_at` values have come back up to two minutes off
