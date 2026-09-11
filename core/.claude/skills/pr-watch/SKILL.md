@@ -324,10 +324,13 @@ implementation PR:
   **Delivery depends on the verdict, and only `continue` is followed by
   another trigger** (Codex, #543 rounds 2 and 4). A per-round `continue` —
   the budget not yet spent — goes as **one line in the separate defanged
-  context comment** that precedes the next bare trigger, never a file
-  (per-round receipts would rebuild the machinery this replaced) and never
-  inside the trigger comment itself, which stays bare — prose beside the
-  trigger is what spawns unintended tasks. A per-round **stop** ends the
+  context comment** that precedes the next bare trigger, and never inside the
+  trigger comment itself, which stays bare — prose beside the trigger is what
+  spawns unintended tasks. The judge's **answer** is a different artifact from
+  its delivery: it is recovered into `<record>.verdict.json` and committed on
+  every dispatch, which is not the per-round receipt machinery this replaced
+  — no guard reads one and none grants a round. It carries the conformance
+  classification, which has to survive the round to be cited in a decline. A per-round **stop** ends the
   loop right there: the verdict goes in a defanged comment and **no further
   trigger is posted** — the loop proceeds to close-out on the rounds already
   returned. (Under the write-gate rule a stop
