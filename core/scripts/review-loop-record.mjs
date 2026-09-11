@@ -166,6 +166,15 @@ const GENERATED_RECORD_SHAPES = [
   /^\.agents\/receipts\/loop-budget-\d+\.json$/,
   /^\.agents\/receipts\/loop-extension-\d+-\d+\.json$/,
   /^\.agents\/adjudications\/\d+-\d+\.json$/,
+  // The judge's own answer, recovered beside the record it ruled on. Without
+  // this line the next round's patch would carry the previous judge's prose
+  // into the next judge -- and, more immediately, a stopped loop could not
+  // commit it: `pr-ready.mjs` permits exactly the receipt and its record to
+  // differ from the reviewed head, so an unlisted file there demands a review
+  // the spent budget refuses. (Codex, plan round 2.)
+  /^\.agents\/adjudications\/\d+-\d+\.verdict\.json$/,
+  // Recovered captures: raw API responses, the snapshot's own input.
+  /^\.agents\/captures\//,
 ];
 
 export const isGeneratedRecord = (file) => GENERATED_RECORD_SHAPES.some((re) => re.test(file));
