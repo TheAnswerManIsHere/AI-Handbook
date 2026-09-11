@@ -317,12 +317,6 @@ before any new commit exists. The exit ramp from eternal looping is the judge
 refusing to *write*; it is never anyone skipping the review of something
 written.
 
-This supersedes the 2026-08-21 design, whose internal tier deliberately ended
-with the last fixes unreviewed and carried machinery to make that mergeable (a
-mid-budget terminal receipt, a distinct-commit proof, a rail look-through).
-All of it is deleted rather than fixed: it existed to make an unreviewed head
-safe, and an unreviewed head is now simply never mergeable.
-
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
 full round. So the real question — mine at every round, the adjudicator's
 from round 3 — is no longer "another round?" but **"is this finding worth
@@ -382,21 +376,34 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    count is never stored** — the context comment states it, and when it is
    counted it is counted fresh from GitHub.
 
-2. **From round 3 onward, dispatch the external adjudicator on any round
-   that returned findings — before anything is written for them** (David,
-   2026-08-22, superseding the 2026-08-20 beyond-the-first cadence).
+2. **Dispatch the external adjudicator on any round that returned findings,
+   from round 1; its VERDICT decides from round 3 onward** (David,
+   2026-08-22 for the authority; AI-Handbook #36 Phase 1 for the earlier
+   dispatch). It does two jobs from one record, and they are separate.
+   **Conformance triage, every round**: per finding, one class — in scope,
+   out of threat model, out of product intent, test precision, misdirection,
+   or unclassifiable where the loop has no oracle — each with a citation.
+   Rounds 1–2 it is advisory: I triage with it in hand and may differ, saying
+   so on the thread. From round 3 a finding classed out of scope ships as a
+   recorded gap citing the class, a finding classed in scope goes through the
+   ordinary write-or-stop decision under `Worth:` and **I may not decline it
+   alone** — that disagreement is David's. **I may decline a Codex finding on
+   a classification only by citing it**; no citation, no decline. The
+   judge's answer is recovered from the harness's record of it and committed
+   beside the record it ruled on, so what is counted later is what the judge
+   actually said.
+   **The verdict's own boundary is unchanged and the evidence for it is
+   unchanged** (David, 2026-08-22, superseding the 2026-08-20 beyond-the-first
+   cadence).
    **Code loops only: retired for plan loops** (David, 2026-09-09) — the
    in-session plan reviewer splits required from recommended itself, in a
    field, so a per-round judge would be a second opinion on a judgement
    already made mechanically. There the adjudicator runs at the budget cap
-   and on an `escalate`, and nowhere else. Rounds
-   1–2 findings are triaged and written for by default, because the judge
-   would have nothing to decide there: the loop ledger's 41 reviewed loops
-   contain **zero clean round 1s** and three round-2 convergences, so a
-   dispatch before round 3 only ever says "write" — the dead criticality
-   gate reborn. Round 3 heads the measured runaway tail (26 of 41 loops ran
-   4+ rounds), which is exactly where the one dispatch pays. A clean or
-   all-declined round at any point ends the loop with no dispatch — nothing
+   and on an `escalate`, and nowhere else. The ledger
+   evidence for the round-3 boundary — zero clean round 1s in 41 loops, three
+   round-2 convergences, the runaway tail starting there — is in the
+   adjudicator's own definition and is not restated here. A clean or
+   all-declined round at any point ends the loop with no dispatch: nothing
    was written, so the head is already reviewed. Dispatch mechanics: agent
    type `review-loop-adjudicator`,
    passing **no** per-invocation `model` or `effort` — its definition declares
@@ -422,9 +429,9 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
 3. **At budget exhaustion the adjudicator owns the extension**, including its
    size, naming the specific unaddressed behavioral risk it covers — an
    *actual* one, in this loop's territory. "The last round's fixes are
-   unreviewed" is no longer available as that risk and no such flag exists in
-   the record: under the write-gate rule the round reviewing any pushed fixes
-   has already run before the judge is dispatched.
+   unreviewed" is not available as that risk: under the write-gate rule the
+   round reviewing any pushed fixes has already run before the judge is
+   dispatched.
    **The David gate: budget + 3 rounds, on every tier** (David, 2026-08-26,
    superseding the 2×-budget hard stop and sensitive's stop-for-him-at-5).
    Adjudicator grants self-serve at most that 3-round leash; at the gate the
@@ -433,12 +440,10 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    taking effect on its own. His answer is the `david`-kind receipt: a grant
    opens exactly that many more rounds (default: another 3-round leash, the
    gate repeating where it runs out), 0 endorses stopping. Every finite
-   grant carries `asOf` — the completed-round count when he granted; the
-   guard refuses a receipt without it — and opens exactly `asOf + grant`,
-   so a **direct** mid-stage grant discards the interrupted stage's
-   unspent remainder, never stacks under his rounds. A direct **stop**
-   (grant 0 before any gate receipt exists) also cites its own mechanical
-   record, which is what keeps the merge gate satisfiable. **The exception
+   grant carries `asOf` and opens exactly `asOf + grant`; the guard refuses
+   a receipt without it and its message states the arithmetic. A direct
+   **stop** (grant 0 before any gate receipt exists) also cites its own
+   mechanical record, which is what keeps the merge gate satisfiable. **The exception
    that skips the leash entirely: a product decision.** A product-shaped
    blocker — the adjudicator's `escalate`, or my own recognition that a
    finding is product-not-mechanical — goes to David immediately, at any
@@ -466,21 +471,28 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    **A fix needs both a real likelihood and a real consequence** (David,
    2026-09-10). The reply names the **`Class:`** first, then a **`Worth:`**
    line answered against that class. `Worth:` asks **who supplies the
-   value** before anything else. If this code or its own operator does, two
-   kinds differ: **derivable** — this code already holds everything needed to
-   compute it — and I remove the input and derive the value, never a check,
-   because a check whose two sides I own guards nothing (David, 2026-09-10:
-   *"you control both sides"*; #73 spent four rounds on one flag before
-   deleting it); that is a write, not a decline, so a review round is owed.
-   **A choice** — intent this code cannot know (`--role`, `--timeout`,
-   `sync --to`) — stays an input: a cheap well-formedness check (non-empty,
-   numeric, a path that exists) catches the operator's own mistake and is in
-   scope; a hostile-value defence on it is not, and that finding is declined.
-   Only for a value from outside my control does it go on to ask the
-   chance the class occurs and what it costs at its worst; missing either,
-   it is a one-line decline shipped as a recorded gap —
-   however small the diff looks, because each one costs a
-   round and the aggregate is never weighed at the moment of the decision.
+   value** before anything else. If this code or its own operator does:
+   **derivable** (this code already holds what it needs) → remove the input
+   and derive it, never a check, because a check whose two sides I own guards
+   nothing — a write, so a round is owed. **A choice** (intent this code
+   cannot know: `--role`, `--timeout`, `sync --to`) → it stays an input with
+   a cheap well-formedness check; a hostile-value defence on it is declined.
+   Only a value from outside my control goes on to likelihood × consequence;
+   missing either, it is a one-line decline shipped as a recorded gap —
+   however small the diff looks, because each one costs a round and the
+   aggregate is never weighed at the moment of the decision. The worked
+   examples are in `pr-watch`, stated once.
+   **A consequence nobody would feel is not a consequence** (David,
+   2026-09-11). Two classes this settles, because I kept building for both:
+   **accounting precision** — a miscounted round changes no decision, so
+   machinery that makes a count exact is pure cost, and a finding about how
+   a round might be miscounted is declined; and **my own influence on my own
+   tools** — I run every script in this machinery, so a defence against my
+   editing its inputs is a lock whose key is on the same ring. The real
+   controls are David's merge and the server-side ruleset. Both classes are
+   one-line declines however cheap the diff looks. The measured case is this
+   rule's own plan loop: eleven findings, eleven fixes, no declines, and the
+   Worth rule had been contract for a day.
    This is *engineer-to-the-blast-radius* fired at triage, which is where a
    review loop actually over-builds: the design-time rule never collides
    with a P2 badge. Three bindings, without which the rule is a licence to

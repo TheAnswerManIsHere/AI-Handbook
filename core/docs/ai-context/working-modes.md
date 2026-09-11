@@ -617,10 +617,15 @@ the safety net a non-code-reading product manager depends on.
   counted they are **counted fresh from GitHub**, never stored: a committed
   tally is a cache of state GitHub already holds, and it failed exactly that
   way when it was tried.
-- **From round 3 onward, the external adjudicator rules on any round that
-  returned findings — before anything is written for them** (David,
-  2026-08-22, superseding the 2026-08-20 beyond-the-first cadence). Rounds
-  1–2 findings are triaged and written for by default: the loop ledger's 41
+- **The external adjudicator is dispatched on any round that returned
+  findings, from round 1, and its VERDICT rules from round 3 onward — before
+  anything is written for them** (David, 2026-08-22, superseding the
+  2026-08-20 beyond-the-first cadence; the earlier dispatch is AI-Handbook
+  #36 Phase 1, which added per-finding conformance triage to the same
+  dispatch). The classification is advisory in rounds 1–2 and binding from
+  round 3; the verdict's own boundary did not move, because the evidence that
+  set it did not move. Rounds 1–2 findings are triaged and written for by
+  default: the loop ledger's 41
   reviewed loops contain zero clean round 1s and three round-2 convergences,
   so a judge there only ever says "write", and round 3 heads the measured
   runaway tail (26 of 41 loops ran 4+ rounds) — the one place a dispatch

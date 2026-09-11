@@ -76,6 +76,19 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   lives in.** History:
   [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
   the general rule is in `agents-core.md`'s product principles.
+- **A consequence nobody would feel is not a consequence** (David,
+  2026-09-11). Two classes are declined here rather than fixed, and both
+  recur in this repository specifically. **Accounting precision**: how many
+  rounds a review loop ran is a gut-level trend — it exists so that one day
+  someone might ask whether the process is tuned, not as an audit history —
+  so a finding about how a round or a verdict might be miscounted, and any
+  machinery that would make such a count exact, is out of scope. **An
+  agent's influence over its own tooling**: the agent that runs these scripts
+  is the only actor who could subvert their inputs, and it could equally just
+  not run them, so a finding shaped "the session could edit what this reads"
+  describes a lock whose key is on the same ring. Neither is declined for
+  being a small diff — each fix costs a review round, and this rule exists
+  because the aggregate is never weighed at the moment one is chosen.
 
 ## Setup, verification, and the CI gate
 

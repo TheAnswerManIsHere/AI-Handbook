@@ -2,9 +2,11 @@
 
 # Dispatching Fable: what is enforced, and what is not
 
-The mechanism under AI-Handbook workstream #36's reviewer roles. Phase 0 ships
-this and **no advisory role**: the point is that the floor exists and is what
-it says before anything stands on it.
+The mechanism under AI-Handbook workstream #36's reviewer roles. Phase 0 shipped
+it with **no advisory role**: the point is that the floor exists and is what
+it says before anything stands on it. Phase 1 narrowed two of the five
+non-guarantees and left the rest standing, which is why this file still leads
+with them.
 
 **Codex keeps its full fix-or-decline force on product code. Nothing here
 touches it.** Neither does anything here change the `review-loop-adjudicator`,
@@ -68,13 +70,18 @@ this paragraph said "no channel through which caller-written text could reach
 the reviewer" while the next paragraph admitted the opposite; that was this
 document's own defect in its own subject (Codex, AI-Handbook #73 round 2).
 
-**What it does not do.** It does not establish who wrote the brief. A file the
-builder typed passes through unchanged; the receipt records the brief's sha256
-and never its origin. Authenticated brief provenance is Phase 1's boundary, and
-until it exists **every role except the script-fed probe is refused,
-unconditionally** — see *The refusal*, below.
+**What it does not do.** It does not establish who wrote a brief it did not
+build. That is why, as of Phase 1, it only dispatches roles whose briefs it
+*does* build: the permitted set is a predicate over this script's own brief
+generators, not a list, and `--brief` no longer exists. A role cannot be
+admitted by widening a parameter; it is admitted by having its brief composed
+here. See *The refusal*, below.
 
-### P2 — the observable surface is pinned and harness-reported; instruction loading is checked, not closed
+The receipt's `briefSha256` is the digest of the text **as embedded in the
+frame** — the frame trims the brief, and hashing the untrimmed input recorded a
+digest of a document nobody read.
+
+### P2 — the observable surface is pinned and harness-reported; instruction loading is bounded, not closed
 
 A role's built-in tools come from its frontmatter allowlist. `Bash`, `Write`,
 `Edit`, `NotebookEdit`, `Agent`, `Task`, `Skill`, `WebFetch` and `WebSearch`
@@ -104,28 +111,62 @@ measured below). They are inert without the `Skill` tool, which is permanently
 forbidden, so they are recorded rather than refused on — recording what was
 present beats inventing a violation.
 
-**What it does not observe: which instruction content loaded.** `init` does not
-enumerate `CLAUDE.md`, managed settings, managed hooks or memory files, and
-replacing the system prompt does not by itself exclude separately delivered
-context. The probe's schema carries a `claudemd` field the reviewer answers
-from its own context, and **that is a self-report, recorded as one**. The
-receipt says so in a field next to it. A managed hook could supply context
-without widening the reported tool list, and nothing here would see it.
+**What it observes about instruction content, as of Phase 1: the SIZE of the
+reviewer's prompt, against what this script put in it.** `init` still does not
+enumerate `CLAUDE.md`, managed settings, managed hooks or memory files. But the
+harness reports its own token usage on every assistant event, and the script
+knows exactly what it composed — so the receipt carries
+`promptTokensObserved`, the largest any request in the run reported, and
+`promptTokensBound`: the composed system prompt, user message and schema, plus
+what the run itself delivered, plus a measured allowance for the harness's own
+framing. **Over the bound refuses the run.**
 
-So: `--setting-sources ""` excludes **user, project and local** settings. It
-says nothing about **managed** settings and hooks. "Not loaded" is never to be
+Every event, on every attempt, and both halves matter. Context delivered after
+the first request is how an asynchronous hook delivers, so a check reading only
+the opening request would miss it while it still reached the answer. And a
+contaminated first attempt refuses before the re-ask, because a retry does not
+un-launch a reviewer that already held the context.
+
+Measured on this host (Claude Code 2.1.268, 2026-09-11): the real probe
+observed **3,269** prompt tokens against 3,575 characters composed, so the
+harness's framing is ~2,300 tokens and the allowance is set at 3,500. The same
+host with **default** setting sources carried **17,810** tokens for a trivial
+request — the repository's instructions arriving despite a replaced system
+prompt. That is the contamination this bound refuses, and it does so several
+times over.
+
+The receipt also carries two lines from the harness's own debug log, under
+names that say what they report: `skillsLoaded`, and `pendingAsyncHooks` —
+the size of the harness's **pending asynchronous** hook registry, which is not
+a count of hooks configured or run. Absence of either line refuses the run;
+neither number refuses on its value.
+
+**What remains open, stated exactly.** A hook that injects **nothing into the
+prompt** is outside both observations: the token bound sees only size, and the
+registry line sees only pending async entries. So the managed-hook gap
+**narrows** — anything that adds context is now caught by size, whatever
+delivered it — and does not close. `--setting-sources ""` still excludes only
+**user, project and local** settings, and "not loaded" is still never to be
 read as "none exist".
 
-**Closing this with a harness-side observation is a named Phase 1
-prerequisite**, and the refusal below does not lift until it is met.
+The probe's `claudemd` field stays, and stays **a self-report**, recorded in a
+field that says so, beside the observations rather than standing in for them.
 
 ### P3 — the answer's model is bound, not the run's
 
-The receipt carries `modelRequested` (the role's frontmatter, a full model id —
-an alias is refused, because "it ran on 5.1" would otherwise be probably-true
-and never established) and `answerModel`, taken from the `message.model` stamp
-on the assistant event that produced the validated output. **They must be equal
-or the run is refused.**
+The receipt carries `modelRequested` and `answerModel`, taken from the
+`message.model` stamp on the assistant event that produced the validated
+output. **They must be equal or the run is refused.**
+
+`modelRequested` is resolved from a **tier**, not read from the definition.
+"Fable" names the strongest Claude model available, not a version (David,
+2026-09-11), so a role declares `model: strongestClaude` and
+`.agents/machinery.json`'s `models` block maps that to today's full id. A new
+model is one edit there rather than a sweep through every definition, script
+and document. The refusal moved with the id and did not soften: the resolved
+value must be a full id, because "it ran on the strongest tier" would
+otherwise be probably-true and never established. The receipt records the
+tier it asked for alongside the id it resolved to.
 
 The run's aggregate `modelUsage` is copied verbatim **for accounting and
 authorises nothing.** Measured: every run also carries a Haiku call the harness
@@ -145,7 +186,9 @@ has shipped three times already (AI-Handbook #11, #16, #59).
 **A reviewer process that does not exit cleanly produced no evidence**,
 whatever its stdout contains: a non-zero status, a signal, or a spawn error
 refuses the run outright rather than retrying, because the buffered output of
-a dying process is not "junk to ask again for".
+a dying process is not "junk to ask again for". A `result` event carrying no
+`subtype` at all is refused on the same principle: nothing said the run
+succeeded, and an absent fact is not a favourable one.
 
 Exit codes: `0` a receipt was written; `1` a refusal or a reviewer failure; `2`
 no provider was reachable **and nothing was dispatched** — once any attempt has
@@ -191,24 +234,28 @@ that changes during a run is not detected. The field names carry the boundary
 for that reason, and a clean tree at spawn is **not** a reproducible reviewed
 snapshot. Snapshotting is not in Phase 0.
 
-## The refusal, and the two things that lift it
+## The refusal, and what would lift it
 
-Phase 0 dispatches **only the probe**. Every other role is refused with an
-error naming why. This is not configuration and not a soft default: P1 does not
-authenticate brief content and P2 does not observe instruction loading, so any
-role reading a caller-supplied brief would be counsel resting on inputs this
-increment cannot vouch for.
+**A role may dispatch if and only if this script generates its brief.** That is
+the rule, and as of Phase 1 it is also the mechanism: the permitted set is a
+predicate over the brief generators in `fable-dispatch.mjs`, there is no
+`--brief` flag, and `dispatch()` takes no parameter a caller could widen. The
+probe satisfies it. Nothing else does yet.
 
-Phase 1 may lift it **only after both**:
+That shape replaces Phase 0's list, which stated the same rule while leaving
+`permittedRoles` on the exported function — so an importing script could pass
+its own and the refusal was advisory (Codex, AI-Handbook #73 round 3).
 
-1. **Authenticated brief provenance** — briefs derived from git over a pinned
-   range and provenance-checked snapshots, not from a path a caller names.
-2. **A harness-side observation of instruction isolation** — something better
-   than the reviewer's own `claudemd` answer.
+**Phase 1 met one of Phase 0's two stated conditions and reshaped the other.**
+The harness-side observation of instruction loading now exists, bounded: P2
+above states exactly what it sees and what it still does not. Authenticated
+brief provenance, as Phase 0 imagined it, is **not** what lifts the refusal —
+the bar is the predicate, and a brief this script builds needs no provenance
+check because there is no other author to distinguish it from.
 
-One of the two is not enough. The refusal is the single control keeping
-un-authenticated, un-isolated Fable advice out of the fleet, and it is liftable
-only on its whole stated evidence.
+**Phase 2 adds the first role under that predicate**: its brief is a record
+this machinery already generates, built here rather than handed in. The
+refusal does not lift for it; it is satisfied by it.
 
 ## The probe
 
@@ -236,9 +283,10 @@ unit-tested refusals.
 
 ## Measured, on this host, at this version
 
-Claude Code **2.1.267**, in the Claude Code Remote container, 2026-09-10. These
-are per-host and per-version observations, not platform facts, and the live
-probe re-records them wherever it runs.
+Claude Code **2.1.268**, in the Claude Code Remote container; the launch-surface
+and cost rows were taken at 2.1.267 on 2026-09-10 and the isolation rows at
+2.1.268 on 2026-09-11. These are per-host and per-version observations, not
+platform facts, and the live probe re-records them wherever it runs.
 
 | What | Result |
 |---|---|
@@ -250,6 +298,9 @@ probe re-records them wherever it runs.
 | `--bare` | **breaks authentication.** It bypasses the host-managed provider and every call fails. Never passed here; the suite asserts its absence |
 | Child session id | inherited from the parent unless `--session-id` is passed |
 | Stdout purity | without `--setting-sources ""` a "workspace not trusted" warning prefixes stdout ahead of the JSON |
+| Prompt size, isolated | the probe observed **3,269** prompt tokens against 3,575 characters composed — so the harness's own framing is ~2,300 tokens, and the allowance is set at 3,500 |
+| Prompt size, contaminated | **17,810** tokens for a trivial request with default setting sources: the repository's instructions arriving despite a replaced system prompt. Refused by the bound several times over |
+| Debug log | under the dispatch's flags: `Loaded 0 unique skills`, `Hooks: Found 0 total hooks in registry`. With default sources on the same host: 44 skills |
 
 ## Why a subprocess and not a subagent
 
@@ -277,7 +328,10 @@ and noted here for whoever decides the adjudicator's future.
   inherited from the receipt machinery (AI-Handbook #38, #45). Every property
   above closes an accidental route. None survives a builder editing this
   script, and none claims to.
-- **Not an isolation proof.** See P2.
+- **Not an isolation proof.** P2 bounds the SIZE of the reviewer's prompt
+  against what this script put in it, which catches context that arrives from
+  anywhere. It does not enumerate what loaded, and a hook that injects nothing
+  is outside it.
 - **Not a review of anything.** Phase 0 ships a probe.
 - **Not reachable except through the script — now.** A definition under
   `.claude/agents/` is registered with the harness as an ordinary subagent, so

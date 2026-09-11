@@ -267,17 +267,48 @@ implementation PR:
   exit condition, **both caps** (3 consecutive no-ops; 6 wakes or 24 hours
   total), silent on no change **except a terminal wake** — is in `CLAUDE.md`'s
   *Scheduled self-check-ins*.
-- **From round 3 onward, the external adjudicator decides whether to WRITE
-  for a round's findings — before anything is written (David, 2026-08-22).**
-  Rounds 1–2 are written for by default; a round with no findings (or all
-  declines) needs no verdict at all. Triage the round's findings first — nature,
+- **Dispatch the adjudicator on any round that returned findings, from round
+  1. Its VERDICT decides from round 3 onward (David, 2026-08-22; the earlier
+  dispatch is AI-Handbook #36 Phase 1).** A round with no findings (or all
+  declines) dispatches nothing. Triage the round's findings first — nature,
   affected area, verdict (fix / accept-and-document / escalate / decline), and
   the causal flag (new ground vs. repairing an earlier round's fix vs.
-  impossible-as-specified). Then generate the mechanical record and dispatch:
+  impossible-as-specified). Then build the evidence and dispatch:
 
   ```
-  node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file> --write
+  # captures: recovered from the harness's transcript, not retyped
+  node scripts/capture-from-transcript.mjs --pr <n> --collection pr
+  node scripts/capture-from-transcript.mjs --pr <n> --collection reviews
+  node scripts/capture-from-transcript.mjs --pr <n> --collection issueComments
+  node scripts/capture-from-transcript.mjs --pr <n> --collection reviewThreads
+  node scripts/snapshot-from-captures.mjs --pr-capture … --out <snapshot>
+  node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <snapshot> --write
   ```
+
+  Fetch each collection with `perPage: 100` — recovery refuses a short-page
+  call, because the assembler proves a collection ended by its last page being
+  short and a ten-entry page would attest a completeness it does not have.
+  Where no transcript is found, the agent-written path still works and the
+  record says which class each capture was.
+
+  **Then commit the judge's own answer beside the record it ruled on:**
+
+  ```
+  node scripts/capture-from-transcript.mjs --pr <n> --verdict --record .agents/adjudications/<n>-<k>.json
+  ```
+
+  That file is what `/maintenance` counts and what a later reader checks a
+  classification against. Quote the classes in the round's context comment for
+  people; nothing reads that copy.
+
+  **Rounds 1–2 the classification is advisory**: triage with it in hand, and
+  say on the thread where I differ from it. **From round 3 it binds** — a
+  finding classed out of threat model, out of product intent or misdirection
+  ships as a recorded gap citing the class; one classed in scope, test
+  precision or unclassifiable goes through the ordinary write-or-stop decision
+  under `Worth:`; and an in-scope finding is not mine to decline alone. A
+  decline that rests on a classification **cites it in the `Worth:` line**;
+  no citation, no decline.
 
   Dispatch **one** `review-loop-adjudicator` subagent, passing **no**
   per-invocation `model` or `effort` — its own definition declares both, and a
