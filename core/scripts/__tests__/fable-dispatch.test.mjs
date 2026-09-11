@@ -904,7 +904,7 @@ test("a later request carrying the excess is refused, not just the first", () =>
   ].join("\n");
   assert.throws(
     () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
-    /largest prompt carried 40000 tokens/,
+    /request 2 of this run carried 40000 prompt tokens/,
   );
 });
 
@@ -1016,4 +1016,67 @@ test("a result event with no subtype is refused -- absent is not success", () =>
     () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
     /carries no `subtype`[\s\S]*absent fact is not a "success"/,
   );
+});
+
+// --- #79 round 1 -----------------------------------------------------------
+
+test("material delivered AFTER a request cannot widen that request's bound", () => {
+  // The reviewer's own case: a contaminated opening prompt followed by a large
+  // tool result. The first version totalled the whole stream and compared the
+  // run's largest prompt to that single final bound, so the later result
+  // retroactively excused the earlier request.
+  const composed = { systemPrompt: "s".repeat(300), message: "m".repeat(300), schemaJson: "j".repeat(300) };
+  const stream = [
+    initEvent(),
+    assistantEvent("claude-fable-5-1", 10_000),
+    JSON.stringify({ type: "user", content: "x".repeat(30_000) }),
+    assistantEvent("claude-fable-5-1", 500),
+  ].join("\n");
+
+  const bound = promptBound(stream, composed);
+
+  assert.ok(bound.overage, "the contaminated request is caught");
+  assert.equal(bound.overage.request, 1);
+  assert.equal(bound.overage.observed, 10_000);
+  assert.ok(bound.overage.bound < 10_000, "it was bounded by what preceded it, not by the whole run");
+});
+
+test("a legitimate later request that is larger than an early one does not refuse", () => {
+  // The corollary: judging by the worst OVERAGE rather than the largest prompt.
+  // A role that reads twenty files ends with a big prompt and no contamination.
+  const composed = { systemPrompt: "s".repeat(300), message: "m".repeat(300), schemaJson: "j".repeat(300) };
+  const stream = [
+    initEvent(),
+    assistantEvent("claude-fable-5-1", 900),
+    JSON.stringify({ type: "user", content: "f".repeat(120_000) }),
+    assistantEvent("claude-fable-5-1", 30_000),
+  ].join("\n");
+
+  const bound = promptBound(stream, composed);
+
+  assert.equal(bound.overage, null, "the big prompt is covered by what the run itself delivered first");
+  assert.equal(bound.promptTokensObserved, 30_000);
+});
+
+test("the run is refused by its worst overage, and the message names the request", () => {
+  const nonce = "n-order";
+  const stream = [
+    initEvent(),
+    assistantEvent("claude-fable-5-1", 50_000),
+    resultEvent({ challenge: nonce, claudemd: "no", tools: ["Read"] }),
+  ].join("\n");
+  assert.throws(
+    () => dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce }),
+    /request 1 of this run carried 50000 prompt tokens against the \d+ it was bounded to at that point/,
+  );
+});
+
+test("the tier's configured effort reaches the launch and the receipt", () => {
+  // `roleContract` resolved it and `buildArgv` dropped it, so editing
+  // `models.strongestClaude.effort` changed nothing while the configuration
+  // described it as the depth the tier runs at.
+  const contract = roleContract(DEFINITION, { role: "probe", definitionPath: "p", definitionCommit: "c" });
+  const argv = buildArgv(contract, { schemaJson: "{}", sessionId: "sid" });
+  assert.equal(argv[argv.indexOf("--effort") + 1], contract.modelEffort);
+  assert.equal(runProbe().effortRequested, contract.modelEffort);
 });

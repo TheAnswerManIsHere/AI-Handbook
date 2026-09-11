@@ -398,6 +398,13 @@ export function buildArgv(contract, { schemaJson, sessionId, debugFile = null })
     "-p",
     "--model",
     contract.model,
+    // The tier's configured reasoning depth, applied rather than merely
+    // recorded. `roleContract` resolved it and `buildArgv` dropped it, so
+    // editing `models.strongestClaude.effort` changed nothing while the
+    // configuration described it as the depth the tier runs at -- a claim with
+    // no mechanism, which is this file's own subject (Codex, #79 round 1).
+    "--effort",
+    contract.modelEffort,
     "--output-format",
     "stream-json",
     "--verbose",
@@ -469,24 +476,39 @@ export const HARNESS_FRAMING_TOKENS = 3_500;
 const CHARS_PER_TOKEN = 3;
 
 /**
- * The largest prompt the run ever carried, and the largest it could legitimately
- * have carried.
+ * Each request's prompt against the bound that applied WHEN IT WAS MADE.
  *
  * EVERY ASSISTANT EVENT, not the first. Context delivered after the first
  * request -- which is how an asynchronous hook delivers, on a later turn --
  * would be invisible to a check that read only the opening one, while still
  * reaching the request that produced the answer (Codex, plan round 2).
  *
- * The bound adds what the RUN itself delivered: the reviewer's own output and
- * any tool results the verbose stream carries are legitimately in its context
- * by the end, and counting them keeps a role that reads twenty files from
- * refusing itself. Counted generously, from the raw stream, because the safe
- * direction here is the loose one.
+ * AND EACH AGAINST ONLY WHAT PRECEDED IT. The first version totalled the whole
+ * stream and compared the run's largest prompt to that single final bound, so
+ * material delivered AFTER a contaminated request retroactively widened that
+ * request's allowance: a 10,000-token opening prompt followed by a
+ * 30,000-character tool result passed a bound it had exceeded by threefold at
+ * the moment it was made (Codex, #79 round 1). The bound is now computed
+ * incrementally, and the run is judged by its worst OVERAGE rather than by its
+ * largest prompt -- which are different events whenever a legitimate later
+ * request is bigger than an illegitimate early one.
+ *
+ * The bound still adds what the run itself delivered up to that point: the
+ * reviewer's own output and the tool results the verbose stream carries are
+ * legitimately in its context by then, and counting them keeps a role that
+ * reads twenty files from refusing itself. Counted generously, from the raw
+ * stream, because the safe direction on the allowance is the loose one.
  */
 export function promptBound(stream, { systemPrompt, message, schemaJson }) {
   const composed = systemPrompt.length + message.length + schemaJson.length;
+  const boundFor = (deliveredSoFar) => Math.ceil((composed + deliveredSoFar) / CHARS_PER_TOKEN) + HARNESS_FRAMING_TOKENS;
+
   let delivered = 0;
   let observed = 0;
+  let bound = boundFor(0);
+  let worstOverage = null;
+  let requests = 0;
+
   for (const line of (stream ?? "").split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -498,17 +520,35 @@ export function promptBound(stream, { systemPrompt, message, schemaJson }) {
     }
     if (!event || typeof event !== "object") continue;
     if (event.type === "system" && event.subtype === "init") continue;
+
+    if (event.type === "assistant") {
+      const usage = event.message?.usage;
+      if (usage) {
+        requests += 1;
+        const prompt =
+          (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
+        // The bound this request was actually held to: everything delivered
+        // BEFORE it, and nothing after.
+        const boundHere = boundFor(delivered);
+        if (prompt > observed) {
+          observed = prompt;
+          bound = boundHere;
+        }
+        if (prompt > boundHere && (worstOverage === null || prompt - boundHere > worstOverage.over)) {
+          worstOverage = { request: requests, observed: prompt, bound: boundHere, over: prompt - boundHere };
+        }
+      }
+    }
+    // Counted AFTER the event above, so a request is never bounded by its own
+    // answer, and the answer counts toward the next request's allowance.
     delivered += trimmed.length;
-    if (event.type !== "assistant") continue;
-    const usage = event.message?.usage;
-    if (!usage) continue;
-    const prompt =
-      (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
-    if (prompt > observed) observed = prompt;
   }
+
   return {
     promptTokensObserved: observed,
-    promptTokensBound: Math.ceil((composed + delivered) / CHARS_PER_TOKEN) + HARNESS_FRAMING_TOKENS,
+    promptTokensBound: bound,
+    requests,
+    overage: worstOverage,
     composedChars: composed,
     deliveredChars: delivered,
   };
@@ -1020,14 +1060,15 @@ export function dispatch({
       // would replace the real diagnosis with a worse one. That an ACCEPTED
       // answer was measured is checked below, where accepting happens.
       const bound = promptBound(run.stdout, { systemPrompt: contract.systemPrompt, message, schemaJson });
-      if (bound.promptTokensObserved > bound.promptTokensBound) {
+      if (bound.overage) {
+        const o = bound.overage;
         throw new Error(
-          `the reviewer's largest prompt carried ${bound.promptTokensObserved} tokens against a bound of ` +
-            `${bound.promptTokensBound} (${bound.composedChars} characters composed by this script, ` +
-            `${bound.deliveredChars} delivered by the run itself, plus ${HARNESS_FRAMING_TOKENS} tokens of ` +
-            `harness framing). Something reached the reviewer's context that this dispatch did not send. ` +
-            `Measured for comparison: a dispatch with default setting sources on this host carried 17,810 ` +
-            `tokens where an isolated one carried 804.`,
+          `request ${o.request} of this run carried ${o.observed} prompt tokens against the ${o.bound} it was ` +
+            `bounded to at that point (${bound.composedChars} characters composed by this script, plus what ` +
+            `the run had delivered before that request, plus ${HARNESS_FRAMING_TOKENS} tokens of harness ` +
+            `framing). Something reached the reviewer's context that this dispatch did not send. Measured for ` +
+            `comparison: a dispatch with default setting sources on this host carried 17,810 tokens where an ` +
+            `isolated one carried 804.`,
         );
       }
       isolation = { ...bound, harnessFramingAllowanceTokens: HARNESS_FRAMING_TOKENS };
@@ -1109,6 +1150,7 @@ export function dispatch({
       treeCleanAtSpawn,
       modelTier: contract.modelTier,
       modelRequested: contract.model,
+      effortRequested: contract.modelEffort,
       answerModel,
       modelUsage: usage,
       costUsd,

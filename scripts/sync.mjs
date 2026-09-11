@@ -61,7 +61,7 @@
 import { execFileSync } from "node:child_process";
 import {
   lstatSync, mkdirSync, mkdtempSync, copyFileSync, renameSync, rmSync,
-  existsSync, realpathSync, readdirSync,
+  existsSync, realpathSync, readdirSync, readFileSync, writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve, relative, sep } from "node:path";
@@ -134,6 +134,60 @@ export function routeOf(rel) {
 }
 
 /**
+ * The top-level keys a JSON seed declares that the consumer's own copy lacks.
+ *
+ * WHY A SEED IS NOT SIMPLY LEFT ALONE FOREVER. `machinery.json` is
+ * consumer-owned from the moment it lands, and the sync has always respected
+ * that by skipping it. But the payload's REQUIREMENTS grow: Phase 1 of
+ * AI-Handbook #36 made a `models` block required, and every consumer seeded
+ * before it would have received the new scripts and then refused every
+ * dispatch and every plan-review round at `modelTier()` until a human edited
+ * the file by hand -- the review machinery disabled fleet-wide by a sync that
+ * reported success (Codex, #79 round 1).
+ *
+ * So a JSON seed is topped up: keys the template declares and the consumer's
+ * copy does not get added, with the template's values. Nothing the consumer
+ * already has is touched -- not its identity, not its required checks, not a
+ * `models` block it has already tuned. Adding an absent key cannot overwrite a
+ * decision nobody made.
+ *
+ * A copy that is not parseable JSON is left entirely alone and reported: the
+ * sync does not get to guess at a file it cannot read.
+ */
+export function topUpKeys(templatePath, targetPath) {
+  let template;
+  let current;
+  try {
+    template = JSON.parse(readFileSync(templatePath, "utf8"));
+    current = JSON.parse(readFileSync(targetPath, "utf8"));
+  } catch {
+    return [];
+  }
+  if (!template || typeof template !== "object" || Array.isArray(template)) return [];
+  if (!current || typeof current !== "object" || Array.isArray(current)) return [];
+  // REAL KEYS ONLY, plus the doc entry that belongs to one being added.
+  // `_README`, `_repo` and their kin are prose the template carries to explain
+  // a field; restoring one a consumer deliberately stripped would be the sync
+  // editorialising in a file it does not own. But a field arriving for the
+  // first time should arrive with its explanation, or a consumer meets a key
+  // it has no way to understand.
+  const added = Object.keys(template).filter((k) => !k.startsWith("_") && !Object.hasOwn(current, k));
+  const docs = added.map((k) => `_${k}`).filter((k) => Object.hasOwn(template, k) && !Object.hasOwn(current, k));
+  return [...added, ...docs];
+}
+
+/** Apply `topUpKeys`, preserving every value the consumer already declared. */
+export function topUpSeed(templatePath, targetPath) {
+  const added = topUpKeys(templatePath, targetPath);
+  if (!added.length) return added;
+  const template = JSON.parse(readFileSync(templatePath, "utf8"));
+  const current = JSON.parse(readFileSync(targetPath, "utf8"));
+  for (const key of added) current[key] = template[key];
+  writeFileSync(targetPath, `${JSON.stringify(current, null, 2)}\n`);
+  return added;
+}
+
+/**
  * Refuse a symlink among a destination path's DIRECTORY components.
  *
  * The final entry is handled by the atomic rename, which replaces it rather
@@ -182,7 +236,7 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
   const owned = payloadRoot === null;
   const root = owned ? materializePayload() : payloadRoot;
   const destReal = realpathSync(dest);
-  const counts = { copied: 0, seeded: 0, seedKept: 0 };
+  const counts = { copied: 0, seeded: 0, seedKept: 0, toppedUp: 0 };
 
   try {
     for (const rel of payloadFiles(root)) {
@@ -196,8 +250,14 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
       let present = true;
       try { lstatSync(target); } catch { present = false; }
       if (seed && present) {
-        counts.seedKept += 1;
-        log(`  keep   ${to}  (seed, already present -- consumer owns it)`);
+        const added = dryRun ? topUpKeys(join(root, rel), target) : topUpSeed(join(root, rel), target);
+        if (added.length) {
+          counts.toppedUp += 1;
+          log(`  top up ${to}  (seed, consumer owns it -- added absent key(s): ${added.join(", ")})`);
+        } else {
+          counts.seedKept += 1;
+          log(`  keep   ${to}  (seed, already present -- consumer owns it)`);
+        }
         continue;
       }
 
@@ -248,6 +308,7 @@ function main(argv) {
   const c = sync(dest, { dryRun: flags.dryRun });
   console.log(
     `sync: ${c.copied} file(s) copied, ${c.seeded} seeded, ${c.seedKept} seed(s) left alone` +
+      (c.toppedUp ? `, ${c.toppedUp} seed(s) topped up with new keys` : "") +
       `${flags.dryRun ? " -- nothing written" : ""}`,
   );
 }

@@ -42,7 +42,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 
-import { REPO_ROOT } from "./review-budget.mjs";
+import { REPO_ROOT, repoSlug } from "./review-budget.mjs";
 
 const sha256 = (text) => crypto.createHash("sha256").update(text).digest("hex");
 
@@ -208,22 +208,33 @@ export function spilledPath(text) {
  * about. A later call that asked for a short page does not displace an earlier
  * full-page one; it was never a candidate.
  */
-export function selectCall(calls, { collection, pr, page = 1 }) {
+export function selectCall(calls, { collection, pr, page = 1, repo = null }) {
   const spec = COLLECTIONS[collection];
   if (!spec) throw new Error(`unknown collection ${JSON.stringify(collection)} (have: ${Object.keys(COLLECTIONS).join(", ")})`);
+  // THE REPOSITORY IS PART OF THE SELECTOR, not just the pull number. Every
+  // repository has a #79, so a session that also queried another repo's #79
+  // had its later foreign call win -- and a foreign EMPTY collection carries
+  // no urls for the downstream provenance checks to reject, so it assembles
+  // as a complete empty collection for this repository and undercounts the
+  // loop (Codex, #79 round 1). Derived from the machinery config, never
+  // typed: it is the same identity every other artifact is stamped with.
+  const [owner, name] = (repo ?? "").split("/");
   const eligible = calls.filter((c) => {
     if (c.name !== spec.tool) return false;
     const input = c.input ?? {};
     if (input.method !== spec.method) return false;
     if (Number(input.pullNumber) !== Number(pr)) return false;
+    if (owner && String(input.owner ?? "").toLowerCase() !== owner.toLowerCase()) return false;
+    if (name && String(input.repo ?? "").toLowerCase() !== name.toLowerCase()) return false;
     if (!spec.paged) return true;
     if (Number(input.perPage) !== PAGE_MAX) return false;
     return Number(input.page ?? 1) === Number(page);
   });
   if (!eligible.length) {
     throw new Error(
-      `no eligible ${collection} call for PR ${pr}${spec.paged ? ` page ${page}` : ""} in this transcript. ` +
-        `Eligible means ${spec.tool} with method "${spec.method}"` +
+      `no eligible ${collection} call for ${repo ?? "this repository"} PR ${pr}` +
+        `${spec.paged ? ` page ${page}` : ""} in this transcript. ` +
+        `Eligible means ${spec.tool} with method "${spec.method}", this repository` +
         (spec.paged ? `, perPage ${PAGE_MAX} and page ${page}` : "") +
         `. A call that asked for a shorter page is deliberately not eligible: the snapshot assembler proves a ` +
         `collection ended by its last page being short, so a short page would attest a completeness it does ` +
@@ -249,6 +260,81 @@ export function selectVerdictCall(calls, recordPath) {
   const chosen = eligible[eligible.length - 1];
   if (!chosen.result) throw new Error(`the adjudicator dispatch ${chosen.id} has no recorded result yet`);
   return chosen;
+}
+
+/** The classes the adjudicator's contract defines. Anything else is malformed. */
+export const CONFORMANCE_CLASSES = [
+  "in-scope",
+  "out-of-threat-model",
+  "out-of-product-intent",
+  "test-precision",
+  "misdirection",
+  "unclassifiable-no-oracle",
+];
+
+/**
+ * The conformance array against the record the judge was given.
+ *
+ * THE CONTRACT ALREADY SAID THIS AND THE CODE DID NOT DO IT. The adjudicator's
+ * definition tells it that coverage is total and that a missing, extra or
+ * duplicated `threadId` is a malformed answer the loop refuses; recovery
+ * accepted any object carrying a string `verdict`, so an answer that silently
+ * dropped a finding became a committed verdict and, from round 3, a binding
+ * classification with a hole in it (Codex, #79 round 1).
+ *
+ * A claim in a contract that nothing enforces is the defect this entire
+ * workstream exists to remove -- attempt 1 (AI-Handbook PR #70) was withdrawn
+ * for exactly it, one level up. So this is not a hostile-input defence; it is
+ * the contract's own refusal, finally written.
+ *
+ * A record with no findings is not dispatched for, so an absent `findings`
+ * block means this is not a code-loop record and coverage cannot be checked --
+ * `conformance` must still be an array, because the contract returns one
+ * (empty, on a plan loop) either way.
+ */
+export function assertConformance(verdict, record) {
+  const entries = verdict.conformance;
+  if (!Array.isArray(entries)) {
+    throw new Error(
+      "the adjudicator's answer carries no `conformance` array. Its contract returns one on every dispatch -- " +
+        "empty on a plan loop, one entry per finding on a code loop -- so an answer without it is malformed " +
+        "and is not written. Re-dispatch rather than editing the answer.",
+    );
+  }
+  for (const [i, entry] of entries.entries()) {
+    if (!entry || typeof entry !== "object" || typeof entry.threadId !== "string" || !entry.threadId) {
+      throw new Error(`conformance[${i}] carries no \`threadId\``);
+    }
+    if (!CONFORMANCE_CLASSES.includes(entry.class)) {
+      throw new Error(
+        `conformance entry for ${entry.threadId} carries class ${JSON.stringify(entry.class)}, which is not one ` +
+          `of: ${CONFORMANCE_CLASSES.join(", ")}. An unrecognised class cannot be acted on, and guessing which ` +
+          `one was meant is how a binding classification becomes fiction.`,
+      );
+    }
+  }
+
+  const expected = Array.isArray(record?.findings?.items)
+    ? record.findings.items.map((f) => f.threadId).filter((id) => typeof id === "string")
+    : null;
+  if (expected === null) return;
+
+  const seen = new Map();
+  for (const entry of entries) seen.set(entry.threadId, (seen.get(entry.threadId) ?? 0) + 1);
+  const duplicated = [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+  const missing = expected.filter((id) => !seen.has(id));
+  const extra = [...seen.keys()].filter((id) => !expected.includes(id));
+  if (missing.length || extra.length || duplicated.length) {
+    const parts = [];
+    if (missing.length) parts.push(`omits ${missing.length} finding(s) the record carries (${missing.slice(0, 3).join(", ")})`);
+    if (extra.length) parts.push(`names ${extra.length} thread(s) the record does not carry (${extra.slice(0, 3).join(", ")})`);
+    if (duplicated.length) parts.push(`names ${duplicated.slice(0, 3).join(", ")} more than once`);
+    throw new Error(
+      `the adjudicator's conformance does not cover the record it ruled on: it ${parts.join("; it ")}. Coverage ` +
+        `is total by contract -- every finding in the record, nothing outside it -- so a gap here would leave a ` +
+        `finding unclassified while the loop treated the classification as complete. Re-dispatch.`,
+    );
+  }
 }
 
 /**
@@ -292,9 +378,9 @@ function write(root, rel, text) {
   return path.relative(root, abs);
 }
 
-export function recoverCapture({ root = REPO_ROOT, pr, collection, page = 1, transcript = null } = {}) {
+export function recoverCapture({ root = REPO_ROOT, pr, collection, page = 1, transcript = null, repo = undefined } = {}) {
   const file = findTranscript(root, { explicit: transcript });
-  const call = selectCall(readCalls(file), { collection, pr, page });
+  const call = selectCall(readCalls(file), { collection, pr, page, repo: repo === undefined ? repoSlug() : repo });
   const text = resultText(call.result);
   if (text === null) throw new Error(`the ${collection} result for ${call.id} carries no readable text`);
 
@@ -313,13 +399,21 @@ export function recoverVerdict({ root = REPO_ROOT, pr, recordPath, transcript = 
   const file = findTranscript(root, { explicit: transcript });
   const call = selectVerdictCall(readCalls(file), recordPath);
   const verdict = parseVerdict(resultText(call.result));
+  const recordText = fs.readFileSync(recordAbs, "utf8");
+  let record;
+  try {
+    record = JSON.parse(recordText);
+  } catch (e) {
+    throw new Error(`the record ${recordPath} is not valid JSON (${e.message}), so the verdict cannot be checked against it`);
+  }
+  assertConformance(verdict, record);
 
   const out = verdictPathFor(recordPath);
   const document = {
     generator: "scripts/capture-from-transcript.mjs",
     pr: Number(pr),
     recordPath,
-    recordSha256: sha256(fs.readFileSync(recordAbs, "utf8")),
+    recordSha256: sha256(recordText),
     toolUseId: call.id,
     decidedAt: call.result.at,
     transcript: path.basename(file),

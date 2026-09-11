@@ -10,7 +10,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload,
+  routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed,
 } from "../sync.mjs";
 
 const silent = () => {};
@@ -148,15 +148,37 @@ test("a fresh consumer receives every payload file, and no temporaries", () => {
   }
 });
 
-test("a re-sync never clobbers a seed the consumer has edited", () => {
+test("a re-sync never clobbers a value the consumer has edited", () => {
   const dest = fresh();
   try {
     run(dest);
     const owned = join(dest, ".agents/machinery.json");
     writeFileSync(owned, '{"repo":"consumer/edited"}');
-    const counts = run(dest);
-    assert.equal(readFileSync(owned, "utf8"), '{"repo":"consumer/edited"}');
-    assert.equal(counts.seedKept, 2);
+    run(dest);
+    // The consumer's OWN value is what must survive, and it does. The file is
+    // no longer byte-identical because a seed is now topped up with keys the
+    // template requires and this copy lacks -- without which a consumer
+    // seeded before a new required key received the scripts that need it and
+    // refused every invocation. (Codex, #79 round 1.)
+    const after = JSON.parse(readFileSync(owned, "utf8"));
+    assert.equal(after.repo, "consumer/edited");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("a settings seed the consumer owns is left byte-identical", () => {
+  // The top-up is JSON-shaped and additive, but `settings.json` carries a
+  // consumer's permissions: nothing here may add to those silently. It has no
+  // template keys absent from a real consumer copy, so it stays untouched --
+  // asserted rather than assumed.
+  const dest = fresh();
+  try {
+    run(dest);
+    const owned = join(dest, ".claude/settings.json");
+    const before = readFileSync(owned, "utf8");
+    run(dest);
+    assert.equal(readFileSync(owned, "utf8"), before);
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }
@@ -270,4 +292,56 @@ test("assertNoSymlinkOnPath ignores the final entry, which rename handles", () =
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }
+});
+
+// --- #79 round 1: a seed the consumer owns still gains newly-required keys ---
+
+test("a JSON seed gains keys the template added, and loses nothing it has", () => {
+  // Phase 1 of AI-Handbook #36 made a `models` block required. Every consumer
+  // seeded before it would have received the new scripts and then refused
+  // every dispatch and every plan-review round until a human edited the file
+  // by hand -- the review machinery disabled fleet-wide by a sync that
+  // reported success. (Codex, #79 round 1.)
+  const dir = mkdtempSync(join(tmpdir(), "topup-"));
+  const template = join(dir, "machinery.template.json");
+  const target = join(dir, "machinery.json");
+  writeFileSync(
+    template,
+    JSON.stringify({ repo: "OWNER/REPO", requiredChecks: ["X"], models: { strongestClaude: { id: "a-b", effort: "xhigh" } } }, null, 2),
+  );
+  writeFileSync(target, JSON.stringify({ repo: "Real/Consumer", requiredChecks: ["Their Job"] }, null, 2));
+
+  assert.deepEqual(topUpKeys(template, target), ["models"]);
+  assert.deepEqual(topUpSeed(template, target), ["models"]);
+
+  const after = JSON.parse(readFileSync(target, "utf8"));
+  assert.equal(after.repo, "Real/Consumer", "the consumer's identity is untouched");
+  assert.deepEqual(after.requiredChecks, ["Their Job"], "and its policy");
+  assert.equal(after.models.strongestClaude.id, "a-b", "and the absent key arrived");
+
+  // Idempotent: a second sync adds nothing.
+  assert.deepEqual(topUpKeys(template, target), []);
+});
+
+test("a key the consumer already tuned is never overwritten", () => {
+  const dir = mkdtempSync(join(tmpdir(), "topup-own-"));
+  const template = join(dir, "m.template.json");
+  const target = join(dir, "m.json");
+  writeFileSync(template, JSON.stringify({ models: { strongestClaude: { id: "seed-value", effort: "xhigh" } } }));
+  writeFileSync(target, JSON.stringify({ models: { strongestClaude: { id: "their-own-choice", effort: "high" } } }));
+
+  assert.deepEqual(topUpSeed(template, target), []);
+  assert.equal(JSON.parse(readFileSync(target, "utf8")).models.strongestClaude.id, "their-own-choice");
+});
+
+test("a copy that is not parseable JSON is left entirely alone", () => {
+  // The sync does not get to guess at a file it cannot read.
+  const dir = mkdtempSync(join(tmpdir(), "topup-bad-"));
+  const template = join(dir, "m.template.json");
+  const target = join(dir, "m.json");
+  writeFileSync(template, JSON.stringify({ models: {} }));
+  writeFileSync(target, "{ this is not json");
+
+  assert.deepEqual(topUpKeys(template, target), []);
+  assert.equal(readFileSync(target, "utf8"), "{ this is not json");
 });

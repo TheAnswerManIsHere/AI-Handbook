@@ -412,19 +412,18 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    (`node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file>
    --write`), never the loop's own prose and never a case for continuing
    written by me. It returns continue / stop / split-to-David, and **its verdict
-   decides** — I don't weigh it or adopt the parts I like. The verdict is one
-   line in the **separate defanged context comment**, never in the trigger
-   comment (which stays bare, per interaction rule 11) and never a file:
-   per-round receipts would rebuild the receipt machinery this replaced.
+   decides** — I don't weigh it or adopt the parts I like. The verdict is
+   summarised in the **separate defanged context comment**, never in the
+   trigger comment (bare, per interaction rule 11), and the answer itself is
+   recovered into `<record>.verdict.json` and committed. That is not the
+   per-round receipt machinery this replaced: no guard reads one and none
+   grants a round. It carries the conformance classification, which must
+   survive the round to be citable in a decline and countable later.
    The one exception is a verdict at a tripwire — the extension decision at
    budget exhaustion, and the recommendation committed at a David gate —
-   written to the committed receipt the guard consumes. (The
-   internal-tier mid-budget receipt added on 2026-08-21 is gone with the
-   write-gate rule: a stop now precedes any new commit, so there is no
-   unreviewed head for a receipt to unwedge.) The loop executes; the external judge
-   judges. All in-loop self-refereeing is gone — the criticality gate, count
-   trend, growth tripwire and oscillation diagnosis were 0-for-15 at stopping
-   loops and the budget replaced them.
+   written to the committed receipt the guard consumes. The loop executes; the external judge
+   judges. All in-loop self-refereeing is gone — 0-for-15 at stopping loops,
+   and the budget replaced it.
 
 3. **At budget exhaustion the adjudicator owns the extension**, including its
    size, naming the specific unaddressed behavioral risk it covers — an

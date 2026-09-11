@@ -17,6 +17,7 @@ import {
   selectCall,
   selectVerdictCall,
   parseVerdict,
+  assertConformance,
   verdictPathFor,
   recoverCapture,
   recoverVerdict,
@@ -40,6 +41,8 @@ const result = (id, text, at = "2026-09-11T10:00:01.000Z") => ({
   message: { content: [{ type: "tool_result", tool_use_id: id, content: [{ type: "text", text }] }] },
 });
 
+const REPO = "o/r";
+
 const prCall = (id, method, extra = {}) =>
   use(id, "mcp__github__pull_request_read", { method, owner: "o", repo: "r", pullNumber: 80, ...extra });
 
@@ -61,7 +64,7 @@ test("a recovered capture is the transcript's bytes, exactly", () => {
   const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", body)]);
   const root = repo();
 
-  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file });
+  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO });
 
   assert.equal(out.source, "transcript-recovered");
   assert.equal(out.path, capturePath(80, "reviews", 1));
@@ -72,7 +75,7 @@ test("a recovered capture is the transcript's bytes, exactly", () => {
 
 test("the capture time is the transcript's, not the file's", () => {
   const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", "[]", "2026-09-11T09:30:00.000Z")]);
-  const out = recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file });
+  const out = recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file, repo: REPO });
   assert.equal(out.capturedAt, "2026-09-11T09:30:00.000Z");
 });
 
@@ -83,7 +86,7 @@ test("a spilled result resolves to the harness's own file, and is not copied", (
   const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", notice)]);
   const root = repo();
 
-  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file });
+  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO });
 
   assert.equal(out.source, "harness-capture");
   assert.equal(out.path, spill);
@@ -94,7 +97,7 @@ test("a spilled result resolves to the harness's own file, and is not copied", (
 test("a spill notice naming a file that is gone refuses rather than copying the preview", () => {
   const notice = "<persisted-output>\nOutput too large. Full output saved to: /nope/gone.txt\n\nPreview (first 2KB):\n[]";
   const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", notice)]);
-  assert.throws(() => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file }), /no longer there/);
+  assert.throws(() => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file, repo: REPO }), /no longer there/);
 });
 
 test("a later short-page call never displaces an earlier full-page one", () => {
@@ -107,7 +110,7 @@ test("a later short-page call never displaces an earlier full-page one", () => {
   ]);
   const root = repo();
 
-  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file });
+  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO });
 
   assert.equal(fs.readFileSync(path.join(root, out.path), "utf8"), full);
 });
@@ -115,8 +118,8 @@ test("a later short-page call never displaces an earlier full-page one", () => {
 test("only a short-page call exists: refuse, naming what eligibility means", () => {
   const file = transcript([prCall("t1", "get_reviews", { perPage: 10 }), result("t1", "[]")]);
   assert.throws(
-    () => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file }),
-    /no eligible reviews call for PR 80 page 1[\s\S]*perPage 100/,
+    () => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file, repo: REPO }),
+    /no eligible reviews call for o\/r PR 80 page 1[\s\S]*perPage 100/,
   );
 });
 
@@ -128,7 +131,7 @@ test("the latest eligible call wins among equals", () => {
     result("t2", '["fresh"]'),
   ]);
   const root = repo();
-  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file });
+  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO });
   assert.equal(fs.readFileSync(path.join(root, out.path), "utf8"), '["fresh"]');
 });
 
@@ -137,28 +140,31 @@ test("selection is pinned to the pull request and the page", () => {
     transcript([
       prCall("t1", "get_reviews", { perPage: 100 }),
       result("t1", "[]"),
-      use("t2", "mcp__github__pull_request_read", { method: "get_reviews", pullNumber: 99, perPage: 100 }),
+      use("t2", "mcp__github__pull_request_read", { method: "get_reviews", owner: "o", repo: "r", pullNumber: 99, perPage: 100 }),
       result("t2", "[]"),
       prCall("t3", "get_reviews", { perPage: 100, page: 2 }),
       result("t3", "[]"),
     ]),
   );
 
-  assert.equal(selectCall(calls, { collection: "reviews", pr: 80, page: 1 }).id, "t1");
-  assert.equal(selectCall(calls, { collection: "reviews", pr: 99, page: 1 }).id, "t2");
-  assert.equal(selectCall(calls, { collection: "reviews", pr: 80, page: 2 }).id, "t3");
-  assert.throws(() => selectCall(calls, { collection: "reviews", pr: 80, page: 3 }), /no eligible/);
+  assert.equal(selectCall(calls, { collection: "reviews", pr: 80, page: 1, repo: REPO }).id, "t1");
+  assert.equal(selectCall(calls, { collection: "reviews", pr: 99, page: 1, repo: REPO }).id, "t2");
+  // And pinned to the REPOSITORY: every repo has an #80, and a foreign empty
+  // collection carries no urls for the downstream checks to reject.
+  assert.throws(() => selectCall(calls, { collection: "reviews", pr: 80, page: 1, repo: "someone/else" }), /no eligible/);
+  assert.equal(selectCall(calls, { collection: "reviews", pr: 80, page: 2, repo: REPO }).id, "t3");
+  assert.throws(() => selectCall(calls, { collection: "reviews", pr: 80, page: 3, repo: REPO }), /no eligible/);
 });
 
 test("the unpaged collection needs no page size", () => {
   const calls = readCalls(transcript([prCall("t1", "get"), result("t1", "{}")]));
-  assert.equal(selectCall(calls, { collection: "pr", pr: 80 }).id, "t1");
+  assert.equal(selectCall(calls, { collection: "pr", pr: 80, repo: REPO }).id, "t1");
   assert.equal(COLLECTIONS.pr.paged, false);
 });
 
 test("a call with no recorded result refuses rather than writing an empty capture", () => {
   const file = transcript([prCall("t1", "get_reviews", { perPage: 100 })]);
-  assert.throws(() => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file }), /no recorded result/);
+  assert.throws(() => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file, repo: REPO }), /no recorded result/);
 });
 
 test("a partial last line does not stop the reader", () => {
@@ -173,7 +179,7 @@ test("a partial last line does not stop the reader", () => {
 
 // --- the adjudicator's answer ---------------------------------------------
 
-const RECORD = '{"pr":80}\n';
+const RECORD = JSON.stringify({ pr: 80, findings: { items: [{ threadId: "T1" }, { threadId: "T2" }] } }, null, 2);
 
 function repoWithRecord() {
   const root = repo();
@@ -185,7 +191,11 @@ function repoWithRecord() {
 const agentCall = (id, promptPath) =>
   use(id, "Agent", { subagent_type: "review-loop-adjudicator", description: "Adjudicate", prompt: `Read ${promptPath} in full.` });
 
-const VERDICT = { verdict: "ship-with-gaps-recorded", grant: 0, risk: "", reasoning: "because", gaps: ["one"] };
+const CONFORMANCE = [
+  { threadId: "T1", class: "in-scope", citation: "", why: "a real defect" },
+  { threadId: "T2", class: "out-of-threat-model", citation: "threatModel:12", why: "operator's own argv" },
+];
+const VERDICT = { verdict: "ship-with-gaps-recorded", grant: 0, risk: "", reasoning: "because", gaps: ["one"], conformance: CONFORMANCE };
 
 test("the verdict file carries the judge's own answer, out of the harness's record of it", () => {
   const root = repoWithRecord();
@@ -304,4 +314,69 @@ test("the command line takes flags only, and says what each mode needs", () => {
   assert.throws(() => parseArgs(["--collection", "reviews"]), /--pr is required/);
   assert.throws(() => parseArgs(["--pr", "80", "--out", "x"]), /unknown argument/);
   assert.throws(() => parseArgs(["some text"]), /unknown argument/);
+});
+
+// --- #79 round 1 -----------------------------------------------------------
+
+test("a foreign repository's call for the same PR number never wins", () => {
+  // Every repository has an #80. A foreign EMPTY collection carries no urls
+  // for the downstream provenance checks to reject, so it would assemble as a
+  // complete empty collection for THIS repository and undercount the loop.
+  const ours = '[{"id":1}]';
+  const file = transcript([
+    prCall("t1", "get_reviews", { perPage: 100 }),
+    result("t1", ours),
+    use("t2", "mcp__github__pull_request_read", {
+      method: "get_reviews",
+      owner: "someone",
+      repo: "other",
+      pullNumber: 80,
+      perPage: 100,
+    }),
+    result("t2", "[]"),
+  ]);
+  const root = repo();
+
+  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO });
+
+  assert.equal(fs.readFileSync(path.join(root, out.path), "utf8"), ours, "the later foreign call did not displace ours");
+});
+
+test("the conformance check refuses every shape the contract calls malformed", () => {
+  // The adjudicator's definition already said coverage is total and that a
+  // missing, extra or duplicated threadId is refused. Recovery accepted any
+  // object with a string `verdict`, so the contract asserted a refusal that
+  // did not exist -- the defect attempt 1 was withdrawn for, one level up.
+  const record = { findings: { items: [{ threadId: "A" }, { threadId: "B" }] } };
+  const entry = (threadId, cls = "in-scope") => ({ threadId, class: cls, citation: "", why: "w" });
+
+  assertConformance({ verdict: "stop", conformance: [entry("A"), entry("B")] }, record);
+
+  for (const [bad, re] of [
+    [{ verdict: "stop" }, /carries no `conformance` array/],
+    [{ verdict: "stop", conformance: [entry("A")] }, /omits 1 finding/],
+    [{ verdict: "stop", conformance: [entry("A"), entry("B"), entry("C")] }, /names 1 thread\(s\) the record does not carry/],
+    [{ verdict: "stop", conformance: [entry("A"), entry("B"), entry("A")] }, /names A more than once/],
+    [{ verdict: "stop", conformance: [entry("A", "invented"), entry("B")] }, /which is not one of/],
+    [{ verdict: "stop", conformance: [{ class: "in-scope" }] }, /carries no `threadId`/],
+  ]) {
+    assert.throws(() => assertConformance(bad, record), re);
+  }
+});
+
+test("a record with no findings block still requires the array, and checks no coverage", () => {
+  // A plan loop returns an empty conformance by contract; there is no code-loop
+  // findings list to cover.
+  assertConformance({ verdict: "stop", conformance: [] }, { pr: 80 });
+  assert.throws(() => assertConformance({ verdict: "stop" }, { pr: 80 }), /carries no `conformance` array/);
+});
+
+test("a malformed verdict is refused before any file is written", () => {
+  const root = repoWithRecord();
+  const file = transcript([
+    agentCall("a1", ".agents/adjudications/80-1.json"),
+    result("a1", JSON.stringify({ ...VERDICT, conformance: [{ threadId: "T1", class: "in-scope" }] })),
+  ]);
+  assert.throws(() => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }), /omits 1 finding/);
+  assert.equal(fs.existsSync(path.join(root, ".agents/adjudications/80-1.verdict.json")), false, "nothing was written");
 });
