@@ -119,7 +119,8 @@ export const RETIRED = [
     phrase: "beyond the first",
     retired: "2026-08-22",
     why: "retired adjudication cadence ('after every round beyond the first')",
-    instead: "from round 3 onward, on any round that returned findings, before anything is written",
+    instead:
+      "dispatched on any round that returned findings, from round 1; the verdict decides from round 3 onward, before anything is written",
   },
   {
     phrase: "no re-requested rounds",

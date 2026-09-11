@@ -350,7 +350,7 @@ production, in one sentence, pointing at real code. Requirements, all of them:
   behavioral for this purpose, and `review-loop-record.mjs` classifies
   `docs/plans/` as its own behavioral `plan` class accordingly. Plan loops
   reach you only at the budget cap or on an `escalate` now (2026-09-09); the
-  round-3-onward dispatch is code loops only.
+  per-round dispatch is code loops only.
   What still never qualifies, plan or code: wording, structure, and polish.
 - It must be **unaddressed**, not merely raised.
 - It must be in **this loop's territory**. A defect in code the diff never
