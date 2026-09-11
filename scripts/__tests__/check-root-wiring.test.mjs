@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { run } from "../check-root-wiring.mjs";
 
 const IGNORE = "# a comment, ignored by the comparison\npr-*.json\nloop-round-check-*.json\n";
+const CAPTURES_IGNORE = "*\n!.gitignore\n";
 
 /**
  * A minimal repo shaped like the handbook: payload under core/, root wiring
@@ -20,15 +21,21 @@ function fixture() {
   mkdirSync(join(root, "core/.claude/skills/beta"), { recursive: true });
   mkdirSync(join(root, "core/.claude/agents"), { recursive: true });
   mkdirSync(join(root, "core/.agents/receipts"), { recursive: true });
+  mkdirSync(join(root, "core/.agents/captures"), { recursive: true });
   mkdirSync(join(root, ".claude/skills"), { recursive: true });
   mkdirSync(join(root, ".claude/agents"), { recursive: true });
   mkdirSync(join(root, ".agents/receipts"), { recursive: true });
+  mkdirSync(join(root, ".agents/captures"), { recursive: true });
 
   writeFileSync(join(root, "core/.claude/skills/alpha/SKILL.md"), "alpha");
   writeFileSync(join(root, "core/.claude/skills/beta/SKILL.md"), "beta");
   writeFileSync(join(root, "core/.claude/agents/one.md"), "one");
   writeFileSync(join(root, "core/.agents/receipts/.gitignore"), IGNORE);
   writeFileSync(join(root, ".agents/receipts/.gitignore"), IGNORE);
+  // The second mirrored pair. Every failure case below edits the RECEIPTS
+  // copy, so this one stays wired and the assertions still count one problem.
+  writeFileSync(join(root, "core/.agents/captures/.gitignore"), CAPTURES_IGNORE);
+  writeFileSync(join(root, ".agents/captures/.gitignore"), CAPTURES_IGNORE);
 
   symlinkSync("../../core/.claude/skills/alpha", join(root, ".claude/skills/alpha"));
   symlinkSync("../../core/.claude/skills/beta", join(root, ".claude/skills/beta"));
