@@ -1,0 +1,9 @@
+{
+  "pr": 78,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 45,
+  "artifact": "Two .agents/memory notes: the check-run head_sha binding and pagination, and the transcript-recovery route with its classification trap",
+  "declaredAt": "2026-09-11T17:01:20.138Z"
+}
