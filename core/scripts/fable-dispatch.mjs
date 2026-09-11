@@ -413,6 +413,12 @@ export function parseStream(text) {
     } catch {
       continue;
     }
+    // `JSON.parse` returns a non-object for a bare `null`, number, string or
+    // boolean line without throwing, and reading `.type` off `null` then threw
+    // a TypeError out of a parser whose whole contract is to skip what it
+    // cannot use (Codex, AI-Handbook #77 round 1). Skipped like any other
+    // unusable line.
+    if (!e || typeof e !== "object") continue;
     if (e.type === "system" && e.subtype === "init") init = e;
     // Every assistant event REPLACES the stamp, an unstamped one included.
     // Keeping only stamped events let an earlier stamp survive an unstamped
@@ -554,26 +560,6 @@ export function assertAnswerModel(answerModel, contract) {
  * and compared here moves the hashing to the side that can do it, and makes a
  * wrong answer fail even when the model evidence is perfect.
  */
-/**
- * Run a post-launch assertion, and attach what was already spent if it throws.
- *
- * `main()` prints accounting from `e.attempts` and nowhere else, so any refusal
- * raised AFTER the subprocess ran drops the cost record unless it carries one.
- * Round 7 fixed that for the two-invalid-attempts path only -- the instance,
- * not the class -- and the model, probe, surface and usage refusals still
- * threw bare (Codex, #73 round 8). Every one of them now goes through here, so
- * a new assertion added later inherits it by being written in the same place
- * rather than by anyone remembering.
- */
-export function withSpend(fn, attempts) {
-  try {
-    return fn();
-  } catch (e) {
-    if (e && !e.attempts) e.attempts = attempts;
-    throw e;
-  }
-}
-
 export const newNonce = () => crypto.randomBytes(16).toString("hex");
 
 export function probeBrief(nonce) {
@@ -782,146 +768,161 @@ export function dispatch({
   let answerModel;
   let output;
 
-  // P4's one re-ask. A model that returns something unparseable once is worth
-  // asking again; twice is a failure to report, not a parser to widen.
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const run = runner({ argv, message, cwd: root, timeoutSec });
-    if (run.unavailable) {
-      // Exit 2 means NOTHING WAS DISPATCHED. If an earlier attempt already ran
-      // -- and possibly billed -- that is no longer true, and a caller reading
-      // 2 as "pre-launch provider failure" would be misled (Codex, #73 round
-      // 2). The refusal is a plain 1 once any attempt exists.
-      const err = new Error(
-        attempts.length === 0
-          ? SIGN_IN_HINT
-          : `the provider became unavailable before attempt ${attempt}, after attempt ${attempts.length} had ` +
-              `already run. Not exit 2: something was dispatched.`,
-      );
-      err.exitCode = attempts.length === 0 ? 2 : 1;
-      err.attempts = attempts;
-      throw err;
-    }
-    // THE ATTEMPT IS RECORDED HERE, BEFORE ANY POST-LAUNCH ASSERTION RUNS.
-    // Past this line the subprocess has run and may have billed, so from here
-    // the record exists and later code only fills it in. That ordering is the
-    // fix for a class with four known sites -- rounds 7, 8, 9 and 10 each
-    // found one refusal that threw before `attempts.push` and so dropped an
-    // attempt from the accounting `main()` prints (Codex, #73 rounds 7-10).
-    // Patching the sites one at a time is what produced four of them, and
-    // round 9's claim that its site was "the last by construction" was made
-    // without a search. Position is what makes this the last: a new assertion
-    // added below inherits the accounting by being below, and `withSpend()`
-    // becomes a guarantee rather than a convention. Nothing was dispatched on
-    // an `unavailable` attempt, which is why the push follows that check and
-    // not the `runner()` call.
-    const record = { attempt, problems: [], costUsd: null, modelUsage: null };
-    attempts.push(record);
+  // EVERY REFUSAL PAST THIS POINT CARRIES THE ACCOUNTING, BY POSITION.
+  // `main()` prints spend from `e.attempts` and nowhere else, so an error
+  // leaving here without one silently reports nothing for a dispatch that
+  // billed. Four sites of that were patched one at a time (Codex, #73 rounds
+  // 7-10) through a `withSpend()` helper each new assertion had to remember
+  // to use -- a convention, which is why there were four. The region is
+  // guarded instead, so an ordinary `throw`, a TypeError from a malformed
+  // stream, or an assertion added later all inherit it by being inside.
+  // `attempts` is empty until something is dispatched, and an empty array
+  // prints nothing, so the pre-launch refusals are unaffected.
+  try {
 
-    // A process that did not exit cleanly did not produce evidence, whatever
-    // its stdout says. A CLI killed by the timeout after emitting a result
-    // event would otherwise pass every check below and mint a receipt for a
-    // failed run (Codex, #73 round 2). This is a refusal, not a retry: the
-    // buffered output of a dying process is not "junk to ask again for".
-    if (run.signal || (run.status !== undefined && run.status !== 0) || run.error) {
-      const why = run.signal
-        ? `killed by ${run.signal}${run.error?.code === "ETIMEDOUT" ? " (timeout)" : ""}`
-        : run.error
-          ? `spawn error ${run.error.code ?? run.error.message}`
-          : `exit status ${run.status}`;
-      // Its cost stays UNKNOWN: a process that died did not produce a result
-      // event to price it from, and a missing figure is not a zero.
-      record.problems.push(`process did not exit cleanly (${why})`);
-      const err = new Error(`the reviewer process did not exit cleanly (${why}); its output is not evidence and no receipt is written`);
-      err.attempts = attempts;
-      throw err;
-    }
-    const { init, result, answerModel: stampedModel } = parseStream(run.stdout);
-    // Spend is observable the moment the stream is parsed, so it is filled in
-    // before anything can throw -- otherwise a refused attempt is present in
-    // the accounting but reports its cost as unknown when it was known.
-    record.costUsd = result?.total_cost_usd ?? null;
-    record.modelUsage = result?.modelUsage ?? null;
-
-    // THE SURFACE IS CHECKED FIRST, ON EVERY ATTEMPT, BEFORE ANY RETRY
-    // DECISION. It used to be checked only once a valid document existed --
-    // so an attempt launched with a forbidden tool, returning nothing
-    // parseable, was silently retried, and a clean second attempt wrote a
-    // receipt while the first reviewer had already held the prohibited
-    // capability and could have used it (Codex, #73 round 1, P1). A retry
-    // cannot un-launch that, so the refusal cannot wait for one.
-    surface = withSpend(() => assertLaunchSurface(init, contract, { expectedSessionId: sessionId }), attempts);
-
-    // Filled in afterwards, into the record that already exists. Spend is
-    // recorded per attempt, always -- including the attempts that produced
-    // nothing. A receipt carrying only the successful attempt's totals
-    // under-reports what the dispatch actually cost (Codex, #73 round 1), and
-    // the budget conversation for later phases runs on these numbers.
-    const problems = record.problems;
-    if (!result) problems.push("no `result` event");
-    else if (result.is_error) problems.push(`the run reported an error: ${String(result.result).slice(0, 200)}`);
-    else if (result.subtype != null && result.subtype !== "success") problems.push(`the result event's subtype is ${JSON.stringify(result.subtype)}, not "success"`);
-    else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
-
-    if (problems.length) {
-      if (attempt === 2) {
+    // P4's one re-ask. A model that returns something unparseable once is worth
+    // asking again; twice is a failure to report, not a parser to widen.
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const run = runner({ argv, message, cwd: root, timeoutSec });
+      if (run.unavailable) {
+        // Exit 2 means NOTHING WAS DISPATCHED. If an earlier attempt already ran
+        // -- and possibly billed -- that is no longer true, and a caller reading
+        // 2 as "pre-launch provider failure" would be misled (Codex, #73 round
+        // 2). The refusal is a plain 1 once any attempt exists.
         const err = new Error(
-          `the reviewer produced no schema-valid document in two attempts: ${problems.join("; ")}. ` +
-            `No receipt is written -- a round that returns nothing valid did not happen.`,
+          attempts.length === 0
+            ? SIGN_IN_HINT
+            : `the provider became unavailable before attempt ${attempt}, after attempt ${attempts.length} had ` +
+                `already run. Not exit 2: something was dispatched.`,
         );
-        // Both attempts spent money. `main()` prints accounting only from
-        // `e.attempts`, so without this the one path where the MOST was spent
-        // for nothing is the one that reports no cost at all -- the same
-        // under-reporting the round-1 cost fix removed from the receipt, left
-        // behind on the error (Codex, #73 round 7).
+        err.exitCode = attempts.length === 0 ? 2 : 1;
         err.attempts = attempts;
         throw err;
       }
-      continue;
+      // THE ATTEMPT IS RECORDED HERE, BEFORE ANY POST-LAUNCH ASSERTION RUNS.
+      // Past this line the subprocess has run and may have billed, so from here
+      // the record exists and later code only fills it in. That ordering is the
+      // fix for a class with four known sites -- rounds 7, 8, 9 and 10 each
+      // found one refusal that threw before `attempts.push` and so dropped an
+      // attempt from the accounting `main()` prints (Codex, #73 rounds 7-10).
+      // Patching the sites one at a time is what produced four of them, and
+      // round 9's claim that its site was "the last by construction" was made
+      // without a search. Position is what makes this the last: the record
+      // exists before anything can fail, and the region guard above carries it
+      // out on any throw. Nothing was dispatched on an `unavailable` attempt,
+      // which is why the push follows that check and not the `runner()` call.
+      const record = { attempt, problems: [], costUsd: null, modelUsage: null };
+      attempts.push(record);
+
+      // A process that did not exit cleanly did not produce evidence, whatever
+      // its stdout says. A CLI killed by the timeout after emitting a result
+      // event would otherwise pass every check below and mint a receipt for a
+      // failed run (Codex, #73 round 2). This is a refusal, not a retry: the
+      // buffered output of a dying process is not "junk to ask again for".
+      if (run.signal || (run.status !== undefined && run.status !== 0) || run.error) {
+        const why = run.signal
+          ? `killed by ${run.signal}${run.error?.code === "ETIMEDOUT" ? " (timeout)" : ""}`
+          : run.error
+            ? `spawn error ${run.error.code ?? run.error.message}`
+            : `exit status ${run.status}`;
+        // Its cost stays UNKNOWN: a process that died did not produce a result
+        // event to price it from, and a missing figure is not a zero.
+        record.problems.push(`process did not exit cleanly (${why})`);
+        const err = new Error(`the reviewer process did not exit cleanly (${why}); its output is not evidence and no receipt is written`);
+        err.attempts = attempts;
+        throw err;
+      }
+      const { init, result, answerModel: stampedModel } = parseStream(run.stdout);
+      // Spend is observable the moment the stream is parsed, so it is filled in
+      // before anything can throw -- otherwise a refused attempt is present in
+      // the accounting but reports its cost as unknown when it was known.
+      record.costUsd = result?.total_cost_usd ?? null;
+      record.modelUsage = result?.modelUsage ?? null;
+
+      // THE SURFACE IS CHECKED FIRST, ON EVERY ATTEMPT, BEFORE ANY RETRY
+      // DECISION. It used to be checked only once a valid document existed --
+      // so an attempt launched with a forbidden tool, returning nothing
+      // parseable, was silently retried, and a clean second attempt wrote a
+      // receipt while the first reviewer had already held the prohibited
+      // capability and could have used it (Codex, #73 round 1, P1). A retry
+      // cannot un-launch that, so the refusal cannot wait for one.
+      surface = assertLaunchSurface(init, contract, { expectedSessionId: sessionId });
+
+      // Filled in afterwards, into the record that already exists. Spend is
+      // recorded per attempt, always -- including the attempts that produced
+      // nothing. A receipt carrying only the successful attempt's totals
+      // under-reports what the dispatch actually cost (Codex, #73 round 1), and
+      // the budget conversation for later phases runs on these numbers.
+      const problems = record.problems;
+      if (!result) problems.push("no `result` event");
+      else if (result.is_error) problems.push(`the run reported an error: ${String(result.result).slice(0, 200)}`);
+      else if (result.subtype != null && result.subtype !== "success") problems.push(`the result event's subtype is ${JSON.stringify(result.subtype)}, not "success"`);
+      else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
+
+      if (problems.length) {
+        if (attempt === 2) {
+          const err = new Error(
+            `the reviewer produced no schema-valid document in two attempts: ${problems.join("; ")}. ` +
+              `No receipt is written -- a round that returns nothing valid did not happen.`,
+          );
+          // Both attempts spent money. `main()` prints accounting only from
+          // `e.attempts`, so without this the one path where the MOST was spent
+          // for nothing is the one that reports no cost at all -- the same
+          // under-reporting the round-1 cost fix removed from the receipt, left
+          // behind on the error (Codex, #73 round 7).
+          err.attempts = attempts;
+          throw err;
+        }
+        continue;
+      }
+
+      answerModel = assertAnswerModel(stampedModel, contract);
+      output = result.structured_output;
+      break;
     }
 
-    answerModel = withSpend(() => assertAnswerModel(stampedModel, contract), attempts);
-    output = result.structured_output;
-    break;
+    // Totals across every attempt, not just the one that succeeded -- and only
+    // when every attempt's spend was observed. An attempt that produced no
+    // result event has an UNKNOWN cost, and a sum that skips it is a number
+    // presented as a total. So: per-attempt figures carry their nulls, and the
+    // top-level total exists only when nothing is missing from it.
+    const costComplete = attempts.every((a) => typeof a.costUsd === "number");
+    const costUsd = costComplete ? attempts.reduce((sum, a) => sum + a.costUsd, 0) : null;
+    const usage = mergeUsage(attempts.map((a) => a.modelUsage));
+
+    if (isProbe) assertProbeRoundTrip(output, probeNonce, surface);
+
+    return {
+      role,
+      definitionPath: contract.definitionPath,
+      definitionCommit: contract.definitionCommit,
+      roleDefinitionSha256: sha256(definitionText),
+      schemaPath: schemaRel,
+      briefSha256,
+      briefSource: isProbe ? "script-generated" : "caller-supplied (content not authenticated -- see P1)",
+      headAtSpawn,
+      treeCleanAtSpawn,
+      modelRequested: contract.model,
+      answerModel,
+      modelUsage: usage,
+      costUsd,
+      costComplete,
+      sessionId,
+      init: surface,
+      instructionCanary: output?.claudemd ?? null,
+      instructionCanaryNote:
+        "A self-report by the reviewer, not a harness observation. P2 does not establish instruction isolation; " +
+        "closing that is a Phase 1 prerequisite.",
+      nonceMatched: isProbe ? true : null,
+      startedAt,
+      finishedAt: now(),
+      attempts,
+      output,
+    };
+  } catch (e) {
+    if (e && !e.attempts) e.attempts = attempts;
+    throw e;
   }
-
-  // Totals across every attempt, not just the one that succeeded -- and only
-  // when every attempt's spend was observed. An attempt that produced no
-  // result event has an UNKNOWN cost, and a sum that skips it is a number
-  // presented as a total. So: per-attempt figures carry their nulls, and the
-  // top-level total exists only when nothing is missing from it.
-  const costComplete = attempts.every((a) => typeof a.costUsd === "number");
-  const costUsd = costComplete ? attempts.reduce((sum, a) => sum + a.costUsd, 0) : null;
-  const usage = withSpend(() => mergeUsage(attempts.map((a) => a.modelUsage)), attempts);
-
-  if (isProbe) withSpend(() => assertProbeRoundTrip(output, probeNonce, surface), attempts);
-
-  return {
-    role,
-    definitionPath: contract.definitionPath,
-    definitionCommit: contract.definitionCommit,
-    roleDefinitionSha256: sha256(definitionText),
-    schemaPath: schemaRel,
-    briefSha256,
-    briefSource: isProbe ? "script-generated" : "caller-supplied (content not authenticated -- see P1)",
-    headAtSpawn,
-    treeCleanAtSpawn,
-    modelRequested: contract.model,
-    answerModel,
-    modelUsage: usage,
-    costUsd,
-    costComplete,
-    sessionId,
-    init: surface,
-    instructionCanary: output?.claudemd ?? null,
-    instructionCanaryNote:
-      "A self-report by the reviewer, not a harness observation. P2 does not establish instruction isolation; " +
-      "closing that is a Phase 1 prerequisite.",
-    nonceMatched: isProbe ? true : null,
-    startedAt,
-    finishedAt: now(),
-    attempts,
-    output,
-  };
 }
 
 function readBrief(root, briefPath) {

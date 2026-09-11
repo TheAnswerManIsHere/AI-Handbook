@@ -473,7 +473,7 @@ test("the entry-point guard uses pathToFileURL, not a hand-built file:// string"
   // AI-Handbook #11: a hand-built `file://` string differs from
   // `import.meta.url` whenever the checkout path needs escaping, and the
   // script then exits 0 having evaluated nothing.
-  const src = fs.readFileSync(path.join(ROOT, "core/scripts/fable-dispatch.mjs"), "utf8");
+  const src = fs.readFileSync(path.join(HERE, "..", "fable-dispatch.mjs"), "utf8");
   assert.match(src, /import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/);
   assert.doesNotMatch(src, /`file:\/\/\$\{/);
 });
@@ -782,28 +782,39 @@ test("R10-1: the answer-model refusal also records its attempt's cost", () => {
   }
 });
 
-test("R10-1: no post-launch assertion can precede the attempt record", () => {
-  // The enumeration, written down. Round 9's context comment claimed its site
-  // was "the last by construction" without searching, and round 10 found a
-  // fourth. What actually makes it the last is ordering inside the attempt
-  // loop: the push happens before the first assertion, so a new assertion
-  // added later inherits the accounting by position rather than by anyone
-  // remembering. This check fails if that order is ever reversed.
-  const src = fs.readFileSync(path.join(ROOT, "core/scripts/fable-dispatch.mjs"), "utf8");
-  // Comment lines are dropped before the search. This check first read the raw
-  // source and failed on the prose above the push, which names `withSpend()`
-  // -- the repo's own regex-over-prose class, caught by running it. Line
-  // comments are all this file uses on these paths; a trailing comment on a
-  // code line would still be read as code, which is the safe direction.
-  const code = src
-    .split("\n")
-    .filter((l) => !l.trim().startsWith("//"))
-    .join("\n");
-  const start = code.indexOf("for (let attempt = 1; attempt <= 2; attempt += 1) {");
-  assert.ok(start > 0, "the attempt loop is findable");
-  const loop = code.slice(start);
-  const push = loop.indexOf("attempts.push(");
-  const assertion = loop.indexOf("withSpend(");
-  assert.ok(push > 0 && assertion > 0, "both the push and a post-launch assertion are present");
-  assert.ok(push < assertion, "the attempt is recorded before the first post-launch assertion runs");
+test("R10-1: a bare post-launch exception still carries the attempt record", () => {
+  // The invariant, exercised rather than asserted. An earlier version of this
+  // test compared the lexical positions of `attempts.push(` and the first
+  // guarded call, which establishes ordering and NOT that every error carries
+  // the accounting: `parseStream` threw a bare TypeError on a malformed stream,
+  // after the push and outside any guard, and `main()` printed nothing for an
+  // attempt that had billed (Codex, AI-Handbook #77 round 1).
+  //
+  // `stdout` is read only after the attempt is recorded, so a getter that
+  // throws is an arbitrary unexpected exception in the post-launch region --
+  // the class, not one instance of it, and no seam in the script to allow it.
+  try {
+    dispatchP({
+      root: ROOT,
+      role: "probe",
+      runGit: fakeGit(),
+      runner: () => ({ get stdout() { throw new Error("something nobody anticipated"); } }),
+      nonce: "n",
+    });
+    assert.fail("expected the exception to propagate");
+  } catch (e) {
+    assert.match(e.message, /something nobody anticipated/);
+    assert.equal(e.attempts?.length, 1, "the billed attempt reaches main()'s accounting");
+    assert.equal(e.attempts[0].attempt, 1);
+  }
+});
+
+test("R10-1: a stream line that is valid JSON but not an object is skipped, not fatal", () => {
+  // `JSON.parse("null")` returns null without throwing, and reading `.type`
+  // off it threw out of a parser whose contract is to skip what it cannot use.
+  assert.deepEqual(parseStream("null"), { init: null, result: null, answerModel: null });
+  for (const junk of ["null", "42", '"a string"', "true"]) {
+    const stream = [junk, initEvent(), assistantEvent(), resultEvent({ challenge: "n", claudemd: "no", tools: ["Read"] })].join("\n");
+    assert.equal(dispatchP({ root: ROOT, role: "probe", runGit: fakeGit(), runner: runnerFor(stream), nonce: "n" }).nonceMatched, true, junk);
+  }
 });
