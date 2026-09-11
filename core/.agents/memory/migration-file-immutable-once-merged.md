@@ -1,6 +1,6 @@
 ---
 name: A migration file already on main is byte-for-byte immutable
-description: The migration runner tracks "already applied" by SHA-256 of the whole file — editing even a comment in an already-merged migration makes it replay.
+description: A hash-tracked migration runner tracks "already applied" by SHA-256 of the whole file — editing even a comment in an already-merged migration makes it replay. Overhype's does; check yours before relying on the failure mode.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->

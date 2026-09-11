@@ -238,8 +238,8 @@ seconds; assuming someone else read it is how one gets missed.
 2. **Skim** a change that is genuinely display-only — copy, layout, or a
    value already present in the data. No deep read needed.
 3. **Actually read** anything that changes behavior, **whatever file it lives
-   in**: data, logic, migrations, schema, auth, payments, or the
-   visual/enrichment pipelines — full diff, not just the commit message (a
+   in**: data, logic, migrations, schema, auth, payments, or any subsystem the
+   overlay marks sensitive — full diff, not just the commit message (a
    Replit commit message is a checkpoint label, not a description to trust at
    face value; see `replit-environment.md`'s note on checkpoints vs. intent).
    **A UI file is not evidence of a display-only change.** The Visual

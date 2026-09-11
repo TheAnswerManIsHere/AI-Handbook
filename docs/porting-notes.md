@@ -39,6 +39,52 @@ Where the call was genuinely close, the file **stayed with the product**. A
 missing generic file is a small, fixable gap; a product-specific file synced
 into an unrelated repo is noise that erodes trust in everything around it.
 
+### Don't turn war stories into universal law
+
+**The rule, David, 2026-09-09**, after #65's round 2 found four false universals
+in round 1's own fixes:
+
+> **Every rule we have came from Overhype.me. A rule specific to Overhype.me
+> stays in Overhype.me unless there is an obvious universal truth to it. Not
+> every repo should see every other repo's failure modes — those are domain
+> specific. Where a universal pattern genuinely deserves to be here, break it
+> out specifically, and only after confirming it is truly universal. Err on the
+> side of not adding to the universal rule set.**
+
+The corollary, which is what the audit actually got wrong:
+
+> **Generalise to what is actually true everywhere, or condition it. Never to a
+> broader assertion that is merely less product-specific.**
+
+**Measured, three times on one note.** #65 rewrote a migration note's rule from
+"the runner hashes the file" to "runners either replay or skip silently" to
+"immutable, full stop" — and review broke each one in turn: checksum
+validators, then Flyway repeatable migrations where editing the file is the
+*supported* mechanism. Three passes, three false universals, on a subject the
+builder had not surveyed. The resolution was to stop: the note is Overhype's
+incident, labelled as Overhype's, and the fleet rule it hints at was never
+established well enough to ship.
+
+A product-bound claim is wrong in every repo but the one it came from. A claim
+generalised carelessly is wrong in a *different* set of repos, and it is harder
+to spot, because it no longer names anything a reader can check against their
+own tree. "The migration runner tracks by SHA-256" is visibly one product's
+fact; "runners either replay or silently skip" reads like a survey, and is
+still false for the checksum-validating runners it omits.
+
+The discipline that catches it: after widening a claim, ask **which repo the
+new sentence is now false in.** If the answer needs a survey you have not done,
+condition the claim on the mechanism instead of asserting across it. Enumerate
+where you can, and where you cannot, say the rule holds and let the mechanism
+be looked up.
+
+The near-relative, and it recurred here too: **half-generalising.** Deferring
+the filename to the overlay while leaving the directory hardcoded, or the
+transport while leaving the polling cadence, produces a document that
+contradicts itself — the general half licenses something the unrevised half
+forbids. When one clause of a rule moves to the overlay, every clause that
+depends on it moves too, in the same edit.
+
 ## What came across
 
 | Group | Count | Note |
