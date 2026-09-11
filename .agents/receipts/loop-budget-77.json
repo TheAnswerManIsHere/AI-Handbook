@@ -1,0 +1,9 @@
+{
+  "pr": 77,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 50,
+  "artifact": "Three recorded gaps from PR #73: the post-launch accounting class in fable-dispatch.mjs, pr-watch's all-declined stop path, and the derivable-vs-choice mirror into pr-watch and claude-core.md rule 5",
+  "declaredAt": "2026-09-11T00:07:52.446Z"
+}
