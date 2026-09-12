@@ -22,7 +22,8 @@ import {
   assertThreadProvenance,
   buildRecord,
   cappedDiff,
-  declineCitationFor,
+  threatModelFor,
+  bugfixSections,
   findingsByTerritory,
   inertMask,
   parseFrontmatter,
@@ -348,7 +349,10 @@ test("truncation is still announced when the filtered diff is itself over the ca
 
   const patch = cappedDiff(runGit, "base...head");
 
-  assert.match(patch, /TRUNCATED at 60000 chars/, "the existing truncation notice still fires");
+  // Against the constant, not a literal: the cap is a tuned number (raised
+  // from 60,000 when #73's 127,061-char diff reached the judge in half), and a
+  // test that restates it fails on the tuning rather than on the behaviour.
+  assert.match(patch, new RegExp(`TRUNCATED at ${PATCH_CAP_CHARS} chars`), "the existing truncation notice still fires");
   assert.match(patch, /excluded 1 generated record file/, "and both notices coexist");
 });
 
@@ -672,9 +676,9 @@ test("a consumer path absent entirely retries once under core/", () => {
   // nothing and the field would have been silently empty.
   const note = ".agents/memory/machinery-threat-model-is-my-own-mistakes.md";
   const runGit = treeGit({ [`core/${note}`]: { mode: "100644", text: "the threat model" } });
-  const citation = declineCitationFor("internal", "head", { runGit });
-  assert.equal(citation.text, "the threat model");
-  assert.equal(citation.path, `core/${note}`);
+  const citation = threatModelFor("internal", "head", { runGit });
+  assert.match(citation.text, /the threat model/);
+  assert.ok(citation.paths.includes(`core/${note}`));
 });
 
 test("a symlink escaping the repository is refused, not followed", () => {
@@ -686,14 +690,123 @@ test("a path resolving in neither layout refuses, naming both attempts", () => {
   assert.throws(() => readAtCommit("head", DEFINITION, { runGit: treeGit({}) }), /tried .*core\//s);
 });
 
-test("the decline citation is tier-selected, and degrades with a stated reason", () => {
-  assert.equal(declineCitationFor("product", "head", { runGit: treeGit({}) }).text, null);
-  // Absent in this repository: a stated null, not a refusal -- `memory` is a
-  // separate sync group and requiring it would couple the machinery to most
-  // of the handbook.
-  const absent = declineCitationFor("internal", "head", { runGit: treeGit({}) });
+test("the threat model reaches EVERY tier, and degrades with a stated reason", () => {
+  // It used to be internal-only, which left a `product` or `sensitive` loop's
+  // judge asked to classify findings against a threat model it was never
+  // given. The producer-scoped rule is fleet contract and binds on all three.
+  const contract = ".agents/core/agents-core.md";
+  const runGit = treeGit({ [`core/${contract}`]: { mode: "100644", text: "ask who produced the value" } });
+  for (const tier of ["internal", "product", "sensitive"]) {
+    const model = threatModelFor(tier, "head", { runGit });
+    assert.match(model.text, /ask who produced the value/, `${tier} gets the fleet contract`);
+    assert.equal(model.tier, tier);
+  }
+  // Both files absent: a stated null, not a refusal -- `memory` is a separate
+  // sync group and requiring it would couple the machinery to most of the
+  // handbook.
+  const absent = threatModelFor("internal", "head", { runGit: treeGit({}) });
   assert.equal(absent.text, null);
-  assert.match(absent.reason, /unavailable at head/);
+  assert.match(absent.reason, /could not be read at head/);
+});
+
+test("the worked example's absence is stated, and does not lose the fleet contract", () => {
+  const contract = ".agents/core/agents-core.md";
+  const runGit = treeGit({ [`core/${contract}`]: { mode: "100644", text: "the rule" } });
+  const model = threatModelFor("internal", "head", { runGit });
+  assert.match(model.text, /the rule/);
+  assert.match(model.reason, /is not present at head/);
+});
+
+test("a bugfix oracle's validated fields become sections the judge can read", () => {
+  // They used to validate and then arrive as `sections: null`, so B1 had
+  // nothing to classify a finding's product intent against on exactly the
+  // loops Codex reviews most.
+  const body = [
+    "**Fix tier:** A — contained",
+    "",
+    "**Reported symptom:** the receipt mints twice",
+    "",
+    "**Intended correct behavior:** one receipt per round",
+    "",
+    "**Must not change:** the merge gate",
+    "",
+    "**Root cause:** the nonce was reused",
+    "",
+    "**Blast radius:** every guarded post.",
+    "",
+    "Checked with `git grep -n nonce`: 4 hits.",
+    "",
+    "**Tier rationale:** Q1 fired",
+  ].join("\n");
+
+  const sections = bugfixSections(body, "A");
+
+  assert.equal(sections["Reported symptom"], "the receipt mints twice");
+  assert.equal(sections["Must not change"], "the merge gate");
+  // A field runs to the NEXT field, not to the next blank line: a blast-radius
+  // note is routinely several paragraphs.
+  assert.match(sections["Blast radius"], /every guarded post[\s\S]*4 hits/);
+  // The tier line keeps the rationale a reviewer uses to challenge it.
+  assert.match(sections["Fix tier"], /contained/);
+});
+
+test("the last bugfix field stops at the block's end, not at the end of the PR body", () => {
+  // `Blast radius` is the last label a tier A/B body carries, and every real
+  // one is followed by Post-merge verification, a checklist and the builder's
+  // own narrative. Running to `live.length` put all of it inside the oracle the
+  // judge rules against -- the never-list's "no builder in-loop prose in any
+  // judge's input", arriving through the oracle instead of around it.
+  // (Codex, #79 round 2.)
+  const body = [
+    "**Fix tier:** A — contained",
+    "**Tier rationale:** Q1 ruled out",
+    "**Reported symptom:** the receipt mints twice",
+    "**Intended correct behavior:** one receipt per round",
+    "**Must not change:** the merge gate",
+    "**Root cause:** the nonce was reused",
+    "**Blast radius:** every guarded post.",
+    "",
+    "Checked with `git grep -n nonce`: 4 hits.",
+    "",
+    "## Post-merge verification",
+    "",
+    "- [ ] re-run the guard",
+    "",
+    "## Why the reviewer is wrong about the other thing",
+    "A long argument that is not the oracle.",
+  ].join("\n");
+
+  const sections = bugfixSections(body, "A");
+
+  // The multi-paragraph note still survives whole -- the bound is the block's
+  // end, not the next blank line.
+  assert.match(sections["Blast radius"], /every guarded post[\s\S]*4 hits/);
+  assert.doesNotMatch(sections["Blast radius"], /Post-merge verification/);
+  assert.doesNotMatch(sections["Blast radius"], /reviewer is wrong/);
+  assert.doesNotMatch(sections["Blast radius"], /re-run the guard/);
+});
+
+test("a thematic break also ends the bugfix block", () => {
+  // A body that separates the oracle from what follows with a rule rather than
+  // a heading is the same case; both terminators are cheap and the bodies in
+  // this repository use both.
+  const body = [
+    "**Fix tier:** C — schema only",
+    "**Tier rationale:** David authorized the ceremony directly",
+    "**Reported symptom:** the column is misspelled",
+    "**Root cause:** a typo in the migration",
+    "**Why this is trivial:** no data reads it yet",
+    "**David's go-ahead:** 2026-09-11, in chat",
+    "**Migration ceremony checklist:** waived, per the above.",
+    "",
+    "---",
+    "",
+    "Some closing narrative that is not the oracle.",
+  ].join("\n");
+
+  const sections = bugfixSections(body, "C");
+
+  assert.equal(sections["Migration ceremony checklist"], "waived, per the above.");
 });
 
 // ---------------------------------------------------------------------------
@@ -1093,7 +1206,7 @@ test("every variable-length field is bounded, and truncation is named", () => {
       ],
     },
     planOracle: { sections: { Direction: huge } },
-    declineCitation: { text: huge },
+    threatModel: { text: huge },
   });
   assert.ok(record.truncation.fields.length >= 3, "every over-long field names itself");
   assert.ok(
@@ -1477,13 +1590,13 @@ test("every long field is emitted as lines the judge's Read can actually page", 
   const record = applyCaps({
     findings: { items: [{ threadId: "PRRT_a", resolved: false, body: `first\nsecond\n${"z".repeat(6000)}` }] },
     planOracle: { sections: { Direction: "a\nb" } },
-    declineCitation: { text: "note one\nnote two" },
+    threatModel: { text: "note one\nnote two" },
     artifact: { patch: "diff --git a/x b/x\n+added\n" },
   });
   for (const value of [
     record.findings.items[0].body,
     record.planOracle.sections.Direction,
-    record.declineCitation.text,
+    record.threatModel.text,
     record.artifact.patch,
   ]) {
     assert.ok(Array.isArray(value), "every multi-line field is an array of lines");

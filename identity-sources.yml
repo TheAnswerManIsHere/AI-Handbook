@@ -88,6 +88,42 @@
     own parent, which was only the root by coincidence of where the sync
     lands the payload.
 
+- key: "capture-from-transcript.mjs :: recoverCapture :: const call = selectCall(readCalls(file), { collection, pr, page, repo: repo === undefined ? repoSlug() : repo });"
+  source: config
+  why: >-
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig, via repoSlug), to pin capture selection to THIS
+    repository. Every repository has a #79, so a transcript from a session
+    that also queried another repo's #79 would otherwise hand a foreign
+    collection to this loop's record -- and a foreign EMPTY collection carries
+    no urls for the downstream provenance checks to reject, so it assembles as
+    a complete empty collection and undercounts the rounds (Codex, #79 round
+    1). Working tree, by design, and the same threat model as every other
+    reader: a mistake, not an adversary. The `repo` parameter is a test seam
+    and defaults to the configured identity; it is never typed in production.
+
+- key: "capture-from-transcript.mjs :: selectCall :: if (name && String(input.repo ?? \"\").toLowerCase() !== name.toLowerCase()) return false;"
+  source: tool-input
+  why: >-
+    The owner/repo the harness RECORDED on a past tool call, compared to the
+    configured identity above. It is what a transcript says was asked for, so
+    it is tool input rather than config or GitHub's word -- compared, never
+    trusted: a call that does not name this repository is simply not eligible,
+    and no eligible call is a refusal naming the selector.
+
+- key: "review-budget.mjs :: modelTier :: const { models } = machineryConfig(io);"
+  source: config
+  why: >-
+    Reads .agents/machinery.json through the one reader (review-budget.mjs
+    machineryConfig), for the models block rather than the repository
+    identity: a role definition names a model TIER and this resolves it to
+    today's full id, so a new model release is one edit here rather than a
+    sweep through every definition and script (David, 2026-09-11). Working
+    tree, by design, and the same threat model as every other reader: a
+    mistake, not an adversary. What it refuses is an alias -- a dispatch
+    stamps the id it asked for against the id that answered, and "fable"
+    cannot be compared to what came back.
+
 - key: "pr-ready.mjs :: localConfig :: return machineryConfig(nodeIo(resolve(cwd)));"
   source: config
   why: >-

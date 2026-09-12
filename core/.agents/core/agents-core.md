@@ -141,6 +141,17 @@ Prefer, in order:
   local it looks — and where that script exists to *constrain* the producer,
   its input is adversarial by construction and validating it is the entire
   job. Getting this backwards disarms exactly the code that matters most.
+  **And a consequence nobody would feel is not a consequence** (David,
+  2026-09-11). Two classes follow, and findings in them are declined rather
+  than fixed: **accounting precision**, where a miscount changes no decision
+  — how many review rounds a loop ran is a gut-level trend, not an audit
+  history, so machinery making such a count exact is pure cost; and **an
+  agent's influence over its own tooling**, where the agent that runs a
+  script is the only actor who could subvert its inputs and could equally
+  just not run it. The controls against deliberate action are a human's
+  merge and the server-side ruleset. Neither class is fixed because the diff
+  would be small: each fix costs a review round, and the aggregate is never
+  weighed at the moment one is chosen.
 - **Prefer database-backed config for tunable operational settings.**
 - **Migrations must be idempotent and observable.**
 - **Async work must show status** at two altitudes (per-item + aggregate) — see

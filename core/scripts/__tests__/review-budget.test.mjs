@@ -32,6 +32,7 @@ import {
   repoSlug,
   declare,
   machineryConfig,
+  modelTier,
   MACHINERY_CONFIG_FILE,
   __resetRepoSlugCache,
 } from "../review-budget.mjs";
@@ -48,7 +49,7 @@ const NOW_ISO = new Date(NOW).toISOString();
 export const TEST_SLUG = "TestOwner/TestRepo";
 export const [TEST_OWNER, TEST_REPO] = TEST_SLUG.split("/");
 
-export function fakeIo(files = {}, { slug = TEST_SLUG, config } = {}) {
+export function fakeIo(files = {}, { slug = TEST_SLUG, config, models } = {}) {
   // The declared identity is seeded as a file rather than injected as a
   // method: production reads it through `readDurable`, which in this fake is
   // the same store, so a test that stubbed a separate seam would be testing a
@@ -61,7 +62,13 @@ export function fakeIo(files = {}, { slug = TEST_SLUG, config } = {}) {
       ? { [MACHINERY_CONFIG_FILE]: config }
       : slug === null
         ? {}
-        : { [MACHINERY_CONFIG_FILE]: JSON.stringify({ repo: slug, requiredChecks: ["Test"] }) };
+        : {
+            [MACHINERY_CONFIG_FILE]: JSON.stringify({
+              repo: slug,
+              requiredChecks: ["Test"],
+              ...(models === undefined ? {} : { models }),
+            }),
+          };
   const store = { ...declared, ...files };
   return {
     store,
@@ -1918,7 +1925,11 @@ test("the declared identity is what every check binds to", () => {
   __resetRepoSlugCache();
   const io = fakeIo({}, { slug: "Owner/Repo" });
   assert.equal(repoSlug(io), "Owner/Repo");
-  assert.deepEqual(Object.keys(machineryConfig(io)), ["repo", "requiredChecks"], "identity and policy, one read");
+  assert.deepEqual(
+    Object.keys(machineryConfig(io)),
+    ["repo", "requiredChecks", "models"],
+    "identity, policy and the model tiers -- one read",
+  );
   __resetRepoSlugCache();
 });
 
@@ -2498,4 +2509,31 @@ test("check(): the minted receipt carries per-collection times, and a rotated re
   writeFileSync(file, JSON.stringify(fresh));
   await runCheck({ pr: "1", "mcp-snapshot": file }, io);
   assert.deepEqual(JSON.parse(io.store[checkPath(1)]).capturedAtByCollection, { pr: at(8), reviews: at(8), issueComments: at(8) });
+});
+
+
+test("a model TIER resolves through configuration, and every bad shape fails closed", () => {
+  __resetRepoSlugCache();
+  const withModels = (models) => fakeIo({}, { slug: "Owner/Repo", models });
+
+  const ok = modelTier("strongestClaude", withModels({ strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } }));
+  assert.deepEqual(ok, { tier: "strongestClaude", id: "claude-fable-5-1", effort: "xhigh" });
+
+  __resetRepoSlugCache();
+  assert.throws(() => modelTier("strongestClaude", withModels(null)), /declares no "models" block/);
+  __resetRepoSlugCache();
+  assert.throws(() => modelTier("strongestCodex", withModels({ strongestClaude: { id: "a-b", effort: "x" } })), /declares no "strongestCodex"/);
+  __resetRepoSlugCache();
+  // AN ALIAS IS THE REFUSAL THAT MOVED HERE from the role definitions: a
+  // dispatch stamps the id it asked for against the id that answered, and
+  // "fable" cannot be compared to "claude-fable-5-1".
+  for (const alias of ["fable", "best", "opus"]) {
+    __resetRepoSlugCache();
+    assert.throws(() => modelTier("strongestClaude", withModels({ strongestClaude: { id: alias, effort: "x" } })), /alias or an/);
+  }
+  __resetRepoSlugCache();
+  assert.throws(() => modelTier("strongestClaude", withModels({ strongestClaude: { effort: "x" } })), /declares no "id"/);
+  __resetRepoSlugCache();
+  assert.throws(() => modelTier("strongestClaude", withModels({ strongestClaude: { id: "a-b" } })), /declares no "effort"/);
+  __resetRepoSlugCache();
 });

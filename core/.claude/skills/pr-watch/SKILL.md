@@ -58,18 +58,20 @@ process doc, a documentation harvest:
 - **Clean automatic pass on PR-open → merge on it.** No budget, no receipts,
   no adjudication; the merge receipt accepts an automatic pass covering the
   head.
-- **Rounds 1–2: the pass found things → triage each finding under
-  `claude-core.md` rule 5, write only for what passes it, push — then
-  declare `--tier internal` and re-request.** No judge yet: the ledger says
-  these rounds always carry *some* finding worth writing for, and the
-  mandatory re-review of the push is the write-gate working. **If every
-  finding fails the worth test there is nothing to push, and the loop ends
-  there** — `claude-core.md` *Product loops* rule 2's all-declined clause: an
-  all-declined round ends the loop on the already-reviewed head, with no
-  dispatch, and rule 4 forbids a re-request with no behavioral change. (This
-  bullet used to say "fix the rest", which contradicted the contract it enacts
-  — Codex, AI-Handbook #73 round 8. It now points rather than restates.)
-- **Round 3's findings → the adjudicator, before anything is written.** On
+- **Rounds 1–2: the pass found things → dispatch the adjudicator for
+  conformance, triage each finding under `claude-core.md` rule 5 with the
+  classification in hand, write only for what passes it, push — then declare
+  `--tier internal` and re-request.** The judge **classifies and does not yet
+  decide**: the ledger says these rounds always carry *some* finding worth
+  writing for, so a verdict here would only ever say "write", and the
+  mandatory re-review of the push is the write-gate working. The
+  classification is what a decline cites, and this is the tier that declines
+  most — which is why it is dispatched here and not only at the cap. **If
+  every finding fails the worth test there is nothing to push, and the loop
+  ends there** — `claude-core.md` *Product loops* rule 2's all-declined
+  clause: an all-declined round ends the loop on the already-reviewed head,
+  with no dispatch, and rule 4 forbids a re-request with no behavioral change.
+- **Round 3: the VERDICT starts deciding**, before anything is written. On
   this tier the entry point IS the cap decision: it rules under the internal
   rubric (write only for a very high chance of a CRITICAL flaw), or
   everything ships as recorded gaps on the round-3-reviewed head.
@@ -267,17 +269,48 @@ implementation PR:
   exit condition, **both caps** (3 consecutive no-ops; 6 wakes or 24 hours
   total), silent on no change **except a terminal wake** — is in `CLAUDE.md`'s
   *Scheduled self-check-ins*.
-- **From round 3 onward, the external adjudicator decides whether to WRITE
-  for a round's findings — before anything is written (David, 2026-08-22).**
-  Rounds 1–2 are written for by default; a round with no findings (or all
-  declines) needs no verdict at all. Triage the round's findings first — nature,
+- **Dispatch the adjudicator on any round that returned findings, from round
+  1. Its VERDICT decides from round 3 onward (David, 2026-08-22; the earlier
+  dispatch is AI-Handbook #36 Phase 1).** A round with no findings (or all
+  declines) dispatches nothing. Triage the round's findings first — nature,
   affected area, verdict (fix / accept-and-document / escalate / decline), and
   the causal flag (new ground vs. repairing an earlier round's fix vs.
-  impossible-as-specified). Then generate the mechanical record and dispatch:
+  impossible-as-specified). Then build the evidence and dispatch:
 
   ```
-  node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file> --write
+  # captures: recovered from the harness's transcript, not retyped
+  node scripts/capture-from-transcript.mjs --pr <n> --collection pr
+  node scripts/capture-from-transcript.mjs --pr <n> --collection reviews
+  node scripts/capture-from-transcript.mjs --pr <n> --collection issueComments
+  node scripts/capture-from-transcript.mjs --pr <n> --collection reviewThreads
+  node scripts/snapshot-from-captures.mjs --pr-capture … --out <snapshot>
+  node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <snapshot> --write
   ```
+
+  Fetch each collection with `perPage: 100` — recovery refuses a short-page
+  call, because the assembler proves a collection ended by its last page being
+  short and a ten-entry page would attest a completeness it does not have.
+  Where no transcript is found, the agent-written path still works and the
+  record says which class each capture was.
+
+  **Then commit the judge's own answer beside the record it ruled on:**
+
+  ```
+  node scripts/capture-from-transcript.mjs --pr <n> --verdict --record .agents/adjudications/<n>-<k>.json
+  ```
+
+  That file is what `/maintenance` counts and what a later reader checks a
+  classification against. Quote the classes in the round's context comment for
+  people; nothing reads that copy.
+
+  **Rounds 1–2 the classification is advisory**: triage with it in hand, and
+  say on the thread where I differ from it. **From round 3 it binds** — a
+  finding classed out of threat model, out of product intent or misdirection
+  ships as a recorded gap citing the class; one classed in scope, test
+  precision or unclassifiable goes through the ordinary write-or-stop decision
+  under `Worth:`; and an in-scope finding is not mine to decline alone. A
+  decline that rests on a classification **cites it in the `Worth:` line**;
+  no citation, no decline.
 
   Dispatch **one** `review-loop-adjudicator` subagent, passing **no**
   per-invocation `model` or `effort` — its own definition declares both, and a
@@ -293,10 +326,13 @@ implementation PR:
   **Delivery depends on the verdict, and only `continue` is followed by
   another trigger** (Codex, #543 rounds 2 and 4). A per-round `continue` —
   the budget not yet spent — goes as **one line in the separate defanged
-  context comment** that precedes the next bare trigger, never a file
-  (per-round receipts would rebuild the machinery this replaced) and never
-  inside the trigger comment itself, which stays bare — prose beside the
-  trigger is what spawns unintended tasks. A per-round **stop** ends the
+  context comment** that precedes the next bare trigger, and never inside the
+  trigger comment itself, which stays bare — prose beside the trigger is what
+  spawns unintended tasks. The judge's **answer** is a different artifact from
+  its delivery: it is recovered into `<record>.verdict.json` and committed on
+  every dispatch, which is not the per-round receipt machinery this replaced
+  — no guard reads one and none grants a round. It carries the conformance
+  classification, which has to survive the round to be cited in a decline. A per-round **stop** ends the
   loop right there: the verdict goes in a defanged comment and **no further
   trigger is posted** — the loop proceeds to close-out on the rounds already
   returned. (Under the write-gate rule a stop
@@ -312,13 +348,15 @@ implementation PR:
   written earlier is rejected as malformed and **not even a David grant can
   reopen that loop**. Covered by process instead: both verdicts go to David
   as a 🛑 by construction, and READY is not a merge. A **split-to-David** likewise posts no trigger; it goes to David
-  as a 🛑. **A round with no adjudication keeps the normal next-round
-  trigger** — rounds 1 and 2 have no judge by design (measured: zero clean
-  round 1s and three round-2 convergences in the ledger's 41 reviewed
-  loops), and a zero-findings round dispatches none — so after those
-  rounds' fixes are pushed, the next bare trigger goes out as usual (it is
-  mandatory: pushed code is reviewed code): the rule gates on verdicts that
-  exist, and the absence of a dispatch is not a stop (Codex, #548). But a verdict at **budget exhaustion** is an
+  as a 🛑. **A round with no VERDICT keeps the normal next-round
+  trigger** — rounds 1 and 2 are dispatched for conformance but return no
+  deciding verdict by design (measured: zero clean round 1s and three
+  round-2 convergences in the ledger's 41 reviewed loops, so a verdict there
+  would only ever say "write"), and a zero-findings round dispatches nothing
+  at all — so after those rounds' fixes are pushed, the next bare trigger
+  goes out as usual (it is mandatory: pushed code is reviewed code): the rule
+  gates on verdicts that decide, and the absence of one is not a stop
+  (Codex, #548). But a verdict at **budget exhaustion** is an
   extension decision, on every tier (David, 2026-08-26 — sensitive and
   internal loops write adjudication receipts like product ones now). The
   guard reads extensions only from committed receipts — so that verdict is written to

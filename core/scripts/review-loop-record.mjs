@@ -136,7 +136,17 @@ function git(args, { cwd = REPO_ROOT } = {}) {
  * strongest argument for stopping, so reporting it because a sha lookup failed
  * would be the most consequential possible false statement in this record.
  */
-export const PATCH_CAP_CHARS = 60_000;
+/**
+ * The reviewed diff's cap.
+ *
+ * 60,000 cut #73's 127,061-character diff in half, and the half the judge lost
+ * was implementation: it is asked whether a finding describes a critical flaw
+ * and then handed a patch that stops before the code the finding names. Raised
+ * so the RECORD's total cap is what binds in practice rather than this one --
+ * #73's record is the acceptance case and now arrives uncut, at roughly a
+ * third of the total. A cut is still stated in `truncation.fields`.
+ */
+export const PATCH_CAP_CHARS = 250_000;
 
 /**
  * The filename shapes this machinery GENERATES: the five the receipts README
@@ -166,6 +176,15 @@ const GENERATED_RECORD_SHAPES = [
   /^\.agents\/receipts\/loop-budget-\d+\.json$/,
   /^\.agents\/receipts\/loop-extension-\d+-\d+\.json$/,
   /^\.agents\/adjudications\/\d+-\d+\.json$/,
+  // The judge's own answer, recovered beside the record it ruled on. Without
+  // this line the next round's patch would carry the previous judge's prose
+  // into the next judge -- and, more immediately, a stopped loop could not
+  // commit it: `pr-ready.mjs` permits exactly the receipt and its record to
+  // differ from the reviewed head, so an unlisted file there demands a review
+  // the spent budget refuses. (Codex, plan round 2.)
+  /^\.agents\/adjudications\/\d+-\d+\.verdict\.json$/,
+  // Recovered captures: raw API responses, the snapshot's own input.
+  /^\.agents\/captures\//,
 ];
 
 export const isGeneratedRecord = (file) => GENERATED_RECORD_SHAPES.some((re) => re.test(file));
@@ -501,9 +520,17 @@ export function changesSince(since, head, { runGit = git } = {}) {
 // Reading payload at the reviewed commit, in either layout
 // ---------------------------------------------------------------------------
 
-/** The two payload files this record reads, by their CONSUMER path. */
+/** The payload files this record reads, by their CONSUMER path. */
 export const ADJUDICATOR_DEFINITION = ".claude/agents/review-loop-adjudicator.md";
 export const THREAT_MODEL_NOTE = ".agents/memory/machinery-threat-model-is-my-own-mistakes.md";
+/**
+ * The fleet's threat model, where Codex reads it and where a decline cites it.
+ *
+ * Whole file, never an excerpt. A regex over prose to lift "the threat-model
+ * paragraph" is the class that produced roughly twenty of #38's fifty-five
+ * findings; the file is small and the judge can read it.
+ */
+export const THREAT_MODEL_CONTRACT = ".agents/core/agents-core.md";
 
 /**
  * A payload file's content at `sha`, resolved through both layouts this
@@ -630,13 +657,29 @@ export function dispatchDeclaration(sha, { runGit = git } = {}) {
  * a PR that edits the threat model would otherwise hand the judge the base
  * branch's version of the very note under review.
  */
-export function declineCitationFor(tier, sha, { runGit = git } = {}) {
-  if (tier !== "internal") {
-    return { text: null, path: null, reason: `no tier citation in phase 1a for tier "${tier}"` };
+export function threatModelFor(tier, sha, { runGit = git } = {}) {
+  // EVERY TIER, not just `internal`. B1 classifies each finding as in scope or
+  // out of the threat model, and a judge cannot answer that on a `product` or
+  // `sensitive` loop if the threat model was never handed to it -- which is
+  // what `no tier citation for tier "product"` meant. The producer-scoped rule
+  // in `agents-core.md` is fleet contract as of 2026-09-10 and binds on all
+  // three tiers; the memory note is the internal tier's worked example and
+  // rides along where the consumer has it.
+  const parts = [];
+  const sources = [];
+  let note = null;
+  try {
+    const contract = readAtCommit(sha, THREAT_MODEL_CONTRACT, { runGit });
+    parts.push(contract.text);
+    sources.push(contract.path);
+  } catch (e) {
+    note = `the fleet threat model (${THREAT_MODEL_CONTRACT}) could not be read at ${sha}: ${e.message}`;
   }
-  let resolved;
+  let resolved = null;
   try {
     resolved = readAtCommit(sha, THREAT_MODEL_NOTE, { runGit });
+    parts.push(resolved.text);
+    sources.push(resolved.path);
   } catch (e) {
     // A STATED NULL, not a refusal. This note is delivered by the `memory`
     // sync group and the machinery does not require it: requiring it would
@@ -646,20 +689,36 @@ export function declineCitationFor(tier, sha, { runGit = git } = {}) {
     // the note still adjudicates -- the judge simply sees that the citation
     // is unavailable and why, which is the record's standing discipline for
     // a fact it cannot establish.
+    // A STATED ABSENCE, not a refusal. This note is delivered by the `memory`
+    // sync group and the machinery does not require it: requiring it would
+    // pull `contracts`, `planning` and `skills` into machinery's dependency
+    // closure through memory's own requires, coupling a consumer that wants
+    // the review machinery to most of the handbook.
+    note = [note, `the worked example (${THREAT_MODEL_NOTE}) is not present at ${sha}: ${e.message}`]
+      .filter(Boolean)
+      .join("; ");
+  }
+  if (!parts.length) {
     return {
       text: null,
-      path: null,
+      paths: [],
       sha,
-      reason: `unavailable at ${sha}: ${e.message}`,
-      note: "The internal tier's decline citation could not be read here; weigh its absence rather than assuming its content.",
+      tier,
+      reason: note,
+      note: "The threat model could not be read here; weigh its absence rather than assuming its content.",
     };
   }
   return {
-    text: resolved.text,
-    path: resolved.path,
+    text: parts.join("\n\n"),
+    paths: sources,
     sha,
-    reason: null,
-    note: "The internal tier's threat model, at the reviewed commit -- the basis an internal-tier decline cites.",
+    tier,
+    reason: note,
+    note:
+      "The threat model at the reviewed commit: the fleet's producer-scoped rule, plus the worked example " +
+      "where the consumer carries it. What a finding classed `out of threat model` is classed against, and " +
+      "what a decline on that class cites. Read as the whole file rather than an excerpt -- a regex over " +
+      "prose to find 'the threat-model paragraph' is the class that cost #38 twenty findings.",
   };
 }
 
@@ -1622,7 +1681,18 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
   if (kind === "bugfix") {
     const check = declaredBugfixOracle(live, values.fix_tier);
     if (check.refuse) throw new Error(check.refuse);
-    return { mode: null, sha: null, path: null, sections: null, reason: check.reason, declaredBy: "declaration" };
+    // THE VALIDATED FIELDS ARE THE ORACLE, so they reach the judge as
+    // sections. They used to validate and then arrive as `sections: null`,
+    // which left B1 with nothing to classify a finding's product intent
+    // against on exactly the loops Codex reviews most. (Codex, plan round 0.)
+    return {
+      mode: "bugfix",
+      sha: null,
+      path: null,
+      sections: bugfixSections(live, values.fix_tier),
+      reason: check.reason,
+      declaredBy: "declaration",
+    };
   }
 
   if (kind === "private-plan") {
@@ -1703,6 +1773,57 @@ function declaredPlanOracle(declaration, { body, headSha, runGit, base, titleIsP
  * `Fix tier:` line, so requiring a separate field of it would change
  * prose-path behavior, which Must Not Change forbids.
  */
+/**
+ * Where the bugfix oracle block ENDS, when no further label does it.
+ *
+ * A markdown heading or a thematic break. The last recognised label --
+ * `Blast radius` on tier A/B, `Migration ceremony checklist` on tier C -- is
+ * followed in every real body by the rest of the PR description: Post-merge
+ * verification, the checklist, the narrative. Running that field to the end of
+ * the body put all of it inside `planOracle.sections` and handed it to a judge
+ * whose input is supposed to be the oracle and not the builder's surrounding
+ * prose -- which is the never-list's "no builder in-loop prose in any judge's
+ * input", arriving through the oracle rather than around it. (Codex, #79
+ * round 2.)
+ *
+ * Applied to EVERY field, not only the last: a body missing an intermediate
+ * label would otherwise let the field before it swallow the same prose one
+ * position earlier, which is the identical defect with a different trigger.
+ */
+const BUGFIX_BLOCK_END_RE = /^(?:#{1,6}\s|(?:-{3,}|_{3,}|\*{3,})\s*$)/m;
+
+/**
+ * The bugfix oracle's fields, as text, keyed by label.
+ *
+ * A field runs from its own label line to the next field's, which is how the
+ * schema in `bugfix/SKILL.md` is actually written -- one bolded label per
+ * line, its value beside or beneath it. Bounded by the NEXT LABEL rather than
+ * by a blank line, because a blast-radius note is routinely several
+ * paragraphs -- and, failing a next label, by the block's end above.
+ *
+ * `Fix tier` is included: its line carries the tier rationale a reviewer uses
+ * to challenge a mis-tiering, so dropping it would hand the judge a tier with
+ * no reason attached.
+ */
+export function bugfixSections(live, tier) {
+  const fields = [...BUGFIX_ORACLE_FIELDS[tier], F("Tier rationale")];
+  const starts = [];
+  for (const field of fields) {
+    const re = new RegExp(`^\\s*\\*{0,2}${field.pattern}[:.]?\\*{0,2}`, "im");
+    const m = re.exec(live);
+    if (m) starts.push({ label: field.label, at: m.index, after: m.index + m[0].length });
+  }
+  starts.sort((a, b) => a.at - b.at);
+  const out = {};
+  starts.forEach((start, i) => {
+    const nextLabel = i + 1 < starts.length ? starts[i + 1].at : live.length;
+    const rest = live.slice(start.after, nextLabel);
+    const blockEnd = BUGFIX_BLOCK_END_RE.exec(rest);
+    out[start.label] = (blockEnd ? rest.slice(0, blockEnd.index) : rest).trim();
+  });
+  return Object.keys(out).length ? out : null;
+}
+
 function declaredBugfixOracle(live, tier) {
   const fields = [
     ...BUGFIX_ORACLE_FIELDS[tier].filter((field) => field.label !== "Fix tier"),
@@ -2134,7 +2255,9 @@ export function assertHeadReviewed(lastReviewed, head, { changedFiles = null } =
  */
 export const FINDING_TEXT_CAP_CHARS = 200_000;
 export const PLAN_ORACLE_CAP_CHARS = 80_000;
-export const DECLINE_CITATION_CAP_CHARS = 40_000;
+// Two files now rather than one (the fleet contract plus the worked example),
+// so the cap covers both.
+export const THREAT_MODEL_CAP_CHARS = 80_000;
 export const RECORD_TOTAL_CAP_CHARS = 600_000;
 
 /**
@@ -2231,10 +2354,10 @@ export function applyCaps(record) {
     }
   }
 
-  if (typeof record.declineCitation?.text === "string" && record.declineCitation.text.length > DECLINE_CITATION_CAP_CHARS) {
-    const full = record.declineCitation.text.length;
-    record.declineCitation.text = record.declineCitation.text.slice(0, DECLINE_CITATION_CAP_CHARS) + cutMarker(full, DECLINE_CITATION_CAP_CHARS);
-    truncation.fields.push({ field: "declineCitation.text", keptChars: DECLINE_CITATION_CAP_CHARS, fullChars: full });
+  if (typeof record.threatModel?.text === "string" && record.threatModel.text.length > THREAT_MODEL_CAP_CHARS) {
+    const full = record.threatModel.text.length;
+    record.threatModel.text = record.threatModel.text.slice(0, THREAT_MODEL_CAP_CHARS) + cutMarker(full, THREAT_MODEL_CAP_CHARS);
+    truncation.fields.push({ field: "threatModel.text", keptChars: THREAT_MODEL_CAP_CHARS, fullChars: full });
   }
 
   // The artifact patch is capped by `cappedDiff` before this function runs,
@@ -2263,7 +2386,7 @@ export function applyCaps(record) {
       record.planOracle.sections[heading] = asReadableLines(record.planOracle.sections[heading]);
     }
   }
-  if (record.declineCitation) record.declineCitation.text = asReadableLines(record.declineCitation.text);
+  if (record.threatModel) record.threatModel.text = asReadableLines(record.threatModel.text);
   if (record.artifact) record.artifact.patch = asReadableLines(record.artifact.patch);
   // BOTH patches. `sinceLastReview.patch` is empty under the write-gate rule
   // but not by construction -- a branch that moved after the last pass emits
@@ -2354,7 +2477,7 @@ export function buildRecord({
   emptyAgainstDistinctEndpoints = false,
   dispatch = null,
   planOracle = null,
-  declineCitation = null,
+  threatModel = null,
   now,
 }) {
   const passes = reviewerPasses(derived.reviews, derived.issueComments);
@@ -2459,7 +2582,7 @@ export function buildRecord({
     // needs -- all read at the reviewed commit, never from the working tree.
     dispatch,
     planOracle,
-    declineCitation,
+    threatModel,
     rounds: {
       completedReviewerPasses: passes.length,
       byRound,
@@ -2841,7 +2964,7 @@ function main() {
   });
   const dispatch = dispatchDeclaration(head);
   const planOracle = planOracleFor(snapshot.pr, head, { base });
-  const declineCitation = declineCitationFor(budgetState.tier, head);
+  const threatModel = threatModelFor(budgetState.tier, head);
 
   const record = applyCaps(
     buildRecord({
@@ -2856,7 +2979,7 @@ function main() {
       emptyAgainstDistinctEndpoints,
       dispatch,
       planOracle,
-      declineCitation,
+      threatModel,
       now: new Date().toISOString(),
     }),
   );

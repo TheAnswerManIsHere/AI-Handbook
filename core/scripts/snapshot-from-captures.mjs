@@ -132,9 +132,21 @@ export function digest(text) {
  * case visible instead of silently equivalent to the stronger one.
  */
 export function captureSource(file) {
-  return /(^|\/)\.claude\/projects\/(?:[^/]+\/)+tool-results\//.test(resolve(file))
-    ? "harness-capture"
-    : "agent-written";
+  const abs = resolve(file);
+  if (/(^|\/)\.claude\/projects\/(?:[^/]+\/)+tool-results\//.test(abs)) return "harness-capture";
+  // `.agents/captures/` is written by `capture-from-transcript.mjs` and by
+  // nothing else: a result the harness returned INLINE, copied out of the
+  // session transcript by program instead of retyped by an agent. Same
+  // derive-from-the-path rule as above, for the same reason -- and the
+  // recovery script names its own output precisely so this class cannot be
+  // claimed by a file written some other way.
+  //
+  // It is not a stronger PROVENANCE claim than `agent-written`; the operator
+  // runs the script and can edit the transcript. It records that the 40KB
+  // hand step (AI-Handbook #75) did not happen, which is a claim about COST
+  // and about where generation creeps in, not about an adversary.
+  if (/(^|\/)\.agents\/captures\//.test(abs)) return "transcript-recovered";
+  return "agent-written";
 }
 
 /** How long before a file was written its fetch may plausibly be claimed. */
@@ -195,6 +207,13 @@ export function resolveCaptureTime({ file, source, mtime }, declared) {
   // real captures, not by review.) The measurement still wins: a declaration
   // never overwrites a time the harness recorded.
   if (source === "harness-capture") return { capturedAt: mtime, capturedAtSource: "file-mtime" };
+  // A TRANSCRIPT-RECOVERED capture has a real fetch time -- the transcript
+  // records when the result arrived -- but this file is reached with the
+  // capture already on disk, so that time arrives the same way an agent's
+  // does: declared. The recovery script prints it for exactly this purpose.
+  // Treated as `agent-written` is below, deliberately: the bound on a
+  // declaration is what keeps a stale capture from passing the freshness
+  // gate, and that reasoning does not change with who copied the bytes.
   if (!declared) {
     throw new Error(
       `${file} was written by an agent from an inline response, so its mtime is when the blob was SAVED, ` +

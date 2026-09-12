@@ -58,11 +58,19 @@ const WIRED = [
   },
 ];
 
-/** The `.gitignore` that cannot be a pointer: git does not follow a symlinked one. */
-const MIRRORED_GITIGNORE = {
-  payload: "core/.agents/receipts/.gitignore",
-  root: ".agents/receipts/.gitignore",
-};
+/**
+ * The `.gitignore` files that cannot be pointers: git does not follow a
+ * symlinked one, so its patterns would never apply.
+ *
+ * A list rather than one entry, because the second directory of ephemeral
+ * machinery output arrived and the singular form would have silently left it
+ * unchecked -- `.agents/captures/` holds raw API responses, and an unignored
+ * one lands in every PR diff and in the next judge's own patch.
+ */
+const MIRRORED_GITIGNORES = [
+  { payload: "core/.agents/receipts/.gitignore", root: ".agents/receipts/.gitignore", holds: "ephemeral receipt" },
+  { payload: "core/.agents/captures/.gitignore", root: ".agents/captures/.gitignore", holds: "recovered API capture" },
+];
 
 const patternLines = (text) =>
   text
@@ -134,8 +142,7 @@ function checkWiring(problems, ROOT) {
   }
 }
 
-function checkMirroredGitignore(problems, ROOT) {
-  const { payload, root } = MIRRORED_GITIGNORE;
+function checkMirroredGitignore(problems, ROOT, { payload, root, holds }) {
   const payloadAbs = join(ROOT, payload);
   const rootAbs = join(ROOT, root);
 
@@ -144,12 +151,13 @@ function checkMirroredGitignore(problems, ROOT) {
     return;
   }
   // A symlink here would be staged as an ordinary file and its patterns never
-  // applied, so every ephemeral receipt would be committed. Verified, not
-  // assumed -- which is why the mirror is checked instead of pointed at.
+  // applied, so every file it was meant to ignore would be committed.
+  // Verified, not assumed -- which is why the mirror is checked rather than
+  // pointed at.
   if (lstatSync(rootAbs).isSymbolicLink()) {
     problems.push(
       `${root} is a symlink. Git does not follow a symlinked .gitignore, so its patterns would ` +
-        `never apply and every ephemeral receipt would be committed. It must be a real file.`,
+        `never apply and every ${holds} would be committed. It must be a real file.`,
     );
     return;
   }
@@ -173,7 +181,7 @@ function checkMirroredGitignore(problems, ROOT) {
 export function run(root = ROOT) {
   const problems = [];
   checkWiring(problems, root);
-  checkMirroredGitignore(problems, root);
+  for (const mirrored of MIRRORED_GITIGNORES) checkMirroredGitignore(problems, root, mirrored);
   return problems;
 }
 
@@ -189,6 +197,6 @@ if (invokedDirectly) {
   const agents = readdirSync(join(ROOT, ".claude/agents")).length;
   console.log(
     `check-root-wiring: OK -- ${skills} skills and ${agents} agents reach the payload by link, ` +
-      `and the receipts .gitignore mirrors it`,
+      `and ${MIRRORED_GITIGNORES.length} mirrored .gitignore file(s) match the payload`,
   );
 }

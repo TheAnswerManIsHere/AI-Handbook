@@ -183,6 +183,25 @@ stored records. From the merged-PR list for the window:
   their cap). A run of `continue` verdicts would mean the adjudicator is
   being talked into extensions, which is the mechanism failing in the way it
   was built to resist.
+- **B1, two numbers and no more** (David, 2026-09-11). How many conformance
+  dispatches ran, and how many findings they classed as outside the agreed
+  scope. Both from the committed verdict files:
+
+  ```
+  ls .agents/adjudications/*.verdict.json | wc -l
+  cat .agents/adjudications/*.verdict.json \
+    | jq '[.verdict.conformance[]? | select(.class | test("^out-of-|^misdirection"))] | length'
+  ```
+
+  Filter to the window by the files' commit dates. **This is a gut check, not
+  an audit.** Nothing tracks what happened to each classified finding
+  afterwards, deliberately: the question these answer is "is this earning its
+  keep", and the retirement rule reads a trend across loops, not a ledger.
+  Report them in a sentence. Below three loops, "not yet informative".
+
+  A run of loops where B1 classes nothing out of scope means it is agreeing
+  with every finding, which is the zero-for-fifteen shape the workstream's own
+  retirement rule exists to catch — say so rather than reporting the zero flat.
 - **Guard incidents that needed David.** Rare by design; if it isn't rare, say
   so.
 - **Recorded dissents** (David, 2026-09-03). Override entries in the repo's

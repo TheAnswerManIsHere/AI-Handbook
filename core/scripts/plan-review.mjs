@@ -82,6 +82,8 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { modelTier } from "./review-budget.mjs";
+
 /**
  * The repository root, found by walking up to `.git` rather than counting
  * directories.
@@ -117,9 +119,22 @@ export const REPO_ROOT = process.env.PLAN_REVIEW_ROOT
   ? path.resolve(process.env.PLAN_REVIEW_ROOT)
   : (findRepoRoot(SCRIPT_DIR) ?? path.resolve(SCRIPT_DIR, "..", ".."));
 
-/** Settled: GPT-6 Astra at xhigh, read-only. Overridable only for smoke tests. */
-export const DEFAULT_MODEL = "gpt-6-astra";
-export const DEFAULT_EFFORT = "xhigh";
+/**
+ * Settled: the strongest Codex model, at the effort its tier runs, read-only.
+ * Overridable only for smoke tests.
+ *
+ * THE TIER IS THE SETTLED THING, NOT THE VERSION (David, 2026-09-11). "Astra"
+ * means the strongest Codex or ChatGPT model available, so the id lives in
+ * `.agents/machinery.json` and a new release is an edit there rather than in
+ * this file, `fable-dispatch.mjs`, every role definition and four documents.
+ *
+ * FUNCTIONS RATHER THAN CONSTANTS, deliberately: resolving at module load
+ * would make importing this file throw in a checkout whose configuration has
+ * no `models` block, which would take out `--help` and `--dry-run` along with
+ * the reviewer. Resolved where the reviewer is actually pinned, so a missing
+ * block refuses the round with a message naming the file to edit.
+ */
+export const defaultReviewer = () => modelTier("strongestCodex");
 export const DEFAULT_SANDBOX = "read-only";
 export const SANDBOXES = ["read-only", "workspace-write", "danger-full-access"];
 
@@ -1563,7 +1578,7 @@ export const USAGE = [
   "  --force       re-run a round that already exists, discarding its result first",
   "  --oracle-changed <reason>   the oracle differs from the pinned one, deliberately",
   "",
-  `  The reviewer is PINNED to ${DEFAULT_MODEL} at ${DEFAULT_EFFORT} in a ${DEFAULT_SANDBOX} sandbox.`,
+  `  The reviewer is PINNED to the strongestCodex tier in \`.agents/machinery.json\`, in a ${DEFAULT_SANDBOX} sandbox.`,
   "  --model / --effort / --sandbox are refused unless --unpinned <reason> is given,",
   "  and danger-full-access is refused always. The reason is stamped on the round.",
   "",
@@ -1732,15 +1747,16 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // weaker reviewer, or hand the reviewer write access to the live checkout
     // -- defeating the two things this design is FOR.
     const overrides = ["model", "effort", "sandbox"].filter((k) => flags[k] != null);
+    const settled = defaultReviewer();
     if (overrides.length && !flags.unpinned) {
       throw new Error(
-        `--${overrides.join(", --")} would depart from the settled reviewer (${DEFAULT_MODEL}, ${DEFAULT_EFFORT}, ` +
+        `--${overrides.join(", --")} would depart from the settled reviewer (${settled.id}, ${settled.effort}, ` +
           `${DEFAULT_SANDBOX}). Pass --unpinned "<why>" to do it deliberately; the reason is stamped on the round, ` +
           `so a loop run against a weaker reviewer says so.`,
       );
     }
-    const model = flags.model ?? DEFAULT_MODEL;
-    const effort = flags.effort ?? DEFAULT_EFFORT;
+    const model = flags.model ?? settled.id;
+    const effort = flags.effort ?? settled.effort;
     const sandbox = flags.sandbox ?? DEFAULT_SANDBOX;
     if (!SANDBOXES.includes(sandbox)) throw new Error(`--sandbox must be one of ${SANDBOXES.join(", ")}`);
     if (sandbox === "danger-full-access") {

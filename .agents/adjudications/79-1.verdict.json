@@ -1,0 +1,91 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 79,
+  "recordPath": ".agents/adjudications/79-1.json",
+  "recordSha256": "f496f0dccf65f93cfe4f251b1d3726c0acd3bd571fa01fd9838deab16e85f0c1",
+  "toolUseId": "toolu_01D2qddQLx5Hhi8am2hDha2X",
+  "agentId": "a91babf69b0d6215a",
+  "decidedAt": "2026-09-11T22:02:28.205Z",
+  "transcript": "00070c3a-8145-5c7b-ab08-225a88325831.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "continue",
+    "grant": 0,
+    "risk": "scripts/sync.mjs now runs topUpSeed over EVERY JSON seed, and `.claude/settings.json` is a seed: a consumer repo that deliberately lacks a top-level `permissions`, `hooks` or `env` key silently receives the template's values on its next sync, reported as a successful sync, in a file claude-core.md names as David's-merge-only. The diff's own new test protects that file only by the contingent fact that its fixture copy lacks no top-level template key, and its comment states that as an assumption rather than a mechanism.",
+    "reasoning": "Internal tier, budget 3, two rounds spent with the trend falling 6 -> 5, all 11 findings inside the diff and none outside it, against a 32-file / 2,488-added artifact — this is not the #488 runaway shape, and the record was read end to end (`truncation.fields` empty, 287,485 of 600,000 chars). Ten of the eleven findings are ordinary internal-tooling defects that the strict rubric ships as recorded gaps, but PRRT_kwDOUKOPKc6hpjmW falls in the authority-widening class the internal default is carved out for: the top-up path in scripts/sync.mjs is unconditional over JSON seeds and reaches a consumer's permissions file, so its failure mode is wrongly-permitting rather than the wrongly-blocking one this tier tolerates. That is worth the one round the budget still holds (round 3 of 3, so grant 0). All eleven classified in-scope, reached honestly rather than by agreement — I re-tested #3 and #8 against the threat model (which names wrong-repository capture as the mistake class it exists to catch, and another program's output as a value worth refusing on) and #10/#11 against Must Not Change and Settled Decision 10, and none is excluded.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6hpjme — assertConformance checks threadId and class but not the mandatory `citation`/`why`: real, but an unusable classification blocks a decline rather than minting a false one, so it is ordinary consequence under the internal bar.",
+      "PRRT_kwDOUKOPKc6hpjmj — bugfixSections runs its last field to live.length, carrying PR-body prose into planOracle.sections: degrades a bugfix-loop judge's input, not destructive and not receipt corruption.",
+      "PRRT_kwDOUKOPKc6hpjms — working-modes.md still says rounds 1-2 findings are 'written for by default' where claude-core.md says Worth-tested: a contract inconsistency, wording-shaped consequence.",
+      "PRRT_kwDOUKOPKc6hpjm0 — the round-1 dispatch rule sits only in the Product loops section while the internal-tier section still reads round-3-only: under-delivery of Product Intent 2, not one of the three critical classes."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLK2",
+        "class": "in-scope",
+        "citation": "Product Intent 7 — 'one configuration value per tier, in `.agents/machinery.json`, maps it to the current full id'",
+        "why": "Making a `models` block required with no migration path would have refused every dispatch and plan-review round in already-seeded consumers, which is a real defect in the increment's own mechanism."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLK9",
+        "class": "in-scope",
+        "citation": "Product Intent 2 — every finding gets one class 'with a citation into the record'; binding from round 3",
+        "why": "The adjudicator's contract already declared a refusal that the recovery code did not implement, so an answer dropping a finding became a committed, binding classification with a hole in it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLE",
+        "class": "in-scope",
+        "citation": "threatModel — 'Capturing the wrong PR's snapshot because every repository has a #7' is named as a mistake the identity checks exist to catch",
+        "why": "Selecting a capture without the repository is the exact mistake class the fleet threat model puts inside scope, not a hostile-value defence outside it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLM",
+        "class": "in-scope",
+        "citation": "Product Intent 5 — the prompt-token observation 'bounded against the payload the script sent plus an allowance'",
+        "why": "A bound that a later delivery retroactively widens lets the isolation receipt report success for context the dispatch did not send, which is the observation's whole purpose failing."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLQ",
+        "class": "in-scope",
+        "citation": "core/.agents/core/claude-core.md hunk @@ -405,26 +412,25 @@ — 'never a file' replaced by 'recovered into `<record>.verdict.json` and committed'",
+        "why": "Two passages of the same always-loaded contract gave opposite instructions about the verdict file, and that contract is in this diff."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpLLR",
+        "class": "in-scope",
+        "citation": "Product Intent 7 — the configuration's `effort` is 'the reasoning depth that tier runs at'",
+        "why": "roleContract resolved modelEffort and buildArgv dropped it, so the configuration described a control that reached nothing — a claim with no mechanism in the file whose subject is exactly that."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjmW",
+        "class": "in-scope",
+        "citation": "scripts/sync.mjs hunk @@ -196,8 +250,14 @@ — `topUpSeed(join(root, rel), target)` on every `seed && present`, with scripts/__tests__/sync.test.mjs's new settings case protecting `.claude/settings.json` only by its fixture's contingent key set",
+        "why": "The oracle nowhere excludes the sync, and the diff itself shows the top-up reaching a consumer's permissions file with only an assumption between it and a silent restore."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjme",
+        "class": "in-scope",
+        "citation": "Product Intent 2 — 'A decline on an out-of-scope class must cite the classification; no citation, no decline'",
+        "why": "Settled Decision 6 declined 'coverage refusals', which is not what this asks for: per-entry evidence fields are what the oracle itself makes mandatory, so the oracle does not exclude it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjmj",
+        "class": "in-scope",
+        "citation": "Must Not Change — 'no builder in-loop prose in any judge's input. The record's finding bodies are root comments only, replies excluded — true today, true after.'",
+        "why": "A finding that the increment violates a Must Not Change is a defect inside scope, not a concern the oracle puts outside it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjms",
+        "class": "in-scope",
+        "citation": "Settled Decisions 10 — the affected-surface inventory names `working-modes.md` as one of the six payload files stating the adjudicator cadence, 'All updated'",
+        "why": "The increment set out to make those six files agree, and this paragraph was rewritten in this diff while leaving a clause that contradicts claude-core.md's Worth rule."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hpjm0",
+        "class": "in-scope",
+        "citation": "Product Intent 2 — 'B1, conformance triage, ships inside the existing `review-loop-adjudicator`', with no carve-out for the internal tier",
+        "why": "The oracle scopes the early classification to code loops generally, so an internal-tier section still reading round-3-only leaves the increment undelivered for most work in this repository."
+      }
+    ]
+  }
+}

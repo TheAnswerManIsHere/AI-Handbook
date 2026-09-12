@@ -340,9 +340,9 @@ live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**, as revised
 2026-08-22: the declared budget (a product-code fix is a product loop, 5
-rounds), the **write-gate rule — the external adjudicator rules from round 3
-onward on whether to WRITE for a round's findings, before anything is
-written, and any commit that does get written gets a mandatory review round;
+rounds), the **write-gate rule — the external adjudicator classifies every finding
+from round 1 and rules from round 3 onward on whether to WRITE for them,
+before anything is written, and any commit that does get written gets a mandatory review round;
 its verdict decides; the in-loop continue/stop, criticality gate, count
 trend, oscillation diagnosis and Fable-challenged declines are all
 retired** (Codex, #543 round 3), the fix / accept-and-document / escalate

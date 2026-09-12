@@ -1,7 +1,7 @@
 ---
 name: fable-probe
-description: "Phase 0 of AI-Handbook issue #36. Not a reviewer and not counsel: the probe that exercises the dispatch path end to end so the mechanism is demonstrated before any advisory role depends on it. Echoes a script-generated challenge, reports whether repository instructions reached its context, and lists the tools it holds. Meant to be launched by fable-dispatch.mjs, which is what produces a receipt; the harness also lists it as an ordinary subagent, and a dispatch that way produces no receipt and binds no model."
-model: claude-fable-5-1
+description: "AI-Handbook issue #36's dispatch probe. Not a reviewer and not counsel: the fixture that exercises the dispatch path end to end so the mechanism is demonstrated before any advisory role depends on it. Echoes a script-generated challenge, reports whether repository instructions reached its context, and lists the tools it holds. Launched only by fable-dispatch.mjs -- this directory is not scanned by the harness, so there is no second door that skips the frame, the launch check, the model binding and the receipt."
+model: strongestClaude
 tools: Read
 budgetUsd: 0.50
 schema: schemas/fable-probe.schema.json

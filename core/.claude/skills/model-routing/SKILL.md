@@ -281,9 +281,10 @@ Two sections lived here — the three structural adjudication triggers
 (any decline, any oracle-less finding, any swept-class recurrence) and the
 adversarial stopping-rule subagent. **Both are superseded by the single
 external per-round adjudicator** in `CLAUDE.md`'s *Review loops*: one
-`review-loop-adjudicator` from round 3 onward, on any round that returned
-findings, ruling before anything is written for them — its definition declares
-the tier — record-only input, verdict decides. Running the old per-finding and
+`review-loop-adjudicator` on any round that returned findings, from round 1,
+classifying every finding and — from round 3 — ruling before anything is
+written for them; its definition declares the tier, its input is the record
+alone, and its verdict decides. Running the old per-finding and
 per-decline dispatches alongside it would re-create the parallel
 self-refereeing the #541 review deleted (Codex, #543 round 3).
 

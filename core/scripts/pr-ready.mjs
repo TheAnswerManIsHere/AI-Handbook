@@ -1277,6 +1277,23 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
   // record (`recordPath`), which supplies the source-derived baseline this
   // fallback's diff bound requires; the tripwire floor is waived because his
   // stop needs no tripwire. Committing that pair is what would otherwise
+/**
+ * The verdict file that belongs to one adjudication record, by name.
+ *
+ * `capture-from-transcript.mjs` writes the judge's own answer to
+ * `<record>.verdict.json`, and a loop that stops commits it alongside the
+ * record the receipt cites. This gate permits exactly the receipt, its record
+ * and that one file to differ from the reviewed head -- DERIVED from the
+ * record's own name rather than accepted as a path, so a second loop's verdict
+ * or any other file still fails readiness. Without it a stopped loop had to
+ * buy a review round to commit its own bookkeeping, which the spent budget
+ * refuses. (Codex, plan round 2.)
+ */
+const verdictBeside = (recordPath) =>
+  typeof recordPath === "string" && /^\.agents\/adjudications\/\d+-\d+\.json$/.test(recordPath)
+    ? [recordPath.replace(/\.json$/, ".verdict.json")]
+    : [];
+
   // wedge the PR: the receipt's own commit moves HEAD past the last reviewed
   // commit while the unchanged allowance opens no round for another pass.
   if (
@@ -1310,7 +1327,7 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
             : `is not an ancestor of ${headSha.slice(0, 7)} -- the branch was rewritten since`),
       };
     }
-    const stopAllowed = new Set([terminal.path, receipt.recordPath]);
+    const stopAllowed = new Set([terminal.path, receipt.recordPath, ...verdictBeside(receipt.recordPath)]);
     const stopChanged = git(["diff", "--no-renames", "--name-only", `${recordCheck.baseline}..${headSha}`], cwd);
     if (stopChanged === null) {
       return { pass: false, detail: `${terminal.path}: could not diff ${recordCheck.baseline.slice(0, 7)}..${headSha.slice(0, 7)}` };
@@ -1518,7 +1535,7 @@ export function checkAdjudicatedCodex(prNumber, headSha, { cwd, codexOutage = fa
   }
 
   const allowedPaths = new Set(
-    endorsement ? [candidate.path, receipt.recordPath, endorsement.path] : [candidate.path, receipt.recordPath],
+    [candidate.path, receipt.recordPath, ...verdictBeside(receipt.recordPath), ...(endorsement ? [endorsement.path] : [])],
   );
   const changed = git(["diff", "--no-renames", "--name-only", `${recordCheck.baseline}..${headSha}`], cwd);
   if (changed === null) {
