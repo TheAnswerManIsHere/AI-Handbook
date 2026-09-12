@@ -526,3 +526,20 @@
     compares this against the trusted config identity before anything derives
     from the range.
 
+
+
+# --------------------------------------------------------------------------
+# round-translation-record.mjs
+# --------------------------------------------------------------------------
+# The D0 record names the repository once, for the reader's orientation. It
+# decides nothing: the identity comparison that matters on this path is
+# `assertCapturedProvenance`, which checks every captured URL against the
+# snapshot's own repo and pull number before this record is built.
+
+- key: "round-translation-record.mjs :: buildTranslationRecord :: repo: repoSlug(),"
+  source: config
+  why: >-
+    The configured identity, stamped on the record so a page rendered from it
+    says which repository it is about. Nothing branches on it -- the snapshot's
+    own provenance check has already refused a capture from anywhere else, and
+    this line is read by a human, not by a guard.

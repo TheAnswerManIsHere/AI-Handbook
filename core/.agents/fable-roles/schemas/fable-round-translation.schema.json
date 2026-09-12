@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "summary_for_david": {
+      "type": "string",
+      "description": "Three sentences for a product owner who cannot read code: what this round was about, whether anything should worry him, and the one thing worth his attention."
+    },
+    "what_happened": {
+      "type": "string",
+      "description": "The round in plain English, finding by finding: what the reviewer was worried about in terms of outcomes, what the builder did about it, and whether the diff bears that out. Prose, in whatever shape reads best."
+    },
+    "disagreements": {
+      "type": "array",
+      "description": "Where your reading of the round differs from the builder's account. An empty array is a real answer; never pad it and never suppress an item.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "what": { "type": "string", "description": "What the builder's account says, and what you think instead." },
+          "why_it_matters": { "type": "string", "description": "What it would mean for David or for the work if you are right." }
+        },
+        "required": ["what", "why_it_matters"],
+        "additionalProperties": false
+      }
+    },
+    "could_not_assess": {
+      "type": ["string", "null"],
+      "description": "One sentence when something in this round was beyond what you were given -- a cut diff, a missing file, a finding you did not follow. null when there is no such thing. Not for hedging: David is told 'partial' rather than 'agrees' whenever this is set."
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "One line: what, if anything, David should do."
+    }
+  },
+  "required": ["summary_for_david", "what_happened", "disagreements", "could_not_assess", "recommendation"],
+  "additionalProperties": false
+}

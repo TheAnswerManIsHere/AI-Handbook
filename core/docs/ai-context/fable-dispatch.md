@@ -6,7 +6,9 @@ The mechanism under AI-Handbook workstream #36's reviewer roles. Phase 0 shipped
 it with **no advisory role**: the point is that the floor exists and is what
 it says before anything stands on it. Phase 1 narrowed two of the five
 non-guarantees and left the rest standing, which is why this file still leads
-with them.
+with them. Phase 2 put the first role on the floor —
+[D0, the round translation](#d0--the-round-translation), which writes to David
+and decides nothing.
 
 **Codex keeps its full fix-or-decline force on product code. Nothing here
 touches it.** Neither does anything here change the `review-loop-adjudicator`,
@@ -71,11 +73,23 @@ the reviewer" while the next paragraph admitted the opposite; that was this
 document's own defect in its own subject (Codex, AI-Handbook #73 round 2).
 
 **What it does not do.** It does not establish who wrote a brief it did not
-build. That is why, as of Phase 1, it only dispatches roles whose briefs it
-*does* build: the permitted set is a predicate over this script's own brief
-generators, not a list, and `--brief` no longer exists. A role cannot be
-admitted by widening a parameter; it is admitted by having its brief composed
-here. See *The refusal*, below.
+build. That is why it only dispatches roles whose briefs it *does* build: the
+permitted set is a predicate over this script's own brief generators, not a
+list, and `--brief` no longer exists. A role cannot be admitted by widening a
+parameter; it is admitted by having its brief composed here. See *The
+refusal*, below.
+
+**And a brief this script builds may still carry the builder's own words.**
+`round-translation`'s does, deliberately — explaining what the builder did
+with each finding is its whole job. The mechanism there is **a label, not a
+barrier**: every block in that brief says who wrote it, reviewer or builder
+or someone else, and the role is told to check the builder's claims against
+the diff (David, 2026-09-12: *"I'm not worried about the adjudicator seeing
+information that the builder is providing, so long as it knows where it came
+from"*). No code keeps the builder's text away from a reviewer that is
+supposed to read it. What stays true is narrower and unchanged: **no
+caller-written instruction** reaches any role — the frame, the system prompt,
+the schema and the flags are all this script's.
 
 The receipt's `briefSha256` is the digest of the text **as embedded in the
 frame** — the frame trims the brief, and hashing the untrimmed input recorded a
@@ -234,13 +248,14 @@ that changes during a run is not detected. The field names carry the boundary
 for that reason, and a clean tree at spawn is **not** a reproducible reviewed
 snapshot. Snapshotting is not in Phase 0.
 
-## The refusal, and what would lift it
+## The refusal, and how a role satisfies it
 
 **A role may dispatch if and only if this script generates its brief.** That is
-the rule, and as of Phase 1 it is also the mechanism: the permitted set is a
-predicate over the brief generators in `fable-dispatch.mjs`, there is no
-`--brief` flag, and `dispatch()` takes no parameter a caller could widen. The
-probe satisfies it. Nothing else does yet.
+the rule and the mechanism both: the permitted set is a predicate over the
+brief generators in `fable-dispatch.mjs`, there is no `--brief` flag, and
+`dispatch()` takes no parameter a caller could widen. Two roles satisfy it —
+the probe, and `round-translation`. Everything else is refused, and the way in
+is to add a generator, not to widen anything.
 
 That shape replaces Phase 0's list, which stated the same rule while leaving
 `permittedRoles` on the exported function — so an importing script could pass
@@ -253,9 +268,57 @@ brief provenance, as Phase 0 imagined it, is **not** what lifts the refusal —
 the bar is the predicate, and a brief this script builds needs no provenance
 check because there is no other author to distinguish it from.
 
-**Phase 2 adds the first role under that predicate**: its brief is a record
-this machinery already generates, built here rather than handed in. The
-refusal does not lift for it; it is satisfied by it.
+**Phase 2's `round-translation` is the first role through it**, and it is not
+an exception: its brief is composed here from a record
+`round-translation-record.mjs` builds out of a captured snapshot. The caller
+supplies a pull request number, a round number and a path — data this script
+validates — and not one word the reviewer reads. Each role's flags are
+scoped to it, so a flag belonging to another role is refused by name rather
+than parsed and ignored.
+
+## D0 — the round translation
+
+**What it is for:** David cannot read code, so on a code-review loop the only
+account he has ever had of a round is the builder's own. This role writes the
+second one, from the round's own material.
+
+**What it reads:** the named round's threads whole — the reviewer's finding
+and every reply, verbatim, each labelled by author — the builder's comments on
+the pull request since that round, and the diff from the round's reviewed
+commit to the pull request's head. It holds `Read`, and the checkout is
+required to be at that head, so a file it opens is a file the round is about.
+
+**What it cannot do:** anything. Nothing in the review loop, the budget or the
+merge gate reads its receipt — `git grep -n fable` over `pr-ready.mjs`,
+`guard.sh` and `guard-decision.mjs` returns nothing, and that absence is the
+mechanism. It is dispatched **after** the round's re-request is posted, so
+there is no moment at which the builder could act on it; if it catches
+something, raising it is David's, at the cost of a round.
+
+**Three refusals, and only three.** The round is **named** (`--round`), never
+"the latest pass" — Codex's next pass can land first, and then the round just
+answered silently vanishes. The snapshot must have been **captured after the
+builder's last comment on that round**, or the account would say a round went
+unanswered when it was answered. And both **diff endpoints come from the
+snapshot**, with the checkout required to match. Each one is a wrong account
+David would read as true; nothing else is checked, because the output is prose
+for a human rather than a ledger (David, 2026-09-12). A translation that
+misses a finding produces a paragraph missing a finding, which is visible on
+the page and costs nothing else.
+
+**What David gets:** one private page per pull request, rebuilt from every
+receipt and redeployed in place each round, plus one line of chat per round
+derived from the receipt — *agrees*, *differs on N*, *partial*, or *skipped*.
+**`agrees` is never printed over something the translator could not assess**:
+could-not-observe is not the favourable answer here either. A round that
+raised nothing and prompted no push is not dispatched at all; an all-declined
+round is, because it is the round where the builder's account matters most.
+
+**Receipts are evidence, not decisions**: `fable-round-translation-<pr>-<n>`,
+keyed by round rather than by head because a declined round leaves the head
+where it was, and gitignored like every other `fable-*.json`. The two
+gut-level counters — dispatches run, disagreements flagged — are restated in
+the loop's close-out harvest comment, the same path plan-loop cost takes.
 
 ## The probe
 
@@ -332,7 +395,10 @@ and noted here for whoever decides the adjudicator's future.
   against what this script put in it, which catches context that arrives from
   anywhere. It does not enumerate what loaded, and a hook that injects nothing
   is outside it.
-- **Not a review of anything.** Phase 0 ships a probe.
+- **Not a review of anything.** Phase 0 shipped a probe; Phase 2's
+  `round-translation` explains a review that already happened, to David, and
+  holds no authority over it. Nothing dispatched through this file reviews
+  code or decides anything in a loop.
 - **Not reachable except through the script — now.** A definition under
   `.claude/agents/` is registered with the harness as an ordinary subagent, so
   any session could dispatch it directly with a caller-written prompt, skipping

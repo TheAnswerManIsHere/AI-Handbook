@@ -663,6 +663,53 @@ implementation PR:
 - I stay **frugal with GitHub replies** (only when genuinely necessary), and I
   stop watching once the PR is merged or closed, or when David says stop.
 
+## Translating the round for David (D0)
+
+**Every round, right after its trigger is posted** — and after the stop
+decision on a final round. David cannot read the conversation this loop is
+made of, and until this step the only account he ever got of a round was
+mine. Fable writes the second one, from the round's own material.
+
+```
+# 1. Read the four collections FRESH -- do not recover an earlier read.
+#    The record refuses a capture older than my last comment on the round,
+#    which is what stops a translation saying the round went unanswered.
+# 2. Recover those reads and assemble the snapshot, as for any record:
+#      node scripts/capture-from-transcript.mjs --pr <n> --collection <each>
+#      node scripts/snapshot-from-captures.mjs ... > <snap>
+# 3. Dispatch, naming the round that just closed:
+node scripts/fable-dispatch.mjs --role round-translation \
+     --pr <n> --round <r> --mcp-snapshot <snap>
+```
+
+Detached, like a plan-review round — it is a full reviewer run, longer than a
+comfortable foreground call — with an exit file as the completion signal. The
+next Codex round proceeds whether or not it has returned; **nothing in the
+loop waits on it and nothing in the loop reads it.**
+
+- **After the trigger, never before.** A translation I could act on mid-round
+  would be an in-loop advisor reading my own prose, which is exactly what
+  workstream #36's never-list rules out. If it catches something real, David
+  raises it, at the cost of a round.
+- **The script prints the line; I paste it verbatim**, with the page link, and
+  write nothing else about the round in chat. A line I composed would be my
+  account of the independent account. Publish the rendered page
+  (`.agents/reviews/pr-<n>/translation.html`) as the PR's Artifact page,
+  redeployed in place, so one link stays current for the whole loop.
+- **If it refuses or fails**, the script prints the fixed notice (*translation
+  unavailable — …*). Paste that instead. Never summarise what it would have
+  said.
+- **At a stop, it goes before the merge ask**, not before the merge report:
+  it exists for the decision David is about to make, and the report follows
+  his click. Wait on the exit file at close-out.
+- **A round that raised nothing and prompted no push is skipped** by the
+  script itself, with the reason on the page. An **all-declined** round is
+  dispatched — it is the round where my account matters most.
+- **Two numbers go in the close-out harvest comment**: dispatches run, and
+  disagreements flagged. That is the whole measurement, and it is what the
+  retirement rule reads. Receipts are gitignored evidence; nothing else
+  records this.
+
 ## Keeping the workstream issue's labels current
 
 Per [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),

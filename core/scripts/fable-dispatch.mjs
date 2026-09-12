@@ -28,10 +28,13 @@
  * `shipped()` below: a diagnostic naming a directory the reader does not have
  * is a diagnostic they cannot act on (Codex, #73 round 1). In short:
  *
- *   P1  the instruction FRAME is script-owned. Brief CONTENT is not
- *       authenticated -- a file the builder typed passes through unchanged,
- *       and the receipt records its digest, never its origin. Until Phase 1
- *       authenticates provenance, every role except the probe is refused.
+ *   P1  the instruction FRAME is script-owned, and a role may dispatch only
+ *       if this script builds its brief. There is no `--brief` and no
+ *       parameter a caller could widen -- the permitted set is a predicate
+ *       over the generators below. What a brief CONTAINS is not
+ *       authenticated, and for `round-translation` it deliberately carries
+ *       the builder's own words: the brief LABELS who wrote each block
+ *       instead (David, 2026-09-12).
  *   P2  the observable surface is pinned and the HARNESS reports it back:
  *       tools and MCP servers come from the `system init` event and a run
  *       whose reported surface exceeds the role's allowlist is refused.
@@ -62,11 +65,18 @@
  * USAGE
  * -----
  *   node <this file> --role probe
+ *   node <this file> --role round-translation --pr 81 --round 3 \
+ *        --mcp-snapshot <file>
  *
  *   --role <id>     a role with a definition under .agents/fable-roles/ whose
  *                   brief this script generates. There is no --brief flag:
  *                   see `canDispatch` below.
- *   The receipt is written to .agents/receipts/fable-<role>-<head>.json
+ *   Each role takes its own flags (`ROLE_FLAGS`), all of them DATA this
+ *   script then validates -- a number, a round, a path -- never text the
+ *   reviewer reads. A flag belonging to another role is refused by name.
+ *   The receipt is .agents/receipts/fable-<role>-<head>.json, or
+ *   fable-round-translation-<pr>-<round>.json; `round-translation` also
+ *   rebuilds David's page and prints the one line that goes to him.
  *   --timeout <s>   default 600.
  *
  * EXIT CODES
@@ -83,6 +93,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { modelTier } from "./review-budget.mjs";
+import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
+import { chatLine, renderPage, writePage, receiptsFor, unavailable } from "./round-translation-page.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -121,18 +133,33 @@ export const HARNESS_ADDED_TOOLS = ["StructuredOutput"];
  * A predicate over the generators cannot be widened without adding a
  * generator, which is the actual bar.
  *
- * Phase 1 does not lift the refusal. Phase 2 adds the first record-fed role,
- * and it satisfies this predicate the same way the probe does: by having its
- * brief built here.
+ * Phase 1 did not lift the refusal. **Phase 2's `round-translation` satisfies
+ * it** the same way the probe does: its brief is composed here, from a record
+ * `round-translation-record.mjs` builds out of a captured snapshot. The caller
+ * supplies a pull request number, a round number and a file path -- data this
+ * script then validates -- and never a word the reviewer reads.
  */
-const BRIEF_GENERATORS = { probe: (nonce) => probeBrief(nonce) };
+const BRIEF_GENERATORS = {
+  probe: ({ nonce }) => probeBrief(nonce),
+  "round-translation": ({ record }) => translationBrief(record),
+};
 
 export const canDispatch = (role) => Object.hasOwn(BRIEF_GENERATORS, role);
 
 export const dispatchableRoles = () => Object.keys(BRIEF_GENERATORS);
 
 /** Flags this file accepts. Anything else is free text wearing a flag's hat. */
-const KNOWN_FLAGS = new Set(["--role", "--timeout"]);
+/**
+ * The flags each role takes, beyond `--role` and `--timeout`.
+ *
+ * Role-scoped rather than one flat set, so `--pr` on the probe is refused by
+ * name instead of being parsed and ignored. Every entry here is DATA -- a
+ * number, a number, a path -- and none of it reaches the reviewer as text:
+ * the record built from the snapshot does, through the generator above.
+ */
+const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"] };
+const BASE_FLAGS = ["--role", "--timeout"];
+const KNOWN_FLAGS = new Set([...BASE_FLAGS, ...Object.values(ROLE_FLAGS).flat()]);
 
 /**
  * Where a payload file lives in THIS checkout, for prose the reader will act on.
@@ -230,6 +257,23 @@ export const RECEIPTS_DIR = ".agents/receipts";
  */
 export function receiptPath(root, role, head) {
   return path.join(path.resolve(root), RECEIPTS_DIR, `fable-${role}-${head.slice(0, 7)}.json`);
+}
+
+/**
+ * The receipt's path for a completed dispatch, keyed by what makes it unique.
+ *
+ * `round-translation` is keyed by pull request and ROUND, not by head:
+ * a round whose findings the builder declines without pushing leaves the head
+ * where it was, so two rounds would write the same file and the second would
+ * erase the first -- taking a round off David's page rather than adding one.
+ * Still derived here, never supplied: the class of "wrote it where the name
+ * is wrong" is what deleting `--out` removed (David, 2026-09-10).
+ */
+export function receiptPathFor(root, receipt) {
+  if (receipt.role === "round-translation") {
+    return path.join(path.resolve(root), RECEIPTS_DIR, `fable-round-translation-${receipt.pr}-${receipt.round}.json`);
+  }
+  return receiptPath(root, receipt.role, receipt.headAtSpawn);
 }
 
 /**
@@ -901,6 +945,11 @@ export function dispatch({
   now = () => new Date().toISOString(),
   nonce = null,
   sessionId = null,
+  // The role's own material, already built and validated by the caller of
+  // this function -- never text a command line carried. The probe needs none;
+  // `round-translation` needs its record. A role whose generator ignores this
+  // is unaffected by it.
+  input = {},
 } = {}) {
   if (!canDispatch(role)) {
     throw new Error(
@@ -949,7 +998,7 @@ export function dispatch({
   }
 
   const probeNonce = isProbe ? (nonce ?? newNonce()) : null;
-  const briefText = BRIEF_GENERATORS[role](probeNonce);
+  const briefText = BRIEF_GENERATORS[role]({ ...input, nonce: probeNonce });
   // The digest of what the reviewer READ, not of what was handed in.
   const briefSha256 = sha256(embeddedBrief(briefText));
 
@@ -1231,7 +1280,8 @@ export function defaultRunner({ argv, message, cwd, timeoutSec }) {
 // ---------------------------------------------------------------------------
 
 export function parseArgs(argv) {
-  const out = { role: null, timeout: 600 };
+  const out = { role: null, timeout: 600, pr: null, round: null, snapshot: null };
+  const seen = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (!a.startsWith("--")) {
@@ -1244,12 +1294,96 @@ export function parseArgs(argv) {
     const v = argv[i + 1];
     if (v === undefined || v.startsWith("--")) throw new Error(`${a} needs a value`);
     i += 1;
+    seen.push(a);
     if (a === "--role") out.role = v;
     else if (a === "--timeout") out.timeout = Number(v);
+    else if (a === "--pr") out.pr = Number(v);
+    else if (a === "--round") out.round = Number(v);
+    else if (a === "--mcp-snapshot") out.snapshot = v;
   }
   if (!out.role) throw new Error("--role is required");
   if (!Number.isFinite(out.timeout) || out.timeout <= 0) throw new Error("--timeout must be a positive number of seconds");
+
+  // A flag belonging to ANOTHER role is refused by name. An unrecognised role
+  // is left alone: `dispatch` refuses it with the message that says what the
+  // actual bar is (a brief generator), which is more use than a flag error.
+  const allowed = ROLE_FLAGS[out.role];
+  if (allowed) {
+    const stray = seen.find((f) => !BASE_FLAGS.includes(f) && !allowed.includes(f));
+    if (stray) throw new Error(`role "${out.role}" does not take ${stray}`);
+    const missing = allowed.filter((f) => !seen.includes(f));
+    if (missing.length) throw new Error(`role "${out.role}" requires ${missing.join(", ")}`);
+    if (out.pr !== null && !Number.isInteger(out.pr)) throw new Error("--pr must be a whole number");
+    if (out.round !== null && !Number.isInteger(out.round)) throw new Error("--round must be a whole number");
+  }
   return out;
+}
+
+/**
+ * Write the receipt, rebuild David's page from every receipt on this PR, and
+ * print the one line that goes to him.
+ *
+ * The page is rebuilt from ALL receipts rather than appended to, so a round
+ * whose publish failed reappears on the next render instead of being lost.
+ * The line is printed by this script and pasted verbatim: a line the builder
+ * composed would be the builder's account of the independent account.
+ */
+function deliverTranslation(root, receipt) {
+  const out = receiptPathFor(root, receipt);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
+  process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
+  const page = writePage(root, receipt.pr, renderPage(receiptsFor(root, receipt.pr), { pr: receipt.pr }));
+  process.stderr.write(`fable-dispatch: page -> ${page}\n`);
+  process.stdout.write(`${chatLine(receipt)}\n`);
+  return 0;
+}
+
+/**
+ * The round-translation path: build the record, skip or dispatch, deliver.
+ *
+ * Every refusal before the dispatch prints the SAME fixed notice the delivered
+ * line uses, naming the step that stopped -- so what reaches David when there
+ * is nothing to publish is not the builder's wording either (Codex, plan
+ * round 3).
+ */
+function runTranslation(root, args) {
+  let record;
+  try {
+    const snapshot = JSON.parse(fs.readFileSync(args.snapshot, "utf8"));
+    assertSnapshotIsForPr(args.pr, snapshot);
+    record = buildTranslationRecord(snapshot, args.round);
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    process.stdout.write(`${unavailable(args.round, e.message)}\n`);
+    return 1;
+  }
+
+  const skip = skipReason(record);
+  if (skip) {
+    return deliverTranslation(root, {
+      role: "round-translation",
+      pr: args.pr,
+      round: args.round,
+      skipped: true,
+      reason: skip,
+      headAtSpawn: record.pr.headSha,
+      finishedAt: new Date().toISOString(),
+    });
+  }
+
+  let receipt;
+  try {
+    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { record } });
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    if (Array.isArray(e.attempts) && e.attempts.length) {
+      process.stderr.write(`fable-dispatch: ${e.attempts.length} attempt(s) had already run: ${JSON.stringify(e.attempts)}\n`);
+    }
+    process.stdout.write(`${unavailable(args.round, e.message)}\n`);
+    return e.exitCode ?? 1;
+  }
+  return deliverTranslation(root, { ...receipt, pr: args.pr, round: args.round, record });
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -1261,6 +1395,7 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
   const root = repoRoot();
+  if (args.role === "round-translation") return runTranslation(root, args);
 
   let receipt;
   try {
@@ -1272,7 +1407,7 @@ export function main(argv = process.argv.slice(2)) {
     }
     return e.exitCode ?? 1;
   }
-  const out = receiptPath(root, receipt.role, receipt.headAtSpawn);
+  const out = receiptPathFor(root, receipt);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
   process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
