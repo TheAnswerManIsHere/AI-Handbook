@@ -83,5 +83,10 @@ GitHub's actual timestamps.
 
 ## Related
 
-- AI-Handbook #75 — the mechanical record's evidence path still has an
-  unguarded hand step. This is a mitigation candidate for it, not its closure.
+- AI-Handbook #75 — the mechanical record's evidence path had an unguarded
+  hand step. **Closed** by #79, which made this recovery a script
+  (`core/scripts/capture-from-transcript.mjs`) rather than a technique to
+  remember. The note stays because the technique is still worth knowing and
+  the `tool-results/` trap above is still live.
+- [`backgrounded-subagent-answer-is-in-its-own-transcript.md`](backgrounded-subagent-answer-is-in-its-own-transcript.md)
+  — the case where the block you want is not a `tool_result` at all.
