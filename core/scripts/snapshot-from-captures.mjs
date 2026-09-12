@@ -376,6 +376,21 @@ function normalisePr(capture, { requireBody } = { requireBody: true }) {
   return {
     number: need("number"),
     title: need("title"),
+    // THE PULL REQUEST'S AUTHOR, carried rather than dropped. D0's record
+    // labels every comment by who wrote it -- reviewer, builder, or someone
+    // else -- and that label is the whole provenance mechanism the translator
+    // weighs the builder's claims with. Omitting it here silently labelled
+    // every builder reply `other`, which does not fail, it just quietly stops
+    // meaning anything. (Codex, #81 round 1.)
+    //
+    // Carried, NOT `need()`-ed: this assembler also feeds the budget check and
+    // the judge's record, neither of which wants this field, and making it
+    // required would refuse every snapshot assembled from an older capture for
+    // a reason unrelated to what that snapshot is for. That is the
+    // required-key hazard Phase 1 recorded, pointed at captures instead of
+    // config. The refusal belongs to the consumer that needs it, and
+    // `buildTranslationRecord` refuses loudly when it is absent.
+    user: typeof g.user?.login === "string" ? { login: g.user.login } : null,
     state: g.state ?? null,
     draft: g.draft ?? null,
     merged: g.merged ?? null,

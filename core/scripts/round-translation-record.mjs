@@ -26,27 +26,35 @@
  * renders that label above each block. No code is written to keep the
  * builder's text away from this reviewer.
  *
- * THE THREE CHECKS, AND WHY EACH ONE EXISTS
- * -----------------------------------------
- * This record is prose evidence for a human, not a ledger, so it refuses
- * exactly three things -- each one a WRONG ACCOUNT David would read as true,
- * which is the only consequence worth a check here (David, 2026-09-12):
+ * WHAT IT REFUSES, AND WHY EACH ONE EARNS ITS LINES
+ * -------------------------------------------------
+ * This record is prose evidence for a human, not a ledger, so it refuses only
+ * things that would put a WRONG ACCOUNT in front of David -- one he would read
+ * as true and have no way to doubt (David, 2026-09-12):
  *
  *   1. The round is NAMED, not "the latest pass". Codex's next pass can land
  *      before D0 runs, and then "latest" is a different round than the one
- *      just answered -- so the round just closed would silently vanish.
- *   2. The capture must be NEWER than the builder's last word on the round.
- *      Otherwise a read taken before the replies were posted translates as
- *      "the builder did not respond", about a round that was answered.
- *   3. The diff comes from the SNAPSHOT's head, and the checkout must be
- *      sitting on it. The reviewer holds `Read`, so a checkout on another
- *      branch would have it checking the builder's claims against unrelated
- *      files.
+ *      just answered -- so the round just closed would silently vanish. Its
+ *      findings are attributed by `flattenMcpThreads`, one pass per finding.
+ *   2. The capture must postdate the ROUND ITSELF and the builder's last word
+ *      on it. Read too early and the findings are absent (a round that reads
+ *      as clean) or the replies are (a round that reads as unanswered).
+ *   3. Both diff endpoints come from the snapshot and must resolve here, so
+ *      "what the builder pushed" is a real patch rather than an empty marker.
+ *   4. The snapshot must be this repository's, and carry the PR's author --
+ *      without whom every block in the brief is labelled `other` and the
+ *      provenance the translator weighs is gone.
  *
  * Nothing here requires every finding to carry a reply, counts anything, or
  * reconciles the output against the input. A translation that misses a
  * finding produces a paragraph missing a finding, which is visible on the
  * page and costs nothing else.
+ *
+ * THE ROLE HOLDS NO TOOLS, and that is a deliberate retreat. It briefly held
+ * `Read`, justified by a one-time check that the checkout sat at the
+ * snapshot's head -- which cannot hold, because the tree is live and the next
+ * round proceeds while this dispatch runs. The brief carries the round and
+ * the diff; a translator that would have needed a file says so instead.
  *
  * There is no CLI here on purpose: `fable-dispatch.mjs --role round-translation`
  * is the one entry point, and a second argument parser for the same three
@@ -59,11 +67,14 @@ import {
   REVIEWER_LOGINS,
   normalizeLogin,
   reviewerPasses,
+  flattenMcpThreads,
+  collectionsReadBefore,
+  sameCommit,
   assertMcpSnapshotShape,
   assertMcpSnapshotComplete,
   capturedAtOf,
 } from "./review-counting.mjs";
-import { assertThreadProvenance, assertCapturedProvenance, artifactDiff } from "./review-loop-record.mjs";
+import { assertThreadProvenance, assertCapturedProvenance, cappedDiff } from "./review-loop-record.mjs";
 
 export const KIND = "round-translation";
 
@@ -127,21 +138,54 @@ export function passFor(snapshot, round) {
 }
 
 /**
+ * Which reviewer pass each thread's ROOT comment belongs to.
+ *
+ * DELEGATED TO `flattenMcpThreads`, NOT DERIVED HERE, and that is the whole
+ * fix for this function's first version. A captured thread carries no
+ * `pull_request_review_id` -- `snapshot-from-captures.mjs`'s `normaliseThread`
+ * does not emit one -- so keying on it fell through to a plus-or-minus-six-hour
+ * time window, and two ordinary rounds an hour apart each collected BOTH
+ * rounds' findings. Measured on a real-shaped snapshot: round 1 reported two
+ * findings and so did round 2, with the same two. A clean round would have
+ * been translated as finding-bearing and every account would describe the
+ * wrong round. (Codex, #81 round 1.)
+ *
+ * `flattenMcpThreads` already solves this directionally and is hardened: each
+ * comment is bound to at most ONE review -- the author's own pass within the
+ * authoring window, else their latest pass at or before it. Reusing it means
+ * a finding belongs to the same round here as it does in every count this
+ * machinery makes.
+ */
+export function rootPassIds(snapshot) {
+  const byRoot = new Map();
+  for (const c of flattenMcpThreads(snapshot.reviewThreads ?? [], snapshot.reviews ?? [])) {
+    if (c.in_reply_to_id === undefined) byRoot.set(c.id, c.pull_request_review_id ?? null);
+  }
+  return byRoot;
+}
+
+/** The id `flattenMcpThreads` gives a thread's root comment. Same derivation, so the map keys match. */
+const rootIdOf = (thread) => {
+  const m = /discussion_r(\d+)/.exec(thread.comments?.[0]?.html_url ?? "");
+  return m ? Number(m[1]) : `${thread.id}#0`;
+};
+
+/**
  * Every comment on the round's own threads, plus the PR-level comments posted
  * after it -- each labelled, none dropped.
  *
  * A thread belongs to the round when its ROOT comment was authored by the
- * reviewer during that pass. That is `findingsByRound`'s rule, applied to
- * whole threads instead of to a count.
+ * reviewer and bound to one of that pass's reviews.
  */
 export function roundThreads(snapshot, pass, builderLogin) {
   const out = [];
+  const attribution = rootPassIds(snapshot);
   let n = 0;
   for (const thread of snapshot.reviewThreads ?? []) {
     const root = thread.comments?.[0];
     if (!root) continue;
     if (authorRole(root.author ?? root.user?.login, builderLogin) !== "reviewer") continue;
-    if (!pass.reviewIds.includes(root.pull_request_review_id) && !withinPass(root, pass)) continue;
+    if (!pass.reviewIds.includes(attribution.get(rootIdOf(thread)))) continue;
     n += 1;
     out.push({
       n,
@@ -157,25 +201,6 @@ export function roundThreads(snapshot, pass, builderLogin) {
     });
   }
   return out;
-}
-
-/**
- * The fallback when a captured thread carries no `pull_request_review_id`.
- *
- * The MCP threads payload does not always carry it, and without a fallback a
- * whole round's findings would silently render as zero -- a clean-looking
- * round that was not clean, which is the class of wrong account this file
- * refuses everywhere else. Time is what remains: a root comment authored at
- * the pass's own submission time belongs to it. The window matches
- * `review-counting.mjs`'s own authoring window.
- */
-const AUTHORING_WINDOW_MS = 6 * 60 * 60 * 1000;
-function withinPass(root, pass) {
-  if (root.pull_request_review_id != null) return false;
-  const at = Date.parse(root.created_at ?? "");
-  const passAt = Date.parse(pass.at ?? "");
-  if (!Number.isFinite(at) || !Number.isFinite(passAt)) return false;
-  return Math.abs(at - passAt) <= AUTHORING_WINDOW_MS;
 }
 
 /** PR-level comments the builder posted after the pass — context, declines, the trigger. */
@@ -224,28 +249,35 @@ export function assertCaptureAfterResponse(snapshot, threads, sinceComments) {
 }
 
 /**
- * CHECK 3: the diff's endpoints are the snapshot's, and the checkout is there.
+ * CHECK 3: both diff endpoints resolve here, so the patch is real.
  *
- * `review-loop-record.mjs` already binds its patch to the snapshot's head for
- * this reason; the added half is the working tree, because this reviewer can
- * read it.
+ * THIS REPLACED A CHECK THAT COULD NOT HOLD. The first version compared the
+ * checkout's `HEAD` to the snapshot's head, to justify the role holding
+ * `Read` over the working tree. It could not: `dispatch()` permits a dirty
+ * tree, the dispatch is detached, and the documented workflow lets the next
+ * round proceed while it runs -- so a check at spawn says nothing about the
+ * files the reviewer opens minutes later, while the brief told it those files
+ * were the snapshot's head. Pinning the view properly would need an isolated
+ * worktree; **the role gave up `Read` instead** (Codex, #81 round 1). The
+ * brief already carries the threads and the diff, and a translator that needs
+ * a file it does not have says so in `could_not_assess`.
+ *
+ * What is left is the check that always mattered: the two commits the diff is
+ * cut between must exist in this clone, or the patch comes back as an
+ * "[unavailable]" marker and the account of what the builder pushed is empty.
  */
-export function assertCheckoutAtHead(headSha, { runGit = defaultGit } = {}) {
-  let at;
-  try {
-    at = String(runGit(["rev-parse", "HEAD"])).trim();
-  } catch (e) {
-    throw new Error(`could not read HEAD (${e.message}), so nothing establishes which commit the reviewer would be reading`);
+export function assertEndpointsResolve(reviewed, head, { runGit = defaultGit } = {}) {
+  for (const [what, sha] of [["the round's reviewed commit", reviewed], ["the pull request head", head]]) {
+    if (!sha) continue;
+    try {
+      runGit(["rev-parse", "--verify", `${sha}^{commit}`]);
+    } catch {
+      throw new Error(
+        `${what} (${String(sha).slice(0, 7)}) is not in this clone, so the diff between them cannot be produced ` +
+          `and the account of what the builder pushed would be empty. Fetch the branch and run it again.`,
+      );
+    }
   }
-  if (!at) throw new Error("could not read HEAD, so nothing establishes which commit the reviewer would be reading");
-  if (at !== headSha) {
-    throw new Error(
-      `the checkout is at ${at.slice(0, 7)} but this snapshot's pull request head is ${String(headSha).slice(0, 7)}. ` +
-        `The translator reads files from this working tree, so it would be checking the builder's claims against ` +
-        `another branch. Check out the pull request head and run it again.`,
-    );
-  }
-  return at;
 }
 
 /** The record. Everything above, assembled and refused where it cannot be honest. */
@@ -261,14 +293,35 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
 
   const pr = snapshot.pr;
   const { pass, passes } = passFor(snapshot, round);
-  const builderLogin = pr?.user?.login ?? pr?.user ?? null;
+
+  // A record with no author cannot label anything `builder`, and a brief whose
+  // labels all read `other` has lost the one property the translator weighs
+  // the builder's claims with. Refusing beats producing it silently.
+  const builderLogin = pr?.user?.login ?? (typeof pr?.user === "string" ? pr.user : null);
+  if (!builderLogin) {
+    throw new Error(
+      "the snapshot carries no pull request author (`pr.user.login`), so the builder's own replies cannot be " +
+        "told apart from anyone else's. Every block in the brief would be labelled `other`, which is the " +
+        "provenance the translator reads. Re-assemble the snapshot.",
+    );
+  }
+
+  // The capture must postdate the pass being translated, not merely the
+  // builder's reply to it. A threads collection read BEFORE the pass holds
+  // none of its findings, and a round with no findings and no reply returns
+  // early from the response check below -- so it would be translated, or
+  // skipped, as clean. `assertCapturedAfterLatestPass` documents this exact
+  // mixed-snapshot state for the judge's record; this is the same check bound
+  // to the named round. (Codex, #81 round 1.)
+  assertCapturedAfterPass(snapshot, pass, round);
+
   const threads = roundThreads(snapshot, pass, builderLogin);
   const since = commentsSincePass(snapshot, pass, builderLogin);
   const respondedAt = assertCaptureAfterResponse(snapshot, threads, since);
 
   const head = pr?.head?.sha ?? null;
   if (typeof head !== "string" || !head) throw new Error("the snapshot carries no pull request head sha, so the diff has no endpoint");
-  assertCheckoutAtHead(head, { runGit });
+  assertEndpointsResolve(pass.commit, head, { runGit });
 
   let truncated = null;
   // THREE STATES, because two would lie. A pass whose commit is unknown is not
@@ -276,8 +329,22 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
   // "could not tell" into "nothing was pushed" would tell David a round was
   // empty when nothing established that. Same rule as every receipt field in
   // this machinery: observed true, observed false, or could not observe.
-  const pushed = !pass.commit ? null : pass.commit !== head;
-  const patch = pushed ? artifactDiff(pass.commit, head, { runGit, onTruncate: (cut) => (truncated = cut) }) : null;
+  //
+  // `sameCommit`, NOT `!==`: a pass announced through the connector's summary
+  // comment carries the 7-to-40-character sha from its marker while
+  // `pr.head.sha` is the full 40, so a strict comparison called a clean pass
+  // on the current head "pushed" and bought a dispatch for a round that should
+  // have skipped. The same prefix-tolerant comparison `reviewerPasses` uses
+  // internally. (Codex, #81 round 1.)
+  const pushed = !pass.commit ? null : !sameCommit(pass.commit, head);
+  // TWO DOTS, not three. `artifactDiff` expands to `a...b`, which git measures
+  // from the two commits' MERGE BASE -- correct for a PR against its base, and
+  // wrong here after a permitted `--force-with-lease` rewrite leaves the
+  // reviewed commit off the head's ancestry: the patch would then show the
+  // whole PR while omitting what disappeared from the reviewed tree. This
+  // record wants the reviewed tree against the current one, which is `a..b`.
+  // (Codex, #81 round 1.)
+  const patch = pushed ? cappedDiff(runGit, `${pass.commit}..${head}`, { onTruncate: (cut) => (truncated = cut) }) : null;
 
   return {
     kind: KIND,
@@ -407,14 +474,57 @@ export function translationBrief(record) {
 }
 
 /**
- * Refuse a snapshot that is not this pull request's.
+ * Refuse a snapshot that is not this repository's pull request.
  *
- * `assertCapturedProvenance` already checks every captured URL against the
- * snapshot's own repo and number; this checks the snapshot against what the
- * caller asked for, which is the other half.
+ * BOTH HALVES, because either alone is satisfiable by the wrong conversation.
+ * `assertCapturedProvenance` proves the captured URLs agree with the
+ * snapshot's OWN `repo` -- which a foreign snapshot does perfectly well -- and
+ * the number alone matches any repository's PR #81. So the repository is
+ * compared to the configured identity too, as the budget and adjudication
+ * validators already do. (Codex, #81 round 1.)
  */
-export function assertSnapshotIsForPr(pr, snapshot) {
+export function assertSnapshotIsForPr(pr, snapshot, { slug = repoSlug() } = {}) {
   if (snapshot?.pr?.number !== pr) {
     throw new Error(`this snapshot is for pull request #${snapshot?.pr?.number}, not #${pr}`);
+  }
+  const named = [snapshot?.repo, snapshot?.pr?.head?.repo?.full_name ?? snapshot?.pr?.head?.repo].filter(
+    (r) => typeof r === "string" && r,
+  );
+  for (const repo of named) {
+    if (repo.toLowerCase() !== String(slug).toLowerCase()) {
+      throw new Error(
+        `this snapshot was captured from ${repo}, but this checkout is ${slug}. A translation would stamp this ` +
+          `repository's name on another repository's conversation.`,
+      );
+    }
+  }
+  if (!named.length) {
+    throw new Error("the snapshot names no repository, so nothing ties this conversation to this checkout");
+  }
+}
+
+/**
+ * The capture-order check, bound to the round being translated.
+ *
+ * `assertCapturedAfterLatestPass` asks this of the LATEST pass, which is the
+ * right question for a record about the head. Here the question is about one
+ * named round, and a threads collection read before it holds none of its
+ * findings.
+ */
+export function assertCapturedAfterPass(snapshot, pass, round) {
+  const at = Date.parse(pass?.at ?? "");
+  if (!Number.isFinite(at)) {
+    throw new Error(
+      `round ${round}'s reviewer pass carries an unparseable timestamp (${JSON.stringify(pass?.at ?? null)}), so ` +
+        `nothing establishes that this snapshot was read after it. Re-capture.`,
+    );
+  }
+  const stale = collectionsReadBefore(snapshot.capturedAt, at, ["reviewThreads", "issueComments"]);
+  if (stale.length) {
+    throw new Error(
+      `${stale.join(" and ")} ${stale.length > 1 ? "were" : "was"} captured before round ${round}'s pass at ` +
+        `${new Date(at).toISOString()}, so that round's findings are absent from this snapshot and it would be ` +
+        `translated -- or skipped -- as clean. Re-read the collections.`,
+    );
   }
 }

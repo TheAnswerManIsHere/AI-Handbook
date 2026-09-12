@@ -543,3 +543,19 @@
     says which repository it is about. Nothing branches on it -- the snapshot's
     own provenance check has already refused a capture from anywhere else, and
     this line is read by a human, not by a guard.
+
+- key: "round-translation-record.mjs :: assertSnapshotIsForPr :: export function assertSnapshotIsForPr(pr, snapshot, { slug = repoSlug() } = {}) {"
+  source: config
+  why: >-
+    The configured identity, used as the trusted side of the comparison below.
+    Overridable only by the test suite, which must be able to drive the refusal
+    without owning the checkout's own configuration.
+
+- key: "round-translation-record.mjs :: assertSnapshotIsForPr :: const named = [snapshot?.repo, snapshot?.pr?.head?.repo?.full_name ?? snapshot?.pr?.head?.repo].filter("
+  source: github
+  why: >-
+    What the captured snapshot says about itself, compared against the
+    configured identity rather than believed. `assertCapturedProvenance` only
+    proves the captured URLs agree with this value, which a snapshot from
+    another repository does perfectly well -- so the comparison against config
+    is what ties the conversation to this checkout. (Codex, #81 round 1.)

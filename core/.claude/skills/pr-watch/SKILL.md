@@ -670,22 +670,51 @@ decision on a final round. David cannot read the conversation this loop is
 made of, and until this step the only account he ever got of a round was
 mine. Fable writes the second one, from the round's own material.
 
+**1. Read the four collections FRESH** — `pull_request_read` with `get`,
+`get_reviews`, `get_comments` and `get_review_comments`, paginated to the end.
+Do not recover an earlier read: the record refuses a capture older than the
+round's pass or than my last comment on it, which is what stops a translation
+saying the round went unanswered.
+
+**2. Recover those reads and assemble the snapshot**, as for any record —
+`--out`, never a stdout redirect, because the assembler writes the file itself
+and prints only a status line:
+
 ```
-# 1. Read the four collections FRESH -- do not recover an earlier read.
-#    The record refuses a capture older than my last comment on the round,
-#    which is what stops a translation saying the round went unanswered.
-# 2. Recover those reads and assemble the snapshot, as for any record:
-#      node scripts/capture-from-transcript.mjs --pr <n> --collection <each>
-#      node scripts/snapshot-from-captures.mjs ... > <snap>
-# 3. Dispatch, naming the round that just closed:
-node scripts/fable-dispatch.mjs --role round-translation \
-     --pr <n> --round <r> --mcp-snapshot <snap>
+D=.agents/reviews/pr-<n>; mkdir -p $D
+for c in pr reviews issueComments reviewThreads; do
+  node scripts/capture-from-transcript.mjs --pr <n> --collection $c
+done
+node scripts/snapshot-from-captures.mjs \
+  --pr-capture .agents/captures/pr-<n>-pr.json \
+  --reviews .agents/captures/pr-<n>-reviews.json \
+  --comments .agents/captures/pr-<n>-issueComments.json \
+  --threads .agents/captures/pr-<n>-reviewThreads.json \
+  --fetched-at <iso> --out $D/snap-r<r>.json
 ```
 
-Detached, like a plan-review round — it is a full reviewer run, longer than a
-comfortable foreground call — with an exit file as the completion signal. The
-next Codex round proceeds whether or not it has returned; **nothing in the
-loop waits on it and nothing in the loop reads it.**
+Same assembler, same flags as the budget-check snapshot above — one page
+argument per page, and `--out` rather than a redirect.
+
+**3. Dispatch, naming the round that just closed — detached, with an exit
+file**, like a plan-review round: it is a full reviewer run, longer than a
+comfortable foreground call, and a foreground run that gets cut off loses it.
+Absolute paths inside the `bash -c`; the working directory does not survive
+into the detached child.
+
+```
+D=$PWD/.agents/reviews/pr-<n>
+setsid nohup bash -c "cd $PWD && node $PWD/scripts/fable-dispatch.mjs \
+  --role round-translation --pr <n> --round <r> \
+  --mcp-snapshot $D/snap-r<r>.json > $D/d0-r<r>.log 2>&1; \
+  echo \$? > $D/d0-r<r>.exit" >/dev/null 2>&1 &
+```
+
+The chat line is the last line of `d0-r<r>.log`; `d0-r<r>.exit` appearing is
+the completion signal and its contents are the status. The next Codex round
+proceeds whether or not it has returned; **nothing in the loop waits on it and
+nothing in the loop reads it.** At close-out, wait on that exit file before
+the merge ask.
 
 - **After the trigger, never before.** A translation I could act on mid-round
   would be an in-loop advisor reading my own prose, which is exactly what

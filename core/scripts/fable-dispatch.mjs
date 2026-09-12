@@ -94,7 +94,21 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { modelTier } from "./review-budget.mjs";
 import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
-import { chatLine, renderPage, writePage, receiptsFor, unavailable } from "./round-translation-page.mjs";
+import { chatLine, renderPage, writePage, receiptsFor, unavailable, unpublished } from "./round-translation-page.mjs";
+
+/**
+ * One line, for a notice that is pasted verbatim into chat.
+ *
+ * Several refusals here are deliberately multi-line and instructional --
+ * `SIGN_IN_HINT` is a numbered list -- and pasting one into the chat line
+ * turns a fixed status into a wall of operator instructions. The full text
+ * still goes to stderr, where the operator reads it. (Codex, #81 round 1.)
+ */
+const oneLine = (text) => {
+  const first = String(text ?? "").split("\n").find((l) => l.trim()) ?? "the reason was not recorded";
+  const t = first.trim();
+  return t.length > 160 ? `${t.slice(0, 157)}...` : t;
+};
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -370,11 +384,22 @@ export function roleContract(definitionText, { role, definitionPath, definitionC
   // This is not a new check: it removes a default, so the field joins `model`,
   // `budgetUsd` and `schema` in being required.
   if (!front.tools?.trim()) throw new Error(`${definitionPath} declares no \`tools\``);
-  const tools = front.tools
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-  if (tools.length === 0) throw new Error(`${definitionPath} declares an empty \`tools\` list`);
+  // `none` is an EXPLICIT empty allowlist, and it is not the same thing as a
+  // missing field -- which is why the refusal above stays exactly as strict.
+  // A role that needs no tools has to say so, and then genuinely holds none:
+  // measured 2026-09-12, `--tools ""` launches and `init.tools` comes back
+  // `[]`. `round-translation` is the case: its brief carries the whole round,
+  // and a working tree it could read is one that moves under it.
+  const tools =
+    front.tools.trim() === "none"
+      ? []
+      : front.tools
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+  if (tools.length === 0 && front.tools.trim() !== "none") {
+    throw new Error(`${definitionPath} declares an empty \`tools\` list -- write \`tools: none\` to hold none deliberately`);
+  }
   const forbidden = tools.filter((t) => FORBIDDEN_TOOLS.includes(t));
   if (forbidden.length) {
     throw new Error(
@@ -1328,15 +1353,26 @@ export function parseArgs(argv) {
  * The line is printed by this script and pasted verbatim: a line the builder
  * composed would be the builder's account of the independent account.
  */
-function deliverTranslation(root, receipt) {
-  const out = receiptPathFor(root, receipt);
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
-  process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
-  const page = writePage(root, receipt.pr, renderPage(receiptsFor(root, receipt.pr), { pr: receipt.pr }));
-  process.stderr.write(`fable-dispatch: page -> ${page}\n`);
-  process.stdout.write(`${chatLine(receipt)}\n`);
-  return 0;
+export function deliverTranslation(root, receipt) {
+  // EVERY EXIT FROM HERE PRINTS ONE FIXED LINE. A receipt write, a page render
+  // or the `check-ignore` refusal throwing loose would leave the loop with no
+  // verbatim status to paste for David -- after the reviewer had already run,
+  // and most consequentially on the last round before a merge ask, which is
+  // the one the contract says must carry it. (Codex, #81 round 1.)
+  try {
+    const out = receiptPathFor(root, receipt);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
+    process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
+    const page = writePage(root, receipt.pr, renderPage(receiptsFor(root, receipt.pr), { pr: receipt.pr }));
+    process.stderr.write(`fable-dispatch: page -> ${page}\n`);
+    process.stdout.write(`${chatLine(receipt)}\n`);
+    return 0;
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    process.stdout.write(`${unpublished(receipt.round, oneLine(e.message))}\n`);
+    return 1;
+  }
 }
 
 /**
@@ -1355,7 +1391,7 @@ function runTranslation(root, args) {
     record = buildTranslationRecord(snapshot, args.round);
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
-    process.stdout.write(`${unavailable(args.round, e.message)}\n`);
+    process.stdout.write(`${unavailable(args.round, oneLine(e.message))}\n`);
     return 1;
   }
 
@@ -1380,7 +1416,7 @@ function runTranslation(root, args) {
     if (Array.isArray(e.attempts) && e.attempts.length) {
       process.stderr.write(`fable-dispatch: ${e.attempts.length} attempt(s) had already run: ${JSON.stringify(e.attempts)}\n`);
     }
-    process.stdout.write(`${unavailable(args.round, e.message)}\n`);
+    process.stdout.write(`${unavailable(args.round, oneLine(e.message))}\n`);
     return e.exitCode ?? 1;
   }
   return deliverTranslation(root, { ...receipt, pr: args.pr, round: args.round, record });

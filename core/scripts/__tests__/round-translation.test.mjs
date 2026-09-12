@@ -11,14 +11,16 @@ import {
   passFor,
   authorRole,
   assertCaptureAfterResponse,
-  assertCheckoutAtHead,
+  assertEndpointsResolve,
+  assertCapturedAfterPass,
+  rootPassIds,
   assertSnapshotIsForPr,
   roundThreads,
   COMMENT_CAP_CHARS,
 } from "../round-translation-record.mjs";
 import { facts, chatLine, renderPage, receiptsFor, writePage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
-import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract } from "../fable-dispatch.mjs";
+import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
 const PR = 81;
@@ -265,9 +267,16 @@ test("the reviewer's own later comment does not count as the builder answering",
 // Check 3 — the diff's endpoints, and the checkout
 // ---------------------------------------------------------------------------
 
-test("a checkout on another branch produces neither a translation nor a skip receipt", () => {
-  const elsewhere = "a".repeat(40);
-  assert.throws(() => build(snapshot(), 1, gitAt(elsewhere)), /checkout is at aaaaaaa but this snapshot's pull request head is f00dcaf/);
+test("an endpoint that is not in this clone refuses, so the patch is never an empty marker", () => {
+  // This replaced a HEAD-equality check that could not hold: the tree is live,
+  // the dispatch is detached, and the next round proceeds while it runs. The
+  // role gave up `Read` instead; what is checked is that the diff is real.
+  const missing = (args) => {
+    if (args[0] === "rev-parse" && args.includes("--verify")) throw new Error("unknown revision");
+    return "";
+  };
+  assert.throws(() => assertEndpointsResolve(REVIEWED, HEAD, { runGit: missing }), /is not in this clone/);
+  assert.doesNotThrow(() => assertEndpointsResolve(REVIEWED, HEAD, { runGit: () => REVIEWED }));
 });
 
 test("the diff runs from the round's reviewed commit to the snapshot's head", () => {
@@ -284,17 +293,7 @@ test("a round whose response was replies only reports no diff, and says why", ()
   assert.match(record.diff.note, /replies, not code/);
 });
 
-test("assertCheckoutAtHead refuses when git cannot be read at all", () => {
-  assert.throws(
-    () => assertCheckoutAtHead(HEAD, {
-      runGit: () => {
-        throw new Error("not a git repository");
-      },
-    }),
-    /could not read HEAD \(not a git repository\)/,
-  );
-  assert.throws(() => assertCheckoutAtHead(HEAD, { runGit: () => "" }), /could not read HEAD/);
-});
+
 
 // ---------------------------------------------------------------------------
 // The skip, and what is NOT skipped
@@ -531,11 +530,159 @@ test("the shipped role definition and schema satisfy the launch contract", () =>
   const definitionPath = path.join(dir, "fable-round-translation.md");
   const text = fs.readFileSync(definitionPath, "utf8");
   const contract = roleContract(text, { role: "round-translation", definitionPath, definitionCommit: "HEAD" });
-  assert.deepEqual(contract.tools, ["Read"]);
+  assert.deepEqual(contract.tools, [], "`tools: none` is an explicit empty allowlist, not an omission");
   assert.equal(contract.modelTier, "strongestClaude", "a tier, never a version");
   assert.ok(contract.budgetUsd > 0);
   const schema = JSON.parse(fs.readFileSync(path.join(dir, contract.schemaPath), "utf8"));
   assert.deepEqual(schema.required.sort(), ["could_not_assess", "disagreements", "recommendation", "summary_for_david", "what_happened"]);
   assert.equal(schema.additionalProperties, false);
   assert.match(contract.systemPrompt, /cannot read code/, "the role's own text names its reader");
+  assert.match(contract.systemPrompt, /hold no tools/, "and says it has no file to open");
+});
+
+// ---------------------------------------------------------------------------
+// Round 1 of PR #81 — one regression test per finding, each failing before
+// its fix. The first is the one my own fixture hid: it carried a field the
+// real assembler never emits.
+// ---------------------------------------------------------------------------
+
+/** A snapshot shaped the way `snapshot-from-captures.mjs` actually emits one. */
+function assembled(over = {}) {
+  const snap = snapshot(over);
+  // normaliseThread emits no `pull_request_review_id` on thread comments.
+  for (const t of snap.reviewThreads) for (const c of t.comments) delete c.pull_request_review_id;
+  return snap;
+}
+
+test("R1: each finding belongs to exactly one round, on a snapshot shaped like the real one", () => {
+  // Before the fix: the primary key was absent from every captured thread, so
+  // attribution fell through to a ±6h window and two rounds an hour apart each
+  // collected BOTH rounds' findings. Measured: round 1 reported 2, round 2
+  // reported the same 2.
+  const snap = assembled();
+  snap.reviews.push({
+    id: 900002,
+    user: { login: BOT },
+    submitted_at: T("2026-09-12T11:00:00Z"),
+    commit_id: HEAD,
+    body: "**Reviewed commit:** " + HEAD,
+    html_url: url("pullrequestreview-900002"),
+  });
+  snap.reviewThreads.push({
+    id: "PRRT_kwDOAAAA3",
+    isResolved: false,
+    path: "core/scripts/c.mjs",
+    line: 7,
+    comments: [
+      { id: 131, author: BOT, user: { login: BOT }, body: "round 2's only finding", created_at: T("2026-09-12T11:00:05Z"), html_url: url("discussion_r131") },
+    ],
+  });
+  snap.capturedAt = T("2026-09-12T12:00:00Z");
+
+  const r1 = build(snap, 1);
+  const r2 = build(snap, 2);
+  assert.equal(r1.findings.length, 2, "round 1 keeps its own two");
+  assert.equal(r2.findings.length, 1, "round 2 gets only its own");
+  assert.doesNotMatch(JSON.stringify(r1.findings), /round 2's only finding/);
+  assert.doesNotMatch(JSON.stringify(r2.findings), /writes the file before/);
+});
+
+test("R1: attribution comes from flattenMcpThreads, so a finding's round matches every other count", () => {
+  const byRoot = rootPassIds(assembled());
+  assert.deepEqual([...byRoot.values()], [900001, 900001], "both roots bound to the one pass that exists");
+});
+
+test("R2: a snapshot with no pull request author is refused, not silently labelled `other`", () => {
+  // The assembler dropped `pr.user`, so every builder reply read as `other`
+  // and the provenance the translator weighs quietly stopped meaning anything.
+  const snap = snapshot();
+  delete snap.pr.user;
+  assert.throws(() => build(snap), /no pull request author.*labelled `other`/s);
+});
+
+test("R3: the diff is a two-dot range, so a rewritten history cannot hide what changed", () => {
+  // `a...b` measures from the merge base, which after a permitted
+  // --force-with-lease rewrite is not the reviewed commit.
+  let seen = null;
+  const spy = (args) => {
+    if (args[0] === "rev-parse") return `${HEAD}\n`;
+    if (args[0] === "diff" && args.includes("--name-only")) return "";
+    if (args[0] === "diff") {
+      seen = args.find((a) => a.includes(".."));
+      return "patch";
+    }
+    return "";
+  };
+  build(snapshot(), 1, spy);
+  assert.equal(seen, `${REVIEWED}..${HEAD}`);
+  assert.ok(!seen.includes("..."), "three dots would measure from the merge base");
+});
+
+test("R4: threads captured before the round's own pass are refused", () => {
+  // A mixed snapshot -- reviews fresh, threads stale -- holds none of the
+  // round's findings, so it would translate or skip as clean.
+  const snap = snapshot({
+    capturedAt: {
+      pr: T("2026-09-12T11:00:00Z"),
+      reviews: T("2026-09-12T11:00:00Z"),
+      issueComments: T("2026-09-12T11:00:00Z"),
+      reviewThreads: T("2026-09-12T09:30:00Z"),
+    },
+  });
+  assert.throws(() => build(snap), /reviewThreads was captured before round 1's pass.*translated -- or skipped -- as clean/s);
+});
+
+test("R4: assertCapturedAfterPass refuses a pass with no readable time", () => {
+  assert.throws(() => assertCapturedAfterPass(snapshot(), { at: "nonsense" }, 2), /round 2's reviewer pass carries an unparseable timestamp/);
+});
+
+test("R5: an abbreviated pass commit on the current head counts as no push", () => {
+  // A summary-comment pass carries the 7-40 char sha from its marker while
+  // pr.head.sha is the full 40, so `!==` called a clean pass "pushed".
+  const snap = snapshot();
+  snap.reviews[0].commit_id = HEAD.slice(0, 10);
+  snap.reviewThreads = [];
+  const record = build(snap);
+  assert.equal(record.diff.pushed, false, "prefix-tolerant, like reviewerPasses");
+  assert.equal(skipReason(record), "no findings and nothing pushed since the reviewed commit");
+});
+
+test("R7: a snapshot from another repository is refused even when the PR number matches", () => {
+  const foreign = snapshot({ repo: "SomeoneElse/OtherRepo" });
+  foreign.pr.head.repo = "SomeoneElse/OtherRepo";
+  assert.throws(() => assertSnapshotIsForPr(PR, foreign, { slug: SLUG }), /captured from SomeoneElse\/OtherRepo, but this checkout is TestOwner\/TestRepo/);
+  assert.throws(() => assertSnapshotIsForPr(PR, { pr: { number: PR } }, { slug: SLUG }), /names no repository/);
+  assert.doesNotThrow(() => assertSnapshotIsForPr(PR, snapshot(), { slug: SLUG }));
+});
+
+test("R10: a multiline refusal becomes one line for chat, with the full text on stderr", () => {
+  // SIGN_IN_HINT is a numbered list; pasting it turns a fixed status line into
+  // a wall of operator instructions.
+  const multi = "the provider is unavailable\n  1. npm install @openai/codex\n  2. log in";
+  const line = unavailable(3, multi.split("\n")[0]);
+  assert.equal(line, "round 3: translation unavailable — the provider is unavailable");
+  assert.ok(!line.includes("\n"));
+});
+
+test("R8: a delivery failure still prints one fixed line, and exits non-zero", () => {
+  // The reviewer had already run. Before the fix a receipt-write, page-render
+  // or check-ignore failure threw loose and the loop had NO verbatim status to
+  // paste -- worst on the last round before a merge ask, the one the contract
+  // says must carry it.
+  const root = tmpRepo();
+  fs.rmSync(path.join(root, ".agents"), { recursive: true, force: true });
+  fs.writeFileSync(path.join(root, ".agents"), "a file where the directory should be");
+  const out = [];
+  const write = process.stdout.write;
+  process.stdout.write = (s) => (out.push(s), true);
+  let code;
+  try {
+    code = deliverTranslation(root, { role: "round-translation", pr: PR, round: 4, output: answer() });
+  } finally {
+    process.stdout.write = write;
+  }
+  assert.equal(code, 1, "non-zero, so a caller cannot read it as delivered");
+  assert.equal(out.length, 1, "exactly one line");
+  assert.match(out[0], /^round 4: translation unpublished — /);
+  assert.equal(out[0].trimEnd().includes("\n"), false);
 });
