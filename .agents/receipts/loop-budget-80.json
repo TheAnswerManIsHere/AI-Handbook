@@ -1,0 +1,9 @@
+{
+  "pr": 80,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 35,
+  "artifact": "Two .agents/memory notes: where a backgrounded subagent's answer lives, plus a corrected cross-reference",
+  "declaredAt": "2026-09-12T01:40:14.744Z"
+}
