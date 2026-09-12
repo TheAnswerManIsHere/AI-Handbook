@@ -257,7 +257,22 @@ test("a backgrounded dispatch with no agent transcript names its own cause", () 
   ]);
   assert.throws(
     () => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }),
-    /ran in the BACKGROUND \(agent missing99\)[\s\S]*foreground/,
+    /ran in the BACKGROUND \(agent missing99\)[\s\S]*WAIT for the dispatch to report completion/,
+  );
+  // AND IT MUST NOT ADVISE THE FOREGROUND. The harness backgrounds the call
+  // either way, so that remedy costs an adjudication and fails identically --
+  // asserted as an absence because the wording is what does the damage.
+  assert.throws(
+    () => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }),
+    (e) => !/Re-dispatch it in the foreground/.test(e.message),
+  );
+  // AND THE CHEAP REMEDY COMES FIRST. An absent transcript usually means the
+  // agent is still running, and nothing gates recovery on completion -- so
+  // leading with a re-dispatch spends an adjudication that waiting would have
+  // saved. Asserted on ORDER, because both remedies appear.
+  assert.throws(
+    () => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }),
+    (e) => e.message.indexOf("WAIT") < e.message.indexOf("re-dispatch"),
   );
 });
 

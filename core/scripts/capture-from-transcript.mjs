@@ -230,15 +230,37 @@ export function backgroundAgentId(text) {
  * A missing transcript is its own refusal rather than a fallback to the
  * launch notice: the notice never parses, so falling through would only
  * restore the misleading message this exists to replace.
+ *
+ * AND THE REFUSAL DOES NOT ADVISE THE FOREGROUND. It used to, which was the
+ * same defect one level up: this harness backgrounds an `Agent` call even
+ * when `run_in_background` is false (measured 2026-09-11), so "re-dispatch in
+ * the foreground" costs a whole adjudication and fails identically. A remedy
+ * that cannot work is worse than none, because it is followed.
+ * (Codex, #80 round 1.)
+ *
+ * NOR DOES IT LEAD WITH A RE-DISPATCH. Round 1's replacement still put the
+ * expensive remedy first, and an absent transcript most often means the agent
+ * has not finished rather than that it never will -- nothing gates recovery on
+ * completion. So the cheap remedy leads: wait, re-run for the SAME agent, and
+ * re-dispatch only if the file never appears. (Codex, #80 round 2 -- the same
+ * class as round 1, in the fix for round 1.)
+ *
+ * STATED GAP: this does not mechanically distinguish "still running" from
+ * "never arrived". Doing so needs a reliable in-progress signal on disk, and
+ * none has been measured -- inventing one would be the claim-without-a-
+ * mechanism defect this file exists to remove. The message orders the two
+ * remedies by cost instead, which is what the caller actually needs.
  */
 export function agentAnswer(transcriptFile, agentId, { readFile = fs.readFileSync, exists = fs.existsSync } = {}) {
   const dir = transcriptFile.replace(/\.jsonl$/, "");
   const file = path.join(dir, "subagents", `agent-${agentId}.jsonl`);
   if (!exists(file)) {
     throw new Error(
-      `the adjudicator ran in the BACKGROUND (agent ${agentId}) and its own transcript is not at ${file}, so ` +
-        `its answer cannot be recovered. Re-dispatch it in the foreground -- a verdict is what the loop waits ` +
-        `on, so there is nothing to run beside it.`,
+      `the adjudicator ran in the BACKGROUND (agent ${agentId}) and its own transcript is not at ${file}. It ` +
+        `may simply still be running: WAIT for the dispatch to report completion and re-run recovery for THIS ` +
+        `agent first -- that costs nothing. Only if the transcript never appears is a re-dispatch warranted, ` +
+        `reading the NEW agent's transcript; asking for a foreground dispatch does not help either way, ` +
+        `because this harness backgrounds the call regardless.`,
     );
   }
   let last = null;
