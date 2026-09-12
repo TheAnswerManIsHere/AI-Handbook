@@ -230,6 +230,13 @@ export function backgroundAgentId(text) {
  * A missing transcript is its own refusal rather than a fallback to the
  * launch notice: the notice never parses, so falling through would only
  * restore the misleading message this exists to replace.
+ *
+ * AND THE REFUSAL DOES NOT ADVISE THE FOREGROUND. It used to, which was the
+ * same defect one level up: this harness backgrounds an `Agent` call even
+ * when `run_in_background` is false (measured 2026-09-11), so "re-dispatch in
+ * the foreground" costs a whole adjudication and fails identically. A remedy
+ * that cannot work is worse than none, because it is followed.
+ * (Codex, #80 round 1.)
  */
 export function agentAnswer(transcriptFile, agentId, { readFile = fs.readFileSync, exists = fs.existsSync } = {}) {
   const dir = transcriptFile.replace(/\.jsonl$/, "");
@@ -237,8 +244,8 @@ export function agentAnswer(transcriptFile, agentId, { readFile = fs.readFileSyn
   if (!exists(file)) {
     throw new Error(
       `the adjudicator ran in the BACKGROUND (agent ${agentId}) and its own transcript is not at ${file}, so ` +
-        `its answer cannot be recovered. Re-dispatch it in the foreground -- a verdict is what the loop waits ` +
-        `on, so there is nothing to run beside it.`,
+        `its answer cannot be recovered. Re-dispatch and recover from the NEW agent's transcript; asking for a ` +
+        `foreground dispatch does not help, because this harness backgrounds the call either way.`,
     );
   }
   let last = null;

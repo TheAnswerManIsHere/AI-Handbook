@@ -85,7 +85,8 @@ GitHub's actual timestamps.
 
 - AI-Handbook #75 — the mechanical record's evidence path had an unguarded
   hand step. **Closed** by #79, which made this recovery a script
-  (`core/scripts/capture-from-transcript.mjs`) rather than a technique to
+  (`scripts/capture-from-transcript.mjs`, the consumer path; the handbook's
+  own copy is at `core/scripts/`) rather than a technique to
   remember. The note stays because the technique is still worth knowing and
   the `tool-results/` trap above is still live.
 - [`backgrounded-subagent-answer-is-in-its-own-transcript.md`](backgrounded-subagent-answer-is-in-its-own-transcript.md)

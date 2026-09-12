@@ -257,7 +257,14 @@ test("a backgrounded dispatch with no agent transcript names its own cause", () 
   ]);
   assert.throws(
     () => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }),
-    /ran in the BACKGROUND \(agent missing99\)[\s\S]*foreground/,
+    /ran in the BACKGROUND \(agent missing99\)[\s\S]*recover from the NEW agent's transcript/,
+  );
+  // AND IT MUST NOT ADVISE THE FOREGROUND. The harness backgrounds the call
+  // either way, so that remedy costs an adjudication and fails identically --
+  // asserted as an absence because the wording is what does the damage.
+  assert.throws(
+    () => recoverVerdict({ root, pr: 80, recordPath: ".agents/adjudications/80-1.json", transcript: file }),
+    (e) => !/Re-dispatch it in the foreground/.test(e.message),
   );
 });
 

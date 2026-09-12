@@ -60,10 +60,19 @@ Measured on the same dispatch, one string, two places:
 | Rendered back into the session | `&lt;record&gt;.verdict.json` |
 | `subagents/agent-<agentId>.jsonl` | `<record>.verdict.json` |
 
-For anything asserting byte-exactness — a committed verdict, a quoted
-citation, a digest — the session-rendered copy is the wrong source and the
-agent's own transcript is the right one. Recovering from the transcript is not
-merely cheaper than retyping here; it is the only route to the actual bytes.
+**The transcript is the only route to the actual bytes**, so it is the source
+to read whenever the exact characters matter — a quoted citation, a value
+compared against something else, anything an escape would change the meaning
+of. The session-rendered copy is the wrong source for all of it.
+
+**What this does NOT claim: the committed verdict file is not byte-exact.**
+`recoverVerdict()` parses the answer and writes a freshly-serialized document,
+so fences, whitespace and equivalent JSON escape spellings are gone. What
+survives is the answer's *values*, taken from the right source — which is why
+`<record>.verdict.json` above holds `<`, not `&lt;`. **A digest must hash the
+transcript text directly**; hashing the committed file and expecting it to
+match the answer will fail, and would look like tampering rather than
+formatting. (Codex, #80 round 1.)
 
 ## The failure mode it replaces
 
@@ -92,6 +101,8 @@ so by name rather than blaming the agent.
   — the same idea one level up: a tool response is on disk, so it never needs
   retyping. That note covers `tool_result` blocks in the session transcript;
   this one covers the case where the block you want is not there at all.
-- `core/scripts/capture-from-transcript.mjs` (`backgroundAgentId`,
-  `agentAnswer`) implements this, discovered by running it rather than by
-  review — AI-Handbook #79.
+- `scripts/capture-from-transcript.mjs` (`backgroundAgentId`, `agentAnswer`)
+  implements this, discovered by running it rather than by review —
+  AI-Handbook #79. **Paths in this note are consumer paths**, as the sync
+  delivers them; in the handbook itself the same file is at
+  `core/scripts/capture-from-transcript.mjs`.
