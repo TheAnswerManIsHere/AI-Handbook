@@ -194,7 +194,15 @@ export function writePage(root, pr, html, { runGit = (a) => spawnSync("git", a, 
   const ignore = path.join(root, REVIEWS_DIR, ".gitignore");
   if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
   const file = pagePath(root, pr);
-  fs.writeFileSync(file, `${html}\n`);
+  // Written through a temporary file and renamed, because the rounds are
+  // dispatched detached and two deliveries can be inside this function at
+  // once. `rename` is atomic on the same filesystem, so a concurrent reader --
+  // or the publish that follows -- sees the old page or the new one, never a
+  // half-written one. The temporary name carries the pid so two writers do not
+  // collide on it either.
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, `${html}\n`);
+  fs.renameSync(tmp, file);
   const rel = path.relative(root, file);
   const check = runGit(["check-ignore", "-q", rel]);
   if (check.status !== 0) {
@@ -203,6 +211,38 @@ export function writePage(root, pr, html, { runGit = (a) => spawnSync("git", a, 
         `Check ${REVIEWS_DIR}/.gitignore for a later negation -- a .gitignore is an ordered program and the last ` +
         `matching rule wins.`,
     );
+  }
+  return rel;
+}
+
+/**
+ * Render and write the page, then make sure the page on disk is the one the
+ * receipts on disk imply.
+ *
+ * THE RACE THIS CLOSES. Every round is dispatched detached and the loop
+ * proceeds immediately, so two deliveries overlap: A enumerates and sees only
+ * its own receipt, B writes its receipt, enumerates both and publishes the
+ * complete page -- and then A's write lands, rebuilt from its stale list, and
+ * the round B just delivered is gone from David's page. Waiting on every exit
+ * file at close-out does not catch it: both rounds ran, and the page is still
+ * missing one. (Codex, #81, the mechanical round.)
+ *
+ * A LOCK IS THE WRONG TOOL. A lock file adds a stale-lock failure mode to a
+ * path whose entire job is to still produce a line when something goes wrong,
+ * and a delivery that dies holding one would strand every later round. This
+ * re-reads instead: after writing, enumerate again, and if the set changed
+ * under us, render and write the newer set. A writer therefore repairs its own
+ * overwrite, and the set only ever grows, so it converges. Bounded rather than
+ * unbounded because a loop that cannot finish is worse than a page one round
+ * behind -- and the receipts are all still on disk either way.
+ */
+export function publishPage(root, pr, { attempts = 5, ...opts } = {}) {
+  let rel = null;
+  for (let i = 0; i < attempts; i += 1) {
+    const before = receiptsFor(root, pr);
+    rel = writePage(root, pr, renderPage(before, { pr }), opts);
+    const after = receiptsFor(root, pr);
+    if (after.length === before.length) return rel;
   }
   return rel;
 }

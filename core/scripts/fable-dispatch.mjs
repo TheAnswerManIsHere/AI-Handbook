@@ -94,7 +94,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { modelTier } from "./review-budget.mjs";
 import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
-import { chatLine, renderPage, writePage, receiptsFor, unavailable, unpublished } from "./round-translation-page.mjs";
+import { chatLine, renderPage, writePage, receiptsFor, publishPage, unavailable, unpublished } from "./round-translation-page.mjs";
 
 /**
  * One line, for a notice that is pasted verbatim into chat.
@@ -845,6 +845,46 @@ export function probeBrief(nonce) {
 }
 
 /**
+ * Every string the role's own schema declares as `minLength: 1`, reported
+ * wherever the returned document leaves it blank.
+ *
+ * WHY THIS IS HERE AND NOT LEFT TO THE SCHEMA. P4 delegates validation to the
+ * harness's `--json-schema`, and what that enforces beyond shape is the
+ * harness's business, not a property this script establishes. A document that
+ * satisfies `required` with empty strings is structurally valid and says
+ * nothing, and the consumer downstream reads an absent disagreement as the
+ * FAVOURABLE answer -- D0's chat line prints "agrees with the builder's
+ * account" over a page with no account on it (Codex, #81 round 3). An
+ * unobserved fact read as the good one is the exact shape this file exists to
+ * refuse, so the emptiness is checked here rather than assumed.
+ *
+ * IT IS SCHEMA-DRIVEN, NOT A LIST OF FIELD NAMES. This script is
+ * role-agnostic: naming D0's five fields here would put one role's knowledge
+ * in the dispatcher, and the next role's empty document would sail through.
+ * The role declares which of its strings must say something; this enforces
+ * whatever it declared. A schema that declares no `minLength` gets no check,
+ * which is the same answer it gets today.
+ *
+ * Two shapes, because they are the two the role schemas use: a top-level
+ * string property, and a string inside the objects of an array property.
+ */
+export function blankDeclaredStrings(schema, doc, path = "") {
+  const blanks = [];
+  const props = schema?.properties;
+  if (!props || !doc || typeof doc !== "object") return blanks;
+  for (const [key, spec] of Object.entries(props)) {
+    const here = path ? `${path}.${key}` : key;
+    const value = doc[key];
+    if (spec?.type === "string" && spec.minLength >= 1) {
+      if (typeof value !== "string" || value.trim() === "") blanks.push(here);
+    } else if (spec?.type === "array" && Array.isArray(value)) {
+      value.forEach((item, i) => blanks.push(...blankDeclaredStrings(spec.items, item, `${here}[${i}]`)));
+    }
+  }
+  return blanks;
+}
+
+/**
  * The probe's acceptance predicate.
  *
  * `claudemd` is recorded, never refused on: it is the reviewer's self-report,
@@ -1016,8 +1056,9 @@ export function dispatch({
     throw new Error(`${definitionPath} names a schema that does not exist at ${headAtSpawn}: ${schemaRel}`);
   }
   const schemaJson = schemaShow.stdout;
+  let schemaParsed;
   try {
-    JSON.parse(schemaJson);
+    schemaParsed = JSON.parse(schemaJson);
   } catch (e) {
     throw new Error(`${schemaRel} is not valid JSON: ${e.message}`);
   }
@@ -1167,6 +1208,18 @@ export function dispatch({
             : `the result event's subtype is ${JSON.stringify(result.subtype)}, not "success"`,
         );
       else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
+      // A document whose declared-non-empty strings are blank is structurally
+      // valid and says nothing. It joins `problems` rather than throwing, so it
+      // earns the same one re-ask any other invalid answer gets.
+      else {
+        const blank = blankDeclaredStrings(schemaParsed, result.structured_output);
+        if (blank.length) {
+          problems.push(
+            `the document left ${blank.length} field(s) its schema requires to say something empty: ` +
+              `${blank.join(", ")}`,
+          );
+        }
+      }
 
       if (problems.length) {
         if (attempt === 2) {
@@ -1364,7 +1417,10 @@ export function deliverTranslation(root, receipt) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
     process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
-    const page = writePage(root, receipt.pr, renderPage(receiptsFor(root, receipt.pr), { pr: receipt.pr }));
+    // Enumerate-render-write is not one step, and the rounds are detached:
+    // `publishPage` re-reads afterwards so a concurrent delivery's round
+    // cannot be overwritten out of the page.
+    const page = publishPage(root, receipt.pr);
     process.stderr.write(`fable-dispatch: page -> ${page}\n`);
     process.stdout.write(`${chatLine(receipt)}\n`);
     return 0;
@@ -1422,12 +1478,37 @@ function runTranslation(root, args) {
   return deliverTranslation(root, { ...receipt, pr: args.pr, round: args.round, record });
 }
 
+/**
+ * The round this invocation was FOR, read straight off argv.
+ *
+ * Needed only when `parseArgs` threw, so nothing validated is available. It is
+ * deliberately forgiving -- a malformed `--round` is one of the failures this
+ * path exists to report -- and says `?` rather than inventing a number, so the
+ * notice never names a round the operator did not ask for.
+ */
+const roundFromArgv = (argv) => {
+  const i = argv.indexOf("--round");
+  const raw = i >= 0 ? argv[i + 1] : undefined;
+  return /^\d+$/.test(raw ?? "") ? raw : "?";
+};
+
 export function main(argv = process.argv.slice(2)) {
   let args;
   try {
     args = parseArgs(argv);
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    // A round-translation invocation owes David one fixed line on stdout
+    // whatever went wrong, and an argument failure threw before `runTranslation`
+    // could give him one -- so the log's last line was a raw diagnostic he has
+    // no reason to recognise. The role is read from argv rather than from the
+    // parse that just failed, which is the whole point: the parse produced
+    // nothing. Everything specific still goes to stderr, where the operator
+    // reads it. (Codex, #81 round 3.)
+    const roleAt = argv.indexOf("--role");
+    if (roleAt >= 0 && argv[roleAt + 1] === "round-translation") {
+      process.stdout.write(`${unavailable(roundFromArgv(argv), oneLine(e.message))}\n`);
+    }
     return 1;
   }
   const root = repoRoot();

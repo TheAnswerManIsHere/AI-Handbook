@@ -16,11 +16,12 @@ import {
   rootPassIds,
   assertSnapshotIsForPr,
   roundThreads,
+  commentsSincePass,
   COMMENT_CAP_CHARS,
 } from "../round-translation-record.mjs";
-import { facts, chatLine, renderPage, receiptsFor, writePage, pagePath, unavailable } from "../round-translation-page.mjs";
+import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
-import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation } from "../fable-dispatch.mjs";
+import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
 const PR = 81;
@@ -225,7 +226,7 @@ test("a capture taken before the builder replied is refused, not translated as s
   const snap = snapshot({ capturedAt: T("2026-09-12T10:10:00Z") });
   assert.throws(
     () => build(snap),
-    /captured at .* before .* commented at .*Read the collections again/s,
+    /captured at .* not clearly after .* comment at .*Read the collections again/s,
   );
 });
 
@@ -685,4 +686,250 @@ test("R8: a delivery failure still prints one fixed line, and exits non-zero", (
   assert.equal(out.length, 1, "exactly one line");
   assert.match(out[0], /^round 4: translation unpublished — /);
   assert.equal(out[0].trimEnd().includes("\n"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Round 3's four findings, closed on David's instruction after the loop had
+// stopped. One test each, every one of them failing before its fix.
+// ---------------------------------------------------------------------------
+
+test("R11: a later pass's PR-level comments stay out of the earlier round's brief", () => {
+  // The race this record explicitly supports: round 2 lands before round 1 is
+  // translated -- a re-run, a catch-up, or a dispatch still in flight. With a
+  // lower bound only, round 2's context comment and every reply after it were
+  // collected into round 1's brief, so David's round-1 account was partly
+  // about round 2. (Codex, #81 round 3.)
+  const snap = snapshot();
+  snap.reviews.push({
+    id: 900002,
+    user: { login: BOT },
+    submitted_at: T("2026-09-12T10:45:00Z"),
+    commit_id: HEAD,
+    body: "**Reviewed commit:** " + HEAD,
+    html_url: url("pullrequestreview-900002"),
+  });
+  // The trigger precedes round 2's pass and belongs to round 1; the context
+  // comment follows it and belongs to round 2.
+  snap.issueComments.push(
+    { id: 800002, user: { login: BUILDER }, body: "atC0dex r3view", created_at: T("2026-09-12T10:40:00Z"), html_url: url("issuecomment-800002") },
+    { id: 800003, user: { login: BUILDER }, body: "Round 2 context: one finding.", created_at: T("2026-09-12T10:50:00Z"), html_url: url("issuecomment-800003") },
+  );
+
+  const bodies = (r) => r.commentsSincePass.map((c) => c.body);
+
+  const round1 = build(snap, 1);
+  assert.deepEqual(
+    bodies(round1),
+    ["Round 1 context: two findings, one fixed and one declined.", "atC0dex r3view"],
+    "round 1 keeps its own context and the trigger it posted, and stops at round 2's pass",
+  );
+  assert.ok(!bodies(round1).some((b) => b.includes("Round 2 context")), "round 2's context is round 2's");
+
+  const round2 = build(snap, 2);
+  assert.deepEqual(bodies(round2), ["Round 2 context: one finding."], "the latest round's window is still open-ended");
+});
+
+test("R11: commentsSincePass with no next pass is unbounded, as every caller had it", () => {
+  const snap = snapshot();
+  const pass = passFor(snap, 1).pass;
+  assert.equal(commentsSincePass(snap, pass, BUILDER).length, 1);
+  assert.equal(commentsSincePass(snap, pass, BUILDER, null).length, 1);
+});
+
+test("R12: a document with blank declared-non-empty strings is not accepted", () => {
+  // Schema-valid and says nothing: chatLine() would print "agrees with the
+  // builder's account" over a page with no account on it -- the favourable
+  // reading of a field nothing looked at. (Codex, #81 round 3.)
+  const schema = JSON.parse(
+    fs.readFileSync(new URL("../../.agents/fable-roles/schemas/fable-round-translation.schema.json", import.meta.url), "utf8"),
+  );
+  const empty = { summary_for_david: "", what_happened: "   ", disagreements: [], could_not_assess: null, recommendation: "" };
+
+  // The receipt-side check, which is what actually runs: the schema is handed
+  // to the harness and what it enforces beyond shape is not this script's.
+  assert.deepEqual(
+    blankDeclaredStrings(schema, empty).sort(),
+    ["recommendation", "summary_for_david", "what_happened"],
+    "every blank field is named, so the re-ask says what was wrong",
+  );
+  // And the thing the blank document would otherwise have produced.
+  assert.equal(chatLine({ round: 3, answer: empty }), "round 3: agrees with the builder's account");
+
+  // Strings inside a disagreement item are declared too, and reported by path.
+  const hollow = { ...answer(), disagreements: [{ what: "a real point", why_it_matters: "" }] };
+  assert.deepEqual(blankDeclaredStrings(schema, hollow), ["disagreements[0].why_it_matters"]);
+
+  // A complete document is clean, and an absent minLength is still no check.
+  assert.deepEqual(blankDeclaredStrings(schema, answer()), []);
+  assert.deepEqual(blankDeclaredStrings({ properties: { x: { type: "string" } } }, { x: "" }), []);
+});
+
+test("R13: a round-translation argument failure prints the fixed line, not a raw diagnostic", () => {
+  // parseArgs throws before runTranslation can emit anything, so the log's
+  // last line -- which the skill says to paste verbatim -- was a technical
+  // error David has no reason to recognise. (Codex, #81 round 3.)
+  const out = [];
+  const err = [];
+  const so = process.stdout.write;
+  const se = process.stderr.write;
+  process.stdout.write = (s) => (out.push(s), true);
+  process.stderr.write = (s) => (err.push(s), true);
+  let code;
+  try {
+    code = main(["--role", "round-translation", "--pr", String(PR), "--round", "3"]);
+  } finally {
+    process.stdout.write = so;
+    process.stderr.write = se;
+  }
+  assert.equal(code, 1, "still non-zero, so the exit file records a failure");
+  assert.equal(out.length, 1, "exactly one line for chat");
+  assert.equal(out[0], "round 3: translation unavailable — role \"round-translation\" requires --mcp-snapshot\n");
+  assert.match(err.join(""), /requires --mcp-snapshot/, "the diagnostic still goes to stderr");
+});
+
+test("R13: an unparseable round says so rather than inventing one, and other roles are untouched", () => {
+  const run = (argv) => {
+    const out = [];
+    const so = process.stdout.write;
+    const se = process.stderr.write;
+    process.stdout.write = (s) => (out.push(s), true);
+    process.stderr.write = () => true;
+    try {
+      return { code: main(argv), out };
+    } finally {
+      process.stdout.write = so;
+      process.stderr.write = se;
+    }
+  };
+
+  const bad = run(["--role", "round-translation", "--pr", String(PR), "--round", "not-a-number"]);
+  assert.equal(bad.out.length, 1);
+  assert.match(bad.out[0], /^round \?: translation unavailable — /, "`?` rather than a round the operator did not name");
+
+  // A bare role name is not `--role`, so argv[roleAt + 1] must not be read off
+  // a missing flag: the probe and every other role keep a silent stdout.
+  const probe = run(["--role", "probe", "--pr"]);
+  assert.equal(probe.out.length, 0, "only round-translation owes a chat line");
+  const positional = run(["round-translation"]);
+  assert.equal(positional.out.length, 0, "no --role flag, so no round-translation invocation to report");
+});
+
+test("R12: the emptiness check is WIRED into the dispatch, not merely exported", () => {
+  // Measured, not assumed: with the call removed from the `problems` chain the
+  // test above still passes, because it exercises the function directly. That
+  // is the hollow-test class D0 caught on R10 in round 2, and a static check is
+  // the idiom this repo already uses for the `pathToFileURL` form. Source-level
+  // because the real path runs a reviewer: it cannot be driven from a unit test.
+  const src = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
+  const call = /const blank = blankDeclaredStrings\(schemaParsed, result\.structured_output\);/;
+  assert.match(src, call, "the accepted document is checked before it becomes a receipt");
+
+  // And it must feed `problems` -- which earns P4's one re-ask and then its
+  // refusal -- rather than throwing past it or being logged and ignored.
+  const between = src.slice(src.search(call), src.indexOf("if (problems.length) {", src.search(call)));
+  assert.match(between, /problems\.push\(/, "a blank document joins `problems`, so it gets the same one re-ask");
+
+  // The schema it validates against is the role's own, read at the spawn
+  // commit -- so a role that declares no minLength still gets no check.
+  assert.match(src, /schemaParsed = JSON\.parse\(schemaJson\)/, "the parsed schema is kept, not discarded");
+});
+
+test("R11: the brief labels which comment window it is showing", () => {
+  // The heading is the reviewer's provenance label. On a round that is not the
+  // latest the window is a bounded slice, and calling it "since this round
+  // returned" would present a partial view as a complete one.
+  const snap = snapshot();
+  snap.reviews.push({
+    id: 900002,
+    user: { login: BOT },
+    submitted_at: T("2026-09-12T10:45:00Z"),
+    commit_id: HEAD,
+    body: "**Reviewed commit:** " + HEAD,
+    html_url: url("pullrequestreview-900002"),
+  });
+
+  const bounded = translationBrief(build(snap, 1));
+  assert.match(bounded, /## Said on the pull request itself between this round and the next one \(2026-09-12T10:00:00\.000Z to 2026-09-12T10:45:00\.000Z\)/);
+  assert.ok(!bounded.includes("since this round returned"), "not described as everything that followed");
+
+  const open = translationBrief(build(snapshot(), 1));
+  assert.match(open, /## Said on the pull request itself since this round returned \(nothing has followed it\)/);
+});
+
+test("R14: a capture inside the reply's own second is refused, not read as later", () => {
+  // GitHub dates comments to the second, so a reply written at 10:30:00.600
+  // arrives as 10:30:00.000. A capture at 10:30:00.100 is genuinely EARLIER
+  // than the reply and would miss it, while comparing as later. The repository
+  // already spells this rule `<= acceptedAt + 999` in collectionsReadBefore.
+  const inSameSecond = snapshot({ capturedAt: "2026-09-12T10:30:00.100Z" });
+  assert.throws(() => build(inSameSecond), /not clearly after .* GitHub dates\s+comments to the second/s);
+
+  // The exact instant is refused too: nothing shows the capture came after.
+  assert.throws(() => build(snapshot({ capturedAt: "2026-09-12T10:30:00.000Z" })), /not clearly after/);
+
+  // Clearing the whole second is enough, and is what a real capture does.
+  assert.doesNotThrow(() => build(snapshot({ capturedAt: "2026-09-12T10:30:01.000Z" })));
+});
+
+test("R15: an overlapping thread page counts one finding, not two", () => {
+  // Two concatenated captured pages that overlap are a supported input shape --
+  // reviewerPasses deduplicates reviews by id for exactly this reason. A
+  // repeated thread numbered twice tells David a finding was raised twice and
+  // disagrees with every mechanical count of the same round.
+  const snap = snapshot();
+  const clean = build(snap);
+  assert.equal(clean.findings.length, 2, "two distinct findings to begin with");
+
+  const overlapped = snapshot();
+  overlapped.reviewThreads = [...overlapped.reviewThreads, overlapped.reviewThreads[0]];
+  const record = build(overlapped);
+  assert.equal(record.findings.length, 2, "the repeated thread is one finding");
+  assert.deepEqual(
+    record.findings.map((f) => f.n),
+    [1, 2],
+    "and the numbering has no gap or repeat",
+  );
+});
+
+test("R16: a concurrent delivery's round cannot be overwritten out of the page", () => {
+  // Every round is dispatched detached, so two deliveries overlap: A
+  // enumerates its own receipt only, B writes its receipt and publishes the
+  // complete page, then A's write lands from its stale list and B's round is
+  // gone. Waiting on every exit file does not catch it -- both rounds ran.
+  const root = tmpRepo();
+  const receipts = path.join(root, ".agents", "receipts");
+  fs.mkdirSync(receipts, { recursive: true });
+  const put = (round) =>
+    fs.writeFileSync(
+      path.join(receipts, `fable-round-translation-${PR}-${round}.json`),
+      JSON.stringify({ role: "round-translation", pr: PR, round, output: answer() }),
+    );
+
+  put(1);
+  // A is inside publishPage having seen only round 1; B lands round 2 between
+  // A's enumeration and A's re-read. `publishPage` re-reads after writing, so A
+  // repairs the page it just made stale.
+  const realRead = fs.readdirSync;
+  let calls = 0;
+  fs.readdirSync = (...args) => {
+    calls += 1;
+    if (calls === 2) put(2); // B's receipt appears after A's first enumeration
+    return realRead(...args);
+  };
+  let rel;
+  try {
+    rel = publishPage(root, PR, { runGit: () => ({ status: 0 }) });
+  } finally {
+    fs.readdirSync = realRead;
+  }
+
+  const html = fs.readFileSync(path.join(root, rel), "utf8");
+  assert.match(html, /Round 1/, "round 1 is on the page");
+  assert.match(html, /Round 2/, "and so is the round that landed mid-publish");
+});
+
+test("R16: the page is written atomically, so no reader sees it half-built", () => {
+  const src = fs.readFileSync(new URL("../round-translation-page.mjs", import.meta.url), "utf8");
+  assert.match(src, /fs\.renameSync\(tmp, file\)/, "rename, not a truncating write into the live path");
+  assert.ok(!/fs\.writeFileSync\(file, /.test(src), "nothing writes the live page path directly");
 });

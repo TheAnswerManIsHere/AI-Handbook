@@ -180,12 +180,22 @@ const rootIdOf = (thread) => {
 export function roundThreads(snapshot, pass, builderLogin) {
   const out = [];
   const attribution = rootPassIds(snapshot);
+  // Two captured pages that overlap are a SUPPORTED input shape -- the shared
+  // counting machinery says so and deduplicates reviews by id for exactly this
+  // reason -- so a repeated thread must be one finding here too. Without this
+  // the brief numbers it twice and the translation tells David a finding was
+  // raised twice, disagreeing with every mechanically derived count of the same
+  // round. (Codex, #81, the mechanical round.)
+  const seen = new Set();
   let n = 0;
   for (const thread of snapshot.reviewThreads ?? []) {
     const root = thread.comments?.[0];
     if (!root) continue;
     if (authorRole(root.author ?? root.user?.login, builderLogin) !== "reviewer") continue;
-    if (!pass.reviewIds.includes(attribution.get(rootIdOf(thread)))) continue;
+    const rootId = rootIdOf(thread);
+    if (!pass.reviewIds.includes(attribution.get(rootId))) continue;
+    if (seen.has(rootId)) continue;
+    seen.add(rootId);
     n += 1;
     out.push({
       n,
@@ -203,11 +213,37 @@ export function roundThreads(snapshot, pass, builderLogin) {
   return out;
 }
 
-/** PR-level comments the builder posted after the pass — context, declines, the trigger. */
-export function commentsSincePass(snapshot, pass, builderLogin) {
+/**
+ * PR-level comments belonging to this round — context, declines, the trigger.
+ *
+ * BOUNDED AT BOTH ENDS, and the upper bound is the point. A lower bound alone
+ * is correct only when the named round is the latest one, and this record
+ * explicitly supports the case where it is not: a re-run, a catch-up
+ * translation, or a pass that lands while an earlier round's dispatch is still
+ * in flight. In every one of those the later round's context comment and each
+ * reply after it landed inside an unbounded window, so round N's brief carried
+ * round N+1's conversation and David's account was quietly about the wrong
+ * round. `rootPassIds` already bound the THREADS to one pass; this is the same
+ * fix for the collection beside them. (Codex, #81 round 3.)
+ *
+ * THE TRIGGER IS KEPT BY CONSTRUCTION, not by an exception. The comment that
+ * re-requests the review is posted BEFORE the pass it starts, so it falls
+ * below the next pass's timestamp and belongs to the round that wrote it. The
+ * bound is exclusive for the same reason: a comment at the exact instant of
+ * the next pass is that pass's, not this one's.
+ *
+ * With no next pass the round is the latest and the window stays open, which
+ * is the behaviour every existing caller had.
+ */
+export function commentsSincePass(snapshot, pass, builderLogin, nextPass = null) {
   const passAt = Date.parse(pass.at ?? "");
+  const nextAt = Date.parse(nextPass?.at ?? "");
+  const until = Number.isFinite(nextAt) ? nextAt : Infinity;
   return (snapshot.issueComments ?? [])
-    .filter((c) => Number.isFinite(Date.parse(c.created_at ?? "")) && Date.parse(c.created_at) >= passAt)
+    .filter((c) => {
+      const at = Date.parse(c.created_at ?? "");
+      return Number.isFinite(at) && at >= passAt && at < until;
+    })
     .map((c) => ({
       author: c.user?.login ?? c.author ?? null,
       role: authorRole(c.user?.login ?? c.author, builderLogin),
@@ -238,11 +274,20 @@ export function assertCaptureAfterResponse(snapshot, threads, sinceComments) {
   if (!Number.isFinite(capturedAt)) {
     throw new Error("the snapshot carries no usable capturedAt, so nothing establishes that it was read after the round was answered");
   }
-  if (capturedAt < newest.at) {
+  // END OF SECOND, not the instant. GitHub reports `created_at` to the second,
+  // so a reply written at 10:20:00.600 arrives as 10:20:00.000 and a capture at
+  // 10:20:00.100 -- genuinely earlier than the reply, and missing it -- compares
+  // as later. The repository already has one spelling of this rule in
+  // `collectionsReadBefore` (`<= acceptedAt + 999`); this is that rule, so a
+  // capture must clear the whole second the reply could be anywhere inside.
+  // (Codex, #81, the mechanical round.)
+  if (capturedAt <= newest.at + 999) {
     throw new Error(
-      `this snapshot was captured at ${new Date(capturedAt).toISOString()}, before ${newest.author ?? "the builder"} ` +
-        `commented at ${new Date(newest.at).toISOString()}. Translating it would tell David the round went ` +
-        `unanswered when it was answered. Read the collections again -- recovering the earlier read cannot fix it.`,
+      `this snapshot was captured at ${new Date(capturedAt).toISOString()}, which is not clearly after ` +
+        `${newest.author ?? "the builder"}'s comment at ${new Date(newest.at).toISOString()}. GitHub dates ` +
+        `comments to the second, so a capture inside that same second cannot be shown to hold it. Translating ` +
+        `it would tell David the round went unanswered when it was answered. Read the collections again -- ` +
+        `recovering the earlier read cannot fix it.`,
     );
   }
   return new Date(newest.at).toISOString();
@@ -316,7 +361,9 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
   assertCapturedAfterPass(snapshot, pass, round);
 
   const threads = roundThreads(snapshot, pass, builderLogin);
-  const since = commentsSincePass(snapshot, pass, builderLogin);
+  // `passes[round]` is the pass AFTER the named one -- `passFor` returns the
+  // whole list precisely so this bound is available without counting again.
+  const since = commentsSincePass(snapshot, pass, builderLogin, passes[round] ?? null);
   const respondedAt = assertCaptureAfterResponse(snapshot, threads, since);
 
   const head = pr?.head?.sha ?? null;
@@ -360,6 +407,9 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
     },
     findings: threads,
     commentsSincePass: since,
+    // What window `since` actually covers, so the brief can label it honestly
+    // rather than describing a bounded slice as everything that followed.
+    commentsWindow: { from: pass.at ?? null, until: passes[round]?.at ?? null },
     diff: {
       pushed,
       range: pushed ? `${pass.commit}..${head}` : null,
@@ -443,7 +493,16 @@ export function translationBrief(record) {
   }
 
   if (record.commentsSincePass.length) {
-    out.push("## Said on the pull request itself since this round returned", "");
+    // The heading is a PROVENANCE LABEL, and the window is bounded at the
+    // next pass, so "since this round returned" would over-claim on any round
+    // that is not the latest -- the reviewer would read a partial window as a
+    // complete one. Labelled, not guarded: it says which window it is.
+    out.push(
+      record.commentsWindow.until
+        ? `## Said on the pull request itself between this round and the next one (${record.commentsWindow.from} to ${record.commentsWindow.until})`
+        : "## Said on the pull request itself since this round returned (nothing has followed it)",
+      "",
+    );
     for (const c of record.commentsSincePass) {
       out.push(block(`${WHO[c.role]} (${c.author ?? "unknown"}, ${c.at ?? "undated"})`, c.body));
     }

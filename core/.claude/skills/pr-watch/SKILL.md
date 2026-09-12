@@ -713,8 +713,26 @@ setsid nohup bash -c "cd $PWD && node $PWD/scripts/fable-dispatch.mjs \
 The chat line is the last line of `d0-r<r>.log`; `d0-r<r>.exit` appearing is
 the completion signal and its contents are the status. The next Codex round
 proceeds whether or not it has returned; **nothing in the loop waits on it and
-nothing in the loop reads it.** At close-out, wait on that exit file before
-the merge ask.
+nothing in the loop reads it.**
+
+**At close-out, wait on EVERY outstanding translation, not just the stopping
+round's** — one `d0-r<r>.exit` for each `snap-r<r>.json` in the directory:
+
+```
+D=$PWD/.agents/reviews/pr-<n>
+for s in $D/snap-r*.json; do r=$(basename "$s" .json); r=${r#snap-r}
+  until [ -f "$D/d0-r$r.exit" ]; do sleep 5; done; done
+```
+
+The rounds are dispatched detached and independently, so they do not finish in
+order: an earlier round that stalled is still outstanding when the final one
+returns. Waiting on only the round that triggered the stop lets the merge ask
+go out with an earlier round missing from the page and with no chat line —
+and Product Intent 1 promises David an account of **every** round, which does
+not stop being true because the missing one is not the last. The loop is
+bounded by construction: every snapshot that exists had a dispatch launched
+for it, so the set is finite and each member terminates or times out.
+(Codex, #81 round 3.)
 
 - **After the trigger, never before.** A translation I could act on mid-round
   would be an in-loop advisor reading my own prose, which is exactly what
@@ -730,7 +748,8 @@ the merge ask.
   said.
 - **At a stop, it goes before the merge ask**, not before the merge report:
   it exists for the decision David is about to make, and the report follows
-  his click. Wait on the exit file at close-out.
+  his click. Wait on every outstanding exit file at close-out, per the loop
+  above — the ask carries each round's line, or that round's fixed notice.
 - **A round that raised nothing and prompted no push is skipped** by the
   script itself, with the reason on the page. An **all-declined** round is
   dispatched — it is the round where my account matters most.

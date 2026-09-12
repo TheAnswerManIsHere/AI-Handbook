@@ -197,6 +197,20 @@ The run's `structured_output` must validate against it. The script re-asks
 not happen, and a receipt describing it would be the fail-open this repository
 has shipped three times already (AI-Handbook #11, #16, #59).
 
+**Shape is the harness's to enforce; emptiness is this script's.** The schema
+goes to the harness as `--json-schema`, and what it enforces beyond the shape
+is the harness's business rather than a property this script establishes. So
+the script checks one thing itself before a receipt exists: every string the
+role's schema declares `minLength: 1` must actually say something. A document
+that satisfies `required` with empty strings is structurally valid and empty,
+and a consumer reads an absent disagreement as the **favourable** answer —
+D0's chat line printed *agrees with the builder's account* over a page with no
+account on it. The check is **schema-driven, not a list of field names**: this
+script is role-agnostic, so the role declares which of its strings must carry
+prose and this enforces whatever was declared. A blank document joins the same
+`problems` list as any other invalid answer, so it earns the one re-ask and
+then the same refusal.
+
 **A reviewer process that does not exit cleanly produced no evidence**,
 whatever its stdout contains: a non-zero status, a signal, or a spawn error
 refuses the run outright rather than retrying, because the buffered output of
@@ -209,7 +223,10 @@ no provider was reachable **and nothing was dispatched** — once any attempt ha
 run, a provider that then disappears is a `1`, and the attempts that did run
 are printed with the refusal. Argument refusals that
 are knowable from the command line happen **before** the launch, so a
-deterministic mistake never bills a reviewer.
+deterministic mistake never bills a reviewer. A round-translation invocation
+still prints its fixed *translation unavailable* line on that path: it owes
+David one recognisable line whatever went wrong, and an argument failure
+throws before the role's own handler could give him one.
 
 **The receipt path is derived, not supplied.** It is
 `.agents/receipts/fable-<role>-<head>.json`, built by the script.
@@ -283,9 +300,14 @@ account he has ever had of a round is the builder's own. This role writes the
 second one, from the round's own material.
 
 **What it reads:** the named round's threads whole — the reviewer's finding
-and every reply, verbatim, each labelled by author — the builder's comments on
-the pull request since that round, and the diff from the round's reviewed
-commit to the pull request's head.
+and every reply, verbatim, each labelled by author — the pull-request comments
+belonging to that round, and the diff from the round's reviewed commit to the
+pull request's head. That comment window is **bounded at both ends**, closing
+at the next reviewer pass where one exists: a lower bound alone is right only
+when the named round is the latest, and this record deliberately supports the
+case where it is not — a re-run, a catch-up, or a dispatch still in flight
+when the next pass lands. The re-request that starts the next pass precedes
+it, so it stays with the round that wrote it.
 
 **It holds no tools, and the brief is the whole of its evidence.** It declares
 `tools: none` — an explicit empty allowlist, distinct from an omitted field,
@@ -326,7 +348,10 @@ and costs nothing else.
 receipt and redeployed in place each round, plus one line of chat per round
 derived from the receipt — *agrees*, *differs on N*, *partial*, or *skipped*.
 **`agrees` is never printed over something the translator could not assess**:
-could-not-observe is not the favourable answer here either. A round that
+could-not-observe is not the favourable answer here either. Nor over an empty
+one — the schema declares its prose fields non-empty and P4 enforces that
+before a receipt exists, so the favourable line cannot stand over a page with
+no account behind it. A round that
 raised nothing and prompted no push is not dispatched at all; an all-declined
 round is, because it is the round where the builder's account matters most.
 

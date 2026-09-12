@@ -3,10 +3,12 @@
   "properties": {
     "summary_for_david": {
       "type": "string",
+      "minLength": 1,
       "description": "Three sentences for a product owner who cannot read code: what this round was about, whether anything should worry him, and the one thing worth his attention."
     },
     "what_happened": {
       "type": "string",
+      "minLength": 1,
       "description": "The round in plain English, finding by finding: what the reviewer was worried about in terms of outcomes, what the builder did about it, and whether the diff bears that out. Prose, in whatever shape reads best."
     },
     "disagreements": {
@@ -15,8 +17,8 @@
       "items": {
         "type": "object",
         "properties": {
-          "what": { "type": "string", "description": "What the builder's account says, and what you think instead." },
-          "why_it_matters": { "type": "string", "description": "What it would mean for David or for the work if you are right." }
+          "what": { "type": "string", "minLength": 1, "description": "What the builder's account says, and what you think instead." },
+          "why_it_matters": { "type": "string", "minLength": 1, "description": "What it would mean for David or for the work if you are right." }
         },
         "required": ["what", "why_it_matters"],
         "additionalProperties": false
@@ -28,6 +30,7 @@
     },
     "recommendation": {
       "type": "string",
+      "minLength": 1,
       "description": "One line: what, if anything, David should do."
     }
   },
