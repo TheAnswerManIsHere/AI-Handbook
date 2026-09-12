@@ -285,8 +285,16 @@ second one, from the round's own material.
 **What it reads:** the named round's threads whole — the reviewer's finding
 and every reply, verbatim, each labelled by author — the builder's comments on
 the pull request since that round, and the diff from the round's reviewed
-commit to the pull request's head. It holds `Read`, and the checkout is
-required to be at that head, so a file it opens is a file the round is about.
+commit to the pull request's head.
+
+**It holds no tools, and the brief is the whole of its evidence.** It declares
+`tools: none` — an explicit empty allowlist, distinct from an omitted field,
+which still refuses — and cannot open a file. An earlier version held `Read`,
+justified by a one-time check that the checkout sat at the snapshot's head;
+that check could not uphold what it claimed, because the tree is live, the
+dispatch is detached, and the round after this one proceeds while it runs. A
+translator that would have needed a file says so in `could_not_assess`
+instead.
 
 **What it cannot do:** anything. Nothing in the review loop, the budget or the
 merge gate reads its receipt — `git grep -n fable` over `pr-ready.mjs`,
@@ -295,16 +303,24 @@ mechanism. It is dispatched **after** the round's re-request is posted, so
 there is no moment at which the builder could act on it; if it catches
 something, raising it is David's, at the cost of a round.
 
-**Three refusals, and only three.** The round is **named** (`--round`), never
-"the latest pass" — Codex's next pass can land first, and then the round just
-answered silently vanishes. The snapshot must have been **captured after the
-builder's last comment on that round**, or the account would say a round went
-unanswered when it was answered. And both **diff endpoints come from the
-snapshot**, with the checkout required to match. Each one is a wrong account
-David would read as true; nothing else is checked, because the output is prose
-for a human rather than a ledger (David, 2026-09-12). A translation that
-misses a finding produces a paragraph missing a finding, which is visible on
-the page and costs nothing else.
+**What it refuses, and nothing beyond it.** The round is **named**
+(`--round`), never "the latest pass" — Codex's next pass can land first, and
+then the round just answered silently vanishes; its findings are attributed by
+`flattenMcpThreads`, which binds each to exactly one pass. The snapshot must
+have been **captured after that round's own pass and after the builder's last
+comment on it** — read too early and either the findings are missing (a round
+that reads as clean) or the replies are (a round that reads as unanswered).
+Both **diff endpoints come from the snapshot** and must resolve in this clone,
+so "what the builder pushed" is a real patch rather than an empty marker. And
+the snapshot must be **this repository's**, carrying the pull request's author
+— without whom every block is labelled `other` and the provenance the
+translator weighs is gone.
+
+Each is a wrong account David would read as true, which is the only thing
+worth a refusal here; nothing else is checked, because the output is prose for
+a human rather than a ledger (David, 2026-09-12). A translation that misses a
+finding produces a paragraph missing a finding, which is visible on the page
+and costs nothing else.
 
 **What David gets:** one private page per pull request, rebuilt from every
 receipt and redeployed in place each round, plus one line of chat per round
