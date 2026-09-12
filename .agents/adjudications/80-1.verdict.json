@@ -1,0 +1,42 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 80,
+  "recordPath": ".agents/adjudications/80-1.json",
+  "recordSha256": "cba40cd59d117358066817b0d8a251253c4b57f9d704f87622106c68cc5c5352",
+  "toolUseId": "toolu_01MgMgdzxDGLmcjfBHVEbxnp",
+  "agentId": "ad8ec13eef05189dc",
+  "decidedAt": "2026-09-12T01:42:22.057Z",
+  "transcript": "00070c3a-8145-5c7b-ab08-225a88325831.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, round 1 of a 3-round budget, criticality 35, artifact 104 added / 2 removed lines across two .agents/memory notes and zero code files; all three findings are P2 documentation-accuracy points and none reaches the internal rubric's critical bar (no destructive or irreversible action, no corruption of receipt/tracking machinery, no widening of authority). Two of the three (PRRT_kwDOUKOPKc6hr4aL, PRRT_kwDOUKOPKc6hr4aO) are premised on code in core/scripts/capture-from-transcript.mjs, which this diff never touches, so they are follow-up-issue shaped rather than rounds here; the third is a genuine consumer-path inaccuracy in prose. sinceLastReview.noChange is true as expected under the write-gate rule, and the record is transcript-recovered rather than agent-written, so I weigh it as ordinary evidence. Note that at round 1 this verdict is informational: the builder triages under its own Worth: test with the classifications below in hand.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6hr4aL — capture-from-transcript.mjs's missing-transcript refusal still advises re-dispatching in the foreground, which the new note establishes is not an available remedy; the script and its test are outside this diff and belong in a follow-up issue.",
+      "PRRT_kwDOUKOPKc6hr4aN — both notes reference the implementation as core/scripts/capture-from-transcript.mjs, which is the handbook path; a consumer repo receives it with the core/ prefix stripped, so a consumer agent following the reference finds nothing there.",
+      "PRRT_kwDOUKOPKc6hr4aO — the byte-exactness section lists 'a committed verdict' without noting that the committed artifact is re-serialized by recoverVerdict(), so a digest of it will not match the transcript text the note points at."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hr4aL",
+        "class": "unclassifiable-no-oracle",
+        "citation": "planOracle.sections is null (reason: \"trivial change\", declaredBy: \"declaration\"); the finding's target, core/scripts/capture-from-transcript.mjs:239-241, appears nowhere in artifact.patch, whose only files are the two core/.agents/memory/ notes",
+        "why": "The inconsistency it names is real, but it asks for a code-and-test change in a file this increment does not touch, and with no oracle there is no Product Intent or Must Not Change sentence against which to decide whether that is out of this increment's scope."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hr4aN",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Both cross-references added by the diff (the new note's Related bullet and the edited note's #75 bullet) spell the path with the core/ prefix that the sync strips for consumers, so this is a real accuracy defect in exactly the cross-referencing this PR set out to correct."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hr4aO",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The finding's remedy is available entirely inside the diff — the added sentence in 'The subagent transcript holds the ORIGINAL bytes' names 'a committed verdict' among the byte-exactness cases — so it is a precision defect in this increment's own prose rather than a premise that fails against the patch, even though the recoverVerdict() behaviour it cites cannot be verified from this record."
+      }
+    ]
+  }
+}
