@@ -34,6 +34,12 @@ Read the file to its end and keep the last assistant entry carrying non-empty
 `text`: a `thinking` block and interim chatter ("one moment") appear as earlier
 assistant entries, and the answer is the final one.
 
+**Recover only after the dispatch reports completion.** Nothing gates recovery
+on it, and a transcript read mid-run is either absent or ends on that interim
+chatter — so an early read looks like failure when the answer is still coming.
+Waiting costs nothing; the re-dispatch it would otherwise tempt you into costs
+a whole adjudication. (Codex, #80 round 2.)
+
 ## Why the foreground is not the remedy
 
 The obvious alternative is a contract line — *dispatch adjudicators in the
