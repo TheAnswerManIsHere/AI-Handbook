@@ -124,7 +124,44 @@ export function derivePosition(snapshot, { loop = null, snapshotPath = null, pre
   const observedRound = counted.delivered;
   const mine = previous && previous.pr === snapshot.pr.number && sameRepo(previous.repo, snapshot.repo);
   const observedPasses = highWater(mine ? previous.observedPasses : null, tallyByCommit(passes));
-  const round = Object.values(observedPasses).reduce((n, c) => n + c, 0);
+
+  // A POSITION WRITTEN BEFORE THE TALLY EXISTED STILL KNOWS ITS ROUND, AND
+  // THROWING THAT AWAY IS THE REGRESSION THIS FILE EXISTS TO PREVENT. Every
+  // position already on disk anywhere carries `round` and no `observedPasses`,
+  // so the first assembly after this ships finds a carry it cannot read and
+  // carries nothing. If the evidence happens to be lossy at that moment the
+  // round silently drops to the smaller fresh derivation -- and the deficit is
+  // gone for good, so it never recovers either. Measured: a legacy round 2
+  // became 1, and the next real pass made it 2 when the truth was 3.
+  // (Codex, #83 round 2.)
+  //
+  // The legacy file knows a TOTAL and not which commits it came from, so the
+  // shortfall is booked to a reserved key rather than invented against a
+  // commit. Booking the whole legacy round would double-count every pass the
+  // fresh evidence can already see; booking only the difference cannot, and
+  // when the fresh evidence already accounts for everything the legacy file
+  // knew, nothing is booked at all.
+  //
+  // THIS RUNS ONCE. The write that reads a legacy position replaces it with a
+  // tallied one, so the branch is dead from then on -- which is why a bound
+  // here cannot become the permanently-trailing floor it replaced.
+  //
+  // The residual, named rather than hidden: if the capture is incomplete at
+  // exactly this one write, the shortfall is booked and a later complete
+  // capture re-counts those passes, so the round runs one high and close-out
+  // refuses a round that never happened. That is louder and rarer than the
+  // alternative -- it needs a short capture on the single transition write,
+  // where dropping the round needs only the recurring summary-row rewrite --
+  // and a refusal is discovered, where a silent omission is not.
+  if (mine && !isTally(previous.observedPasses)) {
+    // Strict, like the tally's own entries: a machine wrote this file, so a
+    // round that is a string or a float is corruption, not a value to coerce.
+    const legacy = previous.round;
+    const seen = total(observedPasses);
+    if (Number.isInteger(legacy) && legacy > seen) observedPasses[PRE_TALLY] = legacy - seen;
+  }
+
+  const round = total(observedPasses);
 
   return {
     pr: snapshot.pr.number,
@@ -144,6 +181,20 @@ export function derivePosition(snapshot, { loop = null, snapshotPath = null, pre
     writtenAt: now.toISOString(),
   };
 }
+
+/**
+ * Where a round carried from a position written before the tally existed is
+ * booked. That file knows a total and not which commits it came from, so the
+ * shortfall gets a key of its own. It never prefix-matches a commit sha, and
+ * it is carried forward like any other entry once written.
+ */
+const PRE_TALLY = "pre-tally";
+
+/** A tally is a plain object of counts. An array's indices are not commits. */
+const isTally = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+
+/** The round: every pass this PR has ever been seen to have. */
+const total = (tally) => Object.values(tally).reduce((n, c) => n + c, 0);
 
 /**
  * How many passes the evidence currently shows for each commit. The commit is
@@ -184,7 +235,7 @@ const tallyByCommit = (passes) => {
  */
 const highWater = (carried, current) => {
   const out = { ...current };
-  const prior = carried && typeof carried === "object" && !Array.isArray(carried) ? carried : {};
+  const prior = isTally(carried) ? carried : {};
   for (const [commit, n] of Object.entries(prior)) {
     if (!Number.isInteger(n) || n < 0) continue;
     const match = Object.keys(out).find((k) => sameCommit(k, commit));

@@ -1750,6 +1750,64 @@ test("R26: a pass landing after a loss still counts, and a restored capture does
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("R26: a position written before the tally existed keeps its round", () => {
+  // THE UPGRADE IS ITSELF A ROUND THAT CAN BE LOST. Every position on disk
+  // anywhere carries `round` and no `observedPasses`, so the first assembly
+  // under this version finds a carry it cannot read. Carrying nothing there
+  // drops the round to the fresh derivation -- and if the evidence is lossy at
+  // that moment the drop is silent and permanent, because the deficit is gone
+  // for good. Measured before the fix: a legacy round 2 became 1, and the next
+  // real pass made it 2 when the truth was 3. (Codex, #83 round 2.)
+  const commit = (n) => String(n).repeat(40);
+  const pass = (n) => ({
+    id: 900200 + n,
+    user: { login: BOT },
+    state: "COMMENTED",
+    submitted_at: T(`2026-09-12T1${n}:00:00Z`),
+    commit_id: commit(n),
+    body: "**Reviewed commit:** " + commit(n),
+    html_url: url(`pullrequestreview-${900200 + n}`),
+  });
+  const showing = (...ns) => {
+    const s = snapshot();
+    s.reviews = ns.map(pass);
+    return s;
+  };
+  // A parent-version position: a round, and no tally to read.
+  const legacy = (round) => ({ pr: PR, repo: SLUG, round, observedRound: round });
+
+  // The evidence is lossy on the very write that upgrades the file.
+  const upgraded = derivePosition(showing(2), { previous: legacy(2) });
+  assert.equal(upgraded.observedRound, 1, "the fresh evidence really has lost a pass");
+  assert.equal(upgraded.round, 2, "and the legacy round survives the upgrade");
+  assert.equal(upgraded.observedPasses["pre-tally"], 1, "the shortfall is booked, since the legacy file cannot say which commit it was");
+
+  // AND IT RECOVERS. The booked shortfall is carried like any other entry, so
+  // the next real pass lands on top of it rather than filling the hole.
+  const next = derivePosition(showing(2, 3), { previous: upgraded });
+  assert.equal(next.round, 3, "a pass after the upgrade counts on top of the carried shortfall");
+
+  // NOTHING IS BOOKED WHEN NOTHING IS MISSING, which is what stops the legacy
+  // round being counted a second time on top of the passes it was counting.
+  const complete = derivePosition(showing(1, 2), { previous: legacy(2) });
+  assert.equal(complete.round, 2, "a complete capture at the upgrade is not inflated by the legacy round");
+  assert.ok(!("pre-tally" in complete.observedPasses), "and nothing is booked at all");
+
+  // A legacy round the fresh evidence already exceeds books nothing either.
+  assert.equal(derivePosition(showing(1, 2), { previous: legacy(1) }).round, 2, "the evidence still leads when it is ahead");
+
+  // AND A LEGACY ROUND IS STILL ONLY CARRIED FROM OUR OWN POSITION.
+  assert.equal(derivePosition(showing(2), { previous: { ...legacy(9), repo: "Other/Repo" } }).round, 1, "not another repository's");
+  assert.equal(derivePosition(showing(2), { previous: { ...legacy(9), pr: 999 } }).round, 1, "not another PR's");
+  for (const junk of [undefined, null, "2", 0, -1, 1.5, NaN]) {
+    assert.equal(
+      derivePosition(showing(2), { previous: { pr: PR, repo: SLUG, round: junk } }).round,
+      1,
+      `a legacy position with an unusable round books nothing: ${String(junk)}`,
+    );
+  }
+});
+
 test("R26: one pass seen in both announcement shapes is one pass, not two", () => {
   // THE CARRY'S OWN WAY OF BEING WRONG, and it faces the opposite way to the
   // undercount it fixes. A pass announces itself with a `Reviewed commit`
