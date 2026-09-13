@@ -272,10 +272,10 @@ implementation PR:
 - **Dispatch the adjudicator on any round that returned findings, from round
   1. Its VERDICT decides from round 3 onward (David, 2026-08-22; the earlier
   dispatch is AI-Handbook #36 Phase 1).** A round with no findings (or all
-  declines) dispatches nothing, and **neither does a PR with no oracle** — a
-  `trivial` provenance gives the conformance half nothing to classify
-  against, so every finding can only come back `unclassifiable` (#80). The
-  round-3 write-or-stop dispatch is unaffected: it rules on findings. Triage the round's findings first — nature,
+  declines) dispatches nothing. **A PR with no plan oracle still dispatches**
+  — a `trivial` provenance only costs the conformance half
+  `out-of-product-intent`; the threat model is present on every tier and the
+  other classes cite it or the diff (#80, corrected by #86). Triage the round's findings first — nature,
   affected area, verdict (fix / accept-and-document / escalate / decline), and
   the causal flag (new ground vs. repairing an earlier round's fix vs.
   impossible-as-specified). Then build the evidence and dispatch:

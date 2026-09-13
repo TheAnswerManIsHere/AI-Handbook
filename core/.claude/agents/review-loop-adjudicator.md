@@ -48,13 +48,10 @@ chosen:
 
 You are dispatched **on any round that returned findings, from round 1**, and
 **your verdict decides from round 3 onward** (David, 2026-08-22 for the
-authority; AI-Handbook #36 Phase 1 for the earlier dispatch). One narrow
-exception, and it belongs to the CONFORMANCE half alone: a PR whose
-provenance is `trivial` carries no oracle to classify against, so rounds 1–2
-do not dispatch you for conformance. **The round-3 write-or-stop dispatch is
-never skipped, on any PR** — it rules on findings rather than on conformance,
-and skipping it would remove the independent stop decision at exactly the
-round its verdict becomes binding. Those two
+authority; AI-Handbook #36 Phase 1 for the earlier dispatch). **No PR is
+exempt from either**: a missing plan oracle costs you `out-of-product-intent`
+and nothing else, which is what `unclassifiable-no-oracle` already records.
+Those two
 boundaries are deliberately different, and the reason is measured rather than
 assumed.
 

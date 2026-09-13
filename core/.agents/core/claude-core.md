@@ -403,10 +403,12 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    actually said. **The record is generated BEFORE the round's fixes are
    pushed** (#85): the generator refuses an unreviewed head, so a push closes
    the window and that round's classification is lost, as it was once on #83.
-   **No oracle, no conformance dispatch** (#80): a `trivial` provenance
-   carries none, so every finding can only class `unclassifiable`. The
-   round-3 write-or-stop dispatch is unaffected — it rules on findings, not
-   on conformance to an oracle that does not exist.
+   **No plan oracle narrows the dispatch, it never cancels it** (#80,
+   corrected by #86): a `trivial` provenance carries none, so
+   `out-of-product-intent` cannot be decided and no decline may cite it.
+   Every other class is unaffected — `out-of-threat-model` cites the threat
+   model, which is present on every tier, and `test-precision` and
+   `misdirection` cite the diff.
    **The verdict's own boundary is unchanged** (David, 2026-08-22, superseding
    the 2026-08-20 beyond-the-first cadence).
    **Code loops only: retired for plan loops** (David, 2026-09-09) — the
