@@ -727,16 +727,16 @@ proceeds whether or not it has returned; **nothing in the loop waits on it and
 nothing in the loop reads it.**
 
 **At close-out, wait on EVERY ROUND THAT HAPPENED** — not just the stopping
-round's, and not just the rounds that produced a snapshot. It takes the
-close-out snapshot and nothing else:
+round's, and not just the rounds that produced a snapshot. It takes the PR
+number and nothing else; the round bound comes from the loop position:
 
 ```
-node scripts/round-translation-closeout.mjs --pr <n> \
-  --mcp-snapshot "$PWD/.agents/reviews/pr-<n>/snap-r<r>.json"
+node scripts/round-translation-closeout.mjs --pr <n>
 ```
 
-Non-zero means a round has no account, and the message names which. That is a
-stop: go back to step 2 for each one before the merge ask.
+Non-zero means a round has no account, and the message names which — or that
+the position is missing or older than an hour, in which case assemble a fresh
+snapshot (step 2) first. Either way it is a stop before the merge ask.
 
 **The bound is derived, never typed, and that is the whole point of the
 script.** Enumerating `snap-r*.json` asks *which rounds produced a snapshot*,
@@ -751,10 +751,30 @@ exists to prevent. (Codex, #81 round 9.)
 Counting the rounds fixes that — but **a count the operator types reintroduces
 it**, because an undercount (3 after a fourth pass landed) produces a check that
 examines three rounds, finds them all accounted for, and reports success while
-omitting the fourth. Same silent omission, different route. So the script asks
-`reviewerPasses` — the counter the budget guard and the record builder already
-use — of the snapshot it was handed. A value this code holds is never a value
-it accepts. (Codex, #82 round 1.)
+omitting the fourth. Same silent omission, different route (Codex, #82 round
+1). And **a snapshot the operator names reintroduces it once more**: in gap
+16's own scenario the newest round has no snapshot, so the operator names the
+previous one and the count is the previous count (D0, #82 round 1).
+
+**So the round is not derived here at all. It is read from the loop position**
+— `.agents/reviews/pr-<n>/loop-position.json`, written by
+`snapshot-from-captures.mjs` every time a snapshot is assembled, from the
+evidence it just verified, and read by `loop-position.mjs`. One file, one
+writer, one reader, and I never type a round number anywhere (David,
+2026-09-13: *"one simple helper function that you can call at any time you
+need to that tells you exactly where we are in the loop"*). Close-out refuses a
+position older than the merge gate's own hour, because a round could have
+landed since; the fix for that is the ordinary step-2 capture, never an edit.
+
+**Any time I need to know where the loop is:**
+
+```
+node scripts/loop-position.mjs --pr <n>
+```
+
+It prints one line — round, allowance, tier, head, and how old the evidence is
+— and exits non-zero when the position is stale, so a stale answer cannot be
+mistaken for a current one.
 
 **It reports, it never composes.** The script says which rounds have no
 account and stops. It does not print a *translation unavailable* line for them:

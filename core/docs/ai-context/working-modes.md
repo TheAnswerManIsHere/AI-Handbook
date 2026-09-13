@@ -613,10 +613,14 @@ the safety net a non-code-reading product manager depends on.
   `scripts/review-budget.mjs`, which refuses the `@codex review` post when the
   loop is out of rounds **and it has been handed a count** — below the cap a
   post with no round-check receipt is allowed and noted (David, 2026-09-10);
-  near the cap the count is run so the guard enforces it. When rounds are
-  counted they are **counted fresh from GitHub**, never stored: a committed
-  tally is a cache of state GitHub already holds, and it failed exactly that
-  way when it was tried.
+  near the cap the count is run so the guard enforces it. Rounds are
+  **counted from fresh GitHub evidence, at the one place that evidence enters**
+  — `snapshot-from-captures.mjs` writes the loop position from every snapshot
+  it assembles, `scripts/loop-position.mjs --pr <n>` reads it, and nothing
+  else derives or types a round (David, 2026-09-13). A committed tally was
+  tried once and failed because a hand-maintained count drifts from GitHub;
+  the position is a stamped cache of a derivation, refused when stale, and
+  refreshed only by assembling a snapshot.
 - **The external adjudicator is dispatched on any round that returned
   findings, from round 1, and its VERDICT rules from round 3 onward — before
   anything is written for them** (David, 2026-08-22, superseding the

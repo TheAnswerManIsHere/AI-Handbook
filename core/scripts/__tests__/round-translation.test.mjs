@@ -23,7 +23,9 @@ import {
 } from "../round-translation-record.mjs";
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
-import { roundsIn, roundState, waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
+import { roundState, waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
+import { derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
+import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -1139,7 +1141,8 @@ test("R20: every path expansion in the pr-watch recipes is quoted", () => {
   // And the two that bit. The close-out glob that carried the original finding
   // is gone -- the wait is a script now -- so what stands in its place is the
   // command that replaced it, whose one path argument is quoted.
-  assert.match(skill, /--mcp-snapshot "\$PWD\/\.agents\/reviews\/pr-<n>\/snap-r<r>\.json"/, "the close-out snapshot path is quoted");
+  assert.match(skill, /node scripts\/round-translation-closeout\.mjs --pr <n>\n/, "the close-out command takes the PR number and nothing else");
+  assert.ok(!/round-translation-closeout\.mjs[^\n]*--mcp-snapshot/.test(skill), "and is never pointed at a snapshot file");
   assert.match(skill, /mkdir -p "\$D"/, "and so is the capture directory");
 });
 
@@ -1387,50 +1390,98 @@ test("R24: every snapshot collection the record reads is deduplicated", () => {
   assert.match(src, /const seen = new Set\(\);\n  return \(snapshot\.issueComments/, "commentsSincePass dedupes");
 });
 
-test("R25: close-out derives its round bound from the snapshot, never from an argument", () => {
-  // Gap 16's hole was that close-out enumerated snapshots that exist rather
-  // than rounds that happened, so a round whose capture assembly failed was
-  // silently absent from the merge ask. Counting rounds fixes that -- but a
-  // count the OPERATOR types reintroduces it: undercount by one and the check
-  // reports success while omitting exactly the round it exists to guarantee.
-  // (Codex, #82 round 1.)
-  //
-  // Asserted as behaviour: the same directory, read against two snapshots
-  // that differ only in how many passes they record, must give two answers.
-  const three = snapshot();
-  assert.equal(roundsIn(three), 1, "the base fixture records one pass, so this test is not vacuous");
+test("R25: the loop position is derived from the evidence, and the round follows it", () => {
+  // Gap 16's hole was close-out enumerating snapshots that exist rather than
+  // rounds that happened. Counting rounds fixed that; a count the OPERATOR
+  // typed reintroduced it (Codex, #82 round 1); a snapshot the operator NAMED
+  // reintroduced it again (D0, #82 round 1). So the round is not derived at
+  // the point of use at all. It is derived once, where evidence enters, and
+  // written to one file. (David, 2026-09-13.)
+  const one = snapshot();
+  const p1 = derivePosition(one);
+  assert.equal(p1.round, 1, "the base fixture records one pass, so this test is not vacuous");
+  assert.equal(p1.pr, PR);
+  assert.equal(p1.head, HEAD);
+  assert.equal(p1.lastPassCommit, REVIEWED);
+  assert.equal(p1.pendingRequest, false);
+  assert.equal(p1.tier, null, "no budget yet is a legitimate state -- internal tiers declare at the first re-request");
+  assert.equal(p1.allowance, null);
+  assert.equal(p1.capturedAt, capturedAtOf(one), "stamped with the evidence's own (oldest) capture time, not the clock");
 
-  // A second pass in the fixture must move the bound by itself.
-  three.reviews.push({
-    id: 900009,
-    user: { login: BOT },
-    state: "COMMENTED",
-    submitted_at: T("2026-09-12T11:45:00Z"),
-    commit_id: HEAD,
-    body: "**Reviewed commit:** " + HEAD,
-    html_url: url("pullrequestreview-900009"),
+  // A second pass in the evidence moves the round by itself.
+  one.reviews.push({
+    id: 900009, user: { login: BOT }, state: "COMMENTED", submitted_at: T("2026-09-12T11:45:00Z"),
+    commit_id: HEAD, body: "**Reviewed commit:** " + HEAD, html_url: url("pullrequestreview-900009"),
   });
-  assert.equal(roundsIn(three), 2, "the bound follows the evidence, with nothing passed in");
+  assert.equal(derivePosition(one).round, 2, "the round follows the evidence, with nothing passed in");
 
-  // AND THE BOUND IS WHAT DECIDES. With only round 1 accounted for, a
-  // one-round snapshot passes and a two-round snapshot reports round 2 --
-  // the undercount case, made mechanical.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
-  fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
-  fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
-  assert.equal(roundState(dir, 1), "done");
-  assert.equal(roundState(dir, 2), "missing", "a round with neither snapshot nor exit file is missing, not pending");
+  // A budget, when one exists, gives the allowance -- through the same
+  // `allowance()` the guard uses, never a second formula.
+  const budgeted = derivePosition(one, { loop: { tier: "internal", extensions: [] } });
+  assert.equal(budgeted.tier, "internal");
+  assert.equal(budgeted.allowance, 3);
+});
 
-  fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
-  assert.equal(roundState(dir, 2), "pending", "dispatched and not yet returned is its own state, never 'missing'");
+test("R25: one writer, one reader, and staleness is a field rather than a guess", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "loop-pos-"));
+  const snap = snapshot();
+  const io = { durableRef: () => null }; // no upstream: the round still gets written
+  const written = writeLoopPosition(root, snap, { snapshotPath: "/x/snap-r1.json", io });
+  assert.equal(written.path, positionPath(root, PR));
+  assert.ok(fs.existsSync(written.path), "the position lands in the PR's reviews directory");
 
-  fs.rmSync(dir, { recursive: true, force: true });
+  const evidenceAt = Date.parse(capturedAtOf(snap));
+  const fresh = loopPosition(root, PR, { now: evidenceAt + 60_000 });
+  assert.equal(fresh.round, 1);
+  assert.equal(fresh.snapshot, "/x/snap-r1.json");
+  assert.equal(fresh.stale, false);
+  assert.equal(fresh.ageMs, 60_000);
+  assert.match(describePosition(fresh), /^PR #81: round 1 \(no budget declared yet\), head f00dcaf, as of .* \(1 min ago\)$/);
+
+  // THE SAME FILE, READ AFTER THE BOUND, SAYS SO. A stale answer must not be
+  // mistakable for a current one -- that is the whole hole a hand-named
+  // snapshot had.
+  const later = loopPosition(root, PR, { now: evidenceAt + MAX_SNAPSHOT_AGE_MS + 1 });
+  assert.equal(later.stale, true);
+  assert.match(describePosition(later), /STALE, assemble a fresh snapshot/);
+
+  // No file, no position: null, never a fabricated zero.
+  assert.equal(loopPosition(root, 999), null);
+  assert.match(describePosition(null), /no snapshot has been assembled/);
+
+  // The CLI reports the same, and its exit code carries staleness.
+  const said = []; const out = [];
+  const okExit = positionMain(["--pr", String(PR)], { root, slug: SLUG, log: { write: (t) => said.push(t) }, out: { write: (t) => out.push(t) } });
+  assert.equal(positionMain(["--pr", String(PR)], { root, slug: "Other/Repo", log: { write: (t) => said.push(t) }, out: { write: () => {} } }), 2, "a position written for another repository is refused");
+  assert.equal(okExit, 1, "the fixture is dated 2026-09-12, so by the time this test runs it is stale and the CLI says so");
+  assert.match(out.join(""), /STALE/);
+  assert.equal(positionMain(["--pr", "abc"], { root, log: { write: (t) => said.push(t) }, out: { write: () => {} } }), 2);
+  assert.equal(positionMain(["--pr", "1", "--rounds", "4"], { root, log: { write: (t) => said.push(t) }, out: { write: () => {} } }), 2, "there is no way to hand it a round");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R25: the snapshot assembler is the writer, checked as wiring rather than assumed", () => {
+  // The direct tests above pass with the call removed from the assembler --
+  // the hollow-test shape this suite has been burned by (#81 round 2). So the
+  // wiring is asserted against the source: the one place fresh evidence
+  // enters this machinery is the one place the position is written.
+  const src = fs.readFileSync(new URL("../snapshot-from-captures.mjs", import.meta.url), "utf8");
+  assert.match(src, /import \{ writeLoopPosition[^}]*\} from "\.\/loop-position\.mjs"/, "the assembler imports the writer");
+  assert.match(src, /writeFileSync\(out, [^\n]*\n[\s\S]{0,600}writeLoopPosition\(REPO_ROOT, snapshot/, "and calls it right after writing the snapshot");
+
+  // And nothing else writes it. `positionPath` has exactly one writer.
+  const files = fs.readdirSync(new URL("..", import.meta.url)).filter((f) => f.endsWith(".mjs"));
+  const writers = files.filter((f) => /writeLoopPosition\(/.test(fs.readFileSync(new URL(`../${f}`, import.meta.url), "utf8")));
+  assert.deepEqual(writers.sort(), ["loop-position.mjs", "snapshot-from-captures.mjs"], "one definition, one caller");
 });
 
 test("R25: the close-out wait reports every missing round and never waits on one", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
   fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
   fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
+  assert.equal(roundState(dir, 1), "done");
+  assert.equal(roundState(dir, 2), "missing", "a round with neither snapshot nor exit file is missing, not pending");
 
   // Rounds 2 and 3 happened and produced nothing. Both are named -- a
   // close-out told about one gap at a time is a close-out run twice -- and
@@ -1445,6 +1496,7 @@ test("R25: the close-out wait reports every missing round and never waits on one
   // lands -- a check that reported everything missing would pass the
   // assertions above and break the step's actual job.
   fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
+  assert.equal(roundState(dir, 2), "pending", "dispatched and not yet returned is its own state, never 'missing'");
   let ticks = 0;
   const landed = await waitForRounds(dir, 2, {
     sleep: async () => {
@@ -1466,24 +1518,52 @@ test("R25: the close-out wait reports every missing round and never waits on one
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test("R25: the close-out script refuses a snapshot for another pull request", async () => {
-  // The bound is only trustworthy if it was derived from THIS PR's evidence.
-  // A snapshot for #99 would produce #99's pass count and silently bound
-  // #82's close-out with it.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
-  const snapPath = path.join(dir, "snap.json");
-  fs.writeFileSync(snapPath, JSON.stringify(snapshot()));
+test("R25: close-out reads the position and refuses a missing, stale or foreign one", async () => {
+  // The undercount and the mis-named snapshot were the same hole: a bound
+  // the operator could get wrong. Now there is nothing to get wrong -- no
+  // argument carries a round, and the position is refused when it could
+  // predate one.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
   const said = [];
-  const log = { write: (s) => said.push(s) };
+  const log = { write: (t) => said.push(t) };
+  const run = (argv, opts = {}) => closeoutMain(argv, { root, log, slug: SLUG, ...opts });
 
-  const wrongPr = await closeoutMain(["--pr", "999", "--mcp-snapshot", snapPath], { root: dir, log });
-  assert.equal(wrongPr, 2, "a snapshot for another PR is refused, not counted");
-  assert.match(said.join(""), /not #999/);
+  assert.equal(await run(["--pr", String(PR), "--rounds", "4"]), 2, "there is no way to hand it a round count");
+  assert.match(said.join(""), /unknown argument/); said.length = 0;
 
+  assert.equal(await run(["--pr", String(PR)]), 1, "no position: refused, with the remedy named");
+  assert.match(said.join(""), /no snapshot has been assembled/); said.length = 0;
+
+  const snap = snapshot();
+  snap.reviews.push({
+    id: 900009, user: { login: BOT }, state: "COMMENTED", submitted_at: T("2026-09-12T11:45:00Z"),
+    commit_id: HEAD, body: "**Reviewed commit:** " + HEAD, html_url: url("pullrequestreview-900009"),
+  });
+  writeLoopPosition(root, snap, { io: { durableRef: () => null } });
+  const fresh = Date.parse(capturedAtOf(snap)) + 1000;
+
+  // THE POSITION IS THE BOUND. Two passes in the evidence, one round on disk:
+  // round 2 is named as missing, exactly the undercount case made mechanical.
+  const dir = path.join(root, ".agents", "reviews", `pr-${PR}`);
+  fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
+  fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
+  assert.equal(await run(["--pr", String(PR), "--timeout-sec", "1"], { now: fresh }), 1);
+  assert.match(said.join(""), /PR #81: round 2 \(no budget declared yet\)/, "the bound came from the position, budget or no budget");
+  assert.match(said.join(""), /round\(s\) 2 --/, "and round 2 is named");
   said.length = 0;
-  const badArg = await closeoutMain(["--rounds", "4"], { root: dir, log });
-  assert.equal(badArg, 2, "and there is no way to hand it a round count");
-  assert.match(said.join(""), /unknown argument/);
 
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
+  fs.writeFileSync(path.join(dir, "d0-r2.exit"), "0\n");
+  assert.equal(await run(["--pr", String(PR)], { now: fresh }), 0, "both rounds accounted for");
+  said.length = 0;
+
+  // STALE: the same file, read an hour on, is refused rather than trusted.
+  assert.equal(await run(["--pr", String(PR)], { now: fresh + MAX_SNAPSHOT_AGE_MS + 1 }), 1);
+  assert.match(said.join(""), /older than 60 minutes/); said.length = 0;
+
+  // FOREIGN: a position written for another repository never bounds this one.
+  assert.equal(await run(["--pr", String(PR)], { now: fresh, slug: "Other/Repo" }), 2);
+  assert.match(said.join(""), /written for TestOwner\/TestRepo, not Other\/Repo/);
+
+  fs.rmSync(root, { recursive: true, force: true });
 });

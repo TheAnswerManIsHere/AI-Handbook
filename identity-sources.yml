@@ -559,3 +559,53 @@
     proves the captured URLs agree with this value, which a snapshot from
     another repository does perfectly well -- so the comparison against config
     is what ties the conversation to this checkout. (Codex, #81 round 1.)
+
+# --- loop position (David, 2026-09-13): one file, one writer, one reader ---
+
+- key: "loop-position.mjs :: derivePosition :: repo: snapshot.repo ?? null,"
+  source: github
+  why: >-
+    What the captured snapshot says about itself, stamped into the position so
+    the reader can compare it to the configured identity later. Nothing branches
+    on it here; the assembler's own provenance check has already refused a
+    capture from anywhere else.
+
+- key: "loop-position.mjs :: main :: const ours = slug ?? repoSlug();"
+  source: config
+  why: >-
+    The configured identity, used as the trusted side of the comparison below.
+    Overridable only by the test suite, which must drive the refusal without
+    owning the checkout's own configuration.
+
+- key: "loop-position.mjs :: main :: if (pos && pos.repo && pos.repo.toLowerCase() !== String(ours).toLowerCase()) {"
+  source: artifact
+  why: >-
+    The loop position is an artifact this machinery wrote from a verified
+    snapshot, and it names the repository that snapshot came from. Compared to
+    the configured identity and refused on mismatch, so a position written in
+    one checkout can never bound close-out in another.
+
+- key: "loop-position.mjs :: main :: log.write(`loop-position: ${positionPath(root, pr)} was written for ${pos.repo}, not ${ours}\\n`);"
+  source: message
+  why: >-
+    Text a human reads when the comparison above refuses; decides nothing.
+
+- key: "round-translation-closeout.mjs :: main :: const ours = slug ?? repoSlug();"
+  source: config
+  why: >-
+    The configured identity, used as the trusted side of the comparison below.
+    Overridable only by the test suite, which must drive the refusal without
+    owning the checkout's own configuration.
+
+- key: "round-translation-closeout.mjs :: main :: if (pos.repo && pos.repo.toLowerCase() !== String(ours).toLowerCase()) {"
+  source: artifact
+  why: >-
+    The loop position is an artifact this machinery wrote from a verified
+    snapshot, and it names the repository that snapshot came from. Compared to
+    the configured identity and refused on mismatch, so a position written in
+    one checkout can never bound close-out in another.
+
+- key: "round-translation-closeout.mjs :: main :: log.write(`round-translation-closeout: the loop position was written for ${pos.repo}, not ${ours}\\n`);"
+  source: message
+  why: >-
+    Text a human reads when the comparison above refuses; decides nothing.

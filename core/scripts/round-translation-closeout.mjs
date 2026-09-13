@@ -35,22 +35,34 @@
  * dispatch and is a guardrail carve-out; a close-out helper has no business
  * widening its flag table.
  *
+ * THE BOUND COMES FROM `loop-position.mjs`, NOT FROM A FILE THIS COMMAND IS
+ * POINTED AT. The first version of this script derived the count from a
+ * snapshot the operator named on the command line -- and in gap 16's own
+ * scenario, a round whose capture failed has no snapshot, so the operator
+ * names the previous one and gets the previous count. Same silent omission,
+ * one step removed (D0, #82 round 1). Now there is nothing to name: the
+ * position is the file the snapshot assembler writes from fresh evidence, and
+ * this command refuses one older than the merge gate's own freshness bound.
+ * "Refresh" is the ordinary step-2 capture, never an edit. (David, 2026-09-13.)
+ *
  * USAGE
- *   node scripts/round-translation-closeout.mjs --pr <n> --mcp-snapshot <file>
- *        [--timeout-sec <s>]   default 900
+ *   node scripts/round-translation-closeout.mjs --pr <n> [--timeout-sec <s>]
+ *        default timeout 900
  *
  * EXIT CODES
  *   0  every round that happened has an exit file
- *   1  a round has no account, or a dispatch did not finish in time
- *   2  the arguments or the snapshot are unusable
+ *   1  a round has no account, a dispatch did not finish in time, or the
+ *      position is missing or stale (assemble a fresh snapshot first)
+ *   2  the arguments are unusable
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { reviewerPasses } from "./review-counting.mjs";
-import { assertSnapshotIsForPr } from "./round-translation-record.mjs";
+import { MAX_SNAPSHOT_AGE_MS } from "./review-counting.mjs";
+import { repoSlug } from "./review-budget.mjs";
+import { loopPosition, describe } from "./loop-position.mjs";
 import { repoRoot } from "./fable-dispatch.mjs";
 
 /** How often the wait re-checks. The shell loop used the same interval. */
@@ -58,18 +70,6 @@ export const POLL_MS = 5000;
 
 /** Where a PR's round artifacts live, relative to the repo root. */
 export const reviewsDir = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`);
-
-/**
- * How many reviewer passes this snapshot records.
- *
- * THE WHOLE POINT OF THE FILE: this number is asked of the evidence, never of
- * the operator. `reviewerPasses` is the counter the budget guard and the
- * record builder already use, so close-out's bound cannot disagree with the
- * round numbers everything else derives.
- */
-export function roundsIn(snapshot) {
-  return reviewerPasses(snapshot.reviews ?? [], snapshot.issueComments ?? []).length;
-}
 
 /**
  * Classify one round from what is on disk. Three states, not two.
@@ -108,8 +108,8 @@ export async function waitForRounds(dir, rounds, { timeoutMs = 900_000, pollMs =
 }
 
 export function parseArgs(argv) {
-  const out = { pr: null, snapshot: null, timeoutSec: 900 };
-  const KNOWN = new Set(["--pr", "--mcp-snapshot", "--timeout-sec"]);
+  const out = { pr: null, timeoutSec: 900 };
+  const KNOWN = new Set(["--pr", "--timeout-sec"]);
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (!KNOWN.has(a)) throw new Error(`unknown argument ${JSON.stringify(a)}`);
@@ -117,19 +117,17 @@ export function parseArgs(argv) {
     if (v === undefined || v.startsWith("--")) throw new Error(`${a} needs a value`);
     i += 1;
     if (a === "--pr") out.pr = Number(v);
-    else if (a === "--mcp-snapshot") out.snapshot = v;
     else out.timeoutSec = Number(v);
   }
   // WELL-FORMEDNESS ONLY on the two that are genuinely the caller's to choose:
   // which PR, and how long to wait. Neither is derivable from anything this
-  // process holds, which is exactly what separates them from `<rounds>`.
+  // process holds. The round bound is not an argument at all.
   if (!Number.isInteger(out.pr) || out.pr <= 0) throw new Error("--pr must be a positive whole number");
-  if (!out.snapshot) throw new Error("--mcp-snapshot is required");
   if (!Number.isFinite(out.timeoutSec) || out.timeoutSec <= 0) throw new Error("--timeout-sec must be a positive number of seconds");
   return out;
 }
 
-export async function main(argv = process.argv.slice(2), { root = null, log = process.stderr } = {}) {
+export async function main(argv = process.argv.slice(2), { root = null, log = process.stderr, now = Date.now(), slug = null } = {}) {
   let args;
   try {
     args = parseArgs(argv);
@@ -138,19 +136,34 @@ export async function main(argv = process.argv.slice(2), { root = null, log = pr
     return 2;
   }
 
-  let snapshot;
-  try {
-    snapshot = JSON.parse(fs.readFileSync(args.snapshot, "utf8"));
-    assertSnapshotIsForPr(args.pr, snapshot);
-  } catch (e) {
-    log.write(`round-translation-closeout: ${e.message}\n`);
+  const here = root ?? repoRoot();
+  const pos = loopPosition(here, args.pr, { now });
+  if (!pos) {
+    log.write(
+      `round-translation-closeout: no loop position for PR #${args.pr} -- no snapshot has been assembled for it in this ` +
+        `checkout. Assemble one (step 2) and run this again.\n`,
+    );
+    return 1;
+  }
+  const ours = slug ?? repoSlug();
+  if (pos.repo && pos.repo.toLowerCase() !== String(ours).toLowerCase()) {
+    log.write(`round-translation-closeout: the loop position was written for ${pos.repo}, not ${ours}\n`);
     return 2;
   }
+  log.write(`round-translation-closeout: ${describe(pos)}\n`);
+  // THE FRESHNESS BOUND IS THE MERGE GATE'S, reused rather than invented. A
+  // position older than this could predate a whole round -- the exact hole a
+  // hand-named snapshot had -- so close-out refuses it and says what to do.
+  if (pos.stale) {
+    log.write(
+      `round-translation-closeout: that position is older than ${MAX_SNAPSHOT_AGE_MS / 60000} minutes, so a round ` +
+        `could have landed since. Assemble a fresh snapshot (step 2) and run this again.\n`,
+    );
+    return 1;
+  }
 
-  const here = root ?? repoRoot();
   const dir = reviewsDir(here, args.pr);
-  const rounds = roundsIn(snapshot);
-  log.write(`round-translation-closeout: ${rounds} completed reviewer pass(es) on PR #${args.pr}, derived from the snapshot\n`);
+  const rounds = pos.round;
   if (rounds === 0) return 0;
 
   const { missing, timedOut } = await waitForRounds(dir, rounds, { timeoutMs: args.timeoutSec * 1000 });

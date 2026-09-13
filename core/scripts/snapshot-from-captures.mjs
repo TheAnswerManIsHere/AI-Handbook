@@ -71,6 +71,9 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { REPO_ROOT } from "./review-budget.mjs";
+import { writeLoopPosition, loopPosition, describe } from "./loop-position.mjs";
+
 /**
  * The collections whose contents this file can prove, in the order the
  * refusals should be read. `pr` is one of them now: its two shas decide the
@@ -560,6 +563,13 @@ export function main(argv = process.argv.slice(2)) {
   assertCaptureProvenance(snapshot);
   writeFileSync(out, `${JSON.stringify(snapshot, null, 1)}\n`);
 
+  // THE ONE PLACE THE LOOP POSITION IS WRITTEN. Every snapshot, for every
+  // purpose, passes through here, so this is where "which round are we on"
+  // gets its durable home -- derived from the evidence just verified, never
+  // typed. Everything downstream reads `loop-position.mjs`; nothing re-derives
+  // it from a file it chose. (David, 2026-09-13.)
+  const position = writeLoopPosition(REPO_ROOT, snapshot, { snapshotPath: resolve(out) });
+
   const sources = VERIFIED_COLLECTIONS.filter((k) => captures[k].length)
     .map((k) => `${k} ${[...new Set(captures[k].map((c) => c.source))].join("+")}`)
     .join(", ");
@@ -571,7 +581,8 @@ export function main(argv = process.argv.slice(2)) {
   return (
     `wrote ${out}: PR #${snapshot.pr.number} at ${snapshot.pr.head.sha.slice(0, 7)}, ` +
     `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ${threads}.${bodyNote} ` +
-    `Derived from the captures and verified against them. Sources: ${sources}`
+    `Derived from the captures and verified against them. Sources: ${sources}\n` +
+    `loop position -> ${position.path}: ${describe(loopPosition(REPO_ROOT, snapshot.pr.number))}`
   );
 }
 
