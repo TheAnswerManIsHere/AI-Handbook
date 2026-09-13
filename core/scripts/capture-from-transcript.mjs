@@ -183,16 +183,81 @@ export function resultText(result) {
 }
 
 /**
- * The harness's notice that it spilled an oversized result to a file.
+ * The harness's notices that it spilled an oversized result to a file.
  *
  * That file is the ORIGINAL and is already the strongest capture class there
  * is, so the recovery resolves to it rather than copying a preview of it.
+ *
+ * THERE ARE TWO SHAPES, and knowing only one is what this list fixes. The
+ * second is the commoner of the two: measured across one AI-Handbook session,
+ * 64 results carried it against 10 of the `<persisted-output>` block. Missing
+ * it did not merely fail -- `recoverCapture` cannot tell an unrecognised notice
+ * from a payload, so it wrote the notice's own error prose into the capture
+ * file, reported `transcript-recovered` over the top of it, and overwrote
+ * whatever good capture was already there. The payload sat unread on disk at
+ * the path the notice named.
+ *
+ * Both patterns are transcribed from real transcripts rather than guessed. The
+ * second's trailing period belongs to the sentence, not to the path.
+ *
+ * BOTH ARE ANCHORED AT THE START OF THE RESULT, because a notice IS the whole
+ * result and never something inside one. Unanchored, the second matched its
+ * phrase wherever it appeared -- including inside a perfectly valid payload
+ * whose own content quotes it, where the recovery would chase a path parsed
+ * out of somebody's comment body and refuse a capture that was never broken.
+ * Not hypothetical: the review comment that reported this quotes the phrase on
+ * one line, so recovering this pull request's own threads hit it. (Codex, #85
+ * round 1.)
+ *
+ * The anchor trades one failure for a better one. Should the harness ever
+ * reword the prefix, an anchored pattern stops recognising the notice -- and
+ * `assertPayload` then refuses it loudly, naming the path and saying what to
+ * teach this list. Unanchored, the same rewording leaves the pattern matching
+ * things it was never meant to.
  */
-const SPILL_RE = /^<persisted-output>\s*\n[\s\S]*?Full output saved to:\s*(\S+)/;
+const SPILL_PATTERNS = [
+  /^<persisted-output>\s*\n[\s\S]*?Full output saved to:\s*(\S+)/,
+  /^Error: result\b[^\n]*?exceeds maximum allowed tokens\.\s*Output has been saved to\s+(\S+?)\.?(?=\s|$)/,
+];
 
 export function spilledPath(text) {
-  const m = SPILL_RE.exec(text ?? "");
-  return m ? m[1] : null;
+  for (const re of SPILL_PATTERNS) {
+    const m = re.exec(text ?? "");
+    if (m) return m[1];
+  }
+  return null;
+}
+
+/**
+ * Whatever this module hands back points at a PAYLOAD, and that is checked
+ * rather than assumed.
+ *
+ * Teaching `spilledPath` one more shape closes one more instance and leaves
+ * the next one open -- the fix-narrower-than-its-class shape this repository
+ * pays for most often. The class is closed here instead: every capture this
+ * script writes is a `pull_request_read` response, which is always JSON and
+ * lands at a `.json` path, so text that does not parse is not a capture no
+ * matter what it is. An unrecognised notice is then LOUD at the moment of
+ * capture, where the evidence and the cause are both still in front of the
+ * operator, rather than surfacing later as a parse error in the assembler
+ * pointing at a file that looks like evidence.
+ */
+function assertPayload(text, what) {
+  try {
+    JSON.parse(text);
+    return;
+  } catch {
+    /* fall through to the refusal, which says more than the parser does */
+  }
+  const head = String(text).replace(/\s+/g, " ").trim().slice(0, 120);
+  throw new Error(
+    `${what} is not a payload -- it does not parse as JSON. It begins ${JSON.stringify(head)}. Every ` +
+      `capture this script writes is a pull_request_read response, so anything else is a notice or an ` +
+      `error rather than evidence. If it names a file the harness saved the result to, this is a spill ` +
+      `notice in a shape spilledPath() does not recognise yet: the payload is intact at that path, and ` +
+      `teaching spilledPath() the shape is the fix. Nothing was written, so any capture already on disk ` +
+      `is untouched.`,
+  );
 }
 
 /**
@@ -506,8 +571,13 @@ export function recoverCapture({ root = REPO_ROOT, pr, collection, page = 1, tra
   const spill = spilledPath(text);
   if (spill) {
     if (!fs.existsSync(spill)) throw new Error(`the harness spilled this result to ${spill}, which is no longer there`);
+    assertPayload(fs.readFileSync(spill, "utf8"), `the file the harness spilled this result to (${spill})`);
     return { path: spill, source: "harness-capture", capturedAt: call.result.at, toolUseId: call.id, spilled: true };
   }
+  // CHECKED BEFORE THE WRITE, not after. The write is what destroyed a good
+  // capture while reporting success; refusing first is what makes this fix
+  // non-destructive as well as loud.
+  assertPayload(text, `the recovered ${collection} result for ${call.id}`);
   const written = write(root, capturePath(pr, collection, page), text);
   return { path: written, source: "transcript-recovered", capturedAt: call.result.at, toolUseId: call.id, spilled: false, sha256: sha256(text) };
 }
