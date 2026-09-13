@@ -1,0 +1,18 @@
+{
+ "pr": 81,
+ "kind": "adjudication",
+ "verdict": "ship-with-gaps-recorded",
+ "grant": 0,
+ "risk": "",
+ "recordPath": ".agents/adjudications/81-2.json",
+ "decidedAt": "2026-09-13T02:17:10Z",
+ "reasoning": "Internal tier, criticality 40, declaredBudget 3 against roundsSpent 7 on an allowance of 7 assembled from two of David's own grants (2, then 3), so this is his gate and the loop stops for him whatever I return; sinceLastReview.noChange is true and head equals lastReviewedCommit b5699487, so stopping lands on a head round 7 already reviewed. None of round 7's four findings reaches the internal rubric's critical class: fv3 overwrites a gitignored D0 receipt that the oracle's own Must Not Change says nothing on the merge path reads, fv7 hangs the close-out wait (wrongly-blocking, which announces itself), fv_ leaves an untracked HTML artifact, and fv8 prints a misleading one-line status that decides nothing — all four are P2, all in territory (34 in-diff / 0 outside), and none is destructive, none corrupts receipt or tracking machinery another agent reads, none widens my authority. The trend 11, 1, 4, 3, 7, 4, 4 has not fallen below 3 since round 2, and the bodies of the last four rounds name the same two mechanical classes each time — shell quoting in the payload recipe (h0cgg, h1Bru, fv7) and a concurrency race around receipt or page publication (h0Ug2, h0cge, h1Brw, fv3) — which is the combinatorial-gap enumeration the record's own threat-model file describes, not convergence; an eighth round buys a fix plus its mandatory review round with no evidence in the trend that it ends at zero. I classified all 34 items in findings.items per my contract; the four unresolved ones are round 7's and are the live set.",
+ "gaps": [
+  "PRRT_kwDOUKOPKc6h1fv3 (P2, core/scripts/fable-dispatch.mjs:1479) — two concurrent invocations for the same PR and round can both pass the existence check, each bill a dispatch, and the later one replaces the earlier account, weakening Settled Decision 17's 'no path writes a different receipt for a round that has one' and the size comparison publishPage rests on it.",
+  "PRRT_kwDOUKOPKc6h1fv7 (P2, core/.claude/skills/pr-watch/SKILL.md:735) — with no snap-r*.json present the close-out loop iterates the literal glob, derives round '*', and waits forever on d0-r*.exit, blocking the merge ask.",
+  "PRRT_kwDOUKOPKc6h1fv8 (P2, core/scripts/round-translation-page.mjs:61) — a round with no builder reply, which assertCaptureAfterResponse permits, falls through chatLine to 'agrees with the builder's account' when there is no builder account to agree with.",
+  "PRRT_kwDOUKOPKc6h1fv_ (P2, core/scripts/round-translation-page.mjs:205) — writePage renames the page into place before running git check-ignore, so in a consumer whose reviews .gitignore does not cover translation.html the refusal leaves the generated page on disk untracked."
+ ],
+ "modelRequested": "best",
+ "effortRequested": "xhigh"
+}
