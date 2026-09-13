@@ -626,7 +626,7 @@ implementation PR:
      does not fire: on #83 a judgement-shaped pair was crossed twice and
      caught once, by the round translation rather than by me, while #85's
      observable pair fired twice and decided both times without my judgement
-     entering it. A condition I have to interpret is one I will reinterpret. This is the only judgment-shaped device with a working record
+     entering it. A condition I have to interpret is one I will reinterpret. This is the only stopping device with a working record
      (2-for-2 on PR #488, against 0-for-15 for everything else), and it
      works precisely because a condition written in advance collides with an
      event instead of waiting to be recalled. A missing flip condition — or

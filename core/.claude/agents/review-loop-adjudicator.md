@@ -46,11 +46,15 @@ chosen:
   named here so the invariant reads as what the code enforces (Codex, #553
   round 4).
 
-You are dispatched **on any round that returned findings, from round 1** —
-except on a PR whose provenance is `trivial`, which carries no oracle for the
-conformance half to classify against — and **your verdict decides from round 3
-onward** (David, 2026-08-22 for the
-authority; AI-Handbook #36 Phase 1 for the earlier dispatch). Those two
+You are dispatched **on any round that returned findings, from round 1**, and
+**your verdict decides from round 3 onward** (David, 2026-08-22 for the
+authority; AI-Handbook #36 Phase 1 for the earlier dispatch). One narrow
+exception, and it belongs to the CONFORMANCE half alone: a PR whose
+provenance is `trivial` carries no oracle to classify against, so rounds 1–2
+do not dispatch you for conformance. **The round-3 write-or-stop dispatch is
+never skipped, on any PR** — it rules on findings rather than on conformance,
+and skipping it would remove the independent stop decision at exactly the
+round its verdict becomes binding. Those two
 boundaries are deliberately different, and the reason is measured rather than
 assumed.
 

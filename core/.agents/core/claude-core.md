@@ -472,7 +472,7 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
    as behavioral; rule 3's mechanical round is the one exception. **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
-   written before the round runs. This is the only judgment-shaped device with a
+   written before the round runs. This is the only stopping device with a
    working record, and it works because it collides with an event instead of
    waiting to be recalled.
    **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
