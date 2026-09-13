@@ -1490,45 +1490,125 @@ test("R26: every suite that calls the assembler roots its position write", () =>
   // it. A fix narrower than its class, which is this repo's most expensive
   // recurring shape, so the class is closed with a check rather than with a
   // second wrapper and a hope. (Codex, #83 round 1.)
+  //
+  // AND THE CHECK ITSELF HAD THAT SHAPE. Its first version recognised only
+  // `main as <name>`, so a suite importing `main` under its own name, or the
+  // module as a namespace, was invisible to it -- a guard with a blind spot
+  // exactly where it claimed to close a class. It now understands every static
+  // shape, and REFUSES a shape it does not understand rather than passing
+  // quietly, because passing quietly is the failure being guarded against.
+  // (Fable round translation, #83 round 1.)
   const dir = new URL("./", import.meta.url);
   const suites = fs.readdirSync(dir).filter((f) => f.endsWith(".test.mjs"));
+  const MODULE = /["']\.\.\/snapshot-from-captures\.mjs["']/;
 
-  // Every call of the raw import, with its full argument list, however many
+  // Every local name in a file that reaches the assembler's `main`.
+  const bindings = (text) => {
+    const found = [];
+    // The clause charset is bounded to what an import clause can actually
+    // contain -- no quotes, parentheses or semicolons -- so the match cannot
+    // run backwards across statements to the file's first `import`, and a bare
+    // mention of the module path in a string (R25 reads its source) is not an
+    // import at all.
+    const clauses = [...text.matchAll(/\bimport\s+([\w\s{},*]*?)\s*from\s*["']\.\.\/snapshot-from-captures\.mjs["']/g)];
+    for (const [, clause] of clauses) {
+      const namespace = /^\*\s+as\s+(\w+)$/.exec(clause);
+      if (namespace) {
+        found.push({ call: `${namespace[1]}.main`, ok: true });
+        continue;
+      }
+      if (clause.startsWith("{") && clause.endsWith("}")) {
+        for (const spec of clause.slice(1, -1).split(",")) {
+          const t = spec.trim();
+          const aliased = /^main\s+as\s+(\w+)$/.exec(t);
+          if (aliased) found.push({ call: aliased[1], ok: true });
+          else if (t === "main") found.push({ call: "main", ok: true });
+        }
+        continue;
+      }
+      // A default or bare import of this module reaches `main` by some route
+      // this check cannot follow.
+      found.push({ call: null, ok: false, clause });
+    }
+    if (/import\s*\(\s*["'][^"']*snapshot-from-captures\.mjs["']/.test(text)) {
+      found.push({ call: null, ok: false, clause: "dynamic import()" });
+    }
+    return found;
+  };
+
+  // Every call of a bound name, with its full argument list, however many
   // lines it spans.
-  const calls = (src, alias) => {
+  const calls = (text, name) => {
     const out = [];
-    const re = new RegExp(`\\b${alias}\\(`, "g");
-    for (let m = re.exec(src); m; m = re.exec(src)) {
+    const re = new RegExp(`(?<![\\w.])${name.replace(".", "\\.")}\\(`, "g");
+    for (let m = re.exec(text); m; m = re.exec(text)) {
       let depth = 0;
       let i = m.index + m[0].length - 1;
-      for (; i < src.length; i += 1) {
-        if (src[i] === "(") depth += 1;
-        else if (src[i] === ")" && (depth -= 1) === 0) break;
+      for (; i < text.length; i += 1) {
+        if (text[i] === "(") depth += 1;
+        else if (text[i] === ")" && (depth -= 1) === 0) break;
       }
-      out.push({ line: src.slice(0, m.index).split("\n").length, text: src.slice(m.index, i + 1) });
+      out.push({ line: text.slice(0, m.index).split("\n").length, text: text.slice(m.index, i + 1) });
     }
     return out;
+  };
+
+  const audit = (suite, text) => {
+    const offenders = [];
+    for (const binding of bindings(text)) {
+      if (!binding.ok) {
+        offenders.push(`${suite}: imports the assembler as \`${binding.clause}\`, a shape this check cannot follow`);
+        continue;
+      }
+      for (const call of calls(text, binding.call)) {
+        // `{ root }` shorthand counts as much as `{ root: tmp }` does.
+        if (!/\broot\s*[:,}]/.test(call.text)) offenders.push(`${suite}:${call.line}`);
+      }
+    }
+    return offenders;
   };
 
   const offenders = [];
   let checked = 0;
   for (const suite of suites) {
     const text = fs.readFileSync(new URL(suite, dir), "utf8");
-    const imported = /import\s*\{[\s\S]*?\bmain\s+as\s+(\w+)[\s\S]*?\}\s*from\s*"\.\.\/snapshot-from-captures\.mjs"/.exec(text);
-    if (!imported) continue;
-    checked += 1;
-    for (const call of calls(text, imported[1])) {
-      // `{ root }` shorthand counts as much as `{ root: tmp }` does.
-      if (!/\broot\s*[:,}]/.test(call.text)) offenders.push(`${suite}:${call.line}`);
-    }
+    if (!MODULE.test(text)) continue;
+    const found = bindings(text);
+    if (found.length) checked += 1;
+    offenders.push(...audit(suite, text));
   }
 
   assert.ok(checked >= 2, `both known callers were found, not zero (found ${checked})`);
   assert.deepEqual(
     offenders,
     [],
-    "every direct call of the assembler's main() passes a root, so no suite can write a position into the checkout that ran it",
+    "every call of the assembler's main() passes a root, so no suite can write a position into the checkout that ran it",
   );
+
+  // THE CHECK IS NOT VACUOUS ON ANY SHAPE. Each of these is a suite that would
+  // have slipped past the first version of this test.
+  //
+  // THE FIXTURES BUILD THEIR OWN SPECIFIER rather than spelling it out. A
+  // literal one here would be indistinguishable from a real import when this
+  // very file is swept, and the check would then audit its own fixtures and
+  // bind every `main(` in the suite. The check has to survive reading itself.
+  const M = "../snapshot-from-captures.mjs";
+  const shapes = {
+    "an unaliased named import": `import { main } from "${M}";\nmain(argv, { out });\n`,
+    "a namespace import": `import * as assembler from "${M}";\nassembler.main(argv, { out });\n`,
+    "an aliased import": `import { main as go } from "${M}";\ngo(argv, { out });\n`,
+    "a default import": `import assembler from "${M}";\nassembler.main(argv);\n`,
+    "a dynamic import": `const m = await import("${M}");\nm.main(argv, { out });\n`,
+  };
+  for (const [name, text] of Object.entries(shapes)) {
+    assert.ok(audit("hostile.test.mjs", text).length > 0, `an unrooted call through ${name} is caught`);
+  }
+  // And each static shape passes once it roots the call, so the check refuses
+  // the missing root rather than the import.
+  for (const [name, text] of Object.entries(shapes)) {
+    if (name === "a default import" || name === "a dynamic import") continue;
+    assert.deepEqual(audit("ok.test.mjs", text.replace("{ out }", "{ out, root }")), [], `${name} passes once it roots the call`);
+  }
 });
 
 test("R25: the close-out wait reports every missing round and never waits on one", async () => {
