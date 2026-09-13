@@ -1,0 +1,7 @@
+{
+ "pr": 81,
+ "kind": "david",
+ "grant": 1,
+ "asOf": 8,
+ "authorization": "David, 2026-09-13, verbatim: \"1\" -- choosing option 1 of three put to him at the close of round 8: \"Spend round 9 on the fix (Recommended) -- one change closing both gaps, then the mandatory review.\" This REOPENS the loop rather than extending it: the allowance was already 9, and loop-extension-81-5.json recorded the adjudicator's terminal ship-with-gaps-recorded at round 8, after which only a david-kind receipt may follow. Grant 1 from a completed count of 8 opens exactly round 9, which is where the allowance already ran out and where the David gate stands; nothing is added.\n\nHe overrode the adjudicator on D0's argument, which was that \"not critical\" and my own written \"if anything worse than the thing we fixed last round\" do not sit together -- an inconsistency in my reasoning rather than in the rubric. Gaps 12 and 13 are one defect with two faces and are fixed as one change; gap 14 (D0 cannot see the adjudication that decided a round) is a design limit and stays recorded for the next increment.\n\nThe risk was stated to him before he chose and is restated here so the record does not flatter the decision: six of eight rounds have ended on a finding inside the previous round's fix, so round 9 has a real chance of returning findings -- and at 9 the allowance is exhausted with nothing left to spend."
+}

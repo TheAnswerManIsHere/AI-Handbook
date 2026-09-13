@@ -46,7 +46,7 @@ export const REVIEWER_LOGINS = new Set(["chatgpt-codex-connector[bot]", "chatgpt
 const REVIEWED_COMMIT_MARKER = /\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i;
 
 /** Whether two commit references name the same commit, one possibly abbreviated. */
-function sameCommit(a, b) {
+export function sameCommit(a, b) {
   if (!a || !b) return false;
   const x = String(a).toLowerCase();
   const y = String(b).toLowerCase();

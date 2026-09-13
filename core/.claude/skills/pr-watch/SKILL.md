@@ -663,6 +663,133 @@ implementation PR:
 - I stay **frugal with GitHub replies** (only when genuinely necessary), and I
   stop watching once the PR is merged or closed, or when David says stop.
 
+## Translating the round for David (D0)
+
+**Every round, right after its trigger is posted** — and after the stop
+decision on a final round. David cannot read the conversation this loop is
+made of, and until this step the only account he ever got of a round was
+mine. Fable writes the second one, from the round's own material.
+
+**1. Read the four collections FRESH** — `pull_request_read` with `get`,
+`get_reviews`, `get_comments` and `get_review_comments`, paginated to the end.
+Do not recover an earlier read: the record refuses a capture older than the
+round's pass or than my last comment on it, which is what stops a translation
+saying the round went unanswered.
+
+**2. Recover those reads and assemble the snapshot**, as for any record —
+`--out`, never a stdout redirect, because the assembler writes the file itself
+and prints only a status line:
+
+```
+D=.agents/reviews/pr-<n>; mkdir -p "$D"
+for c in pr reviews issueComments reviewThreads; do
+  node scripts/capture-from-transcript.mjs --pr <n> --collection "$c"
+done
+node scripts/snapshot-from-captures.mjs \
+  --pr-capture .agents/captures/pr-<n>-pr.json \
+  --reviews .agents/captures/pr-<n>-reviews.json \
+  --comments .agents/captures/pr-<n>-issueComments.json \
+  --threads .agents/captures/pr-<n>-reviewThreads.json \
+  --fetched-at <iso> --out "$D/snap-r<r>.json"
+```
+
+Same assembler, same flags as the budget-check snapshot above — one page
+argument per page, and `--out` rather than a redirect.
+
+**3. Dispatch, naming the round that just closed — detached, with an exit
+file**, like a plan-review round: it is a full reviewer run, longer than a
+comfortable foreground call, and a foreground run that gets cut off loses it.
+Absolute paths inside the `bash -c`; the working directory does not survive
+into the detached child.
+
+```
+D=$PWD/.agents/reviews/pr-<n>
+rm -f "$D/d0-r<r>.exit" "$D/d0-r<r>.log"
+setsid nohup bash -c 'cd "$1" && node "$1/scripts/fable-dispatch.mjs" \
+  --role round-translation --pr <n> --round <r> \
+  --mcp-snapshot "$2/snap-r<r>.json" > "$2/d0-r<r>.log" 2>&1; \
+  echo $? > "$2/d0-r<r>.exit"' _ "$PWD" "$D" >/dev/null 2>&1 &
+```
+
+**Both lines above the dispatch are load-bearing.** `rm -f` on the exit file
+first: it is the completion signal, close-out waits on its *existence*, and a
+leftover file from an earlier run of the same round makes that wait return
+immediately while the new dispatch is still going. And the paths reach the
+child as **positional parameters** (`_ "$PWD" "$D"`) inside a single-quoted
+`bash -c` rather than being interpolated into a double-quoted one: the outer
+shell expands `$PWD` without re-quoting it, so a checkout whose path contains
+a space becomes `cd /path/with space` in the child and nothing runs. That is
+the escaping class issue #11 records, arriving in a different command.
+
+The chat line is the last line of `d0-r<r>.log`; `d0-r<r>.exit` appearing is
+the completion signal and its contents are the status. The next Codex round
+proceeds whether or not it has returned; **nothing in the loop waits on it and
+nothing in the loop reads it.**
+
+**At close-out, wait on EVERY outstanding translation, not just the stopping
+round's** — one `d0-r<r>.exit` for each `snap-r<r>.json` in the directory:
+
+```
+D=$PWD/.agents/reviews/pr-<n>
+for s in "$D"/snap-r*.json; do [ -e "$s" ] || continue
+  r=$(basename "$s" .json); r=${r#snap-r}
+  until [ -f "$D/d0-r$r.exit" ]; do sleep 5; done; done
+```
+
+**Every `$D` in this skill is quoted, and that is a sweep rather than a style
+choice.** An unquoted `$D/snap-r*.json` word-splits *before* the glob expands,
+so on a checkout whose path contains a space the loop iterates two fabricated
+fragments, derives nonsense round numbers from them, and then waits forever on
+exit files that can never appear — blocking the merge ask after every
+translation has already succeeded. The dispatch above was quoted first and this
+loop was missed, which is why the rule is now stated for the file rather than
+for a line. (Codex, #81 round 6.)
+
+**`[ -e "$s" ] || continue` is the same hang by the other route**, and it was
+still there one round after that sweep. With no `snap-r*.json` in the directory
+— capture assembly failed before the first snapshot, or a consumer's first ever
+loop — bash leaves the pattern **unexpanded**, the loop runs once over the
+literal string, `r` becomes `*`, and it waits on `d0-r*.exit`, which `[ -f ]`
+never globs and nothing will ever create. Same unbounded wait, same blocked
+merge ask, and no translation was even outstanding. Guard the expansion rather
+than setting `nullglob`: this recipe is pasted into an interactive shell, and a
+`shopt` that outlives the paste changes how every later command in that session
+globs. (Codex, #81 round 7.)
+
+The rounds are dispatched detached and independently, so they do not finish in
+order: an earlier round that stalled is still outstanding when the final one
+returns. Waiting on only the round that triggered the stop lets the merge ask
+go out with an earlier round missing from the page and with no chat line —
+and Product Intent 1 promises David an account of **every** round, which does
+not stop being true because the missing one is not the last. The loop is
+bounded by construction: every snapshot that exists had a dispatch launched
+for it, so the set is finite and each member terminates or times out.
+(Codex, #81 round 3.)
+
+- **After the trigger, never before.** A translation I could act on mid-round
+  would be an in-loop advisor reading my own prose, which is exactly what
+  workstream #36's never-list rules out. If it catches something real, David
+  raises it, at the cost of a round.
+- **The script prints the line; I paste it verbatim**, with the page link, and
+  write nothing else about the round in chat. A line I composed would be my
+  account of the independent account. Publish the rendered page
+  (`.agents/reviews/pr-<n>/translation.html`) as the PR's Artifact page,
+  redeployed in place, so one link stays current for the whole loop.
+- **If it refuses or fails**, the script prints the fixed notice (*translation
+  unavailable — …*). Paste that instead. Never summarise what it would have
+  said.
+- **At a stop, it goes before the merge ask**, not before the merge report:
+  it exists for the decision David is about to make, and the report follows
+  his click. Wait on every outstanding exit file at close-out, per the loop
+  above — the ask carries each round's line, or that round's fixed notice.
+- **A round that raised nothing and prompted no push is skipped** by the
+  script itself, with the reason on the page. An **all-declined** round is
+  dispatched — it is the round where my account matters most.
+- **Two numbers go in the close-out harvest comment**: dispatches run, and
+  disagreements flagged. That is the whole measurement, and it is what the
+  retirement rule reads. Receipts are gitignored evidence; nothing else
+  records this.
+
 ## Keeping the workstream issue's labels current
 
 Per [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),

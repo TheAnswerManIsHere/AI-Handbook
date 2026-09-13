@@ -1,0 +1,121 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 81,
+  "recordPath": ".agents/adjudications/81-1.json",
+  "recordSha256": "15d23861c110185b479ee420e1e3b8cc333f8cee79e1a8892990767a54721c6c",
+  "toolUseId": "toolu_01WcPZHUnjKrxqUkvFsuYut9",
+  "agentId": "a7658a563ad5843fe",
+  "decidedAt": "2026-09-12T22:17:21.939Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, budget 3, roundsSpent 3 — at the cap, where a continue would need a very high chance of a CRITICAL flaw. The trend is 11 → 1 → 4 with 12 of 16 findings resolved and all 16 in-diff; the four open ones are all P2 and all sit on the D0 surface, which by the diff takes no destructive action, writes only gitignored receipts, and is read by nothing on the merge path (pr-ready.mjs, guard.sh and guard-decision.mjs are untouched in a 17-file/2015-line patch), so none reaches the destructive / receipt-corrupting / authority-widening bar. Their worst outcome is a private page or chat line that is wrong in a way David can see — a translation describing round N+1's comments, an empty 'agrees', a missing fixed notice on an operator's own mistyped flag — and sinceLastReview shows no movement since the reviewed head 1107004, so stopping here ends on a fully reviewed commit.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6h0JUd — close-out waits only on the final round's d0-r<r>.exit, so an earlier long-running translation can still be missing from the page and chat when the merge ask goes out.",
+      "PRRT_kwDOUKOPKc6h0JUf — a mistyped or missing round-translation flag throws out of parseArgs before runTranslation, leaving stderr only and no fixed verbatim line to paste.",
+      "PRRT_kwDOUKOPKc6h0JUh — commentsSincePass has a lower bound only, so when a later pass lands before D0 runs, round N's brief can carry round N+1's PR-level comments.",
+      "PRRT_kwDOUKOPKc6h0JUi — the schema accepts empty strings for summary_for_david / what_happened / recommendation, so an empty document still renders and still prints 'agrees with the builder's account'."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Ta",
+        "class": "in-scope",
+        "citation": "",
+        "why": "normalisePr dropped pr.user, so every builder reply would be labelled `other` and the provenance label that Must Not Change names as the whole mechanism would stop meaning anything."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Te",
+        "class": "in-scope",
+        "citation": "",
+        "why": "±6h fallback attribution gave two rounds each other's findings, which is a wrong account of the named round — exactly what Settled Decision 9 requires the record to prevent."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tj",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A strict !== between an abbreviated marker sha and the full head sha reported a clean pass as having pushed, defeating Settled Decision 4's skip."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tk",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A three-dot diff measures from the merge base, so after a permitted rewrite the brief's 'what the builder pushed' would be wrong — the evidence Settled Decision 3 says the account rests on."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tn",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A threads collection captured before the named pass holds none of its findings, so the round would translate or skip as clean."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tq",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Catching a wrong-repository snapshot is the operator-mistake class the threat model explicitly keeps ('A snapshot naming another repository is refused: you captured the wrong PR'), not hostile-input hardening."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tt",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The skill's own recipe contradicted the instructions beside it — a foreground run with no exit file blocks the loop and leaves close-out nothing to wait on."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tx",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A delivery failure after the model had run escaped the catch, leaving no verbatim status line for the round — the guarantee Product Intent 2 rests on."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T2",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The documented snapshot command would have failed outright, since the assembler requires --out and writes no JSON to stdout."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T7",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A one-time HEAD check could not pin what a detached, long-running role reads from a live tree, so the brief's stated evidence boundary was false."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T_",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A multi-line SIGN_IN_HINT pasted into the chat line turns the one fixed status line Product Intent 2 promises into a block of operator instructions."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0EVx",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The fleet-wide contract still described a Read-plus-HEAD-check mechanism the same PR deliberately removed, so every consumer would read a guarantee that does not exist."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUd",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 1 promises an account of every round and does not exclude the timing question, so waiting on only the stopping round's exit file is a real gap rather than an out-of-scope ask."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUf",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The premise holds against the diff — main()'s parseArgs catch returns before the round-translation branch — so an argument failure produces no fixed line, which is the same guarantee round 1's delivery fix was about."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUh",
+        "class": "in-scope",
+        "citation": "",
+        "why": "commentsSincePass filters only `>= passAt`, so the later-pass race the record explicitly supports can put round N+1's comments in round N's brief — the wrong-account class this record exists to refuse."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUi",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Settled Decision 10 rules out per-finding reconciliation and refusal on an omission, but not a non-empty document, and 'agrees' printed over no account at all is the favourable-answer rule the page renderer already states."
+      }
+    ]
+  }
+}
