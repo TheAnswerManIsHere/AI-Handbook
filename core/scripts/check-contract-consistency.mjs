@@ -65,7 +65,7 @@ export const RETIRED = [
     phrase: "no text the session writes reaches a role",
     retired: "2026-09-10",
     why: "AI-Handbook PR #70's steering guarantee, which nothing enforced -- the builder wrote every dispatch prompt while the payload said it could not",
-    instead: "the instruction FRAME is script-owned by construction; brief CONTENT is not authenticated, and every role but the probe is refused until it is (core/docs/ai-context/fable-dispatch.md, P1)",
+    instead: "the instruction FRAME is script-owned by construction and a role dispatches only if this script builds its brief; brief CONTENT is not authenticated, and a brief that carries the builder's words labels who wrote each block (core/docs/ai-context/fable-dispatch.md, P1)",
   },
   {
     phrase: "the builder cannot steer",

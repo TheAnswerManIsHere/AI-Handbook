@@ -28,10 +28,13 @@
  * `shipped()` below: a diagnostic naming a directory the reader does not have
  * is a diagnostic they cannot act on (Codex, #73 round 1). In short:
  *
- *   P1  the instruction FRAME is script-owned. Brief CONTENT is not
- *       authenticated -- a file the builder typed passes through unchanged,
- *       and the receipt records its digest, never its origin. Until Phase 1
- *       authenticates provenance, every role except the probe is refused.
+ *   P1  the instruction FRAME is script-owned, and a role may dispatch only
+ *       if this script builds its brief. There is no `--brief` and no
+ *       parameter a caller could widen -- the permitted set is a predicate
+ *       over the generators below. What a brief CONTAINS is not
+ *       authenticated, and for `round-translation` it deliberately carries
+ *       the builder's own words: the brief LABELS who wrote each block
+ *       instead (David, 2026-09-12).
  *   P2  the observable surface is pinned and the HARNESS reports it back:
  *       tools and MCP servers come from the `system init` event and a run
  *       whose reported surface exceeds the role's allowlist is refused.
@@ -62,11 +65,18 @@
  * USAGE
  * -----
  *   node <this file> --role probe
+ *   node <this file> --role round-translation --pr 81 --round 3 \
+ *        --mcp-snapshot <file>
  *
  *   --role <id>     a role with a definition under .agents/fable-roles/ whose
  *                   brief this script generates. There is no --brief flag:
  *                   see `canDispatch` below.
- *   The receipt is written to .agents/receipts/fable-<role>-<head>.json
+ *   Each role takes its own flags (`ROLE_FLAGS`), all of them DATA this
+ *   script then validates -- a number, a round, a path -- never text the
+ *   reviewer reads. A flag belonging to another role is refused by name.
+ *   The receipt is .agents/receipts/fable-<role>-<head>.json, or
+ *   fable-round-translation-<pr>-<round>.json; `round-translation` also
+ *   rebuilds David's page and prints the one line that goes to him.
  *   --timeout <s>   default 600.
  *
  * EXIT CODES
@@ -83,6 +93,22 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { modelTier } from "./review-budget.mjs";
+import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
+import { chatLine, renderPage, writePage, receiptsFor, publishPage, unavailable, unpublished } from "./round-translation-page.mjs";
+
+/**
+ * One line, for a notice that is pasted verbatim into chat.
+ *
+ * Several refusals here are deliberately multi-line and instructional --
+ * `SIGN_IN_HINT` is a numbered list -- and pasting one into the chat line
+ * turns a fixed status into a wall of operator instructions. The full text
+ * still goes to stderr, where the operator reads it. (Codex, #81 round 1.)
+ */
+const oneLine = (text) => {
+  const first = String(text ?? "").split("\n").find((l) => l.trim()) ?? "the reason was not recorded";
+  const t = first.trim();
+  return t.length > 160 ? `${t.slice(0, 157)}...` : t;
+};
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -121,18 +147,33 @@ export const HARNESS_ADDED_TOOLS = ["StructuredOutput"];
  * A predicate over the generators cannot be widened without adding a
  * generator, which is the actual bar.
  *
- * Phase 1 does not lift the refusal. Phase 2 adds the first record-fed role,
- * and it satisfies this predicate the same way the probe does: by having its
- * brief built here.
+ * Phase 1 did not lift the refusal. **Phase 2's `round-translation` satisfies
+ * it** the same way the probe does: its brief is composed here, from a record
+ * `round-translation-record.mjs` builds out of a captured snapshot. The caller
+ * supplies a pull request number, a round number and a file path -- data this
+ * script then validates -- and never a word the reviewer reads.
  */
-const BRIEF_GENERATORS = { probe: (nonce) => probeBrief(nonce) };
+const BRIEF_GENERATORS = {
+  probe: ({ nonce }) => probeBrief(nonce),
+  "round-translation": ({ record }) => translationBrief(record),
+};
 
 export const canDispatch = (role) => Object.hasOwn(BRIEF_GENERATORS, role);
 
 export const dispatchableRoles = () => Object.keys(BRIEF_GENERATORS);
 
 /** Flags this file accepts. Anything else is free text wearing a flag's hat. */
-const KNOWN_FLAGS = new Set(["--role", "--timeout"]);
+/**
+ * The flags each role takes, beyond `--role` and `--timeout`.
+ *
+ * Role-scoped rather than one flat set, so `--pr` on the probe is refused by
+ * name instead of being parsed and ignored. Every entry here is DATA -- a
+ * number, a number, a path -- and none of it reaches the reviewer as text:
+ * the record built from the snapshot does, through the generator above.
+ */
+const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"] };
+const BASE_FLAGS = ["--role", "--timeout"];
+const KNOWN_FLAGS = new Set([...BASE_FLAGS, ...Object.values(ROLE_FLAGS).flat()]);
 
 /**
  * Where a payload file lives in THIS checkout, for prose the reader will act on.
@@ -233,6 +274,23 @@ export function receiptPath(root, role, head) {
 }
 
 /**
+ * The receipt's path for a completed dispatch, keyed by what makes it unique.
+ *
+ * `round-translation` is keyed by pull request and ROUND, not by head:
+ * a round whose findings the builder declines without pushing leaves the head
+ * where it was, so two rounds would write the same file and the second would
+ * erase the first -- taking a round off David's page rather than adding one.
+ * Still derived here, never supplied: the class of "wrote it where the name
+ * is wrong" is what deleting `--out` removed (David, 2026-09-10).
+ */
+export function receiptPathFor(root, receipt) {
+  if (receipt.role === "round-translation") {
+    return path.join(path.resolve(root), RECEIPTS_DIR, `fable-round-translation-${receipt.pr}-${receipt.round}.json`);
+  }
+  return receiptPath(root, receipt.role, receipt.headAtSpawn);
+}
+
+/**
  * Read a role's definition from a COMMIT, not the working tree.
  *
  * WHY `.agents/fable-roles/` AND NOT `.claude/agents/`. A definition under
@@ -326,11 +384,22 @@ export function roleContract(definitionText, { role, definitionPath, definitionC
   // This is not a new check: it removes a default, so the field joins `model`,
   // `budgetUsd` and `schema` in being required.
   if (!front.tools?.trim()) throw new Error(`${definitionPath} declares no \`tools\``);
-  const tools = front.tools
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-  if (tools.length === 0) throw new Error(`${definitionPath} declares an empty \`tools\` list`);
+  // `none` is an EXPLICIT empty allowlist, and it is not the same thing as a
+  // missing field -- which is why the refusal above stays exactly as strict.
+  // A role that needs no tools has to say so, and then genuinely holds none:
+  // measured 2026-09-12, `--tools ""` launches and `init.tools` comes back
+  // `[]`. `round-translation` is the case: its brief carries the whole round,
+  // and a working tree it could read is one that moves under it.
+  const tools =
+    front.tools.trim() === "none"
+      ? []
+      : front.tools
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+  if (tools.length === 0 && front.tools.trim() !== "none") {
+    throw new Error(`${definitionPath} declares an empty \`tools\` list -- write \`tools: none\` to hold none deliberately`);
+  }
   const forbidden = tools.filter((t) => FORBIDDEN_TOOLS.includes(t));
   if (forbidden.length) {
     throw new Error(
@@ -776,6 +845,46 @@ export function probeBrief(nonce) {
 }
 
 /**
+ * Every string the role's own schema declares as `minLength: 1`, reported
+ * wherever the returned document leaves it blank.
+ *
+ * WHY THIS IS HERE AND NOT LEFT TO THE SCHEMA. P4 delegates validation to the
+ * harness's `--json-schema`, and what that enforces beyond shape is the
+ * harness's business, not a property this script establishes. A document that
+ * satisfies `required` with empty strings is structurally valid and says
+ * nothing, and the consumer downstream reads an absent disagreement as the
+ * FAVOURABLE answer -- D0's chat line prints "agrees with the builder's
+ * account" over a page with no account on it (Codex, #81 round 3). An
+ * unobserved fact read as the good one is the exact shape this file exists to
+ * refuse, so the emptiness is checked here rather than assumed.
+ *
+ * IT IS SCHEMA-DRIVEN, NOT A LIST OF FIELD NAMES. This script is
+ * role-agnostic: naming D0's five fields here would put one role's knowledge
+ * in the dispatcher, and the next role's empty document would sail through.
+ * The role declares which of its strings must say something; this enforces
+ * whatever it declared. A schema that declares no `minLength` gets no check,
+ * which is the same answer it gets today.
+ *
+ * Two shapes, because they are the two the role schemas use: a top-level
+ * string property, and a string inside the objects of an array property.
+ */
+export function blankDeclaredStrings(schema, doc, path = "") {
+  const blanks = [];
+  const props = schema?.properties;
+  if (!props || !doc || typeof doc !== "object") return blanks;
+  for (const [key, spec] of Object.entries(props)) {
+    const here = path ? `${path}.${key}` : key;
+    const value = doc[key];
+    if (spec?.type === "string" && spec.minLength >= 1) {
+      if (typeof value !== "string" || value.trim() === "") blanks.push(here);
+    } else if (spec?.type === "array" && Array.isArray(value)) {
+      value.forEach((item, i) => blanks.push(...blankDeclaredStrings(spec.items, item, `${here}[${i}]`)));
+    }
+  }
+  return blanks;
+}
+
+/**
  * The probe's acceptance predicate.
  *
  * `claudemd` is recorded, never refused on: it is the reviewer's self-report,
@@ -901,6 +1010,11 @@ export function dispatch({
   now = () => new Date().toISOString(),
   nonce = null,
   sessionId = null,
+  // The role's own material, already built and validated by the caller of
+  // this function -- never text a command line carried. The probe needs none;
+  // `round-translation` needs its record. A role whose generator ignores this
+  // is unaffected by it.
+  input = {},
 } = {}) {
   if (!canDispatch(role)) {
     throw new Error(
@@ -942,14 +1056,15 @@ export function dispatch({
     throw new Error(`${definitionPath} names a schema that does not exist at ${headAtSpawn}: ${schemaRel}`);
   }
   const schemaJson = schemaShow.stdout;
+  let schemaParsed;
   try {
-    JSON.parse(schemaJson);
+    schemaParsed = JSON.parse(schemaJson);
   } catch (e) {
     throw new Error(`${schemaRel} is not valid JSON: ${e.message}`);
   }
 
   const probeNonce = isProbe ? (nonce ?? newNonce()) : null;
-  const briefText = BRIEF_GENERATORS[role](probeNonce);
+  const briefText = BRIEF_GENERATORS[role]({ ...input, nonce: probeNonce });
   // The digest of what the reviewer READ, not of what was handed in.
   const briefSha256 = sha256(embeddedBrief(briefText));
 
@@ -1093,6 +1208,18 @@ export function dispatch({
             : `the result event's subtype is ${JSON.stringify(result.subtype)}, not "success"`,
         );
       else if (!result.structured_output) problems.push("the `result` event carried no `structured_output`");
+      // A document whose declared-non-empty strings are blank is structurally
+      // valid and says nothing. It joins `problems` rather than throwing, so it
+      // earns the same one re-ask any other invalid answer gets.
+      else {
+        const blank = blankDeclaredStrings(schemaParsed, result.structured_output);
+        if (blank.length) {
+          problems.push(
+            `the document left ${blank.length} field(s) its schema requires to say something empty: ` +
+              `${blank.join(", ")}`,
+          );
+        }
+      }
 
       if (problems.length) {
         if (attempt === 2) {
@@ -1231,7 +1358,8 @@ export function defaultRunner({ argv, message, cwd, timeoutSec }) {
 // ---------------------------------------------------------------------------
 
 export function parseArgs(argv) {
-  const out = { role: null, timeout: 600 };
+  const out = { role: null, timeout: 600, pr: null, round: null, snapshot: null };
+  const seen = [];
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (!a.startsWith("--")) {
@@ -1244,13 +1372,192 @@ export function parseArgs(argv) {
     const v = argv[i + 1];
     if (v === undefined || v.startsWith("--")) throw new Error(`${a} needs a value`);
     i += 1;
+    seen.push(a);
     if (a === "--role") out.role = v;
     else if (a === "--timeout") out.timeout = Number(v);
+    else if (a === "--pr") out.pr = Number(v);
+    else if (a === "--round") out.round = Number(v);
+    else if (a === "--mcp-snapshot") out.snapshot = v;
   }
   if (!out.role) throw new Error("--role is required");
   if (!Number.isFinite(out.timeout) || out.timeout <= 0) throw new Error("--timeout must be a positive number of seconds");
+
+  // A flag belonging to ANOTHER role is refused by name. An unrecognised role
+  // is left alone: `dispatch` refuses it with the message that says what the
+  // actual bar is (a brief generator), which is more use than a flag error.
+  const allowed = ROLE_FLAGS[out.role];
+  if (allowed) {
+    const stray = seen.find((f) => !BASE_FLAGS.includes(f) && !allowed.includes(f));
+    if (stray) throw new Error(`role "${out.role}" does not take ${stray}`);
+    const missing = allowed.filter((f) => !seen.includes(f));
+    if (missing.length) throw new Error(`role "${out.role}" requires ${missing.join(", ")}`);
+    if (out.pr !== null && !Number.isInteger(out.pr)) throw new Error("--pr must be a whole number");
+    if (out.round !== null && !Number.isInteger(out.round)) throw new Error("--round must be a whole number");
+  }
   return out;
 }
+
+/**
+ * Write the receipt, rebuild David's page from every receipt on this PR, and
+ * print the one line that goes to him.
+ *
+ * The page is rebuilt from ALL receipts rather than appended to, so a round
+ * whose publish failed reappears on the next render instead of being lost.
+ * The line is printed by this script and pasted verbatim: a line the builder
+ * composed would be the builder's account of the independent account.
+ */
+export function deliverTranslation(root, receipt) {
+  // EVERY EXIT FROM HERE PRINTS ONE FIXED LINE. A receipt write, a page render
+  // or the `check-ignore` refusal throwing loose would leave the loop with no
+  // verbatim status to paste for David -- after the reviewer had already run,
+  // and most consequentially on the last round before a merge ask, which is
+  // the one the contract says must carry it. (Codex, #81 round 1.)
+  try {
+    const out = receiptPathFor(root, receipt);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
+    process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
+    // Enumerate-render-write is not one step, and the rounds are detached:
+    // `publishPage` re-reads afterwards so a concurrent delivery's round
+    // cannot be overwritten out of the page.
+    const page = publishPage(root, receipt.pr);
+    process.stderr.write(`fable-dispatch: page -> ${page}\n`);
+    process.stdout.write(`${chatLine(receipt)}\n`);
+    return 0;
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    process.stdout.write(`${unpublished(receipt.round, oneLine(e.message))}\n`);
+    return 1;
+  }
+}
+
+/**
+ * The round-translation path: build the record, skip or dispatch, deliver.
+ *
+ * Every refusal before the dispatch prints the SAME fixed notice the delivered
+ * line uses, naming the step that stopped -- so what reaches David when there
+ * is nothing to publish is not the builder's wording either (Codex, plan
+ * round 3).
+ */
+// EXPORTED so a test can supply its own root. `main()` resolves the root with
+// `repoRoot()`, which walks up from THIS FILE's location and ignores the
+// process's working directory entirely -- so a test that chdir'd into a
+// temporary directory and called `main()` was silently exercising the real
+// repository's receipts. That is how R19 came to pass locally (my own
+// `.agents/receipts/` held a matching receipt from a live run) and fail on CI,
+// where it does not. (CI on #81, round 6.)
+export function runTranslation(root, args) {
+  // A RE-RUN MAY FILL A HOLE; IT MAY NEVER REPLACE AN ACCOUNT (David,
+  // 2026-09-13). Re-running a round is ordinary -- the provider was
+  // unreachable, a refusal fired on a stale capture, or a round was never
+  // translated and close-out wants it -- and none of those leaves a receipt
+  // behind. What must never happen is the other shape: a second reviewer run
+  // overwriting a round that already has an account, so that the page silently
+  // shows a different account of round 3 than it did an hour ago. Receipts are
+  // evidence and evidence is not rewritten.
+  //
+  // SO AN EXISTING RECEIPT REPUBLISHES RATHER THAN REFUSING. The first version
+  // of this rule refused outright, and that turned a recoverable failure into
+  // an unrecoverable one: `deliverTranslation` writes the receipt BEFORE it
+  // publishes, so a page-render or `check-ignore` failure leaves a valid,
+  // paid-for account on disk with its round missing from the page -- and the
+  // retry that would have fixed it met the refusal. The only way back was
+  // deleting good evidence and buying a second translation, which is the
+  // reverse of what the rule is for. (Codex, #81 round 6.)
+  //
+  // A receipt whose round is not on the page is a HOLE IN THE PAGE, and
+  // filling it is what this rule already permits -- so republish from the
+  // receipt, print that round's own chat line, and never call the reviewer.
+  // Idempotent by construction: running it again just rebuilds the same page.
+  // The account is untouched, so "never replace" is unweakened, and a
+  // deliberate re-translation is still one act away -- delete the receipt.
+  //
+  // It also keeps `publishPage`'s re-read correct: no path here writes a
+  // DIFFERENT receipt for a round that has one, so the receipt set can still
+  // only grow and comparing its size is comparing its contents.
+  const existing = receiptPathFor(root, { role: "round-translation", pr: args.pr, round: args.round });
+  if (fs.existsSync(existing)) {
+    const rel = path.relative(root, existing);
+    process.stderr.write(
+      `fable-dispatch: round ${args.round} already has an account at ${rel}; republishing the page from it ` +
+        `rather than running the reviewer again. A re-run fills a hole, it never replaces an account -- to ` +
+        `re-translate this round deliberately, delete that file first.\n`,
+    );
+    let receipt;
+    try {
+      receipt = JSON.parse(fs.readFileSync(existing, "utf8"));
+    } catch (e) {
+      // A receipt that cannot be read is not an account, so it cannot be
+      // republished and must not be silently treated as absent either --
+      // re-dispatching would spend money to overwrite a file whose contents
+      // nobody has established. Refuse, and name the remedy.
+      process.stderr.write(`fable-dispatch: ${rel} is not readable as JSON: ${e.message}\n`);
+      process.stdout.write(`${unavailable(args.round, `${rel} is unreadable; delete it to re-translate`)}\n`);
+      return 1;
+    }
+    try {
+      const page = publishPage(root, args.pr);
+      process.stderr.write(`fable-dispatch: page -> ${page}\n`);
+      process.stdout.write(`${chatLine(receipt)}\n`);
+      return 0;
+    } catch (e) {
+      process.stderr.write(`fable-dispatch: ${e.message}\n`);
+      process.stdout.write(`${unpublished(args.round, oneLine(e.message))}\n`);
+      return 1;
+    }
+  }
+
+  let record;
+  try {
+    const snapshot = JSON.parse(fs.readFileSync(args.snapshot, "utf8"));
+    assertSnapshotIsForPr(args.pr, snapshot);
+    record = buildTranslationRecord(snapshot, args.round);
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    process.stdout.write(`${unavailable(args.round, oneLine(e.message))}\n`);
+    return 1;
+  }
+
+  const skip = skipReason(record);
+  if (skip) {
+    return deliverTranslation(root, {
+      role: "round-translation",
+      pr: args.pr,
+      round: args.round,
+      skipped: true,
+      reason: skip,
+      headAtSpawn: record.pr.headSha,
+      finishedAt: new Date().toISOString(),
+    });
+  }
+
+  let receipt;
+  try {
+    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { record } });
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    if (Array.isArray(e.attempts) && e.attempts.length) {
+      process.stderr.write(`fable-dispatch: ${e.attempts.length} attempt(s) had already run: ${JSON.stringify(e.attempts)}\n`);
+    }
+    process.stdout.write(`${unavailable(args.round, oneLine(e.message))}\n`);
+    return e.exitCode ?? 1;
+  }
+  return deliverTranslation(root, { ...receipt, pr: args.pr, round: args.round, record });
+}
+
+/**
+ * The round this invocation was FOR, read straight off argv.
+ *
+ * Needed only when `parseArgs` threw, so nothing validated is available. It is
+ * deliberately forgiving -- a malformed `--round` is one of the failures this
+ * path exists to report -- and says `?` rather than inventing a number, so the
+ * notice never names a round the operator did not ask for.
+ */
+const roundFromArgv = (argv) => {
+  const i = argv.indexOf("--round");
+  const raw = i >= 0 ? argv[i + 1] : undefined;
+  return /^\d+$/.test(raw ?? "") ? raw : "?";
+};
 
 export function main(argv = process.argv.slice(2)) {
   let args;
@@ -1258,9 +1565,21 @@ export function main(argv = process.argv.slice(2)) {
     args = parseArgs(argv);
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    // A round-translation invocation owes David one fixed line on stdout
+    // whatever went wrong, and an argument failure threw before `runTranslation`
+    // could give him one -- so the log's last line was a raw diagnostic he has
+    // no reason to recognise. The role is read from argv rather than from the
+    // parse that just failed, which is the whole point: the parse produced
+    // nothing. Everything specific still goes to stderr, where the operator
+    // reads it. (Codex, #81 round 3.)
+    const roleAt = argv.indexOf("--role");
+    if (roleAt >= 0 && argv[roleAt + 1] === "round-translation") {
+      process.stdout.write(`${unavailable(roundFromArgv(argv), oneLine(e.message))}\n`);
+    }
     return 1;
   }
   const root = repoRoot();
+  if (args.role === "round-translation") return runTranslation(root, args);
 
   let receipt;
   try {
@@ -1272,7 +1591,7 @@ export function main(argv = process.argv.slice(2)) {
     }
     return e.exitCode ?? 1;
   }
-  const out = receiptPath(root, receipt.role, receipt.headAtSpawn);
+  const out = receiptPathFor(root, receipt);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
   process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);

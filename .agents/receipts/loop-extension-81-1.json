@@ -1,0 +1,9 @@
+{
+  "kind": "david",
+  "pr": 81,
+  "grant": 2,
+  "asOf": 3,
+  "authorization": "A mechanical round is the loop's own to grant, once (David, 2026-09-07, docs/ai-context/working-modes.md): \"When the head has moved only by bookkeeping -- receipts, records, machinery configuration, a merge of the base branch -- with no finding being written for and no review or verdict pending, the loop does not ask. Under budget it simply requests the pass. Only when the allowance is exhausted does it commit a `david`-kind receipt granting two rounds from the completed count, citing that standing authorization, then request the pass so the pass covers the receipt. The second round is headroom for the gate arithmetic, not one to spend.\"",
+  "reason": "The loop stopped at the cap on head 1107004, which round 3 reviewed. The head then moved to d373ea9, which is the adjudication record and its recovered verdict -- generated bookkeeping and nothing else, excluded from the artifact diff by cappedDiff's own rule. No finding is being written for: the adjudicator returned ship-with-gaps-recorded with grant 0, all four open findings are answered and resolved as recorded gaps, and no review or verdict is pending. The pass this opens exists so the merge bar's 'Codex review returned for the head commit' is satisfiable on d373ea9; the second round is the gate arithmetic's headroom and is not to be spent.",
+  "grantedAt": "2026-09-12T22:32:00Z"
+}

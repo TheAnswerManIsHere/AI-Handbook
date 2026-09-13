@@ -1,0 +1,7 @@
+{
+ "pr": 81,
+ "kind": "david",
+ "grant": 2,
+ "asOf": 7,
+ "authorization": "David, 2026-09-13, verbatim: \"Option 3\" -- answering the 🛑 raised at the David gate after round 7 returned four P2 findings, all reproduced, none written for (two fired the flip condition registered before the round ran, and round 7 was the allowance's last). Option 3 as put to him: \"Grant 2, but scoped -- fix only #2 and #3 (the hang and the false claim), record #1 and #4. Ramification: the two you'd notice are closed, the diff stays small, the enumeration gets less new surface to find.\" It was my recommendation, chosen over endorsing the stop and over fixing all four. So: gap 9 (an unmatched snapshot glob hangs the close-out wait forever, and the merge ask is never posted) and gap 10 (the chat line says \"agrees with the builder's account\" on a round that has no builder account) are fixed; gap 8 (a concurrent re-run can replace an account and double-spend) and gap 11 (writePage installs the page before checking it is ignored) ship as recorded gaps. This supersedes the adjudicator's grant-0 recommendation in loop-extension-81-3.json, which he read alongside D0's contrary recommendation to fix all four. Grant 2 opens rounds 8 and 9 from a completed count of 7; the David gate moves to 9. Round 8 is the mandatory write-gate review of the two fixes and this receipt."
+}

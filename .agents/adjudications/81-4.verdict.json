@@ -1,0 +1,252 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 81,
+  "recordPath": ".agents/adjudications/81-4.json",
+  "recordSha256": "d4b640779e066a0665a9ad49094a27ffd01b6bcb6f3a8e7a01911a7499c71b62",
+  "toolUseId": "toolu_014qRbUwkrGkkKvdaodT6z97",
+  "agentId": "aa30a83dbd3bac5fc",
+  "decidedAt": "2026-09-13T06:08:28.384Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, declaredBudget 3, and the record shows roundsSpent 9 against allowance 9 with pendingRequest false — the allowance is exactly spent and the adjudicator's self-serve leash (budget+3 = round 6) was passed three rounds ago, so this verdict is the recommendation David reviews at his gate rather than a grant I can make; budget.extensions already carries four david-kind grants (2, 3, 2, 1) and one prior adjudication verdict of ship-with-gaps-recorded that three further rounds were bought past. The trend is 11, 1, 4, 3, 7, 4, 4, 2, 2 over nine passes, 38 findings with territory.inDiff 38 and outsideDiff 0, criticality 40, and rounds 7-9 read as a repair tail rather than convergence — Codex's own bodies on PRRT_kwDOUKOPKc6h2LtQ, PRRT_kwDOUKOPKc6h2LtU and PRRT_kwDOUKOPKc6h21-y describe themselves as fresh behaviour after the previous round's fix. Neither still-open finding clears the internal rubric's critical bar: I verified PRRT_kwDOUKOPKc6h21-r against artifact.patch (commentsSincePass in core/scripts/round-translation-record.mjs filters and maps with no `seen` set while roundThreads dedupes by rootIdOf, so the premise holds) and its consequence is redundant prose in a brief for a role the oracle's Must Not Change defines as holding no authority, and PRRT_kwDOUKOPKc6h21-y is a round silently absent from a page the merge gate does not read, on a failure the operator sees in the foreground — neither is destructive or irreversible, neither corrupts receipt or tracking machinery any agent consumes (D0 receipts are gitignored evidence by Settled Decision 8), and neither widens my authority. sinceLastReview reports noChange with head == lastReviewedCommit 5f8a134, so stopping here ends the loop on an already-reviewed head; truncation.fields is empty at 297,578 of 600,000 chars, and I read artifact.patch in full except the 1,331-line new-test hunk, which I skimmed by header and which bears only on the one test-precision classification below.",
+    "gaps": [
+      "Round 9, PRRT_kwDOUKOPKc6h21-r (P2, core/scripts/round-translation-record.mjs:245) — commentsSincePass does not deduplicate overlapping `--comments` capture pages, so a repeated PR-level context comment or reply can appear twice in a D0 brief. roundThreads was given a `seen` set for the same hazard; this collection was not. Consequence is redundant or doubled prose in an account that decides nothing.",
+      "Round 9, PRRT_kwDOUKOPKc6h21-y (P2, core/.claude/skills/pr-watch/SKILL.md:734) — when snapshot assembly fails before writing snap-rN.json, the close-out wait loop's `[ -e \"$s\" ] || continue` guard leaves round N with no dispatch, no exit file and no fixed notice, so the merge ask can go out with that round's translation silently missing from David's page.",
+      "Structural gap, not a finding: the loop is being stopped on a repair tail rather than on a clean round. Rounds 7-9 returned 4, 2, 2 findings, all P2, several of them consequences of the preceding round's fix, and a further round in this family should be expected to return more of the same on machinery whose failure mode is a paragraph David can see is wrong."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Ta",
+        "class": "in-scope",
+        "citation": "",
+        "why": "normalisePr dropped the PR author, so every builder reply in the brief was labelled `other`, defeating the provenance labelling Product Intent 1 and the Must Not Change on brief labelling both rest on."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Te",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A +/-6-hour fallback bound two ordinary rounds' findings to each other, which breaks Settled Decision 9's named round and would have David reading round N's account describing round N+1."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tj",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Comparing a marker's 7-40 character SHA against the full head SHA makes a clean pass read as having pushed, defeating Settled Decision 4's no-findings/no-push skip and buying a dispatch that should not happen."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tk",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Settled Decision 3 specifies the diff from the reviewed commit to the head, and three-dot semantics do not produce it once a permitted --force-with-lease rewrite leaves the reviewed commit off the head's ancestry."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tn",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A threads collection captured before the pass holds none of that round's findings, so the round would be translated or skipped as clean — a wrong account David has no way to doubt."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tq",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Capturing another repository's same-numbered PR is named in the threat model's own worked example as a mistake the identity checks exist to catch ('Capturing the wrong PR's snapshot because every repository has a #7'), so it is inside the model rather than outside it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tt",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The published recipe ran in the foreground and created no exit file while the surrounding prose required both, so following it as written blocks the loop or leaves close-out with no completion signal."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tx",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A delivery failure after the model ran escaped the catch and printed neither fixed notice, so Product Intent 2's one derived chat line per round was not produced on exactly the path that most needs one."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T2",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The recipe redirected stdout where the assembler requires --out, so following it creates an empty snapshot and the dispatch can only report a parse failure."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T7",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A one-time HEAD check cannot pin what a detached, long-running role reads from a live tree, so the brief asserted an evidence boundary the code did not hold; the increment's answer was to drop Read entirely."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T_",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Multi-line provider errors inserted verbatim into the notice break Product Intent 2's single line that the builder pastes verbatim."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0EVx",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The fleet-wide contract still described a Read guarantee and a HEAD check that the same PR had already removed, so every consumer would read a mechanism that does not exist."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUd",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 1 promises an account of every round, and waiting only on the stopping round's exit file lets the merge ask go out with an earlier round absent from the page."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUf",
+        "class": "in-scope",
+        "citation": "",
+        "why": "An argument failure threw before the handler that owes David a fixed recognisable line, leaving the log's last line a raw diagnostic the skill requires to be pasted verbatim."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUh",
+        "class": "in-scope",
+        "citation": "",
+        "why": "An unbounded lower-bound-only comment window puts round N+1's conversation under round N's heading on the catch-up case this record explicitly supports."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUi",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 3 makes a schema-valid document the only thing that produces a receipt, and a document of empty strings was valid and produced the favourable 'agrees' line over a page with no account on it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0Ug0",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Settled Decision 9's single freshness comparison was wrong at GitHub's second granularity, producing the false 'unanswered' translation the check exists to prevent."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0Ug2",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The workflow the increment itself documents detaches every round, so two overlapping deliveries can leave Product Intent 2's single page missing a completed round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0Ug3",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Overlapping capture pages are a supported input shape, and an undeduplicated thread root numbers one finding twice, so the account states a finding count that disagrees with every mechanical count of the same round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cga",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Bounding the comment window at the next pass while leaving the diff endpoint at the live head was half a fix: the brief would credit a later round's code to the earlier round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgc",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A leftover exit file makes the close-out wait return immediately while the replacement translation is still running, which is the merge ask proceeding without the round it was told to wait for."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cge",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A non-atomic receipt write can be read half-formed by a concurrent delivery, turning a completed, paid-for translation into 'translation unpublished'."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgg",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Unquoted $PWD/$D inside a double-quoted bash -c is the escaping class this repository has already measured (issue #11), and here it means the dispatch never starts in a consumer checkout whose path contains a space."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgh",
+        "class": "out-of-threat-model",
+        "citation": "threatModel.text (agents-core.md): 'an agent's influence over its own tooling, where the agent that runs a script is the only actor who could subvert its inputs and could equally just not run it' — and the worked example: 'A finding of the shape \"an edit to the working tree could…\" is declined by pointing here.'",
+        "why": "The finding's named actor is an agent editing an assembled snapshot after the script it runs produced it, which is the operator hardening against itself rather than against a producer it does not control."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgi",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Settled Decision 3 specifies caps, and per-field caps that do not bound the aggregate let a legitimate large round exceed context and mark a mandatory translation unavailable."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgk",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The snapshot carries only a boolean isResolved, so telling the translator the builder resolved a thread invents provenance inside the one role whose stated mechanism is that every block says who wrote it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Brs",
+        "class": "test-precision",
+        "citation": "core/scripts/__tests__/round-translation.test.mjs (new file, @@ -0,0 +1,1331 @@) against core/scripts/fable-dispatch.mjs @@ -1272,7 +1591,7 @@ region, where main() does `const root = repoRoot();`",
+        "why": "The shipped code is right — main() deriving its root from the script's own location is correct for a real invocation — and the test is the problem: it changes process.cwd() expecting that to redirect repoRoot(), so it never exercises the re-run invariant it names and fails against the real checkout."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Bru",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The unquoted glob word-splits before expansion on a path containing a space, so close-out waits forever on fabricated exit files and blocks the merge ask after every translation has already succeeded."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Brw",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Settled Decision 17 governs re-runs, and an overwrite refusal that cannot tell an unpublished receipt from a published one makes a recoverable publish failure unrecoverable without deleting valid evidence."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Brz",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Recovering only page 1 makes the assembler refuse the snapshot on exactly the large loops the translation is most needed for, so the published recipe cannot run where it matters most."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv3",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Settled Decision 17's stated property is that no path writes a different receipt for a round that has one, and a check-then-act guard lets two concurrent invocations both dispatch and one replace the other's account."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv7",
+        "class": "in-scope",
+        "citation": "",
+        "why": "With no snapshot present bash leaves the pattern unexpanded and the loop waits forever on a literal d0-r*.exit, blocking the merge ask when nothing was even outstanding."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv8",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 2's chat line is 'agrees with the builder's account', and printing it over a round with no builder account names an account that does not exist."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv_",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Writing and installing the private page before the ignore check refuses leaves a model-generated page untracked and committable, against the Must Not Change that D0's output never lands on a GitHub surface."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h2LtQ",
+        "class": "in-scope",
+        "citation": "",
+        "why": "One field was answering two questions — capture freshness (every non-reviewer comment) and account-present (only the builder's) — so a maintainer's comment alone produced the favourable line over no builder account."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h2LtU",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The chip said 'unanswered' while the prose five lines below still told David the translator read the round the same way the builder described it, so the page asserted an account that did not exist."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h21-r",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The premise holds against artifact.patch — commentsSincePass filters and maps snapshot.issueComments with no seen-set while roundThreads dedupes by rootIdOf — and the oracle does not exclude a brief that presents the same comment twice, so the ordinary Worth decision applies; it is a recorded gap only because the verdict is stop, not because it is out of scope."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h21-y",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Product Intent 1 promises David an account of every round, and a round whose snapshot assembly failed produces no dispatch, no exit file and no fixed notice, so the merge ask can go out with it silently missing."
+      }
+    ]
+  }
+}

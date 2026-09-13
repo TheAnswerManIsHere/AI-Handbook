@@ -202,6 +202,20 @@ stored records. From the merged-PR list for the window:
   A run of loops where B1 classes nothing out of scope means it is agreeing
   with every finding, which is the zero-for-fifteen shape the workstream's own
   retirement rule exists to catch — say so rather than reporting the zero flat.
+- **D0, two numbers and no more** (David, 2026-09-12). How many round
+  translations ran, and how many flagged a disagreement with the builder's
+  account. **Read them from the close-out harvest comments**, the same source
+  plan-loop rounds come from: D0's receipts are gitignored evidence that dies
+  with its session, deliberately — making a gut-level count exact is the
+  accounting-precision class the `Worth:` rule declines. **Say so when a
+  merged loop's harvest comment carries no D0 line**, rather than reporting a
+  figure that silently omits it.
+
+  The shape to watch is the same one B1 has: a run of loops where D0 never
+  disagrees means it is agreeing with every account, which is what the
+  zero-for-fifteen retirement rule catches. The opposite shape counts too — a
+  translation disagreeing on every round is not obviously working either, and
+  either extreme is worth a sentence to David rather than a number.
 - **Guard incidents that needed David.** Rare by design; if it isn't rare, say
   so.
 - **Recorded dissents** (David, 2026-09-03). Override entries in the repo's

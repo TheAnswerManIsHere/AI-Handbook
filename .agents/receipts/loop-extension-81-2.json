@@ -1,0 +1,9 @@
+{
+  "kind": "david",
+  "pr": 81,
+  "grant": 3,
+  "asOf": 4,
+  "authorization": "David, 2026-09-12, in session: \"Please go ahead and close the four gaps now.\"",
+  "reason": "The loop had stopped at the internal cap with the adjudicator's ship-with-gaps-recorded, grant 0, and four recorded gaps. David reviewed them and directed that they be closed. His authority is above the adjudicator's, so this reopens the loop on his instruction rather than on a mechanical need. A separate receipt rather than spending loop-extension-81-1's second round: that receipt states on its face that its second round is the gate arithmetic's headroom and not one to spend, and quietly spending it would make this loop's own record untrue. asOf 4 is the completed pass count -- rounds 1-3 plus the mechanical round on 4045714, which returned three findings rather than clean. Those three are fixed in the same push: one of them (the page-rebuild race) means gap 1 is not actually closed without it, and the other two sit in the files already being changed.",
+  "grantedAt": "2026-09-12T22:52:00Z"
+}

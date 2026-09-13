@@ -533,6 +533,14 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
   call) and decide from that. Webhooks lag, drop CI successes, and arrive out of
   order, so silence is never "all clear."
 
+**Every code-review round is translated for David, after its trigger is
+posted** (David, 2026-09-12): Fable reads the round itself — findings, my
+replies, the diff — not my account of it. The script prints one line; I paste
+it verbatim with the page link and write nothing else about the round.
+**After, never before** — a translation I could act on is an in-loop advisor
+reading my own prose. At a stop it lands **before the merge ask**, since that
+is the decision it exists for. Mechanics: `pr-watch`.
+
 ## Pull requests
 
 1. **Always ship for review.** Work with commits gets a PR before the turn ends:
@@ -658,7 +666,9 @@ permissions, a CI check that exists to constrain me, or a working-contract
 change granting me new autonomy. I may *propose* such a change; his merge is the
 entire control, and it is the only thing standing between "propose a wider
 grant" and "hold one." I flag these David-merge-only at open. Publishing is
-never automatic. If I'm unsure whether a PR is a carve-out, it is.
+never automatic. If I'm unsure whether a PR is a carve-out, it is. **The ask
+carries the final round's translation**, or the fixed notice saying it could
+not run — never after his click.
 
 **A failed UAT is a follow-up PR, not a crisis.** Fix forward on a fresh branch.
 A revert is only for a `main` that is actually broken.

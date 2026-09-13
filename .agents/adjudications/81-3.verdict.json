@@ -1,0 +1,239 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 81,
+  "recordPath": ".agents/adjudications/81-3.json",
+  "recordSha256": "92926e1f14a4fcb4b92005eec48732fce58b20a9fb5e00fddd7086b86fb6d2f5",
+  "toolUseId": "toolu_01JGRAkGrn9Mhnx8R5EExsks",
+  "agentId": "a76f00bc385033ed4",
+  "decidedAt": "2026-09-13T03:52:04.503Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, declared budget 3, roundsSpent 8 against an allowance of 9 built from three David grants (2, 3, 2), with an adjudication in this same loop having already returned ship-with-gaps-recorded at grant 0 — and the two rounds bought since produced 4 then 2 findings, all P2, narrowing the same 'agrees over an absent builder account' theme fixed in round 7 (trend 11,1,4,3,7,4,4,2; 36 findings, all in-diff). I verified both live findings against artifact.patch and both premises hold: assertCaptureAfterResponse filters on `c.role !== \"reviewer\"` so a maintainer's comment sets respondedAt, which facts() reads as `answered`, and renderRound's else branch pushes \"It read the round the same way the builder described it.\" with no test on f.answered. Neither reaches the internal rubric's critical bar — nothing destructive or irreversible, no corruption of receipt or tracking machinery (Must Not Change binds that D0's receipts are gitignored and the oracle's own affected-surface inventory measured 0 hits of `fable` in merge-path readers), no widening of authority — they are contradictory prose on a private page whose chip and chat line already print 'unanswered' correctly. sinceLastReview shows head == lastReviewedCommit (03981183) with 0 commits, so stopping lands exactly on the head round 8 reviewed.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6h2LtQ — round-translation-record.mjs:266: assertCaptureAfterResponse's `role !== \"reviewer\"` predicate lets a non-builder comment set round.respondedAt, so facts().answered can be true with no builder account and the chat line can print 'agrees with the builder's account'. Narrow in practice because D0 is dispatched after the builder's own trigger comment, which is itself a builder comment in the window.",
+      "PRRT_kwDOUKOPKc6h2LtU — round-translation-page.mjs:181: the no-disagreements branch of renderRound unconditionally renders 'It read the round the same way the builder described it.', contradicting the 'unanswered' verdict chip rendered directly above it on the same round when f.answered is false."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Ta",
+        "class": "in-scope",
+        "citation": "Must Not Change: \"it is told where every piece of its brief came from — which words are Codex's, which are the builder's, which are the diff.\"",
+        "why": "A null builderLogin labels every builder reply `other`, destroying exactly the provenance the oracle makes a must-not-change."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Te",
+        "class": "in-scope",
+        "citation": "Product Intent 1: \"a plain-English account of that round\"",
+        "why": "A ±6h fallback gives two rounds each other's findings, which is an account of the wrong round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tj",
+        "class": "in-scope",
+        "citation": "Settled Decisions 4: \"A round with zero findings and no push is not dispatched.\"",
+        "why": "A strict SHA comparison against an abbreviated marker sha reports a clean pass as having pushed, defeating the skip the oracle specifies."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tk",
+        "class": "in-scope",
+        "citation": "Settled Decisions 3: \"the diff from the pass's reviewed commit to the snapshot's head\"",
+        "why": "A three-dot range measures from the merge base, so after a permitted rewrite the patch is not the diff the oracle names."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tn",
+        "class": "in-scope",
+        "citation": "Product Intent 1: the account is written \"from the raw round\"",
+        "why": "A threads collection captured before the pass holds none of its findings, so the round is translated or skipped as clean when it was not."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tq",
+        "class": "in-scope",
+        "citation": "threatModel.text: \"GitHub's word is compared to config too. A snapshot naming another repository is refused: you captured the wrong PR.\"",
+        "why": "The threat model names capturing the wrong repository's same-numbered PR as one of the mistakes these checks exist to catch."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tt",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, the \"Translating the round for David (D0)\" dispatch recipe",
+        "why": "The shipped recipe as written blocks the loop in the foreground and creates none of the exit files the close-out wait depends on."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8Tx",
+        "class": "in-scope",
+        "citation": "Product Intent 2: \"one line in chat per round that is derived from the receipt\"",
+        "why": "A delivery failure escaping as an uncaught exception leaves the loop with no verbatim line to paste, which the oracle promises every round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T2",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, the snapshot-assembly block",
+        "why": "The documented invocation redirects stdout where the assembler requires --out, so the recipe fails outright and no translation can run."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T7",
+        "class": "in-scope",
+        "citation": "Settled Decisions 3 and the role definition's \"You hold no tools, and your brief is the whole world\"",
+        "why": "A one-time HEAD check cannot pin what a detached, long-running role reads from a live tree, so the stated evidence boundary was asserted rather than held."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6hz8T_",
+        "class": "in-scope",
+        "citation": "Product Intent 2: \"one line in chat per round\"",
+        "why": "A multiline provider error pasted verbatim turns the fixed single status line into a wall of operator instructions."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0EVx",
+        "class": "in-scope",
+        "citation": "budget.artifactDeclaredAtRoundZero: \"...and the contract/skill surfaces\"",
+        "why": "The fleet contract still described a Read mechanism the shipped role deliberately removed, and that document is part of the declared artifact."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUd",
+        "class": "in-scope",
+        "citation": "Product Intent 1: \"After every re-request on a code review loop, and once more when the loop stops\"",
+        "why": "Waiting only on the stopping round's exit file lets the merge ask go out with an earlier round absent from the page the oracle promises covers every round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUf",
+        "class": "in-scope",
+        "citation": "threatModel.text: \"A cheap check that it is well-formed... is catching the operator's own mistake, which is exactly the threat model, and stays.\"",
+        "why": "A mistyped flag is the operator error the threat model covers, and the oracle owes David one fixed line whatever went wrong."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUh",
+        "class": "in-scope",
+        "citation": "Product Intent 1: \"a plain-English account of that round\"",
+        "why": "An unbounded comment window puts round N+1's conversation under round N's heading."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0JUi",
+        "class": "in-scope",
+        "citation": "threatModel.text: \"A check earns its place only when the value can differ from what you intended — which requires something outside your control to have produced it.\"",
+        "why": "The structured document comes from the model and the harness, not from this script, and an empty one produces the favourable chat line over a page with no account."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0Ug0",
+        "class": "in-scope",
+        "citation": "threatModel.text: the same producer-scoped rule — GitHub's second-precision created_at is not this script's value",
+        "why": "A capture inside the reply's own second genuinely predates it, producing the false \"unanswered\" account the check exists to prevent."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0Ug2",
+        "class": "in-scope",
+        "citation": "Product Intent 2: \"one private Artifact page per loop, redeployed in place each round with the newest round on top\"",
+        "why": "Overlapping detached deliveries can leave a completed round off the very page the oracle promises."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0Ug3",
+        "class": "in-scope",
+        "citation": "Settled Decisions 9: \"its findings as findingsByRound counts them — no new counting logic\"",
+        "why": "A repeated thread from overlapping pages numbers one finding twice and disagrees with the shared count the oracle binds it to."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cga",
+        "class": "in-scope",
+        "citation": "Settled Decisions 3: \"the diff from the pass's reviewed commit to the snapshot's head\"",
+        "why": "On a catch-up round the live head carries the next round's code, so the account credits a later fix to the earlier round."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgc",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, the close-out wait loop",
+        "why": "A stale exit file makes the wait return immediately while the replacement translation is still running, so the merge ask can precede it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cge",
+        "class": "in-scope",
+        "citation": "Product Intent 2: the page is rebuilt from the receipts each round",
+        "why": "A concurrently-read half-written receipt makes a completed translation report unpublished."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgg",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, the setsid/nohup dispatch recipe",
+        "why": "An unquoted $PWD inside the double-quoted bash -c means the dispatch never starts in a consumer checkout whose path contains a space."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgh",
+        "class": "out-of-threat-model",
+        "citation": "threatModel.text: \"A finding of the shape 'an edit to the working tree could…' is declined by pointing here. It is not a defect in a mistake-catcher that its operator can disable it.\"",
+        "why": "The only actor who could edit an assembled snapshot before the dispatch reads it is the agent running the dispatch, and assertCapturedProvenance already catches the mistake class of a capture from the wrong PR."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgi",
+        "class": "in-scope",
+        "citation": "Settled Decisions 3: \"capped the way the judge's record caps its patch and bodies\"",
+        "why": "Per-field caps do not bound the aggregate brief, so a large legitimate round can exceed context and make a promised translation unavailable."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h0cgk",
+        "class": "in-scope",
+        "citation": "Must Not Change: \"it is told where every piece of its brief came from\"",
+        "why": "The snapshot carries only a boolean isResolved, so naming the builder as the resolver turns an observed state into an invented provenance claim."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Brs",
+        "class": "test-precision",
+        "citation": "core/scripts/__tests__/round-translation.test.mjs — the re-run/existing-receipt test, which drives main() by changing process.cwd() while main() resolves its root from the script's own directory",
+        "why": "The defect is in the test's setup rather than in the shipped behavior it means to assert; the assertion never reaches the code under test."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Bru",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, the close-out `for s in $D/snap-r*.json` loop",
+        "why": "Word splitting before glob expansion makes the loop wait forever on fabricated exit files, blocking the merge ask in a consumer checkout with a space in its path."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Brw",
+        "class": "in-scope",
+        "citation": "Settled Decisions 17: \"An existing account is therefore republished, not refused\"",
+        "why": "A refusal on an unpublished-but-valid receipt makes a recoverable failure unrecoverable, which is the case the settled decision was written to cover."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1Brz",
+        "class": "in-scope",
+        "citation": "Product Intent 1: the account is written from the round's own material, and the assembler refuses an incomplete snapshot",
+        "why": "Recovering only page 1 makes the assembler refuse on exactly the large loops where the translation matters most."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv3",
+        "class": "in-scope",
+        "citation": "Settled Decisions 17: \"no path writes a different receipt for a round that has one\"",
+        "why": "A check-then-act existence guard does not hold that invariant against an operator retrying a seemingly stalled detached run, which is the mistake class the threat model covers."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv7",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, the close-out wait loop",
+        "why": "An unmatched glob leaves the literal pattern, so the loop waits forever on d0-r*.exit with no translation outstanding."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv8",
+        "class": "in-scope",
+        "citation": "Product Intent 2: \"one line in chat per round that is derived from the receipt — agrees with the builder's account, or differs on N points\"",
+        "why": "Printing agreement over a round with no builder reply asserts an account that does not exist, which is the derived line being wrong."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h1fv_",
+        "class": "in-scope",
+        "citation": "Must Not Change: \"Receipts stay gitignored evidence... No new committed record shape\"",
+        "why": "Installing the page before the ignore check leaves a model-written file untracked and committable, against the stated session-artifact boundary."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h2LtQ",
+        "class": "in-scope",
+        "citation": "core/scripts/round-translation-record.mjs, assertCaptureAfterResponse's `c.role !== \"reviewer\"` filter, read by round-translation-page.mjs facts(): `answered: receipt.record?.round?.respondedAt !== null`",
+        "why": "A non-builder comment sets respondedAt, so the derived chat line can claim agreement with a builder account that does not exist — the same wrong-account class Product Intent 2 governs."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h2LtU",
+        "class": "in-scope",
+        "citation": "core/scripts/round-translation-page.mjs, renderRound's else branch: `parts.push(\"<p class=\\\"skipped\\\">It read the round the same way the builder described it.</p>\")`, unconditional on f.answered",
+        "why": "The sentence asserts a builder description on a round the chip directly above it has already labelled unanswered."
+      }
+    ]
+  }
+}

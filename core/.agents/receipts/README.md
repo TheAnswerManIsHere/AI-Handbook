@@ -33,6 +33,8 @@ refused until it is pushed.
 | `loop-round-check-<pr>.json.<nonce>.claim` | evidence | the guard — an atomic single-use claim on **one generation** of that receipt |
 | `loop-budget-<pr>.json` | **decision** | `review-budget.mjs declare`, before round 1 |
 | `loop-extension-<pr>-<n>.json` | **decision** | the session, after an adjudication or David's authorization |
+| `fable-<role>-<head>.json` | evidence | `fable-dispatch.mjs` — one dispatch, its launch surface and its answer |
+| `fable-round-translation-<pr>-<n>.json` | evidence | `fable-dispatch.mjs` — D0's account of one round, keyed by **round** rather than head because a declined round leaves the head where it was |
 
 The claim is keyed to the receipt's `nonce` rather than to the PR, so a fresh
 `check` writes a *different* claim file instead of deleting a live one — and
