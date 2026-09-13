@@ -1,0 +1,16 @@
+{
+ "pr": 81,
+ "kind": "adjudication",
+ "verdict": "ship-with-gaps-recorded",
+ "grant": 0,
+ "risk": "",
+ "recordPath": ".agents/adjudications/81-3.json",
+ "decidedAt": "2026-09-13T03:52:04Z",
+ "reasoning": "Internal tier, declared budget 3, roundsSpent 8 against an allowance of 9 built from three David grants (2, 3, 2), with an adjudication in this same loop having already returned ship-with-gaps-recorded at grant 0 — and the two rounds bought since produced 4 then 2 findings, all P2, narrowing the same 'agrees over an absent builder account' theme fixed in round 7 (trend 11,1,4,3,7,4,4,2; 36 findings, all in-diff). I verified both live findings against artifact.patch and both premises hold: assertCaptureAfterResponse filters on `c.role !== \"reviewer\"` so a maintainer's comment sets respondedAt, which facts() reads as `answered`, and renderRound's else branch pushes \"It read the round the same way the builder described it.\" with no test on f.answered. Neither reaches the internal rubric's critical bar — nothing destructive or irreversible, no corruption of receipt or tracking machinery (Must Not Change binds that D0's receipts are gitignored and the oracle's own affected-surface inventory measured 0 hits of `fable` in merge-path readers), no widening of authority — they are contradictory prose on a private page whose chip and chat line already print 'unanswered' correctly. sinceLastReview shows head == lastReviewedCommit (03981183) with 0 commits, so stopping lands exactly on the head round 8 reviewed.",
+ "gaps": [
+  "PRRT_kwDOUKOPKc6h2LtQ — round-translation-record.mjs:266: assertCaptureAfterResponse's `role !== \"reviewer\"` predicate lets a non-builder comment set round.respondedAt, so facts().answered can be true with no builder account and the chat line can print 'agrees with the builder's account'. Narrow in practice because D0 is dispatched after the builder's own trigger comment, which is itself a builder comment in the window.",
+  "PRRT_kwDOUKOPKc6h2LtU — round-translation-page.mjs:181: the no-disagreements branch of renderRound unconditionally renders 'It read the round the same way the builder described it.', contradicting the 'unanswered' verdict chip rendered directly above it on the same round when f.answered is false."
+ ],
+ "modelRequested": "best",
+ "effortRequested": "xhigh"
+}
