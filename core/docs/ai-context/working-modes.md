@@ -678,7 +678,7 @@ the safety net a non-code-reading product manager depends on.
   one exception.
 - **Every review request carries pre-registered flip conditions** — what
   finding, what count, what change of shape would end the loop, written before
-  the round runs. This is the only judgment-shaped device with a working record
+  the round runs. This is the only stopping device with a working record
   (6-for-6), and it works because a condition written in advance collides with
   an event instead of waiting to be recalled.
 

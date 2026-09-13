@@ -133,7 +133,11 @@ where I put it and treat it as binding.
     (PR bodies, issue bodies, comments). Use the agreed leet-defanged form —
     canonical, one per phrase, so references stay greppable: the review-request
     trigger is written **`atC0dex r3view`** (David, 2026-08-21). And **a review
-    request is the bare trigger alone — nothing else in that comment.** The
+    request carries no prose of mine: the trigger, and nothing I wrote**
+    (revised 2026-09-13 — a cloud harness appends an attribution footer no
+    caller can suppress, so demanding an otherwise-empty comment had become
+    unobeyable; measured across four triggers, every one still started a
+    review, so the footer is tolerated and a sentence of my own is not). The
     connector interprets mention text: a bare trigger reliably starts a review,
     while trigger-plus-prose sometimes ALSO starts a code-writing task
     (measured 2026-08-21: it did on #490/#539/#472, didn't on #503's seven
@@ -396,7 +400,15 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    a classification only by citing it**; no citation, no decline. The
    judge's answer is recovered from the harness's record of it and committed
    beside the record it ruled on, so what is counted later is what the judge
-   actually said.
+   actually said. **The record is generated BEFORE the round's fixes are
+   pushed** (#85): the generator refuses an unreviewed head, so a push closes
+   the window and that round's classification is lost, as it was once on #83.
+   **No plan oracle narrows the dispatch, it never cancels it** (#80,
+   corrected by #86): a `trivial` provenance carries none, so
+   `out-of-product-intent` cannot be decided and no decline may cite it.
+   Every other class is unaffected — `out-of-threat-model` cites the threat
+   model, which is present on every tier, and `test-precision` and
+   `misdirection` cite the diff.
    **The verdict's own boundary is unchanged** (David, 2026-08-22, superseding
    the 2026-08-20 beyond-the-first cadence).
    **Code loops only: retired for plan loops** (David, 2026-09-09) — the
@@ -462,9 +474,14 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
    as behavioral; rule 3's mechanical round is the one exception. **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
-   written before the round runs. This is the only judgment-shaped device with a
+   written before the round runs. This is the only stopping device with a
    working record, and it works because it collides with an event instead of
    waiting to be recalled.
+   **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
+   2026-09-13): something read off the round, not something I decide in the
+   moment having just read the finding. **A condition I have to interpret is
+   one I will reinterpret** — measured one loop each way, #83 and #85. Shapes
+   and that evidence: `pr-watch`.
 
 5. **Triage every finding: fix / accept-and-document / escalate**, stated
    explicitly. Codex marks everything "Required Revision" because that is its

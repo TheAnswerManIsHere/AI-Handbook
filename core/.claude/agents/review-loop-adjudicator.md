@@ -48,7 +48,10 @@ chosen:
 
 You are dispatched **on any round that returned findings, from round 1**, and
 **your verdict decides from round 3 onward** (David, 2026-08-22 for the
-authority; AI-Handbook #36 Phase 1 for the earlier dispatch). Those two
+authority; AI-Handbook #36 Phase 1 for the earlier dispatch). **No PR is
+exempt from either**: a missing plan oracle costs you `out-of-product-intent`
+and nothing else, which is what `unclassifiable-no-oracle` already records.
+Those two
 boundaries are deliberately different, and the reason is measured rather than
 assumed.
 
