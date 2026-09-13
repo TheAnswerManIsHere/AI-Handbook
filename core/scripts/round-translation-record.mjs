@@ -253,12 +253,26 @@ export function commentsSincePass(snapshot, pass, builderLogin, nextPass = null)
 }
 
 /**
- * CHECK 2: the capture must be newer than the builder's last word on the round.
+ * CHECK 2: the capture must be newer than the last word on the round.
  *
  * Returns the newest non-reviewer comment across the round's threads and the
  * PR comments since the pass, so the refusal can name it. A round nobody has
  * replied to yet has no boundary to beat, and translating it is legitimate --
  * it simply reads as a round awaiting a response, which is true.
+ *
+ * NON-REVIEWER, DELIBERATELY, AND THIS FIELD ANSWERS ONLY THIS QUESTION.
+ * Capture freshness must beat EVERY comment on the round -- a maintainer's as
+ * much as the builder's -- or a capture read between David's comment and the
+ * builder's would be certified as holding the round's last word when it does
+ * not. So the predicate stays wide here.
+ *
+ * What it must not be reused for is "did the builder answer". Those are two
+ * questions and they want two predicates, and for one round this field
+ * answered both: `facts()` read a non-null `respondedAt` as proof of a builder
+ * account, so a round whose only non-reviewer comment was a maintainer's
+ * printed "agrees with the builder's account" over an account that did not
+ * exist. `builderAnsweredAt` below is the second predicate. (Codex, #81
+ * round 8.)
  */
 export function assertCaptureAfterResponse(snapshot, threads, sinceComments) {
   const candidates = [
@@ -291,6 +305,27 @@ export function assertCaptureAfterResponse(snapshot, threads, sinceComments) {
     );
   }
   return new Date(newest.at).toISOString();
+}
+
+/**
+ * WHETHER THE BUILDER ANSWERED THIS ROUND. Not a check -- a fact the page needs.
+ *
+ * `role === "builder"`, and only that. `assertCaptureAfterResponse` above is
+ * deliberately wider because capture freshness must beat every comment on the
+ * round; this one decides whether there is a builder account for the
+ * translator to agree or disagree with, and a maintainer's comment is not one.
+ *
+ * Null when the builder has not spoken in this round's window, which is a
+ * legitimate state the record reports rather than refuses -- `facts()` turns it
+ * into the page's `unanswered` shape. (Codex, #81 round 8.)
+ */
+export function builderAnsweredAt(threads, sinceComments) {
+  const at = [...threads.flatMap((t) => t.comments), ...sinceComments]
+    .filter((c) => c.role === "builder")
+    .map((c) => Date.parse(c.at ?? ""))
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a)[0];
+  return at === undefined ? null : new Date(at).toISOString();
 }
 
 /**
@@ -417,6 +452,10 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
       submittedAt: pass.at ?? null,
       reviewedCommit: pass.commit ?? null,
       respondedAt,
+      // What `respondedAt` was wrongly used for, now derived on its own
+      // predicate. Both are carried: the wide one says the capture is fresh,
+      // this one says whether there is a builder account at all.
+      builderAnsweredAt: builderAnsweredAt(threads, since),
     },
     findings: threads,
     commentsSincePass: since,

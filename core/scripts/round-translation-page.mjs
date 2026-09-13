@@ -45,21 +45,26 @@ export function facts(receipt) {
     disagreements: Array.isArray(out.disagreements) ? out.disagreements.length : 0,
     unassessed: typeof out.could_not_assess === "string" && out.could_not_assess.trim() !== "",
     // WHETHER THERE IS A BUILDER ACCOUNT AT ALL, read off the record rather
-    // than inferred from the prose. `assertCaptureAfterResponse` deliberately
-    // PERMITS a round nobody has replied to -- it returns null and the record
-    // carries that as `round.respondedAt` -- because translating an unanswered
-    // round is legitimate and reads as a round awaiting a response. What is not
-    // legitimate is then printing "agrees with the builder's account" over it,
-    // which is what the fall-through did: a clean translation of an unanswered
-    // round has no disagreements and nothing unassessed, so it landed on the
-    // favourable line while there was no account to agree with. Round 5 of
-    // AI-Handbook #81 was exactly that round.
+    // than inferred from the prose. The record permits a round nobody has
+    // replied to -- translating one is legitimate and reads as a round awaiting
+    // a response. What is not legitimate is then printing "agrees with the
+    // builder's account" over it, which is what the fall-through did: a clean
+    // translation of an unanswered round has no disagreements and nothing
+    // unassessed, so it landed on the favourable line while there was no
+    // account to agree with. Round 5 of AI-Handbook #81 was exactly that round.
     //
-    // `=== null` rather than a falsy test: `respondedAt` is an ISO string or
-    // null, and a receipt predating this field has no `record` at all, which
-    // must read as "not established" rather than "unanswered". (Codex, #81
-    // round 7.)
-    answered: receipt.record?.round?.respondedAt !== null,
+    // `builderAnsweredAt`, NOT `respondedAt`. The first version of this read
+    // `respondedAt`, which is the newest NON-REVIEWER comment -- so a
+    // maintainer's comment on the round set it and the favourable line printed
+    // anyway. The two questions are "is the capture fresh" (every comment
+    // counts) and "did the builder answer" (only the builder's does), and one
+    // field cannot answer both. (Codex, #81 round 8.)
+    //
+    // `=== null` rather than a falsy test, because a receipt predating this
+    // field has no `record` at all and must read as "not established" rather
+    // than "unanswered": inventing an unanswered round over an old receipt is
+    // the same wrong account facing the other way.
+    answered: receipt.record?.round?.builderAnsweredAt !== null,
   };
 }
 
@@ -172,13 +177,36 @@ function renderRound(receipt) {
   }
   parts.push("<h3>What happened</h3>", prose(o.what_happened));
   const d = Array.isArray(o.disagreements) ? o.disagreements : [];
-  parts.push(`<h3>Where the translator differs from the builder${d.length ? "" : " — nothing"}</h3>`);
-  if (d.length) {
-    for (const item of d) {
-      parts.push(`<div class="diff-item">${prose(item.what)}<p class="why">${esc(item.why_it_matters)}</p></div>`);
-    }
-  } else {
-    parts.push("<p class=\"skipped\">It read the round the same way the builder described it.</p>");
+  // BOTH THE HEADING AND THE PROSE ASSERT A BUILDER ACCOUNT, and on an
+  // unanswered round both were false while the chip above them already said
+  // `unanswered` -- the page contradicted itself five lines apart, and the
+  // half a reader actually reads was the wrong half. Neither is reachable now
+  // without `f.answered`. (Codex, #81 round 8.)
+  //
+  // The chip carries the same claim and contains none of these words, which is
+  // why `R23` asserts over the RENDERED PAGE rather than over the strings named
+  // here: a check written from my own enumeration of the claim sites is how
+  // this survived round 8's fix in the first place.
+  //
+  // THE DISAGREEMENTS THEMSELVES ALWAYS RENDER. Only the two sentences that
+  // assert an account vary -- an unanswered round with disagreements is a
+  // contradiction in the translator's own output, and hiding what it wrote
+  // would be this same class of defect a third time, losing paid-for content
+  // instead of stating a falsehood.
+  parts.push(
+    f.answered
+      ? `<h3>Where the translator differs from the builder${d.length ? "" : " — nothing"}</h3>`
+      : "<h3>Where the translator differs from the builder — no account to compare</h3>",
+  );
+  for (const item of d) {
+    parts.push(`<div class="diff-item">${prose(item.what)}<p class="why">${esc(item.why_it_matters)}</p></div>`);
+  }
+  if (!d.length) {
+    parts.push(
+      f.answered
+        ? "<p class=\"skipped\">It read the round the same way the builder described it.</p>"
+        : "<p class=\"skipped\">The builder had not answered this round when it was read, so there was no account to agree or disagree with.</p>",
+    );
   }
   if (f.unassessed) parts.push(`<div class="note">Could not assess: ${esc(o.could_not_assess)}</div>`);
   parts.push(`<p class="rec"><b>Recommendation:</b> ${esc(o.recommendation)}</p>`);

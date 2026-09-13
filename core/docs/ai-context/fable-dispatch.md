@@ -359,10 +359,18 @@ could-not-observe is not the favourable answer here either. Nor over an empty
 one — the schema declares its prose fields non-empty and P4 enforces that
 before a receipt exists, so the favourable line cannot stand over a page with
 no account behind it. **Nor over a round the builder has not answered**, which
-is the fifth shape: the record already knows, from `round.respondedAt`, that
-nobody replied — an unanswered round is a legitimate thing to translate, and
+is the fifth shape: an unanswered round is a legitimate thing to translate, and
 "agrees with the builder's account" over one names an account that does not
-exist. A round that
+exist. The record answers that from `round.builderAnsweredAt`, which counts
+**builder comments alone** — and it is a *separate* field from `respondedAt`
+deliberately. `respondedAt` is the newest **non-reviewer** comment and bounds
+capture freshness, which must beat every comment on the round including a
+maintainer's; account-present is a different question, and for one round the
+two shared a field, so a round whose only non-reviewer comment was a
+maintainer's printed the favourable line over no account at all. **On the page
+the same rule binds every surface, not just the chat line** — the verdict chip,
+the *differs from the builder* heading and the prose beneath it all assert an
+account, and none of them is reachable on an unanswered round. A round that
 raised nothing and prompted no push is not dispatched at all; an all-declined
 round is, because it is the round where the builder's account matters most.
 

@@ -18,6 +18,7 @@ import {
   assertSnapshotIsForPr,
   roundThreads,
   commentsSincePass,
+  builderAnsweredAt,
   COMMENT_CAP_CHARS,
 } from "../round-translation-record.mjs";
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
@@ -1189,7 +1190,9 @@ test("R22: the chat line never says 'agrees' over a round the builder has not an
     recommendation: "r",
   };
 
-  const unanswered = { round: 7, output: clean, record: { round: { respondedAt: null } } };
+  // `builderAnsweredAt`, not `respondedAt`: round 8 found that the wide
+  // predicate counts a maintainer's comment as the builder answering.
+  const unanswered = { round: 7, output: clean, record: { round: { respondedAt: null, builderAnsweredAt: null } } };
   assert.match(chatLine(unanswered), /no builder account yet/);
   assert.doesNotMatch(chatLine(unanswered), /agrees/);
   assert.equal(facts(unanswered).answered, false);
@@ -1200,7 +1203,7 @@ test("R22: the chat line never says 'agrees' over a round the builder has not an
 
   // ANSWERED still agrees -- otherwise the fix would have deleted the shape
   // rather than bounded it.
-  const answered = { round: 6, output: clean, record: { round: { respondedAt: "2026-09-13T00:46:31.000Z" } } };
+  const answered = { round: 6, output: clean, record: { round: { respondedAt: "2026-09-13T00:46:31.000Z", builderAnsweredAt: "2026-09-13T00:46:31.000Z" } } };
   assert.match(chatLine(answered), /agrees with the builder's account/);
   assert.equal(facts(answered).answered, true);
 
@@ -1217,4 +1220,112 @@ test("R22: the chat line never says 'agrees' over a round the builder has not an
   // unanswered round over an old receipt is the same wrong account facing the
   // other way.
   assert.equal(facts({ round: 1, output: clean }).answered, true);
+});
+
+test("R23: no builder-account claim survives on an unanswered round, anywhere on the page", () => {
+  // WRITTEN AS A SEARCH, NOT AS AN ENUMERATION. Round 8's fix asserted the
+  // class "has exactly one member and this is all of it" and was wrong twice
+  // over: the page's heading and its no-disagreements prose both still claimed
+  // an account, and the verdict chip carries the same claim while containing
+  // none of the words a grep would find. So this test renders the page and
+  // scans the OUTPUT for any sentence that presupposes a builder account,
+  // rather than checking the strings I happened to think of.
+  const clean = {
+    summary_for_david: "s",
+    what_happened: "w",
+    disagreements: [],
+    could_not_assess: "",
+    recommendation: "r",
+  };
+  const unanswered = {
+    round: 9,
+    finishedAt: "2026-09-13T04:00:00Z",
+    record: { round: { respondedAt: "2026-09-13T03:05:00.000Z", builderAnsweredAt: null } },
+    output: clean,
+  };
+
+  // The fixture is the defect's own shape: respondedAt NON-null (a maintainer
+  // commented) while the builder never did. Before this fix that combination
+  // read as answered.
+  assert.equal(facts(unanswered).answered, false, "a maintainer's comment is not a builder account");
+
+  const html = renderPage([unanswered], { pr: 81 });
+  const round = html.slice(html.indexOf('<section class="round"'));
+
+  // Every claim of agreement or of a builder-authored account, however phrased.
+  for (const claim of [
+    /agrees/i,
+    /same way the builder/i,
+    /\bWhere the translator differs from the builder\b(?! — no account)/,
+    />\s*differs on/i,
+  ]) {
+    assert.doesNotMatch(round, claim, `an unanswered round must not render ${claim}`);
+  }
+  assert.match(round, /unanswered<\/span>/, "and it says so where the verdict goes");
+  assert.match(round, /no account to compare/);
+
+  // ANSWERED IS UNTOUCHED -- the fix bounds the claim rather than deleting it.
+  const answered = { ...unanswered, round: 6, record: { round: { respondedAt: "x", builderAnsweredAt: "2026-09-13T00:46:31.000Z" } } };
+  const ok = renderPage([answered], { pr: 81 });
+  assert.match(ok, /It read the round the same way the builder described it\./);
+  assert.match(ok, />agrees</);
+  assert.match(chatLine(answered), /agrees with the builder's account/);
+
+  // DISAGREEMENTS STILL RENDER on an unanswered round. Suppressing what the
+  // translator actually wrote would lose paid-for content, which is this same
+  // class of defect facing the other way.
+  const withDiffs = {
+    ...unanswered,
+    output: { ...clean, disagreements: [{ what: "THE-DISAGREEMENT-BODY", why_it_matters: "THE-STAKES" }] },
+  };
+  const diffHtml = renderPage([withDiffs], { pr: 81 });
+  assert.match(diffHtml, /THE-DISAGREEMENT-BODY/);
+  assert.match(diffHtml, /THE-STAKES/);
+  assert.doesNotMatch(diffHtml, /same way the builder/i);
+
+  // A receipt from before builderAnsweredAt existed reads as NOT ESTABLISHED,
+  // never as unanswered.
+  assert.equal(facts({ round: 1, output: clean }).answered, true);
+  assert.equal(facts({ round: 2, output: clean, record: { round: { respondedAt: "x" } } }).answered, true);
+});
+
+test("R23: the record derives builderAnsweredAt from builder comments alone", () => {
+  // The half of the same defect that lives in the record. respondedAt stays
+  // wide -- capture freshness must beat EVERY comment on the round -- and the
+  // account-present question gets its own predicate.
+  const threads = [
+    {
+      comments: [
+        { role: "reviewer", author: "chatgpt-codex-connector", at: "2026-09-13T03:00:00Z" },
+        { role: "other", author: "SomeMaintainer", at: "2026-09-13T03:05:00Z" },
+      ],
+    },
+  ];
+  assert.equal(builderAnsweredAt(threads, []), null, "a maintainer's comment is not the builder answering");
+
+  const snapshot = {
+    fetchedAt: "2026-09-13T03:10:00Z",
+    capturedAt: {
+      pr: "2026-09-13T03:10:00Z",
+      reviews: "2026-09-13T03:10:00Z",
+      issueComments: "2026-09-13T03:10:00Z",
+      reviewThreads: "2026-09-13T03:10:00Z",
+    },
+  };
+  assert.equal(
+    assertCaptureAfterResponse(snapshot, threads, []),
+    "2026-09-13T03:05:00.000Z",
+    "while freshness still has to beat that same maintainer comment",
+  );
+
+  // And the builder's own word is found wherever it sits -- a thread reply or
+  // a PR comment in the round's window.
+  const answeredInThread = [
+    { comments: [{ role: "builder", author: "TheAnswerManIsHere", at: "2026-09-13T03:07:00Z" }] },
+  ];
+  assert.equal(builderAnsweredAt(answeredInThread, []), "2026-09-13T03:07:00.000Z");
+  assert.equal(
+    builderAnsweredAt(threads, [{ role: "builder", author: "TheAnswerManIsHere", at: "2026-09-13T03:09:00Z" }]),
+    "2026-09-13T03:09:00.000Z",
+  );
 });
