@@ -1,0 +1,9 @@
+{
+  "pr": 83,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 40,
+  "artifact": "loop-position.mjs: the round is carried as a per-commit pass tally rather than a compared count; the assembler's position write is seamed at every test caller",
+  "declaredAt": "2026-09-13T18:43:51.219Z"
+}
