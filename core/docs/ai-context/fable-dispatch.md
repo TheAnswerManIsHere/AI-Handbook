@@ -352,12 +352,17 @@ and costs nothing else.
 
 **What David gets:** one private page per pull request, rebuilt from every
 receipt and redeployed in place each round, plus one line of chat per round
-derived from the receipt — *agrees*, *differs on N*, *partial*, or *skipped*.
+derived from the receipt — *agrees*, *differs on N*, *partial*, *unanswered*,
+or *skipped*.
 **`agrees` is never printed over something the translator could not assess**:
 could-not-observe is not the favourable answer here either. Nor over an empty
 one — the schema declares its prose fields non-empty and P4 enforces that
 before a receipt exists, so the favourable line cannot stand over a page with
-no account behind it. A round that
+no account behind it. **Nor over a round the builder has not answered**, which
+is the fifth shape: the record already knows, from `round.respondedAt`, that
+nobody replied — an unanswered round is a legitimate thing to translate, and
+"agrees with the builder's account" over one names an account that does not
+exist. A round that
 raised nothing and prompted no push is not dispatched at all; an all-declined
 round is, because it is the round where the builder's account matters most.
 

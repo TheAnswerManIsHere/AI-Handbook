@@ -18,8 +18,10 @@
  * 2026-09-12).
  *
  * The one rule the line obeys: **"agrees" is never printed over an
- * unassessed item.** Could-not-observe is not the favourable answer -- the
- * same rule every receipt field in this machinery already follows.
+ * unassessed item, or over a round the builder has not answered.**
+ * Could-not-observe is not the favourable answer, and neither is
+ * nobody-said-anything-yet -- the same rule every receipt field in this
+ * machinery already follows.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -42,6 +44,22 @@ export function facts(receipt) {
     skipped: false,
     disagreements: Array.isArray(out.disagreements) ? out.disagreements.length : 0,
     unassessed: typeof out.could_not_assess === "string" && out.could_not_assess.trim() !== "",
+    // WHETHER THERE IS A BUILDER ACCOUNT AT ALL, read off the record rather
+    // than inferred from the prose. `assertCaptureAfterResponse` deliberately
+    // PERMITS a round nobody has replied to -- it returns null and the record
+    // carries that as `round.respondedAt` -- because translating an unanswered
+    // round is legitimate and reads as a round awaiting a response. What is not
+    // legitimate is then printing "agrees with the builder's account" over it,
+    // which is what the fall-through did: a clean translation of an unanswered
+    // round has no disagreements and nothing unassessed, so it landed on the
+    // favourable line while there was no account to agree with. Round 5 of
+    // AI-Handbook #81 was exactly that round.
+    //
+    // `=== null` rather than a falsy test: `respondedAt` is an ISO string or
+    // null, and a receipt predating this field has no `record` at all, which
+    // must read as "not established" rather than "unanswered". (Codex, #81
+    // round 7.)
+    answered: receipt.record?.round?.respondedAt !== null,
   };
 }
 
@@ -58,6 +76,12 @@ export function chatLine(receipt) {
   if (f.skipped) return `${r}: skipped — ${f.reason}`;
   if (f.disagreements > 0) return `${r}: differs on ${f.disagreements} point${f.disagreements === 1 ? "" : "s"}`;
   if (f.unassessed) return `${r}: partial — something could not be assessed`;
+  // LAST BEFORE "agrees", AND ONLY THERE, because "agrees" is the only shape
+  // that asserts a builder account exists. "differs on N" and "partial" are
+  // both supported by the receipt's own fields whether or not anyone replied,
+  // and "skipped" says why it never ran -- so the class this closes has
+  // exactly one member and this is the whole of it.
+  if (!f.answered) return `${r}: no builder account yet — the round was unanswered when this was read`;
   return `${r}: agrees with the builder's account`;
 }
 
@@ -121,7 +145,9 @@ const verdictChip = (f) =>
       ? `<span class="verdict differs">differs on ${f.disagreements}</span>`
       : f.unassessed
         ? '<span class="verdict partial">partial</span>'
-        : '<span class="verdict">agrees</span>';
+        : !f.answered
+          ? '<span class="verdict partial">unanswered</span>'
+          : '<span class="verdict">agrees</span>';
 
 function renderRound(receipt) {
   const f = facts(receipt);

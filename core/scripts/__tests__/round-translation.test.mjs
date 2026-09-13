@@ -1129,3 +1129,92 @@ test("R20: every path expansion in the pr-watch recipes is quoted", () => {
   assert.match(skill, /for s in "\$D"\/snap-r\*\.json/, "the close-out glob is quoted");
   assert.match(skill, /mkdir -p "\$D"/, "and so is the capture directory");
 });
+
+test("R21: the close-out wait terminates when no snapshot matches the glob", () => {
+  // The OTHER way that loop hangs, still there one round after R20's sweep.
+  // With no snap-r*.json present bash leaves the pattern unexpanded, the body
+  // runs once over the literal string, `r` becomes `*`, and it waits on
+  // `d0-r*.exit` -- which `[ -f ]` never globs and nothing creates. Measured
+  // unguarded: exit 124 under a timeout. Guarded: terminates with nothing
+  // outstanding.
+  //
+  // Checked as BEHAVIOUR rather than as a substring, because the defect is what
+  // the loop does on an empty directory and a test that only greps for
+  // `[ -e "$s" ]` would pass over any rewrite that reintroduced the hang.
+  const skill = fs.readFileSync(new URL("../../.claude/skills/pr-watch/SKILL.md", import.meta.url), "utf8");
+  const loop = [...skill.matchAll(/```\n([\s\S]*?)```/g)]
+    .map((m) => m[1])
+    .find((b) => /for s in .*snap-r\*\.json/.test(b) && /d0-r\$r\.exit/.test(b));
+  assert.ok(loop, "the close-out wait loop is in the skill as a fenced block");
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
+  const reviews = path.join(dir, ".agents", "reviews", "pr-81");
+  fs.mkdirSync(reviews, { recursive: true });
+
+  // The recipe verbatim, with only the placeholders a human fills in resolved.
+  const script = loop.replace("$PWD/.agents/reviews/pr-<n>", reviews);
+
+  // EMPTY DIRECTORY: nothing is outstanding, so this must return immediately.
+  const empty = spawnSync("bash", ["-c", script], { timeout: 8000, encoding: "utf8" });
+  assert.equal(empty.signal, null, "an unmatched glob must not hang the close-out wait");
+  assert.equal(empty.status, 0);
+
+  // AND IT STILL WAITS when there is something to wait for -- a guard that
+  // skipped every iteration would pass the assertion above and break the loop's
+  // actual job.
+  fs.writeFileSync(path.join(reviews, "snap-r3.json"), "{}");
+  const pending = spawnSync("bash", ["-c", script], { timeout: 4000, encoding: "utf8" });
+  assert.equal(pending.signal, "SIGTERM", "with a snapshot and no exit file it must still wait");
+
+  fs.writeFileSync(path.join(reviews, "d0-r3.exit"), "0\n");
+  const satisfied = spawnSync("bash", ["-c", script], { timeout: 8000, encoding: "utf8" });
+  assert.equal(satisfied.signal, null, "and return once the exit file lands");
+  assert.equal(satisfied.status, 0);
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R22: the chat line never says 'agrees' over a round the builder has not answered", () => {
+  // assertCaptureAfterResponse PERMITS an unanswered round -- it returns null
+  // and the record carries that as round.respondedAt -- because translating one
+  // is legitimate. What was not legitimate is the fall-through: a clean account
+  // of an unanswered round has no disagreements and nothing unassessed, so it
+  // landed on "agrees with the builder's account" when there was no account.
+  // Round 5 of this very PR was an unanswered round.
+  const clean = {
+    summary_for_david: "s",
+    what_happened: "w",
+    disagreements: [],
+    could_not_assess: "",
+    recommendation: "r",
+  };
+
+  const unanswered = { round: 7, output: clean, record: { round: { respondedAt: null } } };
+  assert.match(chatLine(unanswered), /no builder account yet/);
+  assert.doesNotMatch(chatLine(unanswered), /agrees/);
+  assert.equal(facts(unanswered).answered, false);
+
+  // The page carries the same claim off the same facts, so it moves too.
+  assert.match(renderPage([unanswered]), /unanswered<\/span>/);
+  assert.doesNotMatch(renderPage([unanswered]), />agrees</);
+
+  // ANSWERED still agrees -- otherwise the fix would have deleted the shape
+  // rather than bounded it.
+  const answered = { round: 6, output: clean, record: { round: { respondedAt: "2026-09-13T00:46:31.000Z" } } };
+  assert.match(chatLine(answered), /agrees with the builder's account/);
+  assert.equal(facts(answered).answered, true);
+
+  // And the two shapes that were already honest are untouched on an unanswered
+  // round: both are supported by the receipt's own fields either way, which is
+  // why this class has exactly one member.
+  const differs = { ...unanswered, output: { ...clean, disagreements: [{ what: "x", why_it_matters: "y" }] } };
+  assert.match(chatLine(differs), /differs on 1 point/);
+  const partial = { ...unanswered, output: { ...clean, could_not_assess: "the diff was truncated" } };
+  assert.match(chatLine(partial), /partial/);
+
+  // A receipt written before this field existed has no `record` at all. That
+  // must read as "not established", never as "unanswered" -- inventing an
+  // unanswered round over an old receipt is the same wrong account facing the
+  // other way.
+  assert.equal(facts({ round: 1, output: clean }).answered, true);
+});

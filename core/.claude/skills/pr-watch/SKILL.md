@@ -731,7 +731,8 @@ round's** — one `d0-r<r>.exit` for each `snap-r<r>.json` in the directory:
 
 ```
 D=$PWD/.agents/reviews/pr-<n>
-for s in "$D"/snap-r*.json; do r=$(basename "$s" .json); r=${r#snap-r}
+for s in "$D"/snap-r*.json; do [ -e "$s" ] || continue
+  r=$(basename "$s" .json); r=${r#snap-r}
   until [ -f "$D/d0-r$r.exit" ]; do sleep 5; done; done
 ```
 
@@ -743,6 +744,17 @@ exit files that can never appear — blocking the merge ask after every
 translation has already succeeded. The dispatch above was quoted first and this
 loop was missed, which is why the rule is now stated for the file rather than
 for a line. (Codex, #81 round 6.)
+
+**`[ -e "$s" ] || continue` is the same hang by the other route**, and it was
+still there one round after that sweep. With no `snap-r*.json` in the directory
+— capture assembly failed before the first snapshot, or a consumer's first ever
+loop — bash leaves the pattern **unexpanded**, the loop runs once over the
+literal string, `r` becomes `*`, and it waits on `d0-r*.exit`, which `[ -f ]`
+never globs and nothing will ever create. Same unbounded wait, same blocked
+merge ask, and no translation was even outstanding. Guard the expansion rather
+than setting `nullglob`: this recipe is pasted into an interactive shell, and a
+`shopt` that outlives the paste changes how every later command in that session
+globs. (Codex, #81 round 7.)
 
 The rounds are dispatched detached and independently, so they do not finish in
 order: an earlier round that stalled is still outstanding when the final one
