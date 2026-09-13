@@ -272,7 +272,10 @@ implementation PR:
 - **Dispatch the adjudicator on any round that returned findings, from round
   1. Its VERDICT decides from round 3 onward (David, 2026-08-22; the earlier
   dispatch is AI-Handbook #36 Phase 1).** A round with no findings (or all
-  declines) dispatches nothing. Triage the round's findings first — nature,
+  declines) dispatches nothing, and **neither does a PR with no oracle** — a
+  `trivial` provenance gives the conformance half nothing to classify
+  against, so every finding can only come back `unclassifiable` (#80). The
+  round-3 write-or-stop dispatch is unaffected: it rules on findings. Triage the round's findings first — nature,
   affected area, verdict (fix / accept-and-document / escalate / decline), and
   the causal flag (new ground vs. repairing an earlier round's fix vs.
   impossible-as-specified). Then build the evidence and dispatch:
@@ -329,7 +332,11 @@ implementation PR:
   context comment** that precedes the next bare trigger, and never inside the
   trigger comment itself, which stays bare — prose beside the trigger is what
   spawns unintended tasks. The judge's **answer** is a different artifact from
-  its delivery: it is recovered into `<record>.verdict.json` and committed on
+  its delivery: it is recovered by `capture-from-transcript.mjs --pr <n>
+  --verdict --record <path>` and **never retyped** — a hand-written verdict
+  file is indistinguishable from an invented one, and the permission
+  classifier refuses writing one as self-approval (#85). It lands at
+  `<record>.verdict.json` and is committed on
   every dispatch, which is not the per-round receipt machinery this replaced
   — no guard reads one and none grants a round. It carries the conformance
   classification, which has to survive the round to be cited in a decline. A per-round **stop** ends the
@@ -574,10 +581,15 @@ implementation PR:
   a round of review feedback (fixes pushed, inline replies posted), I post
   **one** explicit trigger comment so the new commits get reviewed — batched
   per round, never per-comment, and it's the *commits* being reviewed, never my
-  prose replies. **The trigger comment is the bare trigger and NOTHING else**
-  (David, 2026-08-21): the connector interprets mention text, and
-  trigger-plus-prose has measurably spawned unintended code-writing tasks
-  (#490, #539, #472) while a bare trigger reliably starts a review. Round
+  prose replies. **The trigger comment carries no prose of mine — the
+  trigger, and nothing I wrote** (David, 2026-08-21; reworded 2026-09-13):
+  the connector interprets mention text, and trigger-plus-prose has measurably
+  spawned unintended code-writing tasks (#490, #539, #472) while a trigger
+  with nothing of mine beside it reliably starts a review. A cloud session's
+  harness appends an attribution footer server-side that no caller can
+  suppress, which is why this is worded as *my* prose rather than as an empty
+  comment; measured across four triggers on #83 and #85, every one still
+  started a Code Review. Round
   context — flip conditions, trend, focus areas — goes in a **separate,
   defanged comment posted immediately before** the trigger (reserved strings
   in their leet form per CLAUDE.md, e.g. atC0dex r3view). **No minimum rounds, no convergence ceremony** — that
@@ -607,7 +619,14 @@ implementation PR:
   2. **Pre-registered flip conditions, in the request itself.** Name, before
      the round runs, what would stop the loop: the finding that would end
      it, the count that would trip it, the shape change that would mean
-     split. This is the only judgment-shaped device with a working record
+     split. **Each names an OBSERVABLE, never a judgement** (#85,
+     2026-09-13) — something read off the round ("a silent omission", "more
+     findings than the last round"), not something I decide in the moment
+     having just read the finding ("needs a new concept"). The second kind
+     does not fire: on #83 a judgement-shaped pair was crossed twice and
+     caught once, by the round translation rather than by me, while #85's
+     observable pair fired twice and decided both times without my judgement
+     entering it. A condition I have to interpret is one I will reinterpret. This is the only judgment-shaped device with a working record
      (2-for-2 on PR #488, against 0-for-15 for everything else), and it
      works precisely because a condition written in advance collides with an
      event instead of waiting to be recalled. A missing flip condition — or

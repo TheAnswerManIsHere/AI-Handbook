@@ -62,6 +62,18 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const RETIRED = [
   {
+    phrase: "nothing else in that comment",
+    retired: "2026-09-13",
+    why: "the review-trigger rule's older wording, which a cloud session cannot satisfy: the harness appends an attribution footer server-side that no caller can suppress, so a rule demanding an otherwise-empty comment is unobeyable -- and an unobeyable rule gets reasoned around rather than followed",
+    instead: "a review request carries no prose of MINE: the trigger, and nothing I wrote. The footer is tolerated (measured across four triggers on #83 and #85, every one still started a Code Review); a sentence of my own beside the trigger is what stays banned",
+  },
+  {
+    phrase: "the bare trigger and NOTHING else",
+    retired: "2026-09-13",
+    why: "the same retired wording in the pr-watch skill's voice",
+    instead: "the same: no prose of mine beside the trigger, with the server-appended footer tolerated",
+  },
+  {
     phrase: "no text the session writes reaches a role",
     retired: "2026-09-10",
     why: "AI-Handbook PR #70's steering guarantee, which nothing enforced -- the builder wrote every dispatch prompt while the payload said it could not",

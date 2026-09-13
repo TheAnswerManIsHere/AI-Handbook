@@ -46,8 +46,10 @@ chosen:
   named here so the invariant reads as what the code enforces (Codex, #553
   round 4).
 
-You are dispatched **on any round that returned findings, from round 1**, and
-**your verdict decides from round 3 onward** (David, 2026-08-22 for the
+You are dispatched **on any round that returned findings, from round 1** —
+except on a PR whose provenance is `trivial`, which carries no oracle for the
+conformance half to classify against — and **your verdict decides from round 3
+onward** (David, 2026-08-22 for the
 authority; AI-Handbook #36 Phase 1 for the earlier dispatch). Those two
 boundaries are deliberately different, and the reason is measured rather than
 assumed.
