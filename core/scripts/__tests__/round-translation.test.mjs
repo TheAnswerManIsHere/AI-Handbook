@@ -1480,6 +1480,57 @@ test("R25: the snapshot assembler is the writer, checked as wiring rather than a
   assert.deepEqual(writers.sort(), ["loop-position.mjs", "snapshot-from-captures.mjs"], "one definition, one caller");
 });
 
+test("R26: every suite that calls the assembler roots its position write", () => {
+  // A SEAM ONLY CONTAINS WHAT GOES THROUGH IT. The root option was added, and
+  // one suite was wrapped -- but `review-loop-record.test.mjs` imported and
+  // called the same `main()` without it, so running the required core suite
+  // still wrote `.agents/reviews/pr-43/loop-position.json` into the live
+  // checkout. In a synced consumer that file is stamped for AI-Handbook, so
+  // every reader there refuses PR 43 as foreign until another capture repairs
+  // it. A fix narrower than its class, which is this repo's most expensive
+  // recurring shape, so the class is closed with a check rather than with a
+  // second wrapper and a hope. (Codex, #83 round 1.)
+  const dir = new URL("./", import.meta.url);
+  const suites = fs.readdirSync(dir).filter((f) => f.endsWith(".test.mjs"));
+
+  // Every call of the raw import, with its full argument list, however many
+  // lines it spans.
+  const calls = (src, alias) => {
+    const out = [];
+    const re = new RegExp(`\\b${alias}\\(`, "g");
+    for (let m = re.exec(src); m; m = re.exec(src)) {
+      let depth = 0;
+      let i = m.index + m[0].length - 1;
+      for (; i < src.length; i += 1) {
+        if (src[i] === "(") depth += 1;
+        else if (src[i] === ")" && (depth -= 1) === 0) break;
+      }
+      out.push({ line: src.slice(0, m.index).split("\n").length, text: src.slice(m.index, i + 1) });
+    }
+    return out;
+  };
+
+  const offenders = [];
+  let checked = 0;
+  for (const suite of suites) {
+    const text = fs.readFileSync(new URL(suite, dir), "utf8");
+    const imported = /import\s*\{[\s\S]*?\bmain\s+as\s+(\w+)[\s\S]*?\}\s*from\s*"\.\.\/snapshot-from-captures\.mjs"/.exec(text);
+    if (!imported) continue;
+    checked += 1;
+    for (const call of calls(text, imported[1])) {
+      // `{ root }` shorthand counts as much as `{ root: tmp }` does.
+      if (!/\broot\s*[:,}]/.test(call.text)) offenders.push(`${suite}:${call.line}`);
+    }
+  }
+
+  assert.ok(checked >= 2, `both known callers were found, not zero (found ${checked})`);
+  assert.deepEqual(
+    offenders,
+    [],
+    "every direct call of the assembler's main() passes a root, so no suite can write a position into the checkout that ran it",
+  );
+});
+
 test("R25: the close-out wait reports every missing round and never waits on one", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
   fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
@@ -1631,23 +1682,133 @@ test("R26: the round never goes backwards, and a floored round says so", () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test("R26: a floor is never taken from another PR, another repo, or an unreadable file", () => {
-  // The floor reaches back into a file on disk, so it needs the same identity
+test("R26: a pass landing after a loss still counts, and a restored capture does not inflate", () => {
+  // THE REPORTED ONE-STEP ADVANCE. The first fix for the lossy history floored
+  // the COUNT at the highest ever seen. That holds a regression, and then fails
+  // forever after it: once a pass is lost, every later real pass raises the
+  // fresh count by one too, so `max(previous.round, observed)` never picks the
+  // floor again and the recorded round stays permanently one behind. Worse,
+  // `observedRound` catches back up to `round`, so the announcement that made
+  // the loss visible disappears at exactly the moment the loss stops being
+  // transient. The old test only jumped fresh evidence ABOVE the floor, which
+  // is the one advance that cannot expose this. (Codex, #83 round 1.)
+  //
+  // Each round reviews its own head -- a re-request needs a behavioural change
+  // since the last reviewed commit -- so successive passes never share a
+  // commit, and that is what makes a per-commit tally able to carry the lost
+  // one.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "loop-pos-"));
+  const io = { durableRef: () => null };
+  const commit = (n) => String(n).repeat(40);
+  const pass = (n) => ({
+    id: 900100 + n,
+    user: { login: BOT },
+    state: "COMMENTED",
+    submitted_at: T(`2026-09-12T1${n}:00:00Z`),
+    commit_id: commit(n),
+    body: "**Reviewed commit:** " + commit(n),
+    html_url: url(`pullrequestreview-${900100 + n}`),
+  });
+  // A snapshot showing exactly the passes named, and nothing else.
+  const showing = (...ns) => {
+    const s = snapshot();
+    s.reviews = ns.map(pass);
+    return s;
+  };
+  const after = (...ns) => {
+    writeLoopPosition(root, showing(...ns), { io });
+    return loopPosition(root, PR);
+  };
+
+  assert.equal(after(1, 2).round, 2, "two passes, both visible");
+
+  const lost = after(2);
+  assert.equal(lost.observedRound, 1, "the summary row was rewritten and pass 1 is gone from the evidence");
+  assert.equal(lost.round, 2, "but the round holds");
+
+  // THE BUG: a third pass lands while pass 1 is still missing.
+  const advanced = after(2, 3);
+  assert.equal(advanced.observedRound, 2, "the evidence shows two passes");
+  assert.equal(advanced.round, 3, "and the round is three, because pass 1 is carried rather than compared away");
+  assert.match(
+    describePosition(advanced),
+    /held at 3; the latest evidence derives only 2/,
+    "the disagreement is still announced -- it is permanent now, so it is said permanently",
+  );
+
+  assert.equal(after(2, 3, 4).round, 4, "and it keeps up with every later round rather than trailing by one forever");
+
+  // A CAPTURE THAT SEES LESS IS NOT A PASS THAT NEVER HAPPENED, and a capture
+  // that sees them again is not new passes. Carrying a per-commit tally gets
+  // both: an incomplete capture cannot lower the round, and the full capture
+  // after it cannot inflate one -- which a running offset added to the fresh
+  // count would have done, permanently, wedging close-out on a round that
+  // never existed.
+  assert.equal(after(4).round, 4, "an incomplete capture does not lower the round");
+  assert.equal(after(2, 3, 4).round, 4, "and restoring what it missed does not raise it either");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R26: one pass seen in both announcement shapes is one pass, not two", () => {
+  // THE CARRY'S OWN WAY OF BEING WRONG, and it faces the opposite way to the
+  // undercount it fixes. A pass announces itself with a `Reviewed commit`
+  // marker carrying the full forty characters, or -- on a clean automatic
+  // round -- only through the connector's summary row, which carries the
+  // abbreviated sha it renders. `reviewerPasses` reconciles the two inside a
+  // single snapshot, so they never both appear there. Across snapshots they
+  // do, and an exact-key tally would read one pass seen in both shapes as two
+  // and inflate the round permanently, wedging close-out on a round that never
+  // happened. Matched by prefix, through `review-counting`'s own `sameCommit`.
+  const one = snapshot();
+  const carry = (observedPasses) =>
+    derivePosition(one, { previous: { pr: PR, repo: SLUG, observedPasses } });
+
+  assert.equal(derivePosition(one).round, 1, "the fixture is one pass, so none of this is vacuous");
+
+  const abbreviated = carry({ [REVIEWED.slice(0, 7)]: 1 });
+  assert.equal(abbreviated.round, 1, "the same pass, carried in its short form, is not a second pass");
+  assert.deepEqual(
+    Object.keys(abbreviated.observedPasses),
+    [REVIEWED],
+    "and the full sha is what survives, because it is the key that identifies the commit",
+  );
+
+  // THE FOLD MUST NOT SWALLOW A REAL SECOND PASS. A different commit is a
+  // different round, however the carry is written.
+  assert.equal(carry({ ["1".repeat(40)]: 1 }).round, 2, "a genuinely different commit still counts");
+  assert.equal(carry({ [REVIEWED]: 2 }).round, 2, "and a commit the evidence once showed twice still counts twice");
+
+  // AN ARRAY IS NOT A TALLY, rejected as a class rather than only when empty:
+  // its indices would otherwise enter the tally as commit keys.
+  assert.equal(carry([3, 4]).round, 1, "an array carries nothing");
+});
+
+test("R26: a carried tally is never taken from another PR, another repo, or an unreadable file", () => {
+  // The carry reaches back into a file on disk, so it needs the same identity
   // discipline every other read in this machinery has. A position for #999, or
-  // for another repository, must not bound this one.
+  // for another repository, must not raise this one.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "loop-pos-"));
   const one = snapshot();
 
-  const foreign = { pr: PR, repo: "Other/Repo", round: 9 };
-  assert.equal(derivePosition(one, { previous: foreign }).round, 1, "another repository's position is not a floor");
+  // Eight passes on a commit the current evidence never mentions, so a carry
+  // that is wrongly honoured is unmistakable in the round rather than subtle.
+  const ELSEWHERE = "1".repeat(40);
+  const carried = { [ELSEWHERE]: 8 };
+  const prev = (over) => derivePosition(one, { previous: { pr: PR, repo: SLUG, observedPasses: carried, ...over } }).round;
 
-  const otherPr = { pr: 999, repo: SLUG, round: 9 };
-  assert.equal(derivePosition(one, { previous: otherPr }).round, 1, "another PR's position is not a floor");
+  assert.equal(prev({ repo: "Other/Repo" }), 1, "another repository's tally is not carried");
+  assert.equal(prev({ pr: 999 }), 1, "another PR's tally is not carried");
+  assert.equal(prev({}), 9, "ours is, so the guards above are not vacuous");
 
-  const ours = { pr: PR, repo: SLUG, round: 9 };
-  assert.equal(derivePosition(one, { previous: ours }).round, 9, "ours is, so the guards above are not vacuous");
+  // A MALFORMED TALLY CONTRIBUTES NOTHING rather than throwing or poisoning
+  // the sum. The round is a number close-out trusts; a string, a float or a
+  // negative reaching it would be worse than a lost pass.
+  for (const junk of [null, undefined, "8", 8, [], { [ELSEWHERE]: -3 }, { [ELSEWHERE]: 1.5 }, { [ELSEWHERE]: "8" }, { [ELSEWHERE]: NaN }]) {
+    assert.equal(prev({ observedPasses: junk }), 1, `a malformed carried tally is ignored: ${JSON.stringify(junk) ?? "undefined"}`);
+  }
 
-  // AN UNREADABLE PREVIOUS POSITION IS NO FLOOR, NEVER A THROW. This runs
+  // AN UNREADABLE PREVIOUS POSITION CARRIES NOTHING, NEVER THROWS. This runs
   // inside the snapshot assembler, and a corrupt evidence file must not fail
   // an assembly that otherwise succeeded.
   fs.mkdirSync(path.dirname(positionPath(root, PR)), { recursive: true });
