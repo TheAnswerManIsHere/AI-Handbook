@@ -21,7 +21,7 @@ import {
 } from "../round-translation-record.mjs";
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
-import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main } from "../fable-dispatch.mjs";
+import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
 const PR = 81;
@@ -998,18 +998,22 @@ test("R19: a re-run fills a hole and refuses to replace an account", () => {
   const snapPath = path.join(root, "snap.json");
   fs.writeFileSync(snapPath, JSON.stringify(snapshot()));
 
+  // `runTranslation` with an EXPLICIT root, not `main()`. `main()` resolves the
+  // root with `repoRoot()`, which walks up from the script's own location and
+  // ignores the working directory -- so the first version of this test chdir'd
+  // into `root` and then exercised the REAL repository's receipts. It passed
+  // here only because my own `.agents/receipts/` happened to hold a matching
+  // receipt from a live run, and CI, which has none, caught it. Third instance
+  // in this loop of a test asserting my assumption instead of the behaviour.
   const run = () => {
     const out = [];
     const so = process.stdout.write;
     const se = process.stderr.write;
     process.stdout.write = (s) => (out.push(s), true);
     process.stderr.write = () => true;
-    const cwd = process.cwd();
     try {
-      process.chdir(root);
-      return { code: main(["--role", "round-translation", "--pr", String(PR), "--round", "1", "--mcp-snapshot", snapPath]), out };
+      return { code: runTranslation(root, { role: "round-translation", pr: PR, round: 1, snapshot: snapPath, timeout: 60 }), out };
     } finally {
-      process.chdir(cwd);
       process.stdout.write = so;
       process.stderr.write = se;
     }

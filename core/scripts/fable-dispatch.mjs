@@ -1439,7 +1439,14 @@ export function deliverTranslation(root, receipt) {
  * is nothing to publish is not the builder's wording either (Codex, plan
  * round 3).
  */
-function runTranslation(root, args) {
+// EXPORTED so a test can supply its own root. `main()` resolves the root with
+// `repoRoot()`, which walks up from THIS FILE's location and ignores the
+// process's working directory entirely -- so a test that chdir'd into a
+// temporary directory and called `main()` was silently exercising the real
+// repository's receipts. That is how R19 came to pass locally (my own
+// `.agents/receipts/` held a matching receipt from a live run) and fail on CI,
+// where it does not. (CI on #81, round 6.)
+export function runTranslation(root, args) {
   // A RE-RUN MAY FILL A HOLE; IT MAY NEVER REPLACE AN ACCOUNT (David,
   // 2026-09-13). Re-running a round is ordinary -- the provider was
   // unreachable, a refusal fired on a stale capture, or a round was never
