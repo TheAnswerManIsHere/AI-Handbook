@@ -199,10 +199,25 @@ export function resultText(result) {
  *
  * Both patterns are transcribed from real transcripts rather than guessed. The
  * second's trailing period belongs to the sentence, not to the path.
+ *
+ * BOTH ARE ANCHORED AT THE START OF THE RESULT, because a notice IS the whole
+ * result and never something inside one. Unanchored, the second matched its
+ * phrase wherever it appeared -- including inside a perfectly valid payload
+ * whose own content quotes it, where the recovery would chase a path parsed
+ * out of somebody's comment body and refuse a capture that was never broken.
+ * Not hypothetical: the review comment that reported this quotes the phrase on
+ * one line, so recovering this pull request's own threads hit it. (Codex, #85
+ * round 1.)
+ *
+ * The anchor trades one failure for a better one. Should the harness ever
+ * reword the prefix, an anchored pattern stops recognising the notice -- and
+ * `assertPayload` then refuses it loudly, naming the path and saying what to
+ * teach this list. Unanchored, the same rewording leaves the pattern matching
+ * things it was never meant to.
  */
 const SPILL_PATTERNS = [
   /^<persisted-output>\s*\n[\s\S]*?Full output saved to:\s*(\S+)/,
-  /\bexceeds maximum allowed tokens\.\s*Output has been saved to\s+(\S+?)\.?(?=\s|$)/,
+  /^Error: result\b[^\n]*?exceeds maximum allowed tokens\.\s*Output has been saved to\s+(\S+?)\.?(?=\s|$)/,
 ];
 
 export function spilledPath(text) {

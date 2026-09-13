@@ -429,6 +429,37 @@ test("a spill notice is recognised only in the harness's own shapes", () => {
   assert.equal(spilledPath("the docs say a result that exceeds maximum allowed tokens is saved somewhere"), null);
   assert.equal(spilledPath(""), null);
   assert.equal(spilledPath(null), null);
+
+  // A NOTICE IS THE WHOLE RESULT, NEVER SOMETHING INSIDE ONE. Unanchored, the
+  // second pattern matched the phrase wherever it appeared -- including inside
+  // a perfectly valid payload whose own content quotes it. That is not a
+  // hypothetical: the round-1 review comment reporting this defect quotes the
+  // phrase on one line, so recovering this PR's own threads hit it. The
+  // recovery would then chase a path parsed out of somebody's comment body.
+  // (Codex, #85 round 1.)
+  const quoting = JSON.stringify([
+    { id: 1, body: "the literal phrase `exceeds maximum allowed tokens. Output has been saved to /tmp/foo`" },
+  ]);
+  assert.equal(JSON.parse(quoting).length, 1, "the fixture really is a valid payload");
+  assert.equal(spilledPath(quoting), null, "a payload that quotes the notice is not a notice");
+
+  // And a body quoting it with trailing whitespace, where the path would have
+  // parsed cleanly and could have resolved to a real local file.
+  const quotingClean = JSON.stringify([
+    { id: 1, body: "exceeds maximum allowed tokens. Output has been saved to /etc/hostname and that is that" },
+  ]);
+  assert.equal(spilledPath(quotingClean), null, "not even when the quoted path would parse cleanly");
+
+  // The real notice still resolves, so the anchor is not simply switching it off.
+  assert.equal(
+    spilledPath("Error: result (64,648 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to /x/y.txt.\nFormat: Plain text"),
+    "/x/y.txt",
+  );
+  assert.equal(
+    spilledPath("Error: result (12 chars) exceeds maximum allowed tokens. Output has been saved to /x/y.txt"),
+    "/x/y.txt",
+    "and the parenthetical may say anything",
+  );
 });
 
 test("verdict paths are derived from the record's own name", () => {
