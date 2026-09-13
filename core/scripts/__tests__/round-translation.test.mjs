@@ -1468,7 +1468,11 @@ test("R25: the snapshot assembler is the writer, checked as wiring rather than a
   // enters this machinery is the one place the position is written.
   const src = fs.readFileSync(new URL("../snapshot-from-captures.mjs", import.meta.url), "utf8");
   assert.match(src, /import \{ writeLoopPosition[^}]*\} from "\.\/loop-position\.mjs"/, "the assembler imports the writer");
-  assert.match(src, /writeFileSync\(out, [^\n]*\n[\s\S]{0,600}writeLoopPosition\(REPO_ROOT, snapshot/, "and calls it right after writing the snapshot");
+  assert.match(src, /writeFileSync\(out, [^\n]*\n[\s\S]{0,900}writeLoopPosition\(root, snapshot/, "and calls it right after writing the snapshot");
+  // The root is a SEAM, not a constant: hardcoding it is what let the shipped
+  // suite write a position into the working checkout. (Codex, #82 round 3.)
+  assert.match(src, /export function main\(argv = process\.argv\.slice\(2\), \{ root = REPO_ROOT \} = \{\}\)/, "the assembler takes an injectable root");
+  assert.ok(!/writeLoopPosition\(REPO_ROOT/.test(src), "and never writes the position to a hardcoded root");
 
   // And nothing else writes it. `positionPath` has exactly one writer.
   const files = fs.readdirSync(new URL("..", import.meta.url)).filter((f) => f.endsWith(".mjs"));
@@ -1566,4 +1570,121 @@ test("R25: close-out reads the position and refuses a missing, stale or foreign 
   assert.match(said.join(""), /written for TestOwner\/TestRepo, not Other\/Repo/);
 
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R26: the round never goes backwards, and a floored round says so", () => {
+  // THE LAST HOLE IN GAP 16, reached from the opposite side to the one that
+  // opened it. `reviewerPasses` is lossy in one shape: where the connector
+  // emits no `Reviewed commit` marker and REWRITES its single summary comment
+  // in place, two clean automatic passes collapse to one. A count that can
+  // fall makes close-out's bound fall with it, so a round that already has a
+  // snapshot and an exit file on disk stops being checked and close-out
+  // reports success with that round's translation unaccounted for.
+  // (Codex, #82 round 3.)
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "loop-pos-"));
+  const io = { durableRef: () => null };
+
+  // Two passes observed, written.
+  const two = snapshot();
+  two.reviews.push({
+    id: 900009, user: { login: BOT }, state: "COMMENTED", submitted_at: T("2026-09-12T11:45:00Z"),
+    commit_id: HEAD, body: "**Reviewed commit:** " + HEAD, html_url: url("pullrequestreview-900009"),
+  });
+  assert.equal(derivePosition(two).round, 2, "two passes in the evidence, so this test is not vacuous");
+  writeLoopPosition(root, two, { io });
+  assert.equal(loopPosition(root, PR).round, 2);
+
+  // Now the evidence REGRESSES -- the same PR, one pass visible.
+  const one = snapshot();
+  assert.equal(derivePosition(one).round, 1, "the regressed evidence really does derive a lower round");
+  writeLoopPosition(root, one, { io });
+
+  const held = loopPosition(root, PR);
+  assert.equal(held.round, 2, "the round is floored at the highest ever observed");
+  assert.equal(held.observedRound, 1, "and what the latest evidence actually derived is kept beside it");
+  assert.match(
+    describePosition(held),
+    /held at 2; the latest evidence derives only 1/,
+    "a floored round is said out loud rather than papered over",
+  );
+
+  // THE FRESH FIELDS ARE STILL FRESH. Only the round is floored; a floored
+  // capture time would be a lie about the capture.
+  assert.equal(held.capturedAt, capturedAtOf(one, null, { require: ["pr", "reviews", "issueComments"] }));
+  assert.equal(held.head, one.pr.head.sha);
+
+  // AND IT STILL RISES. A floor that pinned the round would be worse than the
+  // regression it fixes.
+  const three = snapshot();
+  for (const [i, at] of [[900009, "2026-09-12T11:45:00Z"], [900010, "2026-09-12T12:45:00Z"]]) {
+    three.reviews.push({
+      id: i, user: { login: BOT }, state: "COMMENTED", submitted_at: T(at),
+      commit_id: HEAD, body: "**Reviewed commit:** " + HEAD, html_url: url(`pullrequestreview-${i}`),
+    });
+  }
+  writeLoopPosition(root, three, { io });
+  const risen = loopPosition(root, PR);
+  assert.equal(risen.round, 3);
+  assert.equal(risen.observedRound, 3, "no floor applies when the evidence leads");
+  assert.ok(!/held at/.test(describePosition(risen)), "and nothing is announced when nothing was held");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R26: a floor is never taken from another PR, another repo, or an unreadable file", () => {
+  // The floor reaches back into a file on disk, so it needs the same identity
+  // discipline every other read in this machinery has. A position for #999, or
+  // for another repository, must not bound this one.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "loop-pos-"));
+  const one = snapshot();
+
+  const foreign = { pr: PR, repo: "Other/Repo", round: 9 };
+  assert.equal(derivePosition(one, { previous: foreign }).round, 1, "another repository's position is not a floor");
+
+  const otherPr = { pr: 999, repo: SLUG, round: 9 };
+  assert.equal(derivePosition(one, { previous: otherPr }).round, 1, "another PR's position is not a floor");
+
+  const ours = { pr: PR, repo: SLUG, round: 9 };
+  assert.equal(derivePosition(one, { previous: ours }).round, 9, "ours is, so the guards above are not vacuous");
+
+  // AN UNREADABLE PREVIOUS POSITION IS NO FLOOR, NEVER A THROW. This runs
+  // inside the snapshot assembler, and a corrupt evidence file must not fail
+  // an assembly that otherwise succeeded.
+  fs.mkdirSync(path.dirname(positionPath(root, PR)), { recursive: true });
+  fs.writeFileSync(positionPath(root, PR), "{ not json");
+  const written = writeLoopPosition(root, one, { io: { durableRef: () => null } });
+  assert.equal(written.position.round, 1, "a corrupt previous position is ignored");
+  assert.equal(JSON.parse(fs.readFileSync(written.path, "utf8")).round, 1, "and it is replaced with a readable one");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R26: close-out's bound is the floored round, so a regressed pass history cannot shrink it", () => {
+  // The finding's actual consequence, end to end: with the round floored at 2,
+  // close-out must still demand round 2's account even when the latest
+  // evidence only derives 1.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
+  const io = { durableRef: () => null };
+  const said = [];
+  const log = { write: (t) => said.push(t) };
+
+  const two = snapshot();
+  two.reviews.push({
+    id: 900009, user: { login: BOT }, state: "COMMENTED", submitted_at: T("2026-09-12T11:45:00Z"),
+    commit_id: HEAD, body: "**Reviewed commit:** " + HEAD, html_url: url("pullrequestreview-900009"),
+  });
+  writeLoopPosition(root, two, { io });
+  const fresh = Date.parse(capturedAtOf(two, null, { require: ["pr", "reviews", "issueComments"] })) + 1000;
+
+  // Round 1 accounted for, round 2 not. Regress the evidence, then close out.
+  const dir = path.join(root, ".agents", "reviews", `pr-${PR}`);
+  fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
+  fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
+  writeLoopPosition(root, snapshot(), { io });
+
+  return closeoutMain(["--pr", String(PR), "--timeout-sec", "1"], { root, log, slug: SLUG, now: fresh }).then((code) => {
+    assert.equal(code, 1, "close-out still refuses");
+    assert.match(said.join(""), /round\(s\) 2 --/, "and still names round 2, which the regressed history had dropped");
+    fs.rmSync(root, { recursive: true, force: true });
+  });
 });

@@ -538,7 +538,23 @@ export function flagValues(args, name) {
   return out;
 }
 
-export function main(argv = process.argv.slice(2)) {
+/**
+ * `root` is the seam the position write needs, and it exists because the write
+ * has a side effect outside the output file.
+ *
+ * Everything else this function does lands at `--out`, so a caller handing it
+ * captures and an output path in a temporary directory was fully contained.
+ * The position is not: it goes to `<root>/.agents/reviews/pr-<n>/`. Hardcoding
+ * `REPO_ROOT` meant the shipped test suite, which calls `main()` as a library
+ * with a fixed PR number, wrote a real `loop-position.json` into whatever
+ * checkout ran the tests -- a permanently stale one, since the fixture carries
+ * no threads. Gitignored, so it travels by running the suite rather than by
+ * git, and both readers refuse it; but a refusal the operator has to repair is
+ * still damage the tests had no business doing. (Codex, #82 round 3.)
+ *
+ * Defaulted rather than required, so every real invocation is unchanged.
+ */
+export function main(argv = process.argv.slice(2), { root = REPO_ROOT } = {}) {
   // One fetch time for the batch, because the recipe captures every collection
   // in one go; a per-file flag would invite pairing mistakes for no gain.
   // Harness captures reject it, so passing it is never a way to overwrite a
@@ -568,7 +584,7 @@ export function main(argv = process.argv.slice(2)) {
   // gets its durable home -- derived from the evidence just verified, never
   // typed. Everything downstream reads `loop-position.mjs`; nothing re-derives
   // it from a file it chose. (David, 2026-09-13.)
-  const position = writeLoopPosition(REPO_ROOT, snapshot, { snapshotPath: resolve(out) });
+  const position = writeLoopPosition(root, snapshot, { snapshotPath: resolve(out) });
 
   const sources = VERIFIED_COLLECTIONS.filter((k) => captures[k].length)
     .map((k) => `${k} ${[...new Set(captures[k].map((c) => c.source))].join("+")}`)
@@ -582,7 +598,7 @@ export function main(argv = process.argv.slice(2)) {
     `wrote ${out}: PR #${snapshot.pr.number} at ${snapshot.pr.head.sha.slice(0, 7)}, ` +
     `${snapshot.reviews.length} reviews, ${snapshot.issueComments.length} comments, ${threads}.${bodyNote} ` +
     `Derived from the captures and verified against them. Sources: ${sources}\n` +
-    `loop position -> ${position.path}: ${describe(loopPosition(REPO_ROOT, snapshot.pr.number))}`
+    `loop position -> ${position.path}: ${describe(loopPosition(root, snapshot.pr.number))}`
   );
 }
 

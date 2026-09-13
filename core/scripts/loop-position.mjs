@@ -43,6 +43,24 @@ import { countRounds, loadLoop, allowance, nodeIo, REPO_ROOT, repoSlug } from ".
 export const positionPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "loop-position.json");
 
 /**
+ * The collections the position is actually derived FROM, which is not all four.
+ *
+ * `capturedAtOf` defaults to `COUNTED_COLLECTIONS`, all four, and returns null
+ * when any is missing. But `snapshot-from-captures` explicitly supports a
+ * round-check-only snapshot with no `reviewThreads` -- it is the shape the
+ * budget guard asks for -- so the default made the ordinary lightweight
+ * capture write a position with `capturedAt: null`, which `loopPosition` then
+ * marks stale the instant it lands. Both readers refuse it and the operator is
+ * sent to assemble a full threads capture they never needed.
+ *
+ * Requiring only what the position reads is the whole fix: the round comes
+ * from `reviews` and `issueComments`, and the identity from `pr`. Threads are
+ * not consulted here, so their absence cannot date this file. (Codex, #82
+ * round 3.)
+ */
+export const POSITION_COLLECTIONS = ["pr", "reviews", "issueComments"];
+
+/**
  * Derive the position from a snapshot. Pure: no I/O, so the tests can feed it
  * fixtures and the assembler can call it before deciding to write.
  *
@@ -50,27 +68,60 @@ export const positionPath = (root, pr) => path.join(root, ".agents", "reviews", 
  * at the first re-request, so round 1's snapshot legitimately has none. The
  * round is the core and is always present.
  */
-export function derivePosition(snapshot, { loop = null, snapshotPath = null, now = new Date() } = {}) {
+export function derivePosition(snapshot, { loop = null, snapshotPath = null, previous = null, now = new Date() } = {}) {
   const passes = reviewerPasses(snapshot.reviews ?? [], snapshot.issueComments ?? []);
   const counted = countRounds({ reviewerPasses: passes, issueComments: snapshot.issueComments ?? [] });
   const last = passes[passes.length - 1] ?? null;
   const budgeted = loop && !loop.problem;
+
+  // THE ROUND NEVER GOES BACKWARDS, AND THAT IS NOT PEDANTRY -- it is the last
+  // hole in gap 16, reached from the opposite side to the one that opened it.
+  //
+  // `reviewerPasses` is lossy in one shape: where the connector emits no
+  // `Reviewed commit` marker and instead REWRITES its single summary comment
+  // in place, two clean automatic passes collapse to one. Measured: two passes
+  // in, one out. A count that can fall makes close-out's bound fall with it,
+  // so a round that was already observed -- and already has a snapshot and an
+  // exit file sitting on disk beside this file -- stops being checked, and
+  // close-out reports success with that round's translation unaccounted for.
+  // Exactly the silent omission this whole feature exists to prevent, arriving
+  // by a third route. (Codex, #82 round 3.)
+  //
+  // A pass cannot be un-made, so flooring at the highest round ever observed is
+  // sound rather than merely safe. Only the round is floored: `head`,
+  // `capturedAt` and the rest come from the fresh evidence, because those CAN
+  // legitimately move and a floored one would be a lie about the capture.
+  //
+  // AND IT IS VISIBLE, NEVER SILENT. `observedRound` keeps what this snapshot
+  // actually derived, so a floor is a disagreement anyone can see and
+  // `describe` prints. Papering over the lossiness without saying so would be
+  // the same class of defect as the one being fixed.
+  const observedRound = counted.delivered;
+  const floor = previous && previous.pr === snapshot.pr.number && sameRepo(previous.repo, snapshot.repo)
+    ? Number(previous.round)
+    : NaN;
+  const round = Number.isInteger(floor) && floor > observedRound ? floor : observedRound;
+
   return {
     pr: snapshot.pr.number,
     repo: snapshot.repo ?? null,
     head: snapshot.pr.head.sha,
-    round: counted.delivered,
+    round,
+    observedRound,
     pendingRequest: counted.pending === 1,
-    spent: counted.spent,
+    spent: counted.spent + (round - observedRound),
     tier: budgeted ? loop.tier : null,
-    allowance: budgeted ? allowance(loop.tier, loop.extensions, counted.spent) : null,
+    allowance: budgeted ? allowance(loop.tier, loop.extensions, counted.spent + (round - observedRound)) : null,
     lastPassAt: last?.at ?? null,
     lastPassCommit: last?.commit ?? null,
-    capturedAt: capturedAtOf(snapshot),
+    capturedAt: capturedAtOf(snapshot, null, { require: POSITION_COLLECTIONS }),
     snapshot: snapshotPath,
     writtenAt: now.toISOString(),
   };
 }
+
+/** Two repository names, compared the way every other identity check here does. */
+const sameRepo = (a, b) => typeof a === "string" && typeof b === "string" && a.toLowerCase() === b.toLowerCase();
 
 /** The writer. Called by the assembler after it has written the snapshot. */
 export function writeLoopPosition(root, snapshot, { snapshotPath = null, io = null } = {}) {
@@ -80,7 +131,18 @@ export function writeLoopPosition(root, snapshot, { snapshotPath = null, io = nu
   } catch {
     loop = null; // no upstream, no budget yet -- the round still gets written
   }
-  const pos = derivePosition(snapshot, { loop, snapshotPath });
+  // READ BEFORE OVERWRITE, so the round can be floored at the highest ever
+  // observed (see derivePosition). An unreadable or absent previous position
+  // is simply no floor -- never a throw, because this runs inside the snapshot
+  // assembler and a corrupt evidence file must not fail an assembly that
+  // otherwise succeeded.
+  let previous = null;
+  try {
+    previous = loopPosition(root, snapshot.pr.number);
+  } catch {
+    previous = null;
+  }
+  const pos = derivePosition(snapshot, { loop, snapshotPath, previous });
   const out = positionPath(root, snapshot.pr.number);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(pos, null, 2)}\n`);
@@ -104,7 +166,15 @@ export function describe(pos) {
   const pending = pos.pendingRequest ? ", a request is in flight" : "";
   const age = pos.ageMs === null ? "unknown age" : `${Math.round(pos.ageMs / 60000)} min ago`;
   const stale = pos.stale ? " -- STALE, assemble a fresh snapshot before relying on it" : "";
-  return `PR #${pos.pr}: round ${pos.round}${of}${tier}${pending}, head ${String(pos.head).slice(0, 7)}, as of ${pos.capturedAt} (${age})${stale}`;
+  // A FLOORED ROUND IS SAID OUT LOUD. When the latest evidence derives a lower
+  // round than one already observed, the higher one is kept -- and the reader
+  // is told, because a disagreement between the stored round and what GitHub
+  // currently reports is exactly the thing nobody should discover later.
+  const held =
+    Number.isInteger(pos.observedRound) && pos.observedRound < pos.round
+      ? ` (held at ${pos.round}; the latest evidence derives only ${pos.observedRound} -- a pass the reviewer overwrote in place)`
+      : "";
+  return `PR #${pos.pr}: round ${pos.round}${of}${tier}${pending}, head ${String(pos.head).slice(0, 7)}, as of ${pos.capturedAt} (${age})${held}${stale}`;
 }
 
 export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = process.stderr, out = process.stdout, slug = null } = {}) {

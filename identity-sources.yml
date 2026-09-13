@@ -609,3 +609,14 @@
   source: message
   why: >-
     Text a human reads when the comparison above refuses; decides nothing.
+
+- key: "loop-position.mjs :: derivePosition :: const floor = previous && previous.pr === snapshot.pr.number && sameRepo(previous.repo, snapshot.repo)"
+  source: artifact
+  why: >-
+    The previously written loop position is an artifact this machinery produced
+    from a verified snapshot, and it names the repository that snapshot came
+    from. It may only floor THIS pull request's round when both the number and
+    the repository match, so a position left by another checkout -- or by
+    another PR under the same root -- can never raise a round here. Compared
+    rather than believed, like every other artifact this machinery consumes.
+
