@@ -94,6 +94,72 @@ test("a spilled result resolves to the harness's own file, and is not copied", (
   assert.equal(fs.existsSync(path.join(root, CAPTURES_DIR)), false, "nothing is copied when the original is on disk");
 });
 
+test("the token-limit spill notice resolves to its file, like the other shape", () => {
+  // THE SECOND SPILL SHAPE, and the one that was missed. This harness emits two
+  // notices for an oversized result: the `<persisted-output>` block, and this
+  // one. Copied from a real transcript with only the path swapped -- it was
+  // emitted 64 times in the session that found this, against 10 of the other.
+  const spill = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "spill-")), "big.txt");
+  fs.writeFileSync(spill, "[]");
+  const notice =
+    `Error: result (64,648 characters across 1 line) exceeds maximum allowed tokens. ` +
+    `Output has been saved to ${spill}.\nFormat: Plain text\n` +
+    `- For targeted searches (find a string): use grep on the file directly.`;
+  const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", notice)]);
+  const root = repo();
+
+  assert.equal(spilledPath(notice), spill, "the trailing period after the path is not part of it");
+
+  const out = recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO });
+  assert.equal(out.source, "harness-capture");
+  assert.equal(out.path, spill);
+  assert.equal(out.spilled, true);
+  assert.equal(fs.existsSync(path.join(root, CAPTURES_DIR)), false, "nothing is copied when the original is on disk");
+});
+
+test("a result that is not a payload is refused, and never overwrites a capture", () => {
+  // THE CLASS, not the instance. Recognising one more notice leaves the next
+  // one open. Every capture this script writes is a GitHub API payload, which
+  // is always JSON -- so text that is not JSON is not a capture, whatever it
+  // is, and refusing it is what makes an unrecognised notice loud instead of
+  // being written out under a success line.
+  //
+  // The write used to happen unconditionally, so the notice ALSO destroyed a
+  // good capture already on disk and reported `transcript-recovered` while
+  // doing it. Both halves are asserted here.
+  const root = repo();
+  const good = path.join(root, capturePath(80, "reviews", 1));
+  fs.mkdirSync(path.dirname(good), { recursive: true });
+  fs.writeFileSync(good, '[{"id":1}]');
+
+  const unrecognised =
+    "Error: result (99,999 characters) is too large for this transcript. " +
+    "It was placed at /tmp/somewhere/else.txt by a notice shape nobody has taught this script.";
+  const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", unrecognised)]);
+
+  assert.throws(
+    () => recoverCapture({ root, pr: 80, collection: "reviews", transcript: file, repo: REPO }),
+    /not a payload/,
+    "it refuses rather than writing the notice out",
+  );
+  assert.equal(fs.readFileSync(good, "utf8"), '[{"id":1}]', "and the capture already on disk is untouched");
+});
+
+test("a spilled file that is not a payload is refused too", () => {
+  // The same invariant from the other side: whatever `recoverCapture` returns,
+  // it points at a payload. Holding it on one path and not the other is the
+  // fix-narrower-than-its-class shape this whole change exists to close.
+  const spill = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "spill-")), "big.txt");
+  fs.writeFileSync(spill, "this is not json");
+  const notice = `<persisted-output>\nOutput too large. Full output saved to: ${spill}\n\nPreview (first 2KB):\n[]`;
+  const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", notice)]);
+
+  assert.throws(
+    () => recoverCapture({ root: repo(), pr: 80, collection: "reviews", transcript: file, repo: REPO }),
+    /not a payload/,
+  );
+});
+
 test("a spill notice naming a file that is gone refuses rather than copying the preview", () => {
   const notice = "<persisted-output>\nOutput too large. Full output saved to: /nope/gone.txt\n\nPreview (first 2KB):\n[]";
   const file = transcript([prCall("t1", "get_reviews", { perPage: 100 }), result("t1", notice)]);
@@ -350,9 +416,19 @@ test("result text is joined whatever shape the harness used", () => {
   assert.equal(resultText({ content: 7 }), null);
 });
 
-test("a spill notice is recognised only in the harness's own shape", () => {
+test("a spill notice is recognised only in the harness's own shapes", () => {
   assert.equal(spilledPath("<persisted-output>\nFull output saved to: /x/y.txt\n"), "/x/y.txt");
   assert.equal(spilledPath("a line mentioning Full output saved to: /x/y.txt"), null);
+
+  // The second shape, and prose that merely talks about it.
+  assert.equal(
+    spilledPath("Error: result (9 characters) exceeds maximum allowed tokens. Output has been saved to /x/y.txt.\nFormat: Plain text"),
+    "/x/y.txt",
+  );
+  assert.equal(spilledPath("Error: result exceeds maximum allowed tokens. Output has been saved to /x/y.txt"), "/x/y.txt", "with no trailing period either");
+  assert.equal(spilledPath("the docs say a result that exceeds maximum allowed tokens is saved somewhere"), null);
+  assert.equal(spilledPath(""), null);
+  assert.equal(spilledPath(null), null);
 });
 
 test("verdict paths are derived from the record's own name", () => {
