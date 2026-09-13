@@ -372,9 +372,14 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    cap, run `node scripts/review-budget.mjs check --pr <n> --mcp-snapshot
    <file>` and the guard enforces the cap mechanically; without it the guard
    allows and says so. What it still refuses with or without one: a standing
-   terminal verdict, and a budget declared for another repository. **The round
-   count is never stored** — the context comment states it, and when it is
-   counted it is counted fresh from GitHub.
+   terminal verdict, and a budget declared for another repository. **The loop
+   position has exactly one home** (David, 2026-09-13, superseding "never
+   stored"): `snapshot-from-captures.mjs` writes
+   `.agents/reviews/pr-<n>/loop-position.json` from every snapshot it
+   assembles, `node scripts/loop-position.mjs --pr <n>` reads it, and nothing
+   else derives or types a round number. It is a cache of fresh evidence,
+   stamped with that evidence's capture time; a step that must be current
+   refuses a stale one and the remedy is a fresh snapshot, never an edit.
 
 2. **Dispatch the external adjudicator on any round that returned findings,
    from round 1; its VERDICT decides from round 3 onward** (David,

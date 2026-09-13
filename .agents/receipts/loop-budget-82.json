@@ -1,0 +1,9 @@
+{
+  "pr": 82,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 40,
+  "artifact": "Close gaps 15 and 16 from #81: dedupe the D0 brief's issue comments by id, and derive close-out's round bound from the snapshot rather than from a typed placeholder",
+  "declaredAt": "2026-09-13T07:03:10.544Z"
+}
