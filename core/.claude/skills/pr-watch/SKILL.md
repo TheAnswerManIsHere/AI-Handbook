@@ -704,11 +704,22 @@ into the detached child.
 
 ```
 D=$PWD/.agents/reviews/pr-<n>
-setsid nohup bash -c "cd $PWD && node $PWD/scripts/fable-dispatch.mjs \
+rm -f "$D/d0-r<r>.exit" "$D/d0-r<r>.log"
+setsid nohup bash -c 'cd "$1" && node "$1/scripts/fable-dispatch.mjs" \
   --role round-translation --pr <n> --round <r> \
-  --mcp-snapshot $D/snap-r<r>.json > $D/d0-r<r>.log 2>&1; \
-  echo \$? > $D/d0-r<r>.exit" >/dev/null 2>&1 &
+  --mcp-snapshot "$2/snap-r<r>.json" > "$2/d0-r<r>.log" 2>&1; \
+  echo $? > "$2/d0-r<r>.exit"' _ "$PWD" "$D" >/dev/null 2>&1 &
 ```
+
+**Both lines above the dispatch are load-bearing.** `rm -f` on the exit file
+first: it is the completion signal, close-out waits on its *existence*, and a
+leftover file from an earlier run of the same round makes that wait return
+immediately while the new dispatch is still going. And the paths reach the
+child as **positional parameters** (`_ "$PWD" "$D"`) inside a single-quoted
+`bash -c` rather than being interpolated into a double-quoted one: the outer
+shell expands `$PWD` without re-quoting it, so a checkout whose path contains
+a space becomes `cd /path/with space` in the child and nothing runs. That is
+the escaping class issue #11 records, arriving in a different command.
 
 The chat line is the last line of `d0-r<r>.log`; `d0-r<r>.exit` appearing is
 the completion signal and its contents are the status. The next Codex round

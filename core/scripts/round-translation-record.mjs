@@ -366,8 +366,18 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
   const since = commentsSincePass(snapshot, pass, builderLogin, passes[round] ?? null);
   const respondedAt = assertCaptureAfterResponse(snapshot, threads, since);
 
-  const head = pr?.head?.sha ?? null;
-  if (typeof head !== "string" || !head) throw new Error("the snapshot carries no pull request head sha, so the diff has no endpoint");
+  // THE DIFF'S FAR END IS THE NEXT PASS'S COMMIT, not the current head, on any
+  // round that is not the latest -- the same bound the comment window above
+  // takes, and for the same reason. `runTranslation` supports filling a hole:
+  // a round nobody translated at the time, caught up at close-out, after later
+  // passes exist. Against the live head that brief would carry round N+1's
+  // code under round N's heading and the translator would credit a later fix
+  // to the earlier round, which is the wrong-account class this record refuses
+  // everywhere else. Leaving the comments bounded and the code unbounded was
+  // half a fix. (Codex, #81 round 5.)
+  const liveHead = pr?.head?.sha ?? null;
+  if (typeof liveHead !== "string" || !liveHead) throw new Error("the snapshot carries no pull request head sha, so the diff has no endpoint");
+  const head = passes[round]?.commit ?? liveHead;
   assertEndpointsResolve(pass.commit, head, { runGit });
 
   let truncated = null;
@@ -397,7 +407,10 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
     kind: KIND,
     generatedAt: now(),
     repo: repoSlug(),
-    pr: { number: pr.number, title: pr.title, url: pr.html_url ?? null, headSha: head },
+    // The PR's own head, deliberately NOT the diff's far end: this field says
+    // where the pull request is, and `diff.range` says what this round covers.
+    // Collapsing them would make a bounded old-round diff look like the whole PR.
+    pr: { number: pr.number, title: pr.title, url: pr.html_url ?? null, headSha: liveHead },
     round: {
       number: round,
       of: passes.length,
@@ -421,7 +434,12 @@ export function buildTranslationRecord(snapshot, round, { runGit = defaultGit, n
       truncated,
       note:
         pushed === false
-          ? "Nothing was pushed since the commit this round reviewed -- the builder's response was replies, not code."
+          // ONLY WHAT THE DIFF SHOWS. This said "the builder's response was
+          // replies, not code", which asserts a reply the diff cannot see --
+          // and on a round nobody had answered yet it told the translator the
+          // round was answered when it was not. Found by D0 itself, on round 5
+          // of this PR, where all seven threads were open and unanswered.
+          ? "Nothing was pushed since the commit this round reviewed. Whether the builder replied is in the threads above, not here."
           : pushed === null
             ? "This round's reviewed commit was not recorded, so what was pushed since it could not be established. Weigh the absence as uncertainty rather than as nothing."
             : null,
@@ -484,7 +502,11 @@ export function translationBrief(record) {
     out.push(
       `## Finding ${f.n}${f.path ? ` — \`${f.path}\`${f.line ? `:${f.line}` : ""}` : ""}`,
       "",
-      f.resolved === true ? "_The builder marked this thread resolved._" : f.resolved === false ? "_This thread is still open._" : "",
+      // ACTOR-NEUTRAL. The snapshot carries `isResolved` and no resolver
+      // identity, so naming the builder invented provenance -- inside the one
+      // role whose stated boundary is that every block says where it came
+      // from. David or any maintainer can resolve a thread. (Codex, #81 round 5.)
+      f.resolved === true ? "_This thread is marked resolved._" : f.resolved === false ? "_This thread is still open._" : "",
       "",
     );
     for (const c of f.comments) {

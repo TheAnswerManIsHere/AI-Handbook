@@ -232,9 +232,20 @@ export function writePage(root, pr, html, { runGit = (a) => spawnSync("git", a, 
  * and a delivery that dies holding one would strand every later round. This
  * re-reads instead: after writing, enumerate again, and if the set changed
  * under us, render and write the newer set. A writer therefore repairs its own
- * overwrite, and the set only ever grows, so it converges. Bounded rather than
- * unbounded because a loop that cannot finish is worse than a page one round
- * behind -- and the receipts are all still on disk either way.
+ * overwrite. Bounded rather than unbounded because a loop that cannot finish is
+ * worse than a page one round behind -- and the receipts are all still on disk
+ * either way.
+ *
+ * COMPARING THE SET'S SIZE IS COMPARING ITS CONTENTS, and that holds because
+ * of a rule enforced elsewhere rather than because sets generally behave that
+ * way. `runTranslation` refuses to overwrite a round that already has a
+ * receipt (David, 2026-09-13: a re-run fills a hole, it never replaces an
+ * account), so the set can only grow and a changed count is the only change
+ * available. Without that rule this comparison would miss a re-run that
+ * replaced a receipt in place -- same count, different account -- which is
+ * what D0 found when it was asked to look for an interleaving that settles on
+ * a stale page. The two are one design: state the dependency here so that
+ * relaxing the refusal is known to break this.
  */
 export function publishPage(root, pr, { attempts = 5, ...opts } = {}) {
   let rel = null;

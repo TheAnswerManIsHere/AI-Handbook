@@ -302,12 +302,18 @@ second one, from the round's own material.
 **What it reads:** the named round's threads whole — the reviewer's finding
 and every reply, verbatim, each labelled by author — the pull-request comments
 belonging to that round, and the diff from the round's reviewed commit to the
-pull request's head. That comment window is **bounded at both ends**, closing
-at the next reviewer pass where one exists: a lower bound alone is right only
-when the named round is the latest, and this record deliberately supports the
-case where it is not — a re-run, a catch-up, or a dispatch still in flight
-when the next pass lands. The re-request that starts the next pass precedes
-it, so it stays with the round that wrote it.
+commit the **next** pass reviewed — the live head only when the named round is
+the latest. Both windows are **bounded at both ends**, and for the same reason:
+a lower bound alone is right only when the named round is the latest, and this
+record deliberately supports the case where it is not — a catch-up, or a
+dispatch still in flight when the next pass lands. Against the live head an
+old round's brief would carry the next round's code under this round's
+heading, and the translator would credit a later fix to the earlier round.
+The re-request that starts the next pass precedes it, so it stays with the
+round that wrote it. What the record reports as the pull request's head is
+still the live head: that field says where the PR is, the diff's range says
+what the round covers, and collapsing them would make a bounded old-round diff
+look like the whole change.
 
 **It holds no tools, and the brief is the whole of its evidence.** It declares
 `tools: none` — an explicit empty allowlist, distinct from an omitted field,
@@ -357,7 +363,20 @@ round is, because it is the round where the builder's account matters most.
 
 **Receipts are evidence, not decisions**: `fable-round-translation-<pr>-<n>`,
 keyed by round rather than by head because a declined round leaves the head
-where it was, and gitignored like every other `fable-*.json`. The two
+where it was, and gitignored like every other `fable-*.json`.
+
+**A re-run fills a hole; it never replaces an account** (David, 2026-09-13).
+Re-running a round is ordinary — the provider was unreachable, a refusal fired
+on a stale capture, a round was never translated and close-out wants it — and
+every one of those leaves *no receipt behind*, so filling the hole is all they
+need. What the dispatch refuses, before spending anything, is the other shape:
+a round that already has an account. Evidence is not rewritten, and a page that
+silently shows a different account of round 3 than it did an hour ago is the
+same wrong-account class the record's refusals exist to stop, reached from the
+delivery side. Replacing one deliberately is still available: delete the
+receipt. This rule is also what makes the page rebuild sound — with
+replacement refused the receipt set can only grow, so the concurrent-delivery
+re-read can compare its size and be comparing its contents. The two
 gut-level counters — dispatches run, disagreements flagged — are restated in
 the loop's close-out harvest comment, the same path plan-loop cost takes.
 

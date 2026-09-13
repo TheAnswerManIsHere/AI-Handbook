@@ -286,12 +286,16 @@ test("the diff runs from the round's reviewed commit to the snapshot's head", ()
   assert.match(record.diff.patch, /the fix/);
 });
 
-test("a round whose response was replies only reports no diff, and says why", () => {
+test("a round with no push reports no diff, and says only what the diff shows", () => {
   const snap = snapshot();
   snap.reviews[0].commit_id = HEAD;
   const record = build(snap);
   assert.equal(record.diff.range, null);
-  assert.match(record.diff.note, /replies, not code/);
+  assert.match(record.diff.note, /Nothing was pushed since the commit this round reviewed/);
+  // It must NOT claim the builder replied: the diff cannot see a reply, and on
+  // an unanswered round that claim told the translator the round was answered.
+  assert.ok(!/replied|replies/.test(record.diff.note.replace(/Whether the builder replied is in the threads above, not here\./, "")));
+  assert.match(record.diff.note, /in the threads above, not here/);
 });
 
 
@@ -932,4 +936,120 @@ test("R16: the page is written atomically, so no reader sees it half-built", () 
   const src = fs.readFileSync(new URL("../round-translation-page.mjs", import.meta.url), "utf8");
   assert.match(src, /fs\.renameSync\(tmp, file\)/, "rename, not a truncating write into the live path");
   assert.ok(!/fs\.writeFileSync\(file, /.test(src), "nothing writes the live page path directly");
+});
+
+// ---------------------------------------------------------------------------
+// Round 5's fixes, and the re-run rule David settled on 2026-09-13:
+// a re-run fills a hole, it never replaces an account.
+// ---------------------------------------------------------------------------
+
+test("R17: an old round's diff stops at the next pass's commit, not the live head", () => {
+  // The catch-up case `runTranslation` supports: round 1 was never translated,
+  // rounds 2+ have landed, close-out wants it. Against the live head the brief
+  // carries round 2's code under round 1's heading. The comment window was
+  // bounded in c11dae0 and the diff window was not -- half a fix.
+  const NEXT = "1111111111111111111111111111111111111111";
+  const snap = snapshot();
+  snap.reviews.push({
+    id: 900002,
+    user: { login: BOT },
+    submitted_at: T("2026-09-12T10:45:00Z"),
+    commit_id: NEXT,
+    body: "**Reviewed commit:** " + NEXT,
+    html_url: url("pullrequestreview-900002"),
+  });
+
+  const ranges = [];
+  const spy = (args) => {
+    if (args[0] === "rev-parse") return `${HEAD}\n`;
+    if (args[0] === "diff" && args.includes("--name-only")) return "";
+    if (args[0] === "diff") {
+      ranges.push(args.find((a) => a.includes("..")));
+      return "diff --git a/x b/x\n+ y\n";
+    }
+    return "";
+  };
+
+  const old = buildTranslationRecord(snap, 1, { runGit: spy, now: () => T("2026-09-12T11:05:00Z") });
+  assert.equal(old.diff.range, `${REVIEWED}..${NEXT}`, "far end is the next pass's commit");
+  assert.ok(ranges.every((r) => r.endsWith(NEXT)), "git was asked for that range, not the head");
+  assert.equal(old.pr.headSha, HEAD, "the PR's own head is still reported as the PR's head");
+
+  // The latest round still runs to the live head -- there is no next pass.
+  ranges.length = 0;
+  const latest = buildTranslationRecord(snap, 2, { runGit: spy, now: () => T("2026-09-12T11:05:00Z") });
+  assert.equal(latest.diff.range, `${NEXT}..${HEAD}`);
+});
+
+test("R18: the brief does not name who resolved a thread", () => {
+  // The snapshot carries isResolved and no resolver identity; David or any
+  // maintainer can resolve one. Naming the builder invented provenance inside
+  // the role whose boundary is that every block says where it came from.
+  const brief = translationBrief(build());
+  assert.match(brief, /_This thread is marked resolved\._/);
+  assert.ok(!/builder marked/i.test(brief), "no actor is attributed to the resolution");
+  assert.match(brief, /_This thread is still open\._/, "the open case is unchanged");
+});
+
+test("R19: a re-run fills a hole and refuses to replace an account", () => {
+  const root = tmpRepo();
+  const receipts = path.join(root, ".agents", "receipts");
+  fs.mkdirSync(receipts, { recursive: true });
+  const snapPath = path.join(root, "snap.json");
+  fs.writeFileSync(snapPath, JSON.stringify(snapshot()));
+
+  const run = () => {
+    const out = [];
+    const so = process.stdout.write;
+    const se = process.stderr.write;
+    process.stdout.write = (s) => (out.push(s), true);
+    process.stderr.write = () => true;
+    const cwd = process.cwd();
+    try {
+      process.chdir(root);
+      return { code: main(["--role", "round-translation", "--pr", String(PR), "--round", "1", "--mcp-snapshot", snapPath]), out };
+    } finally {
+      process.chdir(cwd);
+      process.stdout.write = so;
+      process.stderr.write = se;
+    }
+  };
+
+  // With a receipt already present the run is refused BEFORE the dispatch, so
+  // a re-run never bills a reviewer for an account it would not be allowed to
+  // write. The notice is the fixed one, on one line, as every other failure.
+  fs.writeFileSync(
+    path.join(receipts, `fable-round-translation-${PR}-1.json`),
+    JSON.stringify({ role: "round-translation", pr: PR, round: 1, output: answer() }),
+  );
+  const blocked = run();
+  assert.equal(blocked.code, 1);
+  assert.equal(blocked.out.length, 1, "one fixed line");
+  assert.match(blocked.out[0], /^round 1: translation unavailable — already translated; delete /);
+  // The REMEDY survives the 160-character chat-line bound -- an
+  // explanation-first message loses it to the ellipsis, which was measured.
+  assert.match(blocked.out[0], /delete \.agents\/receipts\/fable-round-translation-81-1\.json to replace it/);
+  assert.ok(!blocked.out[0].includes("…"), "nothing actionable was truncated away");
+  assert.equal(blocked.out[0].trimEnd().includes("\n"), false);
+
+  // Removing it turns the re-run back into hole-filling, which is allowed --
+  // the legitimate cases (provider down, refusal on a stale capture, a round
+  // never translated) all leave no receipt behind.
+  fs.rmSync(path.join(receipts, `fable-round-translation-${PR}-1.json`));
+  const allowed = run();
+  assert.ok(!/already has a translation/.test(allowed.out.join("")), "no longer refused on that ground");
+});
+
+test("R19: publishPage's size comparison is sound only because replacement is refused", () => {
+  // Stated as a dependency rather than assumed: with replacement refused the
+  // receipt set can only grow, so a changed count is the only change available
+  // and comparing sizes is comparing contents. If the refusal is ever relaxed,
+  // this comparison silently stops holding -- which is what D0 found.
+  const dispatch = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
+  assert.match(dispatch, /already has a translation/, "the refusal exists");
+  assert.match(dispatch, /fs\.existsSync\(existing\)/, "and it is what gates the dispatch");
+
+  const page = fs.readFileSync(new URL("../round-translation-page.mjs", import.meta.url), "utf8");
+  assert.match(page, /COMPARING THE SET'S SIZE IS COMPARING ITS CONTENTS/, "the dependency is written down where it is relied on");
+  assert.match(page, /runTranslation. refuses to overwrite/, "and it names what it depends on");
 });

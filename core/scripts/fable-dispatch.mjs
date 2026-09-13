@@ -1440,6 +1440,41 @@ export function deliverTranslation(root, receipt) {
  * round 3).
  */
 function runTranslation(root, args) {
+  // A RE-RUN MAY FILL A HOLE; IT MAY NEVER REPLACE AN ACCOUNT (David,
+  // 2026-09-13). Re-running a round is ordinary -- the provider was
+  // unreachable, a refusal fired on a stale capture, or a round was never
+  // translated and close-out wants it -- and every one of those legitimate
+  // cases leaves NO receipt behind, so filling the hole is all they need.
+  // What the script refuses is the other shape: overwriting a round that
+  // already has an account.
+  //
+  // This is why receipts are evidence. Evidence does not get rewritten, and
+  // "the page silently shows a different account of round 3 than it did an
+  // hour ago" is the same wrong-account class every refusal in this record
+  // exists to stop -- arrived at from the delivery side instead.
+  //
+  // It also makes `publishPage`'s re-read correct rather than approximately
+  // correct: with replacement refused, the receipt set can only GROW, so
+  // comparing its size is comparing its contents. A deliberate re-translation
+  // is still available and is now a deliberate act -- delete the receipt
+  // first.
+  const existing = receiptPathFor(root, { role: "round-translation", pr: args.pr, round: args.round });
+  if (fs.existsSync(existing)) {
+    const rel = path.relative(root, existing);
+    // THE SHORT FORM CARRIES THE ACTION. `oneLine` bounds the chat line at 160
+    // characters, so an explanation-first message loses its remedy to the
+    // ellipsis -- measured: "Delete that receipt first" fell off the end. The
+    // reasoning goes to stderr, where the operator is already reading.
+    process.stderr.write(
+      `fable-dispatch: round ${args.round} already has a translation at ${rel}. A re-run fills a hole, it does ` +
+        `not replace an account: the legitimate cases (the provider was unreachable, a refusal fired on a stale ` +
+        `capture, a round was never translated) all leave no receipt behind. Replacing one is a deliberate act -- ` +
+        `delete that file first.\n`,
+    );
+    process.stdout.write(`${unavailable(args.round, `already translated; delete ${rel} to replace it`)}\n`);
+    return 1;
+  }
+
   let record;
   try {
     const snapshot = JSON.parse(fs.readFileSync(args.snapshot, "utf8"));
