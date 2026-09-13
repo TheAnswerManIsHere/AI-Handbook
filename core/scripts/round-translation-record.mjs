@@ -239,10 +239,36 @@ export function commentsSincePass(snapshot, pass, builderLogin, nextPass = null)
   const passAt = Date.parse(pass.at ?? "");
   const nextAt = Date.parse(nextPass?.at ?? "");
   const until = Number.isFinite(nextAt) ? nextAt : Infinity;
+  // DEDUPLICATED BY ID, the last collection in this record that was not.
+  // Overlapping captured pages are a SUPPORTED input shape: `pagedArray()`
+  // refuses an incomplete last page but does nothing about an overlapping one,
+  // and `pages.flat()` then repeats the record. `reviewerPasses` dedupes
+  // reviews and reviewer comments by id for exactly this reason, and
+  // `roundThreads` dedupes threads by root id; this collection read straight
+  // through, so a repeated builder comment reached the brief twice and the
+  // translator was shown the same reply as two.
+  //
+  // Only where an id EXISTS, which is where this differs from
+  // review-counting's `seenCommentIds`: keying on `undefined` would collapse
+  // every id-less comment in a malformed capture into one, and dropping
+  // distinct comments is the worse failure of the two. Nothing identifies a
+  // duplicate without an id, so nothing is claimed about one.
+  //
+  // The sweep that gives the three sites one helper is still the right shape
+  // and is still recorded -- it reaches `review-counting.mjs`, which is not in
+  // this PR. It is no longer a reason to leave this instance broken: the
+  // one-line fix and the later sweep are not in conflict, and the rule saying
+  // otherwise was mine rather than David's. (Codex, #81 round 9; D0 round 9.)
+  const seen = new Set();
   return (snapshot.issueComments ?? [])
     .filter((c) => {
       const at = Date.parse(c.created_at ?? "");
-      return Number.isFinite(at) && at >= passAt && at < until;
+      if (!Number.isFinite(at) || at < passAt || at >= until) return false;
+      const id = c.id;
+      if (id === undefined || id === null) return true;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
     })
     .map((c) => ({
       author: c.user?.login ?? c.author ?? null,
