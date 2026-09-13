@@ -1,0 +1,17 @@
+{
+ "pr": 82,
+ "kind": "adjudication",
+ "verdict": "ship-with-gaps-recorded",
+ "grant": 0,
+ "risk": "",
+ "recordPath": ".agents/adjudications/82-1.json",
+ "decidedAt": "2026-09-13T18:09:11Z",
+ "reasoning": "Internal tier, budget 3 and roundsSpent 3, criticality 40, trend [1, 0, 3] against a 10-file/+784/-80 artifact — a clean round 2 followed by three new P2s on the rewrite that answered round 1's P1, which is the shape where more rounds buy more findings rather than convergence. I checked all three open findings against artifact.patch: each premise that is verifiable in the diff holds (capturedAt feeds `stale: ageMs === null || ...` in loopPosition; writeLoopPosition overwrites unconditionally; snapshot-from-captures calls it at the hardcoded REPO_ROOT with no seam), but every failure mode is fail-CLOSED — a null or stale position exits 1 with 'assemble a fresh snapshot', a foreign position exits 2 — so none is destructive, none mints a receipt the merge gate would honour (pr-ready.mjs and the CI+review+threads bar are untouched here), and none widens authority; the closest, the regressed close-out bound, degrades a translation-accounting report that sits beside the merge bar, not inside it. sinceLastReview shows commits 0 with head == lastReviewedCommit 7e8332cf, so round 3 reviewed this exact head and stopping now lands on a reviewed head with nothing unwritten; territory is 4 in-diff / 0 outside, so these are follow-up material, not runaway auditing. (I am running on Opus 5, which is a declared resolution of dispatch.model `best`; effort is not observable to me, so I can only report that the declaration says xhigh.)",
+ "gaps": [
+  "PRRT_kwDOUKOPKc6h6w72 — a round-check-only snapshot with no reviewThreads yields capturedAt null, so loopPosition marks the freshly written position stale and both loop-position.mjs and round-translation-closeout.mjs refuse until a full threads capture is assembled. Fail-closed, with the remedy already printed; shipped as a known gap.",
+  "PRRT_kwDOUKOPKc6h6w75 — derivePosition takes its round from reviewerPasses and writeLoopPosition overwrites unconditionally, so where the connector collapses two clean automatic passes into one edited-in-place summary the position can regress and close-out can report success with an earlier round's translation unaccounted for. Real, and the narrowest remaining hole in gap 16; ships as a gap because the consequence is a missing line on David's private page, not a guardrail or data failure.",
+  "PRRT_kwDOUKOPKc6h6w79 — snapshot-from-captures main() writes the position to the hardcoded REPO_ROOT even when imported as a library with a temp output, so running the shipped suite can create or overwrite a real .agents/reviews/pr-<n>/loop-position.json. The polluted file is gitignored evidence and both readers refuse it (stale, or 'written for X, not Y'), so the worst case is a refusal the ordinary capture step repairs."
+ ],
+ "modelRequested": "best",
+ "effortRequested": "xhigh"
+}
