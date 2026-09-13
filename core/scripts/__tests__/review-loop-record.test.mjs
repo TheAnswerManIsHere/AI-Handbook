@@ -37,7 +37,27 @@ import {
   RECORD_LINE_CAP_CHARS,
   RECORD_TOTAL_CAP_CHARS,
 } from "../review-loop-record.mjs";
-import { main as assembleFromCaptures } from "../snapshot-from-captures.mjs";
+import { main as assembleFromCaptures_ } from "../snapshot-from-captures.mjs";
+
+/**
+ * THE ASSEMBLER WRITES A LOOP POSITION, AND A TEST MUST NOT WRITE ONE INTO THE
+ * CHECKOUT THAT RAN IT. `snapshot-from-captures` writes
+ * `.agents/reviews/pr-<n>/loop-position.json` beside every snapshot it builds,
+ * rooted by default at the real repository. This suite's fixture is PR 43 and
+ * carries no threads, so running it left a permanently stale position for a
+ * real PR number -- and in a synced consumer that position is stamped for
+ * AI-Handbook, so every reader there refuses PR 43 as foreign until another
+ * capture repairs it. Reproduced by running this file's evidence test alone.
+ *
+ * Wrapped at the import, not at the call, for the same reason the sibling
+ * suite wraps it: a new test cannot reintroduce the escape by forgetting an
+ * option it never has to pass. `assembler-callers-are-rooted` in
+ * `round-translation.test.mjs` fails if any suite imports the raw `main`
+ * without a wrapper like this one. (Codex, #83 round 1.)
+ */
+const POSITION_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "record-position-"));
+const assembleFromCaptures = (argv, opts = {}) =>
+  assembleFromCaptures_(argv, { root: POSITION_ROOT, ...opts });
 
 // The payload no longer knows one repo's name; tests declare their own.
 const TEST_SLUG = "TestOwner/TestRepo";

@@ -13,9 +13,26 @@ import {
   digest,
   flagValues,
   assertCaptureProvenance,
-  main,
+  main as assemble,
 } from "../snapshot-from-captures.mjs";
 import { assertMcpSnapshotComplete } from "../review-counting.mjs";
+import { positionPath } from "../loop-position.mjs";
+
+/**
+ * EVERY CALL IN THIS SUITE POINTS THE POSITION SIDE EFFECT AT A THROWAWAY ROOT.
+ *
+ * `main()` writes the loop position to `<root>/.agents/reviews/pr-<n>/`, which
+ * is the one thing it does that does NOT land at `--out`. With the root
+ * hardcoded, running this suite wrote a real `loop-position.json` for PR 43 --
+ * the fixture's number -- into whatever checkout ran the tests, permanently
+ * stale because the fixture carries no threads. Measured in the AI-Handbook
+ * checkout itself. (Codex, #82 round 3.)
+ *
+ * Wrapped once here rather than at ~20 call sites, so a new test cannot
+ * reintroduce it by forgetting the option.
+ */
+const POSITION_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "snap-position-"));
+const main = (argv, opts = {}) => assemble(argv, { root: POSITION_ROOT, ...opts });
 
 // A capture is a file on disk, so the tests use real ones. Faking the read
 // seam would leave the one thing this module does -- read what a tool actually
@@ -574,4 +591,60 @@ test("a round-check-only snapshot does not require the PR body", () => {
   // ...and where the body CAN be read, it is still required.
   assert.throws(() => main(full), /has no body/);
   cleanup();
+});
+
+test("the position write is contained by the root seam, and the suite proves it", () => {
+  // The defect, stated as the thing that must be true: a caller who hands this
+  // function captures and an output path in a temporary directory gets NOTHING
+  // outside that directory. The position used to escape to a hardcoded
+  // REPO_ROOT. (Codex, #82 round 3.)
+  const f = fixture();
+  const out = path.join(f.dir, "snapshot.json");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "snap-root-"));
+  assemble(argv(f.paths, out), { root });
+
+  // It went where it was told...
+  const written = positionPath(root, 43);
+  assert.ok(fs.existsSync(written), "the position lands under the root it was given");
+  assert.equal(JSON.parse(fs.readFileSync(written, "utf8")).pr, 43);
+
+  // ...and nowhere else. This suite's own root is the only other place one
+  // could be, and a second assemble must not have touched a THIRD.
+  const escaped = path.join(process.cwd(), ".agents", "reviews", "pr-43", "loop-position.json");
+  const before = fs.existsSync(escaped) ? fs.readFileSync(escaped, "utf8") : null;
+  assemble(argv(f.paths, out), { root });
+  const after = fs.existsSync(escaped) ? fs.readFileSync(escaped, "utf8") : null;
+  assert.equal(after, before, "assembling must not write a position into the working checkout");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("a round-check-only snapshot still dates its position", () => {
+  // `--threads` is optional by design -- it is the shape the budget guard asks
+  // for -- but `capturedAtOf`'s default requires all four collections, so the
+  // position came out with capturedAt null and was stale the instant it landed.
+  // Both readers then refuse it and send the operator to assemble a threads
+  // capture they never needed. (Codex, #82 round 3.)
+  const f = fixture();
+  const out = path.join(f.dir, "snapshot.json");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "snap-root-"));
+  const threadless = argv(f.paths, out).filter((a, i, all) => a !== "--threads" && all[i - 1] !== "--threads");
+  assemble(threadless, { root });
+
+  const pos = JSON.parse(fs.readFileSync(positionPath(root, 43), "utf8"));
+  assert.ok(pos.capturedAt, "a threadless snapshot dates its position rather than leaving it null");
+  assert.ok(Number.isFinite(Date.parse(pos.capturedAt)), "and the date is parseable");
+
+  // AND IT AGREES WITH THE FULL CAPTURE. The three collections the position
+  // reads are present either way, so dropping threads must not move the stamp.
+  const full = fs.mkdtempSync(path.join(os.tmpdir(), "snap-root-"));
+  assemble(argv(f.paths, out), { root: full });
+  assert.equal(
+    JSON.parse(fs.readFileSync(positionPath(full, 43), "utf8")).capturedAt,
+    pos.capturedAt,
+    "threads are not consulted by the position, so their absence cannot change its capture time",
+  );
+
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(full, { recursive: true, force: true });
 });
