@@ -681,16 +681,16 @@ saying the round went unanswered.
 and prints only a status line:
 
 ```
-D=.agents/reviews/pr-<n>; mkdir -p $D
+D=.agents/reviews/pr-<n>; mkdir -p "$D"
 for c in pr reviews issueComments reviewThreads; do
-  node scripts/capture-from-transcript.mjs --pr <n> --collection $c
+  node scripts/capture-from-transcript.mjs --pr <n> --collection "$c"
 done
 node scripts/snapshot-from-captures.mjs \
   --pr-capture .agents/captures/pr-<n>-pr.json \
   --reviews .agents/captures/pr-<n>-reviews.json \
   --comments .agents/captures/pr-<n>-issueComments.json \
   --threads .agents/captures/pr-<n>-reviewThreads.json \
-  --fetched-at <iso> --out $D/snap-r<r>.json
+  --fetched-at <iso> --out "$D/snap-r<r>.json"
 ```
 
 Same assembler, same flags as the budget-check snapshot above — one page
@@ -731,9 +731,18 @@ round's** — one `d0-r<r>.exit` for each `snap-r<r>.json` in the directory:
 
 ```
 D=$PWD/.agents/reviews/pr-<n>
-for s in $D/snap-r*.json; do r=$(basename "$s" .json); r=${r#snap-r}
+for s in "$D"/snap-r*.json; do r=$(basename "$s" .json); r=${r#snap-r}
   until [ -f "$D/d0-r$r.exit" ]; do sleep 5; done; done
 ```
+
+**Every `$D` in this skill is quoted, and that is a sweep rather than a style
+choice.** An unquoted `$D/snap-r*.json` word-splits *before* the glob expands,
+so on a checkout whose path contains a space the loop iterates two fabricated
+fragments, derives nonsense round numbers from them, and then waits forever on
+exit files that can never appear — blocking the merge ask after every
+translation has already succeeded. The dispatch above was quoted first and this
+loop was missed, which is why the rule is now stated for the file rather than
+for a line. (Codex, #81 round 6.)
 
 The rounds are dispatched detached and independently, so they do not finish in
 order: an earlier round that stalled is still outstanding when the final one

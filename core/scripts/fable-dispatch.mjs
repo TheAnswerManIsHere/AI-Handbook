@@ -1450,36 +1450,61 @@ export function runTranslation(root, args) {
   // A RE-RUN MAY FILL A HOLE; IT MAY NEVER REPLACE AN ACCOUNT (David,
   // 2026-09-13). Re-running a round is ordinary -- the provider was
   // unreachable, a refusal fired on a stale capture, or a round was never
-  // translated and close-out wants it -- and every one of those legitimate
-  // cases leaves NO receipt behind, so filling the hole is all they need.
-  // What the script refuses is the other shape: overwriting a round that
-  // already has an account.
+  // translated and close-out wants it -- and none of those leaves a receipt
+  // behind. What must never happen is the other shape: a second reviewer run
+  // overwriting a round that already has an account, so that the page silently
+  // shows a different account of round 3 than it did an hour ago. Receipts are
+  // evidence and evidence is not rewritten.
   //
-  // This is why receipts are evidence. Evidence does not get rewritten, and
-  // "the page silently shows a different account of round 3 than it did an
-  // hour ago" is the same wrong-account class every refusal in this record
-  // exists to stop -- arrived at from the delivery side instead.
+  // SO AN EXISTING RECEIPT REPUBLISHES RATHER THAN REFUSING. The first version
+  // of this rule refused outright, and that turned a recoverable failure into
+  // an unrecoverable one: `deliverTranslation` writes the receipt BEFORE it
+  // publishes, so a page-render or `check-ignore` failure leaves a valid,
+  // paid-for account on disk with its round missing from the page -- and the
+  // retry that would have fixed it met the refusal. The only way back was
+  // deleting good evidence and buying a second translation, which is the
+  // reverse of what the rule is for. (Codex, #81 round 6.)
   //
-  // It also makes `publishPage`'s re-read correct rather than approximately
-  // correct: with replacement refused, the receipt set can only GROW, so
-  // comparing its size is comparing its contents. A deliberate re-translation
-  // is still available and is now a deliberate act -- delete the receipt
-  // first.
+  // A receipt whose round is not on the page is a HOLE IN THE PAGE, and
+  // filling it is what this rule already permits -- so republish from the
+  // receipt, print that round's own chat line, and never call the reviewer.
+  // Idempotent by construction: running it again just rebuilds the same page.
+  // The account is untouched, so "never replace" is unweakened, and a
+  // deliberate re-translation is still one act away -- delete the receipt.
+  //
+  // It also keeps `publishPage`'s re-read correct: no path here writes a
+  // DIFFERENT receipt for a round that has one, so the receipt set can still
+  // only grow and comparing its size is comparing its contents.
   const existing = receiptPathFor(root, { role: "round-translation", pr: args.pr, round: args.round });
   if (fs.existsSync(existing)) {
     const rel = path.relative(root, existing);
-    // THE SHORT FORM CARRIES THE ACTION. `oneLine` bounds the chat line at 160
-    // characters, so an explanation-first message loses its remedy to the
-    // ellipsis -- measured: "Delete that receipt first" fell off the end. The
-    // reasoning goes to stderr, where the operator is already reading.
     process.stderr.write(
-      `fable-dispatch: round ${args.round} already has a translation at ${rel}. A re-run fills a hole, it does ` +
-        `not replace an account: the legitimate cases (the provider was unreachable, a refusal fired on a stale ` +
-        `capture, a round was never translated) all leave no receipt behind. Replacing one is a deliberate act -- ` +
-        `delete that file first.\n`,
+      `fable-dispatch: round ${args.round} already has an account at ${rel}; republishing the page from it ` +
+        `rather than running the reviewer again. A re-run fills a hole, it never replaces an account -- to ` +
+        `re-translate this round deliberately, delete that file first.\n`,
     );
-    process.stdout.write(`${unavailable(args.round, `already translated; delete ${rel} to replace it`)}\n`);
-    return 1;
+    let receipt;
+    try {
+      receipt = JSON.parse(fs.readFileSync(existing, "utf8"));
+    } catch (e) {
+      // A receipt that cannot be read is not an account, so it cannot be
+      // republished and must not be silently treated as absent either --
+      // re-dispatching would spend money to overwrite a file whose contents
+      // nobody has established. Refuse, and name the remedy.
+      process.stderr.write(`fable-dispatch: ${rel} is not readable as JSON: ${e.message}\n`);
+      process.stdout.write(`${unavailable(args.round, `${rel} is unreadable; delete it to re-translate`)}\n`);
+      return 1;
+    }
+    try {
+      const page = publishPage(root, args.pr);
+      process.stderr.write(`fable-dispatch: page -> ${page}\n`);
+      process.stdout.write(`${chatLine(receipt)}\n`);
+      return 0;
+    } catch (e) {
+      process.stderr.write(`fable-dispatch: ${e.message}\n`);
+      process.stdout.write(`${unpublished(args.round, oneLine(e.message))}\n`);
+      return 1;
+    }
   }
 
   let record;

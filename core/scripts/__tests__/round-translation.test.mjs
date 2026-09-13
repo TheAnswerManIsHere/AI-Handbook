@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 import {
   buildTranslationRecord,
@@ -472,6 +473,24 @@ test("the page names both themes' colours at the root, so neither renders on the
 function tmpRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-page-"));
   fs.mkdirSync(path.join(root, ".agents/receipts"), { recursive: true });
+  return root;
+}
+
+/**
+ * A tmpRepo that is a REAL git repository.
+ *
+ * `writePage` proves the page is ignored by running `git check-ignore`, so any
+ * path that goes through `publishPage` without a `runGit` override -- which is
+ * every real caller, including `runTranslation` -- needs one. Stubbing git
+ * instead would make the test pass over exactly the check the real path runs,
+ * which is the class of defect this suite has now been caught by three times.
+ */
+function tmpGitRepo() {
+  const root = tmpRepo();
+  const git = (args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  git(["init", "-q"]);
+  git(["config", "user.email", "t@example.test"]);
+  git(["config", "user.name", "t"]);
   return root;
 }
 
@@ -991,8 +1010,8 @@ test("R18: the brief does not name who resolved a thread", () => {
   assert.match(brief, /_This thread is still open\._/, "the open case is unchanged");
 });
 
-test("R19: a re-run fills a hole and refuses to replace an account", () => {
-  const root = tmpRepo();
+test("R19: a re-run fills a hole by republishing, and never replaces an account", () => {
+  const root = tmpGitRepo();
   const receipts = path.join(root, ".agents", "receipts");
   fs.mkdirSync(receipts, { recursive: true });
   const snapPath = path.join(root, "snap.json");
@@ -1019,41 +1038,94 @@ test("R19: a re-run fills a hole and refuses to replace an account", () => {
     }
   };
 
-  // With a receipt already present the run is refused BEFORE the dispatch, so
-  // a re-run never bills a reviewer for an account it would not be allowed to
-  // write. The notice is the fixed one, on one line, as every other failure.
+  // With an account already on disk the run REPUBLISHES from it and never
+  // reaches the reviewer. The earlier version of this rule refused outright,
+  // which turned a failed publish into an unrecoverable state -- the receipt
+  // survives `deliverTranslation`'s catch, so the retry that would have fixed
+  // the page met the refusal instead. (Codex, #81 round 6.)
+  const receiptPath = path.join(receipts, `fable-round-translation-${PR}-1.json`);
   fs.writeFileSync(
-    path.join(receipts, `fable-round-translation-${PR}-1.json`),
+    receiptPath,
     JSON.stringify({ role: "round-translation", pr: PR, round: 1, output: answer() }),
   );
-  const blocked = run();
-  assert.equal(blocked.code, 1);
-  assert.equal(blocked.out.length, 1, "one fixed line");
-  assert.match(blocked.out[0], /^round 1: translation unavailable — already translated; delete /);
-  // The REMEDY survives the 160-character chat-line bound -- an
-  // explanation-first message loses it to the ellipsis, which was measured.
-  assert.match(blocked.out[0], /delete \.agents\/receipts\/fable-round-translation-81-1\.json to replace it/);
-  assert.ok(!blocked.out[0].includes("…"), "nothing actionable was truncated away");
-  assert.equal(blocked.out[0].trimEnd().includes("\n"), false);
+  const before = fs.readFileSync(receiptPath, "utf8");
 
-  // Removing it turns the re-run back into hole-filling, which is allowed --
-  // the legitimate cases (provider down, refusal on a stale capture, a round
-  // never translated) all leave no receipt behind.
-  fs.rmSync(path.join(receipts, `fable-round-translation-${PR}-1.json`));
+  const republished = run();
+  assert.equal(republished.code, 0, "republishing is success, not failure -- the round IS on the page");
+  assert.equal(republished.out.length, 1, "one chat line");
+  assert.equal(republished.out[0], `${chatLine({ round: 1, output: answer() })}\n`, "the EXISTING account's line");
+  assert.equal(fs.readFileSync(receiptPath, "utf8"), before, "the account itself is untouched");
+
+  const page = fs.readFileSync(pagePath(root, PR), "utf8");
+  assert.match(page, /Round 1/, "and the page now carries the round the receipt describes");
+
+  // Idempotent: running it again rebuilds the same page from the same account.
+  const again = run();
+  assert.equal(again.code, 0);
+  assert.equal(again.out[0], republished.out[0]);
+  assert.equal(fs.readFileSync(receiptPath, "utf8"), before);
+
+  // An unreadable receipt is not an account: it cannot be republished, and
+  // re-dispatching would spend money to overwrite a file nobody has read.
+  fs.writeFileSync(receiptPath, "{ not json");
+  const broken = run();
+  assert.equal(broken.code, 1);
+  assert.match(broken.out[0], /unreadable; delete it to re-translate/);
+
+  // With no receipt at all the re-run is hole-filling, which is what every
+  // legitimate re-run is -- provider down, a refusal on a stale capture, a
+  // round never translated. It proceeds to the record build.
+  fs.rmSync(receiptPath);
   const allowed = run();
-  assert.ok(!/already has a translation/.test(allowed.out.join("")), "no longer refused on that ground");
+  assert.ok(!/already has an account|unreadable/.test(allowed.out.join("")), "not short-circuited");
 });
 
-test("R19: publishPage's size comparison is sound only because replacement is refused", () => {
-  // Stated as a dependency rather than assumed: with replacement refused the
-  // receipt set can only grow, so a changed count is the only change available
-  // and comparing sizes is comparing contents. If the refusal is ever relaxed,
-  // this comparison silently stops holding -- which is what D0 found.
+test("R19: publishPage's size comparison is sound only because no receipt is ever rewritten", () => {
+  // Stated as a dependency rather than assumed. The receipt set can only GROW
+  // -- an existing account is republished, never re-dispatched -- so a changed
+  // count is the only change available and comparing sizes is comparing
+  // contents. If anything ever lets a round's receipt be rewritten, this
+  // comparison silently stops holding, which is what D0 found on round 4.
   const dispatch = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
-  assert.match(dispatch, /already has a translation/, "the refusal exists");
-  assert.match(dispatch, /fs\.existsSync\(existing\)/, "and it is what gates the dispatch");
+  assert.match(dispatch, /fs\.existsSync\(existing\)/, "an existing account is detected before the dispatch");
+  assert.match(dispatch, /already has an account at/, "and reported");
+  // The load-bearing half: that branch must REPUBLISH, not fall through to a
+  // second reviewer run that would overwrite the account.
+  const branch = dispatch.slice(dispatch.indexOf("fs.existsSync(existing)"), dispatch.indexOf("let record;"));
+  assert.match(branch, /publishPage\(root, args\.pr\)/, "it republishes from the existing account");
+  assert.ok(!/dispatch\(\{/.test(branch), "and never reaches the reviewer");
 
   const page = fs.readFileSync(new URL("../round-translation-page.mjs", import.meta.url), "utf8");
   assert.match(page, /COMPARING THE SET'S SIZE IS COMPARING ITS CONTENTS/, "the dependency is written down where it is relied on");
-  assert.match(page, /runTranslation. refuses to overwrite/, "and it names what it depends on");
+  assert.match(page, /NO PATH WRITES A DIFFERENT RECEIPT FOR A ROUND THAT ALREADY HAS ONE/, "and it names what it depends on");
+});
+
+test("R20: every path expansion in the pr-watch recipes is quoted", () => {
+  // Not a spot-check on the one line Codex cited. An unquoted `$D` word-splits
+  // before the glob expands, so on a checkout whose path contains a space the
+  // close-out loop iterates fabricated fragments and then waits FOREVER on exit
+  // files that can never appear -- after every translation has succeeded.
+  // Measured: the unquoted form times out with all exit files present; the
+  // quoted form terminates. I quoted the dispatch in c75180b and missed this
+  // loop eleven lines below it, which is why the check is over the file.
+  const skill = fs.readFileSync(
+    new URL("../../.claude/skills/pr-watch/SKILL.md", import.meta.url),
+    "utf8",
+  );
+
+  // Inside fenced blocks only: prose names `$D` legitimately.
+  const shell = [...skill.matchAll(/```\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+  const uses = shell.split("\n").filter((l) => /\$D/.test(l));
+  assert.ok(uses.length >= 4, "the recipes do use $D, so this test is not vacuous");
+
+  for (const line of uses) {
+    // An assignment (`D=$PWD/...`) does not word-split in bash and is fine.
+    if (/^\s*D=/.test(line)) continue;
+    const bare = line.match(/(?<!")\$D\/[^\s"]*/g) ?? [];
+    assert.deepEqual(bare, [], `unquoted $D in: ${line.trim()}`);
+  }
+
+  // And the two that bit: the glob and the mkdir.
+  assert.match(skill, /for s in "\$D"\/snap-r\*\.json/, "the close-out glob is quoted");
+  assert.match(skill, /mkdir -p "\$D"/, "and so is the capture directory");
 });

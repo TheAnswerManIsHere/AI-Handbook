@@ -368,15 +368,28 @@ where it was, and gitignored like every other `fable-*.json`.
 **A re-run fills a hole; it never replaces an account** (David, 2026-09-13).
 Re-running a round is ordinary — the provider was unreachable, a refusal fired
 on a stale capture, a round was never translated and close-out wants it — and
-every one of those leaves *no receipt behind*, so filling the hole is all they
-need. What the dispatch refuses, before spending anything, is the other shape:
-a round that already has an account. Evidence is not rewritten, and a page that
-silently shows a different account of round 3 than it did an hour ago is the
-same wrong-account class the record's refusals exist to stop, reached from the
-delivery side. Replacing one deliberately is still available: delete the
-receipt. This rule is also what makes the page rebuild sound — with
-replacement refused the receipt set can only grow, so the concurrent-delivery
-re-read can compare its size and be comparing its contents. The two
+none of those leaves a receipt behind. What must never happen is the other
+shape: a second reviewer run overwriting a round that already has an account,
+so the page silently shows a different account of round 3 than it did an hour
+ago. That is the wrong-account class the record's refusals exist to stop,
+reached from the delivery side.
+
+**So an existing account is REPUBLISHED, not refused.** The receipt is written
+before the page, so a page-render failure leaves a valid, paid-for account on
+disk with its round missing from the page — and a refusal there would make a
+recoverable failure unrecoverable, forcing the operator to delete good evidence
+and buy a second translation. A receipt whose round is not on the page is a
+*hole in the page*, and filling it is what this rule already permits: the
+dispatch rebuilds the page from the receipt, prints that round's own chat line,
+and never calls the reviewer. Idempotent, and the account is untouched, so
+"never replace" is unweakened — a deliberate re-translation is still one act
+away, by deleting the receipt. An unreadable receipt is refused rather than
+re-dispatched: it is not an account, so it cannot be republished, and
+overwriting a file nobody has read is the thing this rule forbids.
+
+This is also what makes the page rebuild sound. No path writes a *different*
+receipt for a round that has one, so the receipt set can only grow and the
+concurrent-delivery re-read can compare its size and be comparing its contents. The two
 gut-level counters — dispatches run, disagreements flagged — are restated in
 the loop's close-out harvest comment, the same path plan-loop cost takes.
 
