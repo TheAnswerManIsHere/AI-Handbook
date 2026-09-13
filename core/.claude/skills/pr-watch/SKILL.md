@@ -727,83 +727,70 @@ proceeds whether or not it has returned; **nothing in the loop waits on it and
 nothing in the loop reads it.**
 
 **At close-out, wait on EVERY ROUND THAT HAPPENED** — not just the stopping
-round's, and not just the rounds that produced a snapshot. `<rounds>` is the
-completed reviewer-pass count, counted fresh from GitHub at close-out the way
-every count in this loop is counted, never carried forward:
+round's, and not just the rounds that produced a snapshot. It takes the
+close-out snapshot and nothing else:
 
 ```
-D=$PWD/.agents/reviews/pr-<n>
-missing=
-for ((r=1; r<=<rounds>; r++)); do
-  if [ ! -f "$D/snap-r$r.json" ] && [ ! -f "$D/d0-r$r.exit" ]; then
-    missing="$missing $r"; continue
-  fi
-  until [ -f "$D/d0-r$r.exit" ]; do sleep 5; done
-done
-[ -z "$missing" ] || echo "no snapshot and no dispatch for round(s):$missing -- go back to step 2 for each" >&2
-[ -z "$missing" ]
+node scripts/round-translation-closeout.mjs --pr <n> \
+  --mcp-snapshot "$PWD/.agents/reviews/pr-<n>/snap-r<r>.json"
 ```
 
-**The rounds come from the round count, never from the files on disk, and that
-is the whole point of this loop's shape.** Enumerating `snap-r*.json` asks
-*which rounds produced a snapshot*, which is a different question from *which
-rounds happened* — and the difference is exactly the round that needs saying.
-When capture assembly fails before `snap-r<r>.json` is written, that round has
-no snapshot, so a glob never names it, so nothing is dispatched for it, so no
-exit file appears and no fixed notice is printed: the merge ask goes out with a
-completed review round **silently absent** from David's page, which is the one
-failure this feature exists to prevent. Counting from the passes makes the
-missing round the loud case instead of the invisible one — the loop refuses by
-name and says where to resume. (Codex, #81 round 9.)
+Non-zero means a round has no account, and the message names which. That is a
+stop: go back to step 2 for each one before the merge ask.
 
-**Refusing rather than reporting it, deliberately.** The recipe could print a
-*translation unavailable* line for the missing round and carry on, but that
-line would be one I composed: the fixed notices in this feature are printed by
-the script, from the script's own wording, and a round with no snapshot never
-reached the script. Sending close-out back to step 2 costs one capture and
-yields a real account; inventing the notice costs nothing and yields a
-sentence David cannot tell from a genuine refusal.
+**The bound is derived, never typed, and that is the whole point of the
+script.** Enumerating `snap-r*.json` asks *which rounds produced a snapshot*,
+which is a different question from *which rounds happened* — and the difference
+is exactly the round that needs saying. When capture assembly fails before
+`snap-r<r>.json` is written, that round has no snapshot, so a glob never names
+it, so nothing is dispatched for it, so no exit file appears and no fixed
+notice is printed: the merge ask goes out with a completed review round
+**silently absent** from David's page, which is the one failure this feature
+exists to prevent. (Codex, #81 round 9.)
 
-**The refusal is a non-zero status, never an `exit`, and the loop is
-arithmetic, never `$(seq …)`.** Both follow from the same fact that ruled out
-`nullglob` one round earlier: **this recipe is pasted into an interactive
-shell.** An `exit 1` there closes the operator's terminal mid-close-out —
-a worse outcome than the silent omission it was meant to report — so the block
-ends on a bare `[ -z "$missing" ]` whose status is the verdict. And
-`for ((r=1; r<=N; r++))` needs no subprocess and performs no word-splitting,
-which leaves the file with no unquoted expansion at all rather than one that
-happens to be safe. It also collects **every** missing round rather than
-stopping at the first: a close-out told about one gap at a time is a close-out
-run twice.
+Counting the rounds fixes that — but **a count the operator types reintroduces
+it**, because an undercount (3 after a fourth pass landed) produces a check that
+examines three rounds, finds them all accounted for, and reports success while
+omitting the fourth. Same silent omission, different route. So the script asks
+`reviewerPasses` — the counter the budget guard and the record builder already
+use — of the snapshot it was handed. A value this code holds is never a value
+it accepts. (Codex, #82 round 1.)
+
+**It reports, it never composes.** The script says which rounds have no
+account and stops. It does not print a *translation unavailable* line for them:
+the fixed notices are `fable-dispatch`'s own wording, a round with no snapshot
+never reached that script, and a notice written by the close-out step is a
+sentence David cannot distinguish from a genuine refusal. Going back to step 2
+costs one capture and yields a real account.
 
 **Every `$D` in this skill is quoted, and that is a sweep rather than a style
 choice.** An unquoted `$D/...` word-splits, so on a checkout whose path
-contains a space the loop tests fabricated fragments and then waits forever on
-exit files that can never appear — blocking the merge ask after every
-translation has already succeeded. The dispatch above was quoted first and this
-loop was missed, which is why the rule is stated for the file rather than for a
-line. (Codex, #81 round 6.)
+contains a space a recipe silently operates on fabricated fragments. The
+dispatch above was quoted first and the close-out loop was missed, which is why
+the rule is stated for the file rather than for a line. (Codex, #81 round 6.)
 
-**Two earlier hangs are gone by construction rather than by guard**, and they
-are recorded because the shape that removed them is the lesson. This loop used
-to glob `snap-r*.json`; with no match bash left the pattern **unexpanded**, the
-body ran once over the literal string, `r` became `*`, and it waited on
-`d0-r*.exit`, which `[ -f ]` never globs and nothing will ever create — an
-unbounded wait with nothing outstanding (Codex, #81 round 7, patched with
-`[ -e "$s" ] || continue`). An arithmetic loop has no unmatched-glob state at
-all: with no rounds the body never runs and the block returns 0. Three of this
-loop's findings were defects in that glob; the fourth fix was to stop globbing.
+**Close-out is a script rather than a shell loop because the shell loop was
+where the bugs were**, and the count is the argument for the change rather than
+taste. Four findings in one review loop, all in four lines of bash: an unquoted
+expansion (#81 round 6), an unmatched glob that waited forever on a file that
+cannot exist (#81 round 7), an enumeration that asked which snapshots existed
+(#81 round 9), and — in my own draft of that last fix, caught before pushing —
+an `exit 1` that would have closed the operator's terminal mid-close-out, which
+is worse than the omission it was added to report. Not one was a defect in the
+idea. `round-translation-closeout.mjs` has no glob, no word-splitting, no
+`exit`, a derived bound and a bounded wait, and it is tested as behaviour
+rather than as text.
 
 The rounds are dispatched detached and independently, so they do not finish in
 order: an earlier round that stalled is still outstanding when the final one
 returns. Waiting on only the round that triggered the stop lets the merge ask
 go out with an earlier round missing from the page and with no chat line —
 and Product Intent 1 promises David an account of **every** round, which does
-not stop being true because the missing one is not the last. The loop is
-bounded by construction: `<rounds>` is finite, and each member either has a
-dispatch that terminates or times out, or has no snapshot and is refused on the
-spot rather than waited on. (Codex, #81 round 3; bound restated for the
-round-driven loop, #81 round 9.)
+not stop being true because the missing one is not the last. The wait is
+bounded twice over: the derived pass count is finite, and each round either has
+a dispatch that finishes or hits `--timeout-sec`, or has no snapshot and is
+reported rather than waited on. Nothing there can wait forever, which two
+earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
 
 - **After the trigger, never before.** A translation I could act on mid-round
   would be an in-loop advisor reading my own prose, which is exactly what

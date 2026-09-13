@@ -23,6 +23,7 @@ import {
 } from "../round-translation-record.mjs";
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
+import { roundsIn, roundState, waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -1126,30 +1127,47 @@ test("R20: every path expansion in the pr-watch recipes is quoted", () => {
     assert.deepEqual(bare, [], `unquoted $D in: ${line.trim()}`);
   }
 
-  // And the two that bit. The glob that carried the original finding is gone
-  // -- R25 replaced it with a round-driven loop -- so what stands in its place
-  // is the same close-out wait, still quoted on every expansion.
-  assert.match(skill, /until \[ -f "\$D\/d0-r\$r\.exit" \]/, "the close-out wait is quoted");
+  // EVERY `$PWD` too, for the same reason and by the same rule -- the close-out
+  // command interpolates one directly rather than through `$D`, and a path
+  // with a space in it splits there exactly as it would anywhere else.
+  for (const line of shell.split("\n").filter((l) => /\$PWD/.test(l))) {
+    if (/^\s*D=/.test(line)) continue;
+    const bare = line.match(/(?<!")\$PWD\/[^\s"]*/g) ?? [];
+    assert.deepEqual(bare, [], `unquoted $PWD in: ${line.trim()}`);
+  }
+
+  // And the two that bit. The close-out glob that carried the original finding
+  // is gone -- the wait is a script now -- so what stands in its place is the
+  // command that replaced it, whose one path argument is quoted.
+  assert.match(skill, /--mcp-snapshot "\$PWD\/\.agents\/reviews\/pr-<n>\/snap-r<r>\.json"/, "the close-out snapshot path is quoted");
   assert.match(skill, /mkdir -p "\$D"/, "and so is the capture directory");
 });
 
-test("R21: no close-out loop iterates a glob of the files on disk", () => {
+test("R21: the close-out recipe carries no shell loop at all", () => {
   // R21 used to measure the unmatched-glob hang directly: with no
-  // snap-r*.json present bash left the pattern unexpanded, \`r\` became \`*\`,
-  // and the loop waited on d0-r*.exit, which nothing ever creates. That loop
-  // is gone -- R25 drives close-out from the round count instead, and the
-  // no-rounds case returns by construction rather than by guard.
+  // snap-r*.json present bash left the pattern unexpanded, `r` became `*`,
+  // and the loop waited on d0-r*.exit, which nothing ever creates. Then it
+  // became a structural check that no loop globbed the directory. Both are
+  // now moot for the same reason: four findings in one review loop were
+  // defects in four lines of bash, so the close-out wait is a script.
   //
-  // What survives is the CLASS, checked structurally so a future rewrite
-  // cannot quietly bring the hang back: no loop in this skill may enumerate
-  // the reviews directory by glob, because "which files exist" is not the
-  // question close-out asks. (Codex, #81 rounds 6, 7 and 9.)
+  // What survives is the class, checked over the whole file so a future
+  // rewrite cannot quietly bring any of them back: no fenced block in this
+  // skill may loop, and none may call `exit`. (Codex, #81 rounds 6, 7 and 9;
+  // the `exit` was my own, caught before pushing.)
   const skill = fs.readFileSync(new URL("../../.claude/skills/pr-watch/SKILL.md", import.meta.url), "utf8");
-  const shell = [...skill.matchAll(/```\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
-  assert.ok(/d0-r\$r\.exit/.test(shell), "the close-out wait is in the skill, so this test is not vacuous");
+  const blocks = [...skill.matchAll(/```\n([\s\S]*?)```/g)].map((m) => m[1]);
+  assert.ok(blocks.length >= 3, "the skill does carry fenced recipes, so this test is not vacuous");
+  const shell = blocks.join("\n");
+  assert.match(shell, /round-translation-closeout\.mjs/, "and close-out is one of them");
 
-  const globLoops = shell.split("\n").filter((l) => /^\s*for\s+\w+\s+in\b/.test(l) && /\*/.test(l));
-  assert.deepEqual(globLoops, [], "a for-loop over a glob is how both close-out hangs got in");
+  const loops = shell.split("\n").filter((l) => /^\s*(for\b|while\b|until\b)/.test(l) && !/^\s*for c in pr reviews/.test(l));
+  assert.deepEqual(loops, [], "the close-out wait is a script; a shell loop here is how every one of those bugs got in");
+  assert.deepEqual(
+    shell.split("\n").filter((l) => /^\s*exit\s/.test(l)),
+    [],
+    "`exit` in a block pasted into an interactive shell closes the operator's terminal",
+  );
 });
 
 test("R22: the chat line never says 'agrees' over a round the builder has not answered", () => {
@@ -1369,65 +1387,103 @@ test("R24: every snapshot collection the record reads is deduplicated", () => {
   assert.match(src, /const seen = new Set\(\);\n  return \(snapshot\.issueComments/, "commentsSincePass dedupes");
 });
 
-test("R25: close-out enumerates rounds that happened, not snapshots that exist", () => {
-  // The hole gap 16 named: the wait loop globbed `snap-r*.json`, so a round
-  // whose capture assembly failed before the snapshot was written had no
-  // snapshot, no dispatch, no exit file and no fixed notice -- and the merge
-  // ask could go out with that round silently missing from David's page.
+test("R25: close-out derives its round bound from the snapshot, never from an argument", () => {
+  // Gap 16's hole was that close-out enumerated snapshots that exist rather
+  // than rounds that happened, so a round whose capture assembly failed was
+  // silently absent from the merge ask. Counting rounds fixes that -- but a
+  // count the OPERATOR types reintroduces it: undercount by one and the check
+  // reports success while omitting exactly the round it exists to guarantee.
+  // (Codex, #82 round 1.)
   //
-  // Checked as BEHAVIOUR in four states, for the same reason R21 was: the
-  // defect is what the loop does, and a substring check would pass over any
-  // rewrite that reintroduced it.
-  const skill = fs.readFileSync(new URL("../../.claude/skills/pr-watch/SKILL.md", import.meta.url), "utf8");
-  const loop = [...skill.matchAll(/```\n([\s\S]*?)```/g)]
-    .map((m) => m[1])
-    .find((b) => /for \(\(r=1; r<=/.test(b) && /d0-r\$r\.exit/.test(b));
-  assert.ok(loop, "the close-out wait loop is in the skill as a fenced block");
+  // Asserted as behaviour: the same directory, read against two snapshots
+  // that differ only in how many passes they record, must give two answers.
+  const three = snapshot();
+  assert.equal(roundsIn(three), 1, "the base fixture records one pass, so this test is not vacuous");
 
+  // A second pass in the fixture must move the bound by itself.
+  three.reviews.push({
+    id: 900009,
+    user: { login: BOT },
+    state: "COMMENTED",
+    submitted_at: T("2026-09-12T11:45:00Z"),
+    commit_id: HEAD,
+    body: "**Reviewed commit:** " + HEAD,
+    html_url: url("pullrequestreview-900009"),
+  });
+  assert.equal(roundsIn(three), 2, "the bound follows the evidence, with nothing passed in");
+
+  // AND THE BOUND IS WHAT DECIDES. With only round 1 accounted for, a
+  // one-round snapshot passes and a two-round snapshot reports round 2 --
+  // the undercount case, made mechanical.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
-  const reviews = path.join(dir, ".agents", "reviews", "pr-81");
-  fs.mkdirSync(reviews, { recursive: true });
-  const run = (rounds, timeout = 8000) =>
-    spawnSync("bash", ["-c", loop.replace("$PWD/.agents/reviews/pr-<n>", reviews).replace("<rounds>", String(rounds))], {
-      timeout,
-      encoding: "utf8",
-    });
+  fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
+  fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
+  assert.equal(roundState(dir, 1), "done");
+  assert.equal(roundState(dir, 2), "missing", "a round with neither snapshot nor exit file is missing, not pending");
 
-  // NO ROUNDS: `seq 1 0` emits nothing, so this returns at once. The state the
-  // old glob hung on, now absent by construction rather than guarded.
-  const none = run(0);
-  assert.equal(none.signal, null, "a loop with no rounds must not hang");
-  assert.equal(none.status, 0);
+  fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
+  assert.equal(roundState(dir, 2), "pending", "dispatched and not yet returned is its own state, never 'missing'");
 
-  // THE GAP: round 2 happened and has no snapshot. The old loop skipped it in
-  // silence; this one must refuse and name it -- and it must name EVERY such
-  // round, not stop at the first, so round 3 is missing too.
-  fs.writeFileSync(path.join(reviews, "snap-r1.json"), "{}");
-  fs.writeFileSync(path.join(reviews, "d0-r1.exit"), "0\n");
-  const two = run(3);
-  assert.equal(two.status, 1);
-  assert.match(two.stderr, /round\(s\): 2 3\b/, "every missing round is named, not just the first");
-  const missing = run(2);
-  assert.equal(missing.signal, null, "a round with no snapshot is refused, not waited on");
-  assert.equal(missing.status, 1, "and the refusal is a non-zero status");
-  assert.match(missing.stderr, /round\(s\): 2\b/, "and says which round");
-  // NEVER `exit`: this block is pasted into an interactive shell, where an
-  // `exit 1` closes the operator's terminal mid-close-out. The status comes
-  // from a bare test on the last line instead.
-  assert.ok(!/^\s*exit\s/m.test(loop), "the close-out block must not call exit");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
 
-  // STILL WAITS on a round that was dispatched and has not returned -- a
-  // refusal that fired on everything would pass the assertion above and break
-  // the loop's actual job.
-  fs.writeFileSync(path.join(reviews, "snap-r2.json"), "{}");
-  const pending = run(2, 4000);
-  assert.equal(pending.signal, "SIGTERM", "with a snapshot and no exit file it must still wait");
+test("R25: the close-out wait reports every missing round and never waits on one", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
+  fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
+  fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
 
-  // AND RETURNS once every round has its exit file.
-  fs.writeFileSync(path.join(reviews, "d0-r2.exit"), "1\n");
-  const satisfied = run(2);
-  assert.equal(satisfied.signal, null);
-  assert.equal(satisfied.status, 0, "a round that exited non-zero still counts as accounted for");
+  // Rounds 2 and 3 happened and produced nothing. Both are named -- a
+  // close-out told about one gap at a time is a close-out run twice -- and
+  // neither is waited on, because no exit file is coming for them.
+  let slept = 0;
+  const both = await waitForRounds(dir, 3, { sleep: async () => { slept += 1; } });
+  assert.deepEqual(both.missing, [2, 3], "every missing round is named, not just the first");
+  assert.deepEqual(both.timedOut, []);
+  assert.equal(slept, 0, "a missing round is reported immediately, never waited on");
+
+  // A DISPATCHED round IS waited on, and the wait ends when the exit file
+  // lands -- a check that reported everything missing would pass the
+  // assertions above and break the step's actual job.
+  fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
+  let ticks = 0;
+  const landed = await waitForRounds(dir, 2, {
+    sleep: async () => {
+      ticks += 1;
+      if (ticks === 2) fs.writeFileSync(path.join(dir, "d0-r2.exit"), "1\n");
+    },
+  });
+  assert.deepEqual(landed.missing, []);
+  assert.deepEqual(landed.timedOut, [], "a round that exited non-zero still counts as accounted for");
+  assert.equal(ticks, 2, "it polled until the exit file appeared");
+
+  // AND IT IS BOUNDED. Two earlier versions of this step could wait forever;
+  // a dispatch that never returns must end as a report, not as a hang.
+  fs.rmSync(path.join(dir, "d0-r2.exit"));
+  let clock = 0;
+  const stuck = await waitForRounds(dir, 2, { timeoutMs: 30, pollMs: 10, now: () => (clock += 10), sleep: async () => {} });
+  assert.deepEqual(stuck.timedOut, [2], "an unfinished dispatch is reported, not waited on forever");
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("R25: the close-out script refuses a snapshot for another pull request", async () => {
+  // The bound is only trustworthy if it was derived from THIS PR's evidence.
+  // A snapshot for #99 would produce #99's pass count and silently bound
+  // #82's close-out with it.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
+  const snapPath = path.join(dir, "snap.json");
+  fs.writeFileSync(snapPath, JSON.stringify(snapshot()));
+  const said = [];
+  const log = { write: (s) => said.push(s) };
+
+  const wrongPr = await closeoutMain(["--pr", "999", "--mcp-snapshot", snapPath], { root: dir, log });
+  assert.equal(wrongPr, 2, "a snapshot for another PR is refused, not counted");
+  assert.match(said.join(""), /not #999/);
+
+  said.length = 0;
+  const badArg = await closeoutMain(["--rounds", "4"], { root: dir, log });
+  assert.equal(badArg, 2, "and there is no way to hand it a round count");
+  assert.match(said.join(""), /unknown argument/);
 
   fs.rmSync(dir, { recursive: true, force: true });
 });
