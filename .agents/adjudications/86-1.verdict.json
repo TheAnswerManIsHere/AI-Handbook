@@ -1,0 +1,54 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 86,
+  "recordPath": ".agents/adjudications/86-1.json",
+  "recordSha256": "ab0258ea0483f59502a9ab247a433d7cfdcf380f9387414308a66cd56b5a041a",
+  "toolUseId": "toolu_01WqKGQFmAVeqddZs1dJ7QVC",
+  "agentId": "a33abe436c10a1adc",
+  "decidedAt": "2026-09-13T23:29:19.608Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, budget 3, two rounds spent, trend 2→3, all 5 findings in-diff on a 7-file / 70-added contract-prose change; the three unresolved ones are wording-precision defects (an unscoped parenthetical in model-routing, a false 'every finding can only class unclassifiable' clause in claude-core.md, an over-broad RETIRED phrase), and none reaches the internal bar of a destructive action, receipt/merge-gate corruption, or a widening of my authority. Read against artifact.patch: the only script change adds two entries to a fail-closed RETIRED list, so check-contract-consistency.mjs can only refuse more, never pass work it should refuse; and the model-routing parenthetical sits in a paragraph that explicitly defers to claude-core.md's Review loops, while both the always-loaded core and review-loop-adjudicator.md carry the corrected 'round-3 dispatch is never skipped, on any PR' wording at head. Finding PRRT_kwDOUKOPKc6h88o0 is correct on its facts — this very dispatch classifies five findings with planOracle.sections null and threatModel.text fully present, so 'every finding can only class unclassifiable' is demonstrably false — but its consequence runs in the wrongly-blocking direction (fewer citable declines, so more fixes), which is the internal tier's announced and accepted failure mode rather than a critical flaw. Two notes on the dispatch itself: this PR's provenance is trivial with no oracle, so under the very rule it adds, rounds 1–2 should not have dispatched me for conformance — I classified anyway; and at round 2 this verdict is advisory, so the builder triages these with the classifications in hand under rule 5's Worth: test.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6h88ot — core/.claude/skills/model-routing/SKILL.md: the parenthetical '(bar a PR whose provenance is trivial, which carries no oracle to classify against)' attaches to the whole dispatch sentence, so this copy reads as exempting trivial PRs from the round-3 write-or-stop dispatch too, unlike claude-core.md, pr-watch and the adjudicator definition. Shipped as a gap: the paragraph's own text routes to claude-core.md's Review loops as the authority, and that always-loaded copy is correct.",
+      "PRRT_kwDOUKOPKc6h88o0 — core/.agents/core/claude-core.md: 'so every finding can only class unclassifiable' is false, since the threat model is present on every tier and out-of-threat-model / test-precision / misdirection do not need an oracle. Shipped as a gap: the effect is fewer citable declines on trivial PRs, which costs rounds rather than safety.",
+      "PRRT_kwDOUKOPKc6h88o2 — core/scripts/check-contract-consistency.mjs: the RETIRED phrase 'nothing else in that comment' is a generic English fragment that could match innocent consumer wording. Shipped as a gap: the failure is a loud, deterministic CI refusal with a clear message, which is the fail-closed direction."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h80xs",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A genuine contradiction between the adjudicator definition and the other contract copies over whether the round-3 dispatch survives the trivial carve-out, inside the four files this increment declared; already fixed at head (core/.claude/agents/review-loop-adjudicator.md now states the round-3 dispatch is never skipped) and the thread is resolved."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h80xy",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A real terminology collision the increment itself created between the new observable-only flip-condition rule and the surviving 'judgment-shaped device' phrasing; already fixed at head in all three copies (pr-watch, claude-core.md, working-modes.md now read 'the only stopping device') and the thread is resolved."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h88ot",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The premise holds against artifact.patch — core/.claude/skills/model-routing/SKILL.md carries the trivial parenthetical with no round-3 qualification, unlike the three sibling copies — and model-routing is one of the four files named in budget.artifactDeclaredAtRoundZero, so it is a real inconsistency inside what this increment set out to do."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h88o0",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The finding's factual claim is verifiable and correct against this record itself — planOracle.sections is null while threatModel.text is fully present — so the new claude-core.md clause 'every finding can only class unclassifiable' is untrue about the very rule it justifies, and nothing in the record excludes it from this increment's scope."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h88o2",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The RETIRED entry with phrase 'nothing else in that comment' is in artifact.patch and is a generic fragment, so the false-positive risk is a real defect in what this increment added; the sub-premise about scanText's case-insensitive substring matching is not in the diff and I could not verify it from the record, which is uncertainty rather than grounds to class it misdirection."
+      }
+    ]
+  }
+}
