@@ -96,6 +96,7 @@ import { modelTier } from "./review-budget.mjs";
 import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
 import { chatLine, renderPage, writePage, receiptsFor, publishPage, unavailable, unpublished } from "./round-translation-page.mjs";
 import { gapsBrief, gapsFor, writeGaps } from "./gaps-translation.mjs";
+import { mergeBrief, inputsFor, writeMerge } from "./merge-brief.mjs";
 
 /**
  * One line, for a notice that is pasted verbatim into chat.
@@ -162,6 +163,21 @@ const BRIEF_GENERATORS = {
   // captured snapshot: the caller supplies a pull request number and this
   // script reads the rest. No word of mine reaches the reviewer.
   "gaps-translation": ({ pr, root }) => gapsBrief(pr, gapsFor(root, pr)),
+  // D2. Composed by `merge-brief.mjs` out of the loop's own mechanical record
+  // -- the diff, the approved oracle, the threat model, every finding -- plus
+  // the terminal verdict's gaps. The builder's summary and its pull-request
+  // argument are deliberately absent: a second account that had read the
+  // first would be a review of the first (workstream #36, touchpoint roles).
+  "merge-opinion": ({ pr, root }) => {
+    const inputs = inputsFor(root, pr);
+    if (!inputs) {
+      throw new Error(
+        `PR #${pr} has no mechanical record to build a merge brief from. Generate one with ` +
+          `review-loop-record.mjs on a reviewed head, then run this again.`,
+      );
+    }
+    return mergeBrief(pr, inputs);
+  },
 };
 
 export const canDispatch = (role) => Object.hasOwn(BRIEF_GENERATORS, role);
@@ -177,7 +193,7 @@ export const dispatchableRoles = () => Object.keys(BRIEF_GENERATORS);
  * number, a number, a path -- and none of it reaches the reviewer as text:
  * the record built from the snapshot does, through the generator above.
  */
-const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"], "gaps-translation": ["--pr"] };
+const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"], "gaps-translation": ["--pr"], "merge-opinion": ["--pr"] };
 const BASE_FLAGS = ["--role", "--timeout"];
 const KNOWN_FLAGS = new Set([...BASE_FLAGS, ...Object.values(ROLE_FLAGS).flat()]);
 
@@ -1570,7 +1586,7 @@ const roundFromArgv = (argv) => {
 };
 
 /**
- * Dispatch the gaps role and WRITE WHAT COMES BACK WHERE DAVID READS IT.
+ * Dispatch a David-facing role and WRITE WHAT COMES BACK WHERE HE READS IT.
  *
  * The generic path below writes a machine receipt and prints its path. For the
  * probe that is the whole product; for prose it is the bug that cost #88 a
@@ -1580,27 +1596,49 @@ const roundFromArgv = (argv) => {
  * So this mirrors `deliverTranslation`: receipt first, because it is the
  * evidence, then the human-readable file, then the answer on stdout. A failure
  * after the reviewer ran still leaves the receipt, so nothing paid for is lost.
+ *
+ * ONE FUNCTION FOR EVERY SUCH ROLE, not one per role. `gaps-translation` and
+ * `merge-opinion` differ only in which writer turns the answer into prose, and
+ * a second copy of this would be the same rule written twice -- the exact
+ * shape Codex raised twice on #88 (the `--pr` check, and the dispatchable-role
+ * count). The writer is the parameter; everything else is shared by
+ * construction.
  */
-export function runGaps(root, args) {
+const FILE_WRITERS = {
+  "gaps-translation": { write: writeGaps, label: "gaps" },
+  "merge-opinion": { write: writeMerge, label: "merge brief" },
+};
+
+export const writesAFile = (role) => Object.hasOwn(FILE_WRITERS, role);
+
+export function runFileRole(root, args, { dispatchFn = dispatch, io = process } = {}) {
+  // INJECTED FOR THE SAME REASON `dispatch` TAKES A `runner`: this is the
+  // delivery path, and the delivery path is where BOTH of #88's real defects
+  // lived -- the role that could not launch, and the answer that reached
+  // nobody. A test that reads this file as text and pattern-matches proves the
+  // words are present, not that the thing works, which is precisely the
+  // distinction that let "verified end to end" be wrong twice (Fable's D2
+  // brief on #88, which is the first thing this role found).
+  const { write, label } = FILE_WRITERS[args.role];
   let receipt;
   try {
-    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
+    receipt = dispatchFn({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
   } catch (e) {
-    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    io.stderr.write(`fable-dispatch: ${e.message}\n`);
     return e.exitCode ?? 1;
   }
   const out = receiptPathFor(root, receipt);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
-  process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
+  io.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
   try {
-    const brief = writeGaps(root, args.pr, receipt.output);
-    process.stderr.write(`fable-dispatch: gaps -> ${path.relative(root, brief)}\n`);
-    process.stdout.write(fs.readFileSync(brief, "utf8"));
+    const file = write(root, args.pr, receipt.output);
+    io.stderr.write(`fable-dispatch: ${label} -> ${path.relative(root, file)}\n`);
+    io.stdout.write(fs.readFileSync(file, "utf8"));
     return 0;
   } catch (e) {
-    process.stderr.write(`fable-dispatch: the answer arrived but could not be written: ${e.message}\n`);
-    process.stderr.write(`fable-dispatch: it is in ${path.relative(root, out)} under \`output\`\n`);
+    io.stderr.write(`fable-dispatch: the answer arrived but could not be written: ${e.message}\n`);
+    io.stderr.write(`fable-dispatch: it is in ${path.relative(root, out)} under \`output\`\n`);
     return 1;
   }
 }
@@ -1626,7 +1664,7 @@ export function main(argv = process.argv.slice(2)) {
   }
   const root = repoRoot();
   if (args.role === "round-translation") return runTranslation(root, args);
-  if (args.role === "gaps-translation") return runGaps(root, args);
+  if (writesAFile(args.role)) return runFileRole(root, args);
 
   let receipt;
   try {
