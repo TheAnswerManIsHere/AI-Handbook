@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "what_this_does": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What changes for someone using or operating this, in plain English, for a product owner who cannot read code. Not a file list. 'This is plumbing and nobody will notice it' is a real and useful answer when it is true."
+    },
+    "what_it_does_not_do": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The limits: what a reasonable person would assume this covers and it does not, what was deferred, what it deliberately refuses. The field David cannot get anywhere else -- never padded with restatements of what it does."
+    },
+    "what_you_are_trusting": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What rests on judgement rather than evidence: untested paths, defects knowingly shipped, findings declined, assumptions the diff makes about its inputs. 'Very little, this is well covered' is a real answer when it is true."
+    },
+    "recommendation": {
+      "type": ["string", "null"],
+      "description": "One line naming what David should do before merging, and what to ask. null when there is nothing -- a real and common answer, never a hole to fill."
+    }
+  },
+  "required": ["what_this_does", "what_it_does_not_do", "what_you_are_trusting", "recommendation"],
+  "additionalProperties": false
+}

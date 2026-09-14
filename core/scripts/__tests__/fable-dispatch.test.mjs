@@ -180,13 +180,20 @@ test("P1: a role may dispatch only if this script generates its brief", () => {
   // A PREDICATE over the brief generators, not a list a caller can widen.
   // `dispatch()` used to take `permittedRoles`, so an importing script could
   // pass its own and the refusal was advisory (Codex, #73 round 3).
-  // Phase 2 added `round-translation` by adding its brief generator, which is
-  // the bar. The assertion is the PROPERTY -- every dispatchable role has a
-  // generator here, and a role without one is refused -- not the membership
-  // list, which was this line until the set legitimately grew.
-  assert.deepEqual(dispatchableRoles().sort(), ["gaps-translation", "probe", "round-translation"]);
+  // Phase 2 added `round-translation`, then `gaps-translation`, then
+  // `merge-opinion`, each by adding its brief generator -- which is the bar.
+  //
+  // BOTH assertions are deliberate, and the comment here used to claim
+  // otherwise while the list sat on the next line. The PROPERTY (every
+  // dispatchable role has a generator; a role without one is refused) is what
+  // the design guarantees. The MEMBERSHIP LIST is a tripwire on top of it: a
+  // generator is the authorization bar, so a generator appearing here that
+  // nobody meant to add is exactly the thing worth failing a test over. It is
+  // updated when the set legitimately grows, which is the cost of having it.
+  assert.deepEqual(dispatchableRoles().sort(), ["gaps-translation", "merge-opinion", "probe", "round-translation"]);
   for (const role of dispatchableRoles()) assert.equal(canDispatch(role), true);
-  for (const role of ["plan-opinion", "conformance-triage", "merge-opinion"]) {
+  // D1 and D4 are not built. `conformance-triage` never dispatches here at all.
+  for (const role of ["plan-opinion", "conformance-triage", "scope-framing"]) {
     assert.equal(canDispatch(role), false);
     assert.throws(
       () => dispatch({ root: ROOT, role, runGit: fakeGit(), runner: runnerFor("") }),
