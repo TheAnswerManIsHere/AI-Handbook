@@ -847,12 +847,18 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   node scripts/record-delivery.mjs --pr <n> --url <the artifact URL the publish returned>
   ```
 
-  It writes `.agents/reviews/pr-<n>/delivered.json` naming the rounds the page
-  carried, read from the receipts on disk rather than typed. The merge gate
-  refuses any round not on that list: an account that exists but was never
-  shown is the #85 failure one step later, and a forgotten step leaves no
-  file. A round that lands after the last delivery is refused until the page
-  goes out again with it — the merge ask cannot ride a page one round behind.
+  It writes **two** files, and the difference matters:
+
+  - `.agents/reviews/pr-<n>/delivered.json` — the **gate's** copy. Per-PR,
+    machine-shaped, gitignored, so it lives only in this container. The merge
+    gate refuses any round not on its list: an account that exists but was
+    never shown is the #85 failure one step later, and a forgotten step leaves
+    no file. A round landing after the last delivery is refused until the page
+    goes out again with it — the merge ask cannot ride a page one round behind.
+  - `.agents/deliveries.md` — **David's** copy, and the one he actually asked
+    for. Committed, appended, one plain line per delivery. **Commit it with the
+    round's other bookkeeping**; a delivery record he cannot see is not a
+    record, which is exactly what the first version of this got wrong.
 - **If it refuses or fails**, the script prints the fixed notice (*translation
   unavailable — …*). Paste that instead. Never summarise what it would have
   said.

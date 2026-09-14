@@ -26,7 +26,7 @@ import { reviewerFindings } from "../review-loop-record.mjs";
 import { waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
 import { roundState, reviewsDir, delivery, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
-import { recordDelivery, parseArgs as parseDeliveryArgs } from "../record-delivery.mjs";
+import { recordDelivery, parseArgs as parseDeliveryArgs, LOG_PATH } from "../record-delivery.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -2096,6 +2096,54 @@ test("R28: the delivery record outranks everything, and a round it does not name
   assert.throws(() => parseDeliveryArgs(["--pr", "0", "--url", "https://x"]), /positive whole number/);
   assert.throws(() => parseDeliveryArgs(["--pr", "5", "--url", "not-a-url"]), /https URL/);
   assert.throws(() => parseDeliveryArgs(["--pr", "5", "--url", "https://x", "--round", "2"]), /unknown argument/);
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R29: the delivery log is committed, human-readable, and appended — David's copy", () => {
+  // David, 2026-09-14, on being handed delivered.json: "you still can't solve a
+  // simple task of recording when something got delivered properly". He was
+  // right. The JSON is the GATE's input -- per-PR, machine-shaped, and under
+  // `.agents/reviews/`, which is gitignored, so it dies with the container and
+  // he can never see it. "A file that tells ME that you delivered" is a
+  // different file, and this is it.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-log-"));
+  fs.mkdirSync(path.join(root, ".agents", "receipts"), { recursive: true });
+  const receipt = (pr, r) =>
+    fs.writeFileSync(
+      path.join(root, ".agents", "receipts", `fable-round-translation-${pr}-${r}.json`),
+      JSON.stringify({ role: "round-translation", pr, round: r }),
+    );
+
+  receipt(90, 1);
+  receipt(90, 2);
+  const first = recordDelivery(root, 90, "https://example.test/a", { now: new Date("2026-09-14T02:43:00Z") });
+
+  const logPath = path.join(root, LOG_PATH);
+  assert.equal(first.log, logPath, "the run reports where David's copy went");
+  assert.ok(!LOG_PATH.startsWith(".agents/reviews/"), "it must not live under the gitignored reviews tree");
+
+  const one = fs.readFileSync(logPath, "utf8");
+  assert.match(one, /^# Deliveries/, "it opens as a document a person can read");
+  assert.match(one, /- \*\*2026-09-14 02:43 UTC — PR #90\*\* — round\(s\) 1, 2 — https:\/\/example\.test\/a/);
+
+  // APPENDED, NOT OVERWRITTEN. He asked for a record of when things were done;
+  // a file holding only the latest answers "what is true now" instead.
+  fs.mkdirSync(path.join(root, ".agents", "receipts"), { recursive: true });
+  receipt(91, 1);
+  recordDelivery(root, 91, "https://example.test/b", { now: new Date("2026-09-14T03:10:00Z") });
+  const two = fs.readFileSync(logPath, "utf8");
+  assert.ok(two.startsWith(one), "the earlier delivery is still there, byte for byte");
+  assert.match(two, /PR #91\*\* — round\(s\) 1 — https:\/\/example\.test\/b/);
+  assert.equal(two.match(/^- \*\*/gm).length, 2, "one line per delivery, newest last");
+
+  // A failed dispatch is named as such rather than silently counted as a
+  // translation, because the line is what David reads.
+  const dir = reviewsDir(root, 92);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "d0-r1.exit"), "1\n");
+  recordDelivery(root, 92, "https://example.test/c", { now: new Date("2026-09-14T03:20:00Z") });
+  assert.match(fs.readFileSync(logPath, "utf8"), /PR #92\*\* — round\(s\) 1 \(round\(s\) 1 as the unavailable notice\)/);
 
   fs.rmSync(root, { recursive: true, force: true });
 });

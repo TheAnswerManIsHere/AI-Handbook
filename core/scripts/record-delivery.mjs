@@ -47,6 +47,52 @@ import { REPO_ROOT } from "./review-budget.mjs";
 import { receiptsFor } from "./round-translation-page.mjs";
 import { deliveryPath, reviewsDir } from "./loop-position.mjs";
 
+/**
+ * The committed, human-readable delivery log -- the file David actually asked
+ * for (2026-09-14).
+ *
+ * The JSON beside the snapshots is the GATE's input: per-PR, machine-shaped,
+ * and under `.agents/reviews/`, which is gitignored -- so it lives in one
+ * ephemeral container and he can never see it. That is not "a file that tells
+ * me that you delivered the artifact"; it is a file that tells a script.
+ *
+ * This one is committed, appended rather than overwritten, and readable
+ * without running anything. Append because he asked for a record of *when you
+ * do something*: a file holding only the latest delivery answers "what is true
+ * now" rather than "what did you do", and the history is the point.
+ */
+export const LOG_PATH = ".agents/deliveries.md";
+
+const LOG_HEADER = `# Deliveries
+
+Every time a review-round translation page is published and its lines pasted
+for David, one line lands here -- written by \`scripts/record-delivery.mjs\` as
+the last step of the delivery, appended rather than overwritten, and committed
+so it survives the container.
+
+It records that a delivery happened, not that it was honest: by David's rule of
+2026-09-11 nothing here defends against a false entry. It defends against a
+forgotten one, which is the failure that actually happened (#85).
+
+`;
+
+/** One line, newest last. Deliberately plain, so hand-editing cannot break it. */
+export function logLine(record) {
+  const iso = new Date(record.deliveredAt).toISOString();
+  const when = `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+  const note = record.unavailable.length
+    ? ` (round(s) ${record.unavailable.join(", ")} as the unavailable notice)`
+    : "";
+  return `- **${when} — PR #${record.pr}** — round(s) ${record.rounds.join(", ")}${note} — ${record.url}\n`;
+}
+
+export function appendToLog(root, record, { read = fs.readFileSync, write = fs.writeFileSync, exists = fs.existsSync } = {}) {
+  const out = path.join(root, LOG_PATH);
+  const head = exists(out) ? read(out, "utf8") : LOG_HEADER;
+  write(out, `${head}${logLine(record)}`);
+  return out;
+}
+
 export function parseArgs(argv) {
   const out = { pr: null, url: null };
   const KNOWN = new Set(["--pr", "--url"]);
@@ -87,7 +133,10 @@ export function recordDelivery(root, pr, url, { now = new Date(), receipts = rec
   const out = deliveryPath(root, pr);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(record, null, 2)}\n`);
-  return { path: out, record };
+  // The gate's copy is written first because it is the one that can refuse a
+  // merge. The log is the one David reads. Both, every time.
+  const log = appendToLog(root, record);
+  return { path: out, log, record };
 }
 
 export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = process.stderr } = {}) {
@@ -99,9 +148,13 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = pro
     return 2;
   }
   try {
-    const { path: out, record } = recordDelivery(root, args.pr, args.url);
+    const { path: out, log: logFile, record } = recordDelivery(root, args.pr, args.url);
     const note = record.unavailable.length ? ` (round(s) ${record.unavailable.join(", ")} as the fixed unavailable notice)` : "";
-    log.write(`record-delivery: PR #${args.pr} delivered at ${record.deliveredAt}, rounds ${record.rounds.join(", ")}${note} -> ${path.relative(root, out)}\n`);
+    log.write(`record-delivery: PR #${args.pr} delivered at ${record.deliveredAt}, rounds ${record.rounds.join(", ")}${note}\n`);
+    log.write(
+      `record-delivery: ${path.relative(root, out)} (the gate's copy, gitignored) and ` +
+        `${path.relative(root, logFile)} (David's, committed -- COMMIT IT)\n`,
+    );
     return 0;
   } catch (e) {
     log.write(`record-delivery: ${e.message}\n`);
