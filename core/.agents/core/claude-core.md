@@ -509,8 +509,9 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    a round might be miscounted is declined; and **my own influence on my own
    tools** — I run every script in this machinery, so a defence against my
    editing its inputs is a lock whose key is on the same ring. The real
-   controls are David's merge and the server-side ruleset. Both classes are
-   one-line declines however cheap the diff looks. The measured case is this
+   controls are the server-side ruleset and David working beside me, reading
+   the latitude line every widening PR carries. Both classes are one-line
+   declines however cheap the diff looks. The measured case is this
    rule's own plan loop: eleven findings, eleven fixes, no declines, and the
    Worth rule had been contract for a day.
    This is *engineer-to-the-blast-radius* fired at triage, which is where a
@@ -542,17 +543,18 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    over-build rule 5 exists to stop. Shape and the two escape valves:
    `pr-watch`.
 
-7. **A finding inside the previous round's push stops the patching** (David,
-   2026-09-14). The observable, read off the round rather than judged: the
-   finding's lines sit in the diff of the last commit I pushed for a finding.
-   It means the fix was local to an input space with no edge — a guard,
-   parser, counter or check — so each patch grows an edge of its own and the
-   round after finds it. The response is never a third patch: **remove the
-   mechanism, derive the value** (rule 5's *derivable*), **or change the
-   operation.** The same signal arrives one step earlier, before the round
-   runs: a fix I cannot write a class-level failing test for is a patch on
-   an unbounded space, and gets the same response. Evidence and the four
-   instances:
+7. **The second consecutive finding inside the previous round's push stops
+   the patching** (David, 2026-09-14). The observable, read off the round
+   rather than judged: the finding's lines sit in the diff of the last
+   commit I pushed for a finding. **Once is an ordinary independent mistake
+   in new code and gets an ordinary fix. Twice running is the shape** — the
+   fix is local to an input space with no edge, so each patch grows an edge
+   of its own and the round after finds it. Then the response is never a
+   third patch: **remove the mechanism, derive the value** (rule 5's
+   *derivable*), **or change the operation.** A related signal arrives
+   before any round runs: a fix I cannot write a class-level failing test
+   for is a patch on an unbounded space, and gets that same response.
+   Evidence and the four instances:
    [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md).
 
 ### Watching the PRs I open
@@ -573,9 +575,12 @@ posted** (David, 2026-09-12): Fable reads the round itself — findings, my
 replies, the diff — not my account of it. The script prints one line; I paste
 it verbatim with the page link and write nothing else about the round.
 **After, never before** — a translation I could act on is an in-loop advisor
-reading my own prose. At a stop it rides the merge report, beside the D2 merge
-opinion: no PR waits for David's click (below), so the report is where he
-reads the loop. Mechanics: `pr-watch`.
+reading my own prose. **Every round is delivered before the merge, the
+stopping round included** — the merge gate's `Rounds translated` item reads
+the delivery record, so a round held back for later cannot pass it. The merge
+report then restates the loop beside the D2 merge opinion, which is where
+David reads it now that no PR waits for his click (below). Mechanics:
+`pr-watch`.
 
 ## Pull requests
 

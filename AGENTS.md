@@ -52,8 +52,10 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
 - **For values an operator types, the threat model is that operator's own
   mistakes, not an adversary.** Where a script's input arrives as **argv or a
   path a human typed** — most of `scripts/` and `core/scripts/` — the controls
-  against deliberate action are David's merge and GitHub's server-side
-  ruleset, and a local script run by hand is not a security boundary. So a
+  against deliberate action are GitHub's server-side ruleset and David
+  working alongside, reading the latitude line every authority-widening PR
+  carries (2026-09-14, when the David-merge gate was retired), and a local
+  script run by hand is not a security boundary. So a
   finding that needs the operator to supply a hostile value *to their own
   command* — a planted symlink, a hard link, a path they would have to type on
   purpose — is out of scope here, however real the shape would be elsewhere.

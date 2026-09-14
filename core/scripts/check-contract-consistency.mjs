@@ -62,6 +62,24 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const RETIRED = [
   {
+    phrase: "ships in a PR David merges",
+    retired: "2026-09-14",
+    why: "the retired carve-out in its verb form, which the `David-merge-only` entry below cannot match. It survived the first sweep in two skills (fp-check's deep-verification reference and handoff) because the sweep grepped the hyphenated noun only -- the exact 'fixing the flagged site and leaving its siblings' shape this file exists to stop. (Codex, #91 round 1.)",
+    instead: "a contract change ships through the ordinary PR path -- what the line is really asserting is that it is not a mid-task or mid-dispatch call, which never depended on who clicks merge",
+  },
+  {
+    phrase: "David's merge and the server-side ruleset",
+    retired: "2026-09-14",
+    why: "the threat-model rationale for declining defences against an agent's influence over its own tooling. The argument is from futility -- the actor running the script could simply not run it -- and it survives, but it may no longer cite a mandatory human merge as the alternative control, because there is not one",
+    instead: "the controls against deliberate action are the server-side ruleset and David working alongside, reading the latitude line every authority-widening PR carries",
+  },
+  {
+    phrase: "a human's merge and the server-side ruleset",
+    retired: "2026-09-14",
+    why: "the same rationale in agents-core.md's product-neutral voice",
+    instead: "the same: the server-side ruleset, and the human alongside who reads the latitude line every authority-widening PR carries",
+  },
+  {
     phrase: "David-merge-only",
     retired: "2026-09-14",
     why: "the guardrail-and-authority carve-out: a PR widening the agent's own guardrails or authority waited for David's click. It fired zero times in every use and cost a round trip each time; the safety net is David working beside the agent and noticing, and everything in the repo is reversible",

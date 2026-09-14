@@ -1946,7 +1946,9 @@ test("identity is read from the WORKING TREE, by design", () => {
   // Ten rounds moved this read to the durable ref and the base commit to
   // defend against an actor who can edit this checkout -- the person running
   // the script, who needs no exploit. The controls against deliberate action
-  // are David's merge and the server-side ruleset; this read exists to catch
+  // are the server-side ruleset and David working alongside, reading the
+  // latitude line every authority-widening PR carries (2026-09-14, when the
+  // David-merge gate was retired); this read exists to catch
   // MISTAKES, and it is configuration, so it lives where configuration lives.
   // (.agents/memory/machinery-threat-model-is-my-own-mistakes.md)
   __resetRepoSlugCache();

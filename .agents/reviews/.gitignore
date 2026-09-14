@@ -1,0 +1,12 @@
+# Per-PR review-loop evidence: snapshots, loop position, dispatch logs and
+# exit files. Ephemeral by contract -- a fresh container legitimately has
+# none, and re-dispatching is the documented remedy. Mirrors the pattern
+# .agents/captures/.gitignore uses for the same reason.
+#
+# WHY THIS FILE EXISTS SEPARATELY (Codex-adjacent, #91 round 1): the
+# contract states .agents/reviews/ is gitignored, and plan-review.mjs writes
+# an ignore file for the plan-loop directories it creates. A CODE review
+# loop never runs that script, so .agents/reviews/pr-<n>/ was covered by
+# nothing and a git add -A would have committed a snapshot of the PR body.
+*
+!.gitignore

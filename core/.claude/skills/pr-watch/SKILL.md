@@ -869,10 +869,16 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
 - **If it refuses or fails**, the script prints the fixed notice (*translation
   unavailable — …*). Paste that instead. Never summarise what it would have
   said.
-- **At a stop, it goes in the merge report** (David, 2026-09-14: no PR waits
-  for his click, so the report is where he reads the loop). Wait on every
-  outstanding exit file at close-out, per the loop above — the report carries
-  each round's line, or that round's fixed notice.
+- **At a stop, the stopping round is delivered before the merge, exactly like
+  every other round** — page published, line pasted, `record-delivery.mjs`
+  run. That ordering is not a preference: `pr-ready.mjs`'s `Rounds
+  translated` item classifies any account not yet in the delivery record as
+  `undelivered` and refuses readiness, so a stopping round held back for the
+  post-merge report would wedge its own merge. The **merge report then
+  restates** the loop for David, which is where he reads it now that no PR
+  waits for his click (David, 2026-09-14). Wait on every outstanding exit
+  file at close-out, per the loop above — each round's line, or that round's
+  fixed notice, is delivered before the merge and repeated in the report.
 - **A round that raised nothing and prompted no push is skipped** by the
   script itself, with the reason on the page. An **all-declined** round is
   dispatched — it is the round where my account matters most.

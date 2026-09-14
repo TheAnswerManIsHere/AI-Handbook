@@ -138,7 +138,9 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * through the ONE reader the payload has, in review-budget.mjs. Working tree,
  * on purpose: the base-commit and durable-ref readers this replaced defended
  * against the person running the gate, who needs no exploit. The controls
- * against deliberate action are David's merge and the server-side ruleset;
+ * against deliberate action are the server-side ruleset and David working
+ * alongside, reading the latitude line every authority-widening PR carries
+ * (2026-09-14, when the David-merge gate was retired);
  * this read catches MISTAKES, by failing closed on absent, malformed, empty
  * or placeholder. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  */
