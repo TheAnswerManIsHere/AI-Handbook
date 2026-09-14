@@ -552,15 +552,15 @@ test("R30: the gaps translator turns recorded gaps into a brief, and nothing els
 
   const gaps = gapsFor(root, 87);
   assert.deepEqual(gaps.map((g) => g.text), [
-    "the exit file outlives its warrant",
     "--show skips the item check",
     "the receipt is written before delivery",
-  ], "this PR's gaps, in the order they were decided; a broken file is skipped, not fatal");
+  ], "the LAST readable verdict's gaps; 87-9 is unreadable so the search walks back to 87-2");
+  assert.doesNotMatch(gapsBrief(87, gaps), /the exit file outlives its warrant/, "an earlier verdict's gaps are superseded, not accumulated");
 
   const brief = gapsBrief(87, gaps);
   assert.match(brief, /pull request #87/);
-  assert.equal(brief.match(/^## Defect/gm).length, 3, "one block per gap");
-  assert.match(brief, /the exit file outlives its warrant/, "the gap text is passed through verbatim");
+  assert.equal(brief.match(/^## Defect/gm).length, 2, "one block per gap");
+  assert.match(brief, /--show skips the item check/, "the gap text is passed through verbatim");
   assert.match(brief, /He does not read code/, "the brief says who it is for");
   assert.doesNotMatch(brief, /someone else's gap/);
 
@@ -600,6 +600,18 @@ test("R31: only the TERMINAL verdict's gaps are shipped gaps", () => {
   // `split` and `escalate` end a loop too, so their gaps are real.
   verdict("91-1.verdict.json", { verdict: { verdict: "split", gaps: ["split out, still shipped"] } });
   assert.deepEqual(gapsFor(root, 91).map((g) => g.text), ["split out, still shipped"]);
+
+  // A loop David REOPENS past a terminal verdict -- PR 87's real shape, three
+  // `ship-with-gaps-recorded` verdicts. The last one re-enumerates what is
+  // still open, so taking the union would report the repaired ones too.
+  verdict("92-1.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["fixed after David reopened it"] } });
+  verdict("92-2.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["what is actually left"] } });
+  assert.deepEqual(gapsFor(root, 92).map((g) => g.text), ["what is actually left"]);
+
+  // Round 10 is the last verdict, not round 9: a lexical sort would take the
+  // wrong one and report a gap that had already been closed.
+  for (const r of [9, 10]) verdict(`93-${r}.verdict.json`, { verdict: { verdict: "ship-with-gaps-recorded", gaps: [`round ${r}`] } });
+  assert.deepEqual(gapsFor(root, 93).map((g) => g.text), ["round 10"]);
 
   fs.rmSync(root, { recursive: true, force: true });
 });

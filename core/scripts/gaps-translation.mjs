@@ -47,39 +47,44 @@ import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
 export const gapsPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "gaps.md");
 
 /**
- * Verdicts that END a loop. Only `continue` reopens it, so everything else
- * here is the round after which nothing more was written.
+ * Verdicts that END a loop. Only `continue` reopens it.
  */
 export const TERMINAL_VERDICTS = new Set(["ship-with-gaps-recorded", "split", "escalate"]);
 
 /**
- * The gaps this PR is actually SHIPPING -- the terminal verdict's, and no
- * other's.
+ * The gaps this PR is actually SHIPPING: the LAST verdict's, and no other's.
  *
- * A `continue` verdict also carries a `gaps` array, and collecting it was
- * wrong in the one way that matters: those findings were WRITTEN FOR in the
- * rounds that followed, so presenting them to David as known defects he is
- * merging tells him the opposite of the truth. Measured on PR 79 -- four gaps
- * from a `continue` verdict and three from the terminal one, all seven
- * reported as shipped (Codex, #88 round 1).
+ * Collecting every verdict's was wrong in the one way that matters. A gap the
+ * loop went on to FIX still sits in the verdict that first recorded it, so
+ * presenting the lot to David tells him he is merging with defects that were
+ * repaired two rounds earlier -- the opposite of the truth. Measured on PR 79:
+ * four gaps from a `continue` verdict and three from the terminal one, all
+ * seven reported as shipped (Codex, #88 round 1).
  *
- * Filtering `continue` rather than picking the last file is the same thing
- * said more safely: a loop ends AT its first terminal verdict, so at most one
- * survives, and a loop still running has none -- which is correct, because a
- * loop still running is shipping nothing.
+ * THE LAST VERDICT, not "every terminal one" -- which was this fix's own first
+ * attempt, and wrong. A loop does not always end at its first terminal verdict:
+ * David reopens one by granting rounds after the adjudicator has said ship, and
+ * PR 87 carries three `ship-with-gaps-recorded` verdicts because of it. What
+ * makes the last one sufficient is that the adjudicator RE-ENUMERATES what is
+ * still open each time it rules -- verified on 87, where the `--show` gap
+ * appears in both the second and third verdicts and the two that were fixed in
+ * between appear in neither.
  *
- * A verdict file that will not parse, or carries no `gaps`, is skipped rather
- * than refused: one unreadable file should not cost David the other three
- * summaries, and nothing downstream depends on this being complete.
+ * A last verdict of `continue` means the loop is still running, so nothing is
+ * shipping yet and the answer is empty. That is not an error: the caller
+ * already treats "no gaps" as nothing to translate.
+ *
+ * A verdict file that will not parse is skipped, so the search walks backwards
+ * to the newest READABLE verdict: one unreadable file should not cost David the
+ * summary, and nothing downstream depends on this being complete.
  */
 export function gapsFor(root, pr, { dir = ADJUDICATIONS_DIR, read = fs.readFileSync, list = fs.readdirSync } = {}) {
   const base = path.join(root, dir);
   if (!fs.existsSync(base)) return [];
   const mine = list(base)
     .filter((n) => n.startsWith(`${pr}-`) && n.endsWith(".verdict.json"))
-    .sort();
-  const out = [];
-  for (const name of mine) {
+    .sort((a, b) => roundOf(a) - roundOf(b));
+  for (const name of mine.reverse()) {
     let v;
     try {
       v = JSON.parse(read(path.join(base, name), "utf8"));
@@ -87,15 +92,20 @@ export function gapsFor(root, pr, { dir = ADJUDICATIONS_DIR, read = fs.readFileS
       continue;
     }
     const o = v.verdict ?? v;
-    if (!TERMINAL_VERDICTS.has(o.verdict)) continue;
-    for (const text of Array.isArray(o.gaps) ? o.gaps : []) {
-      if (typeof text === "string" && text.trim()) out.push({ from: name, verdict: o.verdict ?? null, text: text.trim() });
-    }
+    if (!TERMINAL_VERDICTS.has(o.verdict)) return [];
+    return (Array.isArray(o.gaps) ? o.gaps : [])
+      .filter((text) => typeof text === "string" && text.trim())
+      .map((text) => ({ from: name, verdict: o.verdict, text: text.trim() }));
   }
-  return out;
+  return [];
 }
 
-/** The brief. Composed here, from the verdict files -- never from my prose. */
+/**
+ * The round a verdict filename carries, so `<pr>-10` sorts after `<pr>-9`.
+ * A lexical sort put 10 second and would have taken the wrong last verdict.
+ */
+const roundOf = (name) => Number(/-(\d+)\.verdict\.json$/.exec(name)?.[1] ?? 0);
+
 export function gapsBrief(pr, gaps) {
   const out = [
     `# Known defects being shipped in pull request #${pr}`,

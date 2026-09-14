@@ -885,10 +885,11 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   ```
 
   That is the whole step. The dispatcher composes the brief itself, out of the
-  **terminal** verdict's gaps — a `continue` verdict's were written for in the
-  rounds that followed, and reporting those as shipped tells him the opposite
-  of the truth (#88 round 1). Put what comes back in the merge ask, under the
-  receipt.
+  **last** verdict's gaps and no other's — an earlier verdict's were written
+  for in the rounds that followed, and reporting those as shipped tells him the
+  opposite of the truth (#88 round 1). The last one is sufficient because the
+  adjudicator re-enumerates what is still open every time it rules. Put what
+  comes back in the merge ask, under the receipt.
 
   `node scripts/gaps-translation.mjs --pr <n>` writes the same brief to a file
   without dispatching, which is a **preview** for my own eyes and never a
