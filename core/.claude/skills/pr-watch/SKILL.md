@@ -855,6 +855,52 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   retirement rule reads. Receipts are gitignored evidence; nothing else
   records this.
 
+### The merge gate proves the translations ran (AI-Handbook #85)
+
+`pr-ready.mjs` has a fourth item, `Rounds translated`, and it is the reason
+the merge bar in `claude-core.md` grew from three items to four.
+
+**What it is for.** PR #85 merged with three review rounds and **zero**
+translations. The receipt said READY, because the receipt proved CI, Codex and
+threads and nothing else. Nothing anywhere refused it, and the omission was
+found days later by reading the receipt directory, not by any check.
+
+**Why that was structural rather than a slip.** This workstream's founding
+guarantee is that the builder cannot slant what a Fable role *reads* — every
+dispatch is script-assembled from unslantable inputs. It says nothing about
+whether the builder *invokes* the role. Every David-facing role is fired by
+hand, by me, from a skill's prose, and I am the party with the least incentive
+to fire it: it costs money, it costs time, and its output is criticism of my
+own work. The close-out check that catches a missing round already existed
+(`round-translation-closeout.mjs`) — it just had nothing forcing it to run.
+
+**What passes.** A round that was translated, a round the script **skipped by
+design** (no findings, nothing pushed), and a round whose dispatch **refused
+with a reason** all leave an exit file, and all three are a record. What fails
+is a round with **no record at all** — never attempted. That is #85's shape and
+only that shape, and it is the same "ran and allowed" versus "never ran"
+distinction AI-Handbook #16 names in the guard.
+
+**It fails closed on absent evidence**, like every other path in that file: no
+loop position, a position written for another repository, or one older than the
+freshness bound all refuse, because none of them can rule out a missing
+account. The bound is always the position's round — the contract gives that
+exactly one home, and a merge gate that counted rounds itself would be the
+second and would disagree with close-out on precisely the loops that matter.
+
+**The cost, named rather than discovered.** `.agents/reviews/` is gitignored,
+so a **fresh container has no exit files**. A loop that spans two sessions will
+refuse at the gate until its rounds are re-dispatched — roughly $0.50 a round.
+That is the accepted price of the check, and re-dispatching is the correct
+remedy rather than a workaround: it is what should have happened on #85.
+
+**This is not a lock whose key is on my own ring.** David's 2026-09-11 rule
+refuses defences against the builder's influence on the builder's own tools,
+and it stands — I could skip `pr-ready.mjs` entirely. The same rule keeps
+scripts that *catch mistakes whose outcome David would notice*, and this is
+exactly that class: #85 was a forgetting, and its outcome is David not getting
+what he is owed.
+
 ## Keeping the workstream issue's labels current
 
 Per [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),

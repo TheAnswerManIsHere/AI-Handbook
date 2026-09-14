@@ -16,6 +16,7 @@ import {
   codexEvidenceNote,
   checkAdjudicatedCodex,
   checkRail,
+  checkTranslations,
   isAncestor,
   checkThreads,
   evaluate,
@@ -57,6 +58,24 @@ const REQUIRED = ["Classify changed paths", "Build", "Test", "Frontend Test", "E
 // asserting the same behaviour without depending on a config file.
 const checkCiWith = (runs, headSha = null) => checkCi(runs, headSha, REQUIRED);
 const evaluateWith = (snap, now, opts = {}) => evaluate(snap, now, opts, { repo: snap.repo, requiredChecks: REQUIRED });
+
+/**
+ * A checkout that HAS the round accounts, which is what a ready PR looks like.
+ *
+ * Every READY assertion below now needs one: the merge gate proves David got
+ * an account of every round, and it fails closed when the evidence is absent
+ * -- so a fixture with no `.agents/reviews/` is a fixture for an unready PR.
+ * Building it here rather than stubbing the check keeps these tests asserting
+ * against real files, the same way the adjudication tests use a real git repo.
+ */
+const seedD0 = (dir, pr, rounds, capturedAt) => {
+  const round = join(dir, ".agents", "reviews", `pr-${pr}`);
+  mkdirSync(round, { recursive: true });
+  writeFileSync(join(round, "loop-position.json"), JSON.stringify({ pr, round: rounds, capturedAt }));
+  for (let r = 1; r <= rounds; r += 1) writeFileSync(join(round, `d0-r${r}.exit`), "0\n");
+  return dir;
+};
+const d0World = (pr, rounds, capturedAt) => seedD0(mkdtempSync(join(tmpdir(), "pr-ready-d0-")), pr, rounds, capturedAt);
 const allRequired = (status = "completed", conclusion = "success", head_sha = HEAD) =>
   REQUIRED.map((n) => run(n, status, conclusion, head_sha));
 
@@ -456,7 +475,7 @@ const goodSnapshot = () => ({
 test("snapshot: a well-formed snapshot validates and evaluates READY", () => {
   const snap = goodSnapshot();
   assertSnap(snap, 500);
-  const receipt = evaluateWith(snap, NOW);
+  const receipt = evaluateWith(snap, NOW, { cwd: d0World(500, 1, LATER) });
   assert.equal(receipt.verdict, "READY");
   assert.equal(receipt.headSha, HEAD);
   assert.equal(receipt.branch, "claude/x");
@@ -1581,6 +1600,9 @@ test("evaluate: a failed live Codex check falls back to a qualifying adjudicatio
   // enforces against the adjudication's own acceptedAt.
   snap.capturedAt = { checkRuns: LATER, reviewThreads: LATER, issueComments: LATER, reviews: LATER };
 
+  // The same checkout also carries the round accounts -- a loop that reached an
+  // adjudication had rounds, and the merge gate proves each was translated.
+  seedD0(dir, 500, 1, LATER);
   const receipt = evaluateWith(snap, NOW, { cwd: dir });
   assert.equal(receipt.items.codex.pass, true);
   assert.match(receipt.items.codex.detail, /adjudicated ship-with-gaps-recorded/);
@@ -1622,13 +1644,20 @@ test("evaluate: a failed live Codex check AND a non-qualifying adjudication stay
 });
 
 test("evaluate: a PASSING live Codex check never even looks for an adjudication receipt", () => {
-  // Confirms the fallback is a fallback -- a normal green PR's evaluateWith()
-  // must not depend on .agents/receipts existing at all, let alone on git
-  // ancestry succeeding for an unrelated cwd.
+  // Confirms the fallback is a fallback -- a normal green PR's Codex item must
+  // not depend on .agents/receipts existing at all, let alone on git ancestry
+  // succeeding for an unrelated cwd.
   const snap = goodSnapshot();
   const receipt = evaluateWith(snap, NOW, { cwd: "/nonexistent" });
   assert.equal(receipt.items.codex.pass, true);
-  assert.equal(receipt.verdict, "READY");
+  // The VERDICT is no longer READY here, and that is the round-translation
+  // item rather than a regression in the Codex one: a checkout with no
+  // `.agents/reviews/` cannot show that David got an account of any round, and
+  // this gate fails closed on absent evidence like every other path in it.
+  // Asserted explicitly so the two can never be confused later.
+  assert.equal(receipt.items.translations.pass, false);
+  assert.match(receipt.items.translations.detail, /no loop position/);
+  assert.equal(receipt.verdict, "NOT READY");
 });
 
 test("evaluate: a live Codex outage is never overridden by a qualifying adjudication receipt", () => {
@@ -2527,4 +2556,119 @@ test("adjudication: a lastReviewedCommit that is not a commit in this checkout i
   const res = checkAdjudicatedCodex(999, head, { cwd: dir });
   assert.equal(res.pass, false);
   assert.match(res.detail, /does not resolve to a commit/);
+});
+
+// ---------------------------------------------------------------------------
+// checkTranslations() -- every round David was promised an account of has one.
+//
+// The case these exist for is PR #85, which merged with three review rounds
+// and zero translations while the receipt said READY. The happy path is the
+// least interesting assertion here; what matters is that every way of having
+// no evidence fails, because the failure that happened was an ABSENCE.
+// ---------------------------------------------------------------------------
+
+const REPO = "TheAnswerManIsHere/Overhypeme";
+const D0_NOW = Date.parse("2026-08-17T05:05:00Z");
+const D0_FRESH = "2026-08-17T05:00:00Z";
+
+test("translations: every round with an exit file passes", () => {
+  const dir = d0World(500, 3, D0_FRESH);
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, true);
+  assert.match(res.detail, /all 3 round\(s\)/);
+});
+
+test("translations: PR #85's shape -- rounds happened, nothing was ever dispatched -- fails", () => {
+  // The real one. Three rounds on the position, no exit file for any of them.
+  const dir = mkdtempSync(join(tmpdir(), "pr-ready-d0-"));
+  const round = join(dir, ".agents", "reviews", "pr-85");
+  mkdirSync(round, { recursive: true });
+  writeFileSync(join(round, "loop-position.json"), JSON.stringify({ pr: 85, round: 3, capturedAt: D0_FRESH }));
+
+  const res = checkTranslations(85, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false, "a PR whose rounds were never translated must not mint READY");
+  assert.match(res.detail, /3 round\(s\) happened/);
+  assert.match(res.detail, /1, 2, 3/);
+});
+
+test("translations: one missing round among translated ones still fails, and names only that round", () => {
+  // The partial case is the likelier one in practice -- a loop where the last
+  // round's dispatch was skipped in the rush to the merge ask.
+  const dir = d0World(500, 3, D0_FRESH);
+  rmSync(join(dir, ".agents", "reviews", "pr-500", "d0-r2.exit"));
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /round\(s\) 2 have no snapshot/);
+  assert.doesNotMatch(res.detail, /1, 2, 3/);
+});
+
+test("translations: a snapshot with no account is reported without claiming a dispatch is running", () => {
+  // #85's rounds 2 and 3 had snapshots -- assembled for the ADJUDICATION
+  // record, not for a translation. Reporting them as "dispatched and still
+  // running" would send the operator to a log file that does not exist, so
+  // the wording must cover both and assert neither.
+  const dir = d0World(500, 2, D0_FRESH);
+  const round = join(dir, ".agents", "reviews", "pr-500");
+  rmSync(join(round, "d0-r2.exit"));
+  writeFileSync(join(round, "snap-r2.json"), "{}");
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /have a snapshot but no account came back/);
+  assert.doesNotMatch(res.detail, /still running|and have not returned/);
+});
+
+test("translations: no loop position at all fails closed rather than passing silently", () => {
+  // The #16 shape: "ran and found nothing" must never read the same as "never
+  // ran". With no position this cannot say how many rounds happened, so it
+  // cannot rule out a missing account.
+  const dir = mkdtempSync(join(tmpdir(), "pr-ready-d0-"));
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /no loop position/);
+});
+
+test("translations: a stale position fails -- a round could have landed since it was written", () => {
+  const dir = d0World(500, 1, "2026-08-17T00:00:00Z"); // five hours before D0_NOW
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /older than the freshness bound/);
+});
+
+test("translations: a position written for another repository is refused", () => {
+  // Every repository has a #500, and the position is unsigned local evidence.
+  const dir = mkdtempSync(join(tmpdir(), "pr-ready-d0-"));
+  const round = join(dir, ".agents", "reviews", "pr-500");
+  mkdirSync(round, { recursive: true });
+  writeFileSync(
+    join(round, "loop-position.json"),
+    JSON.stringify({ pr: 500, round: 1, capturedAt: D0_FRESH, repo: "SomeoneElse/Other" }),
+  );
+  writeFileSync(join(round, "d0-r1.exit"), "0\n");
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /written for SomeoneElse\/Other/);
+});
+
+test("translations: a loop with no completed round has nothing to translate", () => {
+  // Not a pass by accident: the Codex item already refuses a PR with no
+  // returned review, so this branch only ever runs where nothing was promised.
+  const dir = d0World(500, 0, D0_FRESH);
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, true);
+  assert.match(res.detail, /nothing to translate/);
+});
+
+test("translations: the round bound is the position's, never one derived here", () => {
+  // The contract gives the loop position exactly one home (David, 2026-09-13).
+  // A gate that counted rounds itself would be the second, and would disagree
+  // with close-out on exactly the loops where it matters. Proven by moving the
+  // stored round and watching the demand move with it.
+  const dir = d0World(500, 1, D0_FRESH);
+  assert.equal(checkTranslations(500, dir, D0_NOW, REPO).pass, true);
+
+  const file = join(dir, ".agents", "reviews", "pr-500", "loop-position.json");
+  writeFileSync(file, JSON.stringify({ pr: 500, round: 4, capturedAt: D0_FRESH }));
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /4 round\(s\) happened/);
 });

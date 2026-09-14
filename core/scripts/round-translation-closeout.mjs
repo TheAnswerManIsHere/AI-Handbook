@@ -56,34 +56,15 @@
  *   2  the arguments are unusable
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { MAX_SNAPSHOT_AGE_MS } from "./review-counting.mjs";
 import { repoSlug } from "./review-budget.mjs";
-import { loopPosition, describe } from "./loop-position.mjs";
+import { loopPosition, describe, reviewsDir, roundState } from "./loop-position.mjs";
 import { repoRoot } from "./fable-dispatch.mjs";
 
 /** How often the wait re-checks. The shell loop used the same interval. */
 export const POLL_MS = 5000;
-
-/** Where a PR's round artifacts live, relative to the repo root. */
-export const reviewsDir = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`);
-
-/**
- * Classify one round from what is on disk. Three states, not two.
- *
- * "Done" and "missing" would collapse the case that matters: a round that was
- * dispatched and has not returned yet is not a round with no account, and
- * treating it as one would refuse close-out on a translation that is simply
- * still running.
- */
-export function roundState(dir, r, exists = fs.existsSync) {
-  if (exists(path.join(dir, `d0-r${r}.exit`))) return "done";
-  if (exists(path.join(dir, `snap-r${r}.json`))) return "pending";
-  return "missing";
-}
 
 /**
  * Wait until every round is `done`, or report the ones that are not.

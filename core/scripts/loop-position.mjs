@@ -40,7 +40,35 @@ import { pathToFileURL } from "node:url";
 import { reviewerPasses, capturedAtOf, sameCommit, MAX_SNAPSHOT_AGE_MS } from "./review-counting.mjs";
 import { countRounds, loadLoop, allowance, nodeIo, REPO_ROOT, repoSlug } from "./review-budget.mjs";
 
-export const positionPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "loop-position.json");
+/**
+ * Where a PR's round artifacts live -- the position, the per-round snapshots,
+ * and the translation exit files beside them.
+ *
+ * ONE CONSTRUCTION OF THIS PATH, deliberately. It was built here and again in
+ * `round-translation-closeout.mjs`, and the merge gate now needs it for a
+ * third reader. Two copies agreeing is luck; three is the shape this repo
+ * exists to eliminate, so the locator moved to the file that already owns
+ * "where is this loop, on disk" and the other callers import it.
+ */
+export const reviewsDir = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`);
+
+export const positionPath = (root, pr) => path.join(reviewsDir(root, pr), "loop-position.json");
+
+/**
+ * Classify one round's translation from what is on disk. Three states, not two.
+ *
+ * "Done" and "missing" would collapse the case that matters: a round that was
+ * dispatched and has not returned yet is not a round with no account, and
+ * treating it as one would refuse on a translation that is simply still
+ * running. The two readers act on that difference in opposite ways -- the
+ * close-out WAITS on `pending`, the merge gate REFUSES it -- which is exactly
+ * why the classification lives in one place and the policy does not.
+ */
+export function roundState(dir, r, exists = fs.existsSync) {
+  if (exists(path.join(dir, `d0-r${r}.exit`))) return "done";
+  if (exists(path.join(dir, `snap-r${r}.json`))) return "pending";
+  return "missing";
+}
 
 /**
  * The collections the position is actually derived FROM, which is not all four.

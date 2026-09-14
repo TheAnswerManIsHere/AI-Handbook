@@ -23,8 +23,8 @@ import {
 } from "../round-translation-record.mjs";
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
-import { roundState, waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
-import { derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
+import { waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
+import { roundState, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 

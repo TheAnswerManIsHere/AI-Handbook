@@ -235,6 +235,32 @@
   why: >-
     Refusal or guidance text. Decides nothing.
 
+- key: "pr-ready.mjs :: evaluate :: translations: checkTranslations(snapshot.pr.number, adjudicationOpts.cwd, now, cfg.repo),"
+  source: config
+  why: >-
+    Hands the round-translation check the identity evaluate() already
+    resolved, rather than having it read .agents/machinery.json a second
+    time. One read, passed down.
+
+- key: "pr-ready.mjs :: checkTranslations :: const configured = configuredRepo ?? localConfig(root).repo;"
+  source: config
+  why: >-
+    The caller's already-resolved identity, falling back to the one reader
+    (review-budget.mjs machineryConfig, via pr-ready.mjs localConfig) when
+    called directly. Working tree, by design: it is configuration.
+
+- key: "pr-ready.mjs :: checkTranslations :: if (typeof pos.repo === \"string\" && pos.repo.toLowerCase() !== String(configured).toLowerCase()) {"
+  source: config
+  why: >-
+    Compares the loop position against the configured identity. Mismatch
+    refuses: the position was written for X, you are in Y. Every repository
+    has a #85.
+
+- key: "pr-ready.mjs :: checkTranslations :: detail: `the loop position was written for ${pos.repo}, not ${configured} -- every repository has a #${prNumber}`,"
+  source: message
+  why: >-
+    Refusal or guidance text. Decides nothing.
+
 
 - key: "pr-ready.mjs :: receiptIdentityReason :: if (typeof receipt?.repo !== \"string\" || receipt.repo.toLowerCase() !== configured.toLowerCase()) {"
   source: artifact

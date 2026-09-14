@@ -60,6 +60,7 @@ import {
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
+import { loopPosition, reviewsDir, roundState } from "./loop-position.mjs";
 import {
   collectionsReadBefore,
   headRepoOf,
@@ -1707,6 +1708,7 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, conf
     threads: checkThreads(snapshot.reviewThreads),
     capture: checkCapture(snapshot.capturedAt, codex.acceptedAt, now),
     rail: checkRail(snapshot.pr.number, headSha, adjudicationOpts.cwd, countDelivered(snapshot)),
+    translations: checkTranslations(snapshot.pr.number, adjudicationOpts.cwd, now, cfg.repo),
   };
   const ready = Object.values(items).every((i) => i.pass);
   const captureTimes = Object.values(snapshot.capturedAt ?? {}).map((v) => Date.parse(v ?? ""));
@@ -1726,6 +1728,116 @@ export function evaluate(snapshot, now = Date.now(), adjudicationOpts = {}, conf
     requiredChecks: policy,
     items,
   };
+}
+
+/**
+ * Every round David was promised an account of actually has one.
+ *
+ * WHAT HAPPENED. PR #85 merged with ZERO round translations. Three review
+ * rounds ran; not one was dispatched; nothing anywhere refused the merge. The
+ * contract has said since 2026-09-12 that every code-review round is
+ * translated for David, and the guarantee the whole Fable workstream rests on
+ * -- that the builder cannot slant what a reviewer READS, because the dispatch
+ * is script-assembled -- says nothing about whether the builder INVOKES it at
+ * all. Every touchpoint role is fired by hand, by the one party with the least
+ * incentive to fire it: it costs money, it costs time, and its output is
+ * criticism of the builder's own work. #85 was not a lapse in a working
+ * system. It was the system working as designed, with the design missing this.
+ *
+ * WHY HERE. This is the one place a mechanical check can convert "did the
+ * builder run it" into "can this merge". The receipt already proves CI, Codex
+ * and threads, and it is the block quoted to David before every carve-out
+ * click -- so it was already the artifact that says whether a PR is safe to
+ * merge while being silent about the only thing this phase exists to deliver.
+ *
+ * WHY THIS IS NOT A LOCK WHOSE KEY IS ON THE SAME RING. David's 2026-09-11
+ * rule refuses defences against the builder's own influence on the builder's
+ * own tools, and it stands: I could skip `pr-ready.mjs` entirely. But the same
+ * rule keeps scripts that "catch mistakes whose outcome David would notice",
+ * and that is exactly this class -- #85 was a FORGETTING, and its outcome is
+ * David not getting the thing he is owed. The check is a reminder wired to the
+ * one moment it cannot be walked past, not a barrier against intent.
+ *
+ * THREE OUTCOMES PASS, ONE FAILS. A round that was translated, one the script
+ * itself skipped by design (no findings and nothing pushed), and one where the
+ * dispatch ran and refused with a reason all leave an exit file, and all three
+ * are a record. What fails is a round with NO record -- never attempted. That
+ * is the #85 shape and only that shape, and it is the same "ran and allowed"
+ * versus "never ran" distinction AI-Handbook #16 names in the guard.
+ *
+ * THE BOUND IS THE LOOP POSITION, never a count derived here: the contract
+ * gives it exactly one home (David, 2026-09-13), and a merge gate that typed
+ * its own round number would be the second. That also makes this FAIL CLOSED
+ * on a missing or stale position, like every other path in this file: a
+ * position that could predate a whole round cannot rule out a missing account.
+ */
+export function checkTranslations(prNumber, cwd, now, configuredRepo, { position = loopPosition } = {}) {
+  // `evaluate` passes `adjudicationOpts.cwd`, which is absent on the default
+  // path; every other reader in this file defaults the same way, and an
+  // undefined root here would throw inside `path.join` rather than answer.
+  const root = cwd ?? REPO_ROOT;
+  const pos = position(root, prNumber, { now });
+  if (!pos) {
+    return {
+      pass: false,
+      detail:
+        `no loop position for PR #${prNumber} -- no snapshot has been assembled for it in this checkout, so this ` +
+        `cannot say how many rounds happened, let alone whether each was translated. Assemble one (the ordinary ` +
+        `capture step) and re-run`,
+    };
+  }
+  // The identity comes from the caller, which already resolved it. Re-reading
+  // `.agents/machinery.json` here would be a second read of one fact and would
+  // make this check refuse to run anywhere the file is absent -- including
+  // under a caller that passed its config explicitly.
+  const configured = configuredRepo ?? localConfig(root).repo;
+  if (typeof pos.repo === "string" && pos.repo.toLowerCase() !== String(configured).toLowerCase()) {
+    return {
+      pass: false,
+      detail: `the loop position was written for ${pos.repo}, not ${configured} -- every repository has a #${prNumber}`,
+    };
+  }
+  if (pos.stale) {
+    return {
+      pass: false,
+      detail:
+        `the loop position is older than the freshness bound, so a round could have landed since it was written ` +
+        `-- assemble a fresh snapshot and re-run`,
+    };
+  }
+  const rounds = pos.round;
+  if (rounds === 0) return { pass: true, detail: "no completed review round, so there is nothing to translate" };
+
+  const dir = reviewsDir(root, prNumber);
+  const missing = [];
+  const pending = [];
+  for (let r = 1; r <= rounds; r += 1) {
+    const state = roundState(dir, r);
+    if (state === "missing") missing.push(r);
+    else if (state === "pending") pending.push(r);
+  }
+  // REPORTED TOGETHER, and the two remedies are different: a missing round
+  // goes back to the capture step, a pending one is read in its own log. A
+  // gate that surfaced one at a time is a gate run twice.
+  if (missing.length || pending.length) {
+    const parts = [];
+    if (missing.length) parts.push(`round(s) ${missing.join(", ")} have no snapshot and no account (capture, then dispatch each)`);
+    if (pending.length) {
+      // NOT "dispatched and still running", which this cannot know. A snapshot
+      // is assembled for the adjudication record too, so `pending` covers both
+      // a live dispatch and one that never happened -- which is exactly #85's
+      // rounds 2 and 3. The only thing that would separate them is a `.log`
+      // written by the recipe's shell redirection rather than by the
+      // machinery, so the message says what is true of both and names where a
+      // live one would be.
+      parts.push(
+        `round(s) ${pending.join(", ")} have a snapshot but no account came back ` +
+          `(if a dispatch is running its log is d0-r<n>.log; if none is, dispatch it)`,
+      );
+    }
+    return { pass: false, detail: `${rounds} round(s) happened; ${parts.join("; ")}` };
+  }
+  return { pass: true, detail: `all ${rounds} round(s) have an account for David` };
 }
 
 /**
@@ -1941,6 +2053,7 @@ const LABEL = {
   threads: "Threads resolved",
   capture: "Evidence ordering",
   rail: "David gate",
+  translations: "Rounds translated",
 };
 
 export function formatReceipt(receipt) {
