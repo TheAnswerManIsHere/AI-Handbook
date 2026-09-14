@@ -47,9 +47,59 @@ import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
 export const gapsPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "gaps.md");
 
 /**
- * Verdicts that END a loop. Only `continue` reopens it.
+ * The answer as David reads it.
+ *
+ * THIS EXISTS BECAUSE THE DECLARATION ABOVE HAD NO WRITER. The dispatcher's
+ * generic path writes a machine receipt and prints its file path, which is
+ * right for a probe and useless for prose: the paid-for paragraphs landed in a
+ * gitignored JSON blob and the operator got a path. I ran that command myself,
+ * unpacked the JSON by hand to read the answer, and recorded it as verified
+ * (Codex, #88 round 2).
+ *
+ * So the rule this encodes, beyond the one bug: a David-facing output is
+ * written as a plain file by the code that produces it, before anything else
+ * happens to it. Not returned for a caller to surface, not left in a receipt.
  */
-export const TERMINAL_VERDICTS = new Set(["ship-with-gaps-recorded", "split", "escalate"]);
+export function renderGaps(pr, answer) {
+  const ask = answer.ask_before_merging;
+  return [
+    `# What pull request #${pr} is shipping with`,
+    "",
+    "Written by Fable from the adjudicator's own record of the defects this",
+    "pull request merges with rather than fixes. It decides nothing.",
+    "",
+    answer.defects.trim(),
+    "",
+    "## How worried should you be",
+    "",
+    answer.how_worried.trim(),
+    "",
+    "## Worth asking about first",
+    "",
+    ask && String(ask).trim() ? String(ask).trim() : "Nothing — none of these is worth holding the merge for.",
+    "",
+  ].join("\n");
+}
+
+/** Write it, and hand back the path. One step, no caller cooperation needed. */
+export function writeGaps(root, pr, answer) {
+  const out = gapsPath(root, pr);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, renderGaps(pr, answer));
+  return out;
+}
+
+/**
+ * The ONE verdict that means "this pull request is merging with these".
+ *
+ * Not every loop-ending verdict: `split` moves the work elsewhere and
+ * `escalate` sends a product decision to David, and in neither case is he
+ * reading a brief headed "defects being shipped in pull request #N". Putting
+ * them here was my own widening, and it contradicted a rule this repository
+ * already states in `pr-ready.mjs` -- those two are not ready-to-merge
+ * decisions (Codex, #88 round 2).
+ */
+export const SHIPPING_VERDICT = "ship-with-gaps-recorded";
 
 /**
  * The gaps this PR is actually SHIPPING: the LAST verdict's, and no other's.
@@ -70,9 +120,10 @@ export const TERMINAL_VERDICTS = new Set(["ship-with-gaps-recorded", "split", "e
  * appears in both the second and third verdicts and the two that were fixed in
  * between appear in neither.
  *
- * A last verdict of `continue` means the loop is still running, so nothing is
- * shipping yet and the answer is empty. That is not an error: the caller
- * already treats "no gaps" as nothing to translate.
+ * A last verdict that is anything but `ship-with-gaps-recorded` means this
+ * pull request is not merging with these -- the loop is still running, or the
+ * work was split out, or a decision went to David. Empty, and not an error:
+ * the caller already treats "no gaps" as nothing to translate.
  *
  * A verdict file that will not parse is skipped, so the search walks backwards
  * to the newest READABLE verdict: one unreadable file should not cost David the
@@ -92,7 +143,7 @@ export function gapsFor(root, pr, { dir = ADJUDICATIONS_DIR, read = fs.readFileS
       continue;
     }
     const o = v.verdict ?? v;
-    if (!TERMINAL_VERDICTS.has(o.verdict)) return [];
+    if (o.verdict !== SHIPPING_VERDICT) return [];
     return (Array.isArray(o.gaps) ? o.gaps : [])
       .filter((text) => typeof text === "string" && text.trim())
       .map((text) => ({ from: name, verdict: o.verdict, text: text.trim() }));
