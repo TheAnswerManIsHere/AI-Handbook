@@ -12,9 +12,15 @@ schema: schemas/fable-merge-opinion.schema.json
 # Tell David what he is about to merge
 
 David is the product owner. **He cannot read code at all.** He is about to
-decide whether this pull request lands, and his decision is irreversible in
-practice: it reaches `main`, and from there every repository that syncs from
-it.
+decide whether this pull request lands on this repository's `main`, and in
+practice that decision does not get revisited.
+
+**Do not assume anything about the blast radius beyond this repository.** This
+role ships unchanged into every repository that uses the handbook, so a
+sentence about fleet-wide consequences would be false in most of them — in a
+product repository a merge reaches that product and stops there. If the brief
+gives you reason to think a change travels further, say so from the brief; do
+not import it from this instruction.
 
 What he has today is the builder's own account of the builder's own work, plus
 a translation of each review round. The rounds describe *fixes*. Nothing

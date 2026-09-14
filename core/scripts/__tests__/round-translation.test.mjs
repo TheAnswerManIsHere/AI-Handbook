@@ -882,6 +882,127 @@ test("R46: D2 is invoked by the documented merge-ask sequence, not only by a sou
   assert.match(text, /before the merge ask/i, "and it is placed before the ask");
 });
 
+test("R47: a string artifact.patch is rendered, not discarded as absent", () => {
+  // Records predating the line-array conversion carry a string patch --
+  // `10-1.json` through `10-4.json` hold 50,420 characters each. The array
+  // check threw them away and told the reviewer there was no code to assess,
+  // on the one field the whole assessment rests on (Codex, #90 round 2).
+  const asString = mergeBrief(7, {
+    record: { title: "t", findings: { items: [] }, artifact: { patch: "diff --git a/x b/x\n+legacy string patch" } },
+    gaps: [],
+  });
+  assert.match(asString, /\+legacy string patch/);
+  assert.doesNotMatch(asString, /carried no patch/);
+
+  const asArray = mergeBrief(7, {
+    record: { title: "t", findings: { items: [] }, artifact: { patch: ["diff --git a/x b/x", "+array patch"] } },
+    gaps: [],
+  });
+  assert.match(asArray, /\+array patch/);
+
+  // Genuinely absent still says so rather than printing "undefined".
+  const none = mergeBrief(7, { record: { title: "t", findings: { items: [] }, artifact: {} }, gaps: [] });
+  assert.match(none, /carried no patch/);
+});
+
+test("R48: the shipped-gaps section carries D3's staleness caveat", () => {
+  // `gapsFor()` returns the LAST verdict's list. If the builder fixed one
+  // afterwards and the loop ended without another ruling, the fixed one is
+  // still on it. D3's own brief says so; this one dropped the caveat and put
+  // the list under a definitive heading (Codex, #90 round 2).
+  const withGaps = mergeBrief(7, {
+    record: { title: "t", findings: { items: [] }, artifact: { patch: [] } },
+    gaps: [{ text: "the ignore rule is not checked in" }],
+  });
+  assert.match(withGaps, /as of the last time it ruled/);
+  assert.match(withGaps, /may already have been dealt with/);
+  assert.doesNotMatch(withGaps, /^## Defects being shipped rather than fixed$/m, "no definitive heading over an uncertain list");
+
+  // No gaps -> no caveat to give, and nothing implying there were any.
+  const none = mergeBrief(7, { record: { title: "t", findings: { items: [] }, artifact: { patch: [] } }, gaps: [] });
+  assert.match(none, /None recorded/);
+  assert.doesNotMatch(none, /as of the last time it ruled/);
+});
+
+test("R49: every David-facing writer seeds the reviews ignore rule", () => {
+  // Declined on #88 as a rare ordering; the reviewer raised the class again on
+  // #90. Re-triaged per review-loop rule 5 -- the mis-sized half was the
+  // LIKELIHOOD. Nine scripts write into .agents/reviews and two seeded the
+  // rule, so it is not a rare ordering, it is seven of nine.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d2-ignore-"));
+  const ignore = path.join(root, ".agents", "reviews", ".gitignore");
+
+  assert.equal(fs.existsSync(ignore), false, "a fresh checkout has no rule");
+  writeMerge(root, 7, { what_this_does: "a", what_it_does_not_do: "b", what_you_are_trusting: "c", recommendation: null });
+  assert.equal(fs.readFileSync(ignore, "utf8"), "*\n", "the merge writer seeds it");
+
+  fs.rmSync(path.join(root, ".agents"), { recursive: true, force: true });
+  assert.equal(fs.existsSync(ignore), false);
+  writeGaps(root, 7, { defects: "a", how_worried: "b", ask_before_merging: null });
+  assert.equal(fs.readFileSync(ignore, "utf8"), "*\n", "and so does the gaps writer -- #88's recorded gap, closed");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R51: a finding's text is read under BOTH names the record has used", () => {
+  // `review-loop-record.mjs` called this field `excerpt` through PR 33 and
+  // `body` from PR 38 on. Reading only `body` rendered every finding on an
+  // older record as a heading above a blank line -- eleven of them on PR 10,
+  // each a confident "thread closed" over nothing. Caught by reading a brief
+  // built from a real record rather than the answer it produced, which is the
+  // check round 1 of this PR was missing.
+  const legacy = mergeBrief(7, {
+    record: {
+      title: "t",
+      findings: { items: [{ path: "a.mjs", resolved: true, excerpt: "r1 P1 settings not installed" }] },
+      artifact: { patch: [] },
+    },
+    gaps: [],
+  });
+  assert.match(legacy, /r1 P1 settings not installed/);
+
+  const current = mergeBrief(7, {
+    record: {
+      title: "t",
+      findings: { items: [{ path: "a.mjs", resolved: true, body: "the current field" }] },
+      artifact: { patch: [] },
+    },
+    gaps: [],
+  });
+  assert.match(current, /the current field/);
+
+  // `body` wins where a record somehow carries both, and NEITHER says so in
+  // words -- a blank block reads as "the reviewer said nothing", never true.
+  const both = mergeBrief(7, {
+    record: {
+      title: "t",
+      findings: { items: [{ path: "a.mjs", resolved: true, body: "newer", excerpt: "older" }] },
+      artifact: { patch: [] },
+    },
+    gaps: [],
+  });
+  assert.match(both, /newer/);
+  assert.doesNotMatch(both, /older/);
+
+  const empty = mergeBrief(7, {
+    record: { title: "t", findings: { items: [{ path: "a.mjs", resolved: true }] }, artifact: { patch: [] } },
+    gaps: [],
+  });
+  assert.match(empty, /carried no text for this finding/);
+});
+
+test("R50: the merge role states no blast radius beyond this repository", () => {
+  // The payload ships unchanged to every consumer, so "and from there every
+  // repository that syncs from it" was true only in the handbook and false in
+  // every product repo it reached (Codex, #90 round 2). The porting test from
+  // CLAUDE.md: would this still be true, unchanged, in a repo about a
+  // different product?
+  const dir = fs.existsSync("core/.agents/fable-roles") ? "core/.agents/fable-roles" : ".agents/fable-roles";
+  const text = fs.readFileSync(path.join(dir, "fable-merge-opinion.md"), "utf8");
+  assert.doesNotMatch(text, /every repository that syncs from/);
+  assert.match(text, /Do not assume anything about the blast radius beyond this repository/);
+});
+
 test("R42: the delivery path is DRIVEN, not pattern-matched -- the answer reaches the file", () => {
   // Both of #88's real defects lived here: the role that could not launch, and
   // the answer that reached nobody. The tests covering it read this file as

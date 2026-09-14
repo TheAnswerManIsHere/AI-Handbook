@@ -236,17 +236,33 @@ export function renderPage(receipts, { pr, title = null } = {}) {
 }
 
 /**
- * Write the page, keeping its directory ignored.
+ * Make `.agents/reviews/` ignored before anything writes into it.
  *
- * Same shape `plan-review.mjs` uses for its own directory, and for the same
- * reason: these are session artifacts, not repository history, and a consumer
- * that has never run one has no `.gitignore` to inherit.
+ * EXTRACTED BECAUSE NINE SCRIPTS WRITE HERE AND TWO SEEDED THE RULE. These are
+ * session artifacts, not repository history, and a consumer that has never run
+ * a translation has no `.gitignore` to inherit -- so whichever writer happens
+ * to go first leaves untracked files a routine `git add -A` will commit.
+ *
+ * I declined this on #88 as a rare ordering and the adjudicator agreed, and
+ * the reviewer raised the same class again on #90. Re-triaged on the new
+ * instance, per `claude-core.md` review-loop rule 5: the mis-sized half was the
+ * LIKELIHOOD. It is not a rare ordering -- it is seven of nine writers, and
+ * every David-facing role adds another. Sharing one copy is cheaper than the
+ * bookkeeping of carrying it as a gap.
  */
+export function ensureReviewsIgnored(root) {
+  const dir = path.join(root, REVIEWS_DIR);
+  fs.mkdirSync(dir, { recursive: true });
+  const ignore = path.join(dir, ".gitignore");
+  if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
+  return ignore;
+}
+
+/** Write the page, keeping its directory ignored. */
 export function writePage(root, pr, html, { runGit = (a) => spawnSync("git", a, { cwd: root, encoding: "utf8" }) } = {}) {
   const dir = path.dirname(pagePath(root, pr));
   fs.mkdirSync(dir, { recursive: true });
-  const ignore = path.join(root, REVIEWS_DIR, ".gitignore");
-  if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
+  ensureReviewsIgnored(root);
   const file = pagePath(root, pr);
   // Written through a temporary file and renamed, because the rounds are
   // dispatched detached and two deliveries can be inside this function at

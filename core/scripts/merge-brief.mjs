@@ -50,6 +50,7 @@ import { pathToFileURL } from "node:url";
 import { REPO_ROOT } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
 import { gapsFor } from "./gaps-translation.mjs";
+import { ensureReviewsIgnored } from "./round-translation-page.mjs";
 
 /** Where the merge brief lands. Beside the round translations and the gaps. */
 export const mergePath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "merge.md");
@@ -117,8 +118,27 @@ const threadState = (f) =>
       ? "thread still open (may already be fixed and unanswered)"
       : "thread state unknown";
 
+/**
+ * What the reviewer actually wrote, under BOTH names the record has used.
+ *
+ * `review-loop-record.mjs` called this field `excerpt` through PR 33 and `body`
+ * from PR 38 on. Reading only `body` rendered every finding on an older record
+ * as a heading with nothing under it -- eleven of them on PR 10, each one a
+ * confident "### Finding N -- thread closed" above a blank line. That is the
+ * round-1 failure of this same file repeating: not a crash, not a visible gap,
+ * but an authoritative section that has quietly lost its content, which is the
+ * one shape a reader cannot catch.
+ *
+ * And when NEITHER is present, say so in words. An empty string here reads as
+ * "the reviewer raised this and said nothing", which is never true.
+ */
+const findingText = (f) => {
+  const raw = asText(f.body ?? f.excerpt).trim();
+  return raw || "(the record carried no text for this finding)";
+};
+
 const findingBlock = (f, i) =>
-  [`### Finding ${i + 1} — ${threadState(f)}`, `file: ${f.path ?? "not stated"}`, "", asText(f.body).trim(), ""].join("\n");
+  [`### Finding ${i + 1} — ${threadState(f)}`, `file: ${f.path ?? "not stated"}`, "", findingText(f), ""].join("\n");
 
 /**
  * The brief. Composed here, from the record and the verdict files -- never from
@@ -261,9 +281,24 @@ export function mergeBrief(pr, { record, gaps, headNow = null }) {
     out.push("No findings were recorded on this loop.", "");
   }
 
-  out.push("## Defects being shipped rather than fixed", "");
+  out.push("## Defects the adjudicator recorded as shipping rather than fixed", "");
   if (gaps.length) {
-    out.push(...gaps.map((g, i) => `${i + 1}. ${g.text}`), "");
+    out.push(...gaps.map((g, i) => `${i + 1}. ${asText(g.text)}`), "");
+    // THE SAME CAVEAT D3'S OWN BRIEF CARRIES, WHICH THIS DROPPED. `gapsFor()`
+    // returns the LAST verdict's list; if the builder fixed one afterwards and
+    // the loop then ended without another ruling, the fixed one is still on it.
+    // Presenting that list under a definitive heading turns uncertain
+    // historical state into a current fact (Codex, #90 round 2). I shipped this
+    // caveat in #88 and then left it behind here.
+    out.push(
+      "**This is the adjudicator's list as of the last time it ruled, and nothing",
+      "tracks it per defect.** If the builder fixed one of these afterwards and the",
+      "loop then ended without another ruling, the fixed one still appears above.",
+      "Where an entry reads as though it may already have been dealt with — the",
+      "findings section or the diff may settle it — say so rather than telling",
+      "David it is definitely shipping.",
+      "",
+    );
   } else {
     out.push("None recorded.", "");
   }
@@ -274,7 +309,15 @@ export function mergeBrief(pr, { record, gaps, headNow = null }) {
     `${record.artifact?.files ?? "?"} file(s), ${record.artifact?.added ?? "?"} line(s) added, ` +
       `${record.artifact?.removed ?? "?"} removed.`,
     "",
-    ...(Array.isArray(record.artifact?.patch) ? record.artifact.patch : ["(the record carried no patch)"]),
+    // BOTH SHAPES, like every other capped field. Records predating the
+    // line-array conversion carry a string patch -- `10-1.json` through
+    // `10-4.json` hold 50,420 characters each -- and the array check discarded
+    // them, telling the reviewer there was no code to assess (Codex, #90 round
+    // 2). `asText` already handled this everywhere except the one field that
+    // matters most.
+    record.artifact?.patch === undefined || record.artifact?.patch === null
+      ? "(the record carried no patch)"
+      : asText(record.artifact.patch),
     "",
   );
   return out.join("\n");
@@ -321,6 +364,7 @@ export function renderMerge(pr, answer) {
 /** Write it, and hand back the path. One step, no caller cooperation needed. */
 export function writeMerge(root, pr, answer) {
   const out = mergePath(root, pr);
+  ensureReviewsIgnored(root);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, renderMerge(pr, answer));
   return out;
@@ -369,6 +413,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = pro
     return 2;
   }
   const brief = path.join(root, ".agents", "reviews", `pr-${args.pr}`, "merge-brief.md");
+  ensureReviewsIgnored(root);
   fs.mkdirSync(path.dirname(brief), { recursive: true });
   fs.writeFileSync(brief, mergeBrief(args.pr, inputs));
   const described = inputs.record.sinceLastReview?.head ?? null;
