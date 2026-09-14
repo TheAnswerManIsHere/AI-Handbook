@@ -1,0 +1,70 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 88,
+  "recordPath": ".agents/adjudications/88-2.json",
+  "recordSha256": "d88376529ee605d80abde79ad0eced77fa054206530213baf5ebbd5479beeb8b",
+  "toolUseId": "toolu_014w1NfHWhi5izvACtE1uLFs",
+  "agentId": "a03cba5c10c72830b",
+  "decidedAt": "2026-09-14T05:24:43.591Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, criticality 30, and the record shows convergence rather than a runaway: trend 3, 4, 0, 1 across 4 completed passes, 7 of 8 findings resolved, all 8 in-diff (territory.outsideDiff 0). The single open item (PRRT_kwDOUKOPKc6h_1kx, P2) is that gaps-translation.mjs writes .agents/reviews/pr-<n>/gaps-brief.md and gaps.md without establishing the reviews-directory ignore rule, so a stray generated prompt file can be picked up by `git add -A` -- that is untidy, not critical: nothing in artifact.patch shows a destructive or irreversible action, corruption of the receipt/tracking machinery (gaps-translation.mjs is explicitly non-gating -- \"It decides nothing, gates nothing, and refuses nothing\"), or a widening of agent authority. Buying a fix costs a write plus the mandatory review round of it under the write-gate rule, at roundsSpent 4 of allowance 5, for a defect whose worst outcome is a committed markdown file a consumer deletes.",
+    "gaps": [
+      "core/scripts/gaps-translation.mjs: neither the `--pr` preview path nor `writeGaps` creates or verifies a .gitignore for .agents/reviews/pr-<n>/, unlike round-translation-page.mjs::writePage, so in a fresh synced consumer the generated gaps-brief.md / gaps.md show as untracked and can be committed by an operator's `git add -A` (Codex, #88 round 4, reproduced in a fresh git repo)."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_EjK",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The increment documents `--role gaps-translation` as a runnable command, and without a role definition and schema that command stops in readDefinitionAt() before any reviewer launches -- a real defect in exactly what this change set out to deliver."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_EjN",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The gaps brief generator needs `pr` and `root` and main()'s generic path supplied no `input`, so the documented command threw before dispatch; the fix in core/scripts/fable-dispatch.mjs adds `input: { pr: args.pr, root }` at both call sites."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_EjP",
+        "class": "in-scope",
+        "citation": "",
+        "why": "Collecting gaps from non-terminal `continue` verdicts made the brief report already-repaired defects as shipping, which inverts the one thing the feature exists to tell David correctly."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_gjF",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The paid-for translation landed only in a gitignored JSON receipt while the declared gapsPath had no writer, so the increment's actual product -- prose David can read -- never reached him."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_gjH",
+        "class": "in-scope",
+        "citation": "",
+        "why": "core/docs/ai-context/fable-dispatch.md is the page dispatch() sends a refused caller to, and it stated \"Two roles satisfy it\" while this diff made three -- a shipped contract contradicting the code it documents."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_gjJ",
+        "class": "in-scope",
+        "citation": "",
+        "why": "`split` and `escalate` are not merge decisions, so returning their gaps under a heading saying the PR is shipping with them produces a false brief; the fix pins SHIPPING_VERDICT to ship-with-gaps-recorded alone."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_gjL",
+        "class": "in-scope",
+        "citation": "threatModel.text, agents-core.md: \"A choice ... A cheap check that it is well-formed -- non-empty, numeric where a number is expected, a path that exists -- is catching the operator's own mistake, which is exactly the threat model, and stays.\"",
+        "why": "`--pr` is an operator choice and a positivity check is the sanctioned well-formedness kind, not a hostile-value defence -- and the same rule written in two parsers disagreed, with gaps-translation.mjs refusing `--pr 0` while fable-dispatch.mjs accepted it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h_1kx",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The finding is about code this diff introduced (core/scripts/gaps-translation.mjs main() and writeGaps, which mkdir and write into .agents/reviews/pr-<n>/ with no ignore rule established), and no oracle section or threat-model line excludes it -- it is a real if minor defect, which is why it ships as a recorded gap rather than being declined as out of scope."
+      }
+    ]
+  }
+}
