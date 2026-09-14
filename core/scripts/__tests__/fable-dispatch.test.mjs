@@ -184,7 +184,7 @@ test("P1: a role may dispatch only if this script generates its brief", () => {
   // the bar. The assertion is the PROPERTY -- every dispatchable role has a
   // generator here, and a role without one is refused -- not the membership
   // list, which was this line until the set legitimately grew.
-  assert.deepEqual(dispatchableRoles().sort(), ["probe", "round-translation"]);
+  assert.deepEqual(dispatchableRoles().sort(), ["gaps-translation", "probe", "round-translation"]);
   for (const role of dispatchableRoles()) assert.equal(canDispatch(role), true);
   for (const role of ["plan-opinion", "conformance-triage", "merge-opinion"]) {
     assert.equal(canDispatch(role), false);

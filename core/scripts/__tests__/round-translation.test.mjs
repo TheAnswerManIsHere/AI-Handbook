@@ -27,6 +27,7 @@ import { waitForRounds, main as closeoutMain } from "../round-translation-closeo
 import { roundState, reviewsDir, delivery, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { recordDelivery, parseArgs as parseDeliveryArgs, LOG_PATH } from "../record-delivery.mjs";
+import { gapsFor, gapsBrief, renderGaps, writeGaps, gapsPath } from "../gaps-translation.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -528,14 +529,189 @@ test("the page path is derived from the PR, never supplied", () => {
 
 test("round-translation dispatches because this script generates its brief", () => {
   assert.equal(canDispatch("round-translation"), true);
-  assert.deepEqual(dispatchableRoles().sort(), ["probe", "round-translation"]);
+  assert.deepEqual(dispatchableRoles().sort(), ["gaps-translation", "probe", "round-translation"]);
   assert.equal(canDispatch("plan-opinion"), false, "an unbuilt role is still refused");
+});
+
+test("R30: the gaps translator turns recorded gaps into a brief, and nothing else", () => {
+  // David, 2026-09-14: "we simply need to have a simple translator function
+  // that takes each of the gaps that you already delivered to me and put it in
+  // plain English." Forty gaps across seven PRs, none readable by him.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d3-gaps-"));
+  const adj = path.join(root, ".agents", "adjudications");
+  fs.mkdirSync(adj, { recursive: true });
+  const verdict = (name, body) => fs.writeFileSync(path.join(adj, name), JSON.stringify(body));
+
+  verdict("87-1.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["the exit file outlives its warrant"] } });
+  verdict("87-2.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["--show skips the item check", "the receipt is written before delivery"] } });
+  // Another PR's verdict, and a malformed one. Neither may reach #87's brief:
+  // the first is not this loop's, and the second must be SKIPPED rather than
+  // refused -- one unreadable file should not cost David the other summaries.
+  verdict("86-1.verdict.json", { verdict: { gaps: ["someone else's gap"] } });
+  fs.writeFileSync(path.join(adj, "87-9.verdict.json"), "{ not json");
+
+  const gaps = gapsFor(root, 87);
+  assert.deepEqual(gaps.map((g) => g.text), [
+    "--show skips the item check",
+    "the receipt is written before delivery",
+  ], "the LAST readable verdict's gaps; 87-9 is unreadable so the search walks back to 87-2");
+  assert.doesNotMatch(gapsBrief(87, gaps), /the exit file outlives its warrant/, "an earlier verdict's gaps are superseded, not accumulated");
+
+  const brief = gapsBrief(87, gaps);
+  assert.match(brief, /pull request #87/);
+  assert.equal(brief.match(/^## Defect/gm).length, 2, "one block per gap");
+  assert.match(brief, /--show skips the item check/, "the gap text is passed through verbatim");
+  assert.match(brief, /He does not read code/, "the brief says who it is for");
+  assert.doesNotMatch(brief, /someone else's gap/);
+
+  // A PR with no gaps is not an error state worth machinery -- it exits 2 and
+  // says so, and the loop is unaffected either way.
+  assert.deepEqual(gapsFor(root, 99), []);
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// Round 1 of PR #88 — one regression test per finding. Findings 1 and 2 were
+// one failure with two symptoms: I registered the role and never ran the
+// command I documented. These are what running it would have said.
+// ---------------------------------------------------------------------------
+
+test("R31: only the TERMINAL verdict's gaps are shipped gaps", () => {
+  // Before the fix: a `continue` verdict also carries a `gaps` array, so a
+  // loop that raised findings, FIXED them, and stopped later handed David the
+  // repaired ones as defects he was merging with. Measured on the real PR 79
+  // data: 7 reported, 3 actually shipped (Codex, #88 round 1).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d3-terminal-"));
+  const adj = path.join(root, ".agents", "adjudications");
+  fs.mkdirSync(adj, { recursive: true });
+  const verdict = (name, body) => fs.writeFileSync(path.join(adj, name), JSON.stringify(body));
+
+  verdict("79-1.verdict.json", { verdict: { verdict: "continue", gaps: ["written for in round 2", "and this one too"] } });
+  verdict("79-2.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["actually shipped"] } });
+
+  assert.deepEqual(gapsFor(root, 79).map((g) => g.text), ["actually shipped"]);
+
+  // A loop still running has stopped nothing, so it is shipping nothing --
+  // not an error, just an empty answer the caller already handles.
+  verdict("90-1.verdict.json", { verdict: { verdict: "continue", gaps: ["still being worked"] } });
+  assert.deepEqual(gapsFor(root, 90), []);
+
+  // `split` and `escalate` end a loop but do NOT mean the pull request is
+  // merging -- the work moved, or a decision went to David. This assertion
+  // used to say the opposite, which is my own error pinned in place by a test
+  // I wrote (Codex, #88 round 2).
+  verdict("91-1.verdict.json", { verdict: { verdict: "split", gaps: ["moved to another pull request"] } });
+  assert.deepEqual(gapsFor(root, 91), []);
+  verdict("94-1.verdict.json", { verdict: { verdict: "escalate", gaps: ["a decision for David"] } });
+  assert.deepEqual(gapsFor(root, 94), []);
+
+  // A loop David REOPENS past a terminal verdict -- PR 87's real shape, three
+  // `ship-with-gaps-recorded` verdicts. The last one re-enumerates what is
+  // still open, so taking the union would report the repaired ones too.
+  verdict("92-1.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["fixed after David reopened it"] } });
+  verdict("92-2.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["what is actually left"] } });
+  assert.deepEqual(gapsFor(root, 92).map((g) => g.text), ["what is actually left"]);
+
+  // Round 10 is the last verdict, not round 9: a lexical sort would take the
+  // wrong one and report a gap that had already been closed.
+  for (const r of [9, 10]) verdict(`93-${r}.verdict.json`, { verdict: { verdict: "ship-with-gaps-recorded", gaps: [`round ${r}`] } });
+  assert.deepEqual(gapsFor(root, 93).map((g) => g.text), ["round 10"]);
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R32: the generic dispatch path hands the role its material", () => {
+  // Before the fix: `main()` called `dispatch({ root, role, timeoutSec })`
+  // with no `input`, so the gaps generator got neither `pr` nor `root` and
+  // `path.join(undefined, dir)` threw before any reviewer ran. Asserted
+  // against the source because the failure was a missing argument at a call
+  // site, and a test that stubbed the call site could not see it.
+  const src = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
+  const calls = src.split("\n").filter((l) => l.includes("receipt = dispatch({"));
+  assert.ok(calls.length >= 2, "runTranslation, runGaps, and main's generic path");
+  for (const c of calls) assert.match(c, /input: \{/, "NO call site omits the role's material");
+  const withPr = calls.filter((c) => /input: \{[^}]*pr: args\.pr/.test(c) && /input: \{[^}]*root/.test(c));
+  assert.ok(withPr.length >= 2, "the gaps role's call and the generic fallback both carry pr and root");
+});
+
+test("R33: the gaps role ships a definition and schema that satisfy the launch contract", () => {
+  // Before the fix there was no definition at all, and the documented command
+  // stopped in `readDefinitionAt()` with "no definition for role" -- so the
+  // feature could not run in this repo or any synced consumer.
+  const dir = fs.existsSync("core/.agents/fable-roles") ? "core/.agents/fable-roles" : ".agents/fable-roles";
+  const definitionPath = path.join(dir, "fable-gaps-translation.md");
+  const text = fs.readFileSync(definitionPath, "utf8");
+  const contract = roleContract(text, { role: "gaps-translation", definitionPath, definitionCommit: "HEAD" });
+  assert.deepEqual(contract.tools, [], "`tools: none` is an explicit empty allowlist, not an omission");
+  assert.equal(contract.modelTier, "strongestClaude", "a tier, never a version");
+  assert.ok(contract.budgetUsd > 0);
+  const schema = JSON.parse(fs.readFileSync(path.join(dir, contract.schemaPath), "utf8"));
+  assert.deepEqual(schema.required.sort(), ["ask_before_merging", "defects", "how_worried"]);
+  assert.equal(schema.additionalProperties, false);
+  assert.match(contract.systemPrompt, /cannot read code/, "the role's own text names its reader");
+  assert.match(contract.systemPrompt, /hold no tools/, "and says it has no file to open");
+  assert.match(contract.systemPrompt, /decide nothing/, "and that it gates nothing");
+});
+
+test("R34: the gaps answer is WRITTEN where a person reads it, not left in a receipt", () => {
+  // Before the fix, `gapsPath` was exported and documented as "where the
+  // plain-English summary lands" and nothing anywhere wrote it: the dispatcher's
+  // generic path wrote a gitignored JSON receipt and printed its path. I ran that
+  // command, unpacked the JSON by hand, and recorded it as verified end to end
+  // (Codex, #88 round 2). This asserts the file, because the file is the product.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d3-write-"));
+  const answer = {
+    defects: "Defect 1. The merge summary can miss a round.",
+    how_worried: "Not much. One is worth a question.",
+    ask_before_merging: "Ask how wide the window is.",
+  };
+  const out = writeGaps(root, 88, answer);
+  assert.equal(out, gapsPath(root, 88));
+  const text = fs.readFileSync(out, "utf8");
+  assert.match(text, /# What pull request #88 is shipping with/);
+  assert.match(text, /The merge summary can miss a round\./);
+  assert.match(text, /Ask how wide the window is\./);
+  assert.doesNotMatch(text, /[{}]/, "prose for a person, not a JSON blob");
+
+  // `null` is the common and correct answer, and it must read as an answer
+  // rather than as a hole.
+  assert.match(renderGaps(88, { ...answer, ask_before_merging: null }), /Nothing — none of these/);
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R35: --pr must be positive on the dispatch path too, not merely whole", () => {
+  // The same rule, written twice, agreeing once: `gaps-translation.mjs` had
+  // rejected `--pr 0` since it was written; this parser accepted it.
+  for (const bad of ["0", "-1"]) {
+    assert.throws(
+      () => parseArgs(["--role", "gaps-translation", "--pr", bad]),
+      /--pr must be a positive whole number/,
+      `--pr ${bad} is refused`,
+    );
+  }
+  assert.equal(parseArgs(["--role", "gaps-translation", "--pr", "88"]).pr, 88);
+});
+
+test("R36: the shipped dispatcher contract names every dispatchable role", () => {
+  // The document `dispatch()` points a refused caller at. It said "two roles"
+  // while the code had three, so the page a reader is sent to in order to learn
+  // the rule stated the wrong rule (Codex, #88 round 2).
+  const doc = fs.existsSync("core/docs/ai-context/fable-dispatch.md")
+    ? "core/docs/ai-context/fable-dispatch.md"
+    : "docs/ai-context/fable-dispatch.md";
+  const text = fs.readFileSync(doc, "utf8");
+  for (const role of dispatchableRoles()) {
+    assert.match(text, new RegExp(role.replace(/[-]/g, "[-]")), `${doc} names ${role}`);
+  }
+  assert.match(text, /Three roles satisfy it/, "and its count matches");
 });
 
 test("each role takes only its own flags, and all of them are data", () => {
   assert.throws(() => parseArgs(["--role", "probe", "--pr", "81"]), /role "probe" does not take --pr/);
   assert.throws(() => parseArgs(["--role", "round-translation", "--pr", "81", "--round", "3"]), /requires --mcp-snapshot/);
-  assert.throws(() => parseArgs(["--role", "round-translation", "--pr", "x", "--round", "3", "--mcp-snapshot", "s"]), /--pr must be a whole number/);
+  assert.throws(() => parseArgs(["--role", "round-translation", "--pr", "x", "--round", "3", "--mcp-snapshot", "s"]), /--pr must be a positive whole number/);
   const ok = parseArgs(["--role", "round-translation", "--pr", "81", "--round", "3", "--mcp-snapshot", "s.json"]);
   assert.deepEqual({ pr: ok.pr, round: ok.round, snapshot: ok.snapshot }, { pr: 81, round: 3, snapshot: "s.json" });
 });

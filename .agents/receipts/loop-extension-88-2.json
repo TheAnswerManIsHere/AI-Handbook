@@ -1,0 +1,11 @@
+{
+  "pr": 88,
+  "kind": "adjudication",
+  "verdict": "ship-with-gaps-recorded",
+  "recordPath": ".agents/adjudications/88-2.json",
+  "decidedAt": "2026-09-14T05:24:43.591Z",
+  "reasoning": "Internal tier, criticality 30, and the record shows convergence rather than a runaway: trend 3, 4, 0, 1 across 4 completed passes, 7 of 8 findings resolved, all 8 in-diff (territory.outsideDiff 0). The single open item (PRRT_kwDOUKOPKc6h_1kx, P2) is that gaps-translation.mjs writes .agents/reviews/pr-<n>/gaps-brief.md and gaps.md without establishing the reviews-directory ignore rule, so a stray generated prompt file can be picked up by `git add -A` -- that is untidy, not critical: nothing in artifact.patch shows a destructive or irreversible action, corruption of the receipt/tracking machinery (gaps-translation.mjs is explicitly non-gating -- \"It decides nothing, gates nothing, and refuses nothing\"), or a widening of agent authority. Buying a fix costs a write plus the mandatory review round of it under the write-gate rule, at roundsSpent 4 of allowance 5, for a defect whose worst outcome is a committed markdown file a consumer deletes.",
+  "gaps": [
+    "core/scripts/gaps-translation.mjs: neither the `--pr` preview path nor `writeGaps` creates or verifies a .gitignore for .agents/reviews/pr-<n>/, unlike round-translation-page.mjs::writePage, so in a fresh synced consumer the generated gaps-brief.md / gaps.md show as untracked and can be committed by an operator's `git add -A` (Codex, #88 round 4, reproduced in a fresh git repo)."
+  ]
+}

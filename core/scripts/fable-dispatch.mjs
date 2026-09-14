@@ -95,6 +95,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { modelTier } from "./review-budget.mjs";
 import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
 import { chatLine, renderPage, writePage, receiptsFor, publishPage, unavailable, unpublished } from "./round-translation-page.mjs";
+import { gapsBrief, gapsFor, writeGaps } from "./gaps-translation.mjs";
 
 /**
  * One line, for a notice that is pasted verbatim into chat.
@@ -156,6 +157,11 @@ export const HARNESS_ADDED_TOOLS = ["StructuredOutput"];
 const BRIEF_GENERATORS = {
   probe: ({ nonce }) => probeBrief(nonce),
   "round-translation": ({ record }) => translationBrief(record),
+  // D3. Its brief is composed by `gaps-translation.mjs` out of the committed
+  // verdict files, the same way `round-translation`'s is composed out of a
+  // captured snapshot: the caller supplies a pull request number and this
+  // script reads the rest. No word of mine reaches the reviewer.
+  "gaps-translation": ({ pr, root }) => gapsBrief(pr, gapsFor(root, pr)),
 };
 
 export const canDispatch = (role) => Object.hasOwn(BRIEF_GENERATORS, role);
@@ -171,7 +177,7 @@ export const dispatchableRoles = () => Object.keys(BRIEF_GENERATORS);
  * number, a number, a path -- and none of it reaches the reviewer as text:
  * the record built from the snapshot does, through the generator above.
  */
-const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"] };
+const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"], "gaps-translation": ["--pr"] };
 const BASE_FLAGS = ["--role", "--timeout"];
 const KNOWN_FLAGS = new Set([...BASE_FLAGS, ...Object.values(ROLE_FLAGS).flat()]);
 
@@ -1391,7 +1397,11 @@ export function parseArgs(argv) {
     if (stray) throw new Error(`role "${out.role}" does not take ${stray}`);
     const missing = allowed.filter((f) => !seen.includes(f));
     if (missing.length) throw new Error(`role "${out.role}" requires ${missing.join(", ")}`);
-    if (out.pr !== null && !Number.isInteger(out.pr)) throw new Error("--pr must be a whole number");
+    // POSITIVE, not merely whole. `gaps-translation.mjs`'s own parser has said
+    // so since it was written; this one said only "integer", so `--pr 0` was
+    // refused by one parser and accepted by its twin. The same rule written
+    // twice and agreeing once is the defect (Codex, #88 round 2).
+    if (out.pr !== null && (!Number.isInteger(out.pr) || out.pr <= 0)) throw new Error("--pr must be a positive whole number");
     if (out.round !== null && !Number.isInteger(out.round)) throw new Error("--round must be a whole number");
   }
   return out;
@@ -1559,6 +1569,42 @@ const roundFromArgv = (argv) => {
   return /^\d+$/.test(raw ?? "") ? raw : "?";
 };
 
+/**
+ * Dispatch the gaps role and WRITE WHAT COMES BACK WHERE DAVID READS IT.
+ *
+ * The generic path below writes a machine receipt and prints its path. For the
+ * probe that is the whole product; for prose it is the bug that cost #88 a
+ * round -- four paid-for paragraphs sitting in a gitignored JSON blob while
+ * the operator got a file path (Codex, #88 round 2).
+ *
+ * So this mirrors `deliverTranslation`: receipt first, because it is the
+ * evidence, then the human-readable file, then the answer on stdout. A failure
+ * after the reviewer ran still leaves the receipt, so nothing paid for is lost.
+ */
+export function runGaps(root, args) {
+  let receipt;
+  try {
+    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    return e.exitCode ?? 1;
+  }
+  const out = receiptPathFor(root, receipt);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
+  process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
+  try {
+    const brief = writeGaps(root, args.pr, receipt.output);
+    process.stderr.write(`fable-dispatch: gaps -> ${path.relative(root, brief)}\n`);
+    process.stdout.write(fs.readFileSync(brief, "utf8"));
+    return 0;
+  } catch (e) {
+    process.stderr.write(`fable-dispatch: the answer arrived but could not be written: ${e.message}\n`);
+    process.stderr.write(`fable-dispatch: it is in ${path.relative(root, out)} under \`output\`\n`);
+    return 1;
+  }
+}
+
 export function main(argv = process.argv.slice(2)) {
   let args;
   try {
@@ -1580,10 +1626,19 @@ export function main(argv = process.argv.slice(2)) {
   }
   const root = repoRoot();
   if (args.role === "round-translation") return runTranslation(root, args);
+  if (args.role === "gaps-translation") return runGaps(root, args);
 
   let receipt;
   try {
-    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout });
+    // The role's own material. Every value here is DATA this script parsed or
+    // derived -- a number off the command line, the root this file found by
+    // walking to `.git` -- and a generator that does not want it ignores it
+    // (the probe's takes only its nonce). What must never appear here is text
+    // a caller wrote, which is why the flag table admits numbers and paths and
+    // nothing else. Omitting it was #88's round-1 defect: the gaps generator
+    // needs `pr` and `root`, received neither, and threw before any reviewer
+    // ran.
+    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
     if (Array.isArray(e.attempts) && e.attempts.length) {

@@ -1,0 +1,9 @@
+{
+  "pr": 88,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 30,
+  "artifact": "D3: translate a loop's recorded gaps into plain English for David",
+  "declaredAt": "2026-09-14T04:34:54.826Z"
+}
