@@ -1750,6 +1750,64 @@ subject is legitimate and whose *boundary* keeps moving. The distinction
 decides the fix: the other entry's is to cut the subject or stop the loop;
 this one's is to **split the artifact and keep going on the smaller half**.
 
+## Each round finds a defect in the previous round's fix
+
+**Looks like:** a code loop that never converges, where every finding is
+correct and every fix is sound, and the thing each new finding is about is the
+code the last round added. **Dangerous:** it reads as diligence from inside —
+the reviewer keeps finding real bugs, so stopping feels like shipping known
+defects — and the cost is invisible because no single round is wrong. The loop
+ends when someone runs out of patience rather than when the code is right.
+
+**The tell is an observable, not a judgement** — which is the whole reason this
+one can be caught early where the entries above were caught late: **the
+finding's lines sit inside the diff of the last commit pushed for a finding.**
+That is read off the round. It needs no interpretation, so it cannot be
+reinterpreted in the moment, which is the property AI-Handbook #85 established
+that a working stop rule has to have.
+
+**Root cause: a fix written to satisfy a finding is local by construction, and
+the code this happens in has no edge to be local to.** Guards, parsers,
+counters, checks — anything defending an input space that is not enumerable.
+Each patch closes the reported case and creates a new boundary; the next round
+finds *that* boundary, because it is the newest and least-considered code in
+the diff. Two rounds of this is not bad luck, it is the shape.
+
+**Avoid — the response is never a third patch.** One of three, in order of
+preference: **remove the mechanism** (if what it guards is inconsequential,
+`claude-core.md` review-loop rule 5's `Worth:` line already says delete it);
+**derive the value** rather than check it (rule 5's *derivable* — a check whose
+two sides the same code owns guards nothing); or **change the operation**, which
+is the move that actually ends these. The earlier signal, available before the
+round runs and worth preferring: **a fix I cannot write a class-level failing
+test for** — one that fails before and passes after on the *class*, not the
+reported instance — is a patch on an unbounded space, and gets the same
+response.
+
+**AI-Handbook, four instances inside one workstream (#36), plus the one that
+shows the cure.** PR #28: two of round 2's findings were defects round 1's
+fixes introduced, and one slipped through a sweep whose exclusion pattern
+whitelisted its own target. PR #80: three rounds, each finding a defect on one
+failure path, two of them introduced by the previous round's fix. The D0 plan
+loop: rounds 2 and 3 each found a defect in text the previous round's fix had
+added. **PR #83 is the sharpest, and it is also the cure**: the loop-position
+round count took *five* attempts — a snapshot glob, a typed count, a named
+file, a pass history, and a high-water floor that then trailed by one forever
+after the first loss — each a correct fix for the last one's defect. What ended
+it was not a sixth patch but the recognition that **counting was the wrong
+operation**; recording which passes have ever been seen per commit, and summing,
+converged in one round. Overhype PR #329's Bash guard is the same shape without
+the cure (9 → 11 → 12 → 19 findings against an unbounded parsing surface), and
+PR #293's 17 rounds refining one reachability model is its severe end.
+
+**Not the same as *a plan that grew during its own review*** (above). There the
+artifact's boundary moves and the fix is to split it. Here the boundary is
+fixed and the *approach* is wrong, so splitting changes nothing — the same
+patch-and-repatch runs on each half. **This entry is why #36's B2 delta review
+was not built** (David, 2026-09-14): a role that reads the inter-round delta
+detects this after it has already recurred, and an observable read off the
+round catches it the first time, for free.
+
 ## PostgreSQL role/constraint verification traps that look safe and aren't
 
 **Looks like:** code (application, migration, or test) that infers a

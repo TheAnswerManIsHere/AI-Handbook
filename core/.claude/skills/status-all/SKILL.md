@@ -375,8 +375,8 @@ David-gate definition above):
 
 - If there's an open, unresolved review thread addressed to David → read
   it and restate the actual question in plain language.
-- If the gate is structural (🛑 Scope of work, 🛑 Plan approval, 🛑 UAT, or
-  a carve-out Merge) with no
+- If the gate is structural (🛑 Scope of work, 🛑 Plan approval, or 🛑 UAT)
+  with no
   open question — say so plainly ("ready to merge, CI green, Codex
   converged" / "merged — UAT doc at `docs/tests/UAT/PR<N>_..._UAT.md`, not
   yet run"). Search for the UAT doc filename before claiming one doesn't

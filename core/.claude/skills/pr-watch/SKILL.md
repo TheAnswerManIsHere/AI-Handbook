@@ -755,7 +755,7 @@ node scripts/round-translation-closeout.mjs --pr <n>
 
 Non-zero means a round has no account, and the message names which — or that
 the position is missing or older than an hour, in which case assemble a fresh
-snapshot (step 2) first. Either way it is a stop before the merge ask.
+snapshot (step 2) first. Either way it is a stop before the merge.
 
 **The bound is derived, never typed, and that is the whole point of the
 script.** Enumerating `snap-r*.json` asks *which rounds produced a snapshot*,
@@ -763,7 +763,7 @@ which is a different question from *which rounds happened* — and the differenc
 is exactly the round that needs saying. When capture assembly fails before
 `snap-r<r>.json` is written, that round has no snapshot, so a glob never names
 it, so nothing is dispatched for it, so no exit file appears and no fixed
-notice is printed: the merge ask goes out with a completed review round
+notice is printed: the merge report goes out with a completed review round
 **silently absent** from David's page, which is the one failure this feature
 exists to prevent. (Codex, #81 round 9.)
 
@@ -822,8 +822,8 @@ rather than as text.
 
 The rounds are dispatched detached and independently, so they do not finish in
 order: an earlier round that stalled is still outstanding when the final one
-returns. Waiting on only the round that triggered the stop lets the merge ask
-go out with an earlier round missing from the page and with no chat line —
+returns. Waiting on only the round that triggered the stop lets the merge
+report go out with an earlier round missing from the page and with no chat line —
 and Product Intent 1 promises David an account of **every** round, which does
 not stop being true because the missing one is not the last. The wait is
 bounded twice over: the derived pass count is finite, and each round either has
@@ -860,7 +860,8 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
     gate refuses any round not on its list: an account that exists but was
     never shown is the #85 failure one step later, and a forgotten step leaves
     no file. A round landing after the last delivery is refused until the page
-    goes out again with it — the merge ask cannot ride a page one round behind.
+    goes out again with it — the merge report cannot ride a page one round
+    behind.
   - `.agents/deliveries.md` — **David's** copy, and the one he actually asked
     for. Committed, appended, one plain line per delivery. **Commit it with the
     round's other bookkeeping**; a delivery record he cannot see is not a
@@ -868,10 +869,10 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
 - **If it refuses or fails**, the script prints the fixed notice (*translation
   unavailable — …*). Paste that instead. Never summarise what it would have
   said.
-- **At a stop, it goes before the merge ask**, not before the merge report:
-  it exists for the decision David is about to make, and the report follows
-  his click. Wait on every outstanding exit file at close-out, per the loop
-  above — the ask carries each round's line, or that round's fixed notice.
+- **At a stop, it goes in the merge report** (David, 2026-09-14: no PR waits
+  for his click, so the report is where he reads the loop). Wait on every
+  outstanding exit file at close-out, per the loop above — the report carries
+  each round's line, or that round's fixed notice.
 - **A round that raised nothing and prompted no push is skipped** by the
   script itself, with the reason on the page. An **all-declined** round is
   dispatched — it is the round where my account matters most.
@@ -889,7 +890,7 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   for in the rounds that followed, and reporting those as shipped tells him the
   opposite of the truth (#88 round 1). The last one is sufficient because the
   adjudicator re-enumerates what is still open every time it rules. Put what
-  comes back in the merge ask, under the receipt.
+  comes back in the merge report, under the receipt.
 
   `node scripts/gaps-translation.mjs --pr <n>` writes the same brief to a file
   without dispatching, which is a **preview** for my own eyes and never a
@@ -995,11 +996,9 @@ silently leaving the workstream unlabeled):
   the ready bar is met and **I merge it myself per CLAUDE.md's close-out
   contract (David, 2026-08-15)** — re-verify live state, squash-merge, sync,
   verify, report — so `stage:merge` is normally a moment, not a resting
-  state. The exception is a carve-out PR (guardrail/authority-widening,
-  which stays David-merge-only): there, label `stage:merge`,
-  `waiting:david`, deliver the 🛑 merge ask, and don't let it sit at
-  `stage:code-review` — a ready-to-go workstream parked under the wrong
-  label is exactly what `/status-all` exists to surface.
+  state. There is no carve-out exception any more (David, 2026-09-14): a
+  guardrail- or authority-widening PR merges the same way, with the latitude
+  it grants named in the report.
 - **The PR merges with a Post-merge verification section that has real
   content** → `stage:test-run`, `waiting:replit` — the lifecycle's own
   Test-run stage, between Merge and UAT, not a step to skip past. Per the

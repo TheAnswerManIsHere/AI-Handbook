@@ -7,13 +7,13 @@
   "contractBudgets": [
     {
       "path": "CLAUDE.md",
-      "lines": 165,
-      "bytes": 9354
+      "lines": 168,
+      "bytes": 9557
     },
     {
       "path": "core/.agents/core/claude-core.md",
-      "lines": 926,
-      "bytes": 58258
+      "lines": 942,
+      "bytes": 59319
     }
   ],
   "models": {

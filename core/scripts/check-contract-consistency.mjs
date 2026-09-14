@@ -62,6 +62,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const RETIRED = [
   {
+    phrase: "David-merge-only",
+    retired: "2026-09-14",
+    why: "the guardrail-and-authority carve-out: a PR widening the agent's own guardrails or authority waited for David's click. It fired zero times in every use and cost a round trip each time; the safety net is David working beside the agent and noticing, and everything in the repo is reversible",
+    instead: "no PR waits for David's click. Such a change merges under the same bar as everything else, and the PR body and merge report each carry one line naming the latitude it grants, so a widening is read rather than clicked",
+  },
+  {
     phrase: "bare trigger alone — nothing else in that comment",
     retired: "2026-09-13",
     why: "the review-trigger rule's older wording, which a cloud session cannot satisfy: the harness appends an attribution footer server-side that no caller can suppress, so a rule demanding an otherwise-empty comment is unobeyable -- and an unobeyable rule gets reasoned around rather than followed",
