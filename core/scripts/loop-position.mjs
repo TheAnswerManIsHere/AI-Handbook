@@ -39,6 +39,7 @@ import { pathToFileURL } from "node:url";
 
 import { reviewerPasses, capturedAtOf, sameCommit, MAX_SNAPSHOT_AGE_MS } from "./review-counting.mjs";
 import { countRounds, loadLoop, allowance, nodeIo, REPO_ROOT, repoSlug } from "./review-budget.mjs";
+import { receiptsFor } from "./round-translation-page.mjs";
 
 /**
  * Where a PR's round artifacts live -- the position, the per-round snapshots,
@@ -63,8 +64,35 @@ export const positionPath = (root, pr) => path.join(reviewsDir(root, pr), "loop-
  * running. The two readers act on that difference in opposite ways -- the
  * close-out WAITS on `pending`, the merge gate REFUSES it -- which is exactly
  * why the classification lives in one place and the policy does not.
+ *
+ * TWO ARTIFACTS, IN THIS ORDER, AND NEITHER ALONE IS RIGHT (Codex, #87 round
+ * 1, which asked for something else and was right about the premise):
+ *
+ *   - The RECEIPT is written by `fable-dispatch.mjs` itself, on a real outcome
+ *     -- a translation or a by-design skip. Machinery-written, so it is the
+ *     strong evidence and it is checked first.
+ *   - The EXIT FILE is written by the recipe's shell (`echo $? > …`), which
+ *     runs REGARDLESS of the dispatch's exit code. So it cannot mean "this
+ *     round has an account" on its own: a dispatch that crashed leaves one
+ *     too. What it does mean is "the dispatch was attempted", and a dispatch
+ *     that ran and failed is a round where David gets the fixed *translation
+ *     unavailable* notice -- which the contract accepts as that round's
+ *     account. So it passes, one rung down.
+ *
+ * Checking only the exit file would pass a round whose dispatch died; checking
+ * only the receipt would refuse a round that legitimately came back
+ * unavailable, and refuse every round dispatched outside the recipe. The
+ * ordering is what makes both come out right.
+ *
+ * WHAT NEITHER PROVES is that the account reached David -- the chat paste and
+ * the Artifact publish happen through tool calls no script here observes. That
+ * boundary is deliberate and recorded as a gap rather than papered over: a
+ * "delivered" flag written by the same hand that forgets to deliver would be
+ * exactly as strong as the exit file, which is to say not at all.
  */
-export function roundState(dir, r, exists = fs.existsSync) {
+export function roundState(root, pr, r, { exists = fs.existsSync, receipts = receiptsFor } = {}) {
+  if (receipts(root, pr).some((rc) => rc.round === r)) return "done";
+  const dir = reviewsDir(root, pr);
   if (exists(path.join(dir, `d0-r${r}.exit`))) return "done";
   if (exists(path.join(dir, `snap-r${r}.json`))) return "pending";
   return "missing";

@@ -1718,6 +1718,22 @@ export function checkMerge(toolInput, { now = Date.now(), readReceipt, resolveSh
       .join("; ");
     return `merge blocked: the receipt for PR #${pr} says NOT READY -- ${failing || "no item detail recorded"}.`;
   }
+  // A READY VERDICT ONLY MEANS WHAT THE MINTER ACTUALLY CHECKED, so the items
+  // are compared and not just the word. When the round-translation item was
+  // added to `pr-ready.mjs`, every receipt minted by the previous version was
+  // still inside its one-hour window and still said READY -- and this hook
+  // would have honoured it, merging a PR whose rounds have no accounts during
+  // exactly the rollout that was meant to stop that. (Codex, #87 round 1.)
+  //
+  // The same doctrine as `repo` and `requiredChecks` one branch up: stamp on
+  // mint, compare on consume. A receipt that cannot show it weighed an item
+  // is not evidence about that item, however recently it was written.
+  if (!receipt.items?.translations) {
+    return (
+      `merge blocked: the receipt for PR #${pr} was minted before the round-translation item existed, so it ` +
+      `says nothing about whether David got an account of every review round. Mint a fresh one. ${RECEIPT_HOWTO}`
+    );
+  }
 
   // ONE staleness predicate, imported rather than reimplemented. The previous
   // revision claimed this was shared with `--show` and only half was: this

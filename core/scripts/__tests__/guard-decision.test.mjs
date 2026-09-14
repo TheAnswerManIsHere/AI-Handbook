@@ -948,7 +948,11 @@ const READY = {
   // only records when the check ran, and re-running a saved snapshot resets it
   // while the data behind it stays as old as it was. (Codex, #490.)
   evidenceAt: new Date(Date.now() - 60_000).toISOString(),
-  items: { ci: { pass: true }, codex: { pass: true }, threads: { pass: true } },
+  // `translations` is present because a receipt minted by the current gate
+  // carries it; the tests below are about age, sha and identity, and a fixture
+  // missing it would trip the completeness refusal before reaching its own
+  // subject. That refusal has its own test.
+  items: { ci: { pass: true }, codex: { pass: true }, threads: { pass: true }, translations: { pass: true } },
 };
 
 const MERGE_INPUT = { pullNumber: 500, owner: "TheAnswerManIsHere", repo: "Overhypeme" };
@@ -997,6 +1001,25 @@ test("merge gate: a current, passing receipt allows the merge", () => {
 
 test("merge gate: no receipt at all blocks -- the PR #487 shape", () => {
   assert.match(mergeReason(null), /no readiness receipt/);
+});
+
+test("merge gate: a READY receipt minted before the translations item existed blocks", () => {
+  // The rollout window. When `pr-ready.mjs` gained the round-translation item,
+  // every receipt already on disk still said READY and was still inside its
+  // one-hour validity -- and this hook honoured the word without asking what
+  // the minter actually weighed. That is a merge of a PR with no round
+  // accounts, during the very rollout meant to stop it. (Codex, #87 round 1.)
+  const { translations, ...withoutIt } = READY.items;
+  const reason = mergeReason({ ...READY, items: withoutIt });
+  assert.match(reason, /minted before the round-translation item existed/);
+  assert.match(reason, /says nothing about whether David got an account/);
+});
+
+test("merge gate: a READY receipt carrying the translations item is honoured", () => {
+  // The other side of the same boundary: the refusal must be about the item's
+  // ABSENCE, not about anything else in the receipt, or it would block every
+  // merge forever.
+  assert.equal(mergeReason(READY), null);
 });
 
 test("merge gate: a NOT READY receipt blocks and names the failing item", () => {
@@ -1181,7 +1204,7 @@ function checkoutWithReceipt(repo, pr) {
   const dir = mkdtempSync(path.join(tmpdir(), "merge-root-"));
   mkdirSync(path.join(dir, ".agents/receipts"), { recursive: true });
   if (repo !== null) {
-    writeFileSync(path.join(dir, ".agents/receipts", `pr-${pr}.json`), JSON.stringify({ pr, repo, verdict: "READY" }));
+    writeFileSync(path.join(dir, ".agents/receipts", `pr-${pr}.json`), JSON.stringify({ pr, repo, verdict: "READY", items: { translations: { pass: true } } }));
   }
   return dir;
 }
@@ -1215,7 +1238,7 @@ test("merge routing: and checkMerge then refuses it on the identity comparison",
   // The half that makes the above safe: selecting a wrongly-stamped checkout
   // hands checkMerge a receipt it rejects, naming both repositories.
   const reason = checkMerge(mergeInput("Other", "Repo", 7), {
-    readReceipt: () => ({ pr: 7, repo: "Third/Party", verdict: "READY" }),
+    readReceipt: () => ({ pr: 7, repo: "Third/Party", verdict: "READY", items: { translations: { pass: true } } }),
     resolveSha: () => "deadbeef",
     resolveConfig: () => ({ repo: "Other/Repo", requiredChecks: ["Test"] }),
   });

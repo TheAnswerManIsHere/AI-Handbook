@@ -874,12 +874,40 @@ to fire it: it costs money, it costs time, and its output is criticism of my
 own work. The close-out check that catches a missing round already existed
 (`round-translation-closeout.mjs`) — it just had nothing forcing it to run.
 
-**What passes.** A round that was translated, a round the script **skipped by
-design** (no findings, nothing pushed), and a round whose dispatch **refused
-with a reason** all leave an exit file, and all three are a record. What fails
-is a round with **no record at all** — never attempted. That is #85's shape and
-only that shape, and it is the same "ran and allowed" versus "never ran"
-distinction AI-Handbook #16 names in the guard.
+**What passes, and on which evidence — two artifacts, in this order.**
+
+- The **receipt** (`.agents/receipts/fable-round-translation-<pr>-<r>.json`) is
+  written by `fable-dispatch.mjs` itself, on a real outcome: a translation or a
+  by-design skip. Machinery-written, so it is the strong evidence and it is
+  checked first. It also covers a round dispatched outside the recipe, which
+  leaves no exit file at all.
+- The **exit file** (`d0-r<r>.exit`) is written by the recipe's shell as
+  `echo $? > …`, which runs **regardless of the dispatch's exit code**. So it
+  cannot mean "this round has an account" on its own — a dispatch that crashed
+  leaves one too. What it does mean is *the dispatch was attempted*, and an
+  attempt that failed is a round where David gets the fixed **translation
+  unavailable** notice, which the contract accepts as that round's account. It
+  passes, one rung down.
+
+Checking only the exit file passes a round whose dispatch died; checking only
+the receipt refuses a round that legitimately came back unavailable. The
+ordering is what makes both come out right. What fails is a round with
+**neither** — never attempted. That is #85's shape and only that shape, and it
+is the same "ran and allowed" versus "never ran" distinction AI-Handbook #16
+names in the guard.
+
+**The receipt must also SAY it weighed this.** `checkMerge` refuses a READY
+receipt with no `translations` item — otherwise, for the hour after this
+change reaches a repo, every receipt minted by the previous version still said
+READY and the hook still honoured it, merging a PR with no round accounts
+during the very rollout meant to stop that. Same doctrine as `repo` and
+`requiredChecks`: stamp on mint, compare on consume. (Codex, #87 round 1.)
+
+**What none of it proves is that the account reached David.** The chat paste
+and the Artifact publish are tool calls no script here observes. That ceiling
+is real and recorded rather than papered over: a "delivered" flag written by
+the same hand that forgets to deliver would be exactly as strong as the exit
+file, which is to say not at all.
 
 **It fails closed on absent evidence**, like every other path in that file: no
 loop position, a position written for another repository, or one older than the

@@ -60,7 +60,7 @@ import { pathToFileURL } from "node:url";
 
 import { MAX_SNAPSHOT_AGE_MS } from "./review-counting.mjs";
 import { repoSlug } from "./review-budget.mjs";
-import { loopPosition, describe, reviewsDir, roundState } from "./loop-position.mjs";
+import { loopPosition, describe, roundState } from "./loop-position.mjs";
 import { repoRoot } from "./fable-dispatch.mjs";
 
 /** How often the wait re-checks. The shell loop used the same interval. */
@@ -74,16 +74,18 @@ export const POLL_MS = 5000;
  * twice. They are also not waited on — nothing was dispatched for them, so
  * there is no exit file coming.
  */
-export async function waitForRounds(dir, rounds, { timeoutMs = 900_000, pollMs = POLL_MS, now = Date.now, sleep, exists } = {}) {
+export async function waitForRounds(root, pr, rounds, { timeoutMs = 900_000, pollMs = POLL_MS, now = Date.now, sleep, exists, receipts } = {}) {
+  const opts = { exists, receipts };
+  const state = (r) => roundState(root, pr, r, opts);
   const all = Array.from({ length: rounds }, (_, i) => i + 1);
-  const missing = all.filter((r) => roundState(dir, r, exists) === "missing");
+  const missing = all.filter((r) => state(r) === "missing");
   const deadline = now() + timeoutMs;
-  let pending = all.filter((r) => roundState(dir, r, exists) === "pending");
+  let pending = all.filter((r) => state(r) === "pending");
   const nap = sleep ?? ((ms) => new Promise((res) => setTimeout(res, ms)));
 
   while (pending.length && now() < deadline) {
     await nap(pollMs);
-    pending = pending.filter((r) => roundState(dir, r, exists) !== "done");
+    pending = pending.filter((r) => state(r) !== "done");
   }
   return { missing, timedOut: pending };
 }
@@ -143,11 +145,10 @@ export async function main(argv = process.argv.slice(2), { root = null, log = pr
     return 1;
   }
 
-  const dir = reviewsDir(here, args.pr);
   const rounds = pos.round;
   if (rounds === 0) return 0;
 
-  const { missing, timedOut } = await waitForRounds(dir, rounds, { timeoutMs: args.timeoutSec * 1000 });
+  const { missing, timedOut } = await waitForRounds(here, args.pr, rounds, { timeoutMs: args.timeoutSec * 1000 });
 
   if (missing.length) {
     log.write(

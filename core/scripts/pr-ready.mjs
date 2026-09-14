@@ -60,7 +60,7 @@ import {
   validateExtension,
 } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
-import { loopPosition, reviewsDir, roundState } from "./loop-position.mjs";
+import { loopPosition, roundState } from "./loop-position.mjs";
 import {
   collectionsReadBefore,
   headRepoOf,
@@ -1808,11 +1808,10 @@ export function checkTranslations(prNumber, cwd, now, configuredRepo, { position
   const rounds = pos.round;
   if (rounds === 0) return { pass: true, detail: "no completed review round, so there is nothing to translate" };
 
-  const dir = reviewsDir(root, prNumber);
   const missing = [];
   const pending = [];
   for (let r = 1; r <= rounds; r += 1) {
-    const state = roundState(dir, r);
+    const state = roundState(root, prNumber, r);
     if (state === "missing") missing.push(r);
     else if (state === "pending") pending.push(r);
   }

@@ -24,7 +24,7 @@ import {
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
 import { waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
-import { roundState, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
+import { roundState, reviewsDir, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
@@ -1612,17 +1612,20 @@ test("R26: every suite that calls the assembler roots its position write", () =>
 });
 
 test("R25: the close-out wait reports every missing round and never waits on one", async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-closeout-"));
+  const PR = 500;
+  const dir = reviewsDir(root, PR);
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
   fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
-  assert.equal(roundState(dir, 1), "done");
-  assert.equal(roundState(dir, 2), "missing", "a round with neither snapshot nor exit file is missing, not pending");
+  assert.equal(roundState(root, PR, 1), "done");
+  assert.equal(roundState(root, PR, 2), "missing", "a round with neither snapshot nor exit file is missing, not pending");
 
   // Rounds 2 and 3 happened and produced nothing. Both are named -- a
   // close-out told about one gap at a time is a close-out run twice -- and
   // neither is waited on, because no exit file is coming for them.
   let slept = 0;
-  const both = await waitForRounds(dir, 3, { sleep: async () => { slept += 1; } });
+  const both = await waitForRounds(root, PR, 3, { sleep: async () => { slept += 1; } });
   assert.deepEqual(both.missing, [2, 3], "every missing round is named, not just the first");
   assert.deepEqual(both.timedOut, []);
   assert.equal(slept, 0, "a missing round is reported immediately, never waited on");
@@ -1631,9 +1634,9 @@ test("R25: the close-out wait reports every missing round and never waits on one
   // lands -- a check that reported everything missing would pass the
   // assertions above and break the step's actual job.
   fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
-  assert.equal(roundState(dir, 2), "pending", "dispatched and not yet returned is its own state, never 'missing'");
+  assert.equal(roundState(root, PR, 2), "pending", "dispatched and not yet returned is its own state, never 'missing'");
   let ticks = 0;
-  const landed = await waitForRounds(dir, 2, {
+  const landed = await waitForRounds(root, PR, 2, {
     sleep: async () => {
       ticks += 1;
       if (ticks === 2) fs.writeFileSync(path.join(dir, "d0-r2.exit"), "1\n");
@@ -1647,10 +1650,10 @@ test("R25: the close-out wait reports every missing round and never waits on one
   // a dispatch that never returns must end as a report, not as a hang.
   fs.rmSync(path.join(dir, "d0-r2.exit"));
   let clock = 0;
-  const stuck = await waitForRounds(dir, 2, { timeoutMs: 30, pollMs: 10, now: () => (clock += 10), sleep: async () => {} });
+  const stuck = await waitForRounds(root, PR, 2, { timeoutMs: 30, pollMs: 10, now: () => (clock += 10), sleep: async () => {} });
   assert.deepEqual(stuck.timedOut, [2], "an unfinished dispatch is reported, not waited on forever");
 
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test("R25: close-out reads the position and refuses a missing, stale or foreign one", async () => {
@@ -1986,4 +1989,47 @@ test("R26: close-out's bound is the floored round, so a regressed pass history c
     assert.match(said.join(""), /round\(s\) 2 --/, "and still names round 2, which the regressed history had dropped");
     fs.rmSync(root, { recursive: true, force: true });
   });
+});
+
+test("R27: the receipt outranks the exit file, and each covers what the other cannot", () => {
+  // Codex asked for proof of David-facing delivery (#87 round 1). That is not
+  // reachable -- the paste and the Artifact publish are tool calls no script
+  // here observes -- but the premise was right and pulling on it found this:
+  // the exit file is written by the recipe's shell as `echo $? > …`, which
+  // runs REGARDLESS of the dispatch's exit code, while the receipt is written
+  // by fable-dispatch.mjs only on a real outcome.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-evidence-"));
+  const PR = 501;
+  const dir = reviewsDir(root, PR);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.join(root, ".agents", "receipts"), { recursive: true });
+  const receipt = (r, body) =>
+    fs.writeFileSync(
+      path.join(root, ".agents", "receipts", `fable-round-translation-${PR}-${r}.json`),
+      JSON.stringify({ role: "round-translation", pr: PR, round: r, ...body }),
+    );
+
+  // 1. A receipt alone is enough -- this is a round dispatched outside the
+  //    recipe, which leaves no exit file and is nonetheless fully accounted.
+  receipt(1, { finishedAt: "2026-09-14T00:00:00Z" });
+  assert.equal(roundState(root, PR, 1), "done", "a machinery-written receipt needs no shell artifact beside it");
+
+  // 2. A by-design SKIP is a receipt too, so the round that raised nothing and
+  //    prompted no push still counts as an account.
+  receipt(2, { skipped: true, reason: "no findings and nothing pushed since the reviewed commit" });
+  assert.equal(roundState(root, PR, 2), "done", "a skip recorded by the machinery is an account, not an absence");
+
+  // 3. An exit file alone still passes, and it must: a dispatch that RAN and
+  //    FAILED gives David the fixed `translation unavailable` notice, which
+  //    the contract accepts as that round's account. This is the rung below,
+  //    not an equal.
+  fs.writeFileSync(path.join(dir, "d0-r3.exit"), "1\n");
+  assert.equal(roundState(root, PR, 3), "done", "an attempted dispatch that failed is still an account");
+
+  // 4. Neither is the only failure, and it is #85's shape.
+  assert.equal(roundState(root, PR, 4), "missing");
+  fs.writeFileSync(path.join(dir, "snap-r5.json"), "{}");
+  assert.equal(roundState(root, PR, 5), "pending", "a snapshot with no outcome is not an account");
+
+  fs.rmSync(root, { recursive: true, force: true });
 });
