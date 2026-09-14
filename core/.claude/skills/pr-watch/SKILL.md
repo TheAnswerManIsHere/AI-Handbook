@@ -881,13 +881,22 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   existed. One command, beside the round translations:
 
   ```
-  node scripts/gaps-translation.mjs --pr <n>     # builds the brief from the committed verdicts
+  node scripts/fable-dispatch.mjs --role gaps-translation --pr <n>
   ```
 
-  Dispatch it like any other role (`--role gaps-translation --pr <n>`) and put
-  what comes back in the merge ask, under the receipt. It gates nothing: if it
-  fails, the gaps are still in the verdict files and the merge is unaffected.
-  Skip it when the loop converged clean, since there is nothing to translate.
+  That is the whole step. The dispatcher composes the brief itself, out of the
+  **terminal** verdict's gaps — a `continue` verdict's were written for in the
+  rounds that followed, and reporting those as shipped tells him the opposite
+  of the truth (#88 round 1). Put what comes back in the merge ask, under the
+  receipt.
+
+  `node scripts/gaps-translation.mjs --pr <n>` writes the same brief to a file
+  without dispatching, which is a **preview** for my own eyes and never a
+  prerequisite — running it first changes nothing about the command above.
+
+  It gates nothing: if it fails, the gaps are still in the verdict files and
+  the merge is unaffected. Skip it when the loop converged clean, since there
+  is nothing to translate.
 - **Two numbers go in the close-out harvest comment**: dispatches run, and
   disagreements flagged. That is the whole measurement, and it is what the
   retirement rule reads. Receipts are gitignored evidence; nothing else

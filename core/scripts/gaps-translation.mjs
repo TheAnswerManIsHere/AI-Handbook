@@ -47,7 +47,26 @@ import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
 export const gapsPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "gaps.md");
 
 /**
- * Every gap this PR's verdicts recorded, in the order they were decided.
+ * Verdicts that END a loop. Only `continue` reopens it, so everything else
+ * here is the round after which nothing more was written.
+ */
+export const TERMINAL_VERDICTS = new Set(["ship-with-gaps-recorded", "split", "escalate"]);
+
+/**
+ * The gaps this PR is actually SHIPPING -- the terminal verdict's, and no
+ * other's.
+ *
+ * A `continue` verdict also carries a `gaps` array, and collecting it was
+ * wrong in the one way that matters: those findings were WRITTEN FOR in the
+ * rounds that followed, so presenting them to David as known defects he is
+ * merging tells him the opposite of the truth. Measured on PR 79 -- four gaps
+ * from a `continue` verdict and three from the terminal one, all seven
+ * reported as shipped (Codex, #88 round 1).
+ *
+ * Filtering `continue` rather than picking the last file is the same thing
+ * said more safely: a loop ends AT its first terminal verdict, so at most one
+ * survives, and a loop still running has none -- which is correct, because a
+ * loop still running is shipping nothing.
  *
  * A verdict file that will not parse, or carries no `gaps`, is skipped rather
  * than refused: one unreadable file should not cost David the other three
@@ -68,6 +87,7 @@ export function gapsFor(root, pr, { dir = ADJUDICATIONS_DIR, read = fs.readFileS
       continue;
     }
     const o = v.verdict ?? v;
+    if (!TERMINAL_VERDICTS.has(o.verdict)) continue;
     for (const text of Array.isArray(o.gaps) ? o.gaps : []) {
       if (typeof text === "string" && text.trim()) out.push({ from: name, verdict: o.verdict ?? null, text: text.trim() });
     }

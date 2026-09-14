@@ -571,6 +571,74 @@ test("R30: the gaps translator turns recorded gaps into a brief, and nothing els
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+// ---------------------------------------------------------------------------
+// Round 1 of PR #88 — one regression test per finding. Findings 1 and 2 were
+// one failure with two symptoms: I registered the role and never ran the
+// command I documented. These are what running it would have said.
+// ---------------------------------------------------------------------------
+
+test("R31: only the TERMINAL verdict's gaps are shipped gaps", () => {
+  // Before the fix: a `continue` verdict also carries a `gaps` array, so a
+  // loop that raised findings, FIXED them, and stopped later handed David the
+  // repaired ones as defects he was merging with. Measured on the real PR 79
+  // data: 7 reported, 3 actually shipped (Codex, #88 round 1).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d3-terminal-"));
+  const adj = path.join(root, ".agents", "adjudications");
+  fs.mkdirSync(adj, { recursive: true });
+  const verdict = (name, body) => fs.writeFileSync(path.join(adj, name), JSON.stringify(body));
+
+  verdict("79-1.verdict.json", { verdict: { verdict: "continue", gaps: ["written for in round 2", "and this one too"] } });
+  verdict("79-2.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["actually shipped"] } });
+
+  assert.deepEqual(gapsFor(root, 79).map((g) => g.text), ["actually shipped"]);
+
+  // A loop still running has stopped nothing, so it is shipping nothing --
+  // not an error, just an empty answer the caller already handles.
+  verdict("90-1.verdict.json", { verdict: { verdict: "continue", gaps: ["still being worked"] } });
+  assert.deepEqual(gapsFor(root, 90), []);
+
+  // `split` and `escalate` end a loop too, so their gaps are real.
+  verdict("91-1.verdict.json", { verdict: { verdict: "split", gaps: ["split out, still shipped"] } });
+  assert.deepEqual(gapsFor(root, 91).map((g) => g.text), ["split out, still shipped"]);
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R32: the generic dispatch path hands the role its material", () => {
+  // Before the fix: `main()` called `dispatch({ root, role, timeoutSec })`
+  // with no `input`, so the gaps generator got neither `pr` nor `root` and
+  // `path.join(undefined, dir)` threw before any reviewer ran. Asserted
+  // against the source because the failure was a missing argument at a call
+  // site, and a test that stubbed the call site could not see it.
+  const src = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
+  const calls = src.split("\n").filter((l) => l.includes("receipt = dispatch({"));
+  assert.equal(calls.length, 2, "two call sites: runTranslation's and main's generic one");
+  for (const c of calls) assert.match(c, /input: \{/, "no call site omits the role's material");
+  const generic = calls.find((c) => !c.includes("record"));
+  assert.ok(generic, "main()'s generic path is still a separate call");
+  assert.match(generic, /input: \{[^}]*pr: args\.pr/, "and it passes the PR it parsed");
+  assert.match(generic, /input: \{[^}]*root/, "and the root it derived");
+});
+
+test("R33: the gaps role ships a definition and schema that satisfy the launch contract", () => {
+  // Before the fix there was no definition at all, and the documented command
+  // stopped in `readDefinitionAt()` with "no definition for role" -- so the
+  // feature could not run in this repo or any synced consumer.
+  const dir = fs.existsSync("core/.agents/fable-roles") ? "core/.agents/fable-roles" : ".agents/fable-roles";
+  const definitionPath = path.join(dir, "fable-gaps-translation.md");
+  const text = fs.readFileSync(definitionPath, "utf8");
+  const contract = roleContract(text, { role: "gaps-translation", definitionPath, definitionCommit: "HEAD" });
+  assert.deepEqual(contract.tools, [], "`tools: none` is an explicit empty allowlist, not an omission");
+  assert.equal(contract.modelTier, "strongestClaude", "a tier, never a version");
+  assert.ok(contract.budgetUsd > 0);
+  const schema = JSON.parse(fs.readFileSync(path.join(dir, contract.schemaPath), "utf8"));
+  assert.deepEqual(schema.required.sort(), ["ask_before_merging", "defects", "how_worried"]);
+  assert.equal(schema.additionalProperties, false);
+  assert.match(contract.systemPrompt, /cannot read code/, "the role's own text names its reader");
+  assert.match(contract.systemPrompt, /hold no tools/, "and says it has no file to open");
+  assert.match(contract.systemPrompt, /decide nothing/, "and that it gates nothing");
+});
+
 test("each role takes only its own flags, and all of them are data", () => {
   assert.throws(() => parseArgs(["--role", "probe", "--pr", "81"]), /role "probe" does not take --pr/);
   assert.throws(() => parseArgs(["--role", "round-translation", "--pr", "81", "--round", "3"]), /requires --mcp-snapshot/);

@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "defects": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One short paragraph per defect, in the order the brief lists them, for a product owner who cannot read code: what actually stops working in terms of something he would notice, when it would happen and how likely that is in ordinary use, and what it would cost him. Prose, in whatever shape reads best -- no headings, no code, nothing to fill in."
+    },
+    "how_worried": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One closing paragraph: taken together, how worried should he be about merging with these? Say plainly when the answer is 'not at all' -- a summary that treats every defect as equally serious tells him nothing."
+    },
+    "ask_before_merging": {
+      "type": ["string", "null"],
+      "description": "One line naming the single defect worth raising with the builder before he merges, and what to ask. null when there genuinely isn't one -- which is a real and often correct answer, never a gap to fill."
+    }
+  },
+  "required": ["defects", "how_worried", "ask_before_merging"],
+  "additionalProperties": false
+}

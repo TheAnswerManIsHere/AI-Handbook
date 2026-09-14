@@ -1589,7 +1589,15 @@ export function main(argv = process.argv.slice(2)) {
 
   let receipt;
   try {
-    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout });
+    // The role's own material. Every value here is DATA this script parsed or
+    // derived -- a number off the command line, the root this file found by
+    // walking to `.git` -- and a generator that does not want it ignores it
+    // (the probe's takes only its nonce). What must never appear here is text
+    // a caller wrote, which is why the flag table admits numbers and paths and
+    // nothing else. Omitting it was #88's round-1 defect: the gaps generator
+    // needs `pr` and `root`, received neither, and threw before any reviewer
+    // ran.
+    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
     if (Array.isArray(e.attempts) && e.attempts.length) {
