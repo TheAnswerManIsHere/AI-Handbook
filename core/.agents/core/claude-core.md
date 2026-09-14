@@ -624,8 +624,15 @@ from the Repl, which tracks `main`, so code on my branch exists nowhere David
 can click. Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
-resolved.** That is the whole bar, for product and internal PRs alike. CI and
-Codex catch *broken*; David's UAT catches *wrong*, after the sync.
+resolved + every round translated for David.** That is the whole bar, for
+product and internal PRs alike. CI and Codex catch *broken*; David's UAT
+catches *wrong*, after the sync.
+
+**The fourth item is proved by `pr-ready.mjs`, not by my recollection**
+(AI-Handbook #85, 2026-09-13, where the other three passed while it was
+missing). Translated, skipped by design, or refused with a reason all count;
+a round with no record at all fails. Why it had to become mechanical:
+`pr-watch`.
 
 - **Every PR gets a Codex review and none merges before it returns.** A round I
   requested but haven't received is not convergence. A pass on a commit I have

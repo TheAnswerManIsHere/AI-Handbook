@@ -1,0 +1,9 @@
+{
+  "pr": 87,
+  "kind": "david",
+  "grant": 1,
+  "asOf": 5,
+  "authorization": "Are you fucking kidding me you still can't solve a simple task of recording when something got delivered properly why not",
+  "decidedAt": "2026-09-14T02:45:00Z",
+  "reasoning": "He is right, and the defect is real rather than a matter of taste: delivered.json is under .agents/reviews/, which is gitignored, so the file I told him was 'the file you asked for' lives in one ephemeral container and he can never read it. It records delivery to a script, not to him. This grant opens the round that adds the committed, human-readable, append-only log at .agents/deliveries.md. Same shape as his 2026-09-14 instruction that opened round 4: a product decision about what the artifact is for, not a mechanical round."
+}

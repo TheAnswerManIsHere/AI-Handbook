@@ -1,0 +1,67 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 87,
+  "recordPath": ".agents/adjudications/87-3.json",
+  "recordSha256": "266f423eebaf61c5864f3eb7d1e41010d0c5f74e6549fe46b8ed1b256c07fc5c",
+  "toolUseId": "toolu_018bTiHQ9RFLLQ9ngh4HjKWe",
+  "agentId": "a45166fea54ec8a4d",
+  "decidedAt": "2026-09-14T01:41:16.682Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, budget 3, allowance 4 with David's one-round grant now spent (roundsSpent 4) — this is a David gate, so the verdict is a recommendation, and it lands on a head round 4 already reviewed (sinceLastReview: 0 commits, head == lastReviewedCommit d8b62f4d). Neither open finding clears the internal bar: the record-delivery race (PRRT_kwDOUKOPKc6h93eS) is real — recordDelivery re-enumerates receipts and exit files at invocation rather than capturing what publishPage rendered — but it requires a dispatch to land in the seconds between the publish and the next line of the same step, and its worst outcome is a newly-added reminder being one round stale, not a destructive action, a false CI/Codex/threads receipt, or widened authority. The SKILL.md contradiction (PRRT_kwDOUKOPKc6h93eV) is verified against the diff and genuine, but it is prose in an agent contract — explicitly excluded from qualifying as a behavioral risk — and the step it muddies is enforced mechanically in three independent places (close-out exit 1, checkTranslations, checkMerge), so an agent misled by it is still refused. Rounds 2 and 4 have now produced four findings in one family — that the marker cannot prove the account reached David — which is the irreducible ceiling the code itself names, and hardening a mistake-catcher against its own operator is the #7 shape the threat model in this very record tells me to decline.",
+    "gaps": [
+      "record-delivery.mjs re-reads all receipts and exit files at invocation instead of the round set publishPage actually rendered, so a round whose account lands between the Artifact publish and the record-delivery call is written into delivered.json and becomes `done` although the published page did not carry it (PRRT_kwDOUKOPKc6h93eS).",
+      "core/.claude/skills/pr-watch/SKILL.md keeps the paragraph saying a \"delivered\" flag would be \"exactly as strong as the exit file, which is to say not at all\", while the same file now mandates record-delivery.mjs and states the merge gate refuses any round not on that list; the reconciliation (lying vs. forgetting) exists only in the record-delivery.mjs and loop-position.mjs headers (PRRT_kwDOUKOPKc6h93eV).",
+      "checkMerge's new translations-completeness refusal is not shared with the `--show` carve-out path in pr-ready.mjs — no hunk in the diff adds it there — so during the one-hour post-sync window a pre-change READY receipt could still be quoted to David for a manual merge (PRRT_kwDOUKOPKc6h9j8q).",
+      "An exit-file-only round is delivered as the fixed \"translation unavailable\" notice, and nothing observes that the operator actually pasted it; the chat paste and the Artifact publish remain tool calls no script here sees (the ceiling the diff names and does not close)."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9a1z",
+        "class": "in-scope",
+        "citation": "core/scripts/loop-position.mjs — roundState() hunk",
+        "why": "At the reviewed head an exit file alone marked a round done, so the premise held and the increment's own subsequent record-delivery.mjs header concedes the premise was right even though the literal remedy (evidence from the delivery surface) is unreachable."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9a10",
+        "class": "in-scope",
+        "citation": "core/scripts/guard-decision.mjs @@ -1718 (checkMerge) and core/scripts/pr-ready.mjs @@ -1707 (items.translations)",
+        "why": "A producer-side item added without a consumer-side presence check is a real rollout window, and the diff's own added hunk in checkMerge confirms it by closing it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9j8q",
+        "class": "in-scope",
+        "citation": "core/scripts/pr-ready.mjs — no hunk in artifact.patch extends the items-presence refusal to the `--show` path",
+        "why": "The completeness refusal exists only in checkMerge in this diff, so the carve-out path that prints a receipt block to David can still emit a pre-change READY during the rollout window; consequence is small and self-limiting, but the premise holds."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9j8u",
+        "class": "in-scope",
+        "citation": "core/scripts/loop-position.mjs — roundState(): `if (exists(path.join(dir, \\`d0-r${r}.exit\\`))) return \"undelivered\";`",
+        "why": "The unconditional `echo $?` really does leave an exit file for a dispatch that died before fable-dispatch could act, and the increment acted on it by demoting an exit-only round from done to undelivered."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9j8z",
+        "class": "in-scope",
+        "citation": "core/scripts/loop-position.mjs — roundState(): a receipt now returns \"undelivered\", not \"done\"",
+        "why": "The receipt-written-before-publish window was a real completion-signal error at the reviewed head, and the same diff resolves it by making delivery a separate state rather than treating the receipt as completion."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h93eS",
+        "class": "in-scope",
+        "citation": "core/scripts/record-delivery.mjs — recordDelivery(): `const onPage = receipts(root, pr).map((r) => r.round);` with `attempted(root, pr)`, both read at invocation time",
+        "why": "The premise holds against the diff — the delivered round set is re-derived from live directories rather than from what the publish actually carried — so it is a real defect in this increment, merely not a critical one under the internal bar."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h93eV",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md — added block (\"a 'delivered' flag … not at all\") against the added delivery step (\"The merge gate refuses any round not on that list\") in the same diff",
+        "why": "Both statements are in the file this increment wrote and they are mutually incompatible as written, so the finding is a genuine defect in the increment's own artifact rather than a matter of wording preference."
+      }
+    ]
+  }
+}

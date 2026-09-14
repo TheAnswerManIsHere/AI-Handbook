@@ -840,6 +840,25 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   account of the independent account. Publish the rendered page
   (`.agents/reviews/pr-<n>/translation.html`) as the PR's Artifact page,
   redeployed in place, so one link stays current for the whole loop.
+  **Then record that it went out — the last line of the delivery step, every
+  time** (David, 2026-09-14):
+
+  ```
+  node scripts/record-delivery.mjs --pr <n> --url <the artifact URL the publish returned>
+  ```
+
+  It writes **two** files, and the difference matters:
+
+  - `.agents/reviews/pr-<n>/delivered.json` — the **gate's** copy. Per-PR,
+    machine-shaped, gitignored, so it lives only in this container. The merge
+    gate refuses any round not on its list: an account that exists but was
+    never shown is the #85 failure one step later, and a forgotten step leaves
+    no file. A round landing after the last delivery is refused until the page
+    goes out again with it — the merge ask cannot ride a page one round behind.
+  - `.agents/deliveries.md` — **David's** copy, and the one he actually asked
+    for. Committed, appended, one plain line per delivery. **Commit it with the
+    round's other bookkeeping**; a delivery record he cannot see is not a
+    record, which is exactly what the first version of this got wrong.
 - **If it refuses or fails**, the script prints the fixed notice (*translation
   unavailable — …*). Paste that instead. Never summarise what it would have
   said.
@@ -854,6 +873,80 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   disagreements flagged. That is the whole measurement, and it is what the
   retirement rule reads. Receipts are gitignored evidence; nothing else
   records this.
+
+### The merge gate proves the translations ran (AI-Handbook #85)
+
+`pr-ready.mjs` has a fourth item, `Rounds translated`, and it is the reason
+the merge bar in `claude-core.md` grew from three items to four.
+
+**What it is for.** PR #85 merged with three review rounds and **zero**
+translations. The receipt said READY, because the receipt proved CI, Codex and
+threads and nothing else. Nothing anywhere refused it, and the omission was
+found days later by reading the receipt directory, not by any check.
+
+**Why that was structural rather than a slip.** This workstream's founding
+guarantee is that the builder cannot slant what a Fable role *reads* — every
+dispatch is script-assembled from unslantable inputs. It says nothing about
+whether the builder *invokes* the role. Every David-facing role is fired by
+hand, by me, from a skill's prose, and I am the party with the least incentive
+to fire it: it costs money, it costs time, and its output is criticism of my
+own work. The close-out check that catches a missing round already existed
+(`round-translation-closeout.mjs`) — it just had nothing forcing it to run.
+
+**What passes, and on which evidence — two artifacts, in this order.**
+
+- The **receipt** (`.agents/receipts/fable-round-translation-<pr>-<r>.json`) is
+  written by `fable-dispatch.mjs` itself, on a real outcome: a translation or a
+  by-design skip. Machinery-written, so it is the strong evidence and it is
+  checked first. It also covers a round dispatched outside the recipe, which
+  leaves no exit file at all.
+- The **exit file** (`d0-r<r>.exit`) is written by the recipe's shell as
+  `echo $? > …`, which runs **regardless of the dispatch's exit code**. So it
+  cannot mean "this round has an account" on its own — a dispatch that crashed
+  leaves one too. What it does mean is *the dispatch was attempted*, and an
+  attempt that failed is a round where David gets the fixed **translation
+  unavailable** notice, which the contract accepts as that round's account. It
+  passes, one rung down.
+
+Checking only the exit file passes a round whose dispatch died; checking only
+the receipt refuses a round that legitimately came back unavailable. The
+ordering is what makes both come out right. What fails is a round with
+**neither** — never attempted. That is #85's shape and only that shape, and it
+is the same "ran and allowed" versus "never ran" distinction AI-Handbook #16
+names in the guard.
+
+**The receipt must also SAY it weighed this.** `checkMerge` refuses a READY
+receipt with no `translations` item — otherwise, for the hour after this
+change reaches a repo, every receipt minted by the previous version still said
+READY and the hook still honoured it, merging a PR with no round accounts
+during the very rollout meant to stop that. Same doctrine as `repo` and
+`requiredChecks`: stamp on mint, compare on consume. (Codex, #87 round 1.)
+
+**What none of it proves is that the account reached David.** The chat paste
+and the Artifact publish are tool calls no script here observes. That ceiling
+is real and recorded rather than papered over: a "delivered" flag written by
+the same hand that forgets to deliver would be exactly as strong as the exit
+file, which is to say not at all.
+
+**It fails closed on absent evidence**, like every other path in that file: no
+loop position, a position written for another repository, or one older than the
+freshness bound all refuse, because none of them can rule out a missing
+account. The bound is always the position's round — the contract gives that
+exactly one home, and a merge gate that counted rounds itself would be the
+second and would disagree with close-out on precisely the loops that matter.
+
+**The cost, named rather than discovered.** `.agents/reviews/` is gitignored,
+so a **fresh container has no exit files**. A loop that spans two sessions will
+refuse at the gate until its rounds are re-dispatched — roughly $0.50 a round.
+That is the accepted price of the check, and re-dispatching is the correct
+remedy rather than a workaround: it is what should have happened on #85.
+
+**This is not a lock whose key is on my own ring.** David's 2026-09-11 rule
+refuses defences against the builder's influence on the builder's own tools,
+and it stands — I could skip `pr-ready.mjs` entirely. The same rule keeps
+scripts that *catch mistakes whose outcome David would notice*, and this is
+exactly that class: #85 was a forgetting, and its outcome is David not getting
+what he is owed.
 
 ## Keeping the workstream issue's labels current
 

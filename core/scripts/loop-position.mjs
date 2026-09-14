@@ -39,8 +39,88 @@ import { pathToFileURL } from "node:url";
 
 import { reviewerPasses, capturedAtOf, sameCommit, MAX_SNAPSHOT_AGE_MS } from "./review-counting.mjs";
 import { countRounds, loadLoop, allowance, nodeIo, REPO_ROOT, repoSlug } from "./review-budget.mjs";
+import { receiptsFor } from "./round-translation-page.mjs";
 
-export const positionPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "loop-position.json");
+/**
+ * Where a PR's round artifacts live -- the position, the per-round snapshots,
+ * and the translation exit files beside them.
+ *
+ * ONE CONSTRUCTION OF THIS PATH, deliberately. It was built here and again in
+ * `round-translation-closeout.mjs`, and the merge gate now needs it for a
+ * third reader. Two copies agreeing is luck; three is the shape this repo
+ * exists to eliminate, so the locator moved to the file that already owns
+ * "where is this loop, on disk" and the other callers import it.
+ */
+export const reviewsDir = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`);
+
+export const positionPath = (root, pr) => path.join(reviewsDir(root, pr), "loop-position.json");
+
+/**
+ * Where the delivery record lives, and how to read it. Written by
+ * `record-delivery.mjs` as the last line of the delivery step; read here so
+ * the two consumers of "was this round delivered" share one reader.
+ */
+export const deliveryPath = (root, pr) => path.join(reviewsDir(root, pr), "delivered.json");
+
+export function delivery(root, pr, { exists = fs.existsSync, read = (f) => fs.readFileSync(f, "utf8") } = {}) {
+  const file = deliveryPath(root, pr);
+  if (!exists(file)) return null;
+  const d = JSON.parse(read(file));
+  return Array.isArray(d.rounds) ? d : null;
+}
+
+/**
+ * Classify one round's translation from what is on disk. Three states, not two.
+ *
+ * "Done" and "missing" would collapse the case that matters: a round that was
+ * dispatched and has not returned yet is not a round with no account, and
+ * treating it as one would refuse on a translation that is simply still
+ * running. The two readers act on that difference in opposite ways -- the
+ * close-out WAITS on `pending`, the merge gate REFUSES it -- which is exactly
+ * why the classification lives in one place and the policy does not.
+ *
+ * TWO ARTIFACTS, IN THIS ORDER, AND NEITHER ALONE IS RIGHT (Codex, #87 round
+ * 1, which asked for something else and was right about the premise):
+ *
+ *   - The RECEIPT is written by `fable-dispatch.mjs` itself, on a real outcome
+ *     -- a translation or a by-design skip. Machinery-written, so it is the
+ *     strong evidence and it is checked first.
+ *   - The EXIT FILE is written by the recipe's shell (`echo $? > …`), which
+ *     runs REGARDLESS of the dispatch's exit code. So it cannot mean "this
+ *     round has an account" on its own: a dispatch that crashed leaves one
+ *     too. What it does mean is "the dispatch was attempted", and a dispatch
+ *     that ran and failed is a round where David gets the fixed *translation
+ *     unavailable* notice -- which the contract accepts as that round's
+ *     account. So it passes, one rung down.
+ *
+ * Checking only the exit file would pass a round whose dispatch died; checking
+ * only the receipt would refuse a round that legitimately came back
+ * unavailable, and refuse every round dispatched outside the recipe. The
+ * ordering is what makes both come out right.
+ *
+ * AND ABOVE BOTH, THE DELIVERY RECORD (David, 2026-09-14: "write a file that
+ * tells me that you delivered the artifact"). Neither artifact below it says
+ * the account reached David; the page is published and the line is pasted
+ * by hand, after the dispatch returns. `record-delivery.mjs` writes
+ * `delivered.json` as the last line of that step, naming the rounds it
+ * carried. A round that is on that list is DONE. A round with an account but
+ * not on that list is UNDELIVERED -- produced, never shown -- and the gate
+ * refuses it, which is the #85 failure one step later: the step was
+ * forgotten, so the file is absent, so the merge does not go out.
+ *
+ * This is not a defence against a false marker; David's rule already says
+ * none is built. It is a defence against the forgotten step, which is the
+ * failure that actually happened.
+ */
+export function roundState(root, pr, r, { exists = fs.existsSync, receipts = receiptsFor, delivered = delivery } = {}) {
+  const d = delivered(root, pr);
+  if (d && d.rounds.includes(r)) return "done";
+  if (receipts(root, pr).some((rc) => rc.round === r)) return "undelivered";
+  const dir = reviewsDir(root, pr);
+  if (exists(path.join(dir, `d0-r${r}.exit`))) return "undelivered";
+  if (exists(path.join(dir, `snap-r${r}.json`))) return "pending";
+  return "missing";
+}
 
 /**
  * The collections the position is actually derived FROM, which is not all four.
