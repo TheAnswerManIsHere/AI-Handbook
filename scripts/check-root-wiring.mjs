@@ -70,6 +70,7 @@ const WIRED = [
 const MIRRORED_GITIGNORES = [
   { payload: "core/.agents/receipts/.gitignore", root: ".agents/receipts/.gitignore", holds: "ephemeral receipt" },
   { payload: "core/.agents/captures/.gitignore", root: ".agents/captures/.gitignore", holds: "recovered API capture" },
+  { payload: "core/.agents/reviews/.gitignore", root: ".agents/reviews/.gitignore", holds: "per-PR review snapshot" },
 ];
 
 const patternLines = (text) =>

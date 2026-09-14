@@ -22,20 +22,27 @@ function fixture() {
   mkdirSync(join(root, "core/.claude/agents"), { recursive: true });
   mkdirSync(join(root, "core/.agents/receipts"), { recursive: true });
   mkdirSync(join(root, "core/.agents/captures"), { recursive: true });
+  mkdirSync(join(root, "core/.agents/reviews"), { recursive: true });
   mkdirSync(join(root, ".claude/skills"), { recursive: true });
   mkdirSync(join(root, ".claude/agents"), { recursive: true });
   mkdirSync(join(root, ".agents/receipts"), { recursive: true });
   mkdirSync(join(root, ".agents/captures"), { recursive: true });
+  mkdirSync(join(root, ".agents/reviews"), { recursive: true });
 
   writeFileSync(join(root, "core/.claude/skills/alpha/SKILL.md"), "alpha");
   writeFileSync(join(root, "core/.claude/skills/beta/SKILL.md"), "beta");
   writeFileSync(join(root, "core/.claude/agents/one.md"), "one");
   writeFileSync(join(root, "core/.agents/receipts/.gitignore"), IGNORE);
   writeFileSync(join(root, ".agents/receipts/.gitignore"), IGNORE);
-  // The second mirrored pair. Every failure case below edits the RECEIPTS
-  // copy, so this one stays wired and the assertions still count one problem.
+  // The second and third mirrored pairs. Every failure case below edits the
+  // RECEIPTS copy, so these stay wired and the assertions still count one
+  // problem. Each pair MUST be built here: an unbuilt pair is a missing-file
+  // problem in every test, which is how adding the reviews pair turned all
+  // ten of these red at once. (AI-Handbook #91 round 2.)
   writeFileSync(join(root, "core/.agents/captures/.gitignore"), CAPTURES_IGNORE);
   writeFileSync(join(root, ".agents/captures/.gitignore"), CAPTURES_IGNORE);
+  writeFileSync(join(root, "core/.agents/reviews/.gitignore"), CAPTURES_IGNORE);
+  writeFileSync(join(root, ".agents/reviews/.gitignore"), CAPTURES_IGNORE);
 
   symlinkSync("../../core/.claude/skills/alpha", join(root, ".claude/skills/alpha"));
   symlinkSync("../../core/.claude/skills/beta", join(root, ".claude/skills/beta"));
