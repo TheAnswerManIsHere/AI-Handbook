@@ -1,0 +1,9 @@
+{
+  "pr": 88,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 3,
+  "authorization": "David's standing grant of 2026-09-07: a mechanical round -- the head moved only by bookkeeping (receipts, records, machinery config, a merge of the base branch), no finding being written for, no review or verdict pending -- is mine to grant once per loop at an exhausted allowance, as grant 2 asOf the completed count.",
+  "decidedAt": "2026-09-14T05:17:00Z",
+  "reasoning": "Allowance 3 is spent at round 3, which returned clean on 9bc4e8e. The head has since moved by exactly one bookkeeping commit, 98dfec1, which appends one line to .agents/deliveries.md recording that rounds 2 and 3 went out to David -- a write the contract requires AFTER the trigger, so it can never ride the commit the trigger covered. No finding is being written for and no verdict is pending. This is the third time on this pull request that the delivery-log commit has collided with the record or merge machinery; it is recorded as a follow-up gap, and this receipt is the contract's own remedy for the instance in front of it. Grant 2 rather than 1 only because the pass must cover this receipt too."
+}
