@@ -1,0 +1,9 @@
+{
+  "pr": 87,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 4,
+  "authorization": "David's standing grant of 2026-09-07: a mechanical round -- the head moved only by bookkeeping (receipts, records, machinery config, a merge of the base branch), no finding being written for, no review or verdict pending -- is mine to grant once per loop at an exhausted allowance, as grant 2 asOf the completed count.",
+  "decidedAt": "2026-09-14T01:44:00Z",
+  "reasoning": "Allowance 4 (budget 3 + David's one-round grant) is spent at round 4. Round 4's adjudication returned ship-with-gaps-recorded, grant 0; both findings recorded, no fix written. The head has since moved by two bookkeeping commits only -- the round-4 record and its verdict -- and the write-gate invariant is that no commit merges unreviewed. This is the mechanical round the standing grant exists for. Grant 2 rather than 1 only because the pass must cover this receipt too, which is one more commit; nothing behavioral rides it."
+}
