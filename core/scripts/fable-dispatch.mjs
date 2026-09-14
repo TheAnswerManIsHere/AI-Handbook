@@ -1611,27 +1611,34 @@ const FILE_WRITERS = {
 
 export const writesAFile = (role) => Object.hasOwn(FILE_WRITERS, role);
 
-export function runFileRole(root, args) {
+export function runFileRole(root, args, { dispatchFn = dispatch, io = process } = {}) {
+  // INJECTED FOR THE SAME REASON `dispatch` TAKES A `runner`: this is the
+  // delivery path, and the delivery path is where BOTH of #88's real defects
+  // lived -- the role that could not launch, and the answer that reached
+  // nobody. A test that reads this file as text and pattern-matches proves the
+  // words are present, not that the thing works, which is precisely the
+  // distinction that let "verified end to end" be wrong twice (Fable's D2
+  // brief on #88, which is the first thing this role found).
   const { write, label } = FILE_WRITERS[args.role];
   let receipt;
   try {
-    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
+    receipt = dispatchFn({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
   } catch (e) {
-    process.stderr.write(`fable-dispatch: ${e.message}\n`);
+    io.stderr.write(`fable-dispatch: ${e.message}\n`);
     return e.exitCode ?? 1;
   }
   const out = receiptPathFor(root, receipt);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
-  process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
+  io.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
   try {
     const file = write(root, args.pr, receipt.output);
-    process.stderr.write(`fable-dispatch: ${label} -> ${path.relative(root, file)}\n`);
-    process.stdout.write(fs.readFileSync(file, "utf8"));
+    io.stderr.write(`fable-dispatch: ${label} -> ${path.relative(root, file)}\n`);
+    io.stdout.write(fs.readFileSync(file, "utf8"));
     return 0;
   } catch (e) {
-    process.stderr.write(`fable-dispatch: the answer arrived but could not be written: ${e.message}\n`);
-    process.stderr.write(`fable-dispatch: it is in ${path.relative(root, out)} under \`output\`\n`);
+    io.stderr.write(`fable-dispatch: the answer arrived but could not be written: ${e.message}\n`);
+    io.stderr.write(`fable-dispatch: it is in ${path.relative(root, out)} under \`output\`\n`);
     return 1;
   }
 }

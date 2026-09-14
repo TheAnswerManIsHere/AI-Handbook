@@ -29,7 +29,7 @@ import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { recordDelivery, parseArgs as parseDeliveryArgs, LOG_PATH } from "../record-delivery.mjs";
 import { gapsFor, gapsBrief, renderGaps, writeGaps, gapsPath } from "../gaps-translation.mjs";
 import { latestRecordFor, mergeBrief, renderMerge, writeMerge, mergePath, inputsFor } from "../merge-brief.mjs";
-import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation, writesAFile } from "../fable-dispatch.mjs";
+import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation, writesAFile, runFileRole } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
 const PR = 81;
@@ -629,11 +629,19 @@ test("R32: the generic dispatch path hands the role its material", () => {
   // against the source because the failure was a missing argument at a call
   // site, and a test that stubbed the call site could not see it.
   const src = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
-  const calls = src.split("\n").filter((l) => l.includes("receipt = dispatch({"));
-  assert.ok(calls.length >= 2, "runTranslation, runGaps, and main's generic path");
+  // NARROWED, because R42 now DRIVES the file-role path and asserts the input
+  // arrives -- which is strictly better evidence than matching this file's own
+  // text. What is left here is the one call site R42 cannot reach: `main()`'s
+  // generic fallback, for the probe and for any future role that does not
+  // write a file. A source-text assertion is the weakest useful test, so it
+  // covers only what nothing else covers.
+  const calls = src.split("\n").filter((l) => /receipt = dispatchFn\(\{|receipt = dispatch\(\{/.test(l));
+  assert.ok(calls.length >= 2, "runTranslation, runFileRole, and main's generic path");
   for (const c of calls) assert.match(c, /input: \{/, "NO call site omits the role's material");
-  const withPr = calls.filter((c) => /input: \{[^}]*pr: args\.pr/.test(c) && /input: \{[^}]*root/.test(c));
-  assert.ok(withPr.length >= 2, "the gaps role's call and the generic fallback both carry pr and root");
+  const generic = calls.find((c) => !c.includes("record") && !c.includes("dispatchFn"));
+  assert.ok(generic, "main()'s generic fallback is still its own call");
+  assert.match(generic, /input: \{[^}]*pr: args\.pr/, "and it passes the PR it parsed");
+  assert.match(generic, /input: \{[^}]*root/, "and the root it derived");
 });
 
 test("R33: the gaps role ships a definition and schema that satisfy the launch contract", () => {
@@ -808,6 +816,50 @@ test("R41: both David-facing file roles share one delivery path", () => {
   const src = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(src, /export function runGaps\b/, "runGaps is generalised, not duplicated");
   assert.match(src, /export function runFileRole\b/);
+});
+
+test("R42: the delivery path is DRIVEN, not pattern-matched -- the answer reaches the file", () => {
+  // Both of #88's real defects lived here: the role that could not launch, and
+  // the answer that reached nobody. The tests covering it read this file as
+  // text, which proves the words are present and not that the path works --
+  // the distinction that let "verified end to end" be wrong twice. So this
+  // runs it, with the reviewer stubbed, and asserts on the file on disk.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d2-drive-"));
+  fs.mkdirSync(path.join(root, ".agents", "receipts"), { recursive: true });
+  const answer = {
+    what_this_does: "A page appears before each merge.",
+    what_it_does_not_do: "It does not block anything.",
+    what_you_are_trusting: "That the record is complete.",
+    recommendation: null,
+  };
+  const out = [];
+  const err = [];
+  const io = { stdout: { write: (t) => out.push(t) }, stderr: { write: (t) => err.push(t) } };
+  const code = runFileRole(root, { role: "merge-opinion", pr: 88, timeout: 600 }, {
+    dispatchFn: ({ role, input }) => {
+      assert.equal(role, "merge-opinion", "the role reaches the dispatcher");
+      assert.deepEqual(input, { pr: 88, root }, "and so does its material");
+      return { role, headAtSpawn: "abcdef1234567890abcdef1234567890abcdef12", output: answer };
+    },
+    io,
+  });
+
+  assert.equal(code, 0);
+  const file = mergePath(root, 88);
+  assert.ok(fs.existsSync(file), "the readable file exists on disk");
+  assert.match(fs.readFileSync(file, "utf8"), /A page appears before each merge\./);
+  assert.match(out.join(""), /A page appears before each merge\./, "and the answer reached stdout");
+  assert.match(err.join(""), /merge brief ->/, "with the path named on stderr");
+
+  // A dispatch that fails writes no file and says so, rather than reporting success.
+  const failed = runFileRole(root, { role: "gaps-translation", pr: 99, timeout: 600 }, {
+    dispatchFn: () => { const e = new Error("no provider reachable"); e.exitCode = 2; throw e; },
+    io: { stdout: { write: () => {} }, stderr: { write: (t) => err.push(t) } },
+  });
+  assert.equal(failed, 2, "the dispatcher's own exit code survives");
+  assert.equal(fs.existsSync(gapsPath(root, 99)), false, "and nothing is written");
+
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test("each role takes only its own flags, and all of them are data", () => {
