@@ -1,0 +1,54 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 87,
+  "recordPath": ".agents/adjudications/87-2.json",
+  "recordSha256": "647aa4cba97a47d57b2a491c66356848cb8d35eaf62c2fead77598c6370b6e8d",
+  "toolUseId": "toolu_01BfvoVoVwcmKKUYHKszEvS2",
+  "agentId": "a75fedc8ab729444e",
+  "decidedAt": "2026-09-14T00:58:46.819Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, budget 3, 2 rounds spent, trend 2 -> 3 on an 11-file/535-added artifact at criticality 60; the one round-1 finding that named a real unguarded consumer (PRRT_kwDOUKOPKc6h9a10) was fixed in this head, verifiable at core/scripts/guard-decision.mjs @@ -1718,6 +1718,22 @@. All three round-2 findings are real but pull on the ceiling the diff already names and records -- that the exit file, the receipt, and the display path each prove something narrower than 'David got the account'; they are the 'gaps between the anchors' shape the threat-model memory file records from PR #7, and none reaches the internal bar of a very high chance of a critical flaw. Finding PRRT_kwDOUKOPKc6h9j8q is the strongest: the completeness refusal landed only in checkMerge and not in pr-ready.mjs's --show path, but its exposure is a self-closing one-hour window for receipts minted before this change, its outcome is a visibly-short receipt block rather than silent data loss, and it cannot affect this PR's own carve-out merge, whose receipt will be minted from this branch's code. Findings PRRT_kwDOUKOPKc6h9j8u and PRRT_kwDOUKOPKc6h9j8z each require a compound low-probability precondition (a load-time crash of fable-dispatch, or a close-out poll landing between the receipt write and a publish that then fails), so buying a round -- which on a budget of 3 would consume the entire remaining allowance plus its mandatory review round -- is not worth it against an artifact class whose failure mode is wrongly-blocking.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6h9j8q -- the receipt-completeness refusal exists only in checkMerge; pr-ready.mjs's --show carve-out path can still print a pre-change READY receipt with no items.translations during the one-hour rollout window.",
+      "PRRT_kwDOUKOPKc6h9j8u -- an exit file written by the recipe's unconditional `echo $?` marks a round done even when fable-dispatch died at module load, in which case no 'translation unavailable' notice was ever emitted, so the stated justification for the exit-file rung does not hold in that sub-case.",
+      "PRRT_kwDOUKOPKc6h9j8z -- roundState treats the receipt as a completion signal, but deliverTranslation writes it before publishing the page, so a round whose publish later fails reads 'done' permanently."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9a1z",
+        "class": "out-of-threat-model",
+        "citation": "threatModel.text, agents-core.md: \"A check earns its place only when the value can differ from what you intended -- which requires something outside your control to have produced it.\"; and the memory file's takeaway, \"you are designing a lock whose key is on the same ring.\"",
+        "why": "The delivery surface it demands evidence from is a chat paste and an Artifact publish performed by the builder itself, so any 'delivered' marker would be produced by the same party that forgets to deliver and carries no independent information."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9a10",
+        "class": "in-scope",
+        "citation": "",
+        "why": "A READY receipt minted before the translations item existed really would have been honoured by the merge hook inside its one-hour window, and the diff fixes exactly that at core/scripts/guard-decision.mjs @@ -1718,6 +1718,22 @@."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9j8q",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The premise holds against the patch -- the item-presence refusal was added only to checkMerge in guard-decision.mjs, and pr-ready.mjs's --show path is untouched by the diff -- so the same defect the previous round fixed survives in its sibling consumer, which is the general-mechanism half of the round-1 finding."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9j8u",
+        "class": "in-scope",
+        "citation": "",
+        "why": "The new roundState in core/scripts/loop-position.mjs returns \"done\" on any d0-r<n>.exit regardless of contents, and its own test R27 case 3 justifies that by the fixed 'translation unavailable' notice -- which a load-time crash of the dispatch would never print, so the rung's stated warrant genuinely has a hole in this increment's own machinery."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6h9j8z",
+        "class": "in-scope",
+        "citation": "",
+        "why": "roundState checks receipts first and returns \"done\" with no further evidence, so if the receipt is written before the page publish as the finding states, a permanently-failed publish leaves a round reading 'accounted' forever; this is a defect in the increment's own completion signal rather than a demand for unobservable delivery proof."
+      }
+    ]
+  }
+}
