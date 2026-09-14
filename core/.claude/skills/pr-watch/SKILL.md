@@ -840,6 +840,19 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   account of the independent account. Publish the rendered page
   (`.agents/reviews/pr-<n>/translation.html`) as the PR's Artifact page,
   redeployed in place, so one link stays current for the whole loop.
+  **Then record that it went out — the last line of the delivery step, every
+  time** (David, 2026-09-14):
+
+  ```
+  node scripts/record-delivery.mjs --pr <n> --url <the artifact URL the publish returned>
+  ```
+
+  It writes `.agents/reviews/pr-<n>/delivered.json` naming the rounds the page
+  carried, read from the receipts on disk rather than typed. The merge gate
+  refuses any round not on that list: an account that exists but was never
+  shown is the #85 failure one step later, and a forgotten step leaves no
+  file. A round that lands after the last delivery is refused until the page
+  goes out again with it — the merge ask cannot ride a page one round behind.
 - **If it refuses or fails**, the script prints the fixed notice (*translation
   unavailable — …*). Paste that instead. Never summarise what it would have
   said.

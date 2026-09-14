@@ -56,6 +56,20 @@ export const reviewsDir = (root, pr) => path.join(root, ".agents", "reviews", `p
 export const positionPath = (root, pr) => path.join(reviewsDir(root, pr), "loop-position.json");
 
 /**
+ * Where the delivery record lives, and how to read it. Written by
+ * `record-delivery.mjs` as the last line of the delivery step; read here so
+ * the two consumers of "was this round delivered" share one reader.
+ */
+export const deliveryPath = (root, pr) => path.join(reviewsDir(root, pr), "delivered.json");
+
+export function delivery(root, pr, { exists = fs.existsSync, read = (f) => fs.readFileSync(f, "utf8") } = {}) {
+  const file = deliveryPath(root, pr);
+  if (!exists(file)) return null;
+  const d = JSON.parse(read(file));
+  return Array.isArray(d.rounds) ? d : null;
+}
+
+/**
  * Classify one round's translation from what is on disk. Three states, not two.
  *
  * "Done" and "missing" would collapse the case that matters: a round that was
@@ -84,16 +98,26 @@ export const positionPath = (root, pr) => path.join(reviewsDir(root, pr), "loop-
  * unavailable, and refuse every round dispatched outside the recipe. The
  * ordering is what makes both come out right.
  *
- * WHAT NEITHER PROVES is that the account reached David -- the chat paste and
- * the Artifact publish happen through tool calls no script here observes. That
- * boundary is deliberate and recorded as a gap rather than papered over: a
- * "delivered" flag written by the same hand that forgets to deliver would be
- * exactly as strong as the exit file, which is to say not at all.
+ * AND ABOVE BOTH, THE DELIVERY RECORD (David, 2026-09-14: "write a file that
+ * tells me that you delivered the artifact"). Neither artifact below it says
+ * the account reached David; the page is published and the line is pasted
+ * by hand, after the dispatch returns. `record-delivery.mjs` writes
+ * `delivered.json` as the last line of that step, naming the rounds it
+ * carried. A round that is on that list is DONE. A round with an account but
+ * not on that list is UNDELIVERED -- produced, never shown -- and the gate
+ * refuses it, which is the #85 failure one step later: the step was
+ * forgotten, so the file is absent, so the merge does not go out.
+ *
+ * This is not a defence against a false marker; David's rule already says
+ * none is built. It is a defence against the forgotten step, which is the
+ * failure that actually happened.
  */
-export function roundState(root, pr, r, { exists = fs.existsSync, receipts = receiptsFor } = {}) {
-  if (receipts(root, pr).some((rc) => rc.round === r)) return "done";
+export function roundState(root, pr, r, { exists = fs.existsSync, receipts = receiptsFor, delivered = delivery } = {}) {
+  const d = delivered(root, pr);
+  if (d && d.rounds.includes(r)) return "done";
+  if (receipts(root, pr).some((rc) => rc.round === r)) return "undelivered";
   const dir = reviewsDir(root, pr);
-  if (exists(path.join(dir, `d0-r${r}.exit`))) return "done";
+  if (exists(path.join(dir, `d0-r${r}.exit`))) return "undelivered";
   if (exists(path.join(dir, `snap-r${r}.json`))) return "pending";
   return "missing";
 }

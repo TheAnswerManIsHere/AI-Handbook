@@ -1810,15 +1810,18 @@ export function checkTranslations(prNumber, cwd, now, configuredRepo, { position
 
   const missing = [];
   const pending = [];
+  const undelivered = [];
   for (let r = 1; r <= rounds; r += 1) {
     const state = roundState(root, prNumber, r);
     if (state === "missing") missing.push(r);
     else if (state === "pending") pending.push(r);
+    else if (state === "undelivered") undelivered.push(r);
   }
-  // REPORTED TOGETHER, and the two remedies are different: a missing round
-  // goes back to the capture step, a pending one is read in its own log. A
-  // gate that surfaced one at a time is a gate run twice.
-  if (missing.length || pending.length) {
+  // REPORTED TOGETHER, and the three remedies are different: a missing round
+  // goes back to the capture step, a pending one is read in its own log, an
+  // undelivered one needs the page published and the delivery recorded. A
+  // gate that surfaced one at a time is a gate run three times.
+  if (missing.length || pending.length || undelivered.length) {
     const parts = [];
     if (missing.length) parts.push(`round(s) ${missing.join(", ")} have no snapshot and no account (capture, then dispatch each)`);
     if (pending.length) {
@@ -1834,9 +1837,19 @@ export function checkTranslations(prNumber, cwd, now, configuredRepo, { position
           `(if a dispatch is running its log is d0-r<n>.log; if none is, dispatch it)`,
       );
     }
+    if (undelivered.length) {
+      // The account exists and David has not seen it. This is the state
+      // every round is in between its dispatch returning and the delivery
+      // step running, so it is the ordinary thing to see here mid-loop -- and
+      // the thing a merge ask must never be built on. (David, 2026-09-14.)
+      parts.push(
+        `round(s) ${undelivered.join(", ")} have an account that was never delivered ` +
+          `(publish the page, paste each line, then record-delivery --pr ${prNumber} --url <artifact url>)`,
+      );
+    }
     return { pass: false, detail: `${rounds} round(s) happened; ${parts.join("; ")}` };
   }
-  return { pass: true, detail: `all ${rounds} round(s) have an account for David` };
+  return { pass: true, detail: `all ${rounds} round(s) delivered to David` };
 }
 
 /**

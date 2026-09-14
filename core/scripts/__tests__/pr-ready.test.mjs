@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -73,6 +73,9 @@ const seedD0 = (dir, pr, rounds, capturedAt) => {
   mkdirSync(round, { recursive: true });
   writeFileSync(join(round, "loop-position.json"), JSON.stringify({ pr, round: rounds, capturedAt }));
   for (let r = 1; r <= rounds; r += 1) writeFileSync(join(round, `d0-r${r}.exit`), "0\n");
+  // A ready PR has had its page DELIVERED, not just its dispatches run.
+  const rounds_ = Array.from({ length: rounds }, (_, i) => i + 1);
+  writeFileSync(join(round, "delivered.json"), JSON.stringify({ pr, url: "https://example.test/a", deliveredAt: capturedAt, rounds: rounds_, unavailable: [] }));
   return dir;
 };
 const d0World = (pr, rounds, capturedAt) => seedD0(mkdtempSync(join(tmpdir(), "pr-ready-d0-")), pr, rounds, capturedAt);
@@ -2575,7 +2578,7 @@ test("translations: every round with an exit file passes", () => {
   const dir = d0World(500, 3, D0_FRESH);
   const res = checkTranslations(500, dir, D0_NOW, REPO);
   assert.equal(res.pass, true);
-  assert.match(res.detail, /all 3 round\(s\)/);
+  assert.match(res.detail, /all 3 round\(s\) delivered/);
 });
 
 test("translations: PR #85's shape -- rounds happened, nothing was ever dispatched -- fails", () => {
@@ -2596,6 +2599,9 @@ test("translations: one missing round among translated ones still fails, and nam
   // round's dispatch was skipped in the rush to the merge ask.
   const dir = d0World(500, 3, D0_FRESH);
   rmSync(join(dir, ".agents", "reviews", "pr-500", "d0-r2.exit"));
+  const dfile = join(dir, ".agents", "reviews", "pr-500", "delivered.json");
+  const d = JSON.parse(readFileSync(dfile, "utf8"));
+  writeFileSync(dfile, JSON.stringify({ ...d, rounds: [1, 3] }));
   const res = checkTranslations(500, dir, D0_NOW, REPO);
   assert.equal(res.pass, false);
   assert.match(res.detail, /round\(s\) 2 have no snapshot/);
@@ -2611,6 +2617,7 @@ test("translations: a snapshot with no account is reported without claiming a di
   const round = join(dir, ".agents", "reviews", "pr-500");
   rmSync(join(round, "d0-r2.exit"));
   writeFileSync(join(round, "snap-r2.json"), "{}");
+  writeFileSync(join(round, "delivered.json"), JSON.stringify({ pr: 500, url: "https://example.test/a", deliveredAt: D0_FRESH, rounds: [1], unavailable: [] }));
   const res = checkTranslations(500, dir, D0_NOW, REPO);
   assert.equal(res.pass, false);
   assert.match(res.detail, /have a snapshot but no account came back/);
@@ -2671,4 +2678,17 @@ test("translations: the round bound is the position's, never one derived here", 
   const res = checkTranslations(500, dir, D0_NOW, REPO);
   assert.equal(res.pass, false);
   assert.match(res.detail, /4 round\(s\) happened/);
+});
+
+test("translations: an account that was never delivered fails, and names the delivery step", () => {
+  // David, 2026-09-14. The round was translated; the page was never published
+  // and the line never pasted; the merge ask must not go out. This is the
+  // ordinary state of every round between its dispatch returning and the
+  // delivery step -- so it is what the gate sees whenever the step is skipped.
+  const dir = d0World(500, 2, D0_FRESH);
+  rmSync(join(dir, ".agents", "reviews", "pr-500", "delivered.json"));
+  const res = checkTranslations(500, dir, D0_NOW, REPO);
+  assert.equal(res.pass, false);
+  assert.match(res.detail, /round\(s\) 1, 2 have an account that was never delivered/);
+  assert.match(res.detail, /record-delivery --pr 500/);
 });

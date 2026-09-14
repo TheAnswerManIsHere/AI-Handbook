@@ -74,8 +74,8 @@ export const POLL_MS = 5000;
  * twice. They are also not waited on — nothing was dispatched for them, so
  * there is no exit file coming.
  */
-export async function waitForRounds(root, pr, rounds, { timeoutMs = 900_000, pollMs = POLL_MS, now = Date.now, sleep, exists, receipts } = {}) {
-  const opts = { exists, receipts };
+export async function waitForRounds(root, pr, rounds, { timeoutMs = 900_000, pollMs = POLL_MS, now = Date.now, sleep, exists, receipts, delivered } = {}) {
+  const opts = { exists, receipts, delivered };
   const state = (r) => roundState(root, pr, r, opts);
   const all = Array.from({ length: rounds }, (_, i) => i + 1);
   const missing = all.filter((r) => state(r) === "missing");
@@ -83,11 +83,16 @@ export async function waitForRounds(root, pr, rounds, { timeoutMs = 900_000, pol
   let pending = all.filter((r) => state(r) === "pending");
   const nap = sleep ?? ((ms) => new Promise((res) => setTimeout(res, ms)));
 
+  // A pending round is waited on until it has an ACCOUNT -- its dispatch
+  // returned. Delivery is a separate step that happens after every dispatch
+  // is in, so waiting for `done` here would wait forever on a round that is
+  // simply not published yet.
   while (pending.length && now() < deadline) {
     await nap(pollMs);
-    pending = pending.filter((r) => state(r) !== "done");
+    pending = pending.filter((r) => ["pending", "missing"].includes(state(r)));
   }
-  return { missing, timedOut: pending };
+  const undelivered = all.filter((r) => state(r) === "undelivered");
+  return { missing, timedOut: pending, undelivered };
 }
 
 export function parseArgs(argv) {
@@ -148,7 +153,7 @@ export async function main(argv = process.argv.slice(2), { root = null, log = pr
   const rounds = pos.round;
   if (rounds === 0) return 0;
 
-  const { missing, timedOut } = await waitForRounds(here, args.pr, rounds, { timeoutMs: args.timeoutSec * 1000 });
+  const { missing, timedOut, undelivered } = await waitForRounds(here, args.pr, rounds, { timeoutMs: args.timeoutSec * 1000 });
 
   if (missing.length) {
     log.write(
@@ -162,10 +167,20 @@ export async function main(argv = process.argv.slice(2), { root = null, log = pr
         `${args.timeoutSec}s. Read .agents/reviews/pr-${args.pr}/d0-r<r>.log before deciding they failed.\n`,
     );
   }
-  if (!missing.length && !timedOut.length) {
-    log.write(`round-translation-closeout: all ${rounds} round(s) accounted for\n`);
+  // An undelivered round is the expected state at this point of a normal
+  // close-out: every dispatch is in, and delivery is the next step. Said out
+  // loud so the step is not skipped, and exit 1 so a merge ask cannot follow
+  // a close-out that stopped here.
+  if (undelivered.length) {
+    log.write(
+      `round-translation-closeout: round(s) ${undelivered.join(", ")} have an account but have not been delivered -- ` +
+        `publish the page, paste each line, then: node scripts/record-delivery.mjs --pr ${args.pr} --url <artifact url>\n`,
+    );
   }
-  return missing.length || timedOut.length ? 1 : 0;
+  if (!missing.length && !timedOut.length && !undelivered.length) {
+    log.write(`round-translation-closeout: all ${rounds} round(s) accounted for and delivered\n`);
+  }
+  return missing.length || timedOut.length || undelivered.length ? 1 : 0;
 }
 
 // `pathToFileURL(process.argv[1]).href` rather than a hand-built `file://`

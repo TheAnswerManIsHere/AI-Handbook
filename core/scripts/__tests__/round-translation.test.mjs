@@ -24,8 +24,9 @@ import {
 import { facts, chatLine, renderPage, receiptsFor, writePage, publishPage, pagePath, unavailable } from "../round-translation-page.mjs";
 import { reviewerFindings } from "../review-loop-record.mjs";
 import { waitForRounds, main as closeoutMain } from "../round-translation-closeout.mjs";
-import { roundState, reviewsDir, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
+import { roundState, reviewsDir, delivery, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
+import { recordDelivery, parseArgs as parseDeliveryArgs } from "../record-delivery.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -1618,7 +1619,7 @@ test("R25: the close-out wait reports every missing round and never waits on one
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "snap-r1.json"), "{}");
   fs.writeFileSync(path.join(dir, "d0-r1.exit"), "0\n");
-  assert.equal(roundState(root, PR, 1), "done");
+  assert.equal(roundState(root, PR, 1), "undelivered", "an exit file is an account, and an account is not yet a delivery");
   assert.equal(roundState(root, PR, 2), "missing", "a round with neither snapshot nor exit file is missing, not pending");
 
   // Rounds 2 and 3 happened and produced nothing. Both are named -- a
@@ -1644,6 +1645,7 @@ test("R25: the close-out wait reports every missing round and never waits on one
   });
   assert.deepEqual(landed.missing, []);
   assert.deepEqual(landed.timedOut, [], "a round that exited non-zero still counts as accounted for");
+  assert.deepEqual(landed.undelivered, [1, 2], "accounted for is not delivered: both rounds still need the delivery step");
   assert.equal(ticks, 2, "it polled until the exit file appeared");
 
   // AND IT IS BOUNDED. Two earlier versions of this step could wait forever;
@@ -1692,7 +1694,18 @@ test("R25: close-out reads the position and refuses a missing, stale or foreign 
 
   fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
   fs.writeFileSync(path.join(dir, "d0-r2.exit"), "0\n");
-  assert.equal(await run(["--pr", String(PR)], { now: fresh }), 0, "both rounds accounted for");
+  // Both rounds have an account, and NEITHER has been delivered: close-out
+  // refuses and names the step, because the merge ask must not go out on
+  // accounts David has not seen (David, 2026-09-14).
+  assert.equal(await run(["--pr", String(PR)], { now: fresh }), 1, "accounted for is not delivered");
+  assert.match(said.join(""), /round\(s\) 1, 2 have an account but have not been delivered/);
+  assert.match(said.join(""), /record-delivery\.mjs --pr 81/, "the remedy is the delivery step, named");
+  said.length = 0;
+
+  // The delivery step, run as the recipe runs it. Now close-out is clean.
+  recordDelivery(root, PR, "https://example.test/artifact/81");
+  assert.equal(await run(["--pr", String(PR)], { now: fresh }), 0, "both rounds accounted for and delivered");
+  assert.match(said.join(""), /accounted for and delivered/);
   said.length = 0;
 
   // STALE: the same file, read an hour on, is refused rather than trusted.
@@ -1991,7 +2004,7 @@ test("R26: close-out's bound is the floored round, so a regressed pass history c
   });
 });
 
-test("R27: the receipt outranks the exit file, and each covers what the other cannot", () => {
+test("R27: the receipt outranks the exit file, and each covers what the other cannot -- as an ACCOUNT, not as delivery", () => {
   // Codex asked for proof of David-facing delivery (#87 round 1). That is not
   // reachable -- the paste and the Artifact publish are tool calls no script
   // here observes -- but the premise was right and pulling on it found this:
@@ -2012,24 +2025,77 @@ test("R27: the receipt outranks the exit file, and each covers what the other ca
   // 1. A receipt alone is enough -- this is a round dispatched outside the
   //    recipe, which leaves no exit file and is nonetheless fully accounted.
   receipt(1, { finishedAt: "2026-09-14T00:00:00Z" });
-  assert.equal(roundState(root, PR, 1), "done", "a machinery-written receipt needs no shell artifact beside it");
+  assert.equal(roundState(root, PR, 1), "undelivered", "a machinery-written receipt needs no shell artifact beside it -- it is an account, awaiting delivery");
 
   // 2. A by-design SKIP is a receipt too, so the round that raised nothing and
   //    prompted no push still counts as an account.
   receipt(2, { skipped: true, reason: "no findings and nothing pushed since the reviewed commit" });
-  assert.equal(roundState(root, PR, 2), "done", "a skip recorded by the machinery is an account, not an absence");
+  assert.equal(roundState(root, PR, 2), "undelivered", "a skip recorded by the machinery is an account, not an absence");
 
   // 3. An exit file alone still passes, and it must: a dispatch that RAN and
   //    FAILED gives David the fixed `translation unavailable` notice, which
   //    the contract accepts as that round's account. This is the rung below,
   //    not an equal.
   fs.writeFileSync(path.join(dir, "d0-r3.exit"), "1\n");
-  assert.equal(roundState(root, PR, 3), "done", "an attempted dispatch that failed is still an account");
+  assert.equal(roundState(root, PR, 3), "undelivered", "an attempted dispatch that failed is still an account -- its fixed notice is what gets delivered");
 
   // 4. Neither is the only failure, and it is #85's shape.
   assert.equal(roundState(root, PR, 4), "missing");
   fs.writeFileSync(path.join(dir, "snap-r5.json"), "{}");
   assert.equal(roundState(root, PR, 5), "pending", "a snapshot with no outcome is not an account");
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("R28: the delivery record outranks everything, and a round it does not name is undelivered", () => {
+  // David, 2026-09-14: "write a file that tells me that you delivered the
+  // artifact." record-delivery.mjs writes it as the last line of the delivery
+  // step. The gate then asks the only question that matters: was THIS round
+  // on the page that went out? A round that landed after the last delivery
+  // is refused until the page goes out again with it.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d0-delivery-"));
+  const PR = 502;
+  const dir = reviewsDir(root, PR);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.join(root, ".agents", "receipts"), { recursive: true });
+  const receipt = (r) =>
+    fs.writeFileSync(
+      path.join(root, ".agents", "receipts", `fable-round-translation-${PR}-${r}.json`),
+      JSON.stringify({ role: "round-translation", pr: PR, round: r }),
+    );
+  receipt(1);
+  receipt(2);
+  fs.writeFileSync(path.join(dir, "d0-r3.exit"), "1\n"); // attempted, failed, no receipt
+
+  // Nothing delivered yet: every account is undelivered.
+  assert.equal(roundState(root, PR, 1), "undelivered");
+  assert.equal(roundState(root, PR, 3), "undelivered");
+
+  // The delivery step, run as the recipe runs it: reads what is deliverable,
+  // never takes a round number from the operator.
+  const { record } = recordDelivery(root, PR, "https://example.test/artifact/x", { now: new Date("2026-09-14T01:30:00Z") });
+  assert.deepEqual(record.rounds, [1, 2, 3], "rounds are read from receipts and exit files, not typed");
+  assert.deepEqual(record.unavailable, [3], "the failed dispatch is recorded as delivered via the fixed notice");
+  assert.equal(record.url, "https://example.test/artifact/x");
+
+  assert.equal(roundState(root, PR, 1), "done");
+  assert.equal(roundState(root, PR, 2), "done");
+  assert.equal(roundState(root, PR, 3), "done", "an unavailable round delivered as its notice is delivered");
+
+  // A round that lands AFTER delivery is undelivered until the page goes out
+  // again -- the merge ask cannot ride a page one round behind.
+  receipt(4);
+  assert.equal(roundState(root, PR, 4), "undelivered");
+  recordDelivery(root, PR, "https://example.test/artifact/x");
+  assert.equal(roundState(root, PR, 4), "done");
+
+  // Nothing deliverable refuses rather than writing an empty record.
+  assert.throws(() => recordDelivery(root, 503, "https://example.test/y"), /nothing deliverable/);
+
+  // Argument well-formedness: the two values are the caller's; nothing else is.
+  assert.throws(() => parseDeliveryArgs(["--pr", "0", "--url", "https://x"]), /positive whole number/);
+  assert.throws(() => parseDeliveryArgs(["--pr", "5", "--url", "not-a-url"]), /https URL/);
+  assert.throws(() => parseDeliveryArgs(["--pr", "5", "--url", "https://x", "--round", "2"]), /unknown argument/);
 
   fs.rmSync(root, { recursive: true, force: true });
 });
