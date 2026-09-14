@@ -135,12 +135,12 @@ other mention links to it.
 
 | Learning | Canonical home |
 | --- | --- |
-| Subsystem truth changed (architecture, pipeline, data flow) | The matching `docs/ai-context/<subsystem>.md` (`visual-pipeline.md`, `taxonomy-and-enrichment.md`, `token-rendering-and-grammar.md`, `moderation-workflow.md`, `architecture-map.md`, …) |
+| Subsystem truth changed (architecture, pipeline, data flow) | The subsystem doc the overlay's *Product truth lives here* section routes to — **both the directory and the filename are the overlay's to name**, so a repo keeping subsystem truth under some other `docs/<area>/` is already correct rather than misfiled. A subsystem with no doc yet gets one alongside its siblings, wherever those live. (`docs/ai-context/` is the templates' default, not a requirement.) |
 | Settled decision + why | [`decisions.md`](./decisions.md) — append-only, newest first, its **date · title — Decision / Why / Reference / Revisit if** format |
 | Product-level failure pattern / retired mistake | [`known-failure-patterns.md`](./known-failure-patterns.md) |
-| Engineering/repo gotcha (build, tests, codegen, env) | A note in `.agents/memory/` **plus** its one-line entry in `.agents/memory/MEMORY.md` |
+| Engineering/repo gotcha (build, tests, codegen, env) | A note in `.agents/memory/` — **plus** its one-line entry in that folder's index, where the repo keeps one |
 | New term of art | the repo's glossary |
-| Shipped slice / new open question | the repo's roadmap (move shipped work to "recently merged"; trim per its header) |
+| Shipped slice / new open question | the repo's roadmap, organised and trimmed **per that roadmap's own header** — how it separates shipped from planned work is product-owned |
 | Engineering practice changed (testing, migrations, review) | The matching `docs/engineering/` doc |
 | A brand-new context doc was created | Add it to [`AGENTS.md`](../../AGENTS.md) routing |
 | How the area works + why, for humans | The area's chapter in the repo's Manual, where it keeps one (Step 3) |
@@ -249,8 +249,9 @@ separation aids review). Placement:
   workflow is that he only invokes `/document` once the work being documented
   has merged, so this is the default path, not a state you need to check for
   first: `git fetch origin main`, restart the branch fresh off `origin/main`
-  (same branch name is fine — GitHub auto-deletes the merged one), and open a
-  **new**, small docs-only PR. Docs PRs have no product-visible behavior, so
+  (same branch name is fine — GitHub auto-deletes the merged branch where the
+  repo enables that), and open a **new**, small docs-only PR. Docs PRs have no
+  product-visible behavior, so
   **no UAT doc and "none needed" post-merge verification** — a short
   verification note in the PR body suffices. If a stale remote ref of the old feature branch exists (a
   same-name push can recreate one GitHub already auto-deleted), confirm the

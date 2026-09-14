@@ -1,0 +1,9 @@
+{
+  "pr": 68,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 55,
+  "artifact": "Payload audit for consumer assumptions (#65): 11 files of agent-facing contract prose plus two enrollment additions",
+  "declaredAt": "2026-09-09T22:45:56.813Z"
+}

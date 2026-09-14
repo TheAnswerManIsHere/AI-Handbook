@@ -2,16 +2,23 @@
 
 # Known Failure Patterns
 
-> Mistakes AI agents have repeatedly made (or nearly made) on Overhype.me. Each
-> has a real anchor in this codebase. Read this before visual-pipeline,
-> enrichment, moderation, or migration work — **and before any change that adds
-> or touches an export under `lib/api-zod/src/`** (see the codegen-revert
-> pattern below; this one has been missed more than once because it doesn't
-> "feel" like visual-pipeline/enrichment/moderation/migration work, but it is
-> exactly this class of gotcha). Anchored IDs are linked from other docs.
+> Mistakes AI agents have repeatedly made (or nearly made) while building under
+> this contract. Each pattern is stated generally, then grounded in a real
+> example from whichever product hit it — **the example is evidence, not
+> scope.** Most of them name Overhype.me, because that is where the fleet has
+> run longest; a file path in an example is a citation of where it happened,
+> never a claim about the repo you are reading this in.
+>
+> Read this before working in any area a pattern below covers, and before
+> **any** migration, auth, payment, or generated-code change. That trigger list
+> is deliberately not a list of subsystems: the codegen-revert pattern was
+> missed more than once precisely because editing a generated export does not
+> *feel* like the kind of work a gotcha list is about, and a per-subsystem
+> trigger would have missed it every time. Anchored IDs are linked from other
+> docs.
 
 Format per pattern: **what it looks like → why it's dangerous → how to avoid →
-Overhype example.**
+a worked example from the product that hit it.**
 
 ---
 
