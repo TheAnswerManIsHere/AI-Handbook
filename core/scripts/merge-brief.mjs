@@ -43,6 +43,7 @@
  */
 
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -80,16 +81,90 @@ export function latestRecordFor(root, pr, { dir = ADJUDICATIONS_DIR, read = fs.r
   return null;
 }
 
-/** One finding, reduced to what a reader who cannot read code needs. */
-const findingLine = (f, i) =>
-  `${i + 1}. [${f.severity ?? "?"}] ${String(f.title ?? f.body ?? "").split("\n")[0].slice(0, 300)}` +
-  `\n   file: ${f.path ?? "not stated"} | resolved: ${f.resolved === true ? "yes" : f.resolved === false ? "NO" : "unknown"}`;
+/**
+ * A capped text field, as the record actually stores it.
+ *
+ * `applyCaps()` converts every long string in the record to an ARRAY OF SOURCE
+ * LINES, and older records still carry plain strings. `String(array)` joins
+ * with commas, so an oracle section or a finding body arrived as run-on prose
+ * with `,,` where its blank lines had been -- measured on the brief this very
+ * pull request generated for #88, which I read and did not notice, because I
+ * was reading the answer for quality rather than the brief for fidelity to its
+ * inputs (Codex, #90 round 1).
+ */
+export const asText = (v) => (Array.isArray(v) ? v.join("\n") : typeof v === "string" ? v : String(v ?? ""));
+
+/**
+ * One finding, WHOLE.
+ *
+ * No severity is invented: `reviewerFindings()` items carry `threadId`, `path`,
+ * `line`, `resolved`, `outdated`, `createdAt` and `body` -- there is no
+ * `severity` and no `title`, so the first version printed every real finding as
+ * `[?]`. No truncation either: the record already caps these deliberately and
+ * its own note records that even a 400-character excerpt was too short to
+ * assess a finding by. A second cut here would drop the trigger or the
+ * consequence, which is exactly what `what_you_are_trusting` is built from.
+ *
+ * `resolved` is GITHUB THREAD STATE, NOT CODE STATE, and the record says so in
+ * its own note. Labelling it "resolved: yes/NO" reproduced the error that note
+ * exists to prevent -- the record's first live adjudication read `false` as
+ * "never fixed" and reasoned from it.
+ */
+const threadState = (f) =>
+  f.resolved === true
+    ? "thread closed (the reviewer was told it was handled)"
+    : f.resolved === false
+      ? "thread still open (may already be fixed and unanswered)"
+      : "thread state unknown";
+
+const findingBlock = (f, i) =>
+  [`### Finding ${i + 1} — ${threadState(f)}`, `file: ${f.path ?? "not stated"}`, "", asText(f.body).trim(), ""].join("\n");
 
 /**
  * The brief. Composed here, from the record and the verdict files -- never from
  * my prose.
  */
-export function mergeBrief(pr, { record, gaps }) {
+/**
+ * Which commit this account actually describes, and whether that is the one
+ * being merged.
+ *
+ * THE RECORD IS GENERATED BEFORE A ROUND'S FIXES ARE PUSHED -- that ordering is
+ * required (`pr-watch`: the generator refuses an unreviewed head, so a push
+ * closes the window). So on a loop whose last round came back clean, the newest
+ * record describes the state BEFORE the final fixes, and presenting its patch
+ * as "what you are merging" would be stale (Codex, #90 round 1).
+ *
+ * This does not try to regenerate the record -- that needs a fresh snapshot and
+ * a reviewed head, which is the merge gate's job, not this one's. It states the
+ * gap instead, with the commits in between, and the role is told to caveat
+ * rather than assert. An account that knows what it is missing beats one that
+ * quietly describes the wrong commit.
+ */
+export function headNote(record, headNow) {
+  const described = record.sinceLastReview?.head ?? record.dispatch?.sha ?? null;
+  if (!described) {
+    return [
+      "The record does not say which commit it describes. Treat the code below as",
+      "indicative rather than exact, and say so if it matters to your answer.",
+    ].join("\n");
+  }
+  if (!headNow) {
+    return `This account describes commit ${described}. The current head could not be read, so nothing confirms that is what is being merged.`;
+  }
+  if (described === headNow) {
+    return `This account describes commit ${described}, which IS the head being merged. The code below is the code that lands.`;
+  }
+  return [
+    `**This account describes commit ${described}. The head being merged is ${headNow}.**`,
+    "",
+    "The record is generated before a round's fixes are pushed, so anything the",
+    "builder changed after that commit is NOT in the code below. Say so where it",
+    "bears on your answer rather than describing the older commit as though it",
+    "were the one landing.",
+  ].join("\n");
+}
+
+export function mergeBrief(pr, { record, gaps, headNow = null }) {
   const o = record.planOracle ?? {};
   const sections = o.sections ?? null;
   const out = [
@@ -125,6 +200,10 @@ export function mergeBrief(pr, { record, gaps }) {
     "",
     "---",
     "",
+    "## Which commit this account describes",
+    "",
+    headNote(record, headNow),
+    "",
     `## The tier this was reviewed at: ${record.budget?.tier ?? "unknown"}`,
     "",
     `${record.budget?.tierMeaning ?? ""}`,
@@ -136,7 +215,7 @@ export function mergeBrief(pr, { record, gaps }) {
   out.push("## What the change was supposed to be, in the approved plan's own words", "");
   if (sections && Object.keys(sections).length) {
     for (const [heading, text] of Object.entries(sections)) {
-      out.push(`### ${heading}`, "", String(text ?? "(empty)").trim(), "");
+      out.push(`### ${heading}`, "", asText(text).trim() || "(empty)", "");
     }
   } else {
     out.push(
@@ -148,13 +227,34 @@ export function mergeBrief(pr, { record, gaps }) {
     );
   }
 
-  out.push("## What the reviewer found, and whether it was resolved", "");
+  out.push("## The threat model this tier is reviewed against", "");
+  const tm = record.threatModel ?? {};
+  if (tm.text && asText(tm.text).trim()) {
+    out.push(asText(tm.text).trim(), "");
+  } else {
+    out.push(
+      `The record carried no threat model (${tm.reason ?? "no reason given"}). You have no written`,
+      "statement of what this repository considers worth defending against, so do",
+      "not imply one when you answer what David is trusting.",
+      "",
+    );
+  }
+
+  out.push("## What the reviewer raised, and the state of each thread", "");
   const items = Array.isArray(record.findings?.items) ? record.findings.items : [];
   if (items.length) {
-    out.push(...items.map(findingLine), "");
+    out.push(...items.map(findingBlock), "");
     out.push(
-      `Unresolved: ${record.findings.unresolved ?? "?"}. Resolved: ${record.findings.resolved ?? "?"}. ` +
+      `Threads closed: ${record.findings.resolved ?? "?"}. Threads open: ${record.findings.unresolved ?? "?"}. ` +
         `Unknown: ${record.findings.resolutionUnknown ?? "?"}.`,
+      "",
+      "**These are thread states, not code states**, and the record says so itself:",
+      "",
+      `> ${asText(record.findings.note).trim().replace(/\n/g, "\n> ")}`,
+      "",
+      "So do not tell David a finding was fixed because its thread is closed, or",
+      "that one is outstanding because its thread is open. Where it matters and",
+      "the diff does not settle it, say you cannot tell.",
       "",
     );
   } else {
@@ -209,7 +309,11 @@ export function renderMerge(pr, answer) {
     "",
     "## Before you merge",
     "",
-    rec && String(rec).trim() ? String(rec).trim() : "Nothing — merge it.",
+    // NOT "merge it". The schema documents null as the common answer, and the
+    // role's whole boundary is that it does not approve -- rendering absence as
+    // an instruction to merge put model-generated approval in front of the
+    // person whose click is the entire control (Codex, #90 round 1).
+    rec && String(rec).trim() ? String(rec).trim() : "Nothing to do before you decide.",
     "",
   ].join("\n");
 }
@@ -223,10 +327,16 @@ export function writeMerge(root, pr, answer) {
 }
 
 /** Everything the brief is built from, gathered in one place. */
-export function inputsFor(root, pr) {
+/** The commit actually checked out, so the brief can say whether it matches. */
+export function currentHead(root, { run = spawnSync } = {}) {
+  const r = run("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+
+export function inputsFor(root, pr, { head = currentHead } = {}) {
   const found = latestRecordFor(root, pr);
   if (!found) return null;
-  return { from: found.from, record: found.record, gaps: gapsFor(root, pr) };
+  return { from: found.from, record: found.record, gaps: gapsFor(root, pr), headNow: head(root) };
 }
 
 export function parseArgs(argv) {
@@ -261,9 +371,13 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = pro
   const brief = path.join(root, ".agents", "reviews", `pr-${args.pr}`, "merge-brief.md");
   fs.mkdirSync(path.dirname(brief), { recursive: true });
   fs.writeFileSync(brief, mergeBrief(args.pr, inputs));
+  const described = inputs.record.sinceLastReview?.head ?? null;
+  const stale = described && inputs.headNow && described !== inputs.headNow;
   log.write(
     `merge-brief: from ${inputs.from}, ${inputs.record.findings?.items?.length ?? 0} finding(s), ` +
-      `${inputs.gaps.length} recorded gap(s) -> ${path.relative(root, brief)}\n`,
+      `${inputs.gaps.length} recorded gap(s)` +
+      `${stale ? ` -- WARNING: it describes ${described.slice(0, 7)}, head is ${inputs.headNow.slice(0, 7)}` : ""}` +
+      ` -> ${path.relative(root, brief)}\n`,
   );
   out.write(`${brief}\n`);
   return 0;

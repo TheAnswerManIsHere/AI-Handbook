@@ -898,6 +898,34 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   It gates nothing: if it fails, the gaps are still in the verdict files and
   the merge is unaffected. Skip it when the loop converged clean, since there
   is nothing to translate.
+- **At EVERY stop, before the merge ask, translate the artifact itself** (D2).
+  The round translations say what happened in each *round*; they describe
+  fixes. Nothing describes the *thing*. So one more command, and unlike D3 it
+  is not conditional — every merge ask carries it:
+
+  ```
+  node scripts/fable-dispatch.mjs --role merge-opinion --pr <n>
+  ```
+
+  It answers the three questions the merge turns on — what this is, what it
+  does **not** do, and what David is trusting — from the loop's own mechanical
+  record: the diff, the approved oracle, the threat model, every finding.
+  **It does not read my summary, my PR-body argument or my thread replies**,
+  which is the whole point: David already has my framing, and two independent
+  framings that disagree are the signal (workstream #36). Paste what comes back
+  into the merge ask **above** my own account, so he reads the independent one
+  first.
+
+  `node scripts/merge-brief.mjs --pr <n>` previews the brief without
+  dispatching. **Read its warning line**: the record is generated *before* a
+  round's fixes are pushed, so on a loop that ended clean it describes an
+  earlier commit than the one merging. The brief says so to the reviewer and
+  the preview says so to me; neither invents a fresh record, because that needs
+  a snapshot and a reviewed head.
+
+  It gates nothing either. If it fails, say so in the merge ask rather than
+  merging silently without it — the ask is where David decides, and a missing
+  independent account is a thing he should know he is missing.
 - **Two numbers go in the close-out harvest comment**: dispatches run, and
   disagreements flagged. That is the whole measurement, and it is what the
   retirement rule reads. Receipts are gitignored evidence; nothing else

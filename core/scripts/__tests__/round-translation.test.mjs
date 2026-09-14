@@ -28,7 +28,7 @@ import { roundState, reviewsDir, delivery, derivePosition, writeLoopPosition, lo
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { recordDelivery, parseArgs as parseDeliveryArgs, LOG_PATH } from "../record-delivery.mjs";
 import { gapsFor, gapsBrief, renderGaps, writeGaps, gapsPath } from "../gaps-translation.mjs";
-import { latestRecordFor, mergeBrief, renderMerge, writeMerge, mergePath, inputsFor } from "../merge-brief.mjs";
+import { latestRecordFor, mergeBrief, renderMerge, writeMerge, mergePath, inputsFor, asText, headNote } from "../merge-brief.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation, writesAFile, runFileRole } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -754,7 +754,8 @@ test("R38: the brief carries the oracle, the findings and the diff -- and NOT th
       budget: { tier: "internal", tierMeaning: "internal tooling" },
       rounds: { completedReviewerPasses: 4, trend: [3, 4, 0, 1] },
       planOracle: { sections: { "Product Intent": "David can read what he merges." } },
-      findings: { items: [{ severity: "P1", title: "the output reached nobody", path: "a.mjs", resolved: true }], unresolved: 0, resolved: 1, resolutionUnknown: 0 },
+      threatModel: { text: ["what this repository defends against"] },
+      findings: { items: [{ body: ["the output reached nobody"], path: "a.mjs", resolved: true }], unresolved: 0, resolved: 1, resolutionUnknown: 0, note: "unresolved/resolved is THREAD state, not code state." },
       artifact: { files: 3, added: 200, removed: 4, patch: ["diff --git a/a.mjs b/a.mjs", "+the actual code"] },
     },
     gaps: [{ text: "the ignore rule is not checked in" }],
@@ -763,7 +764,7 @@ test("R38: the brief carries the oracle, the findings and the diff -- and NOT th
   assert.match(brief, /Product Intent/, "the approved oracle is quoted");
   assert.match(brief, /David can read what he merges\./);
   assert.match(brief, /the output reached nobody/, "every finding and its fate");
-  assert.match(brief, /resolved: yes/);
+  assert.match(brief, /thread closed/, "thread state, labelled as thread state");
   assert.match(brief, /the ignore rule is not checked in/, "the shipped defects");
   assert.match(brief, /\+the actual code/, "the diff itself");
   assert.match(brief, /DELIBERATELY ABSENT/, "and it says why the builder's account is missing");
@@ -799,8 +800,8 @@ test("R40: the answer is WRITTEN where a person reads it", () => {
   assert.doesNotMatch(text, /[{}]/, "prose for a person, not a JSON blob");
   assert.match(text, /did not read the builder's summary/, "and says so on the page");
 
-  // null is the common and correct answer and must read as one.
-  assert.match(renderMerge(88, { ...answer, recommendation: null }), /Nothing — merge it\./);
+  // null is the common and correct answer; R45 owns what it must NOT render as.
+  assert.match(renderMerge(88, { ...answer, recommendation: null }), /Nothing to do before you decide/);
 
   fs.rmSync(root, { recursive: true, force: true });
 });
@@ -816,6 +817,69 @@ test("R41: both David-facing file roles share one delivery path", () => {
   const src = fs.readFileSync(new URL("../fable-dispatch.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(src, /export function runGaps\b/, "runGaps is generalised, not duplicated");
   assert.match(src, /export function runFileRole\b/);
+});
+
+test("R43: the record's LINE ARRAYS are joined with newlines, not commas", () => {
+  // `applyCaps()` stores every long field as an array of source lines, and
+  // older records carry plain strings. `String(array)` comma-joins, so the
+  // approved oracle and every finding body reached the reviewer as run-on
+  // prose with `,,` where the blank lines had been. Measured on the brief this
+  // PR generated for #88, which I read without noticing (Codex, #90 round 1).
+  assert.equal(asText(["one", "", "two"]), "one\n\ntwo");
+  assert.equal(asText("already a string"), "already a string");
+  assert.equal(asText(null), "");
+
+  const brief = mergeBrief(7, {
+    record: {
+      title: "t",
+      planOracle: { sections: { "Product Intent": ["line one", "", "line two"] } },
+      threatModel: { text: ["the boundary"] },
+      findings: { items: [{ body: ["finding line one", "", "finding line two"], path: "a.mjs", resolved: false }], note: "thread state" },
+      artifact: { patch: [] },
+    },
+    gaps: [],
+  });
+  assert.match(brief, /line one\n\nline two/, "the oracle keeps its shape");
+  assert.match(brief, /finding line one\n\nfinding line two/, "and so does the finding body");
+  assert.doesNotMatch(brief, /line one,,line two/, "never comma-joined");
+  assert.match(brief, /the boundary/, "and the threat model the brief promises is actually emitted");
+  assert.doesNotMatch(brief, /\[\?\]/, "no invented severity -- findings carry none");
+});
+
+test("R44: the brief says which commit it describes, and whether that is the head", () => {
+  // The record is generated BEFORE a round's fixes are pushed, so on a loop
+  // that ended clean the newest record describes an earlier commit than the
+  // one merging. Presenting its patch as "what you are merging" is stale.
+  const A = "a".repeat(40);
+  const B = "b".repeat(40);
+  assert.match(headNote({ sinceLastReview: { head: A } }, A), /IS the head being merged/);
+  const stale = headNote({ sinceLastReview: { head: A } }, B);
+  assert.match(stale, new RegExp(`describes commit ${A}`));
+  assert.match(stale, new RegExp(`head being merged is ${B}`));
+  assert.match(stale, /NOT in the code below/, "and the reviewer is told to caveat rather than assert");
+  assert.match(headNote({}, B), /does not say which commit it describes/);
+  assert.match(headNote({ sinceLastReview: { head: A } }, null), /could not be read/);
+});
+
+test("R45: a null recommendation never renders as approval", () => {
+  // The role's whole boundary is that it does not approve. Rendering the
+  // schema's documented `null` as "merge it" put model-generated approval in
+  // front of the person whose click is the entire control (Codex, #90 round 1).
+  const answer = { what_this_does: "a", what_it_does_not_do: "b", what_you_are_trusting: "c", recommendation: null };
+  const text = renderMerge(7, answer);
+  assert.doesNotMatch(text, /merge it/i, "it does not tell David to merge");
+  assert.match(text, /Nothing to do before you decide/);
+});
+
+test("R46: D2 is invoked by the documented merge-ask sequence, not only by a source comment", () => {
+  // Registering a role and never wiring it in is how D3 shipped dormant on
+  // #88 round 1. The step has to exist where the operator reads it.
+  const skill = fs.existsSync("core/.claude/skills/pr-watch/SKILL.md")
+    ? "core/.claude/skills/pr-watch/SKILL.md"
+    : ".claude/skills/pr-watch/SKILL.md";
+  const text = fs.readFileSync(skill, "utf8");
+  assert.match(text, /--role merge-opinion --pr/, "the dispatch command is in the close-out steps");
+  assert.match(text, /before the merge ask/i, "and it is placed before the ask");
 });
 
 test("R42: the delivery path is DRIVEN, not pattern-matched -- the answer reaches the file", () => {
