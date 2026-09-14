@@ -1,0 +1,149 @@
+#!/usr/bin/env node
+// SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
+/**
+ * Turn a loop's recorded gaps into plain English for David.
+ *
+ *   node scripts/gaps-translation.mjs --pr 87
+ *
+ * WHY (David, 2026-09-14, verbatim: "we simply need to have a simple
+ * translator function that takes each of the gaps that you already delivered
+ * to me and put it in plain English"). Every loop that stops
+ * `ship-with-gaps-recorded` ships known defects, and each one is recorded in
+ * the adjudicator's verdict like this:
+ *
+ *   "record-delivery.mjs re-reads all receipts and exit files at invocation
+ *    instead of the round set publishPage actually rendered, so a round whose
+ *    account lands between the Artifact publish and the record-delivery call..."
+ *
+ * Forty of those across seven pull requests, every one a thing he agreed to
+ * merge and none of them in words he can read. This reads them and says what
+ * they mean.
+ *
+ * WHAT IT IS, AND ALL IT IS. It collects the `gaps` arrays out of this PR's
+ * committed verdict files, hands them to Fable through the one dispatch path,
+ * and writes what comes back. It decides nothing, gates nothing, and refuses
+ * nothing. If it fails, the loop is unaffected -- the gaps are still in the
+ * verdict files where they always were.
+ *
+ * DELIBERATELY NOT BUILT (David, same instruction: "we are going to stop
+ * overbuilding and we are going to stop solving for problems that aren't
+ * real"): no per-gap accounting, no dedup across loops, no severity model, no
+ * gate on whether it ran, no defence against a malformed verdict beyond
+ * skipping it. A gap summary that is occasionally missing is a paragraph he
+ * does not get; it cannot merge anything or break anything.
+ *
+ * EXIT CODES
+ *   0  written        2  arguments unusable, or this PR recorded no gaps
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+import { REPO_ROOT } from "./review-budget.mjs";
+import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
+
+/** Where the plain-English summary lands. Beside the round translations. */
+export const gapsPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "gaps.md");
+
+/**
+ * Every gap this PR's verdicts recorded, in the order they were decided.
+ *
+ * A verdict file that will not parse, or carries no `gaps`, is skipped rather
+ * than refused: one unreadable file should not cost David the other three
+ * summaries, and nothing downstream depends on this being complete.
+ */
+export function gapsFor(root, pr, { dir = ADJUDICATIONS_DIR, read = fs.readFileSync, list = fs.readdirSync } = {}) {
+  const base = path.join(root, dir);
+  if (!fs.existsSync(base)) return [];
+  const mine = list(base)
+    .filter((n) => n.startsWith(`${pr}-`) && n.endsWith(".verdict.json"))
+    .sort();
+  const out = [];
+  for (const name of mine) {
+    let v;
+    try {
+      v = JSON.parse(read(path.join(base, name), "utf8"));
+    } catch {
+      continue;
+    }
+    const o = v.verdict ?? v;
+    for (const text of Array.isArray(o.gaps) ? o.gaps : []) {
+      if (typeof text === "string" && text.trim()) out.push({ from: name, verdict: o.verdict ?? null, text: text.trim() });
+    }
+  }
+  return out;
+}
+
+/** The brief. Composed here, from the verdict files -- never from my prose. */
+export function gapsBrief(pr, gaps) {
+  const out = [
+    `# Known defects being shipped in pull request #${pr}`,
+    "",
+    "You are writing for David. He is the product manager. He does not read code,",
+    "and he is about to merge this pull request. Each block below is a defect the",
+    "builder and an adjudicator agreed to ship rather than fix.",
+    "",
+    "For EACH one, write a short paragraph answering, in plain English:",
+    "",
+    "  - what actually stops working, in terms of something he would notice;",
+    "  - when it would happen, and how likely that is in ordinary use;",
+    "  - what it would cost him if it did.",
+    "",
+    "Then one closing paragraph: taken together, how worried should he be, and is",
+    "there one of these he should ask about before merging?",
+    "",
+    "Be direct. If a defect is genuinely inconsequential, say so plainly rather",
+    "than dressing it up -- he wants to know which ones matter, and a summary that",
+    "treats all of them as equally serious tells him nothing. Do not use the",
+    "builder's framing or repeat its justifications; say what is true.",
+    "",
+    "No preamble, no heading of your own, no code. Plain prose he can read in a",
+    "minute.",
+    "",
+    "---",
+    "",
+  ];
+  gaps.forEach((g, i) => {
+    out.push(`## Defect ${i + 1}`, "", g.text, "");
+  });
+  return out.join("\n");
+}
+
+export function parseArgs(argv) {
+  const out = { pr: null };
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] !== "--pr") throw new Error(`unknown argument ${JSON.stringify(argv[i])}`);
+    const v = argv[i + 1];
+    if (v === undefined || v.startsWith("--")) throw new Error("--pr needs a value");
+    i += 1;
+    out.pr = Number(v);
+  }
+  if (!Number.isInteger(out.pr) || out.pr <= 0) throw new Error("--pr must be a positive whole number");
+  return out;
+}
+
+export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = process.stderr, out = process.stdout } = {}) {
+  let args;
+  try {
+    args = parseArgs(argv);
+  } catch (e) {
+    log.write(`gaps-translation: ${e.message}\n`);
+    return 2;
+  }
+  const gaps = gapsFor(root, args.pr);
+  if (!gaps.length) {
+    log.write(`gaps-translation: PR #${args.pr} recorded no gaps -- nothing to translate\n`);
+    return 2;
+  }
+  const brief = path.join(root, ".agents", "reviews", `pr-${args.pr}`, "gaps-brief.md");
+  fs.mkdirSync(path.dirname(brief), { recursive: true });
+  fs.writeFileSync(brief, gapsBrief(args.pr, gaps));
+  log.write(`gaps-translation: ${gaps.length} gap(s) from ${new Set(gaps.map((g) => g.from)).size} verdict(s) -> ${path.relative(root, brief)}\n`);
+  out.write(`${brief}\n`);
+  return 0;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exit(main());
+}

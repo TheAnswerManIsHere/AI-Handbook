@@ -27,6 +27,7 @@ import { waitForRounds, main as closeoutMain } from "../round-translation-closeo
 import { roundState, reviewsDir, delivery, derivePosition, writeLoopPosition, loopPosition, describe as describePosition, positionPath, main as positionMain } from "../loop-position.mjs";
 import { MAX_SNAPSHOT_AGE_MS, capturedAtOf } from "../review-counting.mjs";
 import { recordDelivery, parseArgs as parseDeliveryArgs, LOG_PATH } from "../record-delivery.mjs";
+import { gapsFor, gapsBrief } from "../gaps-translation.mjs";
 import { parseArgs, receiptPathFor, canDispatch, dispatchableRoles, roleContract, deliverTranslation, blankDeclaredStrings, main, runTranslation } from "../fable-dispatch.mjs";
 
 const SLUG = "TestOwner/TestRepo";
@@ -528,8 +529,46 @@ test("the page path is derived from the PR, never supplied", () => {
 
 test("round-translation dispatches because this script generates its brief", () => {
   assert.equal(canDispatch("round-translation"), true);
-  assert.deepEqual(dispatchableRoles().sort(), ["probe", "round-translation"]);
+  assert.deepEqual(dispatchableRoles().sort(), ["gaps-translation", "probe", "round-translation"]);
   assert.equal(canDispatch("plan-opinion"), false, "an unbuilt role is still refused");
+});
+
+test("R30: the gaps translator turns recorded gaps into a brief, and nothing else", () => {
+  // David, 2026-09-14: "we simply need to have a simple translator function
+  // that takes each of the gaps that you already delivered to me and put it in
+  // plain English." Forty gaps across seven PRs, none readable by him.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "d3-gaps-"));
+  const adj = path.join(root, ".agents", "adjudications");
+  fs.mkdirSync(adj, { recursive: true });
+  const verdict = (name, body) => fs.writeFileSync(path.join(adj, name), JSON.stringify(body));
+
+  verdict("87-1.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["the exit file outlives its warrant"] } });
+  verdict("87-2.verdict.json", { verdict: { verdict: "ship-with-gaps-recorded", gaps: ["--show skips the item check", "the receipt is written before delivery"] } });
+  // Another PR's verdict, and a malformed one. Neither may reach #87's brief:
+  // the first is not this loop's, and the second must be SKIPPED rather than
+  // refused -- one unreadable file should not cost David the other summaries.
+  verdict("86-1.verdict.json", { verdict: { gaps: ["someone else's gap"] } });
+  fs.writeFileSync(path.join(adj, "87-9.verdict.json"), "{ not json");
+
+  const gaps = gapsFor(root, 87);
+  assert.deepEqual(gaps.map((g) => g.text), [
+    "the exit file outlives its warrant",
+    "--show skips the item check",
+    "the receipt is written before delivery",
+  ], "this PR's gaps, in the order they were decided; a broken file is skipped, not fatal");
+
+  const brief = gapsBrief(87, gaps);
+  assert.match(brief, /pull request #87/);
+  assert.equal(brief.match(/^## Defect/gm).length, 3, "one block per gap");
+  assert.match(brief, /the exit file outlives its warrant/, "the gap text is passed through verbatim");
+  assert.match(brief, /He does not read code/, "the brief says who it is for");
+  assert.doesNotMatch(brief, /someone else's gap/);
+
+  // A PR with no gaps is not an error state worth machinery -- it exits 2 and
+  // says so, and the loop is unaffected either way.
+  assert.deepEqual(gapsFor(root, 99), []);
+
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test("each role takes only its own flags, and all of them are data", () => {

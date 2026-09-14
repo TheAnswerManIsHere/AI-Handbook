@@ -95,6 +95,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { modelTier } from "./review-budget.mjs";
 import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
 import { chatLine, renderPage, writePage, receiptsFor, publishPage, unavailable, unpublished } from "./round-translation-page.mjs";
+import { gapsBrief, gapsFor } from "./gaps-translation.mjs";
 
 /**
  * One line, for a notice that is pasted verbatim into chat.
@@ -156,6 +157,11 @@ export const HARNESS_ADDED_TOOLS = ["StructuredOutput"];
 const BRIEF_GENERATORS = {
   probe: ({ nonce }) => probeBrief(nonce),
   "round-translation": ({ record }) => translationBrief(record),
+  // D3. Its brief is composed by `gaps-translation.mjs` out of the committed
+  // verdict files, the same way `round-translation`'s is composed out of a
+  // captured snapshot: the caller supplies a pull request number and this
+  // script reads the rest. No word of mine reaches the reviewer.
+  "gaps-translation": ({ pr, root }) => gapsBrief(pr, gapsFor(root, pr)),
 };
 
 export const canDispatch = (role) => Object.hasOwn(BRIEF_GENERATORS, role);
@@ -171,7 +177,7 @@ export const dispatchableRoles = () => Object.keys(BRIEF_GENERATORS);
  * number, a number, a path -- and none of it reaches the reviewer as text:
  * the record built from the snapshot does, through the generator above.
  */
-const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"] };
+const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"], "gaps-translation": ["--pr"] };
 const BASE_FLAGS = ["--role", "--timeout"];
 const KNOWN_FLAGS = new Set([...BASE_FLAGS, ...Object.values(ROLE_FLAGS).flat()]);
 

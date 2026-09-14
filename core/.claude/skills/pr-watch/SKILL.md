@@ -835,6 +835,12 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   would be an in-loop advisor reading my own prose, which is exactly what
   workstream #36's never-list rules out. If it catches something real, David
   raises it, at the cost of a round.
+- **Re-capture first — never reuse the adjudication record's snapshot.** The
+  record must be built BEFORE the round's fixes are pushed; the translation
+  runs AFTER the trigger, so after the thread replies. One snapshot cannot sit
+  on both sides of that. Feeding the record's snapshot to D0 is how #87's
+  round-2 account reached David saying "the round was unanswered", with every
+  reply and decline missing. (#87, found by the translation itself.)
 - **The script prints the line; I paste it verbatim**, with the page link, and
   write nothing else about the round in chat. A line I composed would be my
   account of the independent account. Publish the rendered page
@@ -869,6 +875,19 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
 - **A round that raised nothing and prompted no push is skipped** by the
   script itself, with the reason on the page. An **all-declined** round is
   dispatched — it is the round where my account matters most.
+- **At a stop with gaps recorded, translate the gaps too** (D3). A loop that
+  ends `ship-with-gaps-recorded` is merging known defects, and they are written
+  for a reviewer, not for David — forty of them across seven PRs before this
+  existed. One command, beside the round translations:
+
+  ```
+  node scripts/gaps-translation.mjs --pr <n>     # builds the brief from the committed verdicts
+  ```
+
+  Dispatch it like any other role (`--role gaps-translation --pr <n>`) and put
+  what comes back in the merge ask, under the receipt. It gates nothing: if it
+  fails, the gaps are still in the verdict files and the merge is unaffected.
+  Skip it when the loop converged clean, since there is nothing to translate.
 - **Two numbers go in the close-out harvest comment**: dispatches run, and
   disagreements flagged. That is the whole measurement, and it is what the
   retirement rule reads. Receipts are gitignored evidence; nothing else
@@ -922,11 +941,11 @@ READY and the hook still honoured it, merging a PR with no round accounts
 during the very rollout meant to stop that. Same doctrine as `repo` and
 `requiredChecks`: stamp on mint, compare on consume. (Codex, #87 round 1.)
 
-**What none of it proves is that the account reached David.** The chat paste
-and the Artifact publish are tool calls no script here observes. That ceiling
-is real and recorded rather than papered over: a "delivered" flag written by
-the same hand that forgets to deliver would be exactly as strong as the exit
-file, which is to say not at all.
+**What the marker does and does not mean.** It catches a FORGOTTEN delivery,
+which is the failure that happened (#85): skip the step and there is no file,
+so the gate refuses. It does not defend against a false one, and by David's
+rule of 2026-09-11 it never will -- no defence is built against the builder's
+own intent.
 
 **It fails closed on absent evidence**, like every other path in that file: no
 loop position, a position written for another repository, or one older than the
