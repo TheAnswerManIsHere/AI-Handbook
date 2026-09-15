@@ -1760,11 +1760,15 @@ defects — and the cost is invisible because no single round is wrong. The loop
 ends when someone runs out of patience rather than when the code is right.
 
 **The tell is an observable, not a judgement** — which is the whole reason this
-one can be caught early where the entries above were caught late: **the
-finding's lines sit inside the diff of the last commit pushed for a finding.**
-That is read off the round. It needs no interpretation, so it cannot be
-reinterpreted in the moment, which is the property AI-Handbook #85 established
-that a working stop rule has to have.
+one can be caught early where the entries above were caught late: **a round has
+a finding whose lines sit inside the diff of the last commit pushed for a
+finding, and so did the round before it.** That is read off the round. It needs
+no interpretation, so it cannot be reinterpreted in the moment, which is the
+property AI-Handbook #85 established that a working stop rule has to have.
+**The unit is the round, never the finding** — a single round returning several
+such findings is one observation of the pattern, not several, and wording that
+counted findings would fire the stop after one round of evidence (AI-Handbook
+#91 round 4).
 
 **Root cause: a fix written to satisfy a finding is local by construction, and
 the code this happens in has no edge to be local to.** Guards, parsers,
@@ -1778,11 +1782,19 @@ preference: **remove the mechanism** (if what it guards is inconsequential,
 `claude-core.md` review-loop rule 5's `Worth:` line already says delete it);
 **derive the value** rather than check it (rule 5's *derivable* — a check whose
 two sides the same code owns guards nothing); or **change the operation**, which
-is the move that actually ends these. The earlier signal, available before the
-round runs and worth preferring: **a fix I cannot write a class-level failing
-test for** — one that fails before and passes after on the *class*, not the
-reported instance — is a patch on an unbounded space, and gets the same
-response.
+is the move that actually ends these.
+
+**An earlier signal was tried and withdrawn, and the reason is worth keeping.**
+The rule briefly also said that a fix you cannot write a class-level failing
+test for is itself a patch on an unbounded space. It is not: **testability and
+unboundedness are different properties.** Correcting a sentence of contract
+prose, or a behaviour only reachable through an integration the test
+environment lacks, has no such test and is perfectly well bounded. Stated
+unconditionally it would have condemned every fix in the pull request that
+introduced it — all of them prose in contract files — which is how it was
+caught (AI-Handbook #91, rounds 3 and 4). Narrowing it to "mechanisms already
+shown to be unbounded" was rejected too: that turns the trigger back into a
+judgement, which is precisely what the observable above exists to avoid.
 
 **AI-Handbook, four instances inside one workstream (#36), plus the one that
 shows the cure.** PR #28: two of round 2's findings were defects round 1's
