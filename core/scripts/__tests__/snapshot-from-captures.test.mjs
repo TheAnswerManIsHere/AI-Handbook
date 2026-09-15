@@ -13,6 +13,7 @@ import {
   digest,
   flagValues,
   assertCaptureProvenance,
+  unwrapResultBlocks,
   main as assemble,
 } from "../snapshot-from-captures.mjs";
 import { assertMcpSnapshotComplete } from "../review-counting.mjs";
@@ -647,4 +648,61 @@ test("a round-check-only snapshot still dates its position", () => {
 
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(full, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// The spilled-capture envelope (AI-Handbook #91)
+// ---------------------------------------------------------------------------
+
+test("a capture spilled by the harness is unwrapped, not refused", () => {
+  // The failure this fixes: when a result is too big to come back inline the
+  // harness writes it to `tool-results/` and `capture-from-transcript.mjs`
+  // hands back that path as a `harness-capture` -- the PREFERRED provenance.
+  // What it writes there is the result ENVELOPE, while an inline capture is
+  // recovered already unwrapped. So the preferred path was the unreadable one,
+  // and because a capture only spills when it is BIG, it broke precisely on
+  // long loops -- at the merge gate, which then could not be satisfied at all.
+  const payload = { review_threads: [{ id: "T1", is_resolved: true }], totalCount: 1 };
+  const spilled = [{ type: "text", text: JSON.stringify(payload) }];
+  assert.deepEqual(unwrapResultBlocks(spilled), payload, "the envelope is unwrapped to its payload");
+});
+
+test("a spilled capture split across several text blocks is rejoined", () => {
+  // The harness may chunk one result; `resultText()` in the sibling script
+  // joins blocks for exactly this reason, so this side must too or a large
+  // capture would unwrap to a truncated payload -- which parses as nothing and
+  // would refuse, but for the wrong stated reason.
+  const payload = { review_threads: [], totalCount: 0 };
+  const whole = JSON.stringify(payload);
+  const cut = Math.floor(whole.length / 2);
+  const split = [
+    { type: "text", text: whole.slice(0, cut) },
+    { type: "text", text: whole.slice(cut) },
+  ];
+  assert.deepEqual(unwrapResultBlocks(split), payload, "blocks are joined before parsing");
+});
+
+test("a payload that is legitimately an array passes through untouched", () => {
+  // `reviews` and `issueComments` are both bare arrays. Unwrapping must be
+  // narrow enough that they are never mistaken for an envelope -- otherwise
+  // this fix would corrupt the two collections it was not written for.
+  const reviews = [
+    { id: 1, state: "COMMENTED", submitted_at: "2026-09-15T20:58:23Z" },
+    { id: 2, state: "COMMENTED", submitted_at: "2026-09-15T21:47:45Z" },
+  ];
+  assert.deepEqual(unwrapResultBlocks(reviews), reviews, "an array of non-blocks is not an envelope");
+  assert.deepEqual(unwrapResultBlocks([]), [], "an empty array is not an envelope either");
+});
+
+test("text blocks that do not carry a payload are handed back, not swallowed", () => {
+  // A notice rather than evidence. Returning the original keeps the caller's
+  // own refusal able to name the real shape, instead of a parse error thrown
+  // from inside the unwrap.
+  const notice = [{ type: "text", text: "the harness saved this result to /tmp/x.json" }];
+  assert.deepEqual(unwrapResultBlocks(notice), notice, "a non-payload block is returned as-is");
+});
+
+test("a mixed array is not treated as an envelope", () => {
+  const mixed = [{ type: "text", text: "{}" }, { id: 7 }];
+  assert.deepEqual(unwrapResultBlocks(mixed), mixed, "every element must be a text block");
 });
