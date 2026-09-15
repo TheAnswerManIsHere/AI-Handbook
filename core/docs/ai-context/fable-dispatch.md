@@ -270,9 +270,10 @@ snapshot. Snapshotting is not in Phase 0.
 **A role may dispatch if and only if this script generates its brief.** That is
 the rule and the mechanism both: the permitted set is a predicate over the
 brief generators in `fable-dispatch.mjs`, there is no `--brief` flag, and
-`dispatch()` takes no parameter a caller could widen. Three roles satisfy it —
-the probe, `round-translation`, and `gaps-translation`. Everything else is
-refused, and the way in is to add a generator, not to widen anything.
+`dispatch()` takes no parameter a caller could widen. Four roles satisfy it —
+the probe, `round-translation`, `gaps-translation`, and `merge-opinion`.
+Everything else is refused, and the way in is to add a generator, not to widen
+anything.
 
 **This paragraph is reached by a refusal**, since `dispatch()` names this file
 when it turns a role away, so a reader sent here to learn the rule reads

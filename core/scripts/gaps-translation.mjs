@@ -42,6 +42,7 @@ import { pathToFileURL } from "node:url";
 
 import { REPO_ROOT } from "./review-budget.mjs";
 import { ADJUDICATIONS_DIR } from "./review-loop-record.mjs";
+import { ensureReviewsIgnored } from "./round-translation-page.mjs";
 
 /** Where the plain-English summary lands. Beside the round translations. */
 export const gapsPath = (root, pr) => path.join(root, ".agents", "reviews", `pr-${pr}`, "gaps.md");
@@ -84,6 +85,7 @@ export function renderGaps(pr, answer) {
 /** Write it, and hand back the path. One step, no caller cooperation needed. */
 export function writeGaps(root, pr, answer) {
   const out = gapsPath(root, pr);
+  ensureReviewsIgnored(root);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, renderGaps(pr, answer));
   return out;
@@ -226,6 +228,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, log = pro
     return 2;
   }
   const brief = path.join(root, ".agents", "reviews", `pr-${args.pr}`, "gaps-brief.md");
+  ensureReviewsIgnored(root);
   fs.mkdirSync(path.dirname(brief), { recursive: true });
   fs.writeFileSync(brief, gapsBrief(args.pr, gaps));
   log.write(`gaps-translation: ${gaps.length} gap(s) from ${new Set(gaps.map((g) => g.from)).size} verdict(s) -> ${path.relative(root, brief)}\n`);

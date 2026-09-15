@@ -1,0 +1,102 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 90,
+  "recordPath": ".agents/adjudications/90-1.json",
+  "recordSha256": "ceead47e2ac4c15be05b9a02041080b406be95c91e60845a931f0d6e0484626d",
+  "toolUseId": "toolu_01SejutzCFkkfjaNYULtokLg",
+  "agentId": "aa3b92337a0e5526d",
+  "decidedAt": "2026-09-14T17:10:34.567Z",
+  "transcript": "83e838b4-4c44-5d6f-b547-25b19683e913.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, budget 3, roundsSpent 3, criticality 30, trend [7,4,2] monotonically declining with all 13 findings in-diff and 0 outside — a converging loop on a 10-file/1020-line new subsystem, not a runaway. The two unresolved round-3 findings are both about the accuracy of a David-facing advisory document that the diff itself establishes gates nothing (`fable-merge-opinion.md`: \"Nothing reads your answer except David — not the merge gate, not the review loop\"), so neither reaches the internal rubric's bar: no destructive or irreversible action, no corruption of receipt or tracking machinery, no widening of agent authority. Finding 12 is prose in a role definition that the brief's own emitted text already contradicts emphatically (`mergeBrief`: \"These are thread states, not code states ... do not tell David a finding was fixed because its thread is closed\"), and finding 13's cross-loop confusion would surface as a title and SHA David does not recognise rather than silently. `sinceLastReview.noChange` is true with head == lastReviewedCommit 3e6c148c, so stopping lands on the head round 3 reviewed. One observation that does not move the verdict: the PR declared `kind: trivial` (planOracle.sections null, reason \"trivial change\", declaredBy \"declaration\") for a change of this size, which made `out-of-product-intent` unavailable to me for all thirteen findings; I classed each on its merits instead. I am running as Opus 5, consistent with `dispatch.model: \"best\"` resolving to Opus where Fable is unavailable; I cannot observe my own effort setting, so `xhigh` is unconfirmed in the same class of gap the record's `dispatch.note` already names.",
+    "gaps": [
+      "Finding 12 (PRRT_kwDOUKOPKc6iND5_, core/.agents/fable-roles/fable-merge-opinion.md:33): the role definition still tells the model the record carries \"every finding the reviewer raised and whether it was resolved\", and later that findings arrive \"with their outcomes\", when the field is only GitHub thread state. The brief the role actually receives now labels thread state correctly and instructs against inferring code state from it, so the system-prompt wording is contradicted at runtime rather than acted on — shipping as a recorded gap under the internal rubric.",
+      "Finding 13 (PRRT_kwDOUKOPKc6iND6D, core/scripts/merge-brief.mjs:77): `latestRecordFor()` selects the highest-numbered `<pr>-N.json` without comparing the record's embedded `pr`, `repo` or `generator` against the requested PR and the current checkout, so a merge brief built in the wrong consumer checkout (or from a copied record) would be labelled as this PR. The stamp-on-mint/compare-on-consume shape and the fields needed for it are both already present in the record; shipping unfixed as an ordinary-consequence correctness gap in a document that gates nothing."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVcW",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md, hunk @@ -898,6 +898,34 @@",
+        "why": "A role registered but never invoked from the documented close-out sequence would have shipped dormant, defeating the increment's entire purpose."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVca",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `headNote()` and `latestRecordFor()`",
+        "why": "The record is generated before a round's fixes are pushed, so the newest record can describe an earlier commit than the one merging — a real accuracy defect in an account of what is being merged."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVcd",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `## The threat model this tier is reviewed against` block",
+        "why": "The brief promised the threat model to the reviewer and did not emit it, so the reviewer was asked to assess trust assumptions without the evidence it was told it had."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVch",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `renderMerge()` recommendation branch",
+        "why": "Rendering the schema's documented `null` as an instruction to merge put model-generated approval in front of the person whose click is the whole control, contradicting the role's own stated boundary."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVck",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `asText()`",
+        "why": "`String(array)` comma-joins the record's line arrays, so an oracle section quoted as \"the plan's own words\" arrived as altered run-on prose."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVcp",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `findingBlock()` / `findingText()`",
+        "why": "Inventing a `[?]` severity the record has no field for and cutting bodies at 300 characters dropped exactly the trigger and consequence that `what_you_are_trusting` is built from."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMVct",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `threadState()`",
+        "why": "Labelling GitHub thread state as \"resolved: yes/NO\" can tell David the opposite of the code's status, which the record's own findings note exists to prevent."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMqzF",
+        "class": "in-scope",
+        "citation": "core/.agents/fable-roles/fable-merge-opinion.md, \"Do not assume anything about the blast radius beyond this repository\"",
+        "why": "The payload ships unchanged to every consumer, so a fleet-wide-consequence sentence was false in every product repo it reached — the porting test CLAUDE.md states."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMqzK",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, `## The code itself` patch branch",
+        "why": "The array-only check discarded a live supported record shape and told the reviewer there was no code to assess, on the one field the whole assessment rests on."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMqzN",
+        "class": "in-scope",
+        "citation": "core/scripts/merge-brief.mjs, gaps section caveat block",
+        "why": "`gapsFor()` returns the last verdict's list, so presenting it under a definitive heading turns uncertain historical state into a current fact about what is shipping."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iMqzP",
+        "class": "in-scope",
+        "citation": "core/scripts/round-translation-page.mjs, `ensureReviewsIgnored()`; threatModel.text, \"the identity checks catch mistakes\"",
+        "why": "An untracked session artifact a routine `git add -A` would commit is the operator's own mistake, which is precisely what this repo's stated threat model is scoped to catch — not an adversary defence."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iND5_",
+        "class": "in-scope",
+        "citation": "core/.agents/fable-roles/fable-merge-opinion.md, \"every finding the reviewer raised and whether it was resolved\" and \"with their outcomes\"",
+        "why": "The premise holds against the diff — the role definition does mislabel thread state as resolution — and with no oracle present nothing excludes it, so it is a real if small accuracy defect in a file this PR adds."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iND6D",
+        "class": "in-scope",
+        "citation": "threatModel.text, \"Capturing the wrong PR's snapshot because every repository has a #7\" and \"Stamp on mint, compare on consume\"",
+        "why": "The wrong-checkout half is named by the cited memory file as a mistake the machinery should catch rather than an adversary defence, so it is in-scope rather than out-of-threat-model — even though it is nowhere near the internal rubric's critical bar."
+      }
+    ],
+    "summary_for_david": "I am stopping this loop. PR #90 adds the D2 merge-opinion role — the thing that tells you, independently of Claude's own account, what a pull request actually is and what it does not do. Three review rounds found 7, then 4, then 2 problems, every one of them inside the code this PR changed, and the first eleven were fixed: the role was wired into the close-out sequence so it cannot ship dormant, it stopped inventing an \"approve the merge\" line when it had no recommendation to give, it stopped mangling quoted text into run-on prose, and it stopped presenting a closed review thread as proof a defect was actually fixed. The two left over are both about the wording and bookkeeping of a document that decides nothing — it is written for you to read, and no gate, receipt or automatic step consumes it. One is a stale sentence in the role's instructions that the document it actually receives now contradicts in plain terms; the other is a missing sanity check that would matter only if the command were run in the wrong repository, where the brief would carry a title and commit you would not recognise. Neither can delete anything, corrupt the machinery that tracks reviews, or give the agents more authority than they have, which is the bar internal tooling has to clear before it is worth another round — so I am recording both as known gaps rather than buying a fourth round to polish them. Two things worth knowing: nothing has changed on the branch since the round-3 review, so what merges is exactly what was reviewed; and this PR was declared \"trivial\" for provenance purposes despite being a thousand new lines across ten files, which meant I had no approved statement of intent to judge any of the thirteen findings against. That did not change my answer here, but it is the kind of declaration worth getting right, since it quietly removes one of the tools I use to tell a real defect from work that was never in scope."
+  }
+}
