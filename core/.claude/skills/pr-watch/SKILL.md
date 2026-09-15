@@ -905,10 +905,10 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   It gates nothing: if it fails, the gaps are still in the verdict files and
   the merge is unaffected. Skip it when the loop converged clean, since there
   is nothing to translate.
-- **At EVERY stop, before the merge ask, translate the artifact itself** (D2).
+- **At EVERY stop, before the merge report, translate the artifact itself** (D2).
   The round translations say what happened in each *round*; they describe
   fixes. Nothing describes the *thing*. So one more command, and unlike D3 it
-  is not conditional — every merge ask carries it:
+  is not conditional — every merge report carries it:
 
   ```
   node scripts/fable-dispatch.mjs --role merge-opinion --pr <n>
@@ -920,7 +920,7 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   **It does not read my summary, my PR-body argument or my thread replies**,
   which is the whole point: David already has my framing, and two independent
   framings that disagree are the signal (workstream #36). Paste what comes back
-  into the merge ask **above** my own account, so he reads the independent one
+  into the merge report **above** my own account, so he reads the independent one
   first.
 
   `node scripts/merge-brief.mjs --pr <n>` previews the brief without
@@ -930,9 +930,9 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   the preview says so to me; neither invents a fresh record, because that needs
   a snapshot and a reviewed head.
 
-  It gates nothing either. If it fails, say so in the merge ask rather than
-  merging silently without it — the ask is where David decides, and a missing
-  independent account is a thing he should know he is missing.
+  It gates nothing either. If it fails, name it in the merge report rather
+  than merging silently without it — a missing independent account is a thing
+  David should know he did not get.
 - **Two numbers go in the close-out harvest comment**: dispatches run, and
   disagreements flagged. That is the whole measurement, and it is what the
   retirement rule reads. Receipts are gitignored evidence; nothing else

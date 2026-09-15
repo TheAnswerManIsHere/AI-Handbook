@@ -871,7 +871,7 @@ test("R45: a null recommendation never renders as approval", () => {
   assert.match(text, /Nothing to do before you decide/);
 });
 
-test("R46: D2 is invoked by the documented merge-ask sequence, not only by a source comment", () => {
+test("R46: D2 is invoked by the documented close-out sequence, not only by a source comment", () => {
   // Registering a role and never wiring it in is how D3 shipped dormant on
   // #88 round 1. The step has to exist where the operator reads it.
   const skill = fs.existsSync("core/.claude/skills/pr-watch/SKILL.md")
@@ -879,7 +879,7 @@ test("R46: D2 is invoked by the documented merge-ask sequence, not only by a sou
     : ".claude/skills/pr-watch/SKILL.md";
   const text = fs.readFileSync(skill, "utf8");
   assert.match(text, /--role merge-opinion --pr/, "the dispatch command is in the close-out steps");
-  assert.match(text, /before the merge ask/i, "and it is placed before the ask");
+  assert.match(text, /before the merge report/i, "and it is placed before the report");
 });
 
 test("R47: a string artifact.patch is rendered, not discarded as absent", () => {
