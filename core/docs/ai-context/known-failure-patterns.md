@@ -1750,6 +1750,106 @@ subject is legitimate and whose *boundary* keeps moving. The distinction
 decides the fix: the other entry's is to cut the subject or stop the loop;
 this one's is to **split the artifact and keep going on the smaller half**.
 
+## Each round finds a defect in the previous round's fix
+
+**Looks like:** a code loop that never converges, where every finding is
+correct and every fix is sound, and the thing each new finding is about is the
+code the last round added. **Dangerous:** it reads as diligence from inside —
+the reviewer keeps finding real bugs, so stopping feels like shipping known
+defects — and the cost is invisible because no single round is wrong. The loop
+ends when someone runs out of patience rather than when the code is right.
+
+**The tell, recognised by hand:** a round has a finding whose lines sit inside
+the diff of the last commit pushed for a finding, and so did the round before
+it. The unit is the round, never the finding — a single round returning several
+such findings is one observation, not several.
+
+**That tell was written up as a mandatory stop rule and the attempt failed.
+Read the next section before reaching for it again.**
+
+**Root cause: a fix written to satisfy a finding is local by construction, and
+the code this happens in has no edge to be local to.** Guards, parsers,
+counters, checks — anything defending an input space that is not enumerable.
+Each patch closes the reported case and creates a new boundary; the next round
+finds *that* boundary, because it is the newest and least-considered code in
+the diff. Two rounds of this is not bad luck, it is the shape.
+
+**Avoid — the response is never a third patch.** This part holds, and it is
+guidance rather than a trigger. One of three, in order of preference:
+**remove the mechanism** (if what it guards is inconsequential,
+`claude-core.md` review-loop rule 5's `Worth:` line already says delete it);
+**derive the value** rather than check it (rule 5's *derivable* — a check whose
+two sides the same code owns guards nothing); or **change the operation**, which
+is the move that actually ends these.
+
+### The stop rule written from this entry did not work (AI-Handbook #91)
+
+AI-Handbook #91 turned the tell above into review-loop rule 7 in
+`claude-core.md`: a mandatory stop, keyed to that observable. **David removed
+it on 2026-09-15, after seven rounds.** The attempt is recorded here rather
+than deleted, because the next person to have this idea should meet the
+evidence instead of repeating it.
+
+**Four correct reviewer findings against that one paragraph, in seven rounds**,
+each refining a boundary and exposing the next:
+
+1. The trigger fired on line overlap alone, forbidding an ordinary
+   second-round fix (round 1).
+2. A clause inferred unboundedness from untestability (round 3). **That
+   inference is simply wrong, and it is the most reusable thing here:
+   testability and unboundedness are different properties.** Correcting a
+   sentence of contract prose, or a behaviour only reachable through an
+   integration the test environment lacks, has no class-level failing test and
+   is perfectly well bounded. Stated unconditionally it condemned every fix in
+   the pull request that introduced it. Narrowing it to "mechanisms already
+   shown to be unbounded" was rejected too: that turns the trigger back into a
+   judgement.
+3. The headline counted findings while every other statement of the rule
+   counted rounds (round 4).
+4. The trigger compared against the **last** fix commit, but a round's fixes
+   can span several, so a finding landing in an earlier one recorded nothing
+   and the counter could stay at zero forever (round 7).
+
+**And the decisive fact, which no amount of rewording touched: the rule never
+once fired on that loop, by its own observable, while that loop exhibited this
+exact pattern throughout.** Checked at rounds 4, 5 and 7; negative every time.
+
+**The lesson is not "observables don't work."** AI-Handbook #85's finding
+stands — a condition you have to interpret is one you will reinterpret. The
+lesson is the question #85 did not ask and #91 paid seven rounds to learn:
+**an observable trigger also has to be REACHABLE on a real loop, and nothing
+in the process asks that.** A trigger can be perfectly unambiguous, perfectly
+read-off-the-record, and still never fire — because the state it names is
+narrower than the situation it was written for. Test a proposed trigger
+against loops that already happened before making it binding.
+
+**AI-Handbook, four instances inside one workstream (#36), plus the one that
+shows the cure.** PR #28: two of round 2's findings were defects round 1's
+fixes introduced, and one slipped through a sweep whose exclusion pattern
+whitelisted its own target. PR #80: three rounds, each finding a defect on one
+failure path, two of them introduced by the previous round's fix. The D0 plan
+loop: rounds 2 and 3 each found a defect in text the previous round's fix had
+added. **PR #83 is the sharpest, and it is also the cure**: the loop-position
+round count took *five* attempts — a snapshot glob, a typed count, a named
+file, a pass history, and a high-water floor that then trailed by one forever
+after the first loss — each a correct fix for the last one's defect. What ended
+it was not a sixth patch but the recognition that **counting was the wrong
+operation**; recording which passes have ever been seen per commit, and summing,
+converged in one round. Overhype PR #329's Bash guard is the same shape without
+the cure (9 → 11 → 12 → 19 findings against an unbounded parsing surface), and
+PR #293's 17 rounds refining one reachability model is its severe end.
+
+**Not the same as *a plan that grew during its own review*** (above). There the
+artifact's boundary moves and the fix is to split it. Here the boundary is
+fixed and the *approach* is wrong, so splitting changes nothing — the same
+patch-and-repatch runs on each half. **#36's B2 delta review was declined on this entry's strength**
+(David, 2026-09-14) — the argument being that a role reading the inter-round
+delta detects this only after it has recurred, while an observable read off
+the round would catch it the first time, for free. **That argument no longer
+stands as stated**: the free catch was rule 7, and rule 7 did not catch
+anything. Whether B2 earns building now is open, and belongs to the machinery
+audit (#89) rather than to this entry.
+
 ## PostgreSQL role/constraint verification traps that look safe and aren't
 
 **Looks like:** code (application, migration, or test) that infers a

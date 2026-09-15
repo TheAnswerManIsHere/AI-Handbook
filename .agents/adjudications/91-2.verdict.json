@@ -1,0 +1,66 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 91,
+  "recordPath": ".agents/adjudications/91-2.json",
+  "recordSha256": "ffdad54b477aa0f2ae984b6d8d682ee548863714b18d35534ee5b119ff05f307",
+  "toolUseId": "toolu_013fYcdj91NZb1fzvfD2oLM8",
+  "agentId": "a1f01db5cce3d1025",
+  "decidedAt": "2026-09-14T19:32:02.142Z",
+  "transcript": "6deddcc0-f3ae-5253-abd3-573fb814edbb.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier at its declared budget (roundsSpent 3 of 3, no extensions), criticality 55, trend 4→1→2 with 2 unresolved threads, all 7 findings inside the diff (territory 7/0) on a 21-file +233/-69 contract sweep — not the runaway shape, and the loop is already on a reviewed head (sinceLastReview: 0 commits). I verified both open findings against the repository rather than the record: claude-core.md:554-556 does state the testability→unbounded inference with no mechanism precondition, and scripts/check-root-wiring.mjs:30-33 (\"which is David's to merge\") plus identity-sources.yml:19 (\"The controls against deliberate action are David's merge and the server-side ruleset\") are both real survivals — but I also read check-contract-consistency.mjs, whose ROOT resolves to core/ and whose SCANNABLE is /\\.(md|mjs)$/, so neither cited file is reachable by the new RETIRED entries and neither can turn CI red; they are inert comments in handbook-root files that are not payload and do not sync. Both open findings therefore fail the internal rubric's critical bar in the same direction: each errs toward over-stopping (a rule that fires too often, and stale text asserting the stricter retired policy), which is this tier's self-announcing wrongly-blocking failure mode, and neither is a destructive action, a corruption of the receipt/tracking machinery, nor a widening of authority beyond what the PR's own (David, 2026-09-14) citations grant. One thing only I am positioned to name, unchanged from round 1: this PR retires the merge carve-out while merging under it, and the sole evidence of David's grant is builder-supplied text in the diff and in budget.artifactDeclaredAtRoundZero.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6iP9U6 — claude-core.md:554-556: \"a fix I cannot write a class-level failing test for is a patch on an unbounded space\" infers unboundedness from testability alone, with no restriction to guards/parsers/checks, so it will fire on a legitimate prose or integration fix and mandate redesign. Left as a gap: the over-fire direction is stopping, and the proposed narrowing would convert the signal from something read off the work into a judgement, which review-loop rule 4 forbids on measured grounds (#83/#85). Note this is the SECOND finding against the same rule-7 paragraph (round 1's PRRT_kwDOUKOPKc6iPJgX was the first), which under rule 5's third binding is evidence the earlier decline may have been mis-sized — that re-triage belongs to David alongside the rule he authored, not to another round here.",
+      "PRRT_kwDOUKOPKc6iP9U- — two surviving mandatory-merge rationales verified in the working tree: scripts/check-root-wiring.mjs:30-33, which cites the retired gate to justify omitting settings enrollment from the check (doubly stale, since CLAUDE.md records enrollment as complete), and identity-sources.yml:15-20, whose threat-model header still names David's merge as a deliberate-action control. Both are handbook-root, non-payload, and outside the retired-phrase guard's reach, so the consequence is a reader believing the stricter old policy — wrongly-blocking, not wrongly-passing.",
+      "NOT RAISED BY THE REVIEWER, same class and larger blast radius: core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md — quoted verbatim in this record's own threatModel.text — still says \"The controls against deliberate action are David's merge and GitHub's server-side ruleset\" in its frontmatter description, \"a human's merge click, and the server-side ruleset on `main`\" in What happened, and \"a human's approval, a server-side rule\" in Takeaway. That file IS payload and syncs to every consumer, and the extra \"GitHub's\" defeats the new RETIRED phrase even if that directory were scanned. Recorded rather than written for, on the same grounds as the two above."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgX",
+        "class": "in-scope",
+        "citation": "core/.agents/core/claude-core.md @@ -542,6 +543,20 @@ — the added rule 7, whose stated condition is \"the finding's lines sit in the diff of the last commit I pushed for a finding\"; verified at claude-core.md:546-558, where the guard/parser/counter/check language lives only in the known-failure-patterns entry's root-cause paragraph, not as a precondition here",
+        "why": "The premise holds against the diff — the trigger really is line overlap alone and the mandated response really does exclude a further patch — so it is a genuine defect in the specification this increment set out to add."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgc",
+        "class": "in-scope",
+        "citation": "core/scripts/check-contract-consistency.mjs RETIRED (plain case-insensitive substring per its own docblock, line 58) against the then-surviving text at core/.claude/skills/fp-check/references/deep-verification.md:76, core/.claude/skills/handoff/SKILL.md:38-39, core/.agents/core/agents-core.md:148-152 and AGENTS.md:52-56 — all four now appear swept in artifact.patch",
+        "why": "The round-zero artifact says the retirement runs \"across the payload,\" so an unswept contradiction in payload files is squarely inside what this increment set out to do."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgi",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md @@ -868,10 +869,16 @@ against core/scripts/pr-ready.mjs checkTranslations, which classifies an unrecorded account as `undelivered` and refuses readiness; the diff now carries the corrected ordering in that hunk and in claude-core.md @@ -560,8 +575,12 @@",
+        "why": "Verified mechanically incompatible as originally written — the new ordering would have wedged every stopping round's own merge — which is a real defect in what this increment changed."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgl",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/status-all/SKILL.md @@ -375,11 +375,13 @@ — removing the carve-out Merge case orphaned the adjacent \"ready to merge, CI green, Codex converged\" example, which the same hunk now replaces with Scope/Plan/UAT examples",
+        "why": "The orphaned example is a direct consequence of the line this diff changed, so it is a real if minor defect in this increment rather than an unrelated repo audit."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPmkt",
+        "class": "in-scope",
+        "citation": "artifact.patch adds core/.agents/reviews/.gitignore and the root mirror .agents/reviews/.gitignore, plus the MIRRORED_GITIGNORES entry verified live at scripts/check-root-wiring.mjs:73 — sync.mjs exports only core/**, so the root-only placement the finding names would never have reached a consumer",
+        "why": "Classified here because round 2's record was never generated; the premise is correct — a root-only ignore file leaves a freshly synced consumer's CODE-review path unignored — and it concerns a file this increment itself introduced."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iP9U6",
+        "class": "in-scope",
+        "citation": "core/.agents/core/claude-core.md:554-556 (added by artifact.patch @@ -542,6 +543,20 @@): \"A related signal arrives before any round runs: a fix I cannot write a class-level failing test for is a patch on an unbounded space, and gets that same response.\"",
+        "why": "Verified in the working tree: the sentence carries no restriction to guards/parsers/checks, so the inference from untestability to unboundedness really is unconditional in text this increment added."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iP9U-",
+        "class": "in-scope",
+        "citation": "Verified against the repository: scripts/check-root-wiring.mjs:30-33 (\"a change to the agent's own guardrails, which is David's to merge rather than a check's to enforce\") and identity-sources.yml:15-20, line 19 (\"The controls against deliberate action are David's merge and the server-side ruleset\") — both unchanged by artifact.patch",
+        "why": "Both premises hold exactly as stated, and an unswept statement of the policy this increment retires is inside the increment's own subject, not a repo audit — no oracle is needed to decide that, so the trivial provenance does not make it unclassifiable."
+      }
+    ]
+  }
+}

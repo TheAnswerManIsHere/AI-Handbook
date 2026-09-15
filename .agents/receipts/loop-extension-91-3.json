@@ -1,0 +1,8 @@
+{
+  "pr": 91,
+  "kind": "david",
+  "grant": 2,
+  "asOf": 5,
+  "authorization": "MECHANICAL ROUND, taken under David's standing grant of 2026-09-07 and claude-core.md review-loop rule 3: \"A mechanical round is mine to grant -- the head moved only by bookkeeping (receipts, records, machinery config, a merge of the base branch), no finding is being written for, and no review or verdict is pending. Under budget I just request the pass; only at an exhausted allowance do I commit a `david`-kind receipt (grant 2, asOf the completed count) citing his standing grant of 2026-09-07, then request the pass so it covers the receipt. Once per loop.\"\n\nWhy it is needed here. Round 5 came back CLEAN at 03a25e1 -- the loop has converged and nothing is being written for a finding. But the merge bar requires a Codex pass covering the commit that would merge, and two bookkeeping files must be committed before the merge: `.agents/deliveries.md`, which record-delivery.mjs writes and explicitly says to commit, and this receipt itself. Committing them moves the head past the reviewed commit, so a pass is owed on the bookkeeping commit and on nothing else.\n\nWhat this round is NOT. No finding is outstanding: all 8 threads are resolved and round 5 returned none. No verdict is pending. No contract, payload, skill or script file changes in the commit this covers -- `deliveries.md` is an append-only log of what reached David, and the receipt is this record. If a finding does arrive on it, that is a real finding and the grant of 2 covers answering it.\n\nThis is the once-per-loop mechanical grant and it is now spent. asOf 5, grant 2, opening rounds 6 and 7.",
+  "createdAt": "2026-09-15T21:28:00.000Z"
+}

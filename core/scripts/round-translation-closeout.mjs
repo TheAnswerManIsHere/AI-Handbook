@@ -158,7 +158,7 @@ export async function main(argv = process.argv.slice(2), { root = null, log = pr
   if (missing.length) {
     log.write(
       `round-translation-closeout: no snapshot and no dispatch for round(s) ${missing.join(", ")} -- go back to the ` +
-        `capture step for each. The merge ask must not go out with a round absent from the page.\n`,
+        `capture step for each. The merge must not go ahead with a round absent from the page.\n`,
     );
   }
   if (timedOut.length) {
@@ -169,7 +169,7 @@ export async function main(argv = process.argv.slice(2), { root = null, log = pr
   }
   // An undelivered round is the expected state at this point of a normal
   // close-out: every dispatch is in, and delivery is the next step. Said out
-  // loud so the step is not skipped, and exit 1 so a merge ask cannot follow
+  // loud so the step is not skipped, and exit 1 so a merge cannot follow
   // a close-out that stopped here.
   if (undelivered.length) {
     log.write(

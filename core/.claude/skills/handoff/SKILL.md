@@ -36,7 +36,7 @@ packages a **drafted verdict plus its evidence** for challenge, while the
 Step 1 verdict below is **enumeration from memory** — you cannot package what
 you have not yet noticed, and noticing is the whole task. A stronger model
 does not fix absent evidence. **Removing this bar is a contract change that
-ships in a PR David merges, never a mid-task call.**
+ships through the ordinary PR path, never a mid-task call.**
 
 ## Step 1 — Is a handoff actually required?
 

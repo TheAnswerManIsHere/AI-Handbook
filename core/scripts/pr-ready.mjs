@@ -138,7 +138,9 @@ const PASSING_CONCLUSIONS = new Set(["success", "neutral", "skipped"]);
  * through the ONE reader the payload has, in review-budget.mjs. Working tree,
  * on purpose: the base-commit and durable-ref readers this replaced defended
  * against the person running the gate, who needs no exploit. The controls
- * against deliberate action are David's merge and the server-side ruleset;
+ * against deliberate action are the server-side ruleset and David working
+ * alongside, reading the latitude line every authority-widening PR carries
+ * (2026-09-14, when the David-merge gate was retired);
  * this read catches MISTAKES, by failing closed on absent, malformed, empty
  * or placeholder. (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`.)
  */
@@ -1841,7 +1843,7 @@ export function checkTranslations(prNumber, cwd, now, configuredRepo, { position
       // The account exists and David has not seen it. This is the state
       // every round is in between its dispatch returning and the delivery
       // step running, so it is the ordinary thing to see here mid-loop -- and
-      // the thing a merge ask must never be built on. (David, 2026-09-14.)
+      // the thing a merge must never be built on. (David, 2026-09-14.)
       parts.push(
         `round(s) ${undelivered.join(", ")} have an account that was never delivered ` +
           `(publish the page, paste each line, then record-delivery --pr ${prNumber} --url <artifact url>)`,

@@ -37,8 +37,8 @@ CI is green, the reviewer has converged, and every thread is resolved — see
 CLAUDE.md's close-out contract), and the **scope-of-work gate** was added
 the same day at the front of Planning (see
 [`working-modes.md`](./working-modes.md#the-scope-of-work-gate-david-2026-08-15)).
-The one exception that still holds Merge as a David-gate: a PR that widens
-the agent's own guardrails or authority, which stays David-merge-only.
+The last exception — a PR that widens the agent's own guardrails or
+authority — was retired on 2026-09-14; nothing holds Merge as a David-gate.
 **Known interim mismatch:** the Project board's verbatim Status option is
 still named `🛑 Merge` (the sync script maps labels onto the board's exact
 option names, and renaming an option is a board-config edit only David can
@@ -46,7 +46,7 @@ make, paired with a `sync-project-fields.mjs` + fixture code change) — so
 until that follow-up lands, ordinary self-merged workstreams passing
 through `stage:merge` briefly display the stop glyph on the board without
 meaning "needs David." The label semantics in this doc are the truth;
-`waiting:david` is what actually marks the carve-out case.
+`waiting:david` no longer occurs at Merge at all.
 
 ## Phased features: a parent issue, one sub-issue per phase
 

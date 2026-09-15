@@ -214,8 +214,10 @@ const CONFIG_CACHE = new Map();
  * base commit and back, each time defending against an actor who can edit
  * files in this checkout -- who is the person running the script. That actor
  * needs no exploit; it can simply not run the guard. The controls against
- * deliberate action are David's merge and the server-side ruleset, and no
- * local script can add to them. What this read has to do is catch a
+ * deliberate action are the server-side ruleset and David working alongside,
+ * reading the latitude line every authority-widening PR carries (2026-09-14,
+ * when the David-merge gate was retired), and no local script can add to
+ * them. What this read has to do is catch a
  * MISTAKE: declaring a budget in the wrong checkout, or running with the seed
  * placeholder still in place. It does that by failing closed on absent,
  * malformed, or placeholder, and by being the ONE place identity is read.

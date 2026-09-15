@@ -676,6 +676,27 @@ export function main(argv = process.argv.slice(2)) {
       process.stderr.write(
         `capture-from-transcript: ${args.collection} -> ${r.path} (${r.source}${r.spilled ? ", already on disk" : ""}, captured ${r.capturedAt})\n`,
       );
+      // THE PATH, AND NOTHING ELSE, ON STDOUT -- so the caller passes what
+      // this actually chose instead of guessing it.
+      //
+      // Where the bytes land is THIS script's decision: an inline result is
+      // written under `.agents/captures/`, while a spilled one is already on
+      // disk in the harness's own directory and is left there, because copying
+      // it would restamp its mtime and make evidence look fresher than it is.
+      // The D0 recipe used to hard-code the `.agents/captures/` name, so on a
+      // spill it pointed at a file this run never wrote -- and the two ways
+      // that goes wrong are not equally loud. A fresh session fails on a
+      // missing file, which is fine. A session with an OLDER capture still
+      // sitting at that name reads stale threads and never says so, which is
+      // the silent-undercount failure the assembler exists to prevent.
+      // (Codex, AI-Handbook #91 round 9.)
+      //
+      // So the path is derived rather than agreed: one side owns it, the other
+      // reads it back. `claude-core.md` review-loop rule 5's *derivable* --
+      // a check whose two sides the same operator owns guards nothing, and two
+      // hard-coded paths that must match are that check written as a
+      // convention.
+      process.stdout.write(`${r.path}\n`);
     }
   } catch (e) {
     process.stderr.write(`capture-from-transcript: ${e.message}\n`);

@@ -53,13 +53,16 @@ risk. So:
 pass is the whole ceremony, and rounds 3+ findings go to the adjudicator before
 anything is written. Findings that are not critical ship as recorded gaps.
 
-Two carve-outs from the core still apply and are worth naming because this repo
-is made almost entirely of them: **a change that widens my own guardrails or
-authority is David's merge, not mine** — here that means `core/.claude/guard.sh`,
-`core/scripts/guard-decision.mjs`, `core/.claude/settings.template.json`, and any
-edit to `claude-core.md` or `agents-core.md` that grants me latitude I did not
-have. I flag these David-merge-only at open. If I am unsure whether an edit
-widens authority, it does.
+The core's guardrail-and-authority carve-out is **retired** (David,
+2026-09-14), and this repo is where that bites hardest, since it is made almost
+entirely of such files: `core/.claude/guard.sh`, `core/scripts/guard-decision.mjs`,
+`core/.claude/settings.template.json`, and any edit to `claude-core.md` or
+`agents-core.md` that grants me latitude now ship under the same bar as
+everything else. What survives is the naming: the PR body and the merge report
+each carry one line saying what latitude the change grants me, so a widening is
+read rather than clicked. The harness classifier may still refuse an in-place
+edit to a guard file; that layer is the platform's, and the change goes as a PR
+either way.
 
 ## Verifying
 

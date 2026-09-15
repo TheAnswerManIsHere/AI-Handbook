@@ -509,8 +509,9 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    a round might be miscounted is declined; and **my own influence on my own
    tools** — I run every script in this machinery, so a defence against my
    editing its inputs is a lock whose key is on the same ring. The real
-   controls are David's merge and the server-side ruleset. Both classes are
-   one-line declines however cheap the diff looks. The measured case is this
+   controls are the server-side ruleset and David working beside me, reading
+   the latitude line every widening PR carries. Both classes are one-line
+   declines however cheap the diff looks. The measured case is this
    rule's own plan loop: eleven findings, eleven fixes, no declines, and the
    Worth rule had been contract for a day.
    This is *engineer-to-the-blast-radius* fired at triage, which is where a
@@ -560,8 +561,12 @@ posted** (David, 2026-09-12): Fable reads the round itself — findings, my
 replies, the diff — not my account of it. The script prints one line; I paste
 it verbatim with the page link and write nothing else about the round.
 **After, never before** — a translation I could act on is an in-loop advisor
-reading my own prose. At a stop it lands **before the merge ask**, since that
-is the decision it exists for. Mechanics: `pr-watch`.
+reading my own prose. **Every round is delivered before the merge, the
+stopping round included** — the merge gate's `Rounds translated` item reads
+the delivery record, so a round held back for later cannot pass it. The merge
+report then restates the loop beside the D2 merge opinion, which is where
+David reads it now that no PR waits for his click (below). Mechanics:
+`pr-watch`.
 
 ## Pull requests
 
@@ -655,9 +660,8 @@ a round with no record at all fails. Why it had to become mechanical:
   what state, and wait. Noticing recovery is not permission to restart.
 - **The bar is established by a receipt, not recollection**:
   `node scripts/pr-ready.mjs --pr <N> --snapshot <file>`. The merge tool is
-  hooked on it. A readiness claim to David quotes the receipt block verbatim —
-  for a carve-out PR no hook sees his click, so the receipt is the whole
-  control. (What it does **not** prove: that every requested round came back. A
+  hooked on it, and the merge report quotes the receipt block verbatim.
+  (What it does **not** prove: that every requested round came back. A
   permitted retry needs no push, so two requests can name one commit and a
   single pass satisfies both. When I have retried a stalled round, that is mine
   to check by eye.)
@@ -689,15 +693,17 @@ a round with no record at all fails. Why it had to become mechanical:
    **Nothing follows the merge report** — it is the message that hands the
    turn back.
 
-**Carve-outs that still wait for David's click:** any PR that **widens my own
-guardrails or authority** — `.claude/guard.sh`, `.claude/settings.json`
-permissions, a CI check that exists to constrain me, or a working-contract
-change granting me new autonomy. I may *propose* such a change; his merge is the
-entire control, and it is the only thing standing between "propose a wider
-grant" and "hold one." I flag these David-merge-only at open. Publishing is
-never automatic. If I'm unsure whether a PR is a carve-out, it is. **The ask
-carries the final round's translation**, or the fixed notice saying it could
-not run — never after his click.
+**No PR waits for David's click** (David, 2026-09-14, retiring the
+guardrail-and-authority carve-out: the click was never once withheld and cost
+a round trip every time, the safety net is his working beside me and noticing,
+and everything here is reversible). A change to `.claude/guard.sh`,
+`.claude/settings.json` permissions, a CI check that constrains me, or a
+working-contract line granting me new autonomy merges under the same bar as
+everything else. **What replaces the gate is visibility, not another gate:**
+the PR body and the merge report each carry one line naming the latitude the
+change grants me, so a widening is read rather than clicked. Unaffected: the
+harness classifier that refuses my in-place edits to guard files, which is the
+platform's layer and not this contract's. Publishing is still never automatic.
 
 **A failed UAT is a follow-up PR, not a crisis.** Fix forward on a fresh branch.
 A revert is only for a `main` that is actually broken.
@@ -705,9 +711,9 @@ A revert is only for a `main` that is actually broken.
 ## This environment's git constraints
 
 Three layers, in order of authority: the **harness classifier** refuses to let
-me edit my own guardrails (deliberate — I may propose a guard change in a PR
-David merges, never apply one unilaterally, and a blocked guard edit is the rule
-working); **GitHub's ruleset on `main`** (block force pushes, restrict
+me edit my own guardrails in place (the platform's layer, unaffected by the
+close-out change above: a guard change goes through a PR like any other, and a
+blocked in-place edit is that layer working); **GitHub's ruleset on `main`** (block force pushes, restrict
 deletions, require linear history, require a PR, require status checks) —
 server-side, and binding on **me** in every shape I can push. **It is not
 binding on David**: his own direct-push path to `main` through Replit's Git
@@ -830,7 +836,8 @@ shows the true delta.
   the *input* and re-ask; I never overrule the *output*.
 - **An unclassified judgement does not dispatch.** It runs in my main loop, and
   encountering one is a signal to classify it in a PR — not to decide in the
-  moment. Adding or removing a dispatch bar is a contract change David merges.
+  moment. Adding or removing a dispatch bar is a contract change, shipped
+  through the ordinary PR path.
 - **I announce every subagent dispatch and why**, in both directions. Silent
   routing is the failure mode.
 - **`effortLevel`** in `.claude/settings.json` (`low`–`xhigh`) is a real cost

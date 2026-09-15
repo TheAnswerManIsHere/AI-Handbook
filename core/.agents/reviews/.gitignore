@@ -1,0 +1,22 @@
+# Per-PR review-loop evidence: snapshots, the loop position, dispatch logs
+# and exit files, under .agents/reviews/pr-<n>/.
+#
+# EPHEMERAL BY CONTRACT. A fresh container legitimately has none of it, and
+# re-dispatching is the documented remedy rather than a workaround. What must
+# survive a round is committed elsewhere: the adjudication record and its
+# verdict in .agents/adjudications/, the budget receipt in .agents/receipts/,
+# and the delivery line in .agents/deliveries.md.
+#
+# WHY THIS FILE EXISTS. The contract already said this directory was ignored,
+# and it was not. plan-review.mjs writes an ignore file for the directories a
+# PLAN loop creates; a CODE review loop never runs that script, so
+# .agents/reviews/pr-<n>/ was covered by nothing and an ordinary `git add -A`
+# staged a snapshot of the pull request body. (AI-Handbook #91 round 1.)
+#
+# WHY THERE ARE TWO COPIES. Git does not follow a symlinked .gitignore, so a
+# pointer is impossible and a real file at each root is the only option. The
+# handbook mirrors this one at .agents/reviews/.gitignore, and
+# scripts/check-root-wiring.mjs compares the pattern lines so the duplication
+# is enforced rather than merely intended. Edit THIS copy; the root follows.
+*
+!.gitignore

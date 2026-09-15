@@ -702,15 +702,24 @@ and prints only a status line:
 ```
 D=.agents/reviews/pr-<n>; mkdir -p "$D"
 for c in pr reviews issueComments reviewThreads; do
-  node scripts/capture-from-transcript.mjs --pr <n> --collection "$c"
+  eval "P_$c=$(node scripts/capture-from-transcript.mjs --pr <n> --collection "$c")"
 done
 node scripts/snapshot-from-captures.mjs \
-  --pr-capture .agents/captures/pr-<n>-pr.json \
-  --reviews .agents/captures/pr-<n>-reviews.json \
-  --comments .agents/captures/pr-<n>-issueComments.json \
-  --threads .agents/captures/pr-<n>-reviewThreads.json \
+  --pr-capture "$P_pr" \
+  --reviews "$P_reviews" \
+  --comments "$P_issueComments" \
+  --threads "$P_reviewThreads" \
   --fetched-at <iso> --out "$D/snap-r<r>.json"
 ```
+
+**Use the path each capture prints; never retype it.** Recovery decides where
+the bytes land: an inline result is written under `.agents/captures/`, while a
+result the harness spilled to its own directory is left there, because copying
+it would restamp its mtime and make evidence look fresher than it is. A recipe
+that hard-codes the `.agents/captures/` name is therefore wrong on exactly the
+big captures — and a stale file still sitting at that name is read **silently**,
+which is worse than the missing-file case. Each command prints its path on
+stdout and nothing else, so the assembler reads back what recovery chose.
 
 Same assembler, same flags as the budget-check snapshot above — one page
 argument per page, and `--out` rather than a redirect.
@@ -755,7 +764,7 @@ node scripts/round-translation-closeout.mjs --pr <n>
 
 Non-zero means a round has no account, and the message names which — or that
 the position is missing or older than an hour, in which case assemble a fresh
-snapshot (step 2) first. Either way it is a stop before the merge ask.
+snapshot (step 2) first. Either way it is a stop before the merge.
 
 **The bound is derived, never typed, and that is the whole point of the
 script.** Enumerating `snap-r*.json` asks *which rounds produced a snapshot*,
@@ -763,7 +772,7 @@ which is a different question from *which rounds happened* — and the differenc
 is exactly the round that needs saying. When capture assembly fails before
 `snap-r<r>.json` is written, that round has no snapshot, so a glob never names
 it, so nothing is dispatched for it, so no exit file appears and no fixed
-notice is printed: the merge ask goes out with a completed review round
+notice is printed: the merge report goes out with a completed review round
 **silently absent** from David's page, which is the one failure this feature
 exists to prevent. (Codex, #81 round 9.)
 
@@ -822,8 +831,8 @@ rather than as text.
 
 The rounds are dispatched detached and independently, so they do not finish in
 order: an earlier round that stalled is still outstanding when the final one
-returns. Waiting on only the round that triggered the stop lets the merge ask
-go out with an earlier round missing from the page and with no chat line —
+returns. Waiting on only the round that triggered the stop lets the merge
+report go out with an earlier round missing from the page and with no chat line —
 and Product Intent 1 promises David an account of **every** round, which does
 not stop being true because the missing one is not the last. The wait is
 bounded twice over: the derived pass count is finite, and each round either has
@@ -860,7 +869,8 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
     gate refuses any round not on its list: an account that exists but was
     never shown is the #85 failure one step later, and a forgotten step leaves
     no file. A round landing after the last delivery is refused until the page
-    goes out again with it — the merge ask cannot ride a page one round behind.
+    goes out again with it — the merge report cannot ride a page one round
+    behind.
   - `.agents/deliveries.md` — **David's** copy, and the one he actually asked
     for. Committed, appended, one plain line per delivery. **Commit it with the
     round's other bookkeeping**; a delivery record he cannot see is not a
@@ -868,10 +878,16 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
 - **If it refuses or fails**, the script prints the fixed notice (*translation
   unavailable — …*). Paste that instead. Never summarise what it would have
   said.
-- **At a stop, it goes before the merge ask**, not before the merge report:
-  it exists for the decision David is about to make, and the report follows
-  his click. Wait on every outstanding exit file at close-out, per the loop
-  above — the ask carries each round's line, or that round's fixed notice.
+- **At a stop, the stopping round is delivered before the merge, exactly like
+  every other round** — page published, line pasted, `record-delivery.mjs`
+  run. That ordering is not a preference: `pr-ready.mjs`'s `Rounds
+  translated` item classifies any account not yet in the delivery record as
+  `undelivered` and refuses readiness, so a stopping round held back for the
+  post-merge report would wedge its own merge. The **merge report then
+  restates** the loop for David, which is where he reads it now that no PR
+  waits for his click (David, 2026-09-14). Wait on every outstanding exit
+  file at close-out, per the loop above — each round's line, or that round's
+  fixed notice, is delivered before the merge and repeated in the report.
 - **A round that raised nothing and prompted no push is skipped** by the
   script itself, with the reason on the page. An **all-declined** round is
   dispatched — it is the round where my account matters most.
@@ -889,7 +905,7 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   for in the rounds that followed, and reporting those as shipped tells him the
   opposite of the truth (#88 round 1). The last one is sufficient because the
   adjudicator re-enumerates what is still open every time it rules. Put what
-  comes back in the merge ask, under the receipt.
+  comes back in the merge report, under the receipt.
 
   `node scripts/gaps-translation.mjs --pr <n>` writes the same brief to a file
   without dispatching, which is a **preview** for my own eyes and never a
@@ -898,10 +914,11 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   It gates nothing: if it fails, the gaps are still in the verdict files and
   the merge is unaffected. Skip it when the loop converged clean, since there
   is nothing to translate.
-- **At EVERY stop, before the merge ask, translate the artifact itself** (D2).
-  The round translations say what happened in each *round*; they describe
-  fixes. Nothing describes the *thing*. So one more command, and unlike D3 it
-  is not conditional — every merge ask carries it:
+- **At EVERY stop, before the MERGE ITSELF, translate the artifact itself**
+  (D2) — not merely before the merge report, which comes after it. The round
+  translations say what happened in each *round*; they describe fixes. Nothing
+  describes the *thing*. So one more command, and unlike D3 it is not
+  conditional — every merge report carries it:
 
   ```
   node scripts/fable-dispatch.mjs --role merge-opinion --pr <n>
@@ -913,8 +930,18 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   **It does not read my summary, my PR-body argument or my thread replies**,
   which is the whole point: David already has my framing, and two independent
   framings that disagree are the signal (workstream #36). Paste what comes back
-  into the merge ask **above** my own account, so he reads the independent one
+  into the merge report **above** my own account, so he reads the independent one
   first.
+
+  **The ordering is load-bearing, and it is why this says "before the merge"
+  rather than "before the report".** The role and the brief both address David
+  as someone deciding: *"he is about to decide whether this merges"*, and the
+  `recommendation` field asks what to do **before merging**. Run after the
+  merge, that account would hand him a decision already taken and describe a
+  landed change as pending. Retiring the old pre-merge ask <!-- retired-ok -->
+  moved the *report* past the merge; it did not move this, and the report
+  restates D2 rather than producing it. (Codex, AI-Handbook #91 round 9, which
+  caught the wording drifting with the ordering.)
 
   `node scripts/merge-brief.mjs --pr <n>` previews the brief without
   dispatching. **Read its warning line**: the record is generated *before* a
@@ -923,9 +950,9 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   the preview says so to me; neither invents a fresh record, because that needs
   a snapshot and a reviewed head.
 
-  It gates nothing either. If it fails, say so in the merge ask rather than
-  merging silently without it — the ask is where David decides, and a missing
-  independent account is a thing he should know he is missing.
+  It gates nothing either. If it fails, name it in the merge report rather
+  than merging silently without it — a missing independent account is a thing
+  David should know he did not get.
 - **Two numbers go in the close-out harvest comment**: dispatches run, and
   disagreements flagged. That is the whole measurement, and it is what the
   retirement rule reads. Receipts are gitignored evidence; nothing else
@@ -1023,11 +1050,9 @@ silently leaving the workstream unlabeled):
   the ready bar is met and **I merge it myself per CLAUDE.md's close-out
   contract (David, 2026-08-15)** — re-verify live state, squash-merge, sync,
   verify, report — so `stage:merge` is normally a moment, not a resting
-  state. The exception is a carve-out PR (guardrail/authority-widening,
-  which stays David-merge-only): there, label `stage:merge`,
-  `waiting:david`, deliver the 🛑 merge ask, and don't let it sit at
-  `stage:code-review` — a ready-to-go workstream parked under the wrong
-  label is exactly what `/status-all` exists to surface.
+  state. There is no carve-out exception any more (David, 2026-09-14): a
+  guardrail- or authority-widening PR merges the same way, with the latitude
+  it grants named in the report.
 - **The PR merges with a Post-merge verification section that has real
   content** → `stage:test-run`, `waiting:replit` — the lifecycle's own
   Test-run stage, between Merge and UAT, not a step to skip past. Per the

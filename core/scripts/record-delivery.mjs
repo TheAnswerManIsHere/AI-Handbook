@@ -32,7 +32,7 @@
  * republished in place, so its delivery is one fact that moves forward. The
  * gate asks a per-round question of it -- "was round k delivered?" -- and a
  * round that landed after the last delivery is refused until the page goes
- * out again with it. That is the point: the merge ask cannot go out on a page
+ * out again with it. That is the point: the merge cannot go ahead on a page
  * one round behind.
  *
  * EXIT CODES

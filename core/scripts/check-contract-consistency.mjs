@@ -62,6 +62,36 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  */
 export const RETIRED = [
   {
+    phrase: "ships in a PR David merges",
+    retired: "2026-09-14",
+    why: "the retired carve-out in its verb form, which the `David-merge-only` entry below cannot match. It survived the first sweep in two skills (fp-check's deep-verification reference and handoff) because the sweep grepped the hyphenated noun only -- the exact 'fixing the flagged site and leaving its siblings' shape this file exists to stop. (Codex, #91 round 1.)",
+    instead: "a contract change ships through the ordinary PR path -- what the line is really asserting is that it is not a mid-task or mid-dispatch call, which never depended on who clicks merge",
+  },
+  {
+    phrase: "David's merge and the server-side ruleset",
+    retired: "2026-09-14",
+    why: "the threat-model rationale for declining defences against an agent's influence over its own tooling. The argument is from futility -- the actor running the script could simply not run it -- and it survives, but it may no longer cite a mandatory human merge as the alternative control, because there is not one",
+    instead: "the controls against deliberate action are the server-side ruleset and David working alongside, reading the latitude line every authority-widening PR carries",
+  },
+  {
+    phrase: "a human's merge and the server-side ruleset",
+    retired: "2026-09-14",
+    why: "the same rationale in agents-core.md's product-neutral voice",
+    instead: "the same: the server-side ruleset, and the human alongside who reads the latitude line every authority-widening PR carries",
+  },
+  {
+    phrase: "David-merge-only",
+    retired: "2026-09-14",
+    why: "the guardrail-and-authority carve-out: a PR widening the agent's own guardrails or authority waited for David's click. It fired zero times in every use and cost a round trip each time; the safety net is David working beside the agent and noticing, and everything in the repo is reversible",
+    instead: "no PR waits for David's click. Such a change merges under the same bar as everything else, and the PR body and merge report each carry one line naming the latitude it grants, so a widening is read rather than clicked",
+  },
+  {
+    phrase: "merge ask",
+    retired: "2026-09-14",
+    why: "the close-out step's old name, from when every PR ended by asking David to click merge. Ten payload sites still used it three rounds after the carve-out was retired, and each of the three hand sweeps that looked for the retirement found a different corner the last one had missed -- the recurrence this file's own header says is answered with a check rather than another careful sweep. What the entry closes, stated exactly rather than generously: five of the ten, the ones under `scripts/` itself. The other five are in `scripts/__tests__/`, which `SKIP_DIRS` excludes by design because a test file names retired phrases by construction, so they were fixed by hand and nothing mechanical holds them. (Codex, #91 round 6.)",
+    instead: "say what actually happens -- `the merge`, or `the merge report` for the message that follows it. The substance of every one of those ten lines was unchanged: do not proceed to the end of close-out with a round missing from the page",
+  },
+  {
     phrase: "bare trigger alone — nothing else in that comment",
     retired: "2026-09-13",
     why: "the review-trigger rule's older wording, which a cloud session cannot satisfy: the harness appends an attribution footer server-side that no caller can suppress, so a rule demanding an otherwise-empty comment is unobeyable -- and an unobeyable rule gets reasoned around rather than followed",
@@ -224,8 +254,18 @@ const IGNORE_END = "<!-- retired-ok:end -->";
  * Where a live instruction can live. Deliberately the agent-facing surfaces:
  * the contracts, the skills, the agent definitions, and the guard sources
  * whose comments are themselves read as contract.
+ *
+ * `.agents/core` FIRST, and it was missing until AI-Handbook #91 round 9.
+ * `claude-core.md` and `agents-core.md` live there: the two files every
+ * consumer routes its agents to, and the ones loaded on every single session.
+ * They were the only agent-facing surfaces this guard did not read, so a
+ * retired rule could be reintroduced into the highest-impact payload contract
+ * in the repository and the check would still report green -- while catching
+ * the same wording in a skill. Four entries were added in this pull request's
+ * earlier rounds on the stated grounds that those wordings "cannot come back";
+ * for these two files that was simply untrue. (Codex, #91 round 9.)
  */
-const SCAN_DIRS = ["docs/ai-context", "docs/engineering", ".claude/skills", ".claude/agents", "scripts"];
+const SCAN_DIRS = [".agents/core", "docs/ai-context", "docs/engineering", ".claude/skills", ".claude/agents", "scripts"];
 const SCAN_FILES = ["CLAUDE.md", "AGENTS.md", ".agents/PLANS.md", ".agents/receipts/README.md"];
 
 /**

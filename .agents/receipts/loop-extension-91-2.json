@@ -1,0 +1,8 @@
+{
+  "pr": 91,
+  "kind": "david",
+  "grant": 1,
+  "asOf": 4,
+  "authorization": "David, verbatim: \"Keep the rule, patch it appropriately. I'm going to be doing a major cutting pass on all of this functionality once it's completed but for now I want to keep it in.\" Said in direct answer to my recommendation that rule 7 be CUT rather than patched a third time, after three correct findings against that one paragraph in four rounds. He overrode that and chose to keep and repair it, so this grant covers the repair and the one round the write-gate rule owes it. grant 1, asOf 4, opening exactly round 5.\n\nScope note, because it widens what he chose earlier today: I am reading \"patch it appropriately\" as covering BOTH live defects in the paragraph -- the trigger's unit (round 4's finding) and the no-test clause (round 3's) -- not only the newest. That reverses the narrower option 1 he picked hours ago in loop-extension-91-1.json, which closed the payload gap alone and left the no-test clause shipping. My reasoning: a rule he has just told me to keep is not appropriately patched while it still carries a clause two reviews and two adjudications independently found wrong. I told him plainly that I was reading it this way and that he can have the clause put back for the asking.",
+  "createdAt": "2026-09-15T21:17:24.000Z"
+}

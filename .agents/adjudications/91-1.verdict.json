@@ -1,0 +1,49 @@
+{
+  "generator": "scripts/capture-from-transcript.mjs",
+  "pr": 91,
+  "recordPath": ".agents/adjudications/91-1.json",
+  "recordSha256": "27ed6200a1fbc9b56c4a0168be6e959131be34e3d390ac8f32ccaa53f36b0a93",
+  "toolUseId": "toolu_01JaodNRmcxqaroJ3BdU5WFi",
+  "agentId": "a45ad5308da405e23",
+  "decidedAt": "2026-09-14T18:57:10.542Z",
+  "transcript": "6deddcc0-f3ae-5253-abd3-573fb814edbb.jsonl",
+  "note": "The adjudicator's own answer, copied from the harness's recorded result rather than retyped. Not a provenance claim: the operator runs this script and can edit the transcript. It exists so the judge's answer is committed once, verbatim, and counted from one place.",
+  "verdict": {
+    "verdict": "ship-with-gaps-recorded",
+    "grant": 0,
+    "risk": "",
+    "reasoning": "Internal tier, round 1 of budget 3, criticality 55, four findings all inside the diff (territory 4/0) against a 9-file, +133/-51 contract-and-docs change; per the contract this verdict is advisory and only the conformance triage binds anything today. I verified every load-bearing premise against the repository rather than the record: pr-ready.mjs `checkTranslations` does refuse readiness on an `undelivered` account (lines 1811-1852), the `RETIRED` list is a plain case-insensitive substring match on the literal phrase so \"a contract change that ships in a PR David merges\" survives unswept at fp-check/references/deep-verification.md:76 and handoff/SKILL.md:38-39 while agents-core.md:149-152 and root AGENTS.md:52-56 still name a human merge as the control, and status-all's \"ready to merge, CI green, Codex converged\" example is now orphaned from the three gates the edit left in its list — all four findings are real and in-scope, and none reaches the internal rubric's critical bar. The strongest, finding 3, is wrongly-blocking rather than wrongly-passing — the gate refuses honestly with a message naming its own remedy — which is precisely the internal tier's self-announcing failure mode, and finding 1's proposed narrowing would re-introduce the judgement that claude-core review-loop rule 4 forbids on measured grounds (#83/#85), so its fix is not obviously the right repair. One observation outside the findings, named because the record cannot corroborate it and I am the only reader positioned to notice: this PR is itself an authority-widening change merging under the very rule it retires, and the sole evidence of David's grant is the diff's own \"(David, 2026-09-14)\" citations plus `budget.artifactDeclaredAtRoundZero` — both builder-supplied.",
+    "gaps": [
+      "PRRT_kwDOUKOPKc6iPJgX — claude-core.md rule 7 triggers on line overlap alone; it will fire on an ordinary independent defect in bounded logic the previous fix added, and forbid the corrective patch. Left as a gap because the over-fire errs toward stopping, which is the direction this repo's measured history says is cheap, and the proposed narrowing would convert the trigger from an observable into a judgement, which rule 4 forbids.",
+      "PRRT_kwDOUKOPKc6iPJgc — verified surviving David-merge instructions at core/.claude/skills/fp-check/references/deep-verification.md:76 and core/.claude/skills/handoff/SKILL.md:38-39, plus the \"a human's merge\" control claim at core/.agents/core/agents-core.md:149-152 and root AGENTS.md:52-56. The new RETIRED entry cannot catch these variants. A real consistency gap in the payload; not critical, and a phrase entry broad enough to catch them risks the cry-wolf failure that file's own header warns against.",
+      "PRRT_kwDOUKOPKc6iPJgi — moving the stopping round's translation to the post-merge report contradicts pr-ready.mjs's pre-merge checkTranslations, which will refuse readiness on every stopping round. Real and behavioral, but wrongly-blocking and self-announcing: the gate prints the remedy, and the remedy is the pre-change ordering.",
+      "PRRT_kwDOUKOPKc6iPJgl — core/.claude/skills/status-all/SKILL.md:378-383 keeps a \"ready to merge, CI green, Codex converged\" example that no longer matches any gate in its own list. Prose accuracy in a skill; ordinary consequence, nowhere near the critical bar."
+    ],
+    "conformance": [
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgX",
+        "class": "in-scope",
+        "citation": "core/.agents/core/claude-core.md @@ -542,6 +542,19 @@ — the added rule 7, whose condition is \"the finding's lines sit in the diff of the last commit I pushed for a finding\" with the guard/parser/counter/check clause stated as explanation, not precondition",
+        "why": "The premise holds against the diff — the trigger really is line overlap alone and the mandated response really does exclude a further patch — so this is a genuine observation about the specification this increment set out to add."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgc",
+        "class": "in-scope",
+        "citation": "core/scripts/check-contract-consistency.mjs RETIRED entry \"David-merge-only\" (matched as a plain case-insensitive substring per the list's own docblock) vs. the verified surviving text at fp-check/references/deep-verification.md:76 and handoff/SKILL.md:38-39",
+        "why": "All four cited surfaces read as claimed and the round-zero artifact says the retirement is \"across the payload,\" so an unswept contradiction in payload files is inside what this increment set out to do, not beyond it."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgi",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/pr-watch/SKILL.md @@ -868,10 +869,10 @@ (\"At a stop, it goes in the merge report\") against core/scripts/pr-ready.mjs:1811-1852, which classifies an unrecorded account as `undelivered` and returns pass:false",
+        "why": "Verified in the repository: the diff's new ordering and the unchanged pre-merge gate are mechanically incompatible, which is a real defect in what this increment changed."
+      },
+      {
+        "threadId": "PRRT_kwDOUKOPKc6iPJgl",
+        "class": "in-scope",
+        "citation": "core/.claude/skills/status-all/SKILL.md @@ -375,8 +375,8 @@ — the edited list now reads \"Scope of work, Plan approval, or UAT\" while lines 380-383 still offer \"ready to merge, CI green, Codex converged\" as its example",
+        "why": "The orphaned example is a direct consequence of the line this diff changed, so it is a real if minor defect in this increment rather than an unrelated repo audit."
+      }
+    ]
+  }
+}

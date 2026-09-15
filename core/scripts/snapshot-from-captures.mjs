@@ -176,6 +176,51 @@ const MAX_DECLARED_LAG_MS = 24 * 60 * 60 * 1000;
  * truth is the safe direction and is left alone: both gates that read this
  * mean "not older than", so an over-old claim only ever refuses work.
  */
+/**
+ * A SPILLED capture is wrapped in the harness's result blocks; an inline one
+ * is not.
+ *
+ * When a tool result is too large to return inline the harness writes it to
+ * `tool-results/` and `capture-from-transcript.mjs` hands back that path as a
+ * `harness-capture` -- the PREFERRED provenance, since no agent retyped
+ * anything. But what the harness writes there is the result envelope,
+ * `[{ "type": "text", "text": "<the payload>" }]`, while an inline capture is
+ * recovered already unwrapped by `resultText()`. So the two provenances
+ * disagreed about shape, and only the preferred one was unreadable here:
+ * every reader below expects the payload itself.
+ *
+ * WHY THIS MATTERED MORE THAN IT LOOKS. A capture spills when it is big, and a
+ * loop's thread payload grows monotonically with its rounds -- so the
+ * preferred path broke *precisely on the long loops where the evidence matters
+ * most*, and it broke at the merge gate, whose `Rounds translated` item then
+ * could not be satisfied at all. AI-Handbook #91 crossed the threshold at
+ * round 7 (51.8 KB) and could not assemble a snapshot for its last three
+ * rounds.
+ *
+ * The refusal was correct and said so loudly ("carries no review_threads
+ * array") rather than reading zero threads as a clean round, which is the
+ * fail-loud-never-open rule working. What was missing was this unwrap, not a
+ * softer refusal.
+ *
+ * Deliberately NARROW: only an array whose every element is a text block is
+ * unwrapped, and the joined text must itself parse as JSON. Anything else is
+ * returned untouched, so a payload that is legitimately an array -- which
+ * `reviews` and `issueComments` both are -- passes straight through.
+ */
+export function unwrapResultBlocks(json) {
+  if (!Array.isArray(json) || json.length === 0) return json;
+  const isBlock = (b) => b && typeof b === "object" && b.type === "text" && typeof b.text === "string";
+  if (!json.every(isBlock)) return json;
+  try {
+    return JSON.parse(json.map((b) => b.text).join(""));
+  } catch {
+    // A text block that is not itself a payload is not an envelope this
+    // understands. Hand back the original so the caller's own refusal names
+    // the real shape rather than a parse error from in here.
+    return json;
+  }
+}
+
 function loadCapture(path, declared = null) {
   const file = resolve(path);
   let text;
@@ -190,6 +235,7 @@ function loadCapture(path, declared = null) {
   } catch (e) {
     throw new Error(`capture ${file} is not JSON (${e.message}). Pass the raw tool result, unedited`);
   }
+  json = unwrapResultBlocks(json);
   const source = captureSource(file);
   const mtime = new Date(statSync(file).mtimeMs).toISOString();
   return { file, json, sha256: digest(text), source, ...resolveCaptureTime({ file, source, mtime }, declared) };

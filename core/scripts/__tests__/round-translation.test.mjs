@@ -871,7 +871,7 @@ test("R45: a null recommendation never renders as approval", () => {
   assert.match(text, /Nothing to do before you decide/);
 });
 
-test("R46: D2 is invoked by the documented merge-ask sequence, not only by a source comment", () => {
+test("R46: D2 is invoked by the documented close-out sequence, not only by a source comment", () => {
   // Registering a role and never wiring it in is how D3 shipped dormant on
   // #88 round 1. The step has to exist where the operator reads it.
   const skill = fs.existsSync("core/.claude/skills/pr-watch/SKILL.md")
@@ -879,7 +879,21 @@ test("R46: D2 is invoked by the documented merge-ask sequence, not only by a sou
     : ".claude/skills/pr-watch/SKILL.md";
   const text = fs.readFileSync(skill, "utf8");
   assert.match(text, /--role merge-opinion --pr/, "the dispatch command is in the close-out steps");
-  assert.match(text, /before the merge ask/i, "and it is placed before the ask");
+  // BEFORE THE MERGE, not merely before the report -- the report comes after
+  // the merge now, and the role addresses David as someone still deciding.
+  // Matching "before the merge report" would pass on the sentence that RULES
+  // THAT OUT, since the phrase survives inside its own negation. (#91 round 9.)
+  assert.match(text, /before the MERGE ITSELF/, "D2 runs before the merge, not before the report");
+  // Matched against whitespace-normalised prose. A markdown paragraph rewraps
+  // whenever a word changes length, and an assertion pinned to the line breaks
+  // fails on edits that did not touch its meaning -- which happened twice
+  // while this very test was being written.
+  const flat = text.replace(/\s+/g, " ");
+  assert.match(
+    flat,
+    /the report restates D2 rather than producing it/,
+    "and the skill says why the ordering is load-bearing",
+  );
 });
 
 test("R47: a string artifact.patch is rendered, not discarded as absent", () => {
@@ -1211,7 +1225,7 @@ test("R10: a multiline refusal becomes one line for chat, with the full text on 
 test("R8: a delivery failure still prints one fixed line, and exits non-zero", () => {
   // The reviewer had already run. Before the fix a receipt-write, page-render
   // or check-ignore failure threw loose and the loop had NO verbatim status to
-  // paste -- worst on the last round before a merge ask, the one the contract
+  // paste -- worst on the last round before the merge, the one the contract
   // says must carry it.
   const root = tmpRepo();
   fs.rmSync(path.join(root, ".agents"), { recursive: true, force: true });
@@ -2210,7 +2224,7 @@ test("R25: close-out reads the position and refuses a missing, stale or foreign 
   fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
   fs.writeFileSync(path.join(dir, "d0-r2.exit"), "0\n");
   // Both rounds have an account, and NEITHER has been delivered: close-out
-  // refuses and names the step, because the merge ask must not go out on
+  // refuses and names the step, because the merge must not go ahead on
   // accounts David has not seen (David, 2026-09-14).
   assert.equal(await run(["--pr", String(PR)], { now: fresh }), 1, "accounted for is not delivered");
   assert.match(said.join(""), /round\(s\) 1, 2 have an account but have not been delivered/);
@@ -2598,7 +2612,7 @@ test("R28: the delivery record outranks everything, and a round it does not name
   assert.equal(roundState(root, PR, 3), "done", "an unavailable round delivered as its notice is delivered");
 
   // A round that lands AFTER delivery is undelivered until the page goes out
-  // again -- the merge ask cannot ride a page one round behind.
+  // again -- the merge cannot ride a page one round behind.
   receipt(4);
   assert.equal(roundState(root, PR, 4), "undelivered");
   recordDelivery(root, PR, "https://example.test/artifact/x");

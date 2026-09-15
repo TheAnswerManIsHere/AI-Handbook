@@ -425,8 +425,8 @@ How to run it:
    coverage.
 3. **Propose, don't apply.** This is a `CLAUDE.md` edit, so it goes in the
    numbered decision list for David and lands through the normal PR path.
-   Guard and permission changes stay David-merge-only per CLAUDE.md's
-   close-out carve-outs.
+   Guard and permission changes take the same path; their PR body names the
+   latitude they grant (David, 2026-09-14).
 4. **Say which rule you picked and why, every pass** — including a pass where
    the honest answer is "the best candidate this week is weak." One line. A
    silent skip is how a standing item becomes a dead one.

@@ -2596,7 +2596,7 @@ test("translations: PR #85's shape -- rounds happened, nothing was ever dispatch
 
 test("translations: one missing round among translated ones still fails, and names only that round", () => {
   // The partial case is the likelier one in practice -- a loop where the last
-  // round's dispatch was skipped in the rush to the merge ask.
+  // round's dispatch was skipped in the rush to the merge.
   const dir = d0World(500, 3, D0_FRESH);
   rmSync(join(dir, ".agents", "reviews", "pr-500", "d0-r2.exit"));
   const dfile = join(dir, ".agents", "reviews", "pr-500", "delivered.json");
@@ -2682,7 +2682,7 @@ test("translations: the round bound is the position's, never one derived here", 
 
 test("translations: an account that was never delivered fails, and names the delivery step", () => {
   // David, 2026-09-14. The round was translated; the page was never published
-  // and the line never pasted; the merge ask must not go out. This is the
+  // and the line never pasted; the merge must not go ahead. This is the
   // ordinary state of every round between its dispatch returning and the
   // delivery step -- so it is what the gate sees whenever the step is skipped.
   const dir = d0World(500, 2, D0_FRESH);

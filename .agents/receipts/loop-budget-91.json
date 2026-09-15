@@ -1,0 +1,9 @@
+{
+  "pr": 91,
+  "tier": "internal",
+  "repo": "TheAnswerManIsHere/AI-Handbook",
+  "budget": 3,
+  "criticality": 55,
+  "artifact": "Retire the guardrail-and-authority merge carve-out across the payload, and add review-loop rule 7 (a finding inside the previous round's push stops the patching)",
+  "declaredAt": "2026-09-14T18:40:56.950Z"
+}
