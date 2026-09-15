@@ -86,6 +86,12 @@ export const RETIRED = [
     instead: "no PR waits for David's click. Such a change merges under the same bar as everything else, and the PR body and merge report each carry one line naming the latitude it grants, so a widening is read rather than clicked",
   },
   {
+    phrase: "merge ask",
+    retired: "2026-09-14",
+    why: "the close-out step's old name, from when every PR ended by asking David to click merge. Ten payload sites still used it three rounds after the carve-out was retired, and each of the three hand sweeps that looked for the retirement found a different corner the last one had missed -- the recurrence this file's own header says is answered with a check rather than another careful sweep. What the entry closes, stated exactly rather than generously: five of the ten, the ones under `scripts/` itself. The other five are in `scripts/__tests__/`, which `SKIP_DIRS` excludes by design because a test file names retired phrases by construction, so they were fixed by hand and nothing mechanical holds them. (Codex, #91 round 6.)",
+    instead: "say what actually happens -- `the merge`, or `the merge report` for the message that follows it. The substance of every one of those ten lines was unchanged: do not proceed to the end of close-out with a round missing from the page",
+  },
+  {
     phrase: "bare trigger alone — nothing else in that comment",
     retired: "2026-09-13",
     why: "the review-trigger rule's older wording, which a cloud session cannot satisfy: the harness appends an attribution footer server-side that no caller can suppress, so a rule demanding an otherwise-empty comment is unobeyable -- and an unobeyable rule gets reasoned around rather than followed",

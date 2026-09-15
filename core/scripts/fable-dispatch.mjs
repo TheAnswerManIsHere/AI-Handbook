@@ -1420,7 +1420,7 @@ export function deliverTranslation(root, receipt) {
   // EVERY EXIT FROM HERE PRINTS ONE FIXED LINE. A receipt write, a page render
   // or the `check-ignore` refusal throwing loose would leave the loop with no
   // verbatim status to paste for David -- after the reviewer had already run,
-  // and most consequentially on the last round before a merge ask, which is
+  // and most consequentially on the last round before the merge, which is
   // the one the contract says must carry it. (Codex, #81 round 1.)
   try {
     const out = receiptPathFor(root, receipt);

@@ -872,7 +872,7 @@ test("R10: a multiline refusal becomes one line for chat, with the full text on 
 test("R8: a delivery failure still prints one fixed line, and exits non-zero", () => {
   // The reviewer had already run. Before the fix a receipt-write, page-render
   // or check-ignore failure threw loose and the loop had NO verbatim status to
-  // paste -- worst on the last round before a merge ask, the one the contract
+  // paste -- worst on the last round before the merge, the one the contract
   // says must carry it.
   const root = tmpRepo();
   fs.rmSync(path.join(root, ".agents"), { recursive: true, force: true });
@@ -1871,7 +1871,7 @@ test("R25: close-out reads the position and refuses a missing, stale or foreign 
   fs.writeFileSync(path.join(dir, "snap-r2.json"), "{}");
   fs.writeFileSync(path.join(dir, "d0-r2.exit"), "0\n");
   // Both rounds have an account, and NEITHER has been delivered: close-out
-  // refuses and names the step, because the merge ask must not go out on
+  // refuses and names the step, because the merge must not go ahead on
   // accounts David has not seen (David, 2026-09-14).
   assert.equal(await run(["--pr", String(PR)], { now: fresh }), 1, "accounted for is not delivered");
   assert.match(said.join(""), /round\(s\) 1, 2 have an account but have not been delivered/);
@@ -2259,7 +2259,7 @@ test("R28: the delivery record outranks everything, and a round it does not name
   assert.equal(roundState(root, PR, 3), "done", "an unavailable round delivered as its notice is delivered");
 
   // A round that lands AFTER delivery is undelivered until the page goes out
-  // again -- the merge ask cannot ride a page one round behind.
+  // again -- the merge cannot ride a page one round behind.
   receipt(4);
   assert.equal(roundState(root, PR, 4), "undelivered");
   recordDelivery(root, PR, "https://example.test/artifact/x");

@@ -1843,7 +1843,7 @@ export function checkTranslations(prNumber, cwd, now, configuredRepo, { position
       // The account exists and David has not seen it. This is the state
       // every round is in between its dispatch returning and the delivery
       // step running, so it is the ordinary thing to see here mid-loop -- and
-      // the thing a merge ask must never be built on. (David, 2026-09-14.)
+      // the thing a merge must never be built on. (David, 2026-09-14.)
       parts.push(
         `round(s) ${undelivered.join(", ")} have an account that was never delivered ` +
           `(publish the page, paste each line, then record-delivery --pr ${prNumber} --url <artifact url>)`,
