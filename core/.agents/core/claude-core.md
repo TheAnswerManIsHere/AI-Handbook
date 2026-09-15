@@ -543,21 +543,6 @@ itself, and `main`'s real protection is GitHub's server-side ruleset.
    over-build rule 5 exists to stop. Shape and the two escape valves:
    `pr-watch`.
 
-7. **Two rounds running whose findings land in the previous round's fix stop
-   the patching** (David, 2026-09-14; unit corrected 2026-09-15). The
-   observable, read off the round rather than judged: this round has a
-   finding whose lines sit in the diff of the last commit I pushed for a
-   finding, **and so did the round before it**. **The count is of ROUNDS,
-   never of findings within one** — a round returning five such findings is
-   one observation of the pattern, not five. One round is an ordinary
-   independent mistake in new code and gets an ordinary fix; a second
-   running is the shape, because the fix is local to an input space with no
-   edge, so each patch grows an edge of its own and the round after finds
-   it. Then the response is never a third patch: **remove the mechanism,
-   derive the value** (rule 5's *derivable*), **or change the operation.**
-   Evidence and the four instances:
-   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md).
-
 ### Watching the PRs I open
 
 I subscribe to every PR I create, immediately, on whatever tier the session is
