@@ -879,7 +879,21 @@ test("R46: D2 is invoked by the documented close-out sequence, not only by a sou
     : ".claude/skills/pr-watch/SKILL.md";
   const text = fs.readFileSync(skill, "utf8");
   assert.match(text, /--role merge-opinion --pr/, "the dispatch command is in the close-out steps");
-  assert.match(text, /before the merge report/i, "and it is placed before the report");
+  // BEFORE THE MERGE, not merely before the report -- the report comes after
+  // the merge now, and the role addresses David as someone still deciding.
+  // Matching "before the merge report" would pass on the sentence that RULES
+  // THAT OUT, since the phrase survives inside its own negation. (#91 round 9.)
+  assert.match(text, /before the MERGE ITSELF/, "D2 runs before the merge, not before the report");
+  // Matched against whitespace-normalised prose. A markdown paragraph rewraps
+  // whenever a word changes length, and an assertion pinned to the line breaks
+  // fails on edits that did not touch its meaning -- which happened twice
+  // while this very test was being written.
+  const flat = text.replace(/\s+/g, " ");
+  assert.match(
+    flat,
+    /the report restates D2 rather than producing it/,
+    "and the skill says why the ordering is load-bearing",
+  );
 });
 
 test("R47: a string artifact.patch is rendered, not discarded as absent", () => {

@@ -254,8 +254,18 @@ const IGNORE_END = "<!-- retired-ok:end -->";
  * Where a live instruction can live. Deliberately the agent-facing surfaces:
  * the contracts, the skills, the agent definitions, and the guard sources
  * whose comments are themselves read as contract.
+ *
+ * `.agents/core` FIRST, and it was missing until AI-Handbook #91 round 9.
+ * `claude-core.md` and `agents-core.md` live there: the two files every
+ * consumer routes its agents to, and the ones loaded on every single session.
+ * They were the only agent-facing surfaces this guard did not read, so a
+ * retired rule could be reintroduced into the highest-impact payload contract
+ * in the repository and the check would still report green -- while catching
+ * the same wording in a skill. Four entries were added in this pull request's
+ * earlier rounds on the stated grounds that those wordings "cannot come back";
+ * for these two files that was simply untrue. (Codex, #91 round 9.)
  */
-const SCAN_DIRS = ["docs/ai-context", "docs/engineering", ".claude/skills", ".claude/agents", "scripts"];
+const SCAN_DIRS = [".agents/core", "docs/ai-context", "docs/engineering", ".claude/skills", ".claude/agents", "scripts"];
 const SCAN_FILES = ["CLAUDE.md", "AGENTS.md", ".agents/PLANS.md", ".agents/receipts/README.md"];
 
 /**

@@ -702,15 +702,24 @@ and prints only a status line:
 ```
 D=.agents/reviews/pr-<n>; mkdir -p "$D"
 for c in pr reviews issueComments reviewThreads; do
-  node scripts/capture-from-transcript.mjs --pr <n> --collection "$c"
+  eval "P_$c=$(node scripts/capture-from-transcript.mjs --pr <n> --collection "$c")"
 done
 node scripts/snapshot-from-captures.mjs \
-  --pr-capture .agents/captures/pr-<n>-pr.json \
-  --reviews .agents/captures/pr-<n>-reviews.json \
-  --comments .agents/captures/pr-<n>-issueComments.json \
-  --threads .agents/captures/pr-<n>-reviewThreads.json \
+  --pr-capture "$P_pr" \
+  --reviews "$P_reviews" \
+  --comments "$P_issueComments" \
+  --threads "$P_reviewThreads" \
   --fetched-at <iso> --out "$D/snap-r<r>.json"
 ```
+
+**Use the path each capture prints; never retype it.** Recovery decides where
+the bytes land: an inline result is written under `.agents/captures/`, while a
+result the harness spilled to its own directory is left there, because copying
+it would restamp its mtime and make evidence look fresher than it is. A recipe
+that hard-codes the `.agents/captures/` name is therefore wrong on exactly the
+big captures — and a stale file still sitting at that name is read **silently**,
+which is worse than the missing-file case. Each command prints its path on
+stdout and nothing else, so the assembler reads back what recovery chose.
 
 Same assembler, same flags as the budget-check snapshot above — one page
 argument per page, and `--out` rather than a redirect.
@@ -905,10 +914,11 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   It gates nothing: if it fails, the gaps are still in the verdict files and
   the merge is unaffected. Skip it when the loop converged clean, since there
   is nothing to translate.
-- **At EVERY stop, before the merge report, translate the artifact itself** (D2).
-  The round translations say what happened in each *round*; they describe
-  fixes. Nothing describes the *thing*. So one more command, and unlike D3 it
-  is not conditional — every merge report carries it:
+- **At EVERY stop, before the MERGE ITSELF, translate the artifact itself**
+  (D2) — not merely before the merge report, which comes after it. The round
+  translations say what happened in each *round*; they describe fixes. Nothing
+  describes the *thing*. So one more command, and unlike D3 it is not
+  conditional — every merge report carries it:
 
   ```
   node scripts/fable-dispatch.mjs --role merge-opinion --pr <n>
@@ -922,6 +932,16 @@ earlier versions of this step could. (Codex, #81 rounds 3 and 9; #82 round 1.)
   framings that disagree are the signal (workstream #36). Paste what comes back
   into the merge report **above** my own account, so he reads the independent one
   first.
+
+  **The ordering is load-bearing, and it is why this says "before the merge"
+  rather than "before the report".** The role and the brief both address David
+  as someone deciding: *"he is about to decide whether this merges"*, and the
+  `recommendation` field asks what to do **before merging**. Run after the
+  merge, that account would hand him a decision already taken and describe a
+  landed change as pending. Retiring the old pre-merge ask <!-- retired-ok -->
+  moved the *report* past the merge; it did not move this, and the report
+  restates D2 rather than producing it. (Codex, AI-Handbook #91 round 9, which
+  caught the wording drifting with the ordering.)
 
   `node scripts/merge-brief.mjs --pr <n>` previews the brief without
   dispatching. **Read its warning line**: the record is generated *before* a
