@@ -50,8 +50,9 @@ retyping step is optional.
 
 ## The trap: where you save the extract decides how it is classified
 
-`captureSource()` in `snapshot-from-captures.mjs` classifies **solely from the
-path**:
+The handbook's former snapshot assembler classified a capture **solely from
+the path** its `captureSource()` was handed — and anything that rebuilds this
+for #95 or #96 will face the same choice:
 
 ```js
 /(^|\/)\.claude\/projects\/(?:[^/]+\/)+tool-results\//.test(resolve(file))
@@ -72,10 +73,10 @@ evidentiary weight of a harness capture. **Save the extract anywhere else**
 
 ## What this does NOT do
 
-Saved correctly, the file stays classified `agent-written`. The adjudicator's
-contract still weighs a wholly agent-written record as slightly weaker
-evidence, and the provenance caveat is unchanged. This removes the
-**corruption** risk, not the provenance caveat.
+Saved correctly, the file stays classified `agent-written`. A wholly
+agent-written record is weaker evidence than a harness capture, and that
+caveat is unchanged. This removes the **corruption** risk, not the provenance
+caveat.
 
 Hand-typed values do drift in practice, not just in theory: transcribed
 issue-comment `created_at` values have come back up to two minutes off
@@ -84,10 +85,16 @@ GitHub's actual timestamps.
 ## Related
 
 - AI-Handbook #75 — the mechanical record's evidence path had an unguarded
-  hand step. **Closed** by #79, which made this recovery a script
-  (`scripts/capture-from-transcript.mjs`, the consumer path; the handbook's
-  own copy is at `core/scripts/`) rather than a technique to
-  remember. The note stays because the technique is still worth knowing and
-  the `tool-results/` trap above is still live.
+  hand step. **Closed** by #79, which made this recovery a script; the #89 cut
+  then removed that script with the record it fed. The note stays because the
+  technique is still worth knowing, the `tool-results/` trap is still live,
+  and **#95 and #96 both have to solve the same problem**: this container
+  cannot call GitHub from a dispatched session, and an MCP tool result lands
+  in the builder's context rather than in a file the dispatched session can
+  read. **A large result is SPILLED to `tool-results/` as a wrapped envelope**,
+  `[{"type":"text","text":"…"}]`, not the raw body — which broke the assembler
+  twice on #91, and precisely on the long loops where the evidence matters
+  most, because a thread payload grows monotonically with its rounds. Test any
+  replacement on both an inline and a spilled result.
 - [`backgrounded-subagent-answer-is-in-its-own-transcript.md`](backgrounded-subagent-answer-is-in-its-own-transcript.md)
   — the case where the block you want is not a `tool_result` at all.

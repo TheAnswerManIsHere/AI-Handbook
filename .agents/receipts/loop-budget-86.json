@@ -1,9 +1,0 @@
-{
-  "pr": 86,
-  "tier": "internal",
-  "repo": "TheAnswerManIsHere/AI-Handbook",
-  "budget": 3,
-  "criticality": 55,
-  "artifact": "claude-core.md, pr-watch, model-routing and the adjudicator definition: four contract rules from the Phase 2 increment 1 harvest",
-  "declaredAt": "2026-09-13T23:14:46.899Z"
-}

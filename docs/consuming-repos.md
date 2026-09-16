@@ -241,23 +241,44 @@ to worry about strange links."*)
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
-   status checks. The seeded `.claude/settings.json` sets
-   `defaultMode: bypassPermissions`, and `guard.sh` deliberately delegates
-   PR-only-changes and passing-checks enforcement to this server-side control
-   rather than reimplementing it locally. A consumer that installs the guard
-   without the ruleset has neither: the local guard does not cover it and the
-   server is not configured to. Settings are a repo-level thing the sync cannot
-   write, so this is a human step and it gates the ones below.
-4. **If the repo already has `.claude/settings.json`, merge the template's
-   three `PreToolUse` hooks into it by hand.** The settings file is a
-   **seed**, which writes only when the file is absent — correct, because a
-   consumer's permissions and env are its own and a sync that overwrote them
-   would delete grants it needs. But the consequence is that an existing file
-   is left untouched, so the vendored `guard.sh` arrives and **nothing ever
-   invokes it**. That failure is silent: the guard is present, the hooks are
-   not, and no diff shows it. This applies to the first consumer immediately —
-   Overhype already has a settings file — so it is a step, not a footnote.
-5. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
+   status checks, and **require conversation resolution before merging**. That
+   last one used to be the merge-gate hook's job; with the hook deleted it is
+   the only thing that keeps an unresolved review thread from being mergeable,
+   and the contract now states it as fact (`claude-core.md`, *Close-out*: "the
+   `main` ruleset requires conversation resolution, so the Merge button is
+   inert while a thread is open"). A consumer that omits it gets a contract
+   asserting a protection its repository does not have. The seeded
+   `.claude/settings.json` sets
+   `defaultMode: bypassPermissions`, and with the local shell guard removed by
+   the #89 cut **this ruleset is the whole of the mechanical protection**: a
+   consumer running `bypassPermissions` without it has nothing server-side
+   constraining what a session can push. Settings are a repo-level thing the
+   sync cannot write, so this is a human step and it gates the ones below.
+
+   **A second ruleset on `claude/**`, blocking force pushes, is #94's** — it is
+   what replaces the guard's lease rule, and it is created per repo at
+   enrolment. Verified in AI-Handbook 2026-09-16: a plain push landed,
+   `--force-with-lease` on a probe branch was refused with GH013, and a plain
+   push of a further commit landed after it.
+
+   **A third ruleset, targeting all branches (`~ALL`) and blocking force
+   pushes, is required** (David, 2026-09-16, #106). The two above leave a gap
+   the deleted guard did not: the guard was scoped to no namespace, so a
+   working branch a runner assigns under some other prefix was covered before
+   the cut and not after. `claude-core.md` now states as fact that a force
+   push is blocked on every branch, so a consumer that omits this gets a
+   contract asserting a protection its repository does not have.
+
+   Two things about this one. **Put nothing else on it** — in particular not
+   *restrict deletions*, which is a separate toggle from force-push and would
+   leave a stale branch behind after every merge, since merged branches
+   auto-delete. And **it does not conflict with the two above**: GitHub unions
+   rulesets, so the overlap on `main` and `claude/**` is harmless, and
+   targeting all branches with no exclusion is deliberately broader than
+   "everything except `main`" — there is no list of runner prefixes to get
+   wrong.
+
+4. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
    `core/.claude/settings.template.json` and is **yours from the moment it
    lands** — the sync never rewrites it, and no "do not edit this vendored
    file" rule applies to it. Four fields need a decision, and the guidance
@@ -269,170 +290,78 @@ to worry about strange links."*)
 
    **When you do this depends on which repo you have.** A repo that *already*
    had a settings file never receives the seed at all — `mode: seed` writes
-   only when the file is absent — so this table is the checklist for the
-   by-hand merge in step 4, and it applies now. A repo that had *none* does
-   not receive the file until the sync runs at **step 10**, so its adaptation
+   only when the file is absent — so for that repo this table is a checklist
+   for its EXISTING file, applied by hand, now. A repo that had *none* does not
+   receive the file until the sync runs at **step 7**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
    decisions are identical either way, which is why they are one step and not
    two.
+
+   Note what an existing file no longer needs: there is nothing to merge in
+   from the template. Until the #89 cut this step also carried three
+   `PreToolUse` hooks that an existing file would otherwise never receive, and
+   whose absence was silent — the guard arrived and nothing invoked it. The
+   hooks and the guard are both gone, so an existing settings file is simply
+   reviewed against the table below.
 
    | Field | Decision |
    |---|---|
    | `model` | The template pins `opus`. Keep it for a repo whose sessions mostly write payload or product code; a repo that is mostly prose or ops should set its own default rather than inherit this one. |
    | `env.DATABASE_URL` | Point it at the repo's own test database, or drop the key entirely until the repo has one. |
-   | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. `Read(**/.env*)` applies everywhere; keep it. |
+   | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. The dotenv read-deny applies everywhere; keep it. **This block is why the unrecognised-field check still exists**: a refused settings file applies none of its contents, so a stray key here silently un-denies the command that can rewrite a live schema. |
    | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The three spellings of the remote server are listed **on purpose**: the id varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. |
 
-   **The three `PreToolUse` guard hooks are not adaptable.** They are the local
-   half of the branch-protection story and the reason a force push needs an
-   explicit refspec. Keep all three, keep the longer timeout on the merge
-   matcher — that guard reads live GitHub state and 5s is not enough — and keep
-   the path absolute via `${CLAUDE_PROJECT_DIR}`. A relative path resolves
-   against the current working directory, so one persisting `cd` makes every
-   hook exit 127, which `PreToolUse` treats as *allow*.
+   **There is no `hooks` block to adapt.** The template carried three
+   `PreToolUse` guard hooks until the #89 cut; they are gone, and `hooks` is no
+   longer an accepted top-level field here, so adding one back fails
+   `check-settings-fields.mjs` in the same diff. What they enforced is
+   now the ruleset in step 3, which is server-side and cannot fail open.
 
-6. **Fill in `.agents/machinery.json`**, which the sync seeds from a
+5. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Three values, all facts about the consumer that
    the handbook cannot know:
 
    ```json
    {
      "repo": "OWNER/REPO",
-     "requiredChecks": ["Classify changed paths", "Build", "Test"],
-     "contractBudgets": [
-       { "path": "CLAUDE.md", "lines": 0, "bytes": 0 },
-       { "path": ".agents/core/claude-core.md", "lines": 0, "bytes": 0 }
-     ]
+     "models": {
+       "strongestClaude": { "id": "<full model id>", "effort": "xhigh" },
+       "strongestCodex": { "id": "<full model id>", "effort": "xhigh" }
+     }
    }
    ```
 
    - **`repo`** is this repository's `owner/name`. It is read through one
-     function, from the working tree, and stamped into every artifact the
-     machinery mints — budgets, round-check receipts, readiness receipts,
-     adjudication records. Every artifact the machinery consumes is compared
-     back to it, and so is every GitHub snapshot, so a snapshot of the wrong
-     PR (every repository has a #7) is refused rather than counted. A wrong
-     value here is a **mistake the machinery catches**: it refuses with a
-     message naming both values. It is not a security boundary and does not
-     try to be one — the person who can edit this file is the person running
-     the scripts, and the controls against deliberate action are the merge
-     click and the server-side ruleset. Ten review rounds spent defending it
-     against its own operator are why that sentence is written down
+     function — `machineryConfig` in `scripts/machinery.mjs`, which is the ONE
+     place identity is read — from the working tree, and stamped into every
+     artifact the machinery mints. A wrong value here is a **mistake the
+     machinery catches**: it refuses with a message naming both values. It is
+     not a security boundary and does not try to be one — the person who can
+     edit this file is the person running the scripts, and the controls against
+     deliberate action are the server-side rulesets and a human working
+     alongside. Ten review rounds spent defending it against its own operator
+     are why that sentence is written down
      (`.agents/memory/machinery-threat-model-is-my-own-mistakes.md`).
-   - **`requiredChecks`** names the CI jobs that must be PRESENT before a
-     readiness receipt is honest — every job that can appear **late**, not only
-     the ones that must pass. A job gated on an earlier one is created late, so
-     a snapshot taken too early sees a complete green set without it. Read
-     from the same file, the same way: a pull request that changes this list
-     is judged by the list it commits, and that change is in the diff the
-     merge reviews. An empty list is refused — a gate that requires nothing is
-     satisfied by any green set.
+   - **`models`** resolves a tier to a model. Every role definition and every
+     reviewer pin names a **tier**, never a version, so a new model release is
+     an edit here and nowhere else. `id` must be a **full** model id: a
+     dispatch stamps the id it asked for against the id that answered, and an
+     alias cannot be compared, so `fable` against `claude-fable-5-1` would
+     establish nothing. An alias-shaped id is refused by name.
 
    **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
    a real slug, so every structural check passed it and an unedited template
    produced a working configuration naming a repository that does not exist.
    It is now rejected explicitly, which is what makes the promise above true.
-   If a budget was already declared under the placeholder — or under an earlier
-   schema that recorded no repository at all — delete the receipt and declare
-   again. Nothing is lost: a budget holds only the tier, the repository and the
-   criticality, the round count is computed fresh from GitHub, and extension
-   receipts are separate files that the deletion does not touch.
 
-   ```
-   git rm .agents/receipts/loop-budget-<n>.json
-   git commit -m "drop stale budget for #<n>" && git push
-   node scripts/review-budget.mjs declare --pr <n> --tier <tier> \
-        --criticality <1-100> --artifact "<what is under review>"
-   ```
+   **Two fields left this file in the #89 cut, and a consumer enrolled earlier
+   can delete both.** `requiredChecks` was read only by the merge-readiness
+   receipt, whose requirement GitHub's own ruleset now meets (step 3);
+   `contractBudgets` pinned each always-loaded contract to an exact size and
+   never once refused growth, because the commit that grew the file re-pinned
+   it. Both are ignored rather than refused, so an old file still works.
 
-   Every failure here is loud.
-   `pr-ready.mjs` refuses when the file is absent,
-   malformed, or declares an empty list — an empty list is refused rather than
-   read as "nothing required", because a gate that requires nothing is
-   satisfied by any green set. Declaring a budget refuses while `repo` is
-   still the template's placeholder, naming this file. So a consumer that
-   skips this step gets a closed gate that says why, never an open one that
-   says nothing.
-   - **`contractBudgets`** pins each always-loaded contract file to its
-     **exact** current size. Seeded at `0/0`, which refuses on the first run
-     and names the real numbers in the failure — so the first run tells you
-     what to write. The exactness is the whole mechanism: a budget with room
-     left is satisfied by exactly the state it exists to prevent, so a file
-     **under** its budget fails too, and re-pinning is a visible one-line diff
-     in a pull request rather than silent growth. Add an entry for every file
-     a session loads unconditionally, and drop one this repository does not
-     have. Run `node scripts/check-claude-md-budget.mjs`, and add it to CI —
-     the lock is worth nothing if it only runs when someone remembers.
-
-7. **If a session will hold more than one enrolled repository at once, set
-   `HANDBOOK_ATTACHED_ROOTS` in that session's environment.** This is a
-   *session* prerequisite rather than a repo one, and it is the step the
-   handbook previously had nowhere to state.
-
-   A `PreToolUse` hook belongs to the session's **project root**, so a review
-   request or a merge aimed at an attached repository is judged by the project
-   root's guard, against the project root's receipts. Without this variable
-   that guard cannot reach the target's evidence and refuses — correctly, but
-   it makes cross-repo work impossible rather than merely guarded.
-
-   ```sh
-   export HANDBOOK_ATTACHED_ROOTS="owner/name=/abs/path/to/checkout
-   other/repo=/abs/path/to/other"
-   ```
-
-   **`export`, not a bare assignment.** Only exported names reach subsequently
-   executed commands, and the guard runs as a subprocess of the session — a
-   plain `HANDBOOK_ATTACHED_ROOTS=...` sets a shell variable the hook never
-   sees, so cross-repository calls stay blocked with nothing explaining why.
-   Setting it in the environment's own configuration has the same effect.
-
-   - **Newline-separated**, one `owner/name=/absolute/path` per line. Newline
-     rather than `:`, because `:` is a legal character in a POSIX directory
-     name and a checkout at `/workspace/team:archive/repo` would otherwise be
-     unparseable. A path containing a literal newline is unsupported.
-   - Only the **first `=`** separates, so a path containing `=` is fine.
-   - Paths must be **absolute**. A relative path is refused rather than
-     resolved against the hook's working directory — that directory is
-     precisely what this mechanism exists to stop depending on.
-   - **Whitespace in a path is significant**, because it is legal in a POSIX
-     directory name. Only a trailing carriage return is stripped, as a
-     line-ending artifact.
-   - **No `..` segments.** Give the resolved path. `/mount/current/../repo` is
-     refused rather than collapsed: POSIX applies `..` *after* resolving a
-     preceding symlink, so collapsing it here would name a directory you did
-     not.
-   - **One bad or duplicated entry invalidates the whole variable.** A
-     partly-parsed registry would resolve some targets and not others, which
-     is the kind of partial success that reads as correct.
-   - **Do not add a key for the session's own project root.** It is not needed
-     — the project root is always tried first — and it is out of contract. It
-     cannot be *prevented*, because detecting it would need the identity read
-     the review-request path deliberately does not make, so it is documented
-     here instead.
-
-   The variable says only **where** a repository's checkout is. It is never
-   asked *which* repository something is: that answer always comes from the
-   receipt found there, compared against the call's target. So a wrong entry
-   can only cause a refusal, never an unearned approval.
-8. **🛑 Do not sync to a repo that will run `defaultMode: bypassPermissions`
-   until issue #16 is closed.** `guard.sh` treats **any** exit from
-   `guard-decision.mjs` other than 2 as *allow*, so a crash, a missing `node`,
-   or a path it cannot launch does not refuse a destructive command — it
-   permits one, silently. In this repository that is survivable: the `main`
-   ruleset is server-side and catches what the guard misses. In a consumer
-   running `bypassPermissions`, the guard is the control that is supposed to
-   stand in front of exactly those commands, and a guard that fails open is
-   worse than no guard because it is trusted.
-
-   This used to be enforced mechanically — the `guard` group was staged, so it
-   could not travel. Deleting staging removed that mechanism and left this
-   checklist item in its place, which is weaker: it depends on a person
-   honouring it. It is written as a step rather than a footnote for that
-   reason. **The real close is landing #16** (a sentinel on the allow path, so
-   "ran and allowed" is distinguishable from "never ran"), after which this
-   step can be deleted.
-
-9. **🛑 RE-SYNC ONLY — if the repo was enrolled before a payload change added
+6. **🛑 RE-SYNC ONLY — if the repo was enrolled before a payload change added
    a declaration, update its overlay FIRST.** The sync overwrites `core/` and
    deliberately never touches a consumer-owned file, so a payload rule that
    starts dereferencing a new answer arrives **fully armed against an overlay
@@ -450,25 +379,34 @@ to worry about strange links."*)
    and later syncs that can, which is exactly why it sits here rather than in
    step 1. Codex, #62 round 5.)
 
-10. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
+7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
    review the resulting diff as a pull request in that repo and merge. **On a
-   clean enrollment this is where step 5 actually happens**: the seeded
+   clean enrollment this is where step 4 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
    is the last moment before a session runs under it.
 
 **The order is the point, and the sync goes last.** A vendored core that
 nothing imports is inert: the files are present, the rules are not loaded, and
 the repo looks governed without being governed, which is the worst of the three
-states. Steps 1 and 2 prevent that — and step 1's declarations are
-the part of them that fails quietly rather than loudly; steps 3 and 4
-prevent the security equivalent, where a repo holds `bypassPermissions` without the controls that
-constrain it, or the guard without the hooks that invoke it; step 6 keeps its
-merge gate usable; step 7 is what lets a session hold more than one consumer at
-once; step 8 is the one that is currently a promise rather than a mechanism.
+states. Steps 1 and 2 prevent that — and step 1's declarations are the part of
+them that fails quietly rather than loudly; **step 3 prevents the security
+equivalent**, where a repo holds `bypassPermissions` with nothing server-side
+constraining it; steps 4 and 5 keep a consumer's settings and configuration honest.
 
-**Steps 1 and 9 are the same requirement at two moments**, and both fail
+**Step 3 is now the whole of the mechanical protection, and it is a human
+step.** Three of the steps that stood here are gone with the #89 cut: merging
+the template's `PreToolUse` hooks into an existing settings file, the 🛑 hold
+on syncing to a `bypassPermissions` repo until #16 closed, and setting
+`HANDBOOK_ATTACHED_ROOTS` for a session holding more than one enrolled
+repository. There is no hook to merge, no allow path to put a sentinel on, and
+nothing that reads that variable — the guard that resolved attached checkouts
+is gone. What those steps were protecting is now a ruleset that cannot fail
+open, cannot be disarmed by a `cd`, and does not depend on a person honouring
+a checklist item.
+
+**Steps 1 and 6 are the same requirement at two moments**, and both fail
 silently rather than loudly: step 1 asks a *new* consumer the questions the
-shared rules dereference, and step 9 asks whether an *already-enrolled* one has
+shared rules dereference, and step 6 asks whether an *already-enrolled* one has
 been asked anything new since. Without the second, enrollment text covering a
 new declaration reaches new repos only, and every repo enrolled before it
 quietly loses whatever that rule used to route.
@@ -476,7 +414,7 @@ quietly loses whatever that rule used to route.
 There is no longer an `enrolled` flag, and nothing fires a sync automatically —
 running it is a deliberate act, so "eligible" and "ready" are the same moment by
 construction rather than by a flag anyone has to remember to flip last. A step
-added to this list later belongs above step 10, not below it.
+added to this list later belongs above step 7, not below it.
 
 ## Rules for changing shared content
 
@@ -484,9 +422,9 @@ added to this list later belongs above step 10, not below it.
   the reasoning is lost. Every synced **Markdown** file carries a header saying
   so. The non-Markdown payload is **partly** there: everything `machinery`
   delivers — `core/scripts/*.mjs`, `retry-on-eagain.sh` and their tests — now
-  carries the notice too, placed after the shebang. Skill helper executables and
-  `guard.sh` do **not** yet — a real gap, and now one that ships, since the
-  payload no longer waits behind a staging flag.
+  carries the notice too, placed after the shebang. Skill helper executables do
+  **not** yet — a real gap, and one that ships, since the payload no longer
+  waits behind a staging flag.
   `core/.claude/settings.template.json` is a third case and **is the
   one payload file that cannot carry a notice at all**: JSON has no comments,
   and Claude Code refuses a settings file over any unrecognised top-level key —
@@ -504,6 +442,13 @@ added to this list later belongs above step 10, not below it.
 - **Seeded files diverge on purpose.** A `*.template.*` file writes once and
   never again; a consumer's `.claude/settings.json` is meant to differ. The cost is
   that seeding is a no-op in a repo that already has the file, so anything the
-  template contributes which is *not* optional — the `PreToolUse` hooks — has
-  to be merged by hand at enrollment. A seed cannot deliver a requirement; it
-  can only offer a starting point.
+  template contributes which is *not* optional has to be merged by hand at
+  enrollment. A seed cannot deliver a requirement; it can only offer a starting
+  point.
+
+  **The `PreToolUse` hooks used to be that requirement, and are not any more.**
+  They were removed by the #89 cut along with the `guard.sh` they invoked, so
+  hand-merging them now would reinstall three hooks pointing at a script that
+  does not ship — and a hook whose script is missing exits 127, which
+  `PreToolUse` reads as *allow*. Nothing the template currently contributes is
+  non-optional in that sense; the protection moved to the ruleset in step 3.

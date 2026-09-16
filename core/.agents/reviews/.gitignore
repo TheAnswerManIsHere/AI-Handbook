@@ -1,17 +1,17 @@
-# Per-PR review-loop evidence: snapshots, the loop position, dispatch logs
-# and exit files, under .agents/reviews/pr-<n>/.
+# Per-plan review-loop evidence: the round snapshots `plan-review.mjs` writes
+# under .agents/reviews/<slug>/.
 #
 # EPHEMERAL BY CONTRACT. A fresh container legitimately has none of it, and
-# re-dispatching is the documented remedy rather than a workaround. What must
-# survive a round is committed elsewhere: the adjudication record and its
-# verdict in .agents/adjudications/, the budget receipt in .agents/receipts/,
-# and the delivery line in .agents/deliveries.md.
+# re-running the round is the documented remedy rather than a workaround. What
+# must survive a loop is the approved plan itself, committed on the
+# implementation branch, and the approval comment on the workstream issue.
 #
-# WHY THIS FILE EXISTS. The contract already said this directory was ignored,
-# and it was not. plan-review.mjs writes an ignore file for the directories a
-# PLAN loop creates; a CODE review loop never runs that script, so
-# .agents/reviews/pr-<n>/ was covered by nothing and an ordinary `git add -A`
-# staged a snapshot of the pull request body. (AI-Handbook #91 round 1.)
+# WHY THIS FILE EXISTS. `plan-review.mjs` writes an ignore file for the
+# directories a plan loop creates, but only once it has run; a checkout that
+# has not yet run one was covered by nothing, and an ordinary `git add -A`
+# staged a snapshot of the material under review. (AI-Handbook #91 round 1,
+# where the uncovered directory was the code loop's; the code loop is gone and
+# the same hole remains for the plan loop.)
 #
 # WHY THERE ARE TWO COPIES. Git does not follow a symlinked .gitignore, so a
 # pointer is impossible and a real file at each root is the only option. The

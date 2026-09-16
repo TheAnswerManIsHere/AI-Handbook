@@ -63,14 +63,14 @@ const WIRED = [
  * symlinked one, so its patterns would never apply.
  *
  * A list rather than one entry, because the second directory of ephemeral
- * machinery output arrived and the singular form would have silently left it
- * unchecked -- `.agents/captures/` holds raw API responses, and an unignored
- * one lands in every PR diff and in the next judge's own patch.
+ * output arrived and the singular form would have silently left it unchecked.
+ * The #89 cut removed the third (`.agents/captures/`, whose writer went with
+ * the snapshot pair); the list stays plural because the next one will arrive
+ * the same way the second did.
  */
 const MIRRORED_GITIGNORES = [
-  { payload: "core/.agents/receipts/.gitignore", root: ".agents/receipts/.gitignore", holds: "ephemeral receipt" },
-  { payload: "core/.agents/captures/.gitignore", root: ".agents/captures/.gitignore", holds: "recovered API capture" },
-  { payload: "core/.agents/reviews/.gitignore", root: ".agents/reviews/.gitignore", holds: "per-PR review snapshot" },
+  { payload: "core/.agents/receipts/.gitignore", root: ".agents/receipts/.gitignore", holds: "ephemeral dispatch receipt" },
+  { payload: "core/.agents/reviews/.gitignore", root: ".agents/reviews/.gitignore", holds: "per-plan review snapshot" },
 ];
 
 const patternLines = (text) =>

@@ -82,7 +82,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier } from "./review-budget.mjs";
+import { modelTier, validate, assertSchemaSupported } from "./machinery.mjs";
 
 /**
  * The repository root, found by walking up to `.git` rather than counting
@@ -143,9 +143,10 @@ export const REVIEWS_DIR = ".agents/reviews";
 /**
  * The contract, by its CONSUMER path first. In the handbook the payload sits
  * one directory deeper and there is no consumer-shaped copy, so the resolver
- * retries under `core/`. Same two-layout problem the adjudication record
- * solves at a commit; this one reads the working tree, because the plan under
- * review is a working-tree file that may never be committed at all.
+ * retries under `core/`. Same two-layout problem `fable-dispatch.mjs` solves
+ * when it reads a role definition at a commit; this one reads the working
+ * tree, because the plan under review is a working-tree file that may never
+ * be committed at all.
  */
 export const CONTRACT_PATH = "docs/ai-context/plan-review-contract.md";
 
@@ -168,21 +169,66 @@ export const DISPOSITIONS = ["fixed", "declined", "to-david", "deferred"];
 export const BLOCKING_STATUSES = ["Human clarification required", "Repo context required"];
 
 /**
- * Round budgets, by the tier of what is being planned. The plan loop takes the
- * tier of the thing it plans, because a wrong plan becomes wrong code.
+ * The tier of the thing being planned. The plan loop takes it because a wrong
+ * plan becomes wrong code.
  *
- * These used to be enforced by `review-budget.mjs`, which is keyed to a PR
- * number and reads receipts from a remote-tracking ref. There is no PR any
- * more, so that machinery cannot run and the budget would have been prose
- * (Codex, #69 round 1). It is enforced here instead, and the local version is
- * simpler for the same reason the rest of this is: the round count is not
- * stored anywhere, it is COUNTED from the round files on disk. A count that is
- * derived cannot drift from the thing it counts.
+ * A RUBRIC SELECTOR, NOT A BUDGET (#89 cut, 2026-09-16). These three names
+ * used to be the keys of `TIER_BUDGETS`, and the number beside each was a
+ * round cap this file enforced -- with a self-serve leash above it, a grants
+ * file, and an allowance computed from both. All of that is gone, with the
+ * PR-keyed budget machinery it mirrored. Termination is the reviewer's own
+ * `review_status` field, which is where it always actually belonged: a
+ * reviewer that can say "ship it" needs no counter, and a count is what turned
+ * a stopping judgement into arithmetic.
+ *
+ * The tier itself STAYS, still required from round 1 and still pinned by the
+ * first round that sets one, because it selects how strictly a finding is
+ * read. It is now a standalone list rather than a derived one, which is the
+ * whole of what this declaration does.
  */
-export const TIER_BUDGETS = { product: 5, sensitive: 5, internal: 3 };
-export const TIERS = Object.keys(TIER_BUDGETS);
-/** The self-serve leash above the budget; past it, only David grants. */
-export const LEASH = 3;
+export const TIERS = ["product", "sensitive", "internal"];
+
+/**
+ * What each tier actually asks the reviewer to do differently.
+ *
+ * WITHOUT THIS THE TIER SELECTED NOTHING (Codex, #102 round 1). Before the
+ * #89 cut `--tier` picked a number out of `TIER_BUDGETS` and the script
+ * enforced it, so the flag did something even though it never reached the
+ * prompt. The cut removed the budget and re-described the tier as "a rubric
+ * selector" -- and a selector that is validated, pinned, logged and written
+ * to the meta while never reaching the reviewer selects nothing. All three
+ * tiers generated identical instructions.
+ *
+ * That is this repo's own "a check that can be satisfied without the thing it
+ * exists to check", introduced by the change that renamed the mechanism. The
+ * rubric goes in the SCRIPT-OWNED prefix, like every other instruction here:
+ * the caller passes a tier name the script validates against `TIERS`, and
+ * never a word the reviewer reads.
+ */
+export const TIER_RUBRICS = {
+  product: [
+    "**Tier: product.** This plan becomes product code — code David's users run and he cannot read.",
+    "Required revisions are for defects that would reach a user or corrupt data: a wrong invariant, an",
+    "unhandled path that loses work, a behaviour the oracle forbids. Weigh a finding by what someone",
+    "would feel if it shipped, not by how visible it is in the diff.",
+  ],
+  sensitive: [
+    "**Tier: sensitive.** This plan touches auth, payments or a migration, so consequence dominates",
+    "likelihood: an unlikely situation with a severe outcome is a required revision, and the usual",
+    "'this is a narrow case' discount does not apply. Irreversibility is the test — a wrong migration",
+    "and a wrong authorization decision cannot be taken back by a follow-up fix.",
+  ],
+  internal: [
+    "**Tier: internal.** This plan is tooling, process or agent-facing documentation. Its blast radius",
+    "is a confused agent or a wrongly-blocked action, both of which announce themselves; nobody's data",
+    "or money is downstream of it. **Required revisions are reserved for a CRITICAL flaw: a destructive",
+    "or irreversible action, broken workstream tracking, or an unauthorised widening of the builder's",
+    "authority.** Everything else — an ordinary correctness defect, a structural preference, prose —",
+    "belongs in `recommended_improvements`, and it is expected that most of your findings land there.",
+    "This repository's measured failure is over-building tooling in response to correct findings, so a",
+    "recommendation you are confident about is more useful here than a required revision you are not.",
+  ],
+};
 
 // ---------------------------------------------------------------------------
 // The output schemas
@@ -425,91 +471,13 @@ export const schemaFor = (round) => (round === 0 ? SCOPE_ASSESSMENT_SCHEMA : PLA
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
-
-/**
- * Validate a parsed value against the subset of JSON Schema these schemas use.
- *
- * Dependency-free on purpose: this repo installs nothing, and a validator that
- * needs `npm install` is a validator that does not run on a fresh container.
- * The subset is exactly what the two schemas above express -- object, array,
- * string, required, additionalProperties:false, enum, items, properties. A
- * keyword outside it would silently pass, so `assertSchemaSupported` refuses
- * a schema this validator cannot actually enforce rather than pretending.
- */
-export function validate(value, schema, at = "$") {
-  const problems = [];
-  const say = (msg) => problems.push(`${at}: ${msg}`);
-
-  if (schema.enum && !schema.enum.includes(value)) {
-    say(`${JSON.stringify(value)} is not one of ${schema.enum.map((e) => JSON.stringify(e)).join(", ")}`);
-    return problems;
-  }
-
-  switch (schema.type) {
-    case "object": {
-      if (value === null || typeof value !== "object" || Array.isArray(value)) {
-        say(`expected an object, got ${describe(value)}`);
-        return problems;
-      }
-      for (const key of schema.required ?? []) {
-        if (!Object.prototype.hasOwnProperty.call(value, key)) say(`missing required key "${key}"`);
-      }
-      if (schema.additionalProperties === false) {
-        for (const key of Object.keys(value)) {
-          if (!(schema.properties ?? {})[key]) say(`unexpected key "${key}"`);
-        }
-      }
-      for (const [key, sub] of Object.entries(schema.properties ?? {})) {
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-          problems.push(...validate(value[key], sub, `${at}.${key}`));
-        }
-      }
-      return problems;
-    }
-    case "array": {
-      if (!Array.isArray(value)) {
-        say(`expected an array, got ${describe(value)}`);
-        return problems;
-      }
-      if (schema.items) {
-        value.forEach((item, i) => problems.push(...validate(item, schema.items, `${at}[${i}]`)));
-      }
-      return problems;
-    }
-    case "string":
-      if (typeof value !== "string") say(`expected a string, got ${describe(value)}`);
-      return problems;
-    case "number":
-    case "integer":
-      if (typeof value !== "number") say(`expected a number, got ${describe(value)}`);
-      return problems;
-    case "boolean":
-      if (typeof value !== "boolean") say(`expected a boolean, got ${describe(value)}`);
-      return problems;
-    default:
-      say(`schema declares an unsupported type ${JSON.stringify(schema.type)}`);
-      return problems;
-  }
-}
-
-const describe = (v) => (v === null ? "null" : Array.isArray(v) ? "an array" : typeof v);
-
-/** Keywords `validate` actually enforces. Anything else is a silent pass, so refuse it. */
-const SUPPORTED_KEYWORDS = new Set(["type", "required", "additionalProperties", "properties", "items", "enum", "description"]);
-
-export function assertSchemaSupported(schema, at = "$") {
-  for (const key of Object.keys(schema)) {
-    if (!SUPPORTED_KEYWORDS.has(key)) {
-      throw new Error(
-        `${at} uses the JSON Schema keyword "${key}", which this repo's dependency-free validator does not enforce. ` +
-          `A keyword that is sent to the model but not checked here means an output could be accepted that does not ` +
-          `satisfy the schema -- add support for it, or drop it.`,
-      );
-    }
-  }
-  for (const [key, sub] of Object.entries(schema.properties ?? {})) assertSchemaSupported(sub, `${at}.${key}`);
-  if (schema.items) assertSchemaSupported(schema.items, `${at}[]`);
-}
+//
+// `validate` and `assertSchemaSupported` moved to `machinery.mjs` in the #89
+// cut, so the plan reviewer and every other dispatched role are checked by one
+// validator rather than by a copy each. Only the SHAPE is shared: the schemas
+// above and the semantic checks below stay here, because they are this loop's
+// policy and a shared home for them would make one edit change every role's
+// meaning at once.
 
 /**
  * Did the reviewer actually reconcile the findings it was handed?
@@ -570,11 +538,19 @@ export function reconciliationProblems(assessment, priors) {
 /**
  * Whether this round meets the loop's stop rule -- computed, not judged.
  *
- * Three conditions, and the third is the one that is easy to forget: a
- * BLOCKING status means the reviewer could not review, and such a round
- * naturally has no required revisions to report. Reading that as convergence
- * would take "I could not see enough of the repository to judge this" for
- * "this is fine".
+ * The condition that is easy to forget: a BLOCKING status means the reviewer
+ * could not review, and such a round naturally has no required revisions to
+ * report. Reading that as convergence would take "I could not see enough of
+ * the repository to judge this" for "this is fine".
+ *
+ * AND NEITHER IS AN OPEN QUESTION FOR DAVID (#89 walkthrough, reproduced by
+ * Astra). `product_decisions_for_david` is where the reviewer puts a fork it
+ * refuses to settle -- and a round carrying one converged, because a fork is
+ * not a required revision. So the loop reached "no required revisions, take it
+ * to David for approval" while still holding a question only David could
+ * answer, and the ask went to him with the fork inside it rather than before
+ * it. A clean technical round never erases an outstanding human decision; the
+ * proxy carries the same rule as a semantic check on its own answer (#96).
  */
 export function convergence(assessment, priors) {
   const reasons = [];
@@ -590,53 +566,17 @@ export function convergence(assessment, priors) {
   if (["No", "Not yet"].includes(assessment.should_this_exist)) {
     reasons.push(`should_this_exist is "${assessment.should_this_exist}" -- a product question for David, not a pass`);
   }
+  const forks = assessment.product_decisions_for_david ?? [];
+  if (forks.length) {
+    reasons.push(
+      `${forks.length} product decision(s) are open for David: ` +
+        `${forks.map((d) => JSON.stringify(d.question)).join(", ")}`,
+    );
+  }
   const unresolved = (assessment.previous_findings ?? []).filter((f) => f.status === "Still open");
   if (unresolved.length) reasons.push(`${unresolved.length} prior finding(s) Still open: ${unresolved.map((f) => f.id).join(", ")}`);
   if (priors.length && !(assessment.previous_findings ?? []).length) reasons.push("prior findings were not reconciled");
   return { converged: reasons.length === 0, reasons };
-}
-
-/**
- * The allowance this loop has, from its tier and any recorded grants.
- *
- * Mirrors the contract exactly: a finite grant opens `asOf + grant` rounds, so
- * a mid-stage grant discards the interrupted stage's unspent remainder rather
- * than stacking on it. Adjudicator grants self-serve only as far as the leash;
- * past that the grant has to be David's.
- */
-export function allowanceFor(tier, grants) {
-  const cap = TIER_BUDGETS[tier];
-  let allowance = cap;
-  for (const g of grants) {
-    const opened = g.asOf + g.grant;
-    if (g.kind === "adjudicator" && opened > cap + LEASH) {
-      throw new Error(
-        `an adjudicator grant cannot open round ${opened}: the self-serve leash ends at ${cap + LEASH} ` +
-          `(budget ${cap} + ${LEASH}). Past there the grant is David's, recorded with kind "david".`,
-      );
-    }
-    allowance = Math.max(allowance, opened);
-  }
-  return allowance;
-}
-
-/** Grants recorded for this loop, validated rather than trusted. */
-export function readGrants(dir) {
-  const file = path.join(dir, "extensions.json");
-  if (!fs.existsSync(file)) return [];
-  const raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (!Array.isArray(raw)) throw new Error(`${file} must contain a JSON array of grants`);
-  return raw.map((g, i) => {
-    const at = `extensions.json[${i}]`;
-    for (const key of ["grant", "asOf"]) {
-      if (!Number.isInteger(g?.[key]) || g[key] < 0) throw new Error(`${at} needs an integer "${key}" >= 0`);
-    }
-    if (!["adjudicator", "david"].includes(g.kind)) throw new Error(`${at} needs "kind" of "adjudicator" or "david"`);
-    if (typeof g.reason !== "string" || g.reason.trim() === "") {
-      throw new Error(`${at} needs a "reason" -- a grant that names no unaddressed risk is a rubber stamp`);
-    }
-    return { grant: g.grant, asOf: g.asOf, kind: g.kind, reason: g.reason.trim() };
-  });
 }
 
 /**
@@ -646,6 +586,12 @@ export function readGrants(dir) {
  * loop *started* on rather than whatever the last round happened to pass.
  * A meta without a tier (round 0 runs before `--tier` is required) is skipped
  * rather than treated as a mismatch.
+ *
+ * It reads `meta.tier`, which is where the field lives now that `meta.budget`
+ * is gone. A meta written before the #89 cut recorded it as `budget.tier` and
+ * is simply skipped -- those loops are finished, and inventing a migration for
+ * a snapshot directory that is gitignored and dies with its container would be
+ * machinery for nobody.
  */
 export function assertTierPinned(dir, earlier, tier) {
   for (const n of [...earlier].sort((a, b) => a - b)) {
@@ -657,14 +603,14 @@ export function assertTierPinned(dir, earlier, tier) {
     } catch {
       continue;
     }
-    const pinned = meta?.budget?.tier;
+    const pinned = meta?.tier;
     if (typeof pinned !== "string" || pinned === "") continue;
     if (pinned === tier) return;
     throw new Error(
-      `this loop ran round ${n} as tier "${pinned}", and this round says "${tier}". The tier sets both the round ` +
-        `budget (${TIER_BUDGETS[pinned] ?? "?"} vs ${TIER_BUDGETS[tier] ?? "?"}) and the rubric the adjudicator ` +
-        `applies, so changing it mid-loop buys rounds that were never granted. Re-run with --tier ${pinned}, or ` +
-        `start a new loop under a new slug if the work genuinely changed tier.`,
+      `this loop ran round ${n} as tier "${pinned}", and this round says "${tier}". The tier selects how strictly ` +
+        `a finding is read, so changing it mid-loop re-judges earlier rounds under a rubric they never ran ` +
+        `against. Re-run with --tier ${pinned}, or start a new loop under a new slug if the work genuinely ` +
+        `changed tier.`,
     );
   }
 }
@@ -952,7 +898,7 @@ export function readContract(root = REPO_ROOT) {
  * contract arrives as a path too, for the same reason and because it is the
  * file the reviewer is being asked to apply rather than quote.
  */
-export function stablePrefix({ round, contractPath, oracle, planPath }) {
+export function stablePrefix({ round, contractPath, oracle, planPath, tier = null }) {
   const reviewing =
     round === 0
       ? [
@@ -1004,6 +950,17 @@ export function stablePrefix({ round, contractPath, oracle, planPath }) {
           "section is genuinely empty, return an empty list rather than omitting it.",
         ]),
     "",
+    ...(tier && TIER_RUBRICS[tier]
+      ? [
+          "## How strictly to read a finding on this artifact",
+          "",
+          ...TIER_RUBRICS[tier],
+          "",
+          "This does not change WHAT you look for, only what you file as required rather than",
+          "recommended. Report everything you find either way.",
+          "",
+        ]
+      : []),
     "Non-negotiables from that contract that bind you here:",
     "- You do not approve plans. David does.",
     "- Inspect the repository before concluding. Read the actual code and docs, run the inventory",
@@ -1037,9 +994,13 @@ export function stablePrefix({ round, contractPath, oracle, planPath }) {
     "",
     "## Toolchain exclusion",
     "",
-    "Do not report what a compiler, a linter or a test suite would catch. Report what would survive",
-    "into production invisibly: wrong invariants, unguarded paths, a check that can be satisfied",
-    "without the thing it exists to check, a refusal that fails open.",
+    "Do not report a defect that a check which ACTUALLY RUNS on this repository would catch. The",
+    "exclusion is that narrow on purpose: written as \"anything a compiler, a linter or a test suite",
+    "would catch\" it excluded defects on the strength of tooling nobody had configured, which is the",
+    "reverse of what it is for. Missing coverage, an assertion that is wrong, and a check that passes",
+    "without proving its condition all stay IN scope, and so does a required check that is failing.",
+    "Report what would survive invisibly: wrong invariants, unguarded paths, a check that can be",
+    "satisfied without the thing it exists to check, a refusal that fails open.",
     "",
     "## Output",
     "",
@@ -1573,7 +1534,7 @@ export const USAGE = [
   `  node ${INVOCATION} --round <N> --plan <file> [--slug <s>] [--oracle <f>]`,
   `${FLAG_COLUMN}[--lens <text>] [--prior <file> | --no-prior]`,
   "",
-  `  --tier        ${TIERS.join(" | ")} — required from round 1; sets the round budget`,
+  `  --tier        ${TIERS.join(" | ")} — required from round 1; selects the rubric`,
   "  --dry-run     assemble the prompt and schema, write them, spawn nothing",
   "  --force       re-run a round that already exists, discarding its result first",
   "  --oracle-changed <reason>   the oracle differs from the pinned one, deliberately",
@@ -1666,46 +1627,30 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // --- the oracle, pinned for the life of the loop -----------------------
     const pin = pinOracle(dir, oracle, { changedReason: flags.oracleChanged ?? null });
 
-    // --- budget -----------------------------------------------------------
-    // Counted from the round files, never stored. The PR-keyed budget guard
-    // cannot run without a PR, so if this did not enforce the cap the cap
-    // would be prose (Codex, #69 round 1).
-    let budget = null;
+    // --- tier ---------------------------------------------------------
+    // A rubric selector, not an allowance. Nothing here counts rounds: the
+    // stop rule is the reviewer's own `review_status`.
+    let tier = null;
     if (round >= 1) {
       if (!flags.tier) {
         throw new Error(
           `--tier is required from round 1 (${TIERS.join(" | ")}). The plan loop takes the tier of what it plans, ` +
-            `and the tier is the round budget: ${TIERS.map((t) => `${t} ${TIER_BUDGETS[t]}`).join(", ")}.`,
+            `and the tier selects how strictly a finding is read.`,
         );
       }
       if (!TIERS.includes(flags.tier)) throw new Error(`--tier must be one of ${TIERS.join(", ")}`);
-      // THE TIER IS PINNED BY THE FIRST ROUND THAT SET ONE. It decides both
-      // the round budget and the adjudicator's rubric, so a changed flag on a
-      // later round silently buys rounds the loop was never granted: an
-      // internal loop three rounds deep, invoked once with `--tier product`,
-      // recomputes its allowance as five and proceeds without any grant
-      // (Codex, #69 round 8). Every round already stamps its tier on the
-      // meta, so the pin costs a read rather than new state.
+      // THE TIER IS PINNED BY THE FIRST ROUND THAT SET ONE, so a typo'd flag
+      // on a later round cannot re-judge the loop under a rubric its earlier
+      // rounds never ran against (Codex, #69 round 8, where the same pin
+      // stopped a changed flag buying rounds). Every round already stamps its
+      // tier on the meta, so the pin costs a read rather than new state.
       //
-      // This is NOT the driver-as-adversary class declined in round 2 — the
+      // This is NOT the driver-as-adversary class declined in round 2 -- the
       // failure here is a typo'd flag on a long command, and the loop driver
       // gains nothing by it. It is the same shape as the oracle pin: a value
       // agreed once, then read rather than re-supplied.
       assertTierPinned(dir, earlier, flags.tier);
-
-      const grants = readGrants(dir);
-      const allowance = allowanceFor(flags.tier, grants);
-      if (round > allowance) {
-        throw new Error(
-          `round ${round} is past this loop's allowance of ${allowance} (tier ${flags.tier}, budget ` +
-            `${TIER_BUDGETS[flags.tier]}${grants.length ? `, ${grants.length} recorded grant(s)` : ""}). ` +
-            `At the budget the adjudicator owns the extension and may self-serve as far as round ` +
-            `${TIER_BUDGETS[flags.tier] + LEASH}; past that the grant is David's. Record it in ` +
-            `${path.relative(root, path.join(dir, "extensions.json"))} as ` +
-            `{"grant": <rounds>, "asOf": ${earlier.filter((n) => n >= 1).length}, "kind": "adjudicator"|"david", "reason": "<the risk it covers>"}.`,
-        );
-      }
-      budget = { tier: flags.tier, cap: TIER_BUDGETS[flags.tier], allowance, grants };
+      tier = flags.tier;
     }
 
     // --- prior findings ---------------------------------------------------
@@ -1792,7 +1737,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const lastMessage = path.join(dir, `round-${round}.last-message.txt`);
     const metaFile = path.join(dir, `round-${round}.meta.json`);
 
-    const promptParts = { round, lens, priors, inventory, oracle, planPath, contractPath: contract.path };
+    const promptParts = { round, lens, priors, inventory, oracle, planPath, contractPath: contract.path, tier };
     const prompt = assemblePrompt(promptParts);
     fs.writeFileSync(promptFile, `${prompt}\n`);
     fs.writeFileSync(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);
@@ -1804,7 +1749,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           `  schema  ${path.relative(root, schemaFile)}\n` +
           `  oracle  ${oracle.length} chars${pin.firstPin ? " (pinned now)" : pin.changed ? " (CHANGED, recorded)" : " (matches the pin)"}\n` +
           `  priors  ${priors.length}\n` +
-          (budget ? `  budget  round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : ""),
+          (tier ? `  tier    ${tier}\n` : ""),
       );
       pin.commit();
       return 0;
@@ -1925,7 +1870,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       contractDigest: sha256(contract.text),
       promptDigest: sha256(prompt),
       priorFindings: priors.map((p) => ({ id: p.id, disposition: p.disposition })),
-      budget,
+      tier,
       oraclePin: { pinned: pin.pinned, changed: pin.changed, firstPin: pin.firstPin, changedReason: pin.changedReason ?? null },
       // Present only when the round departed from the settled reviewer, so its
       // absence is the ordinary case and its presence is loud.
@@ -1984,7 +1929,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         `  status    ${assessment.review_status}\n` +
         `  ${label.padEnd(9)} ${counted}\n` +
         `  seconds   ${attempts.map((a) => Math.round(a.seconds)).join(" + ")}\n` +
-        (budget ? `  budget    round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : "") +
+        (tier ? `  tier      ${tier}\n` : "") +
         `  ${converged ? "CONVERGED — the stop rule is met" : `not converged: ${reasons.join("; ")}`}\n`,
     );
     process.stdout.write(`${path.relative(root, outJson)}\n`);

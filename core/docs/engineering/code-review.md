@@ -54,16 +54,31 @@ mutable branch is itself a finding — the oracle can't be trusted until it's
 pinned.
 
 **A body with no block is not a finding.** The legacy prose form still
-resolves, deliberately, and the record marks which of the two answered. A
-prose-selected oracle is the same oracle read a more fragile way, not weaker
-evidence — the judge's own contract says so and forbids it moving a verdict.
-Reporting its absence would manufacture a finding on every PR written before
-this shipped and force a migration nothing asked for.
+resolves, deliberately. A prose-selected oracle is the same oracle read a more
+fragile way, not weaker evidence. Reporting its absence would manufacture a
+finding on every PR written before this shipped and force a migration nothing
+asked for.
 
-The parser refuses a malformed block by key name rather than accepting it, so
-what reaches you as a *review* finding is the class it cannot judge: **a
-well-formed block whose values are false.** It checks shapes, not truth, and
-then keeps only the commit — so every other key is auditable by you alone.
+**NOTHING VALIDATES THE BLOCK BEFORE IT REACHES YOU ANY MORE** (#89 cut,
+2026-09-16). This paragraph used to say the parser refused a malformed block by
+key name, so the only class that could reach you was a well-formed block whose
+values are false. That was true while `review-loop-record.mjs` read every PR
+body to build the adjudicator's record; the cut removed that script and with it
+the only runtime reader. The parser itself survives at
+`core/scripts/plan-provenance.mjs`, but its only caller is a test that compares
+the producer documents against it — **no code reads a PR body.**
+
+So the shape check is yours too, and it is cheap: the block opens with `kind`,
+its key set is exactly what that kind requires, and every key is one the format
+defines. A block that is **present but misspelled, malformed, or missing a key
+its `kind` requires** is now a finding, where before it was refused upstream.
+**"Missing" here means a missing key inside a block that is there** — a body
+carrying no block at all is still not a finding, per the legacy-prose paragraph
+above, and the two are easy to run together. `docs/ai-context/plan-provenance.md` is the
+format's only statement; read the keys from there rather than from memory.
+
+Everything below is unchanged, and is what was always yours: the block checks
+shapes, not truth, so every key's *value* is auditable by you alone.
 Cross-check, as applicable: the sha against the plan-review PR's final commit;
 the PR number, or each number in a split loop; the approval date; and that the
 combined branch is the one carrying that commit. A block can be perfectly
@@ -205,10 +220,10 @@ cost more than the defects they describe. This is the *depth* rule. The
 *continuation* rule is the internal tier (David, 2026-08-21, superseding
 the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
 ceremony, but when the pass finds a real defect the pushed fixes are
-re-reviewed under the internal tier, with the external adjudicator's strict
-rubric deciding continuation on a 3-round budget under the standard
-two-tier tripwire (a self-serve leash to round 6, the David gate at 6 —
-David, 2026-08-26) — see
+re-reviewed under the internal tier, with its strict rubric deciding per
+finding whether anything is written at all — there is no round budget and no
+leash, and the external adjudicator that used to rule went with the #89 cut
+(2026-09-16) — see
 [`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)'s
 internal-tier section. The retired fix-round merge-path workarounds no
 longer apply.
@@ -469,10 +484,10 @@ is equally one-directional.
 
 **Avoid:** construct the counter-example for the opposite direction *before*
 shipping the sentence, and prefer a **measured matrix to a comparative
-adjective** whenever the behaviour has more than one axis. `.claude/guard.sh`
-now carries a six-row block/allow table precisely because two successive
-adjectives were tried and both were false; a table has no direction to get
-backwards.
+adjective** whenever the behaviour has more than one axis. The git-constraints
+section of `claude-core.md` carries a block/allow table precisely because two
+successive adjectives were tried on the guard it then described and both were
+false; a table has no direction to get backwards, and it survived the guard.
 
 **The cheap test that would have caught all three:** ask *what would make the
 opposite true, and can I run it?* Each was falsifiable in under a minute —

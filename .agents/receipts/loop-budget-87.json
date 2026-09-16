@@ -1,9 +1,0 @@
-{
-  "pr": 87,
-  "tier": "internal",
-  "repo": "TheAnswerManIsHere/AI-Handbook",
-  "budget": 3,
-  "criticality": 60,
-  "artifact": "pr-ready.mjs gains a fourth merge-bar item proving every review round has a translation record; the reviews-dir locator deduped into loop-position.mjs",
-  "declaredAt": "2026-09-14T00:37:08.384Z"
-}

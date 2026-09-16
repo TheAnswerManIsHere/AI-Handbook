@@ -1,4 +1,4 @@
-# THIS REPO'S OWN review evidence, mirroring the payload copy next door in
+# THIS REPO'S OWN plan-review evidence, mirroring the payload copy next door in
 # core/.agents/reviews/.gitignore. The reasoning -- what is ephemeral, what is
 # committed instead, and why a symlink cannot work here -- lives there.
 #

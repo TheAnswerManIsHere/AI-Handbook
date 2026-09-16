@@ -43,11 +43,13 @@ assembled for it by this route. Say so rather than inventing the field.
 
 ## Why the binding matters rather than being pedantry
 
-`pr-ready.mjs` refuses on exactly this:
+The handbook's former readiness gate refused on exactly this:
 
 > `N check run(s) carry no head_sha, so they cannot be tied to <sha> -- capture head_sha with each run`
 
-and the refusal is load-bearing. A readiness snapshot's collections come from
+That gate was removed in the #89 cut — GitHub's own ruleset now holds the
+merge — but the refusal was load-bearing for a reason that has nothing to do
+with it, and the reason is why this note survives its consumer. A readiness snapshot's collections come from
 separate calls, so **green checks read before a push, with the PR metadata
 read after it, produce a receipt bound to the new commit whose CI item
 describes the old one** — and the branch-tip comparison then agrees, because
@@ -65,8 +67,9 @@ later-page check and mint a READY receipt for a PR that is neither.
 
 ## Related
 
-- `snapshot-from-captures.mjs` does not emit `checkRuns` at all — its verified
-  collections are `pr`, `reviews`, `issueComments`, `reviewThreads`. A
-  readiness snapshot is therefore assembled by hand, and `pr-ready.mjs` does
-  not call `assertCaptureProvenance`. That gap is AI-Handbook #74 and #75, and
-  the non-Actions limit above belongs to the same issue.
+- **This is live for #95 and #96.** Both rebuild a path that hands live PR
+  state to a dispatched session, and "which commit does this check run
+  describe" is exactly the question an assembled view has to answer honestly.
+  The snapshot assembler this note used to warn about never emitted
+  `checkRuns` at all; whatever replaces it should either capture `head_sha`
+  with each run through the two-call route above, or say it could not.

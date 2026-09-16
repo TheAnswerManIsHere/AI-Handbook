@@ -1,9 +1,0 @@
-{
-  "pr": 87,
-  "kind": "david",
-  "grant": 1,
-  "asOf": 3,
-  "authorization": "Can you figure out how to do something simply? write a file that tells me that you delivered the artifact. It can't be that hard. Just do it. Just write a file that records when you do something and get it right. Teach yourself how to do this. I don't need to explain to you how simple it must be for a computer to write a file down saying I did a thing. Just get it done right now.",
-  "decidedAt": "2026-09-14T01:25:00Z",
-  "reasoning": "Budget of 3 was spent at round 3 (clean, converged) with three findings recorded as gaps -- all three one finding: no artifact this repo writes is a true completion signal, and a post-delivery marker was declined as a third artifact on the ladder. David's instruction reopens the write for exactly that marker. It is a product decision, not a mechanical round: it changes what the gate proves. Grant 1 is the round this write costs; if round 4 returns findings worth writing for, that is a fresh ask to him rather than a leash assumed here."
-}

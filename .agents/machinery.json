@@ -1,21 +1,5 @@
 {
   "repo": "TheAnswerManIsHere/AI-Handbook",
-  "requiredChecks": [
-    "Test",
-    "Manifest"
-  ],
-  "contractBudgets": [
-    {
-      "path": "CLAUDE.md",
-      "lines": 168,
-      "bytes": 9557
-    },
-    {
-      "path": "core/.agents/core/claude-core.md",
-      "lines": 933,
-      "bytes": 58724
-    }
-  ],
   "models": {
     "strongestClaude": {
       "id": "claude-fable-5-1",
