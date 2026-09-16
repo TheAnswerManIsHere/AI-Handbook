@@ -22,17 +22,36 @@
  * D0 exists to stop being the only one. That is why the report is a function
  * rather than an instruction to me to "explain the round".
  *
+ * NO STATE SURVIVES A SESSION, AND NOTHING HERE NEEDS IT TO. The receipt store
+ * went with the page, and round 4 found it had been silently carrying the
+ * round's coordinates: with it gone, a resumed session had no lower bound for
+ * the review window and no previous head, and `roundBrief`'s "from the start"
+ * arm re-attributed every earlier round to the current one. The answer is not
+ * a smaller store. Every coordinate a round needs is DERIVABLE from the pull
+ * request itself: the reviewer marks each round it returns -- a formal review
+ * submission when it has findings, a `**Reviewed commit:**` issue comment when
+ * it has none (measured on #115, 2026-09-16) -- and those markers carry both
+ * the timestamp and the reviewed commit. So the translator locates the round's
+ * marker and the previous round's, and both the activity window and the
+ * commit ranges follow. The caller pins two things only: the HEAD where the
+ * evidence stops, and the UNTIL moment the dispatch was made. (Codex, #109
+ * round 4; Astra and Fable passes, 2026-09-16.)
+ *
  * THREE FACTS, NOT A LEDGER. The verdict line reads exactly three things off
  * the answer: were there disagreements, how many, and was anything left
- * unassessed. There is no per-finding reconciliation and nothing refuses a
- * translation that skipped a finding -- the reader is a human reading prose,
- * and a paragraph missing a finding is a paragraph missing a finding (David,
- * 2026-09-12).
+ * unassessed -- and a fourth that gates the favourable line: did the translator
+ * see a builder reply at all. There is no per-finding reconciliation and
+ * nothing refuses a translation that skipped a finding -- the reader is a human
+ * reading prose, and a paragraph missing a finding is a paragraph missing a
+ * finding (David, 2026-09-12).
  *
  * The one rule the verdict obeys: **"agrees" is never printed over an
  * unassessed item, or over a round the builder has not answered.**
  * Could-not-observe is not the favourable answer, and neither is
- * nobody-said-anything-yet.
+ * nobody-said-anything-yet. And every place the report asserts a fact about the
+ * round -- the verdict line, a section heading, an empty-list label -- reads
+ * the SAME fact, because this component has paid four times for two claim
+ * sites disagreeing (#81 round 8; #109 rounds 2, 3 and 4).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -59,6 +78,8 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const schemaPath = () =>
   path.resolve(SCRIPT_DIR, "..", ".agents", "fable-roles", "schemas", `${ROLE}.schema.json`);
 
+const loadSchema = () => JSON.parse(fs.readFileSync(schemaPath(), "utf8"));
+
 /**
  * Keep the answer directory ignored, because an answer file must never be
  * committed -- it is a session artifact, and the role that writes it reads
@@ -73,7 +94,35 @@ export function ensureReviewsIgnored(root) {
 }
 
 /**
+ * Prepare the answer path for ONE attempt, and call it before EVERY dispatch.
+ *
+ * Three things, each of which was a way for the wrong bytes to be read: the
+ * directory exists (the role holds `Write` and nothing that creates a parent),
+ * it is ignored (see above), and no earlier attempt's answer is left where
+ * `readAnswer` will look. That last one is the finding: `answerPath` is the
+ * same for every attempt of a round, and waiting for completion fixes an EARLY
+ * read but not a STALE one -- a re-dispatch whose translator wrote nothing
+ * would otherwise be reported with its predecessor's answer, an unanswered or
+ * partial account presented as the new result. Clearing the one derived file
+ * is the whole lifecycle; there is no attempt ledger. (Astra, 2026-09-16.)
+ */
+export function prepareAnswerPath(root, pr, round) {
+  ensureReviewsIgnored(root);
+  const file = answerPath(root, pr, round);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.rmSync(file, { force: true });
+  return file;
+}
+
+/**
  * The dispatch model, as a full id and as the name the Agent tool takes.
+ *
+ * BIND IT ONCE PER DISPATCH. `agentModel` is what the Agent call takes and `id`
+ * is what `chatReport` compares the translator's reported model against.
+ * Naming them from two separate calls is how the skill lost the binding:
+ * omit `askedModel` and the fallback notice can never fire; pass the Agent
+ * argument (`fable`) and every normal round reports a fallback that did not
+ * happen. (Codex, #109 round 4.)
  *
  * `effort` is returned and deliberately NOT applied: the Agent tool takes a
  * model name and no reasoning-effort argument, so the configured value has no
@@ -97,20 +146,35 @@ export function dispatchModel(io = undefined) {
 /**
  * The round's coordinates. NOT the brief -- the harness supplies that.
  *
+ * TWO THINGS ARE PINNED AND EVERYTHING ELSE IS DERIVED. `head` is where the
+ * evidence stops -- the branch head at dispatch, which is NOT necessarily the
+ * commit the reviewer reviewed: the replies to a round claim fixes pushed
+ * after the reviewed commit, and a translator pinned to the reviewed commit
+ * could never check them (Astra, 2026-09-16). `until` is the moment of the
+ * dispatch, the upper bound on review activity. The reviewed commits, the
+ * activity window's lower bound and the previous round's boundary all come
+ * from the reviewer's own markers on the pull request, which the role is told
+ * how to find -- so a resumed session, or a round after a failed one, has
+ * nothing to remember and nothing to guess.
+ *
  * `repo` and the answer path are DERIVED rather than accepted: a mistyped
  * owner/name would send the translator to a different pull request, and a
  * mistyped answer path would mean a valid answer written where `readAnswer`
  * never looks -- reported as a failed round, the failure state hiding a
  * success. That is the `derivable` arm of the Worth test, which says remove
  * the input.
+ *
+ * THE SCHEMA TRAVELS WITH THE BRIEF. Neither the role definition nor these
+ * coordinates used to name the nested field names the answer must carry
+ * (`why_it_matters`, `does_not_do`, `now_trusting`), and the role holds no
+ * tool that can open the schema file. A validator the writer cannot see is a
+ * validator that rejects honest answers. (Astra, 2026-09-16.)
  */
 export function roundBrief({
   root,
   pr,
   round,
   head,
-  previousHead = null,
-  since = null,
   until = null,
   finalRound = false,
   priorAccounts = [],
@@ -123,32 +187,25 @@ export function roundBrief({
     "",
     `- **Repository:** \`${repo}\``,
     `- **Pull request:** #${pr}`,
-    `- **Round:** ${round}`,
-    `- **Head:** \`${head}\` — the last commit this round reviewed.`,
-    // COMMITS BY ANCESTRY, NEVER BY CLOCK. This used to be a `since` timestamp
-    // on `list_commits`, which was wrong in both directions: with no lower
-    // bound it walked the branch's entire ancestry and asked for every
-    // historical full patch, and with one it filtered on AUTHOR DATE -- so a
-    // cherry-pick or a rebase-and-push during a round carried an older date
-    // and was silently dropped from the account. The contract meanwhile
-    // claimed commits were "selected by commit identity", which the protocol
-    // did not do. A previous-head coordinate is that claim made true, and it
-    // bounds the first round by the pull request rather than by history.
-    // (Codex, #109 round 3.)
-    previousHead
-      ? `- **Previous head:** \`${previousHead}\` — this round's commits are the ones AFTER this in the pull request's own ordered commit list, up to and including the head. Ancestry, not timestamps.`
-      : `- **Previous head:** none — this is the first round translated, so this round's commits are every commit on the pull request, up to the head. Still bounded by the pull request, never by the branch's history.`,
-    // TIMESTAMPS BOUND REVIEW ACTIVITY ONLY, and at both ends. The comment
-    // reads are live and this dispatch runs detached by design, so a slow
-    // round-N translation could read round N+1's findings and replies while
-    // its commits stayed pinned to N's range -- an account of a round that
-    // never existed, filed under N's number and indistinguishable from a
-    // correct one. `until` is captured when the dispatch is made.
-    since
-      ? `- **Review activity, from:** \`${since}\` — comments, reviews and replies after this timestamp are this round's.`
-      : `- **Review activity, from:** the start of the pull request — this is the first round translated on it.`,
+    // THE ROUND IS LOCATED, NOT REMEMBERED. The reviewer marks every round it
+    // returns, in one of two shapes, and the Nth marker in time order IS round
+    // N. That is what makes the window and the commit ranges derivable in a
+    // session that has never seen this pull request before. (Codex, #109
+    // round 4 -- the receipt store had been carrying this silently.)
+    `- **Round:** ${round} — the ${ordinal(round)} review the reviewer has returned on this pull request, counting in time order across BOTH shapes a returned review takes: a formal review submission (a round with findings) and an issue comment carrying the literal line \`**Reviewed commit:**\` (a round with none). Locate this round's marker and, when ${round} > 1, the previous round's. If the ${ordinal(round)} marker cannot be found, or the markers you can see do not number ${round} or more, say so in \`could_not_assess\` and do not guess a window.`,
+    // EVIDENCE STOPS AT THE HEAD; THE REVIEWED COMMIT IS IN THE MARKER. Pinning
+    // the head to the reviewed commit meant the translator could never verify
+    // a reply's "fixed in <later sha>". (Astra, 2026-09-16.)
+    `- **Head:** \`${head}\` — where the evidence stops. Every commit on the pull request up to and including this one is in reach; nothing after it is. This is NOT necessarily the commit the reviewer reviewed — that commit is named in the round's own marker.`,
+    // TIMESTAMPS BOUND REVIEW ACTIVITY ONLY. The lower bound is the round's
+    // own marker, INCLUSIVE, because every finding in a round carries exactly
+    // its submission's timestamp -- an exclusive lower bound drops the whole
+    // round, and an inclusive upper bound at the next marker absorbs the
+    // whole next round (Astra replayed #109: 23 findings for round 1, not 14).
+    // `until` is the dispatch moment: this dispatch runs detached and the
+    // next round can land while it reads.
     until
-      ? `- **Review activity, until:** \`${until}\` — IGNORE every comment, review and reply after this timestamp. They belong to a later round, and this dispatch runs detached, so later activity may well have landed while you were reading.`
+      ? `- **Review activity, until:** \`${until}\` — the moment this dispatch was made. IGNORE every comment, review and reply after this timestamp; they belong to a later round, and this dispatch runs detached, so later activity may well have landed while you were reading.`
       : `- **Review activity, until:** none supplied — if you find activity that plainly belongs to a later round, say so in \`could_not_assess\` rather than folding it into this one.`,
     `- **Final round:** ${finalRound ? "YES — also return `known_gaps` and `what_landed`." : "no — omit `known_gaps` and `what_landed`."}`,
     `- **Write your answer to:** \`${answerFile}\``,
@@ -159,19 +216,68 @@ export function roundBrief({
   // specifier in an agent's `tools:` list is not honoured. Quoting costs
   // nothing, because this is the role's OWN earlier prose handed back to it,
   // and it is told in the same breath to treat it as navigation.
-  if (finalRound && priorAccounts.length) {
+  //
+  // THE ENTRIES ARE `readAnswer` RESULTS, WHOLE. A bare parsed answer carries
+  // no round number (the schema forbids extra keys), and passing one rendered
+  // "### Round undefined" (Astra, 2026-09-16). And every round 1..N-1 is
+  // NAMED, present or not: a resumed session holds no earlier answer files at
+  // all, and the role is required to state a missing account as a limitation
+  // -- which it can only do if it is told the account is missing (Fable,
+  // 2026-09-16). Silence here would read as "there were no earlier rounds".
+  if (finalRound) {
     lines.push("", "## Earlier accounts of this pull request, for navigation only", "");
     lines.push(
-      "These are your own earlier rounds, quoted. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully.",
+      "These are your own earlier rounds, quoted, one entry per round. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully. Each entry says whether the builder had replied when it was written (an account of an unanswered round is not settled), what it could not assess (restate that limitation), and where it disagreed with the builder (look there first). A round with no account here is a limitation you state in `could_not_assess`, and its threads are still yours to read for `known_gaps`.",
       "",
     );
-    for (const a of priorAccounts) {
-      lines.push(`### Round ${a.round}`, "", a.summary_for_david ?? "", "", a.what_happened ?? "", "");
+    const byRound = new Map();
+    for (const a of priorAccounts) if (a && Number.isInteger(a.round)) byRound.set(a.round, a);
+    for (let k = 1; k < round; k += 1) {
+      const a = byRound.get(k);
+      lines.push(`### Round ${k}`, "");
+      if (!a) {
+        lines.push("No account of this round exists in this session — it was never translated, or the session that translated it is gone. State this as a limitation.", "");
+        continue;
+      }
+      if (a.failed) {
+        lines.push(`The translation of this round FAILED — ${a.reason}. There is no account to navigate by; state this as a limitation.`, "");
+        continue;
+      }
+      const ans = a.answer ?? {};
+      lines.push(
+        `- **Builder had replied when this was written:** ${ans.builder_answered === true ? "yes" : "no — treat its conclusions as provisional"}`,
+        `- **Could not assess:** ${typeof ans.could_not_assess === "string" ? ans.could_not_assess : "nothing reported"}`,
+      );
+      if (Array.isArray(ans.disagreements) && ans.disagreements.length) {
+        lines.push(`- **Disagreed with the builder on ${ans.disagreements.length}:**`);
+        for (const d of ans.disagreements) lines.push(`  - ${d.what} — ${d.why_it_matters}`);
+      } else {
+        lines.push("- **Disagreements reported:** none");
+      }
+      lines.push("", ans.summary_for_david ?? "", "", ans.what_happened ?? "", "");
     }
   }
-  lines.push("", "Write the JSON object to that path and nothing else to it.", "");
+  lines.push(
+    "",
+    "## The shape of your answer",
+    "",
+    "The file must be one JSON object satisfying this schema exactly — these field names, no others, nested as shown. It is quoted here because you hold no tool that can open the schema file.",
+    "",
+    "```json",
+    JSON.stringify(loadSchema(), null, 2),
+    "```",
+    "",
+    "Write the JSON object to that path and nothing else to it.",
+    "",
+  );
   return lines.join("\n");
 }
+
+const ordinal = (n) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
 
 /**
  * Validate an answer against the shipped schema.
@@ -180,14 +286,24 @@ export function roundBrief({
  * `what_landed`, and an ordinary round must not. An optional field nothing
  * enforces is the defect this machinery keeps paying for.
  *
+ * A BLANK `could_not_assess` IS REFUSED, NOT READ AS "NOTHING TO REPORT". The
+ * schema's `minLength` refuses "" but admits "   ", and `facts` used to trim
+ * that into the fully-assessed state -- two checks disagreeing about what
+ * empty means, with the favourable state as the result, one character away
+ * from the case round 2 fixed. Only `null` means fully assessed. (Astra,
+ * 2026-09-16.)
+ *
  * Returns the problems rather than throwing. D0 is off the critical path and a
  * broken translation must never be able to stop a review loop.
  */
 export function validateAnswer(answer, { finalRound = false } = {}) {
-  const schema = JSON.parse(fs.readFileSync(schemaPath(), "utf8"));
+  const schema = loadSchema();
   assertSchemaSupported(schema, ROLE);
   const problems = validate(answer, schema, ROLE);
   const has = (k) => answer && typeof answer === "object" && Object.prototype.hasOwnProperty.call(answer, k);
+  if (has("could_not_assess") && typeof answer.could_not_assess === "string" && answer.could_not_assess.trim() === "") {
+    problems.push(`${ROLE}: "could_not_assess" is blank -- null means fully assessed and a sentence means not; whitespace is neither`);
+  }
   for (const k of ["known_gaps", "what_landed"]) {
     if (finalRound && !has(k)) problems.push(`${ROLE}: the final round must return "${k}"`);
     if (!finalRound && has(k)) problems.push(`${ROLE}: "${k}" belongs to the final round only`);
@@ -196,33 +312,56 @@ export function validateAnswer(answer, { finalRound = false } = {}) {
 }
 
 /**
- * Read what the translator wrote, and say plainly when there is nothing usable.
+ * Read what the translator wrote, in the shape `chatReport` consumes.
+ *
+ * THIS RETURNS THE ROUND, NOT A STATUS. It used to return `{ ok, answer }` or
+ * `{ ok, why }` while `chatReport` read `{ round, answer }` or
+ * `{ round, failed, reason }`, and nothing adapted one to the other -- so the
+ * documented flow printed "round undefined" on every report and rendered a
+ * FAILED read as "no builder account yet", a failure wearing a benign state's
+ * clothes. Now step 3's output IS step 4's input, and the same object is what
+ * a final round's `priorAccounts` takes. (Codex, #109 round 4, P1.)
  *
  * Three failures, one shape: no file, unparseable file, schema-invalid answer.
- * Each returns `{ ok: false, why }` and each becomes a FAILED round -- visibly
- * a failure, never the favourable "nothing to report" case.
+ * Each is a FAILED round -- visibly a failure, never the favourable "nothing to
+ * report" case. One schema failure is named specially: an answer whose only
+ * problems are the final-round sections was written for the other kind of
+ * round, which means the `finalRound` flag differed between the dispatch and
+ * this read. That is a caller's slip rendering a VALID answer as a failed
+ * round, so the reason says exactly that rather than "did not match the
+ * expected shape". (Fable, 2026-09-16.)
  */
 export function readAnswer(root, pr, round, { finalRound = false } = {}) {
   const file = answerPath(root, pr, round);
+  const failed = (reason) => ({ pr, round, failed: true, reason });
   let raw;
   try {
     raw = fs.readFileSync(file, "utf8");
   } catch (err) {
-    return { ok: false, why: `the translator wrote no answer file (${err.code === "ENOENT" ? "not found" : err.code})` };
+    return failed(`the translator wrote no answer file (${err.code === "ENOENT" ? "not found" : err.code})`);
   }
   let answer;
   try {
     answer = JSON.parse(raw);
   } catch (err) {
-    return { ok: false, why: `the answer file is not valid JSON: ${err.message}` };
+    return failed(`the answer file is not valid JSON: ${err.message}`);
   }
   const problems = validateAnswer(answer, { finalRound });
-  if (problems.length) return { ok: false, why: `the answer did not match the expected shape: ${problems.join("; ")}` };
-  return { ok: true, answer };
+  if (problems.length) {
+    const onlyFinalRoundSections = problems.every((p) => /the final round must return|belongs to the final round only/.test(p));
+    if (onlyFinalRoundSections) {
+      return failed(
+        `the answer was written for ${finalRound ? "an ordinary" : "the final"} round but read as ${finalRound ? "the final" : "an ordinary"} one -- ` +
+          `the finalRound flag differs between the dispatch and this read, and the answer itself is otherwise valid: ${problems.join("; ")}`,
+      );
+    }
+    return failed(`the answer did not match the expected shape: ${problems.join("; ")}`);
+  }
+  return { pr, round, answer };
 }
 
 /**
- * The three facts, off one round.
+ * The facts, off one round.
  *
  * A failed round is checked FIRST and is its own state. A round whose answer
  * never arrived or did not parse is not a quiet round: reporting it as one
@@ -239,7 +378,10 @@ export function facts(round) {
     skipped: false,
     failed: false,
     disagreements: Array.isArray(out.disagreements) ? out.disagreements.length : 0,
-    unassessed: typeof out.could_not_assess === "string" && out.could_not_assess.trim() !== "",
+    // ANY STRING IS UNASSESSED. `validateAnswer` refuses a blank one, and this
+    // side does not trim, so the two checks cannot disagree about what a
+    // string means: only `null` is fully assessed.
+    unassessed: typeof out.could_not_assess === "string",
     // WHETHER THERE IS A BUILDER ACCOUNT AT ALL, read from the translator's own
     // observation. It permits a round nobody has replied to -- translating one
     // is legitimate and reads as a round awaiting a response. What is not
@@ -256,18 +398,65 @@ export function facts(round) {
   };
 }
 
-/** The verdict, in one line. The headline of the chat report. */
+const plural = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
+/**
+ * The verdict, in one line. The headline of the chat report.
+ *
+ * UNANSWERED IS TESTED BEFORE THE DISAGREEMENT COUNT. The role may raise a
+ * concern of its own -- "a risk nobody named" -- on a round the builder has
+ * not replied to, and the old order printed "differs on 1 point" over
+ * `builder_answered: false`: a disagreement attributed to someone who had not
+ * spoken. The concern is still counted; it is called what it is. (Codex,
+ * #109 round 4.)
+ */
 export function chatLine(round) {
   const f = facts(round);
   const r = `round ${round.round}`;
   if (f.failed) return `${r}: translation failed — ${f.reason}`;
   if (f.skipped) return `${r}: skipped — ${f.reason}`;
-  if (f.disagreements > 0) return `${r}: differs on ${f.disagreements} point${f.disagreements === 1 ? "" : "s"}`;
+  if (!f.answered) {
+    if (f.disagreements > 0) {
+      return `${r}: no builder account yet — the translator raises ${plural(f.disagreements, "concern")} of its own${f.unassessed ? ", and something could not be assessed" : ""}`;
+    }
+    if (f.unassessed) return `${r}: no builder account yet — partial, something could not be assessed`;
+    return `${r}: no builder account yet — the round was unanswered when this was read`;
+  }
+  if (f.disagreements > 0) return `${r}: differs on ${plural(f.disagreements, "point")}`;
   if (f.unassessed) return `${r}: partial — something could not be assessed`;
-  // LAST BEFORE "agrees", AND ONLY THERE, because "agrees" is the only shape
-  // that asserts a builder account exists.
-  if (!f.answered) return `${r}: no builder account yet — the round was unanswered when this was read`;
+  // LAST, AND ONLY HERE, because "agrees" is the only shape that asserts a
+  // builder account exists and that everything reachable was assessed.
   return `${r}: agrees with the builder's account`;
+}
+
+/**
+ * The heading and the empty-case label for the disagreements section, off the
+ * same facts the verdict line read -- so the two cannot name different facts.
+ *
+ * AN EMPTY LIST IS A REAL ANSWER AND IS RENDERED. The schema says so of both
+ * `disagreements` and `known_gaps`, and a length check rendered nothing for
+ * either, so David could not tell "nothing was found" from "this was never
+ * addressed" -- and with builder prose forbidden around the report, no side
+ * channel exists to say it informally. The labels are deterministic and
+ * evaluate nothing ("No disagreements reported", not "all good"): they state
+ * the field's value, which is the one kind of non-translator text the report
+ * may carry. They are QUALIFIED when the assessment was partial or the round
+ * unanswered, because "none reported" over an unassessed round would be the
+ * "agrees" defect in a smaller font. (Codex, #109 round 4; Astra, 2026-09-16.)
+ */
+function disagreementsWording(f) {
+  if (!f.answered) {
+    return {
+      heading: `**Concerns the translator raises on its own — the builder has not replied** (${f.disagreements})`,
+      empty: `*No concerns of its own reported; there is no builder account yet to disagree with${f.unassessed ? ", and something could not be assessed" : ""}.*`,
+    };
+  }
+  return {
+    heading: `**Where it disagrees with the builder** (${f.disagreements})`,
+    empty: f.unassessed
+      ? "*No disagreements reported on what could be assessed.*"
+      : "*No disagreements reported with the builder's account.*",
+  };
 }
 
 /**
@@ -293,7 +482,7 @@ export function chatReport(round, { askedModel = null } = {}) {
     out.push(
       f.failed
         ? `No independent account of this round exists. The translator was dispatched and produced nothing usable — ${f.reason}. This is a failure of the translation, not a report that the round was quiet: there may well have been findings, and nobody has explained them here.`
-        : `The translator was not dispatched for this round — ${f.reason}.`,
+        : `No independent account of this round exists. The translator was not dispatched for this round — ${f.reason}. Nobody has explained the round here.`,
     );
     return out.join("\n");
   }
@@ -301,15 +490,24 @@ export function chatReport(round, { askedModel = null } = {}) {
   const a = round.answer ?? {};
   out.push(a.summary_for_david ?? "", "", "**What happened**", "", a.what_happened ?? "");
 
-  if (Array.isArray(a.disagreements) && a.disagreements.length) {
-    out.push("", `**Where it disagrees with the builder** (${a.disagreements.length})`, "");
-    for (const d of a.disagreements) out.push(`- **${d.what}** — ${d.why_it_matters}`);
+  if (Array.isArray(a.disagreements)) {
+    const w = disagreementsWording(f);
+    if (a.disagreements.length) {
+      out.push("", w.heading, "");
+      for (const d of a.disagreements) out.push(`- **${d.what}** — ${d.why_it_matters}`);
+    } else {
+      out.push("", w.empty);
+    }
   }
 
-  if (Array.isArray(a.known_gaps) && a.known_gaps.length) {
+  if (Array.isArray(a.known_gaps)) {
     out.push("", "**Shipping unfixed**", "");
-    for (const g of a.known_gaps) {
-      out.push(`- ${g.reasonable ? "Reasonable" : "**Not reasonable**"}: ${g.what} — ${g.why}`);
+    if (a.known_gaps.length) {
+      for (const g of a.known_gaps) {
+        out.push(`- ${g.reasonable ? "Reasonable" : "**Not reasonable**"}: ${g.what} — ${g.why}`);
+      }
+    } else {
+      out.push(f.unassessed ? "*No known gaps reported on what could be assessed.*" : "*No known gaps reported.*");
     }
   }
 

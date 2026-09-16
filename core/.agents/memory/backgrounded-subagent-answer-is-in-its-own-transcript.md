@@ -67,6 +67,20 @@ That is one measurement of the false case, not an exhaustive survey — but it i
 enough to reject a rule whose whole value depends on the flag being honoured.
 Follow the id; do not write the rule.
 
+**Measured the other way on 2026-09-16, and that makes the rule worse, not
+better.** In a cloud session that day, an `Agent` call made with
+`run_in_background: false` **blocked to completion** — its tool result read
+*"This agent's report was delivered to you as a message"* with a duration —
+and a call made with `true` the same day returned *"Async agent launched
+successfully"* and completed later as a harness task notification. So the flag
+has now been observed both ways, dated. A rule that depends on it was written
+anyway, off the single favourable sample, in the same commit that edited this
+note; the reviewer caught it (Codex, AI-Handbook #109 round 4). **The one thing
+every observation shares is that the harness reports completion** — in the tool
+result when the call blocked, as a later notification when it did not. Depend
+on that signal, whichever way it arrives; never on the flag, and never assume
+which way it will go.
+
 ## The subagent transcript holds the ORIGINAL bytes
 
 This is the part worth the note on its own. The copy of a subagent's answer

@@ -42,11 +42,11 @@
     "model": {
       "type": ["string", "null"],
       "minLength": 1,
-      "description": "The model id you are actually running as, read from your own context -- not the one you were asked to be. The dispatch can no longer observe this, so it is shown to David exactly as reported. NULL, never prose, when you cannot determine it: the page renders null as its own state, and renders any string as a model name -- so \"I cannot determine it\" would be printed as the name of the model that wrote the page."
+      "description": "The model id you are actually running as, read from your own context -- not the one you were asked to be. The dispatch can no longer observe this, so it is shown to David exactly as reported. NULL, never prose, when you cannot determine it: the chat report renders null as its own notice, and renders any string as a model name -- so \"I cannot determine it\" would be reported to David as the name of the model that wrote the account."
     },
     "builder_answered": {
       "type": "boolean",
-      "description": "Whether the BUILDER has replied to this round's findings at the moment you read them -- their login is in your coordinates. False is a real answer and a legitimate round to translate: it reads as a round awaiting a response. It is required because the page prints \"agrees with the builder's account\" only when this is true, and a field that could be omitted could buy that line by omission."
+      "description": "Whether the BUILDER has replied to this round's findings at the moment you read them -- their login is in your coordinates. False is a real answer and a legitimate round to translate: it reads as a round awaiting a response. It is required because the chat report prints \"agrees with the builder's account\" only when this is true, and a field that could be omitted could buy that line by omission."
     },
     "known_gaps": {
       "type": "array",

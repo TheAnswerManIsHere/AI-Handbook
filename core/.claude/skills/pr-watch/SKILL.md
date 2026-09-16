@@ -146,67 +146,123 @@ step 5, stated once, with the duplicated material left out.
    delivery system for one agent telling him the answer is undoing the #89 cut
    by hand.
 
-   **How it runs**, and it is four steps:
+   **How it runs**, and it is five steps. Everything the translator needs to
+   locate the round is on the pull request; I pin two things and remember
+   nothing between rounds or sessions:
 
-   1. **Capture `until`** — the current timestamp — *before* dispatching.
-   2. **Dispatch `fable-round-translation`** with
-      `model: dispatchModel().agentModel` and
-      **`run_in_background: false`**, passing
-      `roundBrief({ root, pr, round, head, previousHead, since, until, finalRound, priorAccounts })`.
-   3. **`readAnswer(root, pr, round, { finalRound })`.**
-   4. **Paste `chatReport(round, { askedModel })` verbatim**, and say nothing
-      else about the round.
+   1. **`prepareAnswerPath(root, pr, round)`** — the answer directory exists
+      and is ignored, and any earlier attempt's answer for this round is gone,
+      so a re-dispatch can never be read as its predecessor. Then **capture
+      `until`**, the current timestamp, and **bind the model once**:
+      `dispatch = dispatchModel()`.
+   2. **Dispatch `fable-round-translation`** with `model: dispatch.agentModel`,
+      passing `roundBrief({ root, pr, round, head, until, finalRound, priorAccounts })`.
+      `head` is the branch head at dispatch — **where the evidence stops, not
+      the commit the reviewer reviewed**; the translator reads the reviewed
+      commit off the round's own marker. `run_in_background: false` may be
+      passed and costs nothing; it is **not** the synchronisation (below).
+   3. **Read only after the harness reports the dispatch complete**, whichever
+      way that arrives — in the tool result itself when the call blocked, or
+      as a later task notification when it did not — and never assume which.
+      Then `result = readAnswer(root, pr, round, { finalRound })`.
+   4. **Paste `chatReport(result, { askedModel: dispatch.id })` verbatim**,
+      and say nothing else about the round. If the completion signal lands in
+      a later turn, the paste happens then, under this round's number, even if
+      the next round's trigger has already been posted.
+   5. **Keep `result`** for the final round's `priorAccounts`. It is the
+      report-ready object, round number included, and a **failed** result is
+      passed too: a failed or missing earlier account is a limitation the
+      final round has to be told about, and `roundBrief` names every round
+      that has no account.
 
-   - **`run_in_background: false` is load-bearing, and it is why there is no
-     poll loop.** Measured 2026-09-16: that mode **blocks to completion** — the
-     result read *"This agent's report was delivered to you as a message"* with
-     a duration — while `true` returns *"Async agent launched successfully"*
-     and the answer lands later. Backgrounded, step 3 reads a path that does
-     not exist yet, writes a failed round, and the valid answer arrives with
-     nothing left to consume it. A bounded file-poll would "fix" that by adding
-     a timeout to tune and a still-waiting state indistinguishable from
-     failure, which is the shape this repository has been burned by. A
-     dispatch that blocks needs neither. (Codex, #109 round 3.)
+   - **The completion signal is the synchronisation. The flag is not.**
+     `run_in_background: false` has been measured **both ways** — it did not
+     block on 2026-09-11 and it did on 2026-09-16, both recorded with dates in
+     [`backgrounded-subagent-answer-is-in-its-own-transcript.md`](../../../.agents/memory/backgrounded-subagent-answer-is-in-its-own-transcript.md)
+     — and the earlier version of this step wrote a rule on the single
+     favourable sample, in the same commit that edited the note saying not
+     to (Codex, #109 round 4). What every observation shares is that **the
+     harness reports completion**, in the tool result when the call blocked
+     and as a later notification when it did not. A read before that signal
+     writes a failed round while the valid answer is still coming; that is
+     the only ordering error, and depending on the signal removes it with no
+     timeout to tune, no poll loop and no state.
+     **When no signal ever arrives** — the agent errored, the session was
+     interrupted — say nothing until the next event on this PR (interaction
+     rule 9 permits silence), then read **once**: a valid file is the answer;
+     no file is a `failed` round whose reason says *no completion signal and
+     no answer file*, never an unanswered one. Never re-dispatch on the
+     strength of a missing signal alone.
    - **The report is the translator's words, not my summary of them.**
      `chatReport` composes it from the validated answer's own fields; the only
-     text in it that is not the translator's is the labels. **I never write my
-     own account of a round** — a builder-written summary of an independent
-     account is just the builder's account again, which is the thing D0 exists
-     to stop being the only one.
+     text in it that is not the translator's is the labels — including the
+     deterministic "none reported" labels for an empty `disagreements` or
+     `known_gaps`, which state the field's value and evaluate nothing. **I
+     never write my own account of a round** — a builder-written summary of an
+     independent account is just the builder's account again, which is the
+     thing D0 exists to stop being the only one.
    - **The answer comes from the file, never from the dispatch's own reply.**
      Its location in the transcript has moved three times in a month in a
-     harness nobody here controls; a path this module derives cannot move.
-   - **`readAnswer` turns all three delivery failures into one honest state** —
-     no file, unparseable, schema-invalid. Report the round as **failed** and
-     say so in plain words. **Never as quiet or skipped**: "no findings were
-     raised" over a failed round is a false clean bill of health.
-   - **Two selectors, and they must not be swapped.** Code is selected by
-     **ancestry** — `previousHead` is the last head already translated, and the
-     round's commits are the ones after it in the pull request's own ordered
-     commit list. **Never by timestamp**: a commit's date is its author date,
-     so a cherry-pick or rebase-and-push during a round carries an older one
-     and a clock filter drops it silently. Review activity is selected by
-     **timestamp**, `since`/`until`, because rounds routinely happen with the
-     head unchanged and a commit range cannot bound comments.
-   - **Always pass `until`.** The comment reads are live and this dispatch runs
-     detached by design, so a slow round-N translation can read round N+1's
-     findings and replies — an account of a round that never happened, filed
-     under N's number and indistinguishable from a correct one.
+     harness nobody here controls; a path this module derives cannot move. The
+     dispatch's own closing message arrives first and is not the answer.
+   - **`readAnswer` returns the round `chatReport` consumes** —
+     `{ pr, round, answer }` or `{ pr, round, failed: true, reason }` — so
+     step 3's output *is* step 4's input, with no adapter to forget. It used
+     to return a status object, and the documented flow printed
+     `round undefined` and rendered a FAILED read as "no builder account yet"
+     (Codex, #109 round 4, P1). All three delivery failures — no file,
+     unparseable, schema-invalid — are one honest **failed** state, reported
+     in plain words. **Never as quiet or skipped**: "no findings were raised"
+     over a failed round is a false clean bill of health. One failure is named
+     specially: an answer whose only problems are the final-round sections was
+     read with the wrong `finalRound` flag, and the reason says so rather than
+     blaming the translator.
+   - **Nothing is remembered between rounds, and nothing has to be.** The
+     activity window's lower bound, the commit the reviewer reviewed and the
+     previous round's boundary are all read off **the reviewer's own markers
+     on the pull request** — a formal review submission when a round has
+     findings, a `**Reviewed commit:**` issue comment when it has none
+     (measured on #115) — and the Nth marker is round N. The receipt store
+     that went with the page had been carrying those coordinates silently,
+     and a resumed session with nothing to pass re-attributed every earlier
+     round to the current one (Codex, #109 round 4). **Two selectors, and
+     they must not be swapped.** Code is selected by **ancestry** — the
+     commits between the markers' commits, and from this round's marker to
+     the head for the fixes claimed in reply; never by timestamp, since a
+     commit's date is its author date and a cherry-pick pushed during a round
+     carries an older one. Review activity is selected by **timestamp**, from
+     this round's marker inclusive to the next round's marker exclusive, and
+     never past `until` — with the role told exactly why each bound is open or
+     closed, because the inclusive-both-ends rule this replaced would have
+     collected 23 findings for #109's round 1 instead of 14 (Astra,
+     2026-09-16).
+   - **Always pass `until`.** The comment reads are live and this dispatch
+     runs detached by design, so a slow round-N translation can read round
+     N+1's findings and replies — an account of a round that never happened,
+     filed under N's number and indistinguishable from a correct one.
    - **`finalRound: true` on the stopping round only**, which is what asks for
-     `known_gaps` and `what_landed`. Pass the earlier rounds' **parsed answers**
-     as `priorAccounts` — `{ round, summary_for_david, what_happened }`, quoted
-     inline by `roundBrief`. **Never file paths**: the role holds no `Read` tool
-     and cannot be given a narrow one (below).
+     `known_gaps` and `what_landed`. Pass the earlier rounds' **`readAnswer`
+     results** as `priorAccounts`, whole and unedited — never bare answers,
+     which carry no round number, and never file paths, since the role holds
+     no `Read` tool and cannot be given a narrow one (below). `roundBrief`
+     quotes each one's summary, narrative, whether the builder had replied,
+     what it could not assess and every disagreement, and names each round
+     that has no account, so the final round can state the limitation the
+     role requires of it.
    - **`builder_answered` comes from the role, not from a receipt.** "Agrees
      with the builder's account" prints only when the translator says it saw a
      builder reply. That used to be read off a receipt field whose only writer
      was the record builder the #89 cut deleted — after which every round read
      as answered and the favourable line printed over unanswered ones. An
      absent or malformed value reads as **unanswered**: of the two wrong
-     accounts, the false favourable is the one that must never print.
+     accounts, the false favourable is the one that must never print. And an
+     unanswered round with a concern of the translator's own is headed as
+     exactly that — never as a disagreement *with the builder*, who has not
+     spoken (Codex, #109 round 4).
    - **The model is disclosed, not observed.** A subagent dispatch cannot prove
      what answered it. The role reports its own model and `chatReport` mentions
-     it only on a mismatch or when it could not be determined.
+     it only on a mismatch against `dispatch.id` or when it could not be
+     determined.
    - **A failed dispatch never blocks the loop.** D0 is off the critical path by
      design: say so in plain English and carry on.
 
@@ -218,9 +274,16 @@ step 5, stated once, with the duplicated material left out.
    frontmatter change ran against the old definition — so a probe of a
    definition change carries a freshness token planted in the same edit, or a
    stale definition is indistinguishable from the result being looked for. If a
-   dispatch refuses, report the round in plain English myself, say the
-   translator was unavailable, and try again next round rather than concluding
-   the file is wrong.
+   dispatch refuses, paste
+   `chatReport({ pr, round, skipped: true, reason: "the dispatch was refused: <error>" })`
+   so a failure to *launch* is told apart from a failure to *answer*; then, and
+   only then, I may add my own account of the round, **labelled in its first
+   line as the builder's own account and not the translator's** — the one
+   surviving exception to *I never write my own account of a round*, kept
+   because a failure notice with no explanation is the thing David said he
+   does not want (Astra flagged the contradiction, 2026-09-16; the choice is
+   David's and is recorded here as made). Try again next round rather than
+   concluding the file is wrong.
 
    **What the role actually holds, measured on the real dispatch:**
    `ToolSearch`, `Write`, the GitHub read methods (deferred — it loads them

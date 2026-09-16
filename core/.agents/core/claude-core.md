@@ -894,7 +894,7 @@ shows the true delta.
   claim.
   **Two things that costs, named rather than buried:** the old dispatcher
   *observed* the model and refused on a mismatch, and a subagent cannot, so the
-  model is **disclosed** and a mismatch prints on David's page. And **agent
+  model is **disclosed** and a mismatch prints in the chat report. And **agent
   definitions are cached, in two ways that both look like something else.** A
   newly added type is not dispatchable immediately — measured 2026-09-16, a
   dispatch minutes after the definition was written failed with `Agent type not
