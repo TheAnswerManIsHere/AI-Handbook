@@ -83,7 +83,7 @@ plus one capped `--lens` the script frames as emphasis and never as scope.
 **Fresh context every round.** Not a resumed thread. Prior findings cross as
 ids, titles and dispositions — never their bodies — so the reviewer reconciles
 against the *current whole plan* rather than against its own memory of what it
-argued last time. Same principle as the proxy on the code side, and the same
+argued last time. Same principle the code loop's judge rests on, and the same
 reason.
 
 ## The loop
@@ -293,25 +293,16 @@ already been made.
 one used to converge: the loop reached "nothing outstanding, take it to David
 for approval" while still holding the question only he could answer, and the
 approval ask went out with the fork inside it rather than before it.
-Reproduced by Astra during the #89 walkthrough; the proxy carries the same rule
-as a semantic check on its own answer (#96).
+Reproduced by Astra during the #89 walkthrough.
 
 **The adjudicator is gone, here and everywhere.** Its round-3 dispatch was
 already retired for plan loops (David, 2026-09-09) because this reviewer
 performs the required/recommended triage itself, in a schema field; the two
 places it still ran — the budget cap and an `escalate` — went with the budget
-and with the adjudicator itself. An `escalate` now goes straight to David,
-which is what the escalation-precedence rule in `claude-core.md` says for every
-loop.
+and with the adjudicator itself. An `escalate` now goes straight to David.
 
-**This loop and the code loop share their vocabulary and keep their
-differences.** The dispositions, the escalation precedence, the verification
-rule and the settled-decline rule are stated once in `claude-core.md`'s
-*Review loops → The shared vocabulary*. What stays deliberately distinct: this
-reviewer re-derives fresh each round with prior bodies withheld, while the
-proxy reads full labelled history; the `Still open` blocking rule is plan-only;
-and **plan approval is David's alone** — no "finish" language and no proxy
-authority enters here.
+**Plan approval is David's alone**, unchanged and not up for negotiation by
+anything the code loop does.
 
 ## The reviewer's identity is pinned
 
@@ -504,7 +495,7 @@ of the old loop can find each piece's fate:
 | `review-budget.mjs` / `review-loop-record.mjs`, for plan loops | Both were keyed to a PR number | Both are gone everywhere (#89 cut); `--tier` survives as a rubric selector |
 | The disclosure gate on the plan | The channel was public | The plan is never published |
 | The three-round minimum and the fresh-lens stop condition | A defect-only reviewer could not say *done* | `required_revisions` empty and priors reconciled |
-| The adjudicator, everywhere | Nothing could tell required from recommended | Here, the reviewer's own required/recommended split; on the code side, the proxy (#96) |
+| The adjudicator, everywhere | Nothing could tell required from recommended | Here, the reviewer's own required/recommended split; on the code side, the builder's own triage until #96 |
 | The growth tripwire's line-count ledger | A proxy for convergence | The stop rule reads convergence directly |
 | Deriving the status label and reconciliation myself | The transport could not carry them | The reviewer returns both, in fields |
 | `SendUserFile` as the plan fallback | No PR page on the private path | The Artifact page, which is already private |

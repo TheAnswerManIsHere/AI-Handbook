@@ -21,9 +21,16 @@
  *
  * THAT MAKES IT A KNOWN ODDITY, named rather than hidden: production code
  * whose only caller is a test. It is kept because losing it loses the
- * consistency check on a live contract, and it is flagged on #92, where
- * "one home per rule" may well decide the format's home should be the
- * document alone.
+ * consistency check on a live contract, and it is flagged on #103.
+ *
+ * AND THE VALIDATION IT USED TO PERFORM DID NOT VANISH -- IT MOVED TO A PERSON
+ * (Codex, #102 round 2). `review-loop-record.mjs` read every PR body and
+ * refused a malformed block by key name, so `docs/engineering/code-review.md`
+ * told the reviewer that a malformed block could never reach them. With the
+ * reader gone that sentence was false in the worst direction: it told the
+ * reviewer not to check the one thing nothing else checked. That document now
+ * says the shape check is theirs. If a runtime reader is ever restored, that
+ * paragraph is the other half of the change.
  */
 
 /**

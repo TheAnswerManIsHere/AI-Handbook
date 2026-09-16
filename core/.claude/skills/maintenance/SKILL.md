@@ -128,29 +128,6 @@ and re-check **each entry's revisit trigger**:
 - If nothing fired and nothing's new, one line: "deferred-work backlog: N
   items, no triggers fired."
 
-### 4a. `gap` issue triage (#98)
-
-Every review finding that shipped as a knowingly-accepted defect is an open
-issue labelled `gap`, filed at its PR's close-out. `list_issues` with that
-label, and give each one of three outcomes:
-
-- **Fix now** — open a bugfix branch, per `working-modes.md`. The gap issue is
-  the bug report; close it with the fix.
-- **Next** — leave it open, optionally milestoned. Say why it is still worth
-  doing.
-- **Never** — close as *not planned*, with the reason in the closing comment.
-
-**A recorded gap is not a promise of future work** (Astra, #89 review-loop
-design pass). The issue exists so the decision can be revisited with evidence;
-this triage is where it is made, and "never" is an ordinary outcome rather than
-a failure to schedule.
-
-If the label has no open issues, one line: "no open gaps." If it has more than
-a handful and they are all "next" pass after pass, say so — a decline that is
-correct should mostly become "never", and a growing pile of deferred gaps means
-the declines are being written to avoid a round rather than because the fix is
-not worth it.
-
 ## 5. "What shipped" digest
 
 - List PRs merged since the last maintenance run (default window: 7 days).

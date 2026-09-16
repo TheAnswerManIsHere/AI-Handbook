@@ -51,9 +51,10 @@ risk. So:
 ## Ceremony
 
 **Internal tier**, per the core's review-loop rules: a clean automatic review
-pass is the whole ceremony, and every round that returns findings goes to the
-proxy before anything is written. Findings that are not critical ship as
-recorded gaps, each with its own `gap` issue (#98).
+pass is the whole ceremony, and a round that returns findings is triaged under
+the internal rubric before anything is written. Findings that are not critical
+ship as recorded gaps. (The external adjudicator that used to rule on that was
+removed by this cut; #96 rebuilds it.)
 
 The core's guardrail-and-authority carve-out is **retired** (David,
 2026-09-14), and this repo is where that bites hardest, since it is made almost

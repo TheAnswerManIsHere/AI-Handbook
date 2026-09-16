@@ -11,10 +11,9 @@ with them. Phase 2 put the first role on the floor —
 and decides nothing.
 
 **Codex keeps its full fix-or-decline force on product code. Nothing here
-touches it.** Neither does anything here change the loop's **judge** — the
-proxy on a code loop (#96), the reviewer's own required/recommended split on a
-plan loop. This script carries roles that write TO David; it carries none that
-rule on a finding.
+touches it.** Neither does anything here change the loop's **judge**. This
+script carries roles that write TO David; it carries none that rule on a
+finding.
 
 ## Why this document leads with the non-guarantees
 
@@ -487,8 +486,8 @@ carries its own model stamp.
 
 `SubagentStop`'s `agent_transcript_path` may or may not let a subagent dispatch
 recover its served model. It is **unprobed**, irrelevant to the route taken,
-and noted here for whoever builds the proxy (#96), which is a subagent
-dispatch rather than a subprocess one.
+and noted here for whoever rebuilds a subagent-dispatched judge (#96), which
+is a subagent dispatch rather than a subprocess one.
 
 ## What this is not
 

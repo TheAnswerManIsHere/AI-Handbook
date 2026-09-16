@@ -575,16 +575,13 @@ recutting the PR) stay retired for the same reason.
 round. So the judge's question is not "another round?" but **"is this finding
 worth writing code for at all?"** — and on internal tooling most are not.
 
-#### The judge is the proxy, and there is no budget (#89 cut, 2026-09-16)
+#### There is no budget any more (#89 cut, 2026-09-16)
 
-**Who judges.** On a code loop it is the **proxy** (#96), dispatched on every
-round that returned findings, before anything is written for them, and again
-on a fork or at the end of a plan loop — a moment, never a count. It reads the
-round labelled by source and answers per finding: *write* · *decline as a
-recorded gap* · *no change needed* · *to David*. Its per-finding answer
-decides; its direction is advice; a disagreement with it goes to David
-immediately. On a plan loop the reviewer performs that triage itself, in a
-schema field, and the loop stops on it.
+**Who judges.** On a plan loop, the reviewer performs the
+required/recommended triage itself, in a schema field, and the loop stops on
+it. On a code loop the external adjudicator that used to rule was removed with
+everything below, and #96 rebuilds it; until then the call is the builder's own,
+under the tier rubric, with a fork or an uncertain call going to David.
 
 **What went, and what nothing replaced.** A declared per-PR round budget, its
 committed receipts, extension grants and their arithmetic, a round-count
@@ -631,10 +628,6 @@ the safety net a non-code-reading product manager depends on.
   advance collides with an event instead of waiting to be recalled.
 - **A product decision goes to David immediately**, at any round, and is never
   ground through mechanically.
-- **A six-hour hard stop of last resort**: a PR loop that has run six hours of
-  unattended elapsed time, read from the PR's age on GitHub, pauses and asks
-  David to resume. Expiry is never convergence and never an automatic
-  extension.
 
 ### Findings are triaged against the artifact's real risk
 
@@ -730,9 +723,10 @@ costs one round against a document a page long.
 
 Every substantive round pauses before any fix is implemented: triage first
 (nature, affected area, verdict, and whether the finding sits in code an
-earlier fix in this loop already changed), then the **judge** — the proxy on a
-code loop, the reviewer's own required/recommended split on a plan loop —
-decides per finding. The agent driving the loop does not make that call for
+earlier fix in this loop already changed), then the judgement is made per
+finding — by the reviewer's own required/recommended split on a plan loop, and
+on a code loop by the builder under the tier rubric until #96 restores an
+external one. The agent driving the loop does not make that call for
 itself: self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 
@@ -756,11 +750,7 @@ whichever agent is driving it. Plan-review loops take the tier of what they are
 planning: a plan for product code is a product loop, because a wrong plan
 becomes wrong code. The tier selects the rubric; it is not a number of rounds.
 
-**The two loops differ deliberately in three places** and nowhere else: the
-plan reviewer re-derives fresh each round with prior bodies withheld, while
-the proxy reads the full labelled history; the plan loop's "every prior
-`Still open` blocks convergence" rule is plan-only; and **plan approval is
-David's alone** — no "finish" language and no proxy authority enters there.
+**Plan approval is David's alone**, whatever a code loop does.
 
 
 ## Bugfix mode (routed or declared, one bug per PR, tiered by what the fix touches)

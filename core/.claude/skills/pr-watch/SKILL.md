@@ -7,34 +7,17 @@ description: Use after opening or being re-engaged on any PR, and whenever a git
 
 # Watching the PRs I open
 
-An operational checklist. The **meaning** of the words used here — the four
-dispositions, the tiers as rubric selectors, the escalation precedence, the
-verification rule, the settled-decline rule and the six-hour hard stop — is
-stated once in `claude-core.md`'s *Review loops → The shared vocabulary*, and
-is deliberately not restated. So is the write-gate rule, the proxy's authority,
-and the `Worth:` principle.
+**This file was 1,182 lines before the #89 cut, and most of that was mechanics
+for machinery that no longer exists**: budget cadence, receipt shapes, snapshot
+recipes, round-count recovery and adjudicator dispatch. All of it is gone,
+along with the scripts it drove.
 
-This file was 1,182 lines before the #89 cut. Most of it was budget cadence,
-receipt shapes, snapshot recipes and adjudicator dispatch mechanics for
-machinery that no longer exists. What is left is what a session actually does.
-
-## Steps that depend on work not yet built
-
-**This skill was rewritten against a design that is partly still issues, and a
-step naming a mechanism that does not exist yet is a step that stalls the
-loop.** So every one of them is listed here with what to do meanwhile, and the
-step below points back at this table rather than carrying its own caveat.
-Delete a row when its issue lands; add one whenever a step is written ahead of
-its mechanism.
-
-| Step | Depends on | Until it lands |
-|---|---|---|
-| 4 — send the round to the proxy | #96 | **I make the per-finding call myself, under the internal rubric**, and say in each reply that the proxy did not rule on it. A fork, a disagreement I would have had with it, and anything I am unsure of go to David — which is what the proxy would have escalated anyway. This is the weakest link in the loop until #96 lands: the measured failure it exists to fix is me writing for every finding, so the `Worth:` discipline is doing that job alone and unassisted. |
-| 8 — translate the round for David | #95 | **A plain-English round summary I write on the PR myself**, saying in it that the translator could not run. Its record builder went with the review snapshot; do not repair the plumbing. |
-| 9 — the four reads before marking ready | #97's ruleset | *Require conversation resolution* may not be on the `main` ruleset yet. **The four reads are mine to do by eye either way** — the ruleset makes one of them mechanical, it does not replace the read. |
-
-**None of these is a licence to skip the step.** Each names what I do instead,
-and doing neither is the failure this table exists to prevent.
+**What is here is what survived the deletion, and nothing more.** The
+rewritten, re-sequenced version of this skill — the draft-first flow, the
+judge's dispatch step, the gap-issue step and the shared-vocabulary
+references — is deliberately NOT in this PR; it lands with the rulebook
+rewrite, beside #92. So a step below that reads thin is thin on purpose: this
+change removes, it does not re-specify.
 
 ## The loop
 
@@ -50,52 +33,31 @@ and doing neither is the failure this table exists to prevent.
    points at it. Subscribing performs label writes, so subscribing early
    labels an untracked draft against a missing or wrong issue.
 
-2. **Open every PR as a draft** (#97). GitHub disables Merge on a draft, and
-   the *Draft* badge tells David at a glance that it is not ready. It is
-   marked ready only at step 9.
-
-   **Then post the first review trigger explicitly** — a draft does not
-   auto-review, and marking it ready is step 9, which requires a returned
-   review. Waiting for the automatic round would leave every PR in draft
-   forever, each half waiting on the other.
-
-   **An explicit trigger on a draft works, measured rather than assumed**
-   (#102, 2026-09-16): a bare trigger comment on a draft PR started a review
-   that completed against the head commit and posted its findings, with the PR
-   still a draft throughout. That is the verification Astra asked for on #97
-   before the draft-first sequence was relied on. The trigger comment carries
-   no prose of mine (interaction rule 11); round context goes in a separate
-   defanged comment posted just before it, exactly as at step 7.
-
-3. **Read live PR state on every event.** One batched `pull_request_read`:
+2. **Read live PR state on every event.** One batched `pull_request_read`:
    threads, CI, latest commits. **Never judge a webhook event from its text
    alone** — webhooks lag, drop CI successes and arrive out of order, so
    silence is never "all clear". An echo of my own comment still gets the
    silent live-state check and produces no output on either surface.
 
-4. **Send the round to the proxy before writing anything for it** (#96 — see
-   *Steps that depend on work not yet built*). It reads the round and returns
-   a disposition per finding plus a direction. Its per-finding answer decides;
-   its direction is advice. Its rendered answer is posted on the PR as a
-   plain-English comment — that comment is the durable record of its
-   reasoning, and it is rendered from the validated answer, never paraphrased
-   by me.
+3. **Triage every finding before writing anything for it**, under
+   `claude-core.md`'s review-loop rules: fix / accept-and-document / escalate,
+   stated explicitly, with the `Worth:` test deciding whether a fix is written
+   at all. **The external adjudicator that used to rule on this was removed by
+   the #89 cut**; until #96 lands the call is mine, and a fork or a call I am
+   unsure of goes to David.
 
-   **Recheck the live head before acting on any disposition**, not only before
-   finishing. A moved head invalidates the answer for the new head; the old
-   answer is kept as history.
+4. **Batch the fixes.** Everything being written for goes in one push, with the
+   repo's own fast checks run first — lint, format, typecheck, the changed
+   suites. One validated push beats three speculative ones, because each push
+   costs a full round.
 
-5. **Batch the fixes.** Everything the proxy ruled *write* goes in one push,
-   with the repo's own fast checks run first — lint, format, typecheck, the
-   changed suites. One validated push beats three speculative ones, because
-   each push costs a full round.
-
-6. **Reply to every finding and resolve its thread**, right after posting that
+5. **Reply to every finding and resolve its thread**, right after posting that
    reply, never in a batch, and never as a standalone summary comment in place
-   of per-thread replies. **The first sentence says fix or decline, and why.**
-   A reply citing a command ran it first and transcribes its real output.
+   of per-thread replies. The reply carries the fields `claude-core.md` rule 6
+   requires. A reply citing a command ran it first and transcribes its real
+   output.
 
-7. **Re-request review on the actual head.**
+6. **Re-request review on the actual head.**
 
    - **No re-request without a behavioural change** since the last reviewed
      commit. A skill file, `claude-core.md`, or a `docs/ai-context/` contract
@@ -120,82 +82,36 @@ and doing neither is the failure this table exists to prevent.
      in the code, not merely responded to.
    - **The trigger comment carries no prose of mine** — the defanged trigger
      `atC0dex r3view` and nothing else (`claude-core.md` interaction rule 11).
-     Round context, flip conditions and the proxy's summary go in a separate
-     defanged comment posted just before it.
+     Round context and flip conditions go in a separate defanged comment posted
+     just before it.
    - **Verify CI on the SHA that is actually HEAD**, not the one last looked
      at. `get_check_runs` returning `total_count: 0` means checks have not
      reported yet, which is not green and must never be reported as green.
 
-8. **Translate the round for David (D0), after the trigger is posted.** Never
+7. **Translate the round for David (D0), after the trigger is posted.** Never
    before: a translation I could act on is an in-loop advisor reading my own
-   prose. The page link posted on the PR is the delivery record. The final
-   round's account also carries what is shipping as a known gap.
+   prose. The page link posted on the PR is the delivery record — the
+   `Rounds translated` merge-gate item that used to prove this went with the
+   gate.
 
-   **D0's plumbing is being rebuilt (#95)** — see *Steps that depend on work
-   not yet built* for what to do meanwhile. The dispatcher refuses the role,
-   so this is a hand-written comment until then.
+   **D0 cannot run until #95.** Its record builder read the review snapshot
+   this cut removes, so the dispatcher refuses the role. Post a plain-English
+   round summary on the PR myself and say in it that the translator could not
+   run. Do not repair the plumbing — #95 replaces it.
 
-9. **Mark the draft ready for review once the four reads pass**: CI green,
-   Codex returned for the head commit, every thread resolved, every round
-   delivered to David. Marking it ready is what asserts the bar — there is no
-   receipt behind it. The merge report names the moment it happened.
+8. **Merge, sync, report**, per `claude-core.md`'s *Close-out is mine, end to
+   end*: re-verify live state with a fresh `pull_request_read` — not cached
+   green — then squash-merge, trigger the Repl sync and verify it, execute the
+   Post-merge verification section, post the harvest-notes comment, and send
+   the merge report with both SHAs, the latitude line and the UAT handoff.
+   **No readiness receipt is minted or quoted**: `pr-ready.mjs` is gone, and
+   the four-item bar is read by eye.
 
-   The review this waits on is the one step 2 triggered, and steps 5–7 kept
-   current; marking ready is not what starts it. Marking ready does start one
-   more automatic round, which is a free second look at the final head rather
-   than a round the bar is waiting on.
+## One standing stop
 
-10. **File the gap issues** (#98), before the merge report. Every finding the
-    proxy ruled *decline as a recorded gap* gets one issue, labelled `gap` plus
-    the workstream's `mode:` label, carrying the finding verbatim with its
-    thread link, the reasoning for declining it now, this PR, and the
-    workstream issue. A *no change needed* gets none. On a disclosure-gated
-    workstream the gap goes on the private path and the public record says only
-    that one exists and where it lives.
-
-11. **Merge, sync, report.** Re-verify live state with a fresh
-    `pull_request_read` — not cached green — then squash-merge, trigger the
-    Repl sync and verify it, execute the Post-merge verification section, post
-    the harvest-notes comment, and send the merge report with both SHAs, the
-    moment the draft was marked ready, the gap issues, the latitude line and
-    the UAT handoff. Full sequence: `claude-core.md`'s *Close-out is mine, end
-    to end*.
-
-## Two standing stops
-
-- **A Codex code-review outage is a FULL STOP**, not the security-review
-  usage-limit bounce. Stop building, tell David as a 🛑 with a push
-  notification, say which PRs are blocked and in what state, and wait.
-- **Six hours of unattended elapsed time on one PR loop** — read from the PR's
-  age on GitHub, not counted in rounds, not reset per dispatch — pauses the
-  loop and asks David to resume. Expiry is never convergence.
-
-## Worth, worked — stated once, here
-
-`claude-core.md` states the principle: a fix needs a likely occurrence and a
-consequence someone would feel, judged at the level of the finding's **class**
-rather than its reported instance. The three worked cases, which is what makes
-it usable rather than a slogan:
-
-- **Derivable** — this code already holds what the input carries. Remove the
-  input and derive it; never add a check, because a check whose two sides I own
-  guards nothing. That is a write, so a round is owed.
-- **A choice** — intent this code cannot know (`--role`, `--timeout`,
-  `sync --to`). It stays an input with a cheap well-formedness check; a
-  hostile-value defence on it is declined, because the only party supplying it
-  is the operator running the script.
-- **A value from outside my control** — only this one goes on to likelihood ×
-  consequence. Missing either, it is a one-line decline shipped as a gap,
-  however small the diff looks, because each fix costs a round and the
-  aggregate is never weighed at the moment of the decision.
-
-Two classes settled as standing declines (David, 2026-09-11), because I kept
-building for both: **accounting precision** — a miscounted round changes no
-decision, so machinery that makes a count exact is pure cost — and **my own
-influence on my own tools**, since I run every script here and a defence
-against my editing its inputs is a lock whose key is on the same ring. The
-real controls are the server-side rulesets and David working beside me, reading
-the latitude line every widening PR carries.
+**A Codex code-review outage is a FULL STOP**, not the security-review
+usage-limit bounce. Stop building, tell David as a 🛑 with a push
+notification, say which PRs are blocked and in what state, and wait.
 
 ## Keeping the workstream issue's labels current
 
@@ -207,19 +123,17 @@ silently leaving the workstream unlabeled):
 
 - **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
 - **Codex posts findings, I start responding** → `waiting:claude`.
-- **The proxy raises a question only David can answer** → `waiting:david`,
-  set when its comment is posted and cleared when he answers.
 - **I post the next round's `@codex review` trigger** → `waiting:codex`.
 - **A genuine design/architecture decision goes to David** (the escalate
   rule above) → `waiting:david`; `stage:code-review` stays put — the stage
   hasn't moved, but the turn has.
-- **The four reads pass and the draft is marked ready** → the bar is met and
-  **I merge it myself per CLAUDE.md's close-out contract (David,
-  2026-08-15)** — re-verify live state, squash-merge, sync, verify, report —
-  so `stage:merge` is normally a moment, not a resting state. There is no
-  carve-out exception any more (David, 2026-09-14): a guardrail- or
-  authority-widening PR merges the same way, with the latitude it grants
-  named in the report.
+- **CI is green and Codex has converged, and every thread is resolved** →
+  the ready bar is met and **I merge it myself per CLAUDE.md's close-out
+  contract (David, 2026-08-15)** — re-verify live state, squash-merge, sync,
+  verify, report — so `stage:merge` is normally a moment, not a resting
+  state. There is no carve-out exception any more (David, 2026-09-14): a
+  guardrail- or authority-widening PR merges the same way, with the latitude
+  it grants named in the report.
 - **The PR merges with a Post-merge verification section that has real
   content** → `stage:test-run`, `waiting:replit` — the lifecycle's own
   Test-run stage, between Merge and UAT, not a step to skip past. Per the

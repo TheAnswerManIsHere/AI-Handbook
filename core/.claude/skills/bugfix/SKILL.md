@@ -340,10 +340,11 @@ live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
 what the fix touches (a rubric selector, not a round budget), the **write-gate
-rule — the proxy rules per finding on whether to WRITE for it, before anything
+rule — the judge rules per finding on whether to WRITE for it, before anything
 is written, and any commit that does get written gets a mandatory review round;
-its per-finding answer decides; the in-loop continue/stop, criticality gate,
-count trend and oscillation diagnosis are all retired**, the
+the in-loop continue/stop, criticality gate, count trend and oscillation
+diagnosis are all retired, and the external adjudicator that used to be that
+judge went with the #89 cut pending #96**, the
 fix / accept-and-document / escalate triage stated per finding, the
 class-sweep protocol (name the class, cite the mechanical oracle, sweep to
 zero, re-run prior rounds' oracles before every push), resolving each thread
@@ -363,13 +364,11 @@ What is *bugfix-specific* about the loop:
   were caught by review *after* the shipped tests passed. Engage every
   round; the light *planning* path must never shade into a light *review*
   path.
-- **Round 1 is triggered explicitly, on the draft.** Every PR now opens as a
-  draft (#97), and a draft does not auto-review — so the trigger is posted
-  right after opening, per `pr-watch` step 2. The connector also reviews on
-  the ready transition, but that comes *after* the bar the review has to
-  satisfy, so relying on it alone leaves the PR in draft forever. Measured on
-  #102 (2026-09-16): a bare trigger on a draft ran a full review against the
-  head and posted findings, with the PR still a draft.
+- **Round 1 is automatic.** The Codex connector reviews on non-draft PR
+  open — or on marking a draft ready, in the Tier B draft-first flow
+  (step 3, with its first-use caveat) — so no `@codex review` on open.
+  (The plan-review loop needs an explicit trigger only because its PR
+  *stays* a draft.)
 - **The artifact the fix touches picks the tier — never the fact that it's
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or

@@ -106,12 +106,13 @@ is **state**, not difficulty:
   per-round state (round number, cumulative-diff rule, declines and their
   reasoning, resolved threads) that a subagent would re-establish on every
   webhook event, while my main loop stays engaged anyway. Plausibly *more*
-  expensive than simply watching on Opus, not less. **What IS dispatched is
-  the per-round judgement itself** — the proxy (#96), at the strongest tier its
-  own definition names, reading a script-composed brief rather than this
-  session's raw context. The value is a reader that did not produce the
-  conclusions, not the presence of a worker. Recorded here so it isn't
-  re-proposed as an obvious optimization.
+  expensive than simply watching on Opus, not less. **What USED to be
+  dispatched is the per-round judgement itself** — one `review-loop-adjudicator`
+  reading a script-generated record rather than this session's context, which
+  was the whole point: the value is a reader that did not produce the
+  conclusions, not the presence of a worker. The #89 cut removed that agent and
+  #96 rebuilds it; the reasoning is recorded here so the *watching* half isn't
+  re-proposed as an obvious optimization meanwhile.
 - **Announce every dispatch, in both directions.** The announce-don't-sneak
   rule was written for expensive escalations; it applies just as much to a
   Sonnet dispatch, because "which tier did that work actually run on" is
@@ -279,12 +280,12 @@ Fable.
 
 Two sections lived here — the three structural adjudication triggers
 (any decline, any oracle-less finding, any swept-class recurrence) and the
-adversarial stopping-rule subagent. **Both are superseded by the single
-per-round judge** in `CLAUDE.md`'s *Review loops*: the proxy (#96), dispatched
-on any round that returned findings, before anything is written for them, with
-a per-finding answer that decides. Running the old per-finding and per-decline
-dispatches alongside it would re-create the parallel self-refereeing the #541
-review deleted (Codex, #543 round 3).
+adversarial stopping-rule subagent. **Both were superseded by the single
+per-round judge** in `CLAUDE.md`'s *Review loops*, and that judge was itself
+removed by the #89 cut pending #96. Reinstating the old per-finding and
+per-decline dispatches in the gap would re-create the parallel self-refereeing
+the #541 review deleted (Codex, #543 round 3) — the gap is covered by my own
+triage under the tier rubric, not by more dispatches.
 
 What survives from those sections, because it is about dispatch hygiene rather
 than dispatch law: announce every dispatch out loud (the judge's tier spends

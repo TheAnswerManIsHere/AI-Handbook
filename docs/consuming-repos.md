@@ -239,36 +239,22 @@ to worry about strange links."*)
    5 caught them. One document with a growing list is the shape that cannot
    repeat that.
 2. Create the required consumer documents above.
-3. **Create both branch rulesets.** These are the whole of the mechanical
-   protection now — there is no local guard hook any more (#94), so a repo
-   without them has nothing. Settings are a repo-level thing the sync cannot
-   write, so this is a human step and it gates the ones below.
+3. **Verify the repo's `main` ruleset is in place** — block force pushes,
+   restrict deletions, require linear history, require a pull request, require
+   status checks. The seeded `.claude/settings.json` sets
+   `defaultMode: bypassPermissions`, and with the local shell guard removed by
+   the #89 cut **this ruleset is the whole of the mechanical protection**: a
+   consumer running `bypassPermissions` without it has nothing server-side
+   constraining what a session can push. Settings are a repo-level thing the
+   sync cannot write, so this is a human step and it gates the ones below.
 
-   | Ruleset target | Rules |
-   |---|---|
-   | `main` | Block force pushes · restrict deletions · require linear history · require a pull request · require status checks · **require conversation resolution before merging** |
-   | `claude/**` | **Block force pushes** |
+   **A second ruleset on `claude/**`, blocking force pushes, is #94's** — it is
+   what replaces the guard's lease rule, and it is created per repo at
+   enrolment. Verified in AI-Handbook 2026-09-16: a plain push landed,
+   `--force-with-lease` on a probe branch was refused with GH013, and a plain
+   push of a further commit landed after it.
 
-   **Require conversation resolution is the one that replaced a script** (#97):
-   it makes the Merge button inert while any review thread is open, which is
-   the one item of the merge bar a person cannot see from the PR page. GitHub
-   holds that state natively, so no Action and no comment parsing is involved.
-
-   **Block force pushes on `claude/**` replaced the local guard's whole reason
-   for existing** (#94). No flow needs a force push: merged branches
-   auto-delete, so a branch restart is a plain push, and a bad pushed commit
-   gets a corrective commit. Verified in AI-Handbook 2026-09-16 — a plain push
-   landed, `--force-with-lease` on a probe branch was refused with GH013, and
-   a plain push of a further commit landed after it.
-
-   Enforcement **Active**, no bypass list. A ruleset someone can bypass is a
-   preference.
-4. **Create the `gap` label** (#98). Every review finding that ships as a
-   knowingly-accepted defect becomes one issue carrying this label, filed at
-   close-out and triaged at the next `/maintenance` pass — fix now, next, or
-   closed as not planned. Without the label the issues still exist and nothing
-   can find them as a set.
-5. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
+4. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
    `core/.claude/settings.template.json` and is **yours from the moment it
    lands** — the sync never rewrites it, and no "do not edit this vendored
    file" rule applies to it. Four fields need a decision, and the guidance
@@ -282,7 +268,7 @@ to worry about strange links."*)
    had a settings file never receives the seed at all — `mode: seed` writes
    only when the file is absent — so for that repo this table is a checklist
    for its EXISTING file, applied by hand, now. A repo that had *none* does not
-   receive the file until the sync runs at **step 8**, so its adaptation
+   receive the file until the sync runs at **step 7**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
    decisions are identical either way, which is why they are one step and not
    two.
@@ -291,8 +277,8 @@ to worry about strange links."*)
    from the template. Until the #89 cut this step also carried three
    `PreToolUse` hooks that an existing file would otherwise never receive, and
    whose absence was silent — the guard arrived and nothing invoked it. The
-   hooks are gone (#94), so an existing settings file is simply reviewed
-   against the table below.
+   hooks and the guard are both gone, so an existing settings file is simply
+   reviewed against the table below.
 
    | Field | Decision |
    |---|---|
@@ -302,12 +288,12 @@ to worry about strange links."*)
    | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The three spellings of the remote server are listed **on purpose**: the id varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. |
 
    **There is no `hooks` block to adapt.** The template carried three
-   `PreToolUse` guard hooks until the #89 cut (#94); they are gone, and
-   `hooks` is no longer an accepted top-level field here, so adding one back
-   fails `check-settings-fields.mjs` in the same diff. What they enforced is
-   now the rulesets in step 3, which are server-side and cannot fail open.
+   `PreToolUse` guard hooks until the #89 cut; they are gone, and `hooks` is no
+   longer an accepted top-level field here, so adding one back fails
+   `check-settings-fields.mjs` in the same diff. What they enforced is
+   now the ruleset in step 3, which is server-side and cannot fail open.
 
-6. **Fill in `.agents/machinery.json`**, which the sync seeds from a
+5. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Three values, all facts about the consumer that
    the handbook cannot know:
 
@@ -351,7 +337,7 @@ to worry about strange links."*)
    never once refused growth, because the commit that grew the file re-pinned
    it. Both are ignored rather than refused, so an old file still works.
 
-7. **🛑 RE-SYNC ONLY — if the repo was enrolled before a payload change added
+6. **🛑 RE-SYNC ONLY — if the repo was enrolled before a payload change added
    a declaration, update its overlay FIRST.** The sync overwrites `core/` and
    deliberately never touches a consumer-owned file, so a payload rule that
    starts dereferencing a new answer arrives **fully armed against an overlay
@@ -369,9 +355,9 @@ to worry about strange links."*)
    and later syncs that can, which is exactly why it sits here rather than in
    step 1. Codex, #62 round 5.)
 
-8. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
+7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
    review the resulting diff as a pull request in that repo and merge. **On a
-   clean enrollment this is where step 5 actually happens**: the seeded
+   clean enrollment this is where step 4 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
    is the last moment before a session runs under it.
 
@@ -381,22 +367,22 @@ the repo looks governed without being governed, which is the worst of the three
 states. Steps 1 and 2 prevent that — and step 1's declarations are the part of
 them that fails quietly rather than loudly; **step 3 prevents the security
 equivalent**, where a repo holds `bypassPermissions` with nothing server-side
-constraining it; steps 4 and 6 keep the close-out loop usable.
+constraining it; steps 4 and 5 keep a consumer's settings and configuration honest.
 
 **Step 3 is now the whole of the mechanical protection, and it is a human
-step.** Two of the steps that stood here are gone with the #89 cut: merging
-the template's `PreToolUse` hooks into an existing settings file, and the 🛑
-hold on syncing to a `bypassPermissions` repo until #16 closed. There is no
-hook to merge and no allow path to put a sentinel on — what those steps were
-protecting is now a ruleset that cannot fail open, cannot be disarmed by a
-`cd`, and does not depend on a person honouring a checklist item. A session
-holding more than one enrolled repository no longer needs
-`HANDBOOK_ATTACHED_ROOTS` either: nothing reads it, because the guard that
-resolved attached checkouts is gone.
+step.** Three of the steps that stood here are gone with the #89 cut: merging
+the template's `PreToolUse` hooks into an existing settings file, the 🛑 hold
+on syncing to a `bypassPermissions` repo until #16 closed, and setting
+`HANDBOOK_ATTACHED_ROOTS` for a session holding more than one enrolled
+repository. There is no hook to merge, no allow path to put a sentinel on, and
+nothing that reads that variable — the guard that resolved attached checkouts
+is gone. What those steps were protecting is now a ruleset that cannot fail
+open, cannot be disarmed by a `cd`, and does not depend on a person honouring
+a checklist item.
 
-**Steps 1 and 7 are the same requirement at two moments**, and both fail
+**Steps 1 and 6 are the same requirement at two moments**, and both fail
 silently rather than loudly: step 1 asks a *new* consumer the questions the
-shared rules dereference, and step 7 asks whether an *already-enrolled* one has
+shared rules dereference, and step 6 asks whether an *already-enrolled* one has
 been asked anything new since. Without the second, enrollment text covering a
 new declaration reaches new repos only, and every repo enrolled before it
 quietly loses whatever that rule used to route.
@@ -404,7 +390,7 @@ quietly loses whatever that rule used to route.
 There is no longer an `enrolled` flag, and nothing fires a sync automatically —
 running it is a deliberate act, so "eligible" and "ready" are the same moment by
 construction rather than by a flag anyone has to remember to flip last. A step
-added to this list later belongs above step 8, not below it.
+added to this list later belongs above step 7, not below it.
 
 ## Rules for changing shared content
 
@@ -432,6 +418,13 @@ added to this list later belongs above step 8, not below it.
 - **Seeded files diverge on purpose.** A `*.template.*` file writes once and
   never again; a consumer's `.claude/settings.json` is meant to differ. The cost is
   that seeding is a no-op in a repo that already has the file, so anything the
-  template contributes which is *not* optional — the `PreToolUse` hooks — has
-  to be merged by hand at enrollment. A seed cannot deliver a requirement; it
-  can only offer a starting point.
+  template contributes which is *not* optional has to be merged by hand at
+  enrollment. A seed cannot deliver a requirement; it can only offer a starting
+  point.
+
+  **The `PreToolUse` hooks used to be that requirement, and are not any more.**
+  They were removed by the #89 cut along with the `guard.sh` they invoked, so
+  hand-merging them now would reinstall three hooks pointing at a script that
+  does not ship — and a hook whose script is missing exits 127, which
+  `PreToolUse` reads as *allow*. Nothing the template currently contributes is
+  non-optional in that sense; the protection moved to the ruleset in step 3.
