@@ -188,6 +188,48 @@ export const BLOCKING_STATUSES = ["Human clarification required", "Repo context 
  */
 export const TIERS = ["product", "sensitive", "internal"];
 
+/**
+ * What each tier actually asks the reviewer to do differently.
+ *
+ * WITHOUT THIS THE TIER SELECTED NOTHING (Codex, #102 round 1). Before the
+ * #89 cut `--tier` picked a number out of `TIER_BUDGETS` and the script
+ * enforced it, so the flag did something even though it never reached the
+ * prompt. The cut removed the budget and re-described the tier as "a rubric
+ * selector" -- and a selector that is validated, pinned, logged and written
+ * to the meta while never reaching the reviewer selects nothing. All three
+ * tiers generated identical instructions.
+ *
+ * That is this repo's own "a check that can be satisfied without the thing it
+ * exists to check", introduced by the change that renamed the mechanism. The
+ * rubric goes in the SCRIPT-OWNED prefix, like every other instruction here:
+ * the caller passes a tier name the script validates against `TIERS`, and
+ * never a word the reviewer reads.
+ */
+export const TIER_RUBRICS = {
+  product: [
+    "**Tier: product.** This plan becomes product code — code David's users run and he cannot read.",
+    "Required revisions are for defects that would reach a user or corrupt data: a wrong invariant, an",
+    "unhandled path that loses work, a behaviour the oracle forbids. Weigh a finding by what someone",
+    "would feel if it shipped, not by how visible it is in the diff.",
+  ],
+  sensitive: [
+    "**Tier: sensitive.** This plan touches auth, payments or a migration, so consequence dominates",
+    "likelihood: an unlikely situation with a severe outcome is a required revision, and the usual",
+    "'this is a narrow case' discount does not apply. Irreversibility is the test — a wrong migration",
+    "and a wrong authorization decision cannot be taken back by a follow-up fix.",
+  ],
+  internal: [
+    "**Tier: internal.** This plan is tooling, process or agent-facing documentation. Its blast radius",
+    "is a confused agent or a wrongly-blocked action, both of which announce themselves; nobody's data",
+    "or money is downstream of it. **Required revisions are reserved for a CRITICAL flaw: a destructive",
+    "or irreversible action, broken workstream tracking, or an unauthorised widening of the builder's",
+    "authority.** Everything else — an ordinary correctness defect, a structural preference, prose —",
+    "belongs in `recommended_improvements`, and it is expected that most of your findings land there.",
+    "This repository's measured failure is over-building tooling in response to correct findings, so a",
+    "recommendation you are confident about is more useful here than a required revision you are not.",
+  ],
+};
+
 // ---------------------------------------------------------------------------
 // The output schemas
 // ---------------------------------------------------------------------------
@@ -856,7 +898,7 @@ export function readContract(root = REPO_ROOT) {
  * contract arrives as a path too, for the same reason and because it is the
  * file the reviewer is being asked to apply rather than quote.
  */
-export function stablePrefix({ round, contractPath, oracle, planPath }) {
+export function stablePrefix({ round, contractPath, oracle, planPath, tier = null }) {
   const reviewing =
     round === 0
       ? [
@@ -908,6 +950,17 @@ export function stablePrefix({ round, contractPath, oracle, planPath }) {
           "section is genuinely empty, return an empty list rather than omitting it.",
         ]),
     "",
+    ...(tier && TIER_RUBRICS[tier]
+      ? [
+          "## How strictly to read a finding on this artifact",
+          "",
+          ...TIER_RUBRICS[tier],
+          "",
+          "This does not change WHAT you look for, only what you file as required rather than",
+          "recommended. Report everything you find either way.",
+          "",
+        ]
+      : []),
     "Non-negotiables from that contract that bind you here:",
     "- You do not approve plans. David does.",
     "- Inspect the repository before concluding. Read the actual code and docs, run the inventory",
@@ -1684,7 +1737,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const lastMessage = path.join(dir, `round-${round}.last-message.txt`);
     const metaFile = path.join(dir, `round-${round}.meta.json`);
 
-    const promptParts = { round, lens, priors, inventory, oracle, planPath, contractPath: contract.path };
+    const promptParts = { round, lens, priors, inventory, oracle, planPath, contractPath: contract.path, tier };
     const prompt = assemblePrompt(promptParts);
     fs.writeFileSync(promptFile, `${prompt}\n`);
     fs.writeFileSync(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);

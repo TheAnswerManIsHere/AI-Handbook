@@ -377,6 +377,16 @@ Mechanics and the role brief: #96. Astra's recorded dissent — advisory rather
 than binding, triggered by churn rather than every round — stands, and the
 trigger is reviewed after five live loops.
 
+**Until #96 lands there is no proxy to dispatch**, and a step naming a
+mechanism that does not exist is a step that stalls a loop. Meanwhile I make
+the per-finding call myself under the tier's rubric, say in each reply that
+the proxy did not rule on it, and send David anything I would have disagreed
+with it about. `pr-watch` carries that and every other not-yet-built
+dependency in one table, so the interim path is stated rather than improvised.
+This is the loop's weakest link until then: the measured failure the proxy
+exists to fix is me writing for every finding, so the `Worth:` discipline is
+doing that job unassisted.
+
 ### The shared vocabulary, stated once
 
 Both loops — code review through `pr-watch`, plan review through
@@ -449,8 +459,9 @@ restates them.
 ### Watching the PRs I open
 
 I subscribe to every PR I create, immediately, on whatever tier the session is
-on. **Every PR opens as a draft** and is marked ready only after the four
-reads (#97). Mechanics: `pr-watch` skill. Two things that gate whether the
+on. **Every PR opens as a draft**, its first review trigger is posted
+explicitly because a draft does not auto-review, and it is marked ready only
+after the four reads (#97). Mechanics: `pr-watch` skill. Two things that gate whether the
 subscription fires at all:
 
 - **A `/document` harvest PR is subscribed only at step 5 of

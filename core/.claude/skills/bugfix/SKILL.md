@@ -363,11 +363,13 @@ What is *bugfix-specific* about the loop:
   were caught by review *after* the shipped tests passed. Engage every
   round; the light *planning* path must never shade into a light *review*
   path.
-- **Round 1 fires when the draft is marked ready.** Every PR now opens as a
-  draft (#97) and the Codex connector reviews on the ready transition, so
-  there is no trigger to post on open — and a draft that is never marked
-  ready is never reviewed, which is the sequence to verify before relying on
-  it (Astra, #97).
+- **Round 1 is triggered explicitly, on the draft.** Every PR now opens as a
+  draft (#97), and a draft does not auto-review — so the trigger is posted
+  right after opening, per `pr-watch` step 2. The connector also reviews on
+  the ready transition, but that comes *after* the bar the review has to
+  satisfy, so relying on it alone leaves the PR in draft forever. Measured on
+  #102 (2026-09-16): a bare trigger on a draft ran a full review against the
+  head and posted findings, with the PR still a draft.
 - **The artifact the fix touches picks the tier — never the fact that it's
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or

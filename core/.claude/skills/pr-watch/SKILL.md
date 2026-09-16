@@ -18,6 +18,24 @@ This file was 1,182 lines before the #89 cut. Most of it was budget cadence,
 receipt shapes, snapshot recipes and adjudicator dispatch mechanics for
 machinery that no longer exists. What is left is what a session actually does.
 
+## Steps that depend on work not yet built
+
+**This skill was rewritten against a design that is partly still issues, and a
+step naming a mechanism that does not exist yet is a step that stalls the
+loop.** So every one of them is listed here with what to do meanwhile, and the
+step below points back at this table rather than carrying its own caveat.
+Delete a row when its issue lands; add one whenever a step is written ahead of
+its mechanism.
+
+| Step | Depends on | Until it lands |
+|---|---|---|
+| 4 — send the round to the proxy | #96 | **I make the per-finding call myself, under the internal rubric**, and say in each reply that the proxy did not rule on it. A fork, a disagreement I would have had with it, and anything I am unsure of go to David — which is what the proxy would have escalated anyway. This is the weakest link in the loop until #96 lands: the measured failure it exists to fix is me writing for every finding, so the `Worth:` discipline is doing that job alone and unassisted. |
+| 8 — translate the round for David | #95 | **A plain-English round summary I write on the PR myself**, saying in it that the translator could not run. Its record builder went with the review snapshot; do not repair the plumbing. |
+| 9 — the four reads before marking ready | #97's ruleset | *Require conversation resolution* may not be on the `main` ruleset yet. **The four reads are mine to do by eye either way** — the ruleset makes one of them mechanical, it does not replace the read. |
+
+**None of these is a licence to skip the step.** Each names what I do instead,
+and doing neither is the failure this table exists to prevent.
+
 ## The loop
 
 1. **Subscribe, immediately, on whatever tier the session is on** (David,
@@ -36,18 +54,32 @@ machinery that no longer exists. What is left is what a session actually does.
    the *Draft* badge tells David at a glance that it is not ready. It is
    marked ready only at step 9.
 
+   **Then post the first review trigger explicitly** — a draft does not
+   auto-review, and marking it ready is step 9, which requires a returned
+   review. Waiting for the automatic round would leave every PR in draft
+   forever, each half waiting on the other.
+
+   **An explicit trigger on a draft works, measured rather than assumed**
+   (#102, 2026-09-16): a bare trigger comment on a draft PR started a review
+   that completed against the head commit and posted its findings, with the PR
+   still a draft throughout. That is the verification Astra asked for on #97
+   before the draft-first sequence was relied on. The trigger comment carries
+   no prose of mine (interaction rule 11); round context goes in a separate
+   defanged comment posted just before it, exactly as at step 7.
+
 3. **Read live PR state on every event.** One batched `pull_request_read`:
    threads, CI, latest commits. **Never judge a webhook event from its text
    alone** — webhooks lag, drop CI successes and arrive out of order, so
    silence is never "all clear". An echo of my own comment still gets the
    silent live-state check and produces no output on either surface.
 
-4. **Send the round to the proxy before writing anything for it** (#96). It
-   reads the round and returns a disposition per finding plus a direction. Its
-   per-finding answer decides; its direction is advice. Its rendered answer is
-   posted on the PR as a plain-English comment — that comment is the durable
-   record of its reasoning, and it is rendered from the validated answer, never
-   paraphrased by me.
+4. **Send the round to the proxy before writing anything for it** (#96 — see
+   *Steps that depend on work not yet built*). It reads the round and returns
+   a disposition per finding plus a direction. Its per-finding answer decides;
+   its direction is advice. Its rendered answer is posted on the PR as a
+   plain-English comment — that comment is the durable record of its
+   reasoning, and it is rendered from the validated answer, never paraphrased
+   by me.
 
    **Recheck the live head before acting on any disposition**, not only before
    finishing. A moved head invalidates the answer for the new head; the old
@@ -99,16 +131,19 @@ machinery that no longer exists. What is left is what a session actually does.
    prose. The page link posted on the PR is the delivery record. The final
    round's account also carries what is shipping as a known gap.
 
-   **While D0's plumbing is being rebuilt (#95) this is a hand-written
-   comment.** Its record builder read a review snapshot assembled by machinery
-   the cut removed, so the dispatcher refuses the role. Post a plain-English
-   round summary on the PR myself and say in it that the translator could not
-   run. Do not repair the plumbing — #95 replaces it.
+   **D0's plumbing is being rebuilt (#95)** — see *Steps that depend on work
+   not yet built* for what to do meanwhile. The dispatcher refuses the role,
+   so this is a hand-written comment until then.
 
 9. **Mark the draft ready for review once the four reads pass**: CI green,
    Codex returned for the head commit, every thread resolved, every round
    delivered to David. Marking it ready is what asserts the bar — there is no
    receipt behind it. The merge report names the moment it happened.
+
+   The review this waits on is the one step 2 triggered, and steps 5–7 kept
+   current; marking ready is not what starts it. Marking ready does start one
+   more automatic round, which is a free second look at the final head rather
+   than a round the bar is waiting on.
 
 10. **File the gap issues** (#98), before the merge report. Every finding the
     proxy ruled *decline as a recorded gap* gets one issue, labelled `gap` plus
