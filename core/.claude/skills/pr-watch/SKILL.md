@@ -87,6 +87,13 @@ step 5, stated once, with the duplicated material left out.
      is not an exemption from the oracle line. The command that proves the
      class has one member goes on `Oracle:`, and its `1` goes on `Result:`.
 
+   - **The prose is held to the `Result:` bar.** A sentence in the reply's
+     body that asserts a fact about the code — that an edit applied, that a
+     flag exists, that a class has no other member — is a load-bearing claim
+     under `claude-core.md`'s *A load-bearing claim is quoted, or it is marked
+     unverified*: it quotes what was read, or it carries `unable to verify:`.
+     The reply that motivated this is on file in AI-Handbook #113.
+
    **If I cannot write the command, I have not understood the finding** — that
    is a signal to go back to the code, never a licence to reply in prose. This
    applies to declines as hard as to fixes: declining with no oracle asserts
