@@ -90,6 +90,14 @@ If it's about how I behave, it goes here. If it's shared truth for all agents,
 it goes in `AGENTS.md` / `docs/ai-context/` / `docs/engineering/`. I confirm
 where I put it and treat it as binding.
 
+**Every follow-up I flag gets its own GitHub issue in the same turn** (David,
+2026-09-16), workstream-linked, before I ask the next question. Not a list at
+the end of the session, not a line in a comment, not "I'll file that after" —
+the issue exists, or the follow-up dies in a note. The #89 walkthrough is the
+case: thirty rows and seven disagreements, every one of which now has an issue
+because they were filed as they were named rather than collected. An accepted
+review gap is the same rule with a label (`gap`, #98).
+
 ## Interaction preferences
 
 1. **David never runs CLI/shell commands.** Anything needing a command goes in
@@ -309,11 +317,12 @@ never in question.** Everything below governs what may be layered on top.
 
 ### The write-gate rule (David, 2026-08-22) — every tier
 
-**If code was written, it gets reviewed. The loop stops when the adjudicator
-refuses to write more, never after a push.** Stated as the sequence: a round
-returns findings → the adjudicator rules *write* or *stop* → if write, the
-fixes are pushed and **another review round is automatic and mandatory** → if
-stop, the loop ends right there, on a head the last round already reviewed.
+**If code was written, it gets reviewed. The loop stops when the judge refuses
+to write more, never after a push.** Stated as the sequence: a round returns
+findings → the judge rules *write* or *decline* per finding → if anything is
+written, the fixes are pushed and **another review round is automatic and
+mandatory** → if nothing is, the loop ends right there, on a head the last
+round already reviewed.
 
 Two invariants, and they are the point: **no commit ever merges unreviewed**,
 and **a loop always terminates on a reviewed head** — because the stop happens
@@ -322,231 +331,127 @@ refusing to *write*; it is never anyone skipping the review of something
 written.
 
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
-full round. So the real question — mine at every round, the adjudicator's
-from round 3 — is no longer "another round?" but **"is this finding worth
-writing code for at all?"** — and on internal tooling most are not. They ship
-as recorded gaps. The test that decides it is rule 5's `Worth:` line, below.
+full round. So the real question at every round is not "another round?" but
+**"is this finding worth writing code for at all?"** — and on internal tooling
+most are not. They ship as recorded gaps, each with its own issue.
 
-### Internal tooling: the strict rubric
+**What used to stand here, and why it does not** (the #89 audit, David
+2026-09-16). A round budget declared per PR, committed receipts, extension
+grants with their arithmetic, a round-count cache, a merge-readiness receipt
+and a translation-delivery gate. Measured over PR #91's ten rounds, not one of
+them changed a decision: every trip to David happened on substance, the
+`check` command was never run, the readiness receipt never ran at all, and the
+delivery gate's only firing was on its own breakage. Twelve thousand lines
+made a fuzzy process *measurable* without making it *shorter*. **Nothing
+replaced them, which is the change**: termination is a field in the judge's
+answer, and a reviewer that can say "ship it" needs no counter.
 
-Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
-docs and harvests run the loop above with the **`internal` tier**:
+### The proxy — the judge, and David's step-back
 
-- **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
-  finding nothing, it needs no budget, no receipt, no adjudication — the merge
-  receipt accepts an automatic pass covering the head.
-- **Rounds 1–2 findings are triaged, and written for only when they pass
-  rule 5's worth test**, then re-requested — the same cadence as every tier
-  (below), **rule 2's round-1 conformance dispatch included**; declare
-  `--tier internal` at the first re-request. This is the tier that declines
-  most, and a decline cites a class — so no judge before round 3 leaves
-  nothing to cite exactly where the declining happens.
-- **The adjudicator's VERDICT begins deciding at round 3**, before anything
-  is written. The record's tier selects the **internal rubric**: write only
-  for a very high chance of a CRITICAL flaw (a destructive or irreversible
-  action, corruption of the receipt/tracking machinery, a widening of my
-  authority). Everything softer ships with gaps recorded.
-- **Budget 3, two-tier tripwire like every tier** (David, 2026-08-26,
-  superseding straight-to-David-at-3): the adjudicator's grants self-serve
-  to at most round 6, where the David gate stands.
+The reviewer finds defects. The **proxy** decides what is done about them, and
+it exists because the measured failure is mine: on #91 every one of fifteen
+replies carried the prescribed reasoning fields and eleven of fifteen findings
+were written for anyway, on the tier that declines most. A decline I have to
+compose as a paragraph is one I do not write; a field I am handed, I honour.
 
-One triage pass and one-line declines still govern engagement, harvests still
-get no harvest ceremony, and internal tooling still ships with rougher edges as
-an accepted trade — its failure mode is wrongly-blocking, which announces
-itself, and `main`'s real protection is GitHub's server-side ruleset.
+- **Dispatched on every round that returned findings, before anything is
+  written for them** — and on a fork I recognise, and at the end of a plan
+  loop. A moment, never a count.
+- **It reads the whole round, labelled by source**: the PR body's intent and
+  must-not-change, the diff, each finding, what I did with each earlier one,
+  and a short capped "where we are" note marked as mine. Reviewer and builder
+  assertions are claims for it to check; **David's explicit decisions are
+  authority over intent.**
+- **Its per-finding answer decides** — *write* (with a bounded correction and
+  an observable acceptance check), *decline as a recorded gap*, *no change
+  needed*, or *to David*. I execute it without re-weighing, adopting parts, or
+  paraphrasing.
+- **Its direction is advice**: whether we are still building the right thing,
+  what should happen next, whether the batch of fixes is growing a mechanism
+  rather than repairing one. I weigh that.
+- **Disagreement between us goes to David immediately**, with both views and
+  no override in either direction. So does anything it marks for him.
+- **Codex's P1/P2 badges are inputs to the proxy, never instructions to me.**
 
-### Product loops: budget, then an external judge
+Mechanics and the role brief: #96. Astra's recorded dissent — advisory rather
+than binding, triggered by churn rather than every round — stands, and the
+trigger is reviewed after five live loops.
 
-1. **Declare the budget before round 1** — `product` (5 rounds) or `sensitive`
-   (5 rounds; auth/payments/migrations); internal tooling declares `internal`
-   (3 rounds) at its first re-request rather than before round 1, per the
-   section above. The tier picks the number:
+### The shared vocabulary, stated once
 
-   ```
-   node scripts/review-budget.mjs declare --pr <n> --tier <product|sensitive|internal> \
-        --criticality <1-100> --artifact "<what is under review>"
-   ```
+Both loops — code review through `pr-watch`, plan review through
+`plan-review-loop` — use these words with these meanings, and neither skill
+restates them.
 
-   State the budget in the PR body too. Receipts are committed **and pushed** —
-   they are read from the remote-tracking ref, so an unpushed receipt does not
-   exist. **Below the cap, post** (David, 2026-09-10). The per-post round-check
-   receipt is retired as a gate: it cost a snapshot and a receipt on every
-   round to establish "2 of 3" for posts nowhere near the boundary, and the
-   loop it documented most thoroughly it did not shorten by a round. Near the
-   cap, run `node scripts/review-budget.mjs check --pr <n> --mcp-snapshot
-   <file>` and the guard enforces the cap mechanically; without it the guard
-   allows and says so. What it still refuses with or without one: a standing
-   terminal verdict, and a budget declared for another repository. **The loop
-   position has exactly one home** (David, 2026-09-13, superseding "never
-   stored"): `snapshot-from-captures.mjs` writes
-   `.agents/reviews/pr-<n>/loop-position.json` from every snapshot it
-   assembles, `node scripts/loop-position.mjs --pr <n>` reads it, and nothing
-   else derives or types a round number. It is a cache of fresh evidence,
-   stamped with that evidence's capture time; a step that must be current
-   refuses a stale one and the remedy is a fresh snapshot, never an edit.
+- **Dispositions**, per finding: *write* · *decline as a recorded gap* (a real
+  defect shipped knowingly, which gets its own `gap` issue at close-out, #98) ·
+  *no change needed* (the finding is invalid or a duplicate, and gets no issue)
+  · *to David*.
+- **Tiers** are rubric selectors, not budgets: `product`, `sensitive`
+  (auth/payments/migrations) and `internal` (guards, `scripts/`, skills, this
+  file, `docs/ai-context/` contracts, process docs, harvests). The **internal
+  rubric** writes only for a very high chance of a CRITICAL flaw — a
+  destructive or irreversible action, broken workstream tracking, or an
+  unauthorised widening of my authority. Everything softer ships as a gap.
+- **Escalation devices**, in precedence order: a builder–proxy disagreement
+  goes to David **immediately** and is never delayed by any two-rounds rule; a
+  product or design fork goes to David; a reviewer that says it needs repo
+  context is doing its own work, not asking him anything.
+- **The verification rule**: a claim is *verified* (naming what was actually
+  inspected — a path with line numbers, or a command and its real output) or
+  *unable to verify* (naming why). Missing or truncated evidence is disclosed,
+  never silently omitted, and "could not observe" is never rendered as the
+  favourable answer.
+- **A settled decline reopens only on materially new evidence or changed
+  behaviour** — not because a reviewer raised the class again. A recorded gap
+  is a decision with an issue behind it, and re-litigating it on repetition is
+  how a decline becomes a round.
+- **A six-hour hard stop of last resort**: a PR loop that has run six hours of
+  unattended elapsed time, read from the PR's age on GitHub, pauses and asks
+  David to resume. Expiry is never convergence and never an automatic
+  extension.
 
-2. **Dispatch the external adjudicator on any round that returned findings,
-   from round 1; its VERDICT decides from round 3 onward** (David,
-   2026-08-22 for the authority; AI-Handbook #36 Phase 1 for the earlier
-   dispatch). It does two jobs from one record, and they are separate.
-   **Conformance triage, every round**: per finding, one class — in scope,
-   out of threat model, out of product intent, test precision, misdirection,
-   or unclassifiable where the loop has no oracle — each with a citation.
-   Rounds 1–2 it is advisory: I triage with it in hand and may differ, saying
-   so on the thread. From round 3 a finding classed out of scope ships as a
-   recorded gap citing the class, a finding classed in scope goes through the
-   ordinary write-or-stop decision under `Worth:` and **I may not decline it
-   alone** — that disagreement is David's. **I may decline a Codex finding on
-   a classification only by citing it**; no citation, no decline. The
-   judge's answer is recovered from the harness's record of it and committed
-   beside the record it ruled on, so what is counted later is what the judge
-   actually said. **The record is generated BEFORE the round's fixes are
-   pushed** (#85): the generator refuses an unreviewed head, so a push closes
-   the window and that round's classification is lost, as it was once on #83.
-   **No plan oracle narrows the dispatch, it never cancels it** (#80,
-   corrected by #86): a `trivial` provenance carries none, so
-   `out-of-product-intent` cannot be decided and no decline may cite it.
-   Every other class is unaffected — `out-of-threat-model` cites the threat
-   model, which is present on every tier, and `test-precision` and
-   `misdirection` cite the diff.
-   **The verdict's own boundary is unchanged** (David, 2026-08-22, superseding
-   the 2026-08-20 beyond-the-first cadence).
-   **Code loops only: retired for plan loops** (David, 2026-09-09) — the
-   in-session plan reviewer splits required from recommended itself, in a
-   field, so a per-round judge would be a second opinion on a judgement
-   already made mechanically. There the adjudicator runs at the budget cap
-   and on an `escalate`, and nowhere else. The ledger
-   evidence for the round-3 boundary — zero clean round 1s in 41 loops, three
-   round-2 convergences, the runaway tail starting there — is in the
-   adjudicator's own definition and is not restated here. A clean or
-   all-declined round at any point ends the loop with no dispatch: nothing
-   was written, so the head is already reviewed. Dispatch mechanics: agent
-   type `review-loop-adjudicator`,
-   passing **no** per-invocation `model` or `effort` — its definition declares
-   both (`best`/`xhigh`), and a per-invocation model would outrank and re-pin
-   them. Its only input is the script-generated record
-   (`node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file>
-   --write`), never the loop's own prose and never a case for continuing
-   written by me. It returns continue / stop / split-to-David, and **its verdict
-   decides** — I don't weigh it or adopt the parts I like. The verdict is
-   summarised in the **separate defanged context comment**, never in the
-   trigger comment (bare, per interaction rule 11), and the answer itself is
-   recovered into `<record>.verdict.json` and committed. That is not the
-   per-round receipt machinery this replaced: no guard reads one and none
-   grants a round. It carries the conformance classification, which must
-   survive the round to be citable in a decline and countable later.
-   The one exception is a verdict at a tripwire — the extension decision at
-   budget exhaustion, and the recommendation committed at a David gate —
-   written to the committed receipt the guard consumes. The loop executes; the external judge
-   judges. All in-loop self-refereeing is gone — 0-for-15 at stopping loops,
-   and the budget replaced it.
+### The four rules that survive
 
-3. **At budget exhaustion the adjudicator owns the extension**, including its
-   size, naming the specific unaddressed behavioral risk it covers — an
-   *actual* one, in this loop's territory. "The last round's fixes are
-   unreviewed" is not available as that risk: under the write-gate rule the
-   round reviewing any pushed fixes has already run before the judge is
-   dispatched.
-   **The David gate: budget + 3 rounds, on every tier** (David, 2026-08-26,
-   superseding the 2×-budget hard stop and sensitive's stop-for-him-at-5).
-   Adjudicator grants self-serve at most that 3-round leash; at the gate the
-   same fresh adjudication runs and its verdict goes to David as a 🛑 —
-   his call on its recommendation, with a push notification — rather than
-   taking effect on its own. His answer is the `david`-kind receipt: a grant
-   opens exactly that many more rounds (default: another 3-round leash, the
-   gate repeating where it runs out), 0 endorses stopping. Every finite
-   grant carries `asOf` and opens exactly `asOf + grant`; the guard refuses
-   a receipt without it and its message states the arithmetic. A direct
-   **stop** (grant 0 before any gate receipt exists) also cites its own
-   mechanical record, which is what keeps the merge gate satisfiable. **The exception
-   that skips the leash entirely: a product decision.** A product-shaped
-   blocker — the adjudicator's `escalate`, or my own recognition that a
-   finding is product-not-mechanical — goes to David immediately, at any
-   round, and is never ground through mechanically. **A mechanical round is
-   mine to grant** — the head moved only by bookkeeping (receipts, records,
-   machinery config, a merge of the base branch), no finding is being written
-   for, and no review or verdict is pending. Under budget I just request the
-   pass; only at an exhausted allowance do I commit a `david`-kind receipt
-   (`grant 2`, `asOf` the completed count) citing his standing grant of
-   2026-09-07, then request the pass so it covers the receipt. Once per loop.
-
-4. **No re-request without a behavioral change since the last reviewed
+1. **No re-request without a behavioural change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
-   as behavioral; rule 3's mechanical round is the one exception. **Every review request carries pre-registered flip
-   conditions**: what finding, count, or change of shape would make me stop,
-   written before the round runs. This is the only stopping device with a
-   working record, and it works because it collides with an event instead of
-   waiting to be recalled.
-   **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
-   2026-09-13): something read off the round, not something I decide in the
-   moment having just read the finding. **A condition I have to interpret is
-   one I will reinterpret** — measured one loop each way, #83 and #85. Shapes
-   and that evidence: `pr-watch`.
+   as behavioural. **Every review request carries pre-registered flip
+   conditions**, each naming an OBSERVABLE read off the round rather than a
+   judgement I make having just read the finding: a condition I have to
+   interpret is one I will reinterpret (measured one loop each way, #83 and
+   #85). Shapes: `pr-watch`.
 
-5. **Triage every finding: fix / accept-and-document / escalate**, stated
-   explicitly. Codex marks everything "Required Revision" because that is its
-   job; treating that as automatically meaning *fix* is how a GitHub label write
-   ended up with compare-and-swap semantics. Product/design forks, scope
-   additions, splits and disclosure questions go to David.
-   **A fix needs both a real likelihood and a real consequence** (David,
-   2026-09-10). The reply names the **`Class:`** first, then a **`Worth:`**
-   line answered against that class. `Worth:` asks **who supplies the
-   value** before anything else. If this code or its own operator does:
-   **derivable** (this code already holds what it needs) → remove the input
-   and derive it, never a check, because a check whose two sides I own guards
-   nothing — a write, so a round is owed. **A choice** (intent this code
-   cannot know: `--role`, `--timeout`, `sync --to`) → it stays an input with
-   a cheap well-formedness check; a hostile-value defence on it is declined.
-   Only a value from outside my control goes on to likelihood × consequence;
-   missing either, it is a one-line decline shipped as a recorded gap —
-   however small the diff looks, because each one costs a round and the
-   aggregate is never weighed at the moment of the decision. The worked
-   examples are in `pr-watch`, stated once.
-   **A consequence nobody would feel is not a consequence** (David,
-   2026-09-11). Two classes this settles, because I kept building for both:
-   **accounting precision** — a miscounted round changes no decision, so
-   machinery that makes a count exact is pure cost, and a finding about how
-   a round might be miscounted is declined; and **my own influence on my own
-   tools** — I run every script in this machinery, so a defence against my
-   editing its inputs is a lock whose key is on the same ring. The real
-   controls are the server-side ruleset and David working beside me, reading
-   the latitude line every widening PR carries. Both classes are one-line
-   declines however cheap the diff looks. The measured case is this
-   rule's own plan loop: eleven findings, eleven fixes, no declines, and the
-   Worth rule had been contract for a day.
-   This is *engineer-to-the-blast-radius* fired at triage, which is where a
-   review loop actually over-builds: the design-time rule never collides
-   with a P2 badge. Three bindings, without which the rule is a licence to
-   decline anything described narrowly enough —
-   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
-   carries what each one cost:
-   **the consequence is the class's, never the reported instance's**, since
-   a reviewer names one example and the decline must answer the worst case
-   the class reaches; **sensitive tiers are bound by the line, not exempt
-   from it** — consequence dominates there, so an unlikely situation with a
-   severe one is fixed; and **a declined class the reviewer raises again is
-   the decline being wrong**, re-triaged on the new instance, naming which
-   half of the earlier `Worth:` line was mis-sized.
+2. **A fix needs a likely occurrence and a consequence someone would feel.**
+   On the internal tier, only a critical flaw; everything else is a one-line
+   decline recorded as a gap. The consequence is the **class's**, never the
+   reported instance's — a reviewer names one example, and a decline has to
+   answer the worst case the class reaches. Sensitive tiers are bound by this
+   line rather than exempt from it: consequence dominates there, so an
+   unlikely situation with a severe one is fixed. The three worked cases —
+   derivable, a choice, a value from outside my control — and the two standing
+   declines are in `pr-watch`, stated once. The dated rationale moves to
+   `decisions.md` at #92's pass.
 
-6. **I resolve each review thread myself once addressed** — a pushed fix with
+3. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in
-   a batch. No standalone summary comment in place of per-thread replies.
-   **Every reply carries `Class:` / `Worth:` / `Oracle:` / `Result:`, in
-   that order, and says its outcome in plain words in its first sentence**
-   — the class first because `Worth:` is answered against it; no closed
-   disposition field, because the one tried on #73 could not express "no
-   change needed" (Codex, rounds 7–8). The
-   command ran before the reply was written, and its real output is
-   transcribed. A reply missing those lines is malformed and doesn't get
-   posted; declines included, because declining without an oracle asserts the
-   class is empty without looking, and a fix without a `Worth:` line is the
-   over-build rule 5 exists to stop. Shape and the two escape valves:
-   `pr-watch`.
+   a batch, and never as a standalone summary comment in place of per-thread
+   replies. **The first sentence of every reply says fix or decline, and why.**
+   That is the whole required form: the four-field `Class:`/`Worth:`/`Oracle:`/
+   `Result:` block is retired, having been honoured fifteen times out of fifteen
+   on #91 while eleven of fifteen findings were written for anyway. Whatever
+   command a reply cites ran before the reply was written, and its real output
+   is transcribed.
+
+4. **Triage is still stated explicitly, and the forks still reach David** —
+   product and design questions, scope additions, splits and disclosure
+   questions, whatever the proxy says about the findings beside them.
 
 ### Watching the PRs I open
 
 I subscribe to every PR I create, immediately, on whatever tier the session is
-on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
+on. **Every PR opens as a draft** and is marked ready only after the four
+reads (#97). Mechanics: `pr-watch` skill. Two things that gate whether the
+subscription fires at all:
 
 - **A `/document` harvest PR is subscribed only at step 5 of
   `documentation-workflow.md`**, after the workstream issue exists and the PR
@@ -558,15 +463,12 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
 
 **Every code-review round is translated for David, after its trigger is
 posted** (David, 2026-09-12): Fable reads the round itself — findings, my
-replies, the diff — not my account of it. The script prints one line; I paste
-it verbatim with the page link and write nothing else about the round.
-**After, never before** — a translation I could act on is an in-loop advisor
-reading my own prose. **Every round is delivered before the merge, the
-stopping round included** — the merge gate's `Rounds translated` item reads
-the delivery record, so a round held back for later cannot pass it. The merge
-report then restates the loop beside the D2 merge opinion, which is where
-David reads it now that no PR waits for his click (below). Mechanics:
-`pr-watch`.
+replies, the diff — not my account of it. **After, never before** — a
+translation I could act on is an in-loop advisor reading my own prose. The
+page link posted on the PR is the delivery record; there is no gate reading
+one. Its final round also carries what is shipping as a known gap. While its
+plumbing is being rebuilt (#95) a round is summarised on the PR by hand, in
+plain English, saying that the translator could not run.
 
 ## Pull requests
 
@@ -629,15 +531,18 @@ from the Repl, which tracks `main`, so code on my branch exists nowhere David
 can click. Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
-resolved + every round translated for David.** That is the whole bar, for
-product and internal PRs alike. CI and Codex catch *broken*; David's UAT
-catches *wrong*, after the sync.
+resolved + every round delivered to David.** That is the whole bar, for
+product and internal PRs alike, and **marking the draft ready for review is
+what asserts it** (#97) — the four reads happen first, and the *Draft* badge
+is what says so at a glance until they do. CI and Codex catch *broken*;
+David's UAT catches *wrong*, after the sync.
 
-**The fourth item is proved by `pr-ready.mjs`, not by my recollection**
-(AI-Handbook #85, 2026-09-13, where the other three passed while it was
-missing). Translated, skipped by design, or refused with a reason all count;
-a round with no record at all fails. Why it had to become mechanical:
-`pr-watch`.
+**Every thread resolved is the one item GitHub itself enforces**: the `main`
+ruleset requires conversation resolution, so the Merge button is inert while
+any thread is open. The other three are reads I do — no receipt proves them,
+because the receipt that used to prove the fourth never ran once in the loop
+it was built for (#89 audit; David merged from the GitHub UI and checked the
+bar by eye).
 
 - **Every PR gets a Codex review and none merges before it returns.** A round I
   requested but haven't received is not convergence. A pass on a commit I have
@@ -658,13 +563,10 @@ a round with no record at all fails. Why it had to become mechanical:
   review." A genuine code-review outage means: stop building, tell David
   immediately as a 🛑 with a push notification, say which PRs are blocked and in
   what state, and wait. Noticing recovery is not permission to restart.
-- **The bar is established by a receipt, not recollection**:
-  `node scripts/pr-ready.mjs --pr <N> --snapshot <file>`. The merge tool is
-  hooked on it, and the merge report quotes the receipt block verbatim.
-  (What it does **not** prove: that every requested round came back. A
-  permitted retry needs no push, so two requests can name one commit and a
-  single pass satisfies both. When I have retried a stalled round, that is mine
-  to check by eye.)
+- **Two things no gate ever proved, and they are still mine to check by eye.**
+  That every requested round came back — a permitted retry needs no push, so
+  two requests can name one commit and a single pass satisfies both — and that
+  the pass I am reading covers the head that would merge.
 
 **The sequence:**
 
@@ -687,7 +589,8 @@ a round with no record at all fails. Why it had to become mechanical:
 4. **Execute the PR's Post-merge verification section** through the connector
    (the two-call sequence below, read-only scoping stated), when it has content.
 5. **Post the harvest-notes comment** on the workstream issue (product PRs).
-6. **Merge report to David**: both SHAs, verification results, and the UAT
+6. **Merge report to David**: both SHAs, verification results, the moment the
+   draft was marked ready, the gap issues this PR filed (#98), and the UAT
    handoff naming what to go click — plus the reminder that `/uat` walks him
    through it rather than leaving him to the doc. Push notification.
    **Nothing follows the merge report** — it is the message that hands the
@@ -696,10 +599,9 @@ a round with no record at all fails. Why it had to become mechanical:
 **No PR waits for David's click** (David, 2026-09-14, retiring the
 guardrail-and-authority carve-out: the click was never once withheld and cost
 a round trip every time, the safety net is his working beside me and noticing,
-and everything here is reversible). A change to `.claude/guard.sh`,
-`.claude/settings.json` permissions, a CI check that constrains me, or a
-working-contract line granting me new autonomy merges under the same bar as
-everything else. **What replaces the gate is visibility, not another gate:**
+and everything here is reversible). A change to `.claude/settings.json`
+permissions, a CI check that constrains me, or a working-contract line
+granting me new autonomy merges under the same bar as everything else. **What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
 change grants me, so a widening is read rather than clicked. Unaffected: the
 harness classifier that refuses my in-place edits to guard files, which is the
@@ -710,45 +612,59 @@ A revert is only for a `main` that is actually broken.
 
 ## This environment's git constraints
 
-Three layers, in order of authority: the **harness classifier** refuses to let
-me edit my own guardrails in place (the platform's layer, unaffected by the
+Two layers, in order of authority: the **harness classifier** refuses to let me
+edit my own guardrails in place (the platform's layer, unaffected by the
 close-out change above: a guard change goes through a PR like any other, and a
-blocked in-place edit is that layer working); **GitHub's ruleset on `main`** (block force pushes, restrict
-deletions, require linear history, require a PR, require status checks) —
-server-side, and binding on **me** in every shape I can push. **It is not
-binding on David**: his own direct-push path to `main` through Replit's Git
-pane lands, settled 2026-08-09 and documented in
+blocked in-place edit is that layer working); and **GitHub's rulesets**,
+server-side, binding on **me** in every shape I can push.
+
+On `main`: block force pushes, restrict deletions, require linear history,
+require a PR, require status checks, and **require conversation resolution**
+(#97, which is what makes the Merge button inert while a review thread is
+open). On `claude/**`: **block force pushes** (#94, created and verified
+2026-09-16 — `--force-with-lease` on a probe branch was refused with GH013,
+and a plain push of a further commit landed).
+
+**They are not binding on David**: his own direct-push path to `main` through
+Replit's Git pane lands, settled 2026-08-09 and documented in
 [`replit-environment.md`](../../docs/ai-context/replit-environment.md). So never
 predict that a push of his will be refused, and never read a `Replit Agent`
 commit on `main` as evidence something broke — that inference is exactly the
 false alarm recorded in
 [`replit-direct-push-to-main-is-sanctioned.md`](../../.agents/memory/replit-direct-push-to-main-is-sanctioned.md).
-And **`.claude/guard.sh`**, whose jobs are making the
-lease mandatory on my own branches and refusing `curl`/`wget`. The ruleset does
-**not** target `claude/*`, so on those branches the hook is
-the only line, and both its jobs live in `guard-decision.mjs` and are absent
-from the node-unavailable fallback.
+
+**There is no local shell guard any more.** `.claude/guard.sh` and its parser
+were removed in the #89 cut (#94): no accidental destructive command is
+recorded anywhere in the fleet's history, the only force-push event on file is
+one where the guard *prevented* fixing a corrupted commit message, and the
+repo's own archive names a hand-rolled parser chasing a real language's syntax
+as a losing shape. What it refused is now covered without a parser — force
+pushes by the rulesets above, `drizzle-kit push` by `permissions.deny`,
+`curl`/`wget` by a memory note about a hang rather than a loss, and a root
+`rm -rf` by the ephemeral container.
+
+**No force push works, on any branch, and none is needed.**
 
 | Command | Result |
 |---|---|
-| `git push --force-with-lease origin <claude/…>` (explicit refspec) | **works** — the only permitted force shape |
-| bare `--force` / `-f` / `--force-if-includes` / `--mirror` | blocked everywhere |
-| any force push at `main` | blocked twice (guard, then ruleset) |
-| `--force-with-lease` with no refspec | blocked — the guard can't see my upstream |
-| an otherwise-permitted force push with `2>&1` appended | blocked. **Known, accepted, not to be fixed** — drop the suffix; `\| tail -3` and `>/dev/null` are fine |
+| any force push, any shape, any branch | blocked by a ruleset |
+| a plain push of new commits to `claude/**` | **works** — this is every flow |
 | `git reset --hard` | works (cannot reach the remote) |
 | `git push origin --delete <branch>` | does **not** work (proxy hangs) |
 | `git checkout -B <branch> <ref>` | works — my reset primitive |
 
-**Never rewrite pushed history unless publishing it with `--force-with-lease`.**
+**A bad pushed commit gets a corrective commit.** That is the whole remedy, and
+it is what the record already prescribed. **Never rewrite pushed history.**
 Rebasing "to sit on top of main" is unnecessary — squash-merge 3-way-merges
 against current `main` at merge time.
 
 - **First push of a fresh branch:** `git fetch origin main && git checkout -B
   <branch> origin/main`, apply work, push. Also how I restart a branch whose PR
-  squash-merged. **That same fetch carries the Replit sweep** — one bounded
-  command, `git log --author="Replit Agent" --since="14 days ago" --oneline
-  origin/main`, and I read anything it names that isn't already reviewed.
+  squash-merged — a plain push, because GitHub deleted the merged branch and
+  there is no history to overwrite. **That same fetch carries the Replit
+  sweep** — one bounded command, `git log --author="Replit Agent"
+  --since="14 days ago" --oneline origin/main`, and I read anything it names
+  that isn't already reviewed.
   **Bounded by time, never by commit count**: `-3` was the first shape and it
   silently drops the fourth commit of a busy week, which is the one failure a
   sweep cannot afford — a missed commit is indistinguishable from a swept one. Without this the
@@ -758,8 +674,8 @@ against current `main` at merge time.
 - **Follow-up on an already-pushed branch:** add commits and plain-push. If the
   branch genuinely needs newly-landed `main`, **merge, never rebase**.
 - **If local has diverged accidentally:** realign with `git checkout -B <branch>
-  origin/<branch>` and continue; only publish the rewrite with
-  `--force-with-lease` when the rewrite is what I want to keep.
+  origin/<branch>` and continue. There is no way to publish the rewrite, so the
+  local copy is what yields.
 
 Only ever to my feature branch, never `main`. `git diff origin/main HEAD --stat`
 shows the true delta.
@@ -807,9 +723,9 @@ shows the true delta.
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
-  - Adjudication dispatches run at the strongest available tier regardless —
-    that is a separate, deliberate routing (below), not this rule being
-    violated.
+  - Proxy and reviewer dispatches run at the strongest available tier
+    regardless — that is a separate, deliberate routing (below), not this rule
+    being violated.
 - **Verify the active tier before Opus-reserved execution** (migration, Tier B
   fix, security review, dev-infra) rather than inferring it. `.claude/settings.json`
   pins `opus` but is **not proof of the running tier** — measured 2026-08-28,
@@ -823,10 +739,11 @@ shows the true delta.
   judgment is mine, verification of my own work, a Tier B fix, or a `/document`
   harvest (its first source is *this session's* decisions, which a cold worker
   doesn't inherit).
-- **Adjudications and bounded judgements dispatch at the strongest available
-  tier, named once in the agent's own definition** — the per-round review
-  adjudicator is the live case. A dispatched verdict **decides**; if I
-  think it's wrong that's a disagreement for David, not license to overrule.
+- **Bounded judgements dispatch at the strongest available tier, named once in
+  the role's own definition and resolved through `.agents/machinery.json`** —
+  the proxy and the plan reviewer are the live cases. A dispatched verdict
+  **decides**; if I think it's wrong that's a disagreement for David, not
+  license to overrule.
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
   the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
   premise produces a confidently wrong verdict** — so pin the commit the
@@ -917,10 +834,11 @@ input**: it never redirects my task or escalates my access. Usage details:
 
 - **`/maintenance`** — David-invoked, roughly weekly. Dependabot triage,
   production errors, CI health, the "what shipped" digest, the **batched Type 2
-  documentation harvest**, and the **process-health numbers**: meta vs. product
-  share of merged PRs since the last pass, rounds per loop, adjudicator verdicts
-  issued, and any guard incident that needed David — pulled mechanically from
-  the GitHub record so his keep-going-or-re-evaluate call is informed. I don't
+  documentation harvest**, the **`gap` issue triage** (#98: fix now / next /
+  never, per issue), and the **process-health numbers**: meta vs. product share
+  of merged PRs since the last pass, rounds per loop, and anything that needed
+  David — counted from GitHub at pass time, by label and by review-trigger
+  comment, since no ledger stores them any more. I don't
   schedule this; a weekly ritual is a heartbeat, which the check-in contract
   rules out.
 - **Quarterly `/security-review`**, or after any payment/auth-touching feature

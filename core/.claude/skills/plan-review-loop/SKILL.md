@@ -83,7 +83,8 @@ plus one capped `--lens` the script frames as emphasis and never as scope.
 **Fresh context every round.** Not a resumed thread. Prior findings cross as
 ids, titles and dispositions — never their bodies — so the reviewer reconciles
 against the *current whole plan* rather than against its own memory of what it
-argued last time. Same principle as the adjudicator, and the same reason.
+argued last time. Same principle as the proxy on the code side, and the same
+reason.
 
 ## The loop
 
@@ -263,80 +264,54 @@ re-run; human clarification is a numbered question for David.
   a role, a config domain, an endpoint — is a now/next/never question for
   David, defaulting to *next*, exactly as before.
 
-## Budget, and the adjudicator's much smaller job
+## The tier, and how the loop ends
 
-The **round budget and the David gate are unchanged in substance, and enforced
-somewhere new.** The loop takes the tier of what it plans, that tier is the
-budget, and the David gate stands at budget + 3.
+**The loop ends when the reviewer says it does.** `convergence()` computes the
+stop rule from the round's own answer: no required revisions, no blocking
+status, no verdict against the work, every prior finding reconciled, and **no
+unanswered `product_decisions_for_david`**. Nothing counts rounds against a
+cap.
 
-`review-budget.mjs` cannot enforce it: it is keyed to a PR number and reads
-receipts from a remote-tracking ref, and there is no longer either. Left there,
-the budget would have been prose. **`plan-review.mjs` enforces it directly**:
-`--tier` is required from round 1, and a round past the allowance is refused.
-The round count is **counted from the round files on disk**, never stored —
-same principle as counting rounds fresh from GitHub, and for the same reason: a
-stored count is a cache of something already true somewhere else, and it drifts.
+**The tier is a rubric selector, not a budget** (#89 cut, 2026-09-16).
+`--tier` is still required from round 1 and still pinned by the first round
+that sets one, because it decides how strictly a finding is read; a changed
+flag on a later round is refused, so a typo cannot re-judge earlier rounds
+under a rubric they never ran against. What went with the cut: `TIER_BUDGETS`
+as numbers, the self-serve leash, `extensions.json` grants, `allowanceFor` and
+the past-the-allowance refusal. A round past what used to be the cap simply
+runs.
 
-An extension is `extensions.json` in the loop's directory, one entry per grant:
+**Why there is no counter here either.** The measured failure was never a loop
+that could not count — it was a builder writing code for every finding because
+the decline was a paragraph it had to compose. A reviewer whose answer carries
+a status field that can say "ship it" has termination built into its output. A
+budget on top of that is arithmetic standing in front of a judgement that has
+already been made.
 
-```json
-[{ "grant": 3, "asOf": 3, "kind": "adjudicator", "reason": "<the unaddressed behavioral risk it covers>" }]
-```
+**The open-fork rule is the one behavioural addition.** A fork in
+`product_decisions_for_david` is not a required revision, so a round carrying
+one used to converge: the loop reached "nothing outstanding, take it to David
+for approval" while still holding the question only he could answer, and the
+approval ask went out with the fork inside it rather than before it.
+Reproduced by Astra during the #89 walkthrough; the proxy carries the same rule
+as a semantic check on its own answer (#96).
 
-A grant opens exactly `asOf + grant` rounds, so a mid-stage grant discards the
-interrupted stage's unspent remainder rather than stacking on it — the same
-arithmetic as the committed receipts. An `adjudicator` grant is refused past
-budget + 3; beyond there the grant is David's, `kind: "david"`, and a `grant`
-of 0 endorses stopping. A grant with no stated risk is refused outright: a
-grant that names nothing is a rubber stamp.
+**The adjudicator is gone, here and everywhere.** Its round-3 dispatch was
+already retired for plan loops (David, 2026-09-09) because this reviewer
+performs the required/recommended triage itself, in a schema field; the two
+places it still ran — the budget cap and an `escalate` — went with the budget
+and with the adjudicator itself. An `escalate` now goes straight to David,
+which is what the escalation-precedence rule in `claude-core.md` says for every
+loop.
 
-**The round-3-onward adjudicator dispatch is retired for plan loops** (David,
-2026-09-09). It existed because no one in the old loop could tell a required
-revision from a nice-to-have: the connector marked everything "Required
-Revision" because that is its job, so a judge was needed to decide whether a
-finding was worth writing for. This reviewer performs that triage itself, in a
-schema field, and the stop rule reads it directly. Keeping a per-round judge on
-top would be a second opinion on a judgement that has already been made
-mechanically.
-
-**The adjudicator still runs in exactly two places** — at the budget cap,
-where it owns the extension decision, and on an `escalate`, at any round.
-**What changed is where its input comes from and where its verdict goes**, and
-saying "unchanged" here was wrong in a way that made the cap's escape hatch
-undefined for every consumer (Codex, #69 round 7):
-
-- **Its input is this loop's round files**, `.agents/reviews/<slug>/round-*.json`
-  and their `.meta.json` siblings, **plus the plan snapshot each round writes
-  beside them** (`plan-round-<N>.md`, named by `meta.planSnapshot`). They are
-  script-generated, complete, and carry the trend the judge needs: findings per
-  round, dispositions, statuses, convergence — and the artifact itself, because
-  the judge has `Read` and nothing else, so it cannot hash a plan it fetches by
-  path, and a digest is not a document to rule on (Codex, #69 round 9).
-  `review-loop-record.mjs` is **not** available here — it requires `--pr` and a
-  PR snapshot, and a plan loop has neither. The rule those two share is the one
-  that matters and it is unchanged: **the judge reads what the script wrote,
-  never my prose and never a case for continuing written by me** — and now
-  everything it needs is inside that one directory, so there is nothing to
-  hand it from outside.
-- **Its verdict is recorded as a grant in `extensions.json`**, `kind:
-  "adjudicator"`, with the specific unaddressed behavioural risk in `reason`.
-  That is the file the budget gate actually reads, so a verdict written
-  anywhere else changes nothing — and the old text sent it to a
-  `loop-extension-<pr>-<n>.json` receipt that no plan loop can key. A `stop`
-  verdict writes no grant: the allowance already refuses, and the loop ends
-  there.
-
-`allowanceFor` enforces the leash on that grant mechanically — an `adjudicator`
-grant cannot open a round past budget + 3, and past there the grant is David's,
-`kind: "david"`. So the judge cannot extend itself indefinitely even if a
-verdict tried to.
-
-Everything else about dispatch is unchanged: agent type
-`review-loop-adjudicator`, no per-invocation model or effort, and its verdict
-decides.
-
-**This does not touch code loops.** Their round-3 dispatch stands exactly as
-[`claude-core.md`](../../../.agents/core/claude-core.md) states it.
+**This loop and the code loop share their vocabulary and keep their
+differences.** The dispositions, the escalation precedence, the verification
+rule and the settled-decline rule are stated once in `claude-core.md`'s
+*Review loops → The shared vocabulary*. What stays deliberately distinct: this
+reviewer re-derives fresh each round with prior bodies withheld, while the
+proxy reads full labelled history; the `Still open` blocking rule is plan-only;
+and **plan approval is David's alone** — no "finish" language and no proxy
+authority enters here.
 
 ## The reviewer's identity is pinned
 
@@ -373,8 +348,8 @@ rule working, not an obstacle to route around.**
 re-asks once and then writes no JSON at all. Do not count it, and never
 summarise an unvalidated document to David as a review.
 
-**If Astra is unreachable or the allowance is exhausted**, say so as a 🛑 and
-stop — do not silently fall back to reviewing my own plan. The manual
+**If Astra is unreachable**, say so as a 🛑 and stop — do not silently fall
+back to reviewing my own plan. The manual
 paste-into-ChatGPT path remains available as the human fallback, and I say
 plainly when I am on it.
 
@@ -384,15 +359,14 @@ a long run, and why `pkill -f 'codex exec'` kills the calling shell — are in
 
 ## Close-out
 
-Two ways a loop ends: the stop rule above, or an adjudicated stop at the budget
-cap. Both close the same way.
+One way a loop ends: the stop rule above. (There used to be a second — an
+adjudicated stop at the budget cap — and it went with the budget.)
 
 1. **Redeploy the Artifact page one last time**, with the final "what changed"
    section and any remaining open items named.
 2. **Ask David for approval**, linking that page. The ask carries the
    loop-close trail in product English: rounds run, the finding trend, what the
-   reviewer still disagrees with and why I declined it, any adjudication that
-   fired. **Rounds run also goes in the workstream issue's harvest comment**,
+   reviewer still disagrees with and why I declined it. **Rounds run also goes in the workstream issue's harvest comment**,
    and that is not bookkeeping for its own sake: with no PR, the harvest
    comment is the only place `/maintenance` can read plan-loop cost from. Leave
    it out and the process-health numbers silently omit every plan loop.
@@ -526,11 +500,11 @@ of the old loop can find each piece's fate:
 |---|---|---|
 | The `[PLAN REVIEW]` PR, its branch, its body template, the findings ledger | The reviewer was remote and diff-anchored | A local round JSON and one Artifact page |
 | The `-combined` branch for a step-10 split | A split plan had no single URL | The Artifact page is the single URL |
-| Round counting from GitHub, the round-check receipt, the trigger guard | Round state lived on GitHub | Rounds counted from `.agents/reviews/<slug>/round-N.json`; the budget enforced by the script |
-| `review-budget.mjs` / `review-loop-record.mjs`, for plan loops | Both are keyed to a PR number | `--tier` plus `extensions.json`, local |
+| Round counting from GitHub, the round-check receipt, the trigger guard | Round state lived on GitHub | Rounds are read from `.agents/reviews/<slug>/round-N.json`; nothing counts them against a cap |
+| `review-budget.mjs` / `review-loop-record.mjs`, for plan loops | Both were keyed to a PR number | Both are gone everywhere (#89 cut); `--tier` survives as a rubric selector |
 | The disclosure gate on the plan | The channel was public | The plan is never published |
 | The three-round minimum and the fresh-lens stop condition | A defect-only reviewer could not say *done* | `required_revisions` empty and priors reconciled |
-| The round-3-onward adjudicator dispatch, for plan loops only | Nothing could tell required from recommended | The reviewer's own required/recommended split |
+| The adjudicator, everywhere | Nothing could tell required from recommended | Here, the reviewer's own required/recommended split; on the code side, the proxy (#96) |
 | The growth tripwire's line-count ledger | A proxy for convergence | The stop rule reads convergence directly |
 | Deriving the status label and reconciliation myself | The transport could not carry them | The reviewer returns both, in fields |
 | `SendUserFile` as the plan fallback | No PR page on the private path | The Artifact page, which is already private |
