@@ -1,9 +1,0 @@
-{
-  "pr": 85,
-  "tier": "internal",
-  "repo": "TheAnswerManIsHere/AI-Handbook",
-  "budget": 3,
-  "criticality": 45,
-  "artifact": "capture-from-transcript.mjs: recognise the harness's second spill notice, anchored at the start of the result, and refuse anything that is not a payload before writing it",
-  "declaredAt": "2026-09-13T22:38:41.244Z"
-}

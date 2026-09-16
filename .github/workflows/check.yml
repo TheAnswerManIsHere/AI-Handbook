@@ -44,61 +44,20 @@ jobs:
         run: node --test scripts/__tests__/*.test.mjs
 
       # The payload is code, and until this ran it was code nobody tested here:
-      # a regression in the review-budget, receipt, guard or readiness scripts
-      # could merge behind a green Test job because the step above only covers
-      # this repo's own root-level suite.
+      # a regression in the dispatcher, the plan reviewer or the shared config
+      # module could merge behind a green Test job because the step above only
+      # covers this repo's own root-level suite.
       #
-      # One file is excluded, by name rather than by skipping the suite:
-      # check-contract-consistency.test.mjs asserts the scanned corpus contains
-      # CLAUDE.md at the corpus root. That is true in a consumer and false here,
-      # where the contract is deliberately split into a vendored core plus an
-      # overlay. It is a fact about this repo's layout, not a failing
-      # behaviour. (It was also half of the old `machinery` group's blocker;
-      # groups and blockers are gone, the exclusion and its reason are not.)
+      # THE EXCLUSION IS GONE, and so is the step that policed it. One file
+      # used to be skipped here by name -- check-contract-consistency.test.mjs
+      # asserted the scanned corpus contained CLAUDE.md at the corpus root,
+      # true in a consumer and false in this repo's split layout -- with a
+      # second step proving the carve-out was still earned. The #89 cut removed
+      # the retired-phrase guard itself (#92 replaces it by de-duplicating the
+      # rulebook), so there is nothing left to exclude and nothing left to
+      # police.
       - name: Run payload machinery tests
-        run: |
-          node --test $(ls core/scripts/__tests__/*.test.mjs \
-            | grep -v 'check-contract-consistency.test.mjs')
-
-      # An exclusion with no expiry is how a temporary carve-out becomes
-      # permanent. This asserts the exclusion is still EARNED: when the
-      # machinery PR makes the contract surface configurable, that test starts
-      # passing, this step goes red, and the carve-out above gets deleted in
-      # the same change rather than outliving its reason.
-      - name: The excluded test is still failing for the documented reason
-        run: |
-          # "Did it fail?" is not the question — a nonzero exit proves nothing
-          # about WHICH assertion failed. An unrelated regression in this file
-          # would exit nonzero too, and a version of this step that only
-          # checked the exit code would report the exclusion as earned while
-          # waving that regression through. So assert the exact shape: one
-          # failure, and it is the documented corpus-layout assertion.
-          set +e
-          out=$(node --test core/scripts/__tests__/check-contract-consistency.test.mjs 2>&1)
-          status=$?
-          set -e
-          echo "$out" | tail -20
-
-          if [ $status -eq 0 ]; then
-            echo "::error::check-contract-consistency now passes in this layout."
-            echo "The machinery blocker it documents is resolved — delete this step"
-            echo "and the grep -v exclusion above, so the file runs with the rest."
-            exit 1
-          fi
-
-          fails=$(echo "$out" | sed -n 's/^# fail \([0-9][0-9]*\)$/\1/p')
-          if [ "$fails" != "1" ]; then
-            echo "::error::Expected exactly 1 failure in the excluded file, got '${fails:-unknown}'."
-            echo "Something beyond the documented layout assertion is failing here."
-            exit 1
-          fi
-          if ! echo "$out" | grep -q "not scanned: CLAUDE.md"; then
-            echo "::error::The excluded file fails, but NOT for the documented reason."
-            echo "Expected the 'not scanned: CLAUDE.md' corpus-layout assertion."
-            echo "A different failure in an excluded file is a regression nobody is running."
-            exit 1
-          fi
-          echo "Failing for exactly the documented reason; the exclusion remains earned."
+        run: node --test core/scripts/__tests__/*.test.mjs
 
   manifest:
     name: Manifest
@@ -110,10 +69,12 @@ jobs:
           node-version: '22'
       # NOTE ON THIS JOB'S NAME. It is called `Manifest` and there is no
       # longer a manifest. The name is load-bearing anyway: it is a REQUIRED
-      # status check in `.agents/machinery.json` and in the branch ruleset, so
-      # renaming it here would mean the required check never reports and every
-      # PR blocks until the ruleset is edited. Renaming it is a settings change
-      # David makes, not a code change, and it is deliberately not bundled in.
+      # status check in the branch ruleset, so renaming it here would mean the
+      # required check never reports and every PR blocks until the ruleset is
+      # edited. Renaming it is a settings change David makes, not a code
+      # change, and it is deliberately not bundled in. (It was also listed in
+      # `.agents/machinery.json`'s `requiredChecks`; that field went with the
+      # merge gate that read it, so the ruleset is now its only home.)
       #
       # Payload coverage used to run here, asking whether every file under
       # core/ was routed by sync-manifest.yml. The sync now routes core/**
@@ -123,16 +84,13 @@ jobs:
       # seed failing to land) is covered by scripts/__tests__/sync.test.mjs
       # in the Test job.
 
-      # Every place a repository identity enters a decision, classified.
-      #
-      # This runs in the Manifest job rather than Test because it is the same
-      # kind of check: a claim about the payload that a human would otherwise
-      # be asked to make from memory. Across nine review rounds on PR #7, six
-      # confident descriptions of where identity comes from were published and
-      # disproved — two of them measured before publishing. This reads the
-      # code instead.
-      - name: Check identity sources
-        run: node scripts/check-identity-sources.mjs
+      # WHAT USED TO RUN FIRST HERE. `check-identity-sources.mjs` classified
+      # every place a repository identity entered a decision, and was written
+      # after nine review rounds on PR #7 published six confident, wrong
+      # descriptions of where identity comes from. The #89 cut removed it: the
+      # machinery it inventoried is gone, and identity now enters in exactly
+      # one place -- `machineryConfig` in core/scripts/machinery.mjs -- which
+      # its own suite covers.
 
       # Does this repo actually reach its own payload?
       #
@@ -153,7 +111,8 @@ jobs:
       # declares "additionalProperties": {} and would permit unknown keys. So a
       # field can be valid JSON, allowed by the schema, and still rejected.
       #
-      # A refused file installs no `hooks` block, which means no guard, with
+      # A refused file applies NONE of its contents -- including
+      # permissions.deny, where the template refuses `drizzle-kit push` -- with
       # nothing saying so. `settings-template` is mode: seed and lands as a
       # consumer's real .claude/settings.json, so the template is the file that
       # carries that cost. Both settings files once documented themselves in a
@@ -184,15 +143,12 @@ jobs:
             exit 1
           fi
 
-      # Does the contract that loads into every session still fit its budget?
-      #
-      # The budget itself is enforced by the unit test in the Test job, which
-      # calls the same function this CLI does. What THIS step adds is that the
-      # entry point still runs: #54 shipped a script whose CLI no job exercised,
-      # so a regression in argument handling or root resolution could merge
-      # behind a green board while the unit suite passed.
-      - name: Check contract budgets
-        run: node core/scripts/check-claude-md-budget.mjs
+      # THE CONTRACT BUDGET STEP IS GONE. `check-claude-md-budget.mjs` pinned
+      # the always-loaded contract to an exact size, and was removed by the
+      # #89 cut: it never once refused growth, because the same commit that
+      # grew the file re-pinned it, and David does not read diffs. #92 replaces
+      # it with one line in the /maintenance process-health report, and a hard
+      # ceiling only if he wants one after the prune.
 
       # The provenance-enabling gate was deleted with the staging system.
       # It asked whether a consumer would receive the provenance PARSER before
@@ -204,4 +160,5 @@ jobs:
       # The invariant that DOES survive -- that the producer documents and the
       # parser agree about the declaration format -- was never this gate's job.
       # It is scripts/__tests__/plan-provenance-producers.test.mjs, which still
-      # runs in the Test job.
+      # runs in the Test job against core/scripts/plan-provenance.mjs, where
+      # the #89 cut rehoused the parser.

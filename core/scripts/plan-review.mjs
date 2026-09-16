@@ -82,7 +82,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier } from "./review-budget.mjs";
+import { modelTier, validate, assertSchemaSupported } from "./machinery.mjs";
 
 /**
  * The repository root, found by walking up to `.git` rather than counting
@@ -425,91 +425,13 @@ export const schemaFor = (round) => (round === 0 ? SCOPE_ASSESSMENT_SCHEMA : PLA
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
-
-/**
- * Validate a parsed value against the subset of JSON Schema these schemas use.
- *
- * Dependency-free on purpose: this repo installs nothing, and a validator that
- * needs `npm install` is a validator that does not run on a fresh container.
- * The subset is exactly what the two schemas above express -- object, array,
- * string, required, additionalProperties:false, enum, items, properties. A
- * keyword outside it would silently pass, so `assertSchemaSupported` refuses
- * a schema this validator cannot actually enforce rather than pretending.
- */
-export function validate(value, schema, at = "$") {
-  const problems = [];
-  const say = (msg) => problems.push(`${at}: ${msg}`);
-
-  if (schema.enum && !schema.enum.includes(value)) {
-    say(`${JSON.stringify(value)} is not one of ${schema.enum.map((e) => JSON.stringify(e)).join(", ")}`);
-    return problems;
-  }
-
-  switch (schema.type) {
-    case "object": {
-      if (value === null || typeof value !== "object" || Array.isArray(value)) {
-        say(`expected an object, got ${describe(value)}`);
-        return problems;
-      }
-      for (const key of schema.required ?? []) {
-        if (!Object.prototype.hasOwnProperty.call(value, key)) say(`missing required key "${key}"`);
-      }
-      if (schema.additionalProperties === false) {
-        for (const key of Object.keys(value)) {
-          if (!(schema.properties ?? {})[key]) say(`unexpected key "${key}"`);
-        }
-      }
-      for (const [key, sub] of Object.entries(schema.properties ?? {})) {
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-          problems.push(...validate(value[key], sub, `${at}.${key}`));
-        }
-      }
-      return problems;
-    }
-    case "array": {
-      if (!Array.isArray(value)) {
-        say(`expected an array, got ${describe(value)}`);
-        return problems;
-      }
-      if (schema.items) {
-        value.forEach((item, i) => problems.push(...validate(item, schema.items, `${at}[${i}]`)));
-      }
-      return problems;
-    }
-    case "string":
-      if (typeof value !== "string") say(`expected a string, got ${describe(value)}`);
-      return problems;
-    case "number":
-    case "integer":
-      if (typeof value !== "number") say(`expected a number, got ${describe(value)}`);
-      return problems;
-    case "boolean":
-      if (typeof value !== "boolean") say(`expected a boolean, got ${describe(value)}`);
-      return problems;
-    default:
-      say(`schema declares an unsupported type ${JSON.stringify(schema.type)}`);
-      return problems;
-  }
-}
-
-const describe = (v) => (v === null ? "null" : Array.isArray(v) ? "an array" : typeof v);
-
-/** Keywords `validate` actually enforces. Anything else is a silent pass, so refuse it. */
-const SUPPORTED_KEYWORDS = new Set(["type", "required", "additionalProperties", "properties", "items", "enum", "description"]);
-
-export function assertSchemaSupported(schema, at = "$") {
-  for (const key of Object.keys(schema)) {
-    if (!SUPPORTED_KEYWORDS.has(key)) {
-      throw new Error(
-        `${at} uses the JSON Schema keyword "${key}", which this repo's dependency-free validator does not enforce. ` +
-          `A keyword that is sent to the model but not checked here means an output could be accepted that does not ` +
-          `satisfy the schema -- add support for it, or drop it.`,
-      );
-    }
-  }
-  for (const [key, sub] of Object.entries(schema.properties ?? {})) assertSchemaSupported(sub, `${at}.${key}`);
-  if (schema.items) assertSchemaSupported(schema.items, `${at}[]`);
-}
+//
+// `validate` and `assertSchemaSupported` moved to `machinery.mjs` in the #89
+// cut, so the plan reviewer and every other dispatched role are checked by one
+// validator rather than by a copy each. Only the SHAPE is shared: the schemas
+// above and the semantic checks below stay here, because they are this loop's
+// policy and a shared home for them would make one edit change every role's
+// meaning at once.
 
 /**
  * Did the reviewer actually reconcile the findings it was handed?

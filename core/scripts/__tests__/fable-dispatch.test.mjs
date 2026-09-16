@@ -182,6 +182,9 @@ test("P1: a role may dispatch only if this script generates its brief", () => {
   // pass its own and the refusal was advisory (Codex, #73 round 3).
   // Phase 2 added `round-translation`, then `gaps-translation`, then
   // `merge-opinion`, each by adding its brief generator -- which is the bar.
+  // The #89 cut took all three back off: D2 and D3 were cut outright, and D0
+  // is unplumbed until #95 rebuilds its input from GitHub. The bar did not
+  // move; the set of roles that clear it did.
   //
   // BOTH assertions are deliberate, and the comment here used to claim
   // otherwise while the list sat on the next line. The PROPERTY (every
@@ -190,10 +193,12 @@ test("P1: a role may dispatch only if this script generates its brief", () => {
   // generator is the authorization bar, so a generator appearing here that
   // nobody meant to add is exactly the thing worth failing a test over. It is
   // updated when the set legitimately grows, which is the cost of having it.
-  assert.deepEqual(dispatchableRoles().sort(), ["gaps-translation", "merge-opinion", "probe", "round-translation"]);
+  assert.deepEqual(dispatchableRoles().sort(), ["probe"]);
   for (const role of dispatchableRoles()) assert.equal(canDispatch(role), true);
-  // D1 and D4 are not built. `conformance-triage` never dispatches here at all.
-  for (const role of ["plan-opinion", "conformance-triage", "scope-framing"]) {
+  // D1 and D4 are not built; D2 and D3 are cut; D0's generator left with its
+  // record builder and comes back with #95, so it must be refused meanwhile
+  // rather than reaching a dispatch it cannot brief.
+  for (const role of ["round-translation", "gaps-translation", "merge-opinion", "plan-opinion", "conformance-triage", "scope-framing"]) {
     assert.equal(canDispatch(role), false);
     assert.throws(
       () => dispatch({ root: ROOT, role, runGit: fakeGit(), runner: runnerFor("") }),

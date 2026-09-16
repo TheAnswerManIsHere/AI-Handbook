@@ -11,8 +11,6 @@ import {
   PLAN_ASSESSMENT_SCHEMA,
   SCOPE_ASSESSMENT_SCHEMA,
   schemaFor,
-  assertSchemaSupported,
-  validate,
   parseAssessment,
   assertSlug,
   slugFromPlanPath,
@@ -48,6 +46,7 @@ import {
   MAX_NOTE_CHARS,
   defaultReviewer,
 } from "../plan-review.mjs";
+import { assertSchemaSupported, validate } from "../machinery.mjs";
 
 const SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "plan-review.mjs");
 

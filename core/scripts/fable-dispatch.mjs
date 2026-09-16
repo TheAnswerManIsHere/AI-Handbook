@@ -32,9 +32,8 @@
  *       if this script builds its brief. There is no `--brief` and no
  *       parameter a caller could widen -- the permitted set is a predicate
  *       over the generators below. What a brief CONTAINS is not
- *       authenticated, and for `round-translation` it deliberately carries
- *       the builder's own words: the brief LABELS who wrote each block
- *       instead (David, 2026-09-12).
+ *       authenticated: a brief may deliberately carry the builder's own
+ *       words, and LABELS who wrote each block instead (David, 2026-09-12).
  *   P2  the observable surface is pinned and the HARNESS reports it back:
  *       tools and MCP servers come from the `system init` event and a run
  *       whose reported surface exceeds the role's allowlist is refused.
@@ -65,18 +64,16 @@
  * USAGE
  * -----
  *   node <this file> --role probe
- *   node <this file> --role round-translation --pr 81 --round 3 \
- *        --mcp-snapshot <file>
  *
  *   --role <id>     a role with a definition under .agents/fable-roles/ whose
  *                   brief this script generates. There is no --brief flag:
- *                   see `canDispatch` below.
+ *                   see `canDispatch` below. After the #89 cut the probe is
+ *                   the only such role; #95 re-registers `round-translation`
+ *                   once its input is rebuilt from GitHub.
  *   Each role takes its own flags (`ROLE_FLAGS`), all of them DATA this
- *   script then validates -- a number, a round, a path -- never text the
- *   reviewer reads. A flag belonging to another role is refused by name.
- *   The receipt is .agents/receipts/fable-<role>-<head>.json, or
- *   fable-round-translation-<pr>-<round>.json; `round-translation` also
- *   rebuilds David's page and prints the one line that goes to him.
+ *   script then validates -- never text the reviewer reads. A flag belonging
+ *   to another role is refused by name.
+ *   The receipt is .agents/receipts/fable-<role>-<head>.json.
  *   --timeout <s>   default 600.
  *
  * EXIT CODES
@@ -92,25 +89,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier } from "./review-budget.mjs";
-import { buildTranslationRecord, translationBrief, skipReason, assertSnapshotIsForPr } from "./round-translation-record.mjs";
-import { chatLine, renderPage, writePage, receiptsFor, publishPage, unavailable, unpublished } from "./round-translation-page.mjs";
-import { gapsBrief, gapsFor, writeGaps } from "./gaps-translation.mjs";
-import { mergeBrief, inputsFor, writeMerge } from "./merge-brief.mjs";
-
-/**
- * One line, for a notice that is pasted verbatim into chat.
- *
- * Several refusals here are deliberately multi-line and instructional --
- * `SIGN_IN_HINT` is a numbered list -- and pasting one into the chat line
- * turns a fixed status into a wall of operator instructions. The full text
- * still goes to stderr, where the operator reads it. (Codex, #81 round 1.)
- */
-const oneLine = (text) => {
-  const first = String(text ?? "").split("\n").find((l) => l.trim()) ?? "the reason was not recorded";
-  const t = first.trim();
-  return t.length > 160 ? `${t.slice(0, 157)}...` : t;
-};
+import { modelTier } from "./machinery.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -149,35 +128,17 @@ export const HARNESS_ADDED_TOOLS = ["StructuredOutput"];
  * A predicate over the generators cannot be widened without adding a
  * generator, which is the actual bar.
  *
- * Phase 1 did not lift the refusal. **Phase 2's `round-translation` satisfies
- * it** the same way the probe does: its brief is composed here, from a record
- * `round-translation-record.mjs` builds out of a captured snapshot. The caller
- * supplies a pull request number, a round number and a file path -- data this
- * script then validates -- and never a word the reviewer reads.
+ * ONE GENERATOR AFTER THE #89 CUT, and that is a statement about the roles
+ * rather than about the rule. `round-translation`'s brief was composed from a
+ * record built out of a captured review snapshot, and both the snapshot and
+ * the record builder were removed with the accounting machinery that produced
+ * them; #95 rebuilds that input from GitHub directly and re-registers the role
+ * here. `gaps-translation` and `merge-opinion` were cut outright (#89 rows 10
+ * and 11). Until then the probe is the only brief this script composes, so it
+ * is the only role that may dispatch.
  */
 const BRIEF_GENERATORS = {
   probe: ({ nonce }) => probeBrief(nonce),
-  "round-translation": ({ record }) => translationBrief(record),
-  // D3. Its brief is composed by `gaps-translation.mjs` out of the committed
-  // verdict files, the same way `round-translation`'s is composed out of a
-  // captured snapshot: the caller supplies a pull request number and this
-  // script reads the rest. No word of mine reaches the reviewer.
-  "gaps-translation": ({ pr, root }) => gapsBrief(pr, gapsFor(root, pr)),
-  // D2. Composed by `merge-brief.mjs` out of the loop's own mechanical record
-  // -- the diff, the approved oracle, the threat model, every finding -- plus
-  // the terminal verdict's gaps. The builder's summary and its pull-request
-  // argument are deliberately absent: a second account that had read the
-  // first would be a review of the first (workstream #36, touchpoint roles).
-  "merge-opinion": ({ pr, root }) => {
-    const inputs = inputsFor(root, pr);
-    if (!inputs) {
-      throw new Error(
-        `PR #${pr} has no mechanical record to build a merge brief from. Generate one with ` +
-          `review-loop-record.mjs on a reviewed head, then run this again.`,
-      );
-    }
-    return mergeBrief(pr, inputs);
-  },
 };
 
 export const canDispatch = (role) => Object.hasOwn(BRIEF_GENERATORS, role);
@@ -193,7 +154,7 @@ export const dispatchableRoles = () => Object.keys(BRIEF_GENERATORS);
  * number, a number, a path -- and none of it reaches the reviewer as text:
  * the record built from the snapshot does, through the generator above.
  */
-const ROLE_FLAGS = { probe: [], "round-translation": ["--pr", "--round", "--mcp-snapshot"], "gaps-translation": ["--pr"], "merge-opinion": ["--pr"] };
+const ROLE_FLAGS = { probe: [] };
 const BASE_FLAGS = ["--role", "--timeout"];
 const KNOWN_FLAGS = new Set([...BASE_FLAGS, ...Object.values(ROLE_FLAGS).flat()]);
 
@@ -298,17 +259,17 @@ export function receiptPath(root, role, head) {
 /**
  * The receipt's path for a completed dispatch, keyed by what makes it unique.
  *
- * `round-translation` is keyed by pull request and ROUND, not by head:
- * a round whose findings the builder declines without pushing leaves the head
- * where it was, so two rounds would write the same file and the second would
- * erase the first -- taking a round off David's page rather than adding one.
- * Still derived here, never supplied: the class of "wrote it where the name
- * is wrong" is what deleting `--out` removed (David, 2026-09-10).
+ * Derived here, never supplied: the class of "wrote it where the name is
+ * wrong" is what deleting `--out` removed (David, 2026-09-10).
+ *
+ * A ROLE MAY NEED ITS OWN KEY, and one did. `round-translation` was keyed by
+ * pull request and ROUND rather than by head, because a round whose findings
+ * the builder declined without pushing left the head where it was, so two
+ * rounds wrote the same file and the second erased the first -- taking a round
+ * off David's page rather than adding one. The role is out of this script
+ * until #95 rebuilds its input; whatever re-registers it needs that key back.
  */
 export function receiptPathFor(root, receipt) {
-  if (receipt.role === "round-translation") {
-    return path.join(path.resolve(root), RECEIPTS_DIR, `fable-round-translation-${receipt.pr}-${receipt.round}.json`);
-  }
   return receiptPath(root, receipt.role, receipt.headAtSpawn);
 }
 
@@ -1424,224 +1385,26 @@ export function parseArgs(argv) {
 }
 
 /**
- * Write the receipt, rebuild David's page from every receipt on this PR, and
- * print the one line that goes to him.
+ * WHERE THE DELIVERY HALF WENT (#89 cut, 2026-09-16).
  *
- * The page is rebuilt from ALL receipts rather than appended to, so a round
- * whose publish failed reappears on the next render instead of being lost.
- * The line is printed by this script and pasted verbatim: a line the builder
- * composed would be the builder's account of the independent account.
+ * This file used to carry three delivery paths beyond the probe's:
+ * `deliverTranslation` and `runTranslation` for D0, and a shared `runFileRole`
+ * for D2 and D3. All three are gone, and for two different reasons worth
+ * keeping apart.
+ *
+ * D2 and D3 were CUT. Both read the adjudication records the accounting
+ * machinery wrote, and there are none; D3's question ("what is shipping as a
+ * known gap") becomes a section of D0's final-round account, and D2's moment
+ * -- the merge click -- stopped existing when that gate was retired.
+ *
+ * D0 was KEPT and is temporarily UNPLUMBED. Its record builder read a snapshot
+ * assembled from captured tool results, and that whole path is what #89 row 21
+ * removed. #95 rebuilds the input from three GitHub reads and re-registers the
+ * role; `round-translation-page.mjs` and the role brief are still here as its
+ * starting point. Until then a round is summarised for David by hand and the
+ * summary says the translator could not run -- an absence that announces
+ * itself, rather than a stub that returns something.
  */
-export function deliverTranslation(root, receipt) {
-  // EVERY EXIT FROM HERE PRINTS ONE FIXED LINE. A receipt write, a page render
-  // or the `check-ignore` refusal throwing loose would leave the loop with no
-  // verbatim status to paste for David -- after the reviewer had already run,
-  // and most consequentially on the last round before the merge, which is
-  // the one the contract says must carry it. (Codex, #81 round 1.)
-  try {
-    const out = receiptPathFor(root, receipt);
-    fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
-    process.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
-    // Enumerate-render-write is not one step, and the rounds are detached:
-    // `publishPage` re-reads afterwards so a concurrent delivery's round
-    // cannot be overwritten out of the page.
-    const page = publishPage(root, receipt.pr);
-    process.stderr.write(`fable-dispatch: page -> ${page}\n`);
-    process.stdout.write(`${chatLine(receipt)}\n`);
-    return 0;
-  } catch (e) {
-    process.stderr.write(`fable-dispatch: ${e.message}\n`);
-    process.stdout.write(`${unpublished(receipt.round, oneLine(e.message))}\n`);
-    return 1;
-  }
-}
-
-/**
- * The round-translation path: build the record, skip or dispatch, deliver.
- *
- * Every refusal before the dispatch prints the SAME fixed notice the delivered
- * line uses, naming the step that stopped -- so what reaches David when there
- * is nothing to publish is not the builder's wording either (Codex, plan
- * round 3).
- */
-// EXPORTED so a test can supply its own root. `main()` resolves the root with
-// `repoRoot()`, which walks up from THIS FILE's location and ignores the
-// process's working directory entirely -- so a test that chdir'd into a
-// temporary directory and called `main()` was silently exercising the real
-// repository's receipts. That is how R19 came to pass locally (my own
-// `.agents/receipts/` held a matching receipt from a live run) and fail on CI,
-// where it does not. (CI on #81, round 6.)
-export function runTranslation(root, args) {
-  // A RE-RUN MAY FILL A HOLE; IT MAY NEVER REPLACE AN ACCOUNT (David,
-  // 2026-09-13). Re-running a round is ordinary -- the provider was
-  // unreachable, a refusal fired on a stale capture, or a round was never
-  // translated and close-out wants it -- and none of those leaves a receipt
-  // behind. What must never happen is the other shape: a second reviewer run
-  // overwriting a round that already has an account, so that the page silently
-  // shows a different account of round 3 than it did an hour ago. Receipts are
-  // evidence and evidence is not rewritten.
-  //
-  // SO AN EXISTING RECEIPT REPUBLISHES RATHER THAN REFUSING. The first version
-  // of this rule refused outright, and that turned a recoverable failure into
-  // an unrecoverable one: `deliverTranslation` writes the receipt BEFORE it
-  // publishes, so a page-render or `check-ignore` failure leaves a valid,
-  // paid-for account on disk with its round missing from the page -- and the
-  // retry that would have fixed it met the refusal. The only way back was
-  // deleting good evidence and buying a second translation, which is the
-  // reverse of what the rule is for. (Codex, #81 round 6.)
-  //
-  // A receipt whose round is not on the page is a HOLE IN THE PAGE, and
-  // filling it is what this rule already permits -- so republish from the
-  // receipt, print that round's own chat line, and never call the reviewer.
-  // Idempotent by construction: running it again just rebuilds the same page.
-  // The account is untouched, so "never replace" is unweakened, and a
-  // deliberate re-translation is still one act away -- delete the receipt.
-  //
-  // It also keeps `publishPage`'s re-read correct: no path here writes a
-  // DIFFERENT receipt for a round that has one, so the receipt set can still
-  // only grow and comparing its size is comparing its contents.
-  const existing = receiptPathFor(root, { role: "round-translation", pr: args.pr, round: args.round });
-  if (fs.existsSync(existing)) {
-    const rel = path.relative(root, existing);
-    process.stderr.write(
-      `fable-dispatch: round ${args.round} already has an account at ${rel}; republishing the page from it ` +
-        `rather than running the reviewer again. A re-run fills a hole, it never replaces an account -- to ` +
-        `re-translate this round deliberately, delete that file first.\n`,
-    );
-    let receipt;
-    try {
-      receipt = JSON.parse(fs.readFileSync(existing, "utf8"));
-    } catch (e) {
-      // A receipt that cannot be read is not an account, so it cannot be
-      // republished and must not be silently treated as absent either --
-      // re-dispatching would spend money to overwrite a file whose contents
-      // nobody has established. Refuse, and name the remedy.
-      process.stderr.write(`fable-dispatch: ${rel} is not readable as JSON: ${e.message}\n`);
-      process.stdout.write(`${unavailable(args.round, `${rel} is unreadable; delete it to re-translate`)}\n`);
-      return 1;
-    }
-    try {
-      const page = publishPage(root, args.pr);
-      process.stderr.write(`fable-dispatch: page -> ${page}\n`);
-      process.stdout.write(`${chatLine(receipt)}\n`);
-      return 0;
-    } catch (e) {
-      process.stderr.write(`fable-dispatch: ${e.message}\n`);
-      process.stdout.write(`${unpublished(args.round, oneLine(e.message))}\n`);
-      return 1;
-    }
-  }
-
-  let record;
-  try {
-    const snapshot = JSON.parse(fs.readFileSync(args.snapshot, "utf8"));
-    assertSnapshotIsForPr(args.pr, snapshot);
-    record = buildTranslationRecord(snapshot, args.round);
-  } catch (e) {
-    process.stderr.write(`fable-dispatch: ${e.message}\n`);
-    process.stdout.write(`${unavailable(args.round, oneLine(e.message))}\n`);
-    return 1;
-  }
-
-  const skip = skipReason(record);
-  if (skip) {
-    return deliverTranslation(root, {
-      role: "round-translation",
-      pr: args.pr,
-      round: args.round,
-      skipped: true,
-      reason: skip,
-      headAtSpawn: record.pr.headSha,
-      finishedAt: new Date().toISOString(),
-    });
-  }
-
-  let receipt;
-  try {
-    receipt = dispatch({ root, role: args.role, timeoutSec: args.timeout, input: { record } });
-  } catch (e) {
-    process.stderr.write(`fable-dispatch: ${e.message}\n`);
-    if (Array.isArray(e.attempts) && e.attempts.length) {
-      process.stderr.write(`fable-dispatch: ${e.attempts.length} attempt(s) had already run: ${JSON.stringify(e.attempts)}\n`);
-    }
-    process.stdout.write(`${unavailable(args.round, oneLine(e.message))}\n`);
-    return e.exitCode ?? 1;
-  }
-  return deliverTranslation(root, { ...receipt, pr: args.pr, round: args.round, record });
-}
-
-/**
- * The round this invocation was FOR, read straight off argv.
- *
- * Needed only when `parseArgs` threw, so nothing validated is available. It is
- * deliberately forgiving -- a malformed `--round` is one of the failures this
- * path exists to report -- and says `?` rather than inventing a number, so the
- * notice never names a round the operator did not ask for.
- */
-const roundFromArgv = (argv) => {
-  const i = argv.indexOf("--round");
-  const raw = i >= 0 ? argv[i + 1] : undefined;
-  return /^\d+$/.test(raw ?? "") ? raw : "?";
-};
-
-/**
- * Dispatch a David-facing role and WRITE WHAT COMES BACK WHERE HE READS IT.
- *
- * The generic path below writes a machine receipt and prints its path. For the
- * probe that is the whole product; for prose it is the bug that cost #88 a
- * round -- four paid-for paragraphs sitting in a gitignored JSON blob while
- * the operator got a file path (Codex, #88 round 2).
- *
- * So this mirrors `deliverTranslation`: receipt first, because it is the
- * evidence, then the human-readable file, then the answer on stdout. A failure
- * after the reviewer ran still leaves the receipt, so nothing paid for is lost.
- *
- * ONE FUNCTION FOR EVERY SUCH ROLE, not one per role. `gaps-translation` and
- * `merge-opinion` differ only in which writer turns the answer into prose, and
- * a second copy of this would be the same rule written twice -- the exact
- * shape Codex raised twice on #88 (the `--pr` check, and the dispatchable-role
- * count). The writer is the parameter; everything else is shared by
- * construction.
- */
-const FILE_WRITERS = {
-  "gaps-translation": { write: writeGaps, label: "gaps" },
-  "merge-opinion": { write: writeMerge, label: "merge brief" },
-};
-
-export const writesAFile = (role) => Object.hasOwn(FILE_WRITERS, role);
-
-export function runFileRole(root, args, { dispatchFn = dispatch, io = process } = {}) {
-  // INJECTED FOR THE SAME REASON `dispatch` TAKES A `runner`: this is the
-  // delivery path, and the delivery path is where BOTH of #88's real defects
-  // lived -- the role that could not launch, and the answer that reached
-  // nobody. A test that reads this file as text and pattern-matches proves the
-  // words are present, not that the thing works, which is precisely the
-  // distinction that let "verified end to end" be wrong twice (Fable's D2
-  // brief on #88, which is the first thing this role found).
-  const { write, label } = FILE_WRITERS[args.role];
-  let receipt;
-  try {
-    receipt = dispatchFn({ root, role: args.role, timeoutSec: args.timeout, input: { pr: args.pr, root } });
-  } catch (e) {
-    io.stderr.write(`fable-dispatch: ${e.message}\n`);
-    return e.exitCode ?? 1;
-  }
-  const out = receiptPathFor(root, receipt);
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, `${JSON.stringify(receipt, null, 2)}\n`);
-  io.stderr.write(`fable-dispatch: receipt -> ${path.relative(root, out)}\n`);
-  try {
-    const file = write(root, args.pr, receipt.output);
-    io.stderr.write(`fable-dispatch: ${label} -> ${path.relative(root, file)}\n`);
-    io.stdout.write(fs.readFileSync(file, "utf8"));
-    return 0;
-  } catch (e) {
-    io.stderr.write(`fable-dispatch: the answer arrived but could not be written: ${e.message}\n`);
-    io.stderr.write(`fable-dispatch: it is in ${path.relative(root, out)} under \`output\`\n`);
-    return 1;
-  }
-}
 
 export function main(argv = process.argv.slice(2)) {
   let args;
@@ -1649,23 +1412,9 @@ export function main(argv = process.argv.slice(2)) {
     args = parseArgs(argv);
   } catch (e) {
     process.stderr.write(`fable-dispatch: ${e.message}\n`);
-    // A round-translation invocation owes David one fixed line on stdout
-    // whatever went wrong, and an argument failure threw before `runTranslation`
-    // could give him one -- so the log's last line was a raw diagnostic he has
-    // no reason to recognise. The role is read from argv rather than from the
-    // parse that just failed, which is the whole point: the parse produced
-    // nothing. Everything specific still goes to stderr, where the operator
-    // reads it. (Codex, #81 round 3.)
-    const roleAt = argv.indexOf("--role");
-    if (roleAt >= 0 && argv[roleAt + 1] === "round-translation") {
-      process.stdout.write(`${unavailable(roundFromArgv(argv), oneLine(e.message))}\n`);
-    }
     return 1;
   }
   const root = repoRoot();
-  if (args.role === "round-translation") return runTranslation(root, args);
-  if (writesAFile(args.role)) return runFileRole(root, args);
-
   let receipt;
   try {
     // The role's own material. Every value here is DATA this script parsed or
