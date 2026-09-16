@@ -261,6 +261,23 @@ to worry about strange links."*)
    `--force-with-lease` on a probe branch was refused with GH013, and a plain
    push of a further commit landed after it.
 
+   **A third ruleset, targeting all branches (`~ALL`) and blocking force
+   pushes, is required** (David, 2026-09-16, #106). The two above leave a gap
+   the deleted guard did not: the guard was scoped to no namespace, so a
+   working branch a runner assigns under some other prefix was covered before
+   the cut and not after. `claude-core.md` now states as fact that a force
+   push is blocked on every branch, so a consumer that omits this gets a
+   contract asserting a protection its repository does not have.
+
+   Two things about this one. **Put nothing else on it** — in particular not
+   *restrict deletions*, which is a separate toggle from force-push and would
+   leave a stale branch behind after every merge, since merged branches
+   auto-delete. And **it does not conflict with the two above**: GitHub unions
+   rulesets, so the overlap on `main` and `claude/**` is harmless, and
+   targeting all branches with no exclusion is deliberately broader than
+   "everything except `main`" — there is no list of runner prefixes to get
+   wrong.
+
 4. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
    `core/.claude/settings.template.json` and is **yours from the moment it
    lands** — the sync never rewrites it, and no "do not edit this vendored

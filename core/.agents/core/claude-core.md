@@ -628,7 +628,9 @@ require a PR, require status checks, require conversation resolution (that
 last is what makes the Merge button inert while a thread is open, in
 *Close-out* above). On `claude/**`: **block force pushes**
 (#94, created and verified 2026-09-16 — `--force-with-lease` on a probe branch
-was refused with GH013, and a plain push of a further commit landed).
+was refused with GH013, and a plain push of a further commit landed). On **all
+branches**: block force pushes (David, 2026-09-16, #106 — the namespace gap the
+two rulesets above left).
 
 **They are not binding on David**: his own direct-push path to `main` through
 Replit's Git pane lands, settled 2026-08-09 and documented in
@@ -644,27 +646,40 @@ recorded anywhere in the fleet's history, the only force-push event on file is
 one where the guard *prevented* fixing a corrupted commit message, and the
 repo's own archive names a hand-rolled parser chasing a real language's syntax
 as a losing shape. What it refused is now covered without a parser — force
-pushes on `main` and `claude/**` by the rulesets above, `drizzle-kit push`
-by `permissions.deny`, `curl`/`wget` by a memory note about a hang rather than
-a loss, and a root `rm -rf` by the ephemeral container. **The guard was not
-scoped to a namespace and the rulesets are**, so that swap is not
-like-for-like, and the table below says where the gap is rather than rounding
-it away.
+pushes on every branch by the rulesets above, `drizzle-kit push` by
+`permissions.deny`, `curl`/`wget` by the agent proxy, and a root `rm -rf` by
+the ephemeral container. **The swap left a namespace gap for one day and it is
+closed**: the guard was scoped to no namespace, the first two rulesets were
+scoped to two, and an all-branches ruleset now covers the rest (David,
+2026-09-16).
 
-**I never force-push, and no flow of mine needs to.** On `main` and
-`claude/**` that is also mechanical. **Outside those two namespaces it is
-not**: a runner can assign me a working branch under some other prefix (the
-assigned-branch case in the `bugfix` skill), no ruleset targets it, and the
-local guard that used to refuse every force shape on every branch is gone. So
-on such a branch this line is the **only** control — which is the reason it is
-written as a rule about me rather than as a fact about the server, and the
-reason a contract that said "blocked everywhere" would be worse than useless:
-it would retire the habit that is doing the work.
+**I never force-push, and no flow of mine needs to.** That is the rule, and it
+stands on its own: it is stated as a rule about me rather than as a fact about
+the server, because a contract that leans on "the server won't let me" retires
+the habit that is doing the work — and the habit is what covers a repo whose
+rulesets are not yet configured.
+
+**It is also mechanical now, on every branch.** David blocked force pushes on
+all branches in all repos (2026-09-16), closing a gap the #89 cut had opened
+for a day: the guard was scoped to no namespace, and the rulesets that replaced
+it reached only `main` and `claude/**`, leaving a runner-assigned branch under
+any other prefix unprotected. **What is measured is the refusal on `claude/**`**
+— `--force-with-lease` on a probe branch, GH013, #94. The all-branches ruleset
+is applied but has not been separately probed; if that distinction ever matters,
+a probe branch outside `claude/**` settles it, and nothing in my flows depends
+on the answer.
+
+**The one shape that would need a force push**, so it is not rediscovered as a
+surprise: restarting a branch in place, under the same name, before it has
+merged. The remedy is a new branch name and a new PR. Every other case has an
+answer that never rewrites history — squash-merge handles rebasing and commit
+messages, rotation rather than rewriting handles a leaked secret (a rewrite
+does not unpublish it), and `git checkout -B <branch> origin/<branch>` handles
+a diverged local copy.
 
 | Command | Result |
 |---|---|
-| any force push to `main` or to `claude/**` | blocked by a ruleset |
-| any force push to a branch outside those namespaces | **nothing blocks it** — refused by this contract and by nothing else |
+| any force push, any shape, any branch | blocked by a ruleset |
 | a plain push of new commits to `claude/**` | **works** — this is every flow |
 | `git reset --hard` | works (cannot reach the remote) |
 | `git push origin --delete <branch>` | does **not** work (proxy hangs) |
