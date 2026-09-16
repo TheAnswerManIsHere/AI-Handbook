@@ -168,21 +168,24 @@ export const DISPOSITIONS = ["fixed", "declined", "to-david", "deferred"];
 export const BLOCKING_STATUSES = ["Human clarification required", "Repo context required"];
 
 /**
- * Round budgets, by the tier of what is being planned. The plan loop takes the
- * tier of the thing it plans, because a wrong plan becomes wrong code.
+ * The tier of the thing being planned. The plan loop takes it because a wrong
+ * plan becomes wrong code.
  *
- * These used to be enforced by `review-budget.mjs`, which is keyed to a PR
- * number and reads receipts from a remote-tracking ref. There is no PR any
- * more, so that machinery cannot run and the budget would have been prose
- * (Codex, #69 round 1). It is enforced here instead, and the local version is
- * simpler for the same reason the rest of this is: the round count is not
- * stored anywhere, it is COUNTED from the round files on disk. A count that is
- * derived cannot drift from the thing it counts.
+ * A RUBRIC SELECTOR, NOT A BUDGET (#89 cut, 2026-09-16). These three names
+ * used to be the keys of `TIER_BUDGETS`, and the number beside each was a
+ * round cap this file enforced -- with a self-serve leash above it, a grants
+ * file, and an allowance computed from both. All of that is gone, with the
+ * PR-keyed budget machinery it mirrored. Termination is the reviewer's own
+ * `review_status` field, which is where it always actually belonged: a
+ * reviewer that can say "ship it" needs no counter, and a count is what turned
+ * a stopping judgement into arithmetic.
+ *
+ * The tier itself STAYS, still required from round 1 and still pinned by the
+ * first round that sets one, because it selects how strictly a finding is
+ * read. It is now a standalone list rather than a derived one, which is the
+ * whole of what this declaration does.
  */
-export const TIER_BUDGETS = { product: 5, sensitive: 5, internal: 3 };
-export const TIERS = Object.keys(TIER_BUDGETS);
-/** The self-serve leash above the budget; past it, only David grants. */
-export const LEASH = 3;
+export const TIERS = ["product", "sensitive", "internal"];
 
 // ---------------------------------------------------------------------------
 // The output schemas
@@ -492,11 +495,19 @@ export function reconciliationProblems(assessment, priors) {
 /**
  * Whether this round meets the loop's stop rule -- computed, not judged.
  *
- * Three conditions, and the third is the one that is easy to forget: a
- * BLOCKING status means the reviewer could not review, and such a round
- * naturally has no required revisions to report. Reading that as convergence
- * would take "I could not see enough of the repository to judge this" for
- * "this is fine".
+ * The condition that is easy to forget: a BLOCKING status means the reviewer
+ * could not review, and such a round naturally has no required revisions to
+ * report. Reading that as convergence would take "I could not see enough of
+ * the repository to judge this" for "this is fine".
+ *
+ * AND NEITHER IS AN OPEN QUESTION FOR DAVID (#89 walkthrough, reproduced by
+ * Astra). `product_decisions_for_david` is where the reviewer puts a fork it
+ * refuses to settle -- and a round carrying one converged, because a fork is
+ * not a required revision. So the loop reached "no required revisions, take it
+ * to David for approval" while still holding a question only David could
+ * answer, and the ask went to him with the fork inside it rather than before
+ * it. A clean technical round never erases an outstanding human decision; the
+ * proxy carries the same rule as a semantic check on its own answer (#96).
  */
 export function convergence(assessment, priors) {
   const reasons = [];
@@ -512,53 +523,17 @@ export function convergence(assessment, priors) {
   if (["No", "Not yet"].includes(assessment.should_this_exist)) {
     reasons.push(`should_this_exist is "${assessment.should_this_exist}" -- a product question for David, not a pass`);
   }
+  const forks = assessment.product_decisions_for_david ?? [];
+  if (forks.length) {
+    reasons.push(
+      `${forks.length} product decision(s) are open for David: ` +
+        `${forks.map((d) => JSON.stringify(d.question)).join(", ")}`,
+    );
+  }
   const unresolved = (assessment.previous_findings ?? []).filter((f) => f.status === "Still open");
   if (unresolved.length) reasons.push(`${unresolved.length} prior finding(s) Still open: ${unresolved.map((f) => f.id).join(", ")}`);
   if (priors.length && !(assessment.previous_findings ?? []).length) reasons.push("prior findings were not reconciled");
   return { converged: reasons.length === 0, reasons };
-}
-
-/**
- * The allowance this loop has, from its tier and any recorded grants.
- *
- * Mirrors the contract exactly: a finite grant opens `asOf + grant` rounds, so
- * a mid-stage grant discards the interrupted stage's unspent remainder rather
- * than stacking on it. Adjudicator grants self-serve only as far as the leash;
- * past that the grant has to be David's.
- */
-export function allowanceFor(tier, grants) {
-  const cap = TIER_BUDGETS[tier];
-  let allowance = cap;
-  for (const g of grants) {
-    const opened = g.asOf + g.grant;
-    if (g.kind === "adjudicator" && opened > cap + LEASH) {
-      throw new Error(
-        `an adjudicator grant cannot open round ${opened}: the self-serve leash ends at ${cap + LEASH} ` +
-          `(budget ${cap} + ${LEASH}). Past there the grant is David's, recorded with kind "david".`,
-      );
-    }
-    allowance = Math.max(allowance, opened);
-  }
-  return allowance;
-}
-
-/** Grants recorded for this loop, validated rather than trusted. */
-export function readGrants(dir) {
-  const file = path.join(dir, "extensions.json");
-  if (!fs.existsSync(file)) return [];
-  const raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (!Array.isArray(raw)) throw new Error(`${file} must contain a JSON array of grants`);
-  return raw.map((g, i) => {
-    const at = `extensions.json[${i}]`;
-    for (const key of ["grant", "asOf"]) {
-      if (!Number.isInteger(g?.[key]) || g[key] < 0) throw new Error(`${at} needs an integer "${key}" >= 0`);
-    }
-    if (!["adjudicator", "david"].includes(g.kind)) throw new Error(`${at} needs "kind" of "adjudicator" or "david"`);
-    if (typeof g.reason !== "string" || g.reason.trim() === "") {
-      throw new Error(`${at} needs a "reason" -- a grant that names no unaddressed risk is a rubber stamp`);
-    }
-    return { grant: g.grant, asOf: g.asOf, kind: g.kind, reason: g.reason.trim() };
-  });
 }
 
 /**
@@ -568,6 +543,12 @@ export function readGrants(dir) {
  * loop *started* on rather than whatever the last round happened to pass.
  * A meta without a tier (round 0 runs before `--tier` is required) is skipped
  * rather than treated as a mismatch.
+ *
+ * It reads `meta.tier`, which is where the field lives now that `meta.budget`
+ * is gone. A meta written before the #89 cut recorded it as `budget.tier` and
+ * is simply skipped -- those loops are finished, and inventing a migration for
+ * a snapshot directory that is gitignored and dies with its container would be
+ * machinery for nobody.
  */
 export function assertTierPinned(dir, earlier, tier) {
   for (const n of [...earlier].sort((a, b) => a - b)) {
@@ -579,14 +560,14 @@ export function assertTierPinned(dir, earlier, tier) {
     } catch {
       continue;
     }
-    const pinned = meta?.budget?.tier;
+    const pinned = meta?.tier;
     if (typeof pinned !== "string" || pinned === "") continue;
     if (pinned === tier) return;
     throw new Error(
-      `this loop ran round ${n} as tier "${pinned}", and this round says "${tier}". The tier sets both the round ` +
-        `budget (${TIER_BUDGETS[pinned] ?? "?"} vs ${TIER_BUDGETS[tier] ?? "?"}) and the rubric the adjudicator ` +
-        `applies, so changing it mid-loop buys rounds that were never granted. Re-run with --tier ${pinned}, or ` +
-        `start a new loop under a new slug if the work genuinely changed tier.`,
+      `this loop ran round ${n} as tier "${pinned}", and this round says "${tier}". The tier selects how strictly ` +
+        `a finding is read, so changing it mid-loop re-judges earlier rounds under a rubric they never ran ` +
+        `against. Re-run with --tier ${pinned}, or start a new loop under a new slug if the work genuinely ` +
+        `changed tier.`,
     );
   }
 }
@@ -959,9 +940,13 @@ export function stablePrefix({ round, contractPath, oracle, planPath }) {
     "",
     "## Toolchain exclusion",
     "",
-    "Do not report what a compiler, a linter or a test suite would catch. Report what would survive",
-    "into production invisibly: wrong invariants, unguarded paths, a check that can be satisfied",
-    "without the thing it exists to check, a refusal that fails open.",
+    "Do not report a defect that a check which ACTUALLY RUNS on this repository would catch. The",
+    "exclusion is that narrow on purpose: written as \"anything a compiler, a linter or a test suite",
+    "would catch\" it excluded defects on the strength of tooling nobody had configured, which is the",
+    "reverse of what it is for. Missing coverage, an assertion that is wrong, and a check that passes",
+    "without proving its condition all stay IN scope, and so does a required check that is failing.",
+    "Report what would survive invisibly: wrong invariants, unguarded paths, a check that can be",
+    "satisfied without the thing it exists to check, a refusal that fails open.",
     "",
     "## Output",
     "",
@@ -1495,7 +1480,7 @@ export const USAGE = [
   `  node ${INVOCATION} --round <N> --plan <file> [--slug <s>] [--oracle <f>]`,
   `${FLAG_COLUMN}[--lens <text>] [--prior <file> | --no-prior]`,
   "",
-  `  --tier        ${TIERS.join(" | ")} — required from round 1; sets the round budget`,
+  `  --tier        ${TIERS.join(" | ")} — required from round 1; selects the rubric`,
   "  --dry-run     assemble the prompt and schema, write them, spawn nothing",
   "  --force       re-run a round that already exists, discarding its result first",
   "  --oracle-changed <reason>   the oracle differs from the pinned one, deliberately",
@@ -1588,46 +1573,30 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // --- the oracle, pinned for the life of the loop -----------------------
     const pin = pinOracle(dir, oracle, { changedReason: flags.oracleChanged ?? null });
 
-    // --- budget -----------------------------------------------------------
-    // Counted from the round files, never stored. The PR-keyed budget guard
-    // cannot run without a PR, so if this did not enforce the cap the cap
-    // would be prose (Codex, #69 round 1).
-    let budget = null;
+    // --- tier ---------------------------------------------------------
+    // A rubric selector, not an allowance. Nothing here counts rounds: the
+    // stop rule is the reviewer's own `review_status`.
+    let tier = null;
     if (round >= 1) {
       if (!flags.tier) {
         throw new Error(
           `--tier is required from round 1 (${TIERS.join(" | ")}). The plan loop takes the tier of what it plans, ` +
-            `and the tier is the round budget: ${TIERS.map((t) => `${t} ${TIER_BUDGETS[t]}`).join(", ")}.`,
+            `and the tier selects how strictly a finding is read.`,
         );
       }
       if (!TIERS.includes(flags.tier)) throw new Error(`--tier must be one of ${TIERS.join(", ")}`);
-      // THE TIER IS PINNED BY THE FIRST ROUND THAT SET ONE. It decides both
-      // the round budget and the adjudicator's rubric, so a changed flag on a
-      // later round silently buys rounds the loop was never granted: an
-      // internal loop three rounds deep, invoked once with `--tier product`,
-      // recomputes its allowance as five and proceeds without any grant
-      // (Codex, #69 round 8). Every round already stamps its tier on the
-      // meta, so the pin costs a read rather than new state.
+      // THE TIER IS PINNED BY THE FIRST ROUND THAT SET ONE, so a typo'd flag
+      // on a later round cannot re-judge the loop under a rubric its earlier
+      // rounds never ran against (Codex, #69 round 8, where the same pin
+      // stopped a changed flag buying rounds). Every round already stamps its
+      // tier on the meta, so the pin costs a read rather than new state.
       //
-      // This is NOT the driver-as-adversary class declined in round 2 — the
+      // This is NOT the driver-as-adversary class declined in round 2 -- the
       // failure here is a typo'd flag on a long command, and the loop driver
       // gains nothing by it. It is the same shape as the oracle pin: a value
       // agreed once, then read rather than re-supplied.
       assertTierPinned(dir, earlier, flags.tier);
-
-      const grants = readGrants(dir);
-      const allowance = allowanceFor(flags.tier, grants);
-      if (round > allowance) {
-        throw new Error(
-          `round ${round} is past this loop's allowance of ${allowance} (tier ${flags.tier}, budget ` +
-            `${TIER_BUDGETS[flags.tier]}${grants.length ? `, ${grants.length} recorded grant(s)` : ""}). ` +
-            `At the budget the adjudicator owns the extension and may self-serve as far as round ` +
-            `${TIER_BUDGETS[flags.tier] + LEASH}; past that the grant is David's. Record it in ` +
-            `${path.relative(root, path.join(dir, "extensions.json"))} as ` +
-            `{"grant": <rounds>, "asOf": ${earlier.filter((n) => n >= 1).length}, "kind": "adjudicator"|"david", "reason": "<the risk it covers>"}.`,
-        );
-      }
-      budget = { tier: flags.tier, cap: TIER_BUDGETS[flags.tier], allowance, grants };
+      tier = flags.tier;
     }
 
     // --- prior findings ---------------------------------------------------
@@ -1726,7 +1695,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           `  schema  ${path.relative(root, schemaFile)}\n` +
           `  oracle  ${oracle.length} chars${pin.firstPin ? " (pinned now)" : pin.changed ? " (CHANGED, recorded)" : " (matches the pin)"}\n` +
           `  priors  ${priors.length}\n` +
-          (budget ? `  budget  round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : ""),
+          (tier ? `  tier    ${tier}\n` : ""),
       );
       pin.commit();
       return 0;
@@ -1847,7 +1816,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       contractDigest: sha256(contract.text),
       promptDigest: sha256(prompt),
       priorFindings: priors.map((p) => ({ id: p.id, disposition: p.disposition })),
-      budget,
+      tier,
       oraclePin: { pinned: pin.pinned, changed: pin.changed, firstPin: pin.firstPin, changedReason: pin.changedReason ?? null },
       // Present only when the round departed from the settled reviewer, so its
       // absence is the ordinary case and its presence is loud.
@@ -1906,7 +1875,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         `  status    ${assessment.review_status}\n` +
         `  ${label.padEnd(9)} ${counted}\n` +
         `  seconds   ${attempts.map((a) => Math.round(a.seconds)).join(" + ")}\n` +
-        (budget ? `  budget    round ${round} of ${budget.allowance} (tier ${budget.tier})\n` : "") +
+        (tier ? `  tier      ${tier}\n` : "") +
         `  ${converged ? "CONVERGED — the stop rule is met" : `not converged: ${reasons.join("; ")}`}\n`,
     );
     process.stdout.write(`${path.relative(root, outJson)}\n`);

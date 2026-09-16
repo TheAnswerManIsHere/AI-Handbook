@@ -27,8 +27,6 @@ import {
   main,
   reconciliationProblems,
   convergence,
-  allowanceFor,
-  readGrants,
   roundsRun,
   assertIgnored,
   assertTierPinned,
@@ -37,9 +35,7 @@ import {
   pinOracle,
   ensurePlansIgnored,
   BLOCKING_STATUSES,
-  TIER_BUDGETS,
   TIERS,
-  LEASH,
   CONTRACT_PATH,
   USAGE,
   DISPOSITIONS,
@@ -789,11 +785,30 @@ const clean = (over = {}) =>
     review_status: "No major technical disagreement",
     required_revisions: [],
     previous_findings: [],
+    // A round holding a fork for David is not a clean round, which is what
+    // this helper stands for. It is listed here rather than inherited from
+    // `assessment()` because the default fixture carries one, and inheriting
+    // it is exactly how the loop came to converge over an open question.
+    product_decisions_for_david: [],
     ...over,
   });
 
 test("a clean round with nothing outstanding converges", () => {
   assert.deepEqual(convergence(clean(), []), { converged: true, reasons: [] });
+});
+
+test("an open product decision blocks convergence, however clean the technical round", () => {
+  // Reproduced by Astra during the #89 walkthrough. A fork the reviewer
+  // refuses to settle is not a required revision, so a round carrying one
+  // converged: the loop reached "nothing outstanding, take it to David for
+  // approval" while still holding the question only he could answer, and the
+  // approval ask went out with the fork inside it rather than before it.
+  const { converged, reasons } = convergence(
+    clean({ product_decisions_for_david: [{ question: "Wait at v1?", options: ["Wait", "Proceed"], recommendation: "Proceed" }] }),
+    [],
+  );
+  assert.equal(converged, false);
+  assert.match(reasons.join(" "), /open for David.*Wait at v1\?/);
 });
 
 test("a blocking status never converges, however empty the findings are", () => {
@@ -818,47 +833,15 @@ test("priors handed over but never reconciled block convergence", () => {
   assert.equal(convergence(clean(), somePriors()).converged, false);
 });
 
-// ── budget, counted rather than stored ─────────────────────────────────────
-
-test("each tier's budget is its allowance when nothing was granted", () => {
-  for (const tier of TIERS) assert.equal(allowanceFor(tier, []), TIER_BUDGETS[tier]);
-});
-
-test("a grant opens asOf + grant, so a mid-stage grant does not stack", () => {
-  // Same rule as the committed receipts: a finite grant discards the
-  // interrupted stage's unspent remainder rather than adding to it.
-  assert.equal(allowanceFor("internal", [{ grant: 2, asOf: 3, kind: "adjudicator", reason: "r" }]), 5);
-  assert.equal(allowanceFor("internal", [{ grant: 0, asOf: 3, kind: "david", reason: "stop" }]), 3);
-});
-
-test("an adjudicator cannot self-serve past the leash; David can", () => {
-  const cap = TIER_BUDGETS.internal;
-  assert.throws(
-    () => allowanceFor("internal", [{ grant: 5, asOf: cap, kind: "adjudicator", reason: "r" }]),
-    /self-serve leash ends at/,
-  );
-  assert.equal(
-    allowanceFor("internal", [{ grant: 5, asOf: cap, kind: "david", reason: "his call" }]),
-    cap + 5,
-  );
-  // Exactly at the leash is fine.
-  assert.equal(allowanceFor("internal", [{ grant: LEASH, asOf: cap, kind: "adjudicator", reason: "r" }]), cap + LEASH);
-});
-
-test("a grant is validated, not trusted", () => {
-  const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
-  const write = (v) => writeFileSync(join(root, "extensions.json"), JSON.stringify(v));
-  assert.deepEqual(readGrants(root), [], "absent file is no grants");
-  write({ grant: 1 });
-  assert.throws(() => readGrants(root), /must contain a JSON array/);
-  write([{ grant: 1, asOf: 0, kind: "adjudicator" }]);
-  assert.throws(() => readGrants(root), /needs a "reason"/);
-  write([{ grant: 1, asOf: 0, kind: "someone", reason: "r" }]);
-  assert.throws(() => readGrants(root), /"adjudicator" or "david"/);
-  write([{ grant: -1, asOf: 0, kind: "david", reason: "r" }]);
-  assert.throws(() => readGrants(root), /integer "grant"/);
-  drop(root);
-});
+// ── the tier, and the rounds on disk ───────────────────────────────────────
+//
+// The budget tests that stood here are gone with the budget (#89 cut,
+// 2026-09-16): each tier's allowance, a grant opening `asOf + grant`, the
+// adjudicator's self-serve leash, and the validation of `extensions.json`.
+// Nothing counts rounds against a cap any more -- termination is the
+// reviewer's own `review_status` -- so there is no allowance to assert.
+// `roundsRun` survives because the round files are still what a later round
+// reads to find the earlier ones.
 
 test("rounds run are counted from the round files, never stored", () => {
   const root = mkdtempSync(join(tmpdir(), "plan-review-test-"));
@@ -870,19 +853,17 @@ test("rounds run are counted from the round files, never stored", () => {
   drop(root);
 });
 
-test("a round past the allowance is refused, and the refusal says how to extend", () => {
+test("a high round number runs, because nothing caps it any more", () => {
+  // The inverse of the test this replaces. Round 4 of an internal loop used to
+  // be refused as past an allowance of 3 unless `extensions.json` recorded a
+  // grant; it now simply runs. Asserted rather than merely deleted, because
+  // "the cap is gone" is the behavioural change and a removed test asserts
+  // nothing.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: "```plan-oracle\nD\n```" } });
   const log = quiet();
-  const argv = ["--round", "4", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-prior", "--dry-run"];
-  assert.equal(main(argv, { root, run: fakeRun([]), log }), 1);
-  assert.match(log.text(), /past this loop's allowance of 3/);
-  assert.match(log.text(), /extensions\.json/);
-
-  writeFileSync(
-    join(root, ".agents/reviews/x/extensions.json"),
-    JSON.stringify([{ grant: 3, asOf: 3, kind: "adjudicator", reason: "the receipt chain is still unverified" }]),
-  );
-  assert.equal(main(argv, { root, run: fakeRun([]), log }), 0, "the recorded grant opens it");
+  const argv = ["--round", "9", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-prior", "--dry-run"];
+  assert.equal(main(argv, { root, run: fakeRun([]), log }), 0);
+  assert.doesNotMatch(log.text(), /allowance|extensions\.json|leash/);
   drop(root);
 });
 
@@ -898,7 +879,7 @@ test("--tier is required from round 1 and validated", () => {
   drop(root);
 });
 
-test("round 0 needs no tier — the scope gate runs before the loop it budgets", () => {
+test("round 0 needs no tier — the scope gate runs before the loop it selects a rubric for", () => {
   const root = fixtureRoot();
   writeFileSync(join(root, "oracle.md"), ORACLE);
   const log = quiet();
@@ -1134,8 +1115,7 @@ test("the meta and the log both state whether the round converged", () => {
   });
   const meta = JSON.parse(readFileSync(join(root, ".agents/reviews/x/round-1.meta.json"), "utf8"));
   assert.equal(meta.convergence.converged, true);
-  assert.equal(meta.budget.tier, "internal");
-  assert.equal(meta.budget.allowance, TIER_BUDGETS.internal);
+  assert.equal(meta.tier, "internal");
   assert.match(meta.oraclePin.pinned, /^[0-9a-f]{64}$/);
   assert.match(log.text(), /CONVERGED/);
   drop(root);
@@ -1205,12 +1185,14 @@ test("an existing docs/plans/.gitignore that ignores nothing useful is extended,
 });
 
 test("a round-0 verdict against the work is not convergence", () => {
-  const no = scopeAssessment({ review_status: "Scope is right", should_this_exist: "No", scope_concerns: [] });
-  assert.equal(convergence(no, []).converged, false);
-  const wrong = scopeAssessment({ review_status: "Scope is wrong", should_this_exist: "Yes", scope_concerns: [] });
-  assert.equal(convergence(wrong, []).converged, false);
-  const yes = scopeAssessment({ review_status: "Scope is right", should_this_exist: "Yes", scope_concerns: [] });
-  assert.equal(convergence(yes, []).converged, true);
+  // `product_decisions_for_david: []` on each: the default round-0 fixture
+  // carries a fork, and an open fork is itself a non-convergence reason now.
+  // Leaving it in would make all three cases fail for that reason instead of
+  // the one under test, including the one that must PASS.
+  const gate = (over) => scopeAssessment({ product_decisions_for_david: [], scope_concerns: [], ...over });
+  assert.equal(convergence(gate({ review_status: "Scope is right", should_this_exist: "No" }), []).converged, false);
+  assert.equal(convergence(gate({ review_status: "Scope is wrong", should_this_exist: "Yes" }), []).converged, false);
+  assert.equal(convergence(gate({ review_status: "Scope is right", should_this_exist: "Yes" }), []).converged, true);
 });
 
 test("a reviewer that crashed is not re-asked", () => {
@@ -1406,6 +1388,7 @@ test("two priors sharing an id are refused, because one answer would reconcile b
   const oneAnswer = assessment({
     required_revisions: [],
     previous_findings: [{ id: "R1", status: "Resolved", note: "done" }],
+    product_decisions_for_david: [],
   });
   assert.deepEqual(reconciliationProblems(oneAnswer, priors), [], "the old path saw nothing wrong");
   assert.equal(convergence(oneAnswer, priors).converged, true, "and called it converged");
@@ -1729,14 +1712,14 @@ function roundMeta(root, slug, n, meta) {
 }
 
 test("a tier that disagrees with the loop's first round is refused", () => {
-  // The tier sets the budget AND the adjudicator's rubric, so `--tier product`
+  // The tier selects the rubric a finding is read under, so `--tier product`
   // typed on round 4 of an internal loop recomputes the allowance as 5 and
   // proceeds without any grant. Not the driver-as-adversary class declined in
   // round 2 — the failure is a typo on a long command.
   const root = fixtureRoot({});
   const dir = join(root, ".agents/reviews/x");
-  roundMeta(root, "x", 1, { budget: { tier: "internal" } });
-  roundMeta(root, "x", 2, { budget: { tier: "internal" } });
+  roundMeta(root, "x", 1, { tier: "internal" });
+  roundMeta(root, "x", 2, { tier: "internal" });
 
   assert.throws(() => assertTierPinned(dir, [1, 2], "product"), /ran round 1 as tier "internal"/);
   assert.throws(() => assertTierPinned(dir, [1, 2], "product"), /--tier internal/);
@@ -1744,14 +1727,14 @@ test("a tier that disagrees with the loop's first round is refused", () => {
 
   // The pin is the tier the loop STARTED on, so a later round that already
   // drifted cannot re-anchor it.
-  roundMeta(root, "x", 3, { budget: { tier: "product" } });
+  roundMeta(root, "x", 3, { tier: "product" });
   assert.throws(() => assertTierPinned(dir, [1, 2, 3], "product"), /round 1 as tier "internal"/);
 
   // Round 0 runs before --tier is required; a meta without one is skipped
   // rather than read as a mismatch.
   const fresh = fixtureRoot({});
-  roundMeta(fresh, "y", 0, { budget: null });
-  roundMeta(fresh, "y", 1, { budget: { tier: "sensitive" } });
+  roundMeta(fresh, "y", 0, { tier: null });
+  roundMeta(fresh, "y", 1, { tier: "sensitive" });
   assertTierPinned(join(fresh, ".agents/reviews/y"), [0, 1], "sensitive");
   assert.throws(() => assertTierPinned(join(fresh, ".agents/reviews/y"), [0, 1], "internal"), /round 1/);
   drop(root);
