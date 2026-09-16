@@ -373,7 +373,14 @@ me writing for every finding.
 
 4. **No re-request without a behavioral change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
-   as behavioral; rule 3's mechanical round is the one exception. **Every review request carries pre-registered flip
+   as behavioral; **a mechanical round is the one exception** — the head moved
+   only by a merge of the base branch, nothing is being written for, and no
+   review is pending. That round is mine to request without a behavioural
+   change, because the write-gate rule needs every head reviewable and this
+   rule would otherwise make a merge-commit head unreviewable and so
+   unmergeable.
+   (The definition used to live in a rule 3 the #89 cut removed, along with the
+   receipt arithmetic that was the rest of it.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
    written before the round runs. This is the only stopping device with a
    working record, and it works because it collides with an event instead of
@@ -696,9 +703,11 @@ shows the true delta.
    waiting for, **end the turn**, and on the wake-up check the actual condition
    via the matching `mcp__github__*` call — `pull_request_read`/
    `get_check_runs` for CI, `get_reviews` for a review landing, `get` for merge
-   state, `issue_read` for labels. **Never poll GitHub from bash**: `curl`/
-   `wget` are refused by the guard and no other bash transport returns usable
-   data (see
+   state, `issue_read` for labels. **Never poll GitHub from bash**: the agent
+   proxy answers `curl` with its own 403, Node `fetch` bypasses the proxy and
+   gets a 403 or 401 from the real API, and no other bash transport returns
+   usable data. **A poll loop built on any of them does not fail — it returns
+   nothing and sleeps, which looks exactly like "still waiting"** (see
    [`github-rest-api-blocked-from-bash.md`](../../.agents/memory/github-rest-api-blocked-from-bash.md)).
    Short foreground sleeps run; long ones are blocked.
 2. **Scheduled check-ins** are allowed only while waiting on a **named external

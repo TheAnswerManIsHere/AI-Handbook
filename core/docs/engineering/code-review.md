@@ -70,8 +70,11 @@ the producer documents against it — **no code reads a PR body.**
 
 So the shape check is yours too, and it is cheap: the block opens with `kind`,
 its key set is exactly what that kind requires, and every key is one the format
-defines. A **missing, misspelled or malformed** block is now a finding, where
-before it was refused upstream. `docs/ai-context/plan-provenance.md` is the
+defines. A block that is **present but misspelled, malformed, or missing a key
+its `kind` requires** is now a finding, where before it was refused upstream.
+**"Missing" here means a missing key inside a block that is there** — a body
+carrying no block at all is still not a finding, per the legacy-prose paragraph
+above, and the two are easy to run together. `docs/ai-context/plan-provenance.md` is the
 format's only statement; read the keys from there rather than from memory.
 
 Everything below is unchanged, and is what was always yours: the block checks

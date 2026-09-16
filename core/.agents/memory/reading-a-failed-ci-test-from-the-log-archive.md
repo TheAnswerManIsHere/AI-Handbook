@@ -23,12 +23,13 @@ plan around this by reaching for the fetch anyway.
 
 **What to do instead, in order:**
 
-1. **A repo script is unaffected** — the guard refuses a directly-typed `curl`,
-   not a script that runs one internally. If this recurs, the right fix is a
-   small committed script that fetches and greps a run's archive. That does not
-   exist yet.
-2. **Otherwise ask David**, which is what the guard's own refusal text says to
-   do when an ad-hoc fetch is genuinely needed.
+1. **A repo script is no better off.** The shell guard that used to refuse a
+   directly-typed `curl` is gone (#89 cut), but nothing changed for this note:
+   the refusal was never what blocked the fetch — **the agent proxy is**, and it
+   answers a script's `curl` exactly as it answers a typed one. If this recurs,
+   the right fix is still a small committed script, and it still needs a
+   transport that works. That does not exist yet.
+2. **Otherwise ask David** when an ad-hoc fetch is genuinely needed.
 
 **Before concluding "unrelated flake": trace imports, don't grep the file.**
 A zero direct-reference count proves nothing. Most integration tests here import
