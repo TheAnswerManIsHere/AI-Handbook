@@ -12,13 +12,21 @@ for machinery that no longer exists**: budget cadence, receipt shapes, snapshot
 recipes, round-count recovery and adjudicator dispatch. All of it is gone,
 along with the scripts it drove.
 
-**What is here is what survived the deletion, and nothing more.** The
+**What is here is what survived the deletion, plus one restoration.** The
 rewritten, re-sequenced version of this skill — the draft-first flow, the
 judge's dispatch step, the gap-issue step and the shared-vocabulary
 references — is deliberately NOT in this PR; it lands with the rulebook
 rewrite, beside #92. So a step below that reads thin is thin on purpose: this
 change removes, it does not re-specify.
 
+**The restoration, because a strip that overshoots is a deletion nobody
+approved.** Most of the old reply section was a second statement of
+`claude-core.md` rules 5 and 6, and losing a second copy is the point of this
+cut. But three things lived *only* here and rule 6 still points at them — the
+class-level sweep and the two escape valves on the `Oracle:` line. Stripping
+those would have left the always-loaded contract pointing at a spec that no
+longer exists, which is a worse outcome than the duplication. They are back in
+step 5, stated once, with the duplicated material left out.
 ## The loop
 
 1. **Subscribe, immediately, on whatever tier the session is on** (David,
@@ -54,8 +62,35 @@ change removes, it does not re-specify.
 5. **Reply to every finding and resolve its thread**, right after posting that
    reply, never in a batch, and never as a standalone summary comment in place
    of per-thread replies. The reply carries the fields `claude-core.md` rule 6
-   requires. A reply citing a command ran it first and transcribes its real
-   output.
+   requires — `Class:` / `Worth:` / `Oracle:` / `Result:`, in that order, with
+   the outcome said in plain words in the first sentence. **What those lines
+   mean is stated once, in rule 6 and rule 5, and is not restated here**; a
+   second copy is what this cut exists to stop. What is here is only what rule
+   6 points at and states nowhere else:
+
+   - **The sweep is class-level, always.** A fix closes the class the finding
+     belongs to, not the line the reviewer happened to land on, and the
+     `Oracle:` line carries the command that proves it. Measured cost of not
+     doing this: on #553 I posted twenty-plus replies across five rounds that
+     read as thorough — naming the class, describing what I had checked — and
+     ran zero commands. **Prose that sounds thorough is not an oracle that
+     ran**, so the command runs *before* the reply is written and `Result:`
+     transcribes its real output.
+
+   - **Escape valve 1 — a class with no mechanical oracle.** Some classes are
+     design judgement or naming preference and cannot be enumerated by any
+     command. The reply says so on the Oracle line rather than going silent:
+     `Oracle: none — <why this class is not mechanically enumerable>`. That is
+     a claim I can be held to; silence is not.
+
+   - **Escape valve 2 — the class has exactly one member.** `instance = class`
+     is not an exemption from the oracle line. The command that proves the
+     class has one member goes on `Oracle:`, and its `1` goes on `Result:`.
+
+   **If I cannot write the command, I have not understood the finding** — that
+   is a signal to go back to the code, never a licence to reply in prose. This
+   applies to declines as hard as to fixes: declining with no oracle asserts
+   the class is empty without having looked.
 
 6. **Re-request review on the actual head.**
 
