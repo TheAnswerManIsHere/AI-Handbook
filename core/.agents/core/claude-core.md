@@ -819,10 +819,11 @@ shows the true delta.
   under the 2026-09-11 rule.
   **Two things that costs, named rather than buried:** the old dispatcher
   *observed* the model and refused on a mismatch, and a subagent cannot, so the
-  model is **disclosed** and a mismatch prints on David's page. And **an agent
-  type is not loadable in the session that installs it** — the harness
-  enumerates types at session start — so the session that syncs a new role
-  writes that round up by hand.
+  model is **disclosed** and a mismatch prints on David's page. And **a newly
+  added agent type is not dispatchable immediately** — measured 2026-09-16, a
+  dispatch minutes after the definition was written failed with `Agent type not
+  found` and the same type worked later in the same session, no restart. A
+  refusal there means wait, not that the definition is wrong.
 
 ### Subagent delegation is capped
 

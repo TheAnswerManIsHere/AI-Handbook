@@ -164,11 +164,20 @@ step 5, stated once, with the duplicated material left out.
    - **A failed dispatch never blocks the loop.** D0 is off the critical path by
      design: disclose it in plain English and carry on.
 
-   **The agent type is not loadable in the session that installs it.** The
-   harness enumerates agent types at session start, so the first session after a
-   sync — or after this skill changes — cannot dispatch the role it just
-   received. That is not a failure: write the round up by hand, say the
-   translator was unavailable, and the next session has it.
+   **A newly added agent type is not dispatchable immediately, and that is not
+   a broken definition.** Measured 2026-09-16: a dispatch attempted minutes
+   after the definition was created failed with `Agent type 'fable-round-translation' not found`,
+   and the same type became dispatchable later in the **same** session with no
+   restart. So after a sync that brings a new role, or after adding one: if the
+   dispatch refuses, write the round up by hand, say the translator was
+   unavailable, and try again on the next round rather than concluding the file
+   is wrong.
+
+   **What the role actually holds, measured on the real dispatch:**
+   `ToolSearch`, `Write`, the three GitHub read methods (deferred — it loads
+   them itself), and the injected `SubagentHandback`. **No `Read`, no `Edit`,
+   no `Bash`, no `Grep`.** Per-method MCP names resolve in the `tools:` list,
+   so the read-only boundary is real rather than asserted.
 
 8. **Merge, sync, report**, per `claude-core.md`'s *Close-out is mine, end to
    end*: re-verify live state with a fresh `pull_request_read` — not cached
