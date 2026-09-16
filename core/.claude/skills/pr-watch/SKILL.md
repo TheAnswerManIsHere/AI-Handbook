@@ -132,11 +132,15 @@ step 5, stated once, with the duplicated material left out.
    **How it runs.** Dispatch the agent type **`fable-round-translation`**
    with `model: dispatchModel().agentModel`. Its instructions are the agent
    definition the harness loads — I do not assemble them. What I pass is
-   `roundBrief({ pr, round, head, since, finalRound, answerFile, priorAccounts })`:
+   `roundBrief({ root, pr, round, head, since, until, finalRound, priorAccounts })`:
    the round's coordinates and nothing else.
 
-   **Fable writes its answer to `answerFile`**, and `readAnswer(root, pr, round,
-   { finalRound })` reads it back. Then write the receipt, `publishPage`, and
+   **Fable writes its answer to a path `roundBrief` derives**, and
+   `readAnswer(root, pr, round, { finalRound })` reads it back from the same
+   derivation. Neither takes a path from a caller: `readAnswer` always called
+   `answerPath` and ignored anything passed, so a caller-supplied path that
+   disagreed meant a good answer written where nothing looked — and the page
+   reported a **failed** round over a successful one. Then write the receipt, `publishPage`, and
    paste `chatLine` verbatim.
 
    - **The answer comes from the file, never from the dispatch.** The Agent
@@ -150,14 +154,32 @@ step 5, stated once, with the duplicated material left out.
      raised and nothing was pushed", which over a failed round is a false clean
      bill of health.
    - **Two cursors, and do not mix them.** `head` pins which commits count;
-     `since` is a **timestamp** bounding review activity. Rounds routinely
-     happen with the head unchanged — a decline round is exactly that — so a
-     SHA alone cannot bound comments.
+     `since`/`until` are **timestamps** bounding review activity. Rounds
+     routinely happen with the head unchanged — a decline round is exactly that
+     — so a SHA alone cannot bound comments.
+   - **Capture `until` at dispatch, and always pass it.** The comment reads are
+     live and this dispatch runs detached from the loop by design, so a slow
+     round-N translation can read round N+1's findings and replies while its
+     commits stay pinned to N's head. The result is an account of a round that
+     never happened, filed under N's number and indistinguishable from a
+     correct one. A lower bound alone does not close that.
    - **`finalRound: true` on the stopping round only**, which is what asks for
-     `known_gaps` and `what_landed`. Pass the earlier rounds' answer files as
-     `priorAccounts`: the role uses them to know where to look and then checks
-     the live threads, because repeating an earlier account of its own would
-     launder any error in it into the round David reads most carefully.
+     `known_gaps` and `what_landed`. Pass the earlier rounds' **parsed answers**
+     as `priorAccounts` — `{ round, summary_for_david, what_happened }`, which
+     `roundBrief` quotes inline. **Never file paths**: the role holds no `Read`
+     tool and cannot be given a narrow one (below), so naming files would be an
+     instruction to do the impossible. The role uses them to know where to look
+     and then checks the live threads, because repeating an earlier account of
+     its own would launder any error in it into the round David reads most
+     carefully.
+   - **`builder_answered` comes from the role, not from a receipt.** The page
+     prints "agrees with the builder's account" only when the translator says
+     it saw a builder reply. That used to be read off a receipt field whose
+     only writer was the record builder the #89 cut deleted — after which
+     every round read as answered and the favourable line printed over
+     unanswered ones. An absent or malformed value reads as **unanswered**:
+     of the two wrong accounts, the false favourable is the one this page must
+     never print.
    - **The model is disclosed, not observed.** A subagent dispatch cannot prove
      what answered it. The role reports its own model; a mismatch prints on the
      page and the page's attribution line is derived from the receipts.
@@ -177,7 +199,30 @@ step 5, stated once, with the duplicated material left out.
    `ToolSearch`, `Write`, the three GitHub read methods (deferred — it loads
    them itself), and the injected `SubagentHandback`. **No `Read`, no `Edit`,
    no `Bash`, no `Grep`.** Per-method MCP names resolve in the `tools:` list,
-   so the read-only boundary is real rather than asserted.
+   so *which* tools it holds is a real boundary rather than an asserted one.
+
+   **`Write` is NOT path-scoped, and calling the list "read-only" was wrong.**
+   `Write` is on it — I put it there and then described the list by the tools
+   absent from it. A **path specifier in an agent's `tools:` list is not
+   honoured**: the documentation says a specifier in a subagent's tool config
+   removes the whole tool rather than narrowing it, and what
+   `tools: Write(some/path/**)` grants is undocumented — possibly nothing,
+   which would break the role silently. So the bare grant is what ships, and
+   the exposure is named rather than papered over: **this role reads every
+   comment on the pull request, from anyone**, so an injected instruction could
+   direct its one write tool at any path in the checkout.
+   What actually bounds it, in descending order of how much I would rely on it:
+   the answer directory is `*`-gitignored, so the legitimate output can never
+   be committed; the container is ephemeral; and **the only route to `main` is a
+   commit I make**, so after any translation dispatch, read
+   `git status --porcelain` and treat anything outside `.agents/reviews/` as a
+   finding rather than noise. That last one is an honest party looking, not a
+   lock on the same ring: the attacker here is a third party, not me.
+   **Unable to verify in this session: whether a path specifier would in fact
+   scope `Write`.** Agent definitions are cached — a freshness control proved
+   the harness served a stale definition when I tried, and a newly added type
+   was not loadable at all — so the probe needs a fresh session. #114 carries
+   it, and if scoping does work the bare grant narrows to one line.
 
 8. **Merge, sync, report**, per `claude-core.md`'s *Close-out is mine, end to
    end*: re-verify live state with a fresh `pull_request_read` — not cached

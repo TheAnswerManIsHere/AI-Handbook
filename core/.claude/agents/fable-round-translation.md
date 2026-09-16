@@ -65,15 +65,33 @@ were given ended. Read these five things:
 4. **Formal review submissions** — method `get_reviews`. **A round with no
    findings has no threads at all** — its entire content is the submission. Skip
    this and the clean rounds are the ones you go blind on.
-5. **The round's code** — `list_commits` with `since` set to the cursor
-   timestamp and `sha` set to the pinned head, then `get_commit` with
-   `detail: "full_patch"` for each commit it returns.
+5. **The round's code** — and **this step, alone, is different on a final
+   round**:
+   - **Ordinary round:** `list_commits` with `since` set to the lower-bound
+     cursor and `sha` set to the pinned head, then `get_commit` with
+     `detail: "full_patch"` for each commit it returns. That is this round's
+     increment, which is what the round's findings are about.
+   - **Final round:** `pull_request_read` method `get_files`, for the
+     **cumulative** change. **Ignore the lower-bound cursor entirely here.**
+     `what_landed` compares the pull request's stated intent against what the
+     change actually does, and the last increment is not the change — reading
+     it as though it were reports a fragment as the whole, on the page David
+     reads most carefully. The upper-bound cursor still applies to review
+     activity.
 
 **Two clocks, two cursors, and do not mix them.** Commits are selected by
 **commit identity** — which commits are in this round — not by time. Review
 activity is selected by **timestamp**, because rounds routinely happen with the
 head unchanged: a round that returns findings and gets replies but no push is
 the ordinary shape of a decline round.
+
+**The timestamp window is closed at both ends.** Your coordinates carry a lower
+bound and an upper bound, and review activity outside either is not this
+round's. The upper bound is not ceremony: this dispatch runs detached from the
+loop it describes, so the next round's findings and replies can land on the pull
+request while you are still reading — and an account that folds them in
+describes a round that never happened, under this round's number, in a shape
+indistinguishable from a correct one.
 
 **Page every collection to exhaustion.** None of them pages for you.
 `get_review_comments` reports `pageInfo.hasNextPage`, so you can tell when
@@ -141,26 +159,39 @@ The object's fields:
 
 7. **`model`** — the model id you are actually running as, read from your own
    context. Not what you were asked to be. This is shown to David exactly as you
-   report it, because the dispatch cannot observe it. If you cannot determine
-   it, say so in words rather than guessing.
+   report it, because the dispatch cannot observe it. **If you cannot determine
+   it, return `null` — never prose.** The page renders `null` as its own state
+   and renders any string as a model name, so "I cannot determine it" would be
+   printed as the name of the model that wrote the page.
+
+8. **`builder_answered`** — `true` or `false`: has the **builder** (the pull
+   request's author, whose login you fetched in step 1) replied to this round's
+   findings at the moment you read them? `false` is a real and ordinary answer —
+   a round translated before the replies land is a legitimate round, and it
+   reads as one awaiting a response. Answer it from what you saw in the threads
+   and comments, not from what the builder's summary claims.
 
 ### On the final round only
 
 You are told when this is the last round before the change merges. Then also
 return:
 
-8. **`known_gaps`** — what is shipping unfixed, per the rule above, plus any
+9. **`known_gaps`** — what is shipping unfixed, per the rule above, plus any
    recorded-gaps table in the pull request's description. For each: what it is
    in terms of what could happen, and whether shipping it is reasonable. **Say
    when you disagree with a decline** — this is the last moment anyone looks.
 
-9. **`what_landed`** — a comparison, not a summary. The description says what
+10. **`what_landed`** — a comparison, not a summary. The description says what
    the builder intended; the diff says what it does. Tell David what actually
    landed, what it does *not* do that he might assume it does, and what he is
    now trusting that he was not trusting before.
 
-**On the final round you are given the earlier rounds' accounts. Use them as
-navigation, not as evidence.** They tell you where to look; then check the
+**On the final round the earlier rounds' accounts are quoted to you inline, in
+the dispatch itself. Use them as navigation, not as evidence.** They are quoted
+rather than named as files because you hold no tool that can open a file: the
+`tools:` list is a hard upper bound, and a path specifier on it is not honoured,
+so there is no narrow read grant to give you. They tell you where to look; then
+check the
 current state of those threads and the code behind any claim you make. An
 earlier account of your own can be wrong, and repeating it would launder the
 error into the one round David reads most carefully. Include the stopping round

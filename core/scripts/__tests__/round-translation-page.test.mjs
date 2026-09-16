@@ -52,6 +52,7 @@ const answer = (over = {}) => ({
   could_not_assess: null,
   recommendation: "Nothing to do.",
   model: "claude-fable-5-1",
+  builder_answered: true,
   ...over,
 });
 
@@ -223,7 +224,7 @@ test("R16: the page is written atomically, so no reader sees it half-built", () 
 // ---------------------------------------------------------------------------
 
 test("the brief carries coordinates only — the harness supplies the role itself", () => {
-  const b = roundBrief({ pr: 12, round: 3, head: "abc1234", since: "2026-09-16T10:00:00Z", answerFile: "/x/a.json" });
+  const b = roundBrief({ root: "/x", pr: 12, round: 3, head: "abc1234", since: "2026-09-16T10:00:00Z" });
   // It must NOT contain the role's instructions: those live in the agent
   // definition the harness loads, and a copy here would be a second source of
   // truth for what the translator is told.
@@ -232,34 +233,49 @@ test("the brief carries coordinates only — the harness supplies the role itsel
   assert.match(b, /\*\*Pull request:\*\* #12/);
   assert.match(b, /\*\*Round:\*\* 3/);
   assert.match(b, /abc1234/);
-  assert.match(b, /\/x\/a\.json/);
-  assert.ok(b.length < 1200, `coordinates should be short, were ${b.length}`);
+  // THE ANSWER PATH IS DERIVED, not passed: `readAnswer` calls `answerPath`
+  // and ignores any supplied path, so a caller-supplied one that disagreed
+  // meant a good answer written where nothing looked -- reported as a failed
+  // round. The brief must name exactly the path the reader will open.
+  assert.match(b, new RegExp(answerPath("/x", 12, 3).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(b.length < 1800, `coordinates should be short, were ${b.length}`);
 });
 
 test("the repository is derived, never passed in", () => {
   const io = { root: "/repo-derive", read: () => JSON.stringify({ repo: "Owner/Name", models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } } }) };
-  assert.match(roundBrief({ pr: 1, round: 1, head: "h", answerFile: "/a.json", io }), /Owner\/Name/);
+  assert.match(roundBrief({ root: "/r", pr: 1, round: 1, head: "h", io }), /Owner\/Name/);
 });
 
 test("the head is pinned and the two cursors are kept apart", () => {
-  const later = roundBrief({ pr: 1, round: 4, head: "deadbee", since: "2026-09-16T10:00:00Z", answerFile: "/a.json" });
+  const later = roundBrief({ root: "/r", pr: 1, round: 4, head: "deadbee", since: "2026-09-16T10:00:00Z" });
   assert.match(later, /select this round's commits against this, not against the default branch/);
   // The timestamp bounds REVIEW ACTIVITY; commits are selected by identity.
   // Conflating them is what made a SHA-only cursor undefined for comments.
   assert.match(later, /review activity after this timestamp/i);
   assert.match(later, /Commits are selected by identity, not by this/);
 
-  const first = roundBrief({ pr: 1, round: 1, head: "deadbee", since: null, answerFile: "/a.json" });
+  const first = roundBrief({ root: "/r", pr: 1, round: 1, head: "deadbee", since: null });
   assert.match(first, /first round translated/);
   assert.match(first, /could_not_assess/);
 });
 
 test("prior accounts are offered on the final round only, and only as navigation", () => {
-  const fin = roundBrief({ pr: 1, round: 9, head: "h", finalRound: true, answerFile: "/a.json", priorAccounts: ["/r1.json", "/r2.json"] });
+  const prior = [{ round: 1, summary_for_david: "SUMMARY-ONE", what_happened: "HAPPENED-ONE" }];
+  const fin = roundBrief({ root: "/r", pr: 1, round: 9, head: "h", finalRound: true, priorAccounts: prior });
   assert.match(fin, /navigation only/);
-  assert.match(fin, /check the current threads and the code before repeating any of it/);
-  const ordinary = roundBrief({ pr: 1, round: 2, head: "h", answerFile: "/a.json", priorAccounts: ["/r1.json"] });
+  assert.match(fin, /check the current threads and the code before repeating any of it/i);
+  // QUOTED INLINE, never named as a file: the role holds no `Read` tool, and a
+  // path specifier in an agent's `tools:` list is not honoured, so there is no
+  // narrow read grant that would make a file path usable. A brief that names
+  // files the reader cannot open is an instruction to do the impossible.
+  assert.match(fin, /SUMMARY-ONE/);
+  assert.match(fin, /HAPPENED-ONE/);
+  // Scoped to the prior-accounts section: the brief legitimately names ONE
+  // .json path, the answer file the role writes to.
+  assert.doesNotMatch(fin.slice(fin.indexOf("## Earlier accounts")), /\.json/);
+  const ordinary = roundBrief({ root: "/r", pr: 1, round: 2, head: "h", priorAccounts: prior });
   assert.doesNotMatch(ordinary, /navigation only/);
+  assert.doesNotMatch(ordinary, /SUMMARY-ONE/);
 });
 
 test("validateAnswer runs against the REAL shipped schema, so brief and schema cannot drift", () => {
@@ -372,4 +388,67 @@ test("an ordinary round renders none of the final-round sections", () => {
   const html = renderPage([receipt(2, answer())], { pr: PR });
   assert.doesNotMatch(html, /Shipping unfixed/);
   assert.doesNotMatch(html, /What landed, against what was promised/);
+});
+
+// ---------------------------------------------------------------------------
+// #109 round 2: five defects that shipped because nothing asserted on them.
+// Each test below fails against the code as it stood at 6210ade.
+// ---------------------------------------------------------------------------
+
+test("a failed round's CHIP says no account — it never falls through to unanswered", () => {
+  const html = renderPage([{ role: "round-translation", pr: PR, round: 3, failed: true, reason: "the answer file never arrived" }], { pr: PR });
+  // The card body already said the translation failed. The chip said
+  // "unanswered", so one card carried two statuses -- in the state whose whole
+  // purpose is to be unambiguous. The fix I claimed for this in a round-1
+  // reply never applied, which is why this assertion exists.
+  assert.match(html, /verdict failed/);
+  assert.match(html, /no account/);
+  assert.doesNotMatch(html, /unanswered/);
+});
+
+test("the favourable line needs the translator to have SEEN a builder reply", () => {
+  // `answered` used to be read off a receipt field that the deleted record
+  // builder was the only writer of. `undefined !== null` is true, so every
+  // round read as answered and "agrees" printed over unanswered ones -- #81's
+  // defect restored by the removal of its own fix.
+  assert.equal(
+    chatLine(receipt(1, answer({ builder_answered: false }))),
+    "round 1: no builder account yet — the round was unanswered when this was read",
+  );
+  // Absent reads as unanswered too: of the two wrong accounts, the false
+  // favourable is the one this page must never print.
+  const { builder_answered, ...withoutField } = answer();
+  assert.equal(facts(receipt(1, withoutField)).answered, false);
+});
+
+test("an empty could_not_assess is refused by the schema, not read as 'nothing to report'", () => {
+  // The validator refused "" and the renderer read "" as not-unassessed. Two
+  // checks disagreeing about what empty means, with the favourable state as
+  // the result.
+  assert.notDeepEqual(validateAnswer(answer({ could_not_assess: "" })), []);
+  assert.deepEqual(validateAnswer(answer({ could_not_assess: null })), []);
+  assert.deepEqual(validateAnswer(answer({ could_not_assess: "The diff was cut." })), []);
+});
+
+test("a model that could not be determined is null, and renders as its own state", () => {
+  // The brief permitted prose here, and both readers treat any non-empty
+  // string as a model id -- so the honest answer rendered as
+  // `Written by I cannot determine it.`
+  assert.deepEqual(validateAnswer(answer({ model: null })), []);
+  assert.notDeepEqual(validateAnswer(answer({ model: "" })), []);
+  assert.equal(attribution([receipt(1, answer({ model: null }))]), "");
+  assert.match(
+    modelNote({ ...receipt(1, answer({ model: null })), askedModel: "claude-fable-5-1" }),
+    /did not report which model wrote it/,
+  );
+});
+
+test("the review-activity window is closed at BOTH ends", () => {
+  // Lower bound only meant a slow round-N translation could read round N+1's
+  // findings while its commits stayed pinned to N's head -- an account of a
+  // round that never happened, under N's number.
+  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h", since: "2026-09-16T10:00:00Z", until: "2026-09-16T11:00:00Z" });
+  assert.match(b, /lower bound:\*\* `2026-09-16T10:00:00Z`/);
+  assert.match(b, /upper bound:\*\* `2026-09-16T11:00:00Z`/);
+  assert.match(b, /IGNORE every comment, review and reply after this timestamp/);
 });

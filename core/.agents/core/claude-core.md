@@ -813,17 +813,33 @@ shows the true delta.
   harness; I pass only the round's coordinates. **A `tools:` list there is a
   hard upper bound** — measured 2026-09-16: an agent declaring four tools held
   exactly those plus the injected `SubagentHandback`, with no `Write`, no MCP
-  and no `ToolSearch`. That is what makes a read-only boundary real rather than
-  asserted, and `fable-dispatch.mjs`'s remaining 1,300 lines — which defended
-  against my tampering with the second Claude — went as a lock on the same ring
-  under the 2026-09-11 rule.
+  and no `ToolSearch`. That makes **which** tools a role holds a real boundary
+  rather than an asserted one, and `fable-dispatch.mjs`'s remaining 1,300 lines
+  — which defended against my tampering with the second Claude — went as a lock
+  on the same ring under the 2026-09-11 rule.
+  **It bounds which tools, never where they reach.** A path specifier in a
+  `tools:` list is not honoured: the documentation says a specifier in a
+  subagent's tool config removes the whole tool rather than narrowing it, and
+  what an *allow* specifier grants is undocumented — so writing one may grant
+  nothing and break the role silently. A tool list is therefore never described
+  as read-only while a write tool is on it. I did exactly that on #109, naming
+  the tools absent from the list and not the one present that contradicted the
+  claim.
   **Two things that costs, named rather than buried:** the old dispatcher
   *observed* the model and refused on a mismatch, and a subagent cannot, so the
-  model is **disclosed** and a mismatch prints on David's page. And **a newly
-  added agent type is not dispatchable immediately** — measured 2026-09-16, a
+  model is **disclosed** and a mismatch prints on David's page. And **agent
+  definitions are cached, in two ways that both look like something else.** A
+  newly added type is not dispatchable immediately — measured 2026-09-16, a
   dispatch minutes after the definition was written failed with `Agent type not
-  found` and the same type worked later in the same session, no restart. A
-  refusal there means wait, not that the definition is wrong.
+  found` and the same type worked later in the same session, no restart; a
+  refusal there means wait, not that the definition is wrong. And an **edit** to
+  an already-loaded definition may not be served either: the same day, a
+  dispatch after a frontmatter change ran against the old definition, and
+  without a control it would have been recorded as a measurement of the new one.
+  So **a probe of a definition change carries a freshness token planted in the
+  same edit** — without one, a stale definition is indistinguishable from the
+  result being looked for, and the probe silently measures the thing it
+  replaced.
 
 ### Subagent delegation is capped
 

@@ -31,6 +31,7 @@
     },
     "could_not_assess": {
       "type": ["string", "null"],
+      "minLength": 1,
       "description": "One sentence when something in this round was beyond what you could REACH -- a diff too large, a thread you could not fetch, a finding you did not follow. null when there is no such thing. Not for hedging: David is told 'partial' rather than 'agrees' whenever this is set."
     },
     "recommendation": {
@@ -39,9 +40,13 @@
       "description": "One line: what, if anything, David should do."
     },
     "model": {
-      "type": "string",
+      "type": ["string", "null"],
       "minLength": 1,
-      "description": "The model id you are actually running as, read from your own context -- not the one you were asked to be. The dispatch can no longer observe this, so it is shown to David exactly as reported. If you cannot determine it, say so in words rather than guessing."
+      "description": "The model id you are actually running as, read from your own context -- not the one you were asked to be. The dispatch can no longer observe this, so it is shown to David exactly as reported. NULL, never prose, when you cannot determine it: the page renders null as its own state, and renders any string as a model name -- so \"I cannot determine it\" would be printed as the name of the model that wrote the page."
+    },
+    "builder_answered": {
+      "type": "boolean",
+      "description": "Whether the BUILDER has replied to this round's findings at the moment you read them -- their login is in your coordinates. False is a real answer and a legitimate round to translate: it reads as a round awaiting a response. It is required because the page prints \"agrees with the builder's account\" only when this is true, and a field that could be omitted could buy that line by omission."
     },
     "known_gaps": {
       "type": "array",
@@ -76,7 +81,8 @@
     "took_on_trust",
     "could_not_assess",
     "recommendation",
-    "model"
+    "model",
+    "builder_answered"
   ],
   "additionalProperties": false
 }

@@ -123,8 +123,15 @@ export function dispatchModel(io = undefined) {
  * different pull request while the receipt and page still looked normal. That
  * is the `derivable` arm of the Worth test, which says remove the input.
  */
-export function roundBrief({ pr, round, head, since = null, finalRound = false, answerFile, priorAccounts = [], io = undefined }) {
+export function roundBrief({ root, pr, round, head, since = null, until = null, finalRound = false, priorAccounts = [], io = undefined }) {
   const repo = repoSlug(io);
+  // DERIVED, NOT ACCEPTED -- the second instance of the same rule that removed
+  // `repo` last round, and it was sitting next to it. `readAnswer` calls
+  // `answerPath` and ignores whatever a caller passed, so a mistyped
+  // `answerFile` meant the translator wrote a valid answer somewhere the reader
+  // never looked and the page reported a FAILED round over a successful one --
+  // the failure state used to hide a success. (Codex, #109 round 2.)
+  const answerFile = answerPath(root, pr, round);
   const lines = [
     "## This round",
     "",
@@ -132,16 +139,38 @@ export function roundBrief({ pr, round, head, since = null, finalRound = false, 
     `- **Pull request:** #${pr}`,
     `- **Round:** ${round}`,
     `- **Pinned head:** \`${head}\` — select this round's commits against this, not against the default branch.`,
+    // BOUNDED ON BOTH SIDES. The comment reads are live and this dispatch is
+    // deliberately detached from the loop, so a slow round-N translation could
+    // read round N+1's findings and replies while its commits stayed pinned to
+    // N's head -- an account of a round that never existed, filed under N's
+    // number and indistinguishable from a correct one. `until` is captured when
+    // the dispatch is made. (Codex, #109 round 2.)
     since
-      ? `- **Cursor:** \`${since}\` — review activity after this timestamp is this round's. Commits are selected by identity, not by this.`
-      : `- **Cursor:** none — this is the first round translated on this pull request, so read it from the start. If the change is too large to read, say so in \`could_not_assess\` rather than guessing at the rest.`,
+      ? `- **Cursor, lower bound:** \`${since}\` — review activity after this timestamp is this round's. Commits are selected by identity, not by this.`
+      : `- **Cursor, lower bound:** none — this is the first round translated on this pull request, so read it from the start. If the change is too large to read, say so in \`could_not_assess\` rather than guessing at the rest.`,
+    until
+      ? `- **Cursor, upper bound:** \`${until}\` — IGNORE every comment, review and reply after this timestamp. They belong to a later round, and this dispatch runs detached, so later activity may well have landed while you were reading.`
+      : `- **Cursor, upper bound:** none supplied — if you find activity that plainly belongs to a later round, say so in \`could_not_assess\` rather than folding it into this one.`,
     `- **Final round:** ${finalRound ? "YES — also return `known_gaps` and `what_landed`." : "no — omit `known_gaps` and `what_landed`."}`,
     `- **Write your answer to:** \`${answerFile}\``,
   ];
+  // QUOTED INLINE, NOT NAMED AS FILES. These used to be passed as local paths
+  // to a role holding no `Read` tool -- the final round was told to use files
+  // it could not open. A narrow read grant is not available either: a path
+  // specifier in an agent's `tools:` list is not honoured, so the only shapes
+  // on offer are the whole tool or none of it. Quoting costs nothing here,
+  // because this is the role's OWN earlier prose being handed back to it, and
+  // it is told in the same breath to treat it as navigation rather than
+  // evidence. (Codex, #109 round 2.)
   if (finalRound && priorAccounts.length) {
+    lines.push("", "## Earlier accounts of this pull request, for navigation only", "");
     lines.push(
-      `- **Earlier accounts, for navigation only:** ${priorAccounts.map((f) => `\`${f}\``).join(", ")} — they tell you where to look; check the current threads and the code before repeating any of it.`,
+      "These are your own earlier rounds, quoted. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully.",
+      "",
     );
+    for (const a of priorAccounts) {
+      lines.push(`### Round ${a.round}`, "", a.summary_for_david ?? "", "", a.what_happened ?? "", "");
+    }
   }
   lines.push("", "Write the JSON object to that path and nothing else to it.", "");
   return lines.join("\n");
@@ -232,27 +261,30 @@ export function facts(receipt) {
     skipped: false,
     disagreements: Array.isArray(out.disagreements) ? out.disagreements.length : 0,
     unassessed: typeof out.could_not_assess === "string" && out.could_not_assess.trim() !== "",
-    // WHETHER THERE IS A BUILDER ACCOUNT AT ALL, read off the record rather
-    // than inferred from the prose. The record permits a round nobody has
-    // replied to -- translating one is legitimate and reads as a round awaiting
-    // a response. What is not legitimate is then printing "agrees with the
-    // builder's account" over it, which is what the fall-through did: a clean
-    // translation of an unanswered round has no disagreements and nothing
-    // unassessed, so it landed on the favourable line while there was no
-    // account to agree with. Round 5 of AI-Handbook #81 was exactly that round.
+    // WHETHER THERE IS A BUILDER ACCOUNT AT ALL, read from the translator's
+    // own observation rather than from a receipt field. It permits a round
+    // nobody has replied to -- translating one is legitimate and reads as a
+    // round awaiting a response. What is not legitimate is then printing
+    // "agrees with the builder's account" over it, which is what the
+    // fall-through did: a clean translation of an unanswered round has no
+    // disagreements and nothing unassessed, so it landed on the favourable line
+    // while there was no account to agree with. Round 5 of AI-Handbook #81 was
+    // exactly that round.
     //
-    // `builderAnsweredAt`, NOT `respondedAt`. The first version of this read
-    // `respondedAt`, which is the newest NON-REVIEWER comment -- so a
-    // maintainer's comment on the round set it and the favourable line printed
-    // anyway. The two questions are "is the capture fresh" (every comment
-    // counts) and "did the builder answer" (only the builder's does), and one
-    // field cannot answer both. (Codex, #81 round 8.)
+    // THIS READ USED TO BE `receipt.record?.round?.builderAnsweredAt !== null`,
+    // and the record builder that populated it was deleted with the accounting
+    // machinery. Nothing wrote the field afterwards, so `undefined !== null`
+    // made EVERY round read as answered and the favourable line printed over
+    // every unanswered one -- #81's defect restored by the removal of its fix.
+    // (Codex, #109 round 2.) The translator is the right source: it is the
+    // thing that read the comments, and the schema requires the field, so an
+    // answer cannot obtain the favourable value by omitting it.
     //
-    // `=== null` rather than a falsy test, because a receipt predating this
-    // field has no `record` at all and must read as "not established" rather
-    // than "unanswered": inventing an unanswered round over an old receipt is
-    // the same wrong account facing the other way.
-    answered: receipt.record?.round?.builderAnsweredAt !== null,
+    // `=== true`, so an absent or malformed value reads as UNANSWERED. The old
+    // read defaulted the other way to protect receipts predating the field;
+    // there are none, and of the two wrong accounts the false favourable is the
+    // one this page must never print.
+    answered: out.builder_answered === true,
   };
 }
 
@@ -319,6 +351,7 @@ h1 { font-size:clamp(24px,4vw,32px); line-height:1.2; margin:8px 0 4px; text-wra
 .verdict { margin-left:auto; font:500 12.5px/1 ui-monospace,monospace; padding:5px 10px; border-radius:99px; border:1px solid var(--rule); color:var(--muted); white-space:nowrap; }
 .verdict.differs { background:var(--flag-bg); color:var(--flag); border-color:transparent; }
 .verdict.partial { background:var(--warn-bg); color:var(--warn-ink); border-color:transparent; }
+.verdict.failed { background:var(--flag-bg); color:var(--flag); border-color:transparent; }
 h3 { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:22px 0 8px; }
 p { margin:0 0 12px; }
 .summary p { font-size:17.5px; line-height:1.55; }
@@ -333,8 +366,14 @@ h3.sub-h3 { margin-top:16px; }
 footer { color:var(--muted); font-size:13px; margin-top:32px; }
 `.trim();
 
+// FAILED IS FIRST, for the same reason it is first in `facts()`. Without this
+// branch a failed round fell through to `unanswered` while the card body beside
+// it said the translation failed -- two statuses on one card, in the state whose
+// whole purpose is to be unambiguous. (Codex, #109 round 2.)
 const verdictChip = (f) =>
-  f.skipped
+  f.failed
+    ? '<span class="verdict failed">no account</span>'
+    : f.skipped
     ? '<span class="verdict">skipped</span>'
     : f.disagreements > 0
       ? `<span class="verdict differs">differs on ${f.disagreements}</span>`
