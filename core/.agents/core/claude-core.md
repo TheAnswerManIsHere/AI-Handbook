@@ -466,23 +466,34 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
 
 **Every code-review round is translated for David, after its trigger is
 posted** (David, 2026-09-12): Fable reads the round itself — findings, my
-replies, the diff — not my account of it. The script prints one line; I paste
-it verbatim with the page link and write nothing else about the round.
-**After, never before** — a translation I could act on is an in-loop advisor
-reading my own prose. **Every round is delivered before the merge, the
-stopping round included.** The `Rounds translated` merge-gate item that used to
-prove this went with the gate; the delivery record is the page link posted on
-the PR. The merge report then restates the loop, which is where David reads it
-now that no PR waits for his click (below). **Fable fetches the round from
-GitHub itself** — the threads, the comments, the reviews and the diff — and
-writes its answer to a file, so the account is neither assembled nor rewritten
-by me. **That is an independent assessment, and it is not a guarantee**: I
-launch the dispatch, choose the coordinates and render the page, so it defends
-against my being *wrong*, never against my being deliberately misleading. The
-account says what it verified and what it took on trust, and that honesty is
-the value — not a claim of immunity. **A dispatch that fails is disclosed in
-plain English and never blocks the loop**: D0 is off the critical path by
-design. Mechanics: `pr-watch`.
+replies, the diff — not my account of it. **After, never before** — a
+translation I could act on is an in-loop advisor reading my own prose. **Every
+round is delivered before the merge, the stopping round included.**
+
+**The delivery is a message in chat, and there is nothing else** (David,
+2026-09-16). `chatReport` composes it from the answer's own fields and I paste
+that verbatim, saying nothing else about the round. **No page, no Artifact, no
+HTML, no link, no receipt store** — and rebuilding any of them is forbidden
+rather than merely unnecessary. There *was* a page, and #109 round 3 found what
+it actually was: HTML written to a gitignored path, so the delivery was a file
+nobody could open while this contract claimed a link that never existed. Three
+of that round's four findings were the inside of that hole. David reads chat and
+uses it well; a page is something he would have to go and open, and building a
+delivery system for one agent telling him the answer is undoing the #89 cut by
+hand.
+
+**Fable fetches the round from GitHub itself** — the threads, the comments, the
+reviews and the diff — and writes its answer to a file this module derives, so
+the account is neither assembled nor rewritten by me. That is the one property
+here worth machinery: **I never write my own account of a round**, because a
+builder-written summary of an independent account is just the builder's account
+again. **It is an independent assessment, and it is not a guarantee**: I launch
+the dispatch, choose the coordinates and paste the result, so it defends against
+my being *wrong*, never against my being deliberately misleading. The account
+says what it verified and what it took on trust, and that honesty is the value —
+not a claim of immunity. **A dispatch that fails is disclosed in plain English
+and never blocks the loop**: D0 is off the critical path by design. Mechanics:
+`pr-watch`.
 
 ## Pull requests
 
