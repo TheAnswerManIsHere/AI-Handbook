@@ -14,13 +14,13 @@
  * delivery system for what is fundamentally one agent telling him the answer
  * would be undoing the #89 cut by hand. So: `chatReport` and nothing else.
  *
- * WHAT SURVIVES IS THE ONE PROPERTY WORTH MACHINERY. The builder does not
- * write the translation, does not summarise it, and does not decide what the
- * chat message says. `chatReport` composes it from the validated answer's own
- * fields, verbatim, and I paste that. A builder-written summary of an
- * independent account is just the builder's account again, which is the thing
- * D0 exists to stop being the only one. That is why the report is a function
- * rather than an instruction to me to "explain the round".
+ * WHAT SURVIVES IS THE ONE PROPERTY WORTH MACHINERY. The translator's account
+ * reaches David unedited: `chatReport` composes it from the validated answer's
+ * own fields, verbatim, and I paste that. That is why the report is a function
+ * rather than an instruction to me to "explain the round". It is a SECOND
+ * account, not a ban on the builder's -- David ruled (2026-09-16) that a
+ * builder-written account beside it is "not an issue at all", so the only
+ * thing this module guards is that the translator's words are not mine.
  *
  * NO STATE SURVIVES A SESSION, AND NOTHING HERE NEEDS IT TO. The receipt store
  * went with the page, and round 4 found it had been silently carrying the

@@ -197,10 +197,12 @@ step 5, stated once, with the duplicated material left out.
      `chatReport` composes it from the validated answer's own fields; the only
      text in it that is not the translator's is the labels — including the
      deterministic "none reported" labels for an empty `disagreements` or
-     `known_gaps`, which state the field's value and evaluate nothing. **I
-     never write my own account of a round** — a builder-written summary of an
-     independent account is just the builder's account again, which is the
-     thing D0 exists to stop being the only one.
+     `known_gaps`, which state the field's value and evaluate nothing. **D0
+     is a second account, not a ban on mine** (David, 2026-09-16: *"There's
+     no need to be so paranoid about the builder writing up an account and
+     giving it to me. That's not an issue at all."*). My own account of a
+     round is welcome beside the report, labelled as mine. What is never done
+     is editing the translator's account or presenting mine as it.
    - **The answer comes from the file, never from the dispatch's own reply.**
      Its location in the transcript has moved three times in a month in a
      harness nobody here controls; a path this module derives cannot move. The
@@ -276,14 +278,11 @@ step 5, stated once, with the duplicated material left out.
    stale definition is indistinguishable from the result being looked for. If a
    dispatch refuses, paste
    `chatReport({ pr, round, skipped: true, reason: "the dispatch was refused: <error>" })`
-   so a failure to *launch* is told apart from a failure to *answer*; then, and
-   only then, I may add my own account of the round, **labelled in its first
-   line as the builder's own account and not the translator's** — the one
-   surviving exception to *I never write my own account of a round*, kept
-   because a failure notice with no explanation is the thing David said he
-   does not want (Astra flagged the contradiction, 2026-09-16; the choice is
-   David's and is recorded here as made). Try again next round rather than
-   concluding the file is wrong.
+   so a failure to *launch* is told apart from a failure to *answer*, then
+   write the round up myself, labelled as my own account (David, 2026-09-16,
+   above: a builder-written account is not a concern; a failure notice with
+   no explanation is). Try again next round rather than concluding the file
+   is wrong.
 
    **What the role actually holds, measured on the real dispatch:**
    `ToolSearch`, `Write`, the GitHub read methods (deferred — it loads them

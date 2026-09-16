@@ -534,9 +534,10 @@ hand.
 **Fable fetches the round from GitHub itself** — the threads, the comments, the
 reviews and the diff — and writes its answer to a file this module derives, so
 the account is neither assembled nor rewritten by me. That is the one property
-here worth machinery: **I never write my own account of a round**, because a
-builder-written summary of an independent account is just the builder's account
-again. **It is an independent assessment, and it is not a guarantee**: I launch
+here worth machinery: **the translator's account reaches David unedited**. It
+is a second account, not a ban on mine — my own write-up of a round is welcome
+beside it, labelled as mine (David, 2026-09-16: a builder-written account is
+*"not an issue at all"*; the earlier prohibition here was over-caution). **It is an independent assessment, and it is not a guarantee**: I launch
 the dispatch, choose the coordinates and paste the result, so it defends against
 my being *wrong*, never against my being deliberately misleading. The account
 says what it verified and what it took on trust, and that honesty is the value —
