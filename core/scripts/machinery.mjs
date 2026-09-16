@@ -258,7 +258,25 @@ export function validate(value, schema, at = "$") {
     return problems;
   }
 
+  // A UNION TYPE -- `"type": ["string", "null"]` -- means "any one of these".
+  // `could_not_assess` has been declared that way since the role was written,
+  // and until this was added the switch below fell through to "unsupported
+  // type" on EVERY answer: the schema was never satisfiable, which nothing
+  // noticed because no surviving caller validated against it. Recorded rather
+  // than quietly fixed, because "a check nothing runs" is the class this
+  // repository keeps paying for.
+  if (Array.isArray(schema.type)) {
+    const { type, ...rest } = schema;
+    const attempts = type.map((t) => validate(value, { ...rest, type: t }, at));
+    if (attempts.some((a) => a.length === 0)) return [];
+    say(`matched none of the permitted types ${type.map((t) => JSON.stringify(t)).join(", ")}`);
+    return problems;
+  }
+
   switch (schema.type) {
+    case "null":
+      if (value !== null) say(`expected null, got ${describe(value)}`);
+      return problems;
     case "object": {
       if (value === null || typeof value !== "object" || Array.isArray(value)) {
         say(`expected an object, got ${describe(value)}`);
@@ -290,7 +308,19 @@ export function validate(value, schema, at = "$") {
       return problems;
     }
     case "string":
-      if (typeof value !== "string") say(`expected a string, got ${describe(value)}`);
+      if (typeof value !== "string") {
+        say(`expected a string, got ${describe(value)}`);
+        return problems;
+      }
+      // `minLength` exists in these schemas for exactly one reason: a field the
+      // model must actually fill. An empty string satisfies "type": "string"
+      // and satisfies nothing a reader wants, so the keyword is enforced here
+      // rather than being sent to the model and ignored -- which is the state
+      // `assertSchemaSupported` refuses, and which the round-translation schema
+      // was quietly in until this was added.
+      if (typeof schema.minLength === "number" && value.length < schema.minLength) {
+        say(`is ${value.length} character(s) long, and at least ${schema.minLength} is required`);
+      }
       return problems;
     case "number":
     case "integer":
@@ -308,7 +338,16 @@ export function validate(value, schema, at = "$") {
 const describe = (v) => (v === null ? "null" : Array.isArray(v) ? "an array" : typeof v);
 
 /** Keywords `validate` actually enforces. Anything else is a silent pass, so refuse it. */
-const SUPPORTED_KEYWORDS = new Set(["type", "required", "additionalProperties", "properties", "items", "enum", "description"]);
+const SUPPORTED_KEYWORDS = new Set([
+  "type",
+  "required",
+  "additionalProperties",
+  "properties",
+  "items",
+  "enum",
+  "description",
+  "minLength",
+]);
 
 export function assertSchemaSupported(schema, at = "$") {
   for (const key of Object.keys(schema)) {

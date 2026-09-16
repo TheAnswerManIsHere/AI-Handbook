@@ -24,16 +24,59 @@
         "additionalProperties": false
       }
     },
+    "took_on_trust": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What you accepted from the builder without checking it yourself, and why. Almost never empty. Distinct from could_not_assess: this is what you SAW and did not independently verify, not what you could not reach. Does not set the 'partial' signal."
+    },
     "could_not_assess": {
       "type": ["string", "null"],
-      "description": "One sentence when something in this round was beyond what you were given -- a cut diff, a missing file, a finding you did not follow. null when there is no such thing. Not for hedging: David is told 'partial' rather than 'agrees' whenever this is set."
+      "description": "One sentence when something in this round was beyond what you could REACH -- a diff too large, a thread you could not fetch, a finding you did not follow. null when there is no such thing. Not for hedging: David is told 'partial' rather than 'agrees' whenever this is set."
     },
     "recommendation": {
       "type": "string",
       "minLength": 1,
       "description": "One line: what, if anything, David should do."
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The model id you are actually running as, read from your own context -- not the one you were asked to be. The dispatch can no longer observe this, so it is shown to David exactly as reported. If you cannot determine it, say so in words rather than guessing."
+    },
+    "known_gaps": {
+      "type": "array",
+      "description": "FINAL ROUND ONLY, omitted otherwise. What is shipping unfixed: declines that HELD (the reviewer did not raise the class again) plus any recorded-gaps table in the PR description. An empty array on a final round means nothing is shipping unfixed, which is a real answer.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "what": { "type": "string", "minLength": 1, "description": "What is shipping unfixed, in terms of what could happen rather than what the code does." },
+          "reasonable": { "type": "boolean", "description": "Whether you think shipping it is reasonable." },
+          "why": { "type": "string", "minLength": 1, "description": "Why you think that. Say plainly when you disagree with the decline -- this is the last moment anyone looks at it." }
+        },
+        "required": ["what", "reasonable", "why"],
+        "additionalProperties": false
+      }
+    },
+    "what_landed": {
+      "type": "object",
+      "description": "FINAL ROUND ONLY, omitted otherwise. The PR description's stated intent held against what the diff actually does -- a comparison, never a restatement.",
+      "properties": {
+        "landed": { "type": "string", "minLength": 1, "description": "What the change actually does, read from the diff." },
+        "does_not_do": { "type": "string", "minLength": 1, "description": "What it does NOT do that David might assume it does, given how it was described." },
+        "now_trusting": { "type": "string", "minLength": 1, "description": "What David is now trusting that he was not trusting before this change." }
+      },
+      "required": ["landed", "does_not_do", "now_trusting"],
+      "additionalProperties": false
     }
   },
-  "required": ["summary_for_david", "what_happened", "disagreements", "could_not_assess", "recommendation"],
+  "required": [
+    "summary_for_david",
+    "what_happened",
+    "disagreements",
+    "took_on_trust",
+    "could_not_assess",
+    "recommendation",
+    "model"
+  ],
   "additionalProperties": false
 }

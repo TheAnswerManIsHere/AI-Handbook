@@ -140,8 +140,8 @@ test("both schemas use only keywords the validator actually enforces", () => {
 
 test("assertSchemaSupported refuses a keyword it cannot enforce", () => {
   assert.throws(
-    () => assertSchemaSupported({ type: "object", properties: { a: { type: "string", minLength: 3 } } }),
-    /minLength/,
+    () => assertSchemaSupported({ type: "object", properties: { a: { type: "string", format: "email" } } }),
+    /format/,
   );
 });
 

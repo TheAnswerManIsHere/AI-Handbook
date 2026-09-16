@@ -254,10 +254,16 @@ test("assertSchemaSupported refuses a keyword the validator cannot enforce", () 
   // accepted that does not satisfy the schema. Refusing the SCHEMA is the only
   // place that mismatch is visible; at answer time it is a silent pass.
   assert.throws(
-    () => assertSchemaSupported({ type: "object", properties: { a: { type: "string", minLength: 3 } } }),
-    /minLength/,
+    () => assertSchemaSupported({ type: "object", properties: { a: { type: "string", format: "email" } } }),
+    /format/,
   );
   assert.throws(() => assertSchemaSupported({ type: "array", items: { type: "string", pattern: "x" } }), /pattern/);
+  // `minLength` moved from refused to enforced when the round-translation
+  // schema needed it. The pair below is the point: it is accepted HERE only
+  // because `validate` actually checks it, which the next test asserts.
+  assert.doesNotThrow(() =>
+    assertSchemaSupported({ type: "object", properties: { a: { type: "string", minLength: 3 } } }),
+  );
   assert.doesNotThrow(() =>
     assertSchemaSupported({ type: "object", required: ["a"], additionalProperties: false, properties: { a: { type: "string" } } }),
   );

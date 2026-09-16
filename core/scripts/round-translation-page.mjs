@@ -25,11 +25,140 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { modelTier, validate, assertSchemaSupported } from "./machinery.mjs";
 
 /** Where the page goes. Derived, never supplied — same rule as the receipt path. */
 export const REVIEWS_DIR = ".agents/reviews";
 export const pagePath = (root, pr) => path.join(root, REVIEWS_DIR, `pr-${pr}`, "translation.html");
+
+// ---------------------------------------------------------------------------
+// Composing the dispatch, and validating what comes back
+// ---------------------------------------------------------------------------
+/**
+ * WHY THESE TWO LIVE HERE AND NOT IN A DISPATCHER. `fable-dispatch.mjs` was
+ * 1,450 lines, and roughly 1,300 of them defended against the builder
+ * tampering with the second Claude: a locked flag frame, a model observation,
+ * a token bound, a fresh session id, 24 receipt fields. David's 2026-09-11
+ * rule retires that whole class -- "I run every script in this machinery, so a
+ * defence against my editing its inputs is a lock whose key is on the same
+ * ring."
+ *
+ * What was NOT same-ring is the pair below: reading the role brief from its
+ * file rather than from my memory of it, and refusing an answer whose shape is
+ * wrong. Neither defends against me; both catch a real mistake. They are two
+ * functions, so they live in the one file that was staying anyway rather than
+ * in a second file whose only job is to not be the transport.
+ *
+ * WHAT IS GENUINELY GIVEN UP, stated rather than buried: the dispatcher
+ * OBSERVED the model off the session's init line and refused on a mismatch.
+ * A subagent dispatch cannot -- `model` is a request the harness honours, and
+ * the runtime may fall back silently. So the model is DISCLOSED instead: the
+ * role reports what it is actually running as, `modelNote` compares that to
+ * what was asked for, and a mismatch is printed on David's page. Observed-or-
+ * refused becomes observed-or-disclosed, which is weaker and is why it is
+ * shown to him rather than swallowed.
+ */
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+/** The role brief and its schema, resolved from this file rather than from a caller. */
+export const ROLE_DIR = path.resolve(SCRIPT_DIR, "..", ".agents", "fable-roles");
+export const rolePath = (role) => path.join(ROLE_DIR, `${role}.md`);
+export const schemaPath = (role) => path.join(ROLE_DIR, "schemas", `${role}.schema.json`);
+export const ROLE = "fable-round-translation";
+
+/**
+ * The dispatch model, as a full id and as the name the Agent tool takes.
+ *
+ * The tier indirection is kept: `.agents/machinery.json` says which model
+ * `strongestClaude` is, so a consumer that runs a different one changes one
+ * config line rather than editing a script. The Agent tool takes a short name
+ * rather than a full id, so the two are derived from each other here and the
+ * full id is what gets compared against what answered.
+ */
+export function dispatchModel(io = undefined) {
+  // `modelTier` returns the whole entry -- {tier, id, effort} -- not the id.
+  const entry = modelTier("strongestClaude", io);
+  const id = typeof entry === "string" ? entry : entry?.id;
+  const m = typeof id === "string" ? /^claude-(fable|opus|sonnet|haiku)\b/.exec(id) : null;
+  if (!m) {
+    throw new Error(
+      `.agents/machinery.json's models.strongestClaude.id is ${JSON.stringify(id)}, which is not a Claude model, ` +
+        `so it cannot be dispatched as a subagent. The Agent tool takes one of fable, opus, sonnet, haiku.`,
+    );
+  }
+  return { id, agentModel: m[1] };
+}
+
+/**
+ * The prompt, with the role brief inserted VERBATIM.
+ *
+ * The brief is read from its file and not one word of it is composed here.
+ * That is the property worth keeping from the old dispatcher: a role whose
+ * instructions I could paraphrase is a role that says whatever I remember it
+ * saying. What this function adds is only the round's coordinates -- which
+ * pull request, which round, where the last round stopped -- because the role
+ * cannot know those and they are what bounds its reading.
+ */
+export function composeBrief({ repo, pr, round, sinceCommit = null, finalRound = false, roleFile = rolePath(ROLE) }) {
+  const brief = fs.readFileSync(roleFile, "utf8");
+  const scope = sinceCommit
+    ? `Everything on this pull request AFTER commit \`${sinceCommit}\`, which is where the last round you were ` +
+      `given stopped. Threads with activity after it, and the diff of the commits since it.`
+    : `This is the first round translated on this pull request, so there is no earlier commit to read from. ` +
+      `Read the whole of it -- and if the diff is too large to read, say so in \`could_not_assess\` rather ` +
+      `than guessing at the rest.`;
+  return [
+    brief.trim(),
+    "",
+    "---",
+    "",
+    "## This round",
+    "",
+    `- **Repository:** \`${repo}\``,
+    `- **Pull request:** #${pr}`,
+    `- **Round:** ${round}`,
+    `- **What to read:** ${scope}`,
+    `- **Final round:** ${finalRound ? "YES -- return `known_gaps` and `what_landed` as well." : "no -- omit `known_gaps` and `what_landed`."}`,
+    "",
+    "Return your answer as a single JSON object matching the schema in your role definition, and nothing else.",
+    "",
+  ].join("\n");
+}
+
+/**
+ * Refuse an answer whose shape is wrong, rather than rendering it.
+ *
+ * NOT SAME-RING: this catches a malformed answer whoever wrote the prompt, and
+ * the failure it prevents is a page that renders `undefined` at David. Returns
+ * the problems rather than throwing, so a caller can put them on the page as a
+ * failure notice -- D0 is off the critical path and a broken translation must
+ * never be able to stop a review loop.
+ */
+export function validateAnswer(answer, { schemaFile = schemaPath(ROLE) } = {}) {
+  const schema = JSON.parse(fs.readFileSync(schemaFile, "utf8"));
+  assertSchemaSupported(schema, ROLE);
+  return validate(answer, schema, ROLE);
+}
+
+/**
+ * What the page says about the model, if anything.
+ *
+ * `null` when the answer came back as the model that was asked for -- the
+ * ordinary case says nothing, because a line on every page saying "this ran on
+ * the model it was supposed to" is noise that trains a reader to skip the
+ * place the real notice would appear.
+ */
+export function modelNote(receipt) {
+  const asked = receipt.askedModel ?? null;
+  const got = receipt.output?.model ?? null;
+  if (!asked) return null;
+  if (!got) return `This round did not report which model wrote it; ${asked} was asked for.`;
+  if (got.trim() === asked.trim()) return null;
+  return `Written by ${got}, not the ${asked} that was asked for — the dispatch cannot enforce the model, only report what answered.`;
+}
 
 /**
  * The three facts, off one receipt.
@@ -137,6 +266,7 @@ p { margin:0 0 12px; }
 .diff-item p:last-child { margin-bottom:0; }
 .diff-item .why { color:var(--muted); font-size:14.5px; }
 .note { background:var(--warn-bg); color:var(--warn-ink); padding:10px 14px; border-radius:6px; font-size:14.5px; margin-bottom:12px; }
+h3.sub-h3 { margin-top:16px; }
 .rec { border-top:1px solid var(--rule); margin-top:18px; padding-top:14px; font-size:15px; }
 .rec b { color:var(--accent-ink); }
 .skipped { color:var(--muted); font-size:14.5px; margin:0; }
@@ -175,6 +305,8 @@ function renderRound(receipt) {
       `<div class="note">The diff for this round was cut at ${esc(cut.keptChars)} of ${esc(cut.fullChars)} characters, so the account below rests on part of the change.</div>`,
     );
   }
+  const mn = modelNote(receipt);
+  if (mn) parts.push(`<div class="note">${esc(mn)}</div>`);
   parts.push("<h3>What happened</h3>", prose(o.what_happened));
   const d = Array.isArray(o.disagreements) ? o.disagreements : [];
   // BOTH THE HEADING AND THE PROSE ASSERT A BUILDER ACCOUNT, and on an
@@ -208,7 +340,39 @@ function renderRound(receipt) {
         : "<p class=\"skipped\">The builder had not answered this round when it was read, so there was no account to agree or disagree with.</p>",
     );
   }
+  // TWO DIFFERENT ADMISSIONS, RENDERED DIFFERENTLY ON PURPOSE. `could_not_assess`
+  // is what the translator could not REACH, and it sets "partial" -- the chip,
+  // the chat line, everything. `took_on_trust` is what it read and did not
+  // independently verify, which is true of almost every round and would be a
+  // false alarm if it moved the verdict. Collapsing them would either make
+  // "partial" meaningless (it would fire every time) or lose the distinction
+  // between "I could not look" and "I looked and took the builder's word".
+  if (o.took_on_trust) {
+    parts.push("<h3>Taken on the builder's word</h3>", prose(o.took_on_trust));
+  }
   if (f.unassessed) parts.push(`<div class="note">Could not assess: ${esc(o.could_not_assess)}</div>`);
+  const gaps = Array.isArray(o.known_gaps) ? o.known_gaps : null;
+  if (gaps) {
+    parts.push(`<h3>Shipping unfixed${gaps.length ? "" : " — nothing"}</h3>`);
+    for (const g of gaps) {
+      parts.push(
+        `<div class="${g.reasonable ? "note" : "diff-item"}">${prose(g.what)}` +
+          `<p class="why">${g.reasonable ? "Reasonable to ship: " : "The translator disagrees with this decline: "}${esc(g.why)}</p></div>`,
+      );
+    }
+    if (!gaps.length) parts.push('<p class="skipped">Nothing is shipping unfixed.</p>');
+  }
+  const landed = o.what_landed;
+  if (landed) {
+    parts.push(
+      "<h3>What landed, against what was promised</h3>",
+      prose(landed.landed),
+      '<h3 class="sub-h3">What it does not do</h3>',
+      prose(landed.does_not_do),
+      '<h3 class="sub-h3">What you are now trusting</h3>',
+      prose(landed.now_trusting),
+    );
+  }
   parts.push(`<p class="rec"><b>Recommendation:</b> ${esc(o.recommendation)}</p>`);
   return `<section class="round">${parts.join("\n")}</section>`;
 }
