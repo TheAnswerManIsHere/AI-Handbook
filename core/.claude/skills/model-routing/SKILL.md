@@ -99,19 +99,19 @@ is **state**, not difficulty:
   close-out posts harvest notes, so there is no per-merge decision left to
   judge.
 - **Not routable**: a review loop or any long-running stateful loop; anything
-  whose judgment is mine under the 2026-08-15 adjudication rules; verification
-  of my own work (barred by `CLAUDE.md`'s delegation caps).
+  whose judgment is mine under the standing dispatch bars; verification of my
+  own work (barred by `CLAUDE.md`'s delegation caps).
 - **Why PR-watching specifically was considered and rejected.** It looks like
   the ideal candidate — high volume, mostly mechanical — but it carries
   per-round state (round number, cumulative-diff rule, declines and their
   reasoning, resolved threads) that a subagent would re-establish on every
   webhook event, while my main loop stays engaged anyway. Plausibly *more*
   expensive than simply watching on Opus, not less. **What IS dispatched is
-  the per-round adjudication itself** — one `review-loop-adjudicator` at the
-  strongest tier its own definition names, reading a script-generated record
-  rather than this session's context, which is the whole point: the value is
-  the absence of my context, not the presence of a worker. Recorded here so it isn't re-proposed
-  as an obvious optimization.
+  the per-round judgement itself** — the proxy (#96), at the strongest tier its
+  own definition names, reading a script-composed brief rather than this
+  session's raw context. The value is a reader that did not produce the
+  conclusions, not the presence of a worker. Recorded here so it isn't
+  re-proposed as an obvious optimization.
 - **Announce every dispatch, in both directions.** The announce-don't-sneak
   rule was written for expensive escalations; it applies just as much to a
   Sonnet dispatch, because "which tier did that work actually run on" is
@@ -236,23 +236,23 @@ Two facts that decide how we use it today:
   The advisor as a *mechanism* stays interesting if Fable ever becomes
   available as one; see the bullet above.
 
-### Every adjudication runs on the strongest available model (David, 2026-08-17; mechanism updated 2026-09-06)
+### Every dispatched judgement runs on the strongest available model (David, 2026-08-17; mechanism updated 2026-09-06)
 
-**All adjudication subagents dispatch at the strongest tier available — no
+**Every judgement subagent dispatches at the strongest tier available — no
 exceptions, no tier judgement at the dispatch site.** David's instruction:
 *for judgements, I want the strongest possible model.* This supersedes the
 Opus/Fable split that used to run through the two sections below, where
 triggers 1–3 went to Opus and the stopping-rule trigger went to Fable.
 
-**The tier is named in one place: the agent definition's own frontmatter,
-as `model: best`** — the alias that resolves to the latest Fable model where
-the account has it and to Opus otherwise. So the instruction survives a change
-of which model is strongest without anyone editing a file, and **the dispatch
-passes no per-invocation `model`**: a per-invocation model outranks
-frontmatter and the Agent tool accepts only tier aliases, so passing one would
-re-pin exactly what this is meant to keep unpinned. Effort is declared the
-same way (`effort: xhigh`) rather than inherited from whatever session
-happens to dispatch.
+**The tier is named in one place: the role's own definition, resolved through
+`.agents/machinery.json`'s `models` block** — `strongestClaude` and
+`strongestCodex`, each mapping to a full model id and an effort. So the
+instruction survives a change of which model is strongest as a one-value edit,
+and **the dispatch passes no per-invocation `model`**: a per-invocation model
+outranks the definition, so passing one would re-pin exactly what this is
+meant to keep unpinned. A tier must resolve to a FULL model id, never an
+alias — a dispatch stamps the id it asked for against the id that answered,
+and an alias cannot be compared.
 
 **What made the old split wrong is not that Opus was too weak — it is that
 the split asked the wrong question.** It sorted triggers by how consequential
@@ -260,8 +260,8 @@ they looked, which is a self-assessment of exactly the kind the structural
 triggers exist to eliminate. A decline that resolves a thread nothing
 downstream catches is not obviously cheaper than a stop decision, and
 deciding which deserves the stronger model is one more judgement made by the
-context that is already suspect. Routing every adjudication to one tier
-removes the question.
+context that is already suspect. Routing every dispatched judgement to one
+tier removes the question.
 
 The cost note that justified the split still holds and now argues the other
 way: judgement moments are perhaps 2% of a loop's tokens and carry all of its
@@ -280,16 +280,14 @@ Fable.
 Two sections lived here — the three structural adjudication triggers
 (any decline, any oracle-less finding, any swept-class recurrence) and the
 adversarial stopping-rule subagent. **Both are superseded by the single
-external per-round adjudicator** in `CLAUDE.md`'s *Review loops*: one
-`review-loop-adjudicator` on any round that returned findings, from round 1,
-classifying every finding and — from round 3 — ruling before
-anything is written for them; its definition declares the tier, its input is the record
-alone, and its verdict decides. Running the old per-finding and
-per-decline dispatches alongside it would re-create the parallel
-self-refereeing the #541 review deleted (Codex, #543 round 3).
+per-round judge** in `CLAUDE.md`'s *Review loops*: the proxy (#96), dispatched
+on any round that returned findings, before anything is written for them, with
+a per-finding answer that decides. Running the old per-finding and per-decline
+dispatches alongside it would re-create the parallel self-refereeing the #541
+review deleted (Codex, #543 round 3).
 
-What survives from those sections, because it is about dispatch hygiene
-rather than dispatch law: announce every dispatch out loud (the judge's tier
-spends well above Opus); a dispatch that reuses my own reasoning is not rescued by the
-tier; and the adjudicator runs after triage but before fixes are implemented,
-so a stop verdict can still prevent unnecessary fix work.
+What survives from those sections, because it is about dispatch hygiene rather
+than dispatch law: announce every dispatch out loud (the judge's tier spends
+well above Opus); a dispatch that reuses my own reasoning is not rescued by the
+tier; and the judge runs after triage but before fixes are implemented, so a
+decline can still prevent unnecessary fix work.

@@ -26,12 +26,13 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   other repositories will receive, so review them for what they will do
   *there*. The settings template still configures nothing here — it is a seed
   for the next consumer, and this repo's own `.claude/settings.json` is
-  separate. But two things under `core/` now DO take effect here, by reference
-  and never by copy: the skills and agents, which `.claude/skills/<name>` and
-  `.claude/agents/<name>.md` reach by per-entry symlink, and `guard.sh`, which
-  this repo's hooks will name directly once those hooks are installed. So a
-  diff to either is a change to this repository's own behaviour as well as to
-  every consumer's. See *How this repo reaches its own payload* in
+  separate. But one thing under `core/` DOES take effect here, by reference and
+  never by copy: the skills and agents, which `.claude/skills/<name>` and
+  `.claude/agents/<name>.md` reach by per-entry symlink. So a diff to one of
+  those is a change to this repository's own behaviour as well as to every
+  consumer's. (There was a second — `guard.sh`, named directly by this repo's
+  hooks — and the guard, the hooks and the exception all went in the #89 cut,
+  #94.) See *How this repo reaches its own payload* in
   [`CLAUDE.md`](CLAUDE.md).
 - **Coverage is automatic, and that is the point.** A file added under `core/`
   ships, because the sync routes `core/**` by construction — there is no
@@ -66,16 +67,16 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   (`--role`, `--timeout`, a destination repo) stays an input, and a cheap
   well-formedness check on it — non-empty, numeric, exists — is in scope as
   a mistake catch, while a hostile-value defence on it is not.
-- **This does NOT extend to input produced by another program, and the guard
-  is the case that matters.** `core/scripts/guard-decision.mjs` reads a
-  `PreToolUse` payload from stdin and evaluates the `tool_input.command` an
-  *agent* proposed — it exists to refuse that agent's destructive commands,
-  force pushes and merges. Its input is adversarial by construction relative
-  to the thing it constrains, so hostile-value and parser findings there are
-  fully in scope and must not be waved off by the bullet above. Same for any
-  other hook payload, fetched document, webhook body, or third-party output:
-  **the question is who produced the value, never which directory the file
-  lives in.** History:
+- **This does NOT extend to input produced by another program.** The case that
+  used to stand here was the shell guard: it read a `PreToolUse` payload from
+  stdin and evaluated a command an *agent* proposed, so its input was
+  adversarial by construction relative to the thing it constrained, and
+  hostile-value and parser findings there were fully in scope. The guard is
+  gone (#94, replaced by server-side rulesets that need no parser), and **the
+  rule it illustrated is not**: a fetched document, a webhook body, a model's
+  answer, or any third-party output is input this code did not produce, and a
+  hostile-value finding on one is in scope. **The question is who produced the
+  value, never which directory the file lives in.** History:
   [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
   the general rule is in `agents-core.md`'s product principles.
 - **A consequence nobody would feel is not a consequence** (David,
@@ -97,22 +98,20 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
 No install step; the machinery is dependency-free Node.
 
 ```
-node --test scripts/__tests__/*.test.mjs   # the machinery's own tests
-node scripts/check-identity-sources.mjs  # every identity touchpoint classified
-node scripts/check-root-wiring.mjs       # this repo actually reaches its payload
-node scripts/check-settings-fields.mjs   # no settings field Claude Code would refuse
-node core/scripts/check-claude-md-budget.mjs  # the always-loaded contract still fits
-node scripts/sync.mjs --to <repo> --dry-run   # what a consumer would receive
+node --test scripts/__tests__/*.test.mjs        # the machinery's own tests
+node --test core/scripts/__tests__/*.test.mjs   # the payload's tests
+node scripts/check-root-wiring.mjs              # this repo actually reaches its payload
+node scripts/check-settings-fields.mjs          # no settings field Claude Code would refuse
+node scripts/sync.mjs --to <repo> --dry-run     # what a consumer would receive
 ```
 
 These run in the two required checks on every pull request to `main` — `Test`
-and `Manifest`, which are the job names `.agents/machinery.json` lists. The
-number of *commands* is not the number of *checks*: the three `check-*` scripts
-all run in `Manifest`, so adding one here adds no new required check and needs
-no branch-protection change. (`Manifest` no longer checks a manifest; the name
-is kept because it is a required check, and renaming it is a branch-protection
-change rather than a code change.) A change that adds an identity touchpoint
-without classifying it, adds a skill without wiring it to the root, or puts a
-field in a settings file that Claude Code refuses to load is incomplete and one
-of them will say so. There is no build, no typecheck and no database in this
+and `Manifest`, which are the job names the `main` ruleset lists. The number of
+*commands* is not the number of *checks*: the `check-*` scripts all run in
+`Manifest`, so adding one here adds no new required check and needs no ruleset
+change. (`Manifest` no longer checks a manifest; the name is kept because it is
+a required check, and renaming it is a ruleset change rather than a code
+change.) A change that adds a skill without wiring it to the root, or puts a
+field in a settings file that Claude Code refuses to load, is incomplete and
+one of them will say so. There is no build, no typecheck and no database in this
 repository — if you are looking for them, you are in the wrong repo.

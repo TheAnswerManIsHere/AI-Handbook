@@ -16,8 +16,8 @@ Markdown. Across #38's fourteen review rounds that matching produced roughly
 twenty of fifty-five findings, each one a Markdown topology the previous round
 had not masked: a fenced example, indented code, a blockquote, a heading whose
 section held a sample, and finally ordinary prose carrying the label ahead of
-the real declaration. The trend never declined, and the adjudicator named the
-shape at two separate gates — **the class does not converge by review rounds**,
+the real declaration. The trend never declined, and the judge named the shape
+at two separate gates — **the class does not converge by review rounds**,
 because the ways a provenance-shaped string can appear in prose without being
 the declaration are open-ended.
 
@@ -130,17 +130,25 @@ placeholder *is* an HTML comment, and those placeholders carry the very strings
 the generator scans for — a template's own note under `**Fix tier:**` spells out
 "A or B". A body nobody filled in could otherwise be read as one that answered.
 
-## The record's discriminator
+## The record's discriminator is gone, and so is the shortcut it offered
 
-The adjudication record carries `planOracle.declaredBy`, either `"declaration"`
-or `"prose"`. It is absent on every record committed before this shipped, and
-absence means `"prose"`.
+The adjudication record used to carry `planOracle.declaredBy`, either
+`"declaration"` or `"prose"`, as sampled diagnostics on how many PR bodies had
+migrated. The record generator was removed in the #89 cut, so the field no
+longer exists.
 
-It is **sampled diagnostics, not migration proof**. A record exists only where
-a judge was dispatched, and a clean or all-declined round ends with no
-dispatch — so an absence of prose-selected records observes only the PRs that
-reached adjudication. Removing the prose fallback needs an exhaustive pass over
-PR bodies; this field cannot authorise it.
+It was never migration proof anyway, and the reasoning outlives it: a record
+existed only where a judge was dispatched, and a clean or all-declined round
+ended with no dispatch, so an absence of prose-selected records observed only
+the PRs that reached adjudication. **Removing the prose fallback needs an
+exhaustive pass over PR bodies**, which is what it needed then too.
+
+**Nothing reads a PR body's block at runtime now.** The parser lives at
+`core/scripts/plan-provenance.mjs` and its only caller is the producer-drift
+test, which checks that this document and the skills that teach the format
+still agree with it. The block is still contract — `claude-core.md` PR rule 4
+requires one — so what changed is that a malformed block is caught by a person
+reading the PR rather than by a generator refusing.
 
 ## Enabling this in a consuming repository
 

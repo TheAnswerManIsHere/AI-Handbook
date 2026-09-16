@@ -93,7 +93,7 @@ Decide by what "this" refers to (contract's trigger table):
   close-out contract. I only
   commit to the feature's own branch instead when I have clear **session
   evidence** its PR is still open (e.g. `/document` invoked mid-build). **Never
-  force-push** (`.claude/guard.sh` blocks it); if a stale remote ref of my old
+  force-push** (a ruleset on `claude/**` refuses it); if a stale remote ref of my old
   feature branch exists (GitHub usually auto-deletes it post-squash-merge, but
   a same-branch-name push can recreate it), confirm the owning PR is actually
   merged/closed before deleting that stale ref.

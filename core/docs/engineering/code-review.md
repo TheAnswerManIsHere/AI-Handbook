@@ -205,10 +205,9 @@ cost more than the defects they describe. This is the *depth* rule. The
 *continuation* rule is the internal tier (David, 2026-08-21, superseding
 the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
 ceremony, but when the pass finds a real defect the pushed fixes are
-re-reviewed under the internal tier, with the external adjudicator's strict
-rubric deciding continuation on a 3-round budget under the standard
-two-tier tripwire (a self-serve leash to round 6, the David gate at 6 —
-David, 2026-08-26) — see
+re-reviewed under the internal tier, with the proxy's strict internal rubric
+deciding per finding whether anything is written at all — there is no round
+budget and no leash (#89 cut, 2026-09-16) — see
 [`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)'s
 internal-tier section. The retired fix-round merge-path workarounds no
 longer apply.
@@ -469,10 +468,10 @@ is equally one-directional.
 
 **Avoid:** construct the counter-example for the opposite direction *before*
 shipping the sentence, and prefer a **measured matrix to a comparative
-adjective** whenever the behaviour has more than one axis. `.claude/guard.sh`
-now carries a six-row block/allow table precisely because two successive
-adjectives were tried and both were false; a table has no direction to get
-backwards.
+adjective** whenever the behaviour has more than one axis. The git-constraints
+section of `claude-core.md` carries a block/allow table precisely because two
+successive adjectives were tried on the guard it then described and both were
+false; a table has no direction to get backwards, and it survived the guard.
 
 **The cheap test that would have caught all three:** ask *what would make the
 opposite true, and can I run it?* Each was falsifiable in under a minute —

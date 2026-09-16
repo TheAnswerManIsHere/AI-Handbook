@@ -63,9 +63,9 @@ git checkout -b claude/bugfix-<topic> origin/main   # -b, never -B
 **Never `-B`.** `-B` *resets* the ref to `origin/main`, which would silently wipe
 an existing same-named branch's unpushed work. If `-b` fails because the name
 exists, that is the signal to pick a different slug — never fall back to `-B`,
-`--force`, or any reset. (`.claude/guard.sh` blocks force-push and
-`git reset --hard` outright; see CLAUDE.md's *This environment's git
-constraints*.)
+`--force`, or any reset. (A GitHub ruleset blocks force pushes on `claude/**`,
+so the push would be refused anyway; the local reset it would follow is what
+loses the work. See CLAUDE.md's *This environment's git constraints*.)
 
 > **The assigned-branch exception is scoped to an *unclaimed* branch.** If I was
 > invoked on a designated working branch and it has no bug on it yet, **stay on
@@ -338,20 +338,18 @@ the PR back only delays the review that catches things.
 The review-loop contract is shared and enacted elsewhere — **the mechanics
 live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
-[`working-modes.md`](../../../docs/ai-context/working-modes.md)**, as revised
-2026-08-22: the declared budget (a product-code fix is a product loop, 5
-rounds), the **write-gate rule — the external adjudicator classifies every finding
-from round 1 and rules from round 3 onward on whether to WRITE for them,
-before anything is written, and any commit that does get written gets a mandatory review round;
-its verdict decides; the in-loop continue/stop, criticality gate, count
-trend, oscillation diagnosis and Fable-challenged declines are all
-retired** (Codex, #543 round 3), the fix / accept-and-document / escalate
-triage stated per finding, the class-sweep protocol (name the class, cite
-the mechanical oracle, sweep to zero, re-run prior rounds' oracles before
-every push), resolving each thread myself right after addressing it,
-bare-trigger re-requests with context in a separate defanged comment,
-the cumulative-diff rule after 2+ fix rounds, and unsubscribing at
-merge/close. **Pointer, not a copy** —
+[`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
+what the fix touches (a rubric selector, not a round budget), the **write-gate
+rule — the proxy rules per finding on whether to WRITE for it, before anything
+is written, and any commit that does get written gets a mandatory review round;
+its per-finding answer decides; the in-loop continue/stop, criticality gate,
+count trend and oscillation diagnosis are all retired**, the
+fix / accept-and-document / escalate triage stated per finding, the
+class-sweep protocol (name the class, cite the mechanical oracle, sweep to
+zero, re-run prior rounds' oracles before every push), resolving each thread
+myself right after addressing it, bare-trigger re-requests with context in a
+separate defanged comment, the cumulative-diff rule after 2+ fix rounds, and
+unsubscribing at merge/close. **Pointer, not a copy** —
 restating those mechanics here is how this section went stale once already
 (it carried a "never resolve threads" rule for two months after David
 reversed it, 2026-08-06).
@@ -365,22 +363,19 @@ What is *bugfix-specific* about the loop:
   were caught by review *after* the shipped tests passed. Engage every
   round; the light *planning* path must never shade into a light *review*
   path.
-- **Round 1 is automatic.** The Codex connector reviews on non-draft PR
-  open — or on marking a draft ready, in the Tier B draft-first flow
-  (step 3, with its first-use caveat) — so no `@codex review` on open.
-  (The plan-review loop needs an explicit trigger only because its PR
-  *stays* a draft.)
+- **Round 1 fires when the draft is marked ready.** Every PR now opens as a
+  draft (#97) and the Codex connector reviews on the ready transition, so
+  there is no trigger to post on open — and a draft that is never marked
+  ready is never reviewed, which is the sequence to verify before relying on
+  it (Astra, #97).
 - **The artifact the fix touches picks the tier — never the fact that it's
-  a fix.** A fix to product code is a product loop (declared budget, external
-  adjudicator). But routed entry means a bug can be *in the docs*: when the
-  whole diff is agent-facing markdown or process tooling, the internal
-  tier governs (David, 2026-08-21) — the automatic pass, one triage,
-  fix rounds re-reviewed under the strict internal adjudication rubric,
-  budget 3 with the standard two-tier tripwire — exactly as if the same
-  change had arrived through feature
-  mode. Entering
-  through this mode never raises an artifact's ceremony, and never lowers
-  product code's.
+  a fix.** A fix to product code is a product loop. But routed entry means a
+  bug can be *in the docs*: when the whole diff is agent-facing markdown or
+  process tooling, the internal tier governs (David, 2026-08-21) — the
+  automatic pass, one triage, fix rounds re-reviewed under the strict internal
+  rubric, where only a critical flaw is written for — exactly as if the same
+  change had arrived through feature mode. Entering through this mode never
+  raises an artifact's ceremony, and never lowers product code's.
 - **The re-reviewer's oracle is the bugfix oracle** (step 3), not a plan —
   it's what lets Codex ask "root cause or symptom-patch?" and "did this
   miss a caller?", so re-requests reference it the way feature loops

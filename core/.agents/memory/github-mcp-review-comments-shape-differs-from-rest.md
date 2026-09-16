@@ -44,7 +44,7 @@ conversation**, not the code.
 `resolved`.** A live `get_review_comments` response observed 2026-08-19 returns
 **`is_resolved` / `is_outdated` / `is_collapsed`** (snake_case) on each thread,
 while the tool's own description advertises **`isResolved` / `isOutdated` /
-`isCollapsed`**. `scripts/review-loop-record.mjs` reads `thread.isResolved` off
+`isCollapsed`**. The handbook's former `review-loop-record.mjs` read `thread.isResolved` off
 a captured snapshot and emits its own flattened `resolved` field, so all three
 spellings are live in this repo at different layers. **Check the shape of the
 snapshot in front of you** — a miss here reads `undefined`, which the record

@@ -56,8 +56,8 @@ const countFiles = (dir) => {
 // ── routing ────────────────────────────────────────────────────────────────
 
 test("a plain payload file keeps its path, minus the core/ prefix", () => {
-  assert.deepEqual(routeOf("scripts/pr-ready.mjs"), { to: "scripts/pr-ready.mjs", seed: false, topUp: false });
-  assert.deepEqual(routeOf(".claude/guard.sh"), { to: ".claude/guard.sh", seed: false, topUp: false });
+  assert.deepEqual(routeOf("scripts/plan-review.mjs"), { to: "scripts/plan-review.mjs", seed: false, topUp: false });
+  assert.deepEqual(routeOf(".claude/skills/pr-watch/SKILL.md"), { to: ".claude/skills/pr-watch/SKILL.md", seed: false, topUp: false });
 });
 
 test("a .template. file lands under its real name and is marked a seed", () => {

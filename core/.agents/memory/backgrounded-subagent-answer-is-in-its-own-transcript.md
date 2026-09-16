@@ -97,9 +97,11 @@ advises — re-dispatch — costs a full adjudication and **fails identically**,
 because the second dispatch is backgrounded too.
 
 A refusal that misdiagnoses is worse than a loud one: it spends the expensive
-thing while pointing away from the fix. `capture-from-transcript.mjs` now
-follows the id, and when that agent's transcript is genuinely missing it says
-so by name rather than blaming the agent.
+thing while pointing away from the fix. The script that read this was removed
+in the #89 cut, along with the adjudicator whose answer it recovered — **and
+the harness fact is unchanged**, so anything that recovers a backgrounded
+agent's answer has to follow the id, and say by name when that agent's
+transcript is genuinely missing rather than blaming the agent.
 
 ## Related
 
@@ -107,8 +109,11 @@ so by name rather than blaming the agent.
   — the same idea one level up: a tool response is on disk, so it never needs
   retyping. That note covers `tool_result` blocks in the session transcript;
   this one covers the case where the block you want is not there at all.
-- `scripts/capture-from-transcript.mjs` (`backgroundAgentId`, `agentAnswer`)
-  implements this, discovered by running it rather than by review —
-  AI-Handbook #79. **Paths in this note are consumer paths**, as the sync
-  delivers them; in the handbook itself the same file is at
-  `core/scripts/capture-from-transcript.mjs`.
+- `capture-from-transcript.mjs` implemented this (`backgroundAgentId`,
+  `agentAnswer`), discovered by running it rather than by review — AI-Handbook
+  #79 — and was removed by the #89 cut. **The measured failure is worth
+  carrying into #96**: on #91 the harness moved the answer one block further
+  out than the recovery path expected, the script refused, and its refusal
+  advised a re-dispatch that cost a full adjudication and could never succeed.
+  A recovery path that names what it could not find beats one that names a
+  remedy it has not checked.

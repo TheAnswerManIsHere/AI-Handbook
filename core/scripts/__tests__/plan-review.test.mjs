@@ -68,7 +68,7 @@ const assessment = (over = {}) => ({
       why_it_matters: "A clean pass never opens the cited record, so the check is bypassable.",
       what_should_change: "Pass a real io on the rail path, or refuse when io is null.",
       acceptance_check: "node --test core/scripts/__tests__/pr-ready.test.mjs covers a null-io rail",
-      evidence: ["core/scripts/pr-ready.mjs:1592-1610", "core/scripts/review-budget.mjs:1054"],
+      evidence: ["core/scripts/machinery.mjs:130-160", "core/scripts/plan-review.mjs:504"],
       class: "a check satisfiable without the thing it exists to check",
     },
   ],
@@ -274,7 +274,7 @@ test("prior findings cross as id, title and disposition — never the body", () 
       disposition: "declined",
       note: "  the rail is\nnot reachable  ",
       why_it_matters: "SHOULD NOT CROSS",
-      evidence: ["core/scripts/pr-ready.mjs:1592"],
+      evidence: ["core/scripts/machinery.mjs:130"],
       what_should_change: "SHOULD NOT CROSS",
     },
   ]);

@@ -128,6 +128,29 @@ and re-check **each entry's revisit trigger**:
 - If nothing fired and nothing's new, one line: "deferred-work backlog: N
   items, no triggers fired."
 
+### 4a. `gap` issue triage (#98)
+
+Every review finding that shipped as a knowingly-accepted defect is an open
+issue labelled `gap`, filed at its PR's close-out. `list_issues` with that
+label, and give each one of three outcomes:
+
+- **Fix now** — open a bugfix branch, per `working-modes.md`. The gap issue is
+  the bug report; close it with the fix.
+- **Next** — leave it open, optionally milestoned. Say why it is still worth
+  doing.
+- **Never** — close as *not planned*, with the reason in the closing comment.
+
+**A recorded gap is not a promise of future work** (Astra, #89 review-loop
+design pass). The issue exists so the decision can be revisited with evidence;
+this triage is where it is made, and "never" is an ordinary outcome rather than
+a failure to schedule.
+
+If the label has no open issues, one line: "no open gaps." If it has more than
+a handful and they are all "next" pass after pass, say so — a decline that is
+correct should mostly become "never", and a growing pile of deferred gaps means
+the declines are being written to avoid a round rather than because the fix is
+not worth it.
+
 ## 5. "What shipped" digest
 
 - List PRs merged since the last maintenance run (default window: 7 days).
@@ -174,34 +197,18 @@ stored records. From the merged-PR list for the window:
   rounds-per-loop figure that silently omits it: understating review cost is
   the bias the old dual inventory existed to prevent, and it comes back the
   moment a source is quietly dropped.
-- **Adjudicator verdicts — both kinds** (Codex, #543 round 3). Exhaustion
-  verdicts are the committed `.agents/receipts/` files (a directory read).
-  Ordinary per-round verdicts never become receipts by design — they live as
-  one-liners in each loop's defanged context comments and findings ledgers —
-  so read them from the window's PR histories, or the count will show zero
-  precisely when the judge is doing its best work (stopping loops before
-  their cap). A run of `continue` verdicts would mean the adjudicator is
-  being talked into extensions, which is the mechanism failing in the way it
-  was built to resist.
-- **B1, two numbers and no more** (David, 2026-09-11). How many conformance
-  dispatches ran, and how many findings they classed as outside the agreed
-  scope. Both from the committed verdict files:
+- **Counted from GitHub at pass time, never from a ledger** (#89 cut,
+  2026-09-16). Merged PRs by `mode:` label for the meta-vs-product share, and
+  review-trigger comments per PR for rounds per loop. Nothing stores these any
+  more — the receipts, verdict files and position caches they used to be read
+  from are gone — and nothing should: a stored count is a cache of something
+  GitHub already holds, and it drifts.
 
-  ```
-  ls .agents/adjudications/*.verdict.json | wc -l
-  cat .agents/adjudications/*.verdict.json \
-    | jq '[.verdict.conformance[]? | select(.class | test("^out-of-|^misdirection"))] | length'
-  ```
+  **Two figures are dropped rather than re-sourced**, because the mechanisms
+  they measured no longer exist: adjudicator verdicts issued, and guard
+  incidents that needed David. Do not substitute a proxy for either; say the
+  mechanism is gone if anyone asks for the trend.
 
-  Filter to the window by the files' commit dates. **This is a gut check, not
-  an audit.** Nothing tracks what happened to each classified finding
-  afterwards, deliberately: the question these answer is "is this earning its
-  keep", and the retirement rule reads a trend across loops, not a ledger.
-  Report them in a sentence. Below three loops, "not yet informative".
-
-  A run of loops where B1 classes nothing out of scope means it is agreeing
-  with every finding, which is the zero-for-fifteen shape the workstream's own
-  retirement rule exists to catch — say so rather than reporting the zero flat.
 - **D0, two numbers and no more** (David, 2026-09-12). How many round
   translations ran, and how many flagged a disagreement with the builder's
   account. **Read them from the close-out harvest comments**, the same source
@@ -216,8 +223,6 @@ stored records. From the merged-PR list for the window:
   zero-for-fifteen retirement rule catches. The opposite shape counts too — a
   translation disagreeing on every round is not obviously working either, and
   either extreme is worth a sentence to David rather than a number.
-- **Guard incidents that needed David.** Rare by design; if it isn't rare, say
-  so.
 - **Recorded dissents** (David, 2026-09-03). Override entries in the repo's
   `decisions.md` dated inside the window — the entries the advice rule writes
   when David decides against a recommendation (the Claude core, *Advice is
@@ -232,9 +237,8 @@ stored records. From the merged-PR list for the window:
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants
 answered: *are we doing better, and is there anything to improve?* Bring
-anything the week's loops suggest about the process itself: a budget that keeps
-being hit (a tier whose budget is wrong is a David conversation, not a silent
-adjustment), a decline pattern, a ceremony that looks mismatched to its
+anything the week's loops suggest about the process itself: a loop that keeps
+running long, a decline pattern, a ceremony that looks mismatched to its
 artifact. **He is the verdict mechanism** — there is no trial window and no
 automatic consequence; these numbers exist so his call is informed rather than
 vibes-only. If he judges the apparatus is still costing more than it returns,
@@ -402,9 +406,13 @@ A standing item, not a conditional one. **Each maintenance pass, exactly one
 judgment-shaped rule in `CLAUDE.md` is either converted into a mechanical
 check or deleted.**
 
-The rationale is the same evidence that produced the round-budget guard: on PR
+The rationale is the evidence that once produced the round-budget guard: on PR
 #488 the judgment-shaped stopping devices went 0-for-15 while pre-registered,
-mechanically-collided conditions went 2-for-2. A contract that only grows adds
+mechanically-collided conditions went 2-for-2. **The guard itself is gone, and
+that is the other half of this rule** — a check has to keep earning its place
+too, and the #89 audit deleted twelve thousand lines of checks that never once
+changed a decision. Converting and deleting are the same judgement pointed in
+two directions. A contract that only grows adds
 rules of the losing kind, and each one dilutes attention on the rules that
 work. Length is itself a failure mode — a rule nobody can hold in mind at the
 moment it applies is not a rule, it is a record of an intention.
@@ -417,15 +425,16 @@ How to run it:
    tightened more than once: the tightening count is the strongest available
    signal that judgment isn't carrying it.
 2. **Decide which of the two happens.** *Convert* when there is a real action
-   path to hang a check on (a tool call, a commit, a hook point) — that's the
-   `.claude/guard.sh` / build.yml pattern. *Delete* when there isn't one, or
+   path to hang a check on (a CI step, a server-side ruleset, a schema field
+   the answer must fill) — a ruleset is the strongest form, because it cannot
+   fail open. *Delete* when there isn't one, or
    when the rule turns out to be advice rather than a contract. **Deleting is
    a legitimate outcome, not a failure to find a check** — an unenforceable
    rule that stays in the file is worse than no rule, because it reads as
    coverage.
 3. **Propose, don't apply.** This is a `CLAUDE.md` edit, so it goes in the
    numbered decision list for David and lands through the normal PR path.
-   Guard and permission changes take the same path; their PR body names the
+   Permission and ruleset changes take the same path; their PR body names the
    latitude they grant (David, 2026-09-14).
 4. **Say which rule you picked and why, every pass** — including a pass where
    the honest answer is "the best candidate this week is weak." One line. A

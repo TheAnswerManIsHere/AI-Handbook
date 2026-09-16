@@ -11,8 +11,10 @@ with them. Phase 2 put the first role on the floor —
 and decides nothing.
 
 **Codex keeps its full fix-or-decline force on product code. Nothing here
-touches it.** Neither does anything here change the `review-loop-adjudicator`,
-which remains a subagent dispatch in both code loops and plan loops.
+touches it.** Neither does anything here change the loop's **judge** — the
+proxy on a code loop (#96), the reviewer's own required/recommended split on a
+plan loop. This script carries roles that write TO David; it carries none that
+rule on a finding.
 
 ## Why this document leads with the non-guarantees
 
@@ -84,7 +86,7 @@ refusal*, below.
 with each finding is its whole job. The mechanism there is **a label, not a
 barrier**: every block in that brief says who wrote it, reviewer or builder
 or someone else, and the role is told to check the builder's claims against
-the diff (David, 2026-09-12: *"I'm not worried about the adjudicator seeing
+the diff (David, 2026-09-12: *"I'm not worried about the judge seeing
 information that the builder is providing, so long as it knows where it came
 from"*). No code keeps the builder's text away from a reviewer that is
 supposed to read it. What stays true is narrower and unchanged: **no
@@ -270,16 +272,25 @@ snapshot. Snapshotting is not in Phase 0.
 **A role may dispatch if and only if this script generates its brief.** That is
 the rule and the mechanism both: the permitted set is a predicate over the
 brief generators in `fable-dispatch.mjs`, there is no `--brief` flag, and
-`dispatch()` takes no parameter a caller could widen. Four roles satisfy it —
-the probe, `round-translation`, `gaps-translation`, and `merge-opinion`.
-Everything else is refused, and the way in is to add a generator, not to widen
-anything.
+`dispatch()` takes no parameter a caller could widen. **One role satisfies it
+today: the probe.** Everything else is refused, and the way in is to add a
+generator, not to widen anything.
+
+**It has been four**, and the #89 cut took three back off, which is a statement
+about the roles rather than about the rule. `gaps-translation` (D3) and
+`merge-opinion` (D2) were cut outright — both read adjudication records that no
+longer exist, and D3's question became a section of D0's final-round account.
+`round-translation` (D0) was **kept and is temporarily unplumbed**: its brief
+was composed from a record built out of a captured review snapshot, and that
+whole input path went with the accounting machinery. #95 rebuilds it from
+GitHub directly and re-registers the role here.
 
 **This paragraph is reached by a refusal**, since `dispatch()` names this file
 when it turns a role away, so a reader sent here to learn the rule reads
 whatever it says. It went one role stale the moment `gaps-translation` landed
 and had to be corrected in the same increment (Codex, AI-Handbook #88 round 2);
-adding a generator without editing this sentence is half a change.
+adding or removing a generator without editing this sentence is half a
+change.
 
 That shape replaces Phase 0's list, which stated the same rule while leaving
 `permittedRoles` on the exported function — so an importing script could pass
@@ -292,11 +303,11 @@ brief provenance, as Phase 0 imagined it, is **not** what lifts the refusal —
 the bar is the predicate, and a brief this script builds needs no provenance
 check because there is no other author to distinguish it from.
 
-**Phase 2's `round-translation` is the first role through it**, and it is not
-an exception: its brief is composed here from a record
-`round-translation-record.mjs` builds out of a captured snapshot. The caller
-supplies a pull request number, a round number and a path — data this script
-validates — and not one word the reviewer reads. Each role's flags are
+**Phase 2's `round-translation` was the first role through it**, and it was
+not an exception: its brief was composed here from a record built out of a
+captured snapshot. The caller supplied a pull request number, a round number
+and a path — data this script validated — and not one word the reviewer read.
+#95 rebuilds that input and the same bar applies to it. Each role's flags are
 scoped to it, so a flag belonging to another role is refused by name rather
 than parsed and ignored.
 
@@ -331,10 +342,10 @@ dispatch is detached, and the round after this one proceeds while it runs. A
 translator that would have needed a file says so in `could_not_assess`
 instead.
 
-**What it cannot do:** anything. Nothing in the review loop, the budget or the
-merge gate reads its receipt — `git grep -n fable` over `pr-ready.mjs`,
-`guard.sh` and `guard-decision.mjs` returns nothing, and that absence is the
-mechanism. It is dispatched **after** the round's re-request is posted, so
+**What it cannot do:** anything. Nothing in the review loop reads its receipt,
+and there is no longer a budget or a merge gate that could — both were removed
+in the #89 cut, so the absence that used to be established by a grep is now
+established by there being nothing to grep. It is dispatched **after** the round's re-request is posted, so
 there is no moment at which the builder could act on it; if it catches
 something, raising it is David's, at the cost of a round.
 
@@ -428,7 +439,7 @@ a tool it holds, and refusing it for that would be a false refusal.
 
 Hashing stays in the script. An earlier design asked the reviewer to return the
 brief's digest, which a `Read`-only reviewer cannot compute — `plan-review.mjs`
-records the same limitation for the adjudicator — and which a schema-valid
+records the same limitation for its own reviewer — and which a schema-valid
 invented value would have satisfied.
 
 What a live probe run **establishes**: P1's frame reached the model, P2's
@@ -476,7 +487,8 @@ carries its own model stamp.
 
 `SubagentStop`'s `agent_transcript_path` may or may not let a subagent dispatch
 recover its served model. It is **unprobed**, irrelevant to the route taken,
-and noted here for whoever decides the adjudicator's future.
+and noted here for whoever builds the proxy (#96), which is a subagent
+dispatch rather than a subprocess one.
 
 ## What this is not
 

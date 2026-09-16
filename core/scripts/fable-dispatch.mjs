@@ -225,8 +225,7 @@ export function frontmatterBody(text) {
  * The working tree is what a reviewer greps; the definition is what instructs
  * it. Reading the instruction from a commit means an edit in progress cannot
  * change what a dispatch says while it is being judged, and the receipt can
- * name the commit the instruction came from -- the same reasoning as
- * `dispatchDeclaration` in review-loop-record.mjs.
+ * name the commit the instruction came from.
  */
 export const ROLE_DIR = ".agents/fable-roles";
 
@@ -301,9 +300,10 @@ export function readDefinitionAt(root, role, commit, { runGit = defaultGit } = {
     // definition -- which parses as a file with no frontmatter and refuses for
     // entirely the wrong reason. Found by the first live run, when the root
     // entry was still a link into the payload.
-    // The mode is what distinguishes them; `readAtCommit` in
-    // review-loop-record.mjs resolves the same hazard the same way, and this
-    // was found by the first live run rather than by any test.
+    // The mode is what distinguishes them, and this was found by the first
+    // live run rather than by any test.  (`review-loop-record.mjs` resolved
+    // the same hazard the same way before the #89 cut removed it, which is
+    // one reason the reasoning is written out here rather than cross-referenced.)
     if (entry.stdout.slice(0, 6) !== "120000") {
       return { path: candidate, text: read(candidate).stdout, followedLink: null };
     }
@@ -1374,10 +1374,11 @@ export function parseArgs(argv) {
     if (stray) throw new Error(`role "${out.role}" does not take ${stray}`);
     const missing = allowed.filter((f) => !seen.includes(f));
     if (missing.length) throw new Error(`role "${out.role}" requires ${missing.join(", ")}`);
-    // POSITIVE, not merely whole. `gaps-translation.mjs`'s own parser has said
-    // so since it was written; this one said only "integer", so `--pr 0` was
-    // refused by one parser and accepted by its twin. The same rule written
-    // twice and agreeing once is the defect (Codex, #88 round 2).
+    // POSITIVE, not merely whole. This once said only "integer" while its
+    // twin in another parser said positive, so `--pr 0` was refused by one and
+    // accepted by the other. The same rule written twice and agreeing once is
+    // the defect (Codex, #88 round 2) -- and the twin has since been deleted,
+    // which is the other way that class resolves.
     if (out.pr !== null && (!Number.isInteger(out.pr) || out.pr <= 0)) throw new Error("--pr must be a positive whole number");
     if (out.round !== null && !Number.isInteger(out.round)) throw new Error("--round must be a whole number");
   }

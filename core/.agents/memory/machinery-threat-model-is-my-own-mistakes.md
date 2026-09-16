@@ -9,7 +9,7 @@ description: Ten review rounds on AI-Handbook PR #7 hardened repository identity
 
 ## What happened
 
-Making the review-budget guard and the readiness gate portable meant
+Making the review-budget guard and the readiness gate portable (both since removed, #89) meant
 replacing two hardcoded literals — the repository's `owner/name` and the
 list of required CI jobs — with configuration. That is a configuration
 problem. It was treated as a security problem, and it grew into one.

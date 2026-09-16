@@ -548,14 +548,15 @@ it is two mechanical things and one external judge.
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
-**Every tier.** The adjudicator rules *before* code is written, not after it
-is pushed:
+**Every tier.** The judge rules *before* code is written, not after it is
+pushed:
 
 1. A round returns findings.
-2. The adjudicator rules **write** or **stop**.
-3. **Write** → the fixes are pushed, and another review round is *automatic
-   and mandatory*. Back to 1.
-4. **Stop** → the loop ends there, on a head the last round already reviewed.
+2. The judge rules **write** or **decline**, per finding.
+3. **Anything written** → the fixes are pushed, and another review round is
+   *automatic and mandatory*. Back to 1.
+4. **Nothing written** → the loop ends there, on a head the last round already
+   reviewed.
 
 Two invariants follow, and they are the reason for the shape: **no commit
 ever merges unreviewed**, and **a loop always terminates on a reviewed
@@ -565,122 +566,75 @@ skipping the review of something written.
 
 This supersedes the 2026-08-21 internal tier's ending, which deliberately
 stopped with the last fixes unreviewed and carried machinery to make that
-mergeable (a mid-budget terminal receipt, a distinct-commit proof, a rail
-look-through). All of it is deleted rather than repaired: it existed to make
-an unreviewed head safe, and an unreviewed head is now never mergeable. The
+mergeable. All of it is deleted rather than repaired: it existed to make an
+unreviewed head safe, and an unreviewed head is now never mergeable. The
 older "fix-round merge path" workarounds (David posting the trigger himself, <!-- retired-ok -->
 recutting the PR) stay retired for the same reason.
 
 **The cost, chosen rather than discovered:** fixing even a typo costs a full
-round. So the adjudicator's question is not "another round?" but **"is this
-finding worth writing code for at all?"** — and on internal tooling most are
-not.
+round. So the judge's question is not "another round?" but **"is this finding
+worth writing code for at all?"** — and on internal tooling most are not.
 
-#### Internal tooling: the strict rubric
+#### The judge is the proxy, and there is no budget (#89 cut, 2026-09-16)
 
-Guards, `scripts/`, skills, agent contracts (`CLAUDE.md`, `AGENTS.md`, these
-docs), process documentation and documentation harvests run the loop above
-with the `internal` tier:
+**Who judges.** On a code loop it is the **proxy** (#96), dispatched on every
+round that returned findings, before anything is written for them, and again
+on a fork or at the end of a plan loop — a moment, never a count. It reads the
+round labelled by source and answers per finding: *write* · *decline as a
+recorded gap* · *no change needed* · *to David*. Its per-finding answer
+decides; its direction is advice; a disagreement with it goes to David
+immediately. On a plan loop the reviewer performs that triage itself, in a
+schema field, and the loop stops on it.
 
-- **A clean automatic pass is the whole ceremony.** Round 1 fires on PR
-  open; finding nothing, it needs no budget, no receipts, no adjudication —
-  the merge receipt accepts an automatic pass covering the head.
-- **Findings go to the adjudicator**, which decides whether they are worth
-  writing for, under the internal rubric in `review-loop-adjudicator.md`:
-  write only for a **very high chance of a critical flaw** — a destructive
-  or irreversible action, corruption of the receipt/tracking machinery, a
-  widening of agent authority. Ordinary correctness nits, prose and
-  structure ship with gaps recorded.
-- **Budget 3, the same two-tier tripwire as every tier** (David, 2026-08-26,
-  superseding straight-to-David-at-3): the adjudicator's grants self-serve
-  to at most round 6, where the David gate stands.
+**What went, and what nothing replaced.** A declared per-PR round budget, its
+committed receipts, extension grants and their arithmetic, a round-count
+cache, a merge-readiness receipt, a translation-delivery gate, and the
+adjudicator that ruled from round 3. Measured across PR #91's ten rounds, not
+one of them changed a decision. **Termination is now a field in the judge's
+answer**, and a judge that can say "ship it" needs no counter; the thing
+budgets were compensating for was a builder writing code for every finding
+because the decline was a paragraph it had to compose.
 
-What the 2026-08-20 decision got right survives in the rubric, not in
+**The tiers survive as rubric selectors.** `product`, `sensitive`
+(auth/payments/migrations) and `internal` (guards, `scripts/`, skills, agent
+contracts, process documentation, documentation harvests) say how strictly a
+finding is read, and nothing more. On the **internal rubric** the judge writes
+only for a very high chance of a **critical flaw** — a destructive or
+irreversible action, broken workstream tracking, or an unauthorised widening
+of agent authority. Ordinary correctness nits, prose and structure ship as
+recorded gaps, each with its own `gap` issue (#98).
+
+What the 2026-08-20 decision got right survives in that rubric, not in
 refusing review: every runaway loop this repo measured was internal tooling
-reviewed at product rigor (PR #488 ran 22 rounds on a ~10-line guard
-change; then #503, #526, #531, #534, #539), so the strictness lives in the
-write decision, sized to a class of artifact whose failure mode is
-wrongly-blocking and whose real protection is GitHub's server-side ruleset.
+reviewed at product rigor (PR #488 ran 22 rounds on a ~10-line guard change;
+then #503, #526, #531, #534, #539, and #91's ten), so the strictness lives in
+the write decision, sized to a class of artifact whose failure mode is
+wrongly-blocking and whose real protection is GitHub's server-side rulesets.
 One triage pass and one-line declines still govern engagement.
 
 **Codex review of product code is unaffected and is not negotiable.** It is
 the safety net a non-code-reading product manager depends on.
 
-#### Product loops: a declared budget, then an external judge
+#### What still bounds a loop
 
-- **The budget is declared before round 1** — `product` (5 rounds) or
-  `sensitive` (5 rounds; auth/payments/migrations) — and enforced by
-  `scripts/review-budget.mjs`, which refuses the `@codex review` post when the
-  loop is out of rounds **and it has been handed a count** — below the cap a
-  post with no round-check receipt is allowed and noted (David, 2026-09-10);
-  near the cap the count is run so the guard enforces it. Rounds are
-  **counted from fresh GitHub evidence, at the one place that evidence enters**
-  — `snapshot-from-captures.mjs` writes the loop position from every snapshot
-  it assembles, `scripts/loop-position.mjs --pr <n>` reads it, and nothing
-  else derives or types a round (David, 2026-09-13). A committed tally was
-  tried once and failed because a hand-maintained count drifts from GitHub;
-  the position is a stamped cache of a derivation, refused when stale, and
-  refreshed only by assembling a snapshot.
-- **The external adjudicator is dispatched on any round that returned
-  findings, from round 1, and its VERDICT rules from round 3 onward — before
-  anything is written for them** (David, 2026-08-22, superseding the
-  2026-08-20 beyond-the-first cadence; the earlier dispatch is AI-Handbook
-  #36 Phase 1, which added per-finding conformance triage to the same
-  dispatch). The classification is advisory in rounds 1–2 and binding from
-  round 3; the verdict's own boundary did not move, because the evidence that
-  set it did not move. Rounds 1–2 findings are triaged and written for **only
-  when they pass the worth test**, never automatically: the loop ledger's 41
-  reviewed loops contain zero clean round 1s and three round-2 convergences,
-  so a judge there would only ever say "write", and round 3 heads the measured
-  runaway tail (26 of 41 loops ran 4+ rounds) — the one place its *verdict*
-  changes outcomes. A clean or all-declined round at any point ends the loop
-  with no dispatch: nothing was written, so the head is already reviewed.
-  The judge's only input is the script-generated mechanical record
-  (`scripts/review-loop-record.mjs`), never the loop's own prose and never a
-  case for continuing written by the agent driving it. It returns continue /
-  stop / split-to-David, and **its verdict decides** — the agent does not
-  weigh it or adopt part of it.
-- **At exhaustion the adjudicator owns the extension, including its size**,
-  naming the specific unaddressed behavioral risk it covers. ("The last
-  round's fixes are unreviewed" is no longer that risk: under the write-gate
-  rule the round reviewing any pushed fixes has already run before the judge
-  is asked.)
-- **The David gate stands at budget + 3, on every tier** (David, 2026-08-26,
-  superseding the 2x-budget hard stop and sensitive's mandatory stop at 5).
-  Adjudicator grants self-serve at most that 3-round leash. At the gate a
-  fresh adjudication runs and its verdict goes to David as a 🛑 — his
-  call on the recommendation — instead of taking effect on its own; his
-  answer is the committed `david`-kind receipt (a grant opens exactly those
-  rounds, default another 3-round leash with the gate repeating where it
-  runs out; 0 endorses stopping; every finite grant carries `asOf`, the
-  completed-round count when he granted, and opens exactly `asOf + grant` —
-  so a direct mid-stage grant discards the interrupted stage's unspent
-  remainder rather than stacking under his rounds, and a direct stop cites
-  its own mechanical record so the merge gate stays satisfiable). The gate
-  exists because pure judgment,
-  however well-positioned, is what failed to bound #488 — every round there
-  was locally rational.
-- **A product decision skips the leash entirely.** A product-shaped blocker —
-  the adjudicator's `escalate`, or the loop's own recognition that a finding
-  is product-not-mechanical — goes to David immediately, at any round.
-- **A mechanical round is the loop's own to grant, once** (David, 2026-09-07).
-  When the head has moved only by bookkeeping — receipts, records, machinery
-  configuration, a merge of the base branch — with no finding being written
-  for and no review or verdict pending, the loop does not ask. Under budget
-  it simply requests the pass. Only when the allowance is exhausted does it
-  commit a `david`-kind receipt granting two rounds from the completed count,
-  citing that standing authorization, then request the pass so the pass
-  covers the receipt. The second round is headroom for the gate arithmetic,
-  not one to spend.
+- **A clean automatic pass on PR-open is the whole ceremony** for an internal
+  PR. Finding nothing, it needs no judge: nothing was written, so the head is
+  already reviewed.
 - **No re-request without a behavioral change since the last reviewed commit.**
-  A skill file, `CLAUDE.md`, or a context contract counts as behavioral, because
-  in this repo those change what agents do. The mechanical round above is the
-  one exception.
+  A skill file, `CLAUDE.md`, or a context contract counts as behavioral,
+  because in this repo those change what agents do.
 - **Every review request carries pre-registered flip conditions** — what
   finding, what count, what change of shape would end the loop, written before
-  the round runs. This is the only stopping device with a working record
-  (6-for-6), and it works because a condition written in advance collides with
-  an event instead of waiting to be recalled.
+  the round runs, **each naming an observable read off the round rather than a
+  judgement made in the moment**. This is the only stopping device with a
+  working record (6-for-6), and it works because a condition written in
+  advance collides with an event instead of waiting to be recalled.
+- **A product decision goes to David immediately**, at any round, and is never
+  ground through mechanically.
+- **A six-hour hard stop of last resort**: a PR loop that has run six hours of
+  unattended elapsed time, read from the PR's age on GitHub, pauses and asks
+  David to resume. Expiry is never convergence and never an automatic
+  extension.
 
 ### Findings are triaged against the artifact's real risk
 
@@ -772,45 +726,41 @@ its answer beside the driving agent's before he says go. It is the cheapest
 place in the system to catch "we are about to build the wrong thing", and it
 costs one round against a document a page long.
 
-### The post-round adjudication
+### The post-round judgement
 
 Every substantive round pauses before any fix is implemented: triage first
-(nature, affected area, verdict, and whether the finding is new ground,
-repairing an earlier round's fix, or impossible as specified), then the
-external adjudicator above decides continue or stop. The agent driving the loop
-does not make that call for itself — self-policing is precisely what the
-0-for-15 record measured.
+(nature, affected area, verdict, and whether the finding sits in code an
+earlier fix in this loop already changed), then the **judge** — the proxy on a
+code loop, the reviewer's own required/recommended split on a plan loop —
+decides per finding. The agent driving the loop does not make that call for
+itself: self-policing is precisely what the 0-for-15 record measured, and
+eleven-for-eleven on #91 measured it again after the worth rule was written.
 
-What still stops the loop for David, whatever the adjudicator says: a genuine
+What still stops the loop for David, whatever the judge says: a genuine
 product or design fork, a scope addition, a split, or a disclosure question.
+So does a disagreement with the judge itself, immediately.
 
 A round with **no findings** — or whose findings are all reasoned declines,
-so nothing gets written — needs no adjudication: the loop ends on the head
-that round reviewed. Note one status line so the discipline stays visible.
+so nothing gets written — needs no dispatch: the loop ends on the head that
+round reviewed. Note one status line so the discipline stays visible.
 
-**Trivial nits no longer skip the judge** (David, 2026-08-22, the write-gate
-rule). Before round 3 they go through the worth test like any finding, and
-from round 3 onward writing for them is the decision the judge exists to
-make: under this rule a typo fix costs a full mandatory review round, so
-"it's only a nit" is precisely the trade the loop must not settle for
-itself — in either direction, since the same arithmetic that forbids
-skipping the judge is what makes an unworthy fix expensive.
+**Trivial nits do not skip the judge** (David, 2026-08-22, the write-gate
+rule). Writing for them is exactly the decision it exists to make: under this
+rule a typo fix costs a full mandatory review round, so "it's only a nit" is
+precisely the trade the loop must not settle for itself — in either direction,
+since the same arithmetic that forbids skipping the judge is what makes an
+unworthy fix expensive.
 
 **Scope: every review loop** — plan review and code review, feature and bugfix,
 whichever agent is driving it. Plan-review loops take the tier of what they are
 planning: a plan for product code is a product loop, because a wrong plan
-becomes wrong code.
+becomes wrong code. The tier selects the rubric; it is not a number of rounds.
 
-**One carve-out, for plan loops only (David, 2026-09-09): the round-3-onward
-dispatch is retired there.** It existed because nothing in the old plan loop
-could tell a required revision from a nice-to-have — the GitHub connector marks
-everything "Required Revision" because that is its job — so a judge was needed
-to rule on whether a finding was worth writing for. The in-session plan reviewer
-performs that triage itself, in a schema field, and the stop rule reads it
-directly; a per-round judge on top would be a second opinion on a judgement
-already made mechanically. **The budget, the David gate, the extension
-adjudication at the cap, and dispatch on an `escalate` are all unchanged**, and
-**code loops are untouched.**
+**The two loops differ deliberately in three places** and nowhere else: the
+plan reviewer re-derives fresh each round with prior bodies withheld, while
+the proxy reads the full labelled history; the plan loop's "every prior
+`Still open` blocks convergence" rule is plan-only; and **plan approval is
+David's alone** — no "finish" language and no proxy authority enters there.
 
 
 ## Bugfix mode (routed or declared, one bug per PR, tiered by what the fix touches)
