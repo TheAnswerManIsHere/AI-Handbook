@@ -126,7 +126,8 @@ export const REPO_ROOT = process.env.PLAN_REVIEW_ROOT
  * THE TIER IS THE SETTLED THING, NOT THE VERSION (David, 2026-09-11). "Astra"
  * means the strongest Codex or ChatGPT model available, so the id lives in
  * `.agents/machinery.json` and a new release is an edit there rather than in
- * this file, `fable-dispatch.mjs`, every role definition and four documents.
+ * this file, `round-translation-page.mjs`, every role definition and the
+ * documents that name a tier.
  *
  * FUNCTIONS RATHER THAN CONSTANTS, deliberately: resolving at module load
  * would make importing this file throw in a checkout whose configuration has
@@ -143,8 +144,8 @@ export const REVIEWS_DIR = ".agents/reviews";
 /**
  * The contract, by its CONSUMER path first. In the handbook the payload sits
  * one directory deeper and there is no consumer-shaped copy, so the resolver
- * retries under `core/`. Same two-layout problem `fable-dispatch.mjs` solves
- * when it reads a role definition at a commit; this one reads the working
+ * retries under `core/`. Same two-layout problem `round-translation-page.mjs`
+ * solves when it resolves its role definition; this one reads the working
  * tree, because the plan under review is a working-tree file that may never
  * be committed at all.
  */

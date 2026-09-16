@@ -151,7 +151,13 @@ test("receiptsFor reads this PR's rounds in order and ignores everything else", 
   w("fable-round-translation-81-2.json", receipt(2, answer()));
   w("fable-round-translation-81-1.json", receipt(1, answer()));
   w("fable-round-translation-99-1.json", { ...receipt(1, answer()), pr: 99 });
-  w("fable-probe-abc1234.json", { role: "probe" });
+  // Both halves of the filter, not just the prefix: a JSON file under another
+  // prefix, and a matching prefix that is not JSON. (The fixture here used to
+  // be a `fable-probe-` receipt, from a role the #95 rebuild deleted -- a
+  // fixture naming something that no longer exists tests nothing and reads as
+  // though it does.)
+  w("something-else-81-1.json", { round: 7 });
+  w("fable-round-translation-81-3.txt", "not json");
   const got = receiptsFor(root, PR);
   assert.deepEqual(got.map((r) => r.round), [1, 2]);
 });

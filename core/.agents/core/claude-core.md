@@ -473,10 +473,11 @@ reading my own prose. **Every round is delivered before the merge, the
 stopping round included.** The `Rounds translated` merge-gate item that used to
 prove this went with the gate; the delivery record is the page link posted on
 the PR. The merge report then restates the loop, which is where David reads it
-now that no PR waits for his click (below). **While D0's plumbing is being
-rebuilt (#95) a round is summarised on the PR by hand, in plain English, saying
-that the translator could not run** — its record builder read the review
-snapshot the cut removed. Mechanics: `pr-watch`.
+now that no PR waits for his click (below). **Fable fetches the round from
+GitHub itself** — the threads, the comments and the diff — so the account is
+not assembled by me and cannot be shaped by me. **A dispatch that fails is
+disclosed in plain English and never blocks the loop**: D0 is off the critical
+path by design. Mechanics: `pr-watch`.
 
 ## Pull requests
 
@@ -802,9 +803,16 @@ shows the true delta.
   checks. When a David-prompted re-check finds nothing, I say so; when the check
   was mine (a scheduled wake, a webhook echo), silence wins.
 
-- **Fable dispatches only through `fable-dispatch.mjs`**, never a prompt I
-  write; what it does and does not enforce:
-  [`fable-dispatch.md`](../../docs/ai-context/fable-dispatch.md).
+- **Fable dispatches as a subagent, and the brief is never one I typed.**
+  `round-translation-page.mjs`'s `composeBrief` reads the role definition
+  verbatim and appends only the round's coordinates; `validateAnswer` refuses
+  an answer whose shape is wrong. Both are what survived `fable-dispatch.mjs`,
+  whose remaining 1,300 lines defended against my tampering with the second
+  Claude — a lock on the same ring, retired under the 2026-09-11 rule.
+  **What that costs, named rather than buried:** the old dispatcher *observed*
+  the model and refused on a mismatch, and a subagent cannot. The model is
+  **disclosed** instead — the role reports what it is actually running as, and
+  a mismatch prints on David's page rather than being swallowed.
 
 ### Subagent delegation is capped
 

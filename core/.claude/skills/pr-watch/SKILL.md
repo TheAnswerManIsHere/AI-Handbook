@@ -129,10 +129,34 @@ step 5, stated once, with the duplicated material left out.
    `Rounds translated` merge-gate item that used to prove this went with the
    gate.
 
-   **D0 cannot run until #95.** Its record builder read the review snapshot
-   this cut removes, so the dispatcher refuses the role. Post a plain-English
-   round summary on the PR myself and say in it that the translator could not
-   run. Do not repair the plumbing — #95 replaces it.
+   **How it runs.** `round-translation-page.mjs` composes the brief —
+   `composeBrief({ repo, pr, round, sinceCommit, finalRound })`, which reads
+   `fable-round-translation.md` verbatim and appends only the round's
+   coordinates. I dispatch that as a **subagent** with
+   `model: dispatchModel().agentModel`, and **Fable fetches the round from
+   GitHub itself**: the threads, the issue comments, and the diff of the
+   commits since `sinceCommit`. I am not the transport, which is the point —
+   an account assembled by the builder is only as independent as the builder's
+   assembly.
+
+   Then `validateAnswer(answer)`; a non-empty problem list means the page
+   carries a failure notice instead of a translation, never a rendered
+   `undefined`. Write the receipt, `publishPage`, paste `chatLine` verbatim.
+
+   - **`sinceCommit` is the head the last round was translated at**, and
+     bounding the read to it is not an optimisation: an unbounded translator
+     re-reads the whole PR every round, which is how this role becomes too
+     expensive to keep and David goes back to one account instead of two.
+   - **`finalRound: true` on the stopping round only.** That is what asks for
+     `known_gaps` and `what_landed`, and it is the last moment anyone looks at
+     a decline.
+   - **The model is disclosed, not observed.** A subagent dispatch cannot
+     prove what answered it, so the role reports its own model and a mismatch
+     prints on the page. Never describe the page as Fable's if the notice says
+     otherwise.
+   - **A failed dispatch is disclosed and never blocks the loop.** D0 is off
+     the critical path by design: say the translator could not run, in plain
+     English, and carry on.
 
 8. **Merge, sync, report**, per `claude-core.md`'s *Close-out is mine, end to
    end*: re-verify live state with a fresh `pull_request_read` — not cached
