@@ -27,61 +27,84 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { modelTier, validate, assertSchemaSupported } from "./machinery.mjs";
+import { modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
 
 /** Where the page goes. Derived, never supplied — same rule as the receipt path. */
 export const REVIEWS_DIR = ".agents/reviews";
 export const pagePath = (root, pr) => path.join(root, REVIEWS_DIR, `pr-${pr}`, "translation.html");
 
 // ---------------------------------------------------------------------------
-// Composing the dispatch, and validating what comes back
+// Dispatching the round, and reading back what the translator wrote
 // ---------------------------------------------------------------------------
 /**
- * WHY THESE TWO LIVE HERE AND NOT IN A DISPATCHER. `fable-dispatch.mjs` was
- * 1,450 lines, and roughly 1,300 of them defended against the builder
- * tampering with the second Claude: a locked flag frame, a model observation,
- * a token bound, a fresh session id, 24 receipt fields. David's 2026-09-11
- * rule retires that whole class -- "I run every script in this machinery, so a
- * defence against my editing its inputs is a lock whose key is on the same
- * ring."
+ * WHY THERE IS NO DISPATCHER HERE. `fable-dispatch.mjs` was 1,450 lines, and
+ * roughly 1,300 of them defended against the builder tampering with the second
+ * Claude. David's 2026-09-11 rule retires that whole class -- "I run every
+ * script in this machinery, so a defence against my editing its inputs is a
+ * lock whose key is on the same ring."
  *
- * What was NOT same-ring is the pair below: reading the role brief from its
- * file rather than from my memory of it, and refusing an answer whose shape is
- * wrong. Neither defends against me; both catch a real mistake. They are two
- * functions, so they live in the one file that was staying anyway rather than
- * in a second file whose only job is to not be the transport.
+ * WHAT REPLACED IT. The role is a real agent definition at
+ * `core/.claude/agents/fable-round-translation.md`, symlinked into
+ * `.claude/agents/`, and the HARNESS loads it -- so the brief is no longer
+ * something this file reads and pastes. That deleted the one function that used
+ * to do it. What is left here is the part the harness cannot know: which round,
+ * which commits, where to write the answer.
  *
- * WHAT IS GENUINELY GIVEN UP, stated rather than buried: the dispatcher
- * OBSERVED the model off the session's init line and refused on a mismatch.
- * A subagent dispatch cannot -- `model` is a request the harness honours, and
- * the runtime may fall back silently. So the model is DISCLOSED instead: the
- * role reports what it is actually running as, `modelNote` compares that to
- * what was asked for, and a mismatch is printed on David's page. Observed-or-
- * refused becomes observed-or-disclosed, which is weaker and is why it is
- * shown to him rather than swallowed.
+ * MEASURED, because the last attempt asserted this instead (PR #109 round 1):
+ * a `tools:` frontmatter list is enforced as a hard upper bound. An agent
+ * declaring `Read, Grep, Glob, Bash` holds exactly those plus the injected
+ * `SubagentHandback` -- no `Write`, no MCP, and no `ToolSearch`, which is why
+ * `ToolSearch` is on this role's list explicitly: without it the deferred
+ * GitHub tools cannot be loaded at all.
+ *
+ * NOT MEASURED, and stated rather than assumed: whether a per-method MCP name
+ * (`mcp__github__pull_request_read`) resolves in that list the way a plain tool
+ * name does. The agent type is not loadable in the session that adds it -- the
+ * harness enumerates types at session start -- so the first dispatch in a later
+ * session is what establishes it.
+ *
+ * THE ANSWER COMES BACK IN A FILE, not from the dispatch. The harness pairs an
+ * Agent call with a launch notice rather than the answer; the answer is
+ * recoverable from the subagent transcript, but its location there has moved
+ * three times in a month and the payload's own memory note about it was wrong.
+ * So the role writes its answer to a path this module derives, and this module
+ * reads that path. A missing or unparseable file is a FAILED round, which is a
+ * state the page renders -- never a skipped one, and never a silent absence.
  */
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+/** Where the translator writes its answer. Derived, never supplied. */
+export const answerPath = (root, pr, round) =>
+  path.join(root, REVIEWS_DIR, `pr-${pr}`, `round-${round}.answer.json`);
 
-/** The role brief and its schema, resolved from this file rather than from a caller. */
-export const ROLE_DIR = path.resolve(SCRIPT_DIR, "..", ".agents", "fable-roles");
-export const rolePath = (role) => path.join(ROLE_DIR, `${role}.md`);
-export const schemaPath = (role) => path.join(ROLE_DIR, "schemas", `${role}.schema.json`);
+/**
+ * The role's agent type, and the schema its answer must satisfy.
+ *
+ * RESOLVED FROM THIS MODULE, NOT FROM A CALLER'S ROOT. The answer file lives in
+ * the repository being reviewed; the schema is payload and lives beside this
+ * script. Those are different roots, and conflating them broke the moment a
+ * test passed a temporary directory -- it would have broken identically in a
+ * consumer, where this file sits at `scripts/` rather than `core/scripts/`.
+ * `../.agents/...` is correct in both layouts, which is why it is relative to
+ * this file rather than to a repository root.
+ */
 export const ROLE = "fable-round-translation";
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+export const schemaPath = () =>
+  path.resolve(SCRIPT_DIR, "..", ".agents", "fable-roles", "schemas", `${ROLE}.schema.json`);
 
 /**
  * The dispatch model, as a full id and as the name the Agent tool takes.
  *
- * The tier indirection is kept: `.agents/machinery.json` says which model
- * `strongestClaude` is, so a consumer that runs a different one changes one
- * config line rather than editing a script. The Agent tool takes a short name
- * rather than a full id, so the two are derived from each other here and the
- * full id is what gets compared against what answered.
+ * `effort` is returned and deliberately NOT applied: the Agent tool takes a
+ * model name and no reasoning-effort argument, so the configured value has no
+ * route to this dispatch. Returning it lets a caller say so out loud rather
+ * than leaving a dial in the config that turns nothing -- which is the same
+ * defect as a schema keyword nothing enforces, twice fixed in `machinery.mjs`.
  */
 export function dispatchModel(io = undefined) {
-  // `modelTier` returns the whole entry -- {tier, id, effort} -- not the id.
   const entry = modelTier("strongestClaude", io);
   const id = typeof entry === "string" ? entry : entry?.id;
+  const effort = typeof entry === "object" ? (entry?.effort ?? null) : null;
   const m = typeof id === "string" ? /^claude-(fable|opus|sonnet|haiku)\b/.exec(id) : null;
   if (!m) {
     throw new Error(
@@ -89,67 +112,97 @@ export function dispatchModel(io = undefined) {
         `so it cannot be dispatched as a subagent. The Agent tool takes one of fable, opus, sonnet, haiku.`,
     );
   }
-  return { id, agentModel: m[1] };
+  return { id, agentModel: m[1], effort, effortApplied: false };
 }
 
 /**
- * The prompt, with the role brief inserted VERBATIM.
+ * The round's coordinates. NOT the brief -- the harness supplies that.
  *
- * The brief is read from its file and not one word of it is composed here.
- * That is the property worth keeping from the old dispatcher: a role whose
- * instructions I could paraphrase is a role that says whatever I remember it
- * saying. What this function adds is only the round's coordinates -- which
- * pull request, which round, where the last round stopped -- because the role
- * cannot know those and they are what bounds its reading.
+ * `repo` is derived rather than accepted: `machinery.json` is this repository's
+ * one identity source, and a mistyped owner/name would send the translator to a
+ * different pull request while the receipt and page still looked normal. That
+ * is the `derivable` arm of the Worth test, which says remove the input.
  */
-export function composeBrief({ repo, pr, round, sinceCommit = null, finalRound = false, roleFile = rolePath(ROLE) }) {
-  const brief = fs.readFileSync(roleFile, "utf8");
-  const scope = sinceCommit
-    ? `Everything on this pull request AFTER commit \`${sinceCommit}\`, which is where the last round you were ` +
-      `given stopped. Threads with activity after it, and the diff of the commits since it.`
-    : `This is the first round translated on this pull request, so there is no earlier commit to read from. ` +
-      `Read the whole of it -- and if the diff is too large to read, say so in \`could_not_assess\` rather ` +
-      `than guessing at the rest.`;
-  return [
-    brief.trim(),
-    "",
-    "---",
-    "",
+export function roundBrief({ pr, round, head, since = null, finalRound = false, answerFile, priorAccounts = [], io = undefined }) {
+  const repo = repoSlug(io);
+  const lines = [
     "## This round",
     "",
     `- **Repository:** \`${repo}\``,
     `- **Pull request:** #${pr}`,
     `- **Round:** ${round}`,
-    `- **What to read:** ${scope}`,
-    `- **Final round:** ${finalRound ? "YES -- return `known_gaps` and `what_landed` as well." : "no -- omit `known_gaps` and `what_landed`."}`,
-    "",
-    "Return your answer as a single JSON object matching the schema in your role definition, and nothing else.",
-    "",
-  ].join("\n");
+    `- **Pinned head:** \`${head}\` — select this round's commits against this, not against the default branch.`,
+    since
+      ? `- **Cursor:** \`${since}\` — review activity after this timestamp is this round's. Commits are selected by identity, not by this.`
+      : `- **Cursor:** none — this is the first round translated on this pull request, so read it from the start. If the change is too large to read, say so in \`could_not_assess\` rather than guessing at the rest.`,
+    `- **Final round:** ${finalRound ? "YES — also return `known_gaps` and `what_landed`." : "no — omit `known_gaps` and `what_landed`."}`,
+    `- **Write your answer to:** \`${answerFile}\``,
+  ];
+  if (finalRound && priorAccounts.length) {
+    lines.push(
+      `- **Earlier accounts, for navigation only:** ${priorAccounts.map((f) => `\`${f}\``).join(", ")} — they tell you where to look; check the current threads and the code before repeating any of it.`,
+    );
+  }
+  lines.push("", "Write the JSON object to that path and nothing else to it.", "");
+  return lines.join("\n");
 }
 
 /**
  * Refuse an answer whose shape is wrong, rather than rendering it.
  *
- * NOT SAME-RING: this catches a malformed answer whoever wrote the prompt, and
- * the failure it prevents is a page that renders `undefined` at David. Returns
- * the problems rather than throwing, so a caller can put them on the page as a
- * failure notice -- D0 is off the critical path and a broken translation must
- * never be able to stop a review loop.
+ * `finalRound` is required because the two final-round sections are optional in
+ * the schema -- they have to be, since an ordinary round must validate without
+ * them -- so the context is what decides. Symmetric on purpose: a round that
+ * VOLUNTEERS a gaps list has misread its instructions, and that should surface
+ * rather than render.
+ *
+ * Returns the problems rather than throwing. D0 is off the critical path and a
+ * broken translation must never be able to stop a review loop.
  */
-export function validateAnswer(answer, { schemaFile = schemaPath(ROLE) } = {}) {
-  const schema = JSON.parse(fs.readFileSync(schemaFile, "utf8"));
+export function validateAnswer(answer, { finalRound = false } = {}) {
+  const schema = JSON.parse(fs.readFileSync(schemaPath(), "utf8"));
   assertSchemaSupported(schema, ROLE);
-  return validate(answer, schema, ROLE);
+  const problems = validate(answer, schema, ROLE);
+  const has = (k) => answer && typeof answer === "object" && Object.prototype.hasOwnProperty.call(answer, k);
+  for (const k of ["known_gaps", "what_landed"]) {
+    if (finalRound && !has(k)) problems.push(`${ROLE}: the final round must return "${k}"`);
+    if (!finalRound && has(k)) problems.push(`${ROLE}: "${k}" belongs to the final round only`);
+  }
+  return problems;
+}
+
+/**
+ * Read what the translator wrote, and say plainly when there is nothing usable.
+ *
+ * Three failures, one shape: no file, unparseable file, schema-invalid answer.
+ * Each returns `{ ok: false, why }` and each becomes a FAILED round on the page
+ * -- visibly a failure, never the favourable "nothing to report" case.
+ */
+export function readAnswer(root, pr, round, { finalRound = false } = {}) {
+  const file = answerPath(root, pr, round);
+  let raw;
+  try {
+    raw = fs.readFileSync(file, "utf8");
+  } catch (err) {
+    return { ok: false, why: `the translator wrote no answer file (${err.code === "ENOENT" ? "not found" : err.code})` };
+  }
+  let answer;
+  try {
+    answer = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, why: `the answer file is not valid JSON: ${err.message}` };
+  }
+  const problems = validateAnswer(answer, { finalRound });
+  if (problems.length) return { ok: false, why: `the answer did not match the expected shape: ${problems.join("; ")}` };
+  return { ok: true, answer };
 }
 
 /**
  * What the page says about the model, if anything.
  *
- * `null` when the answer came back as the model that was asked for -- the
- * ordinary case says nothing, because a line on every page saying "this ran on
- * the model it was supposed to" is noise that trains a reader to skip the
- * place the real notice would appear.
+ * Silent when the answer came back as the model asked for -- a line on every
+ * page saying the model was the right one trains a reader to skip the place the
+ * real notice would appear.
  */
 export function modelNote(receipt) {
   const asked = receipt.askedModel ?? null;
@@ -167,7 +220,13 @@ export function modelNote(receipt) {
  * validated document, whose shape the schema already guaranteed.
  */
 export function facts(receipt) {
-  if (receipt.skipped) return { skipped: true, reason: receipt.reason ?? "not dispatched" };
+  // FAILED IS ITS OWN STATE, and it is checked first. A round whose answer
+  // never arrived or did not parse is NOT a skipped round: `skipped` renders
+  // "no findings were raised and nothing was pushed", which would turn a
+  // failure into a clean bill of health -- the exact thing the rule below
+  // ("agrees" is never printed over an unassessed item) exists to prevent.
+  if (receipt.failed) return { failed: true, skipped: false, reason: receipt.reason ?? "the translation could not be produced" };
+  if (receipt.skipped) return { skipped: true, failed: false, reason: receipt.reason ?? "not dispatched" };
   const out = receipt.output ?? {};
   return {
     skipped: false,
@@ -207,6 +266,7 @@ export function facts(receipt) {
 export function chatLine(receipt) {
   const f = facts(receipt);
   const r = `round ${receipt.round}`;
+  if (f.failed) return `${r}: translation failed — ${f.reason}`;
   if (f.skipped) return `${r}: skipped — ${f.reason}`;
   if (f.disagreements > 0) return `${r}: differs on ${f.disagreements} point${f.disagreements === 1 ? "" : "s"}`;
   if (f.unassessed) return `${r}: partial — something could not be assessed`;
@@ -293,6 +353,14 @@ function renderRound(receipt) {
     verdictChip(f),
     "</header>",
   ].join("");
+  if (f.failed) {
+    return (
+      `<section class="round">${head}<div class="note">` +
+      `<b>No account for this round.</b> The translator was dispatched and did not produce a usable answer — ${esc(f.reason)}. ` +
+      `This is a failure of the translation, not a report that the round was quiet: there may well have been findings, and nobody has explained them here.` +
+      `</div></section>`
+    );
+  }
   if (f.skipped) {
     return `<section class="round">${head}<p class="skipped">Not translated — ${esc(f.reason)}. No findings were raised and nothing was pushed, so there was no account to give.</p></section>`;
   }
@@ -383,6 +451,20 @@ function renderRound(receipt) {
  * Rebuilt from every receipt on every render, so a round whose publish failed
  * appears on the next one rather than being lost.
  */
+/**
+ * Who actually wrote the accounts on this page, read off the receipts.
+ *
+ * One model across every round names it. More than one names none of them and
+ * points at the per-round notices, because a page-level claim cannot be true of
+ * all of them.
+ */
+export function attribution(rounds) {
+  const models = [...new Set(rounds.map((r) => r.output?.model).filter((m) => typeof m === "string" && m.trim()))];
+  if (models.length === 1) return ` Written by ${esc(models[0])}.`;
+  if (models.length > 1) return " Rounds here were written by more than one model — each says which, below.";
+  return "";
+}
+
 export function renderPage(receipts, { pr, title = null } = {}) {
   const rounds = [...receipts].sort((a, b) => b.round - a.round);
   const latest = rounds[0];
@@ -392,7 +474,12 @@ export function renderPage(receipts, { pr, title = null } = {}) {
     '<div class="wrap">',
     `<div class="eyebrow">Independent account · pull request #${esc(pr)}</div>`,
     `<h1>${esc(title ?? `What the reviewer found, and what the builder did`)}</h1>`,
-    `<p class="sub">Written by Fable from each round's own material — the reviewer's findings, the builder's replies, and the code actually pushed. It decides nothing; the loop never reads it.${latest ? ` Latest: ${esc(chatLine(latest))}.` : ""}</p>`,
+    // ATTRIBUTION IS DERIVED, never asserted. Saying "written by Fable" here
+    // while `modelNote` prints a mismatch two inches below was this page
+    // contradicting itself a third time (Codex, #109 round 1) -- the same
+    // defect #81 round 8 fixed for the verdict chip. Every claim this page
+    // makes about a round now reads the receipts.
+    `<p class="sub">An independent account of each round, read from the round's own material — the reviewer's findings, the builder's replies, and the code actually pushed.${attribution(rounds)} It decides nothing; the loop never reads it.${latest ? ` Latest: ${esc(chatLine(latest))}.` : ""}</p>`,
     ...rounds.map(renderRound),
     `<footer>${rounds.length} round${rounds.length === 1 ? "" : "s"} on this pull request. This page is redeployed in place each round, so this link stays current.</footer>`,
     "</div>",

@@ -129,34 +129,46 @@ step 5, stated once, with the duplicated material left out.
    `Rounds translated` merge-gate item that used to prove this went with the
    gate.
 
-   **How it runs.** `round-translation-page.mjs` composes the brief —
-   `composeBrief({ repo, pr, round, sinceCommit, finalRound })`, which reads
-   `fable-round-translation.md` verbatim and appends only the round's
-   coordinates. I dispatch that as a **subagent** with
-   `model: dispatchModel().agentModel`, and **Fable fetches the round from
-   GitHub itself**: the threads, the issue comments, and the diff of the
-   commits since `sinceCommit`. I am not the transport, which is the point —
-   an account assembled by the builder is only as independent as the builder's
-   assembly.
+   **How it runs.** Dispatch the agent type **`fable-round-translation`**
+   with `model: dispatchModel().agentModel`. Its instructions are the agent
+   definition the harness loads — I do not assemble them. What I pass is
+   `roundBrief({ pr, round, head, since, finalRound, answerFile, priorAccounts })`:
+   the round's coordinates and nothing else.
 
-   Then `validateAnswer(answer)`; a non-empty problem list means the page
-   carries a failure notice instead of a translation, never a rendered
-   `undefined`. Write the receipt, `publishPage`, paste `chatLine` verbatim.
+   **Fable writes its answer to `answerFile`**, and `readAnswer(root, pr, round,
+   { finalRound })` reads it back. Then write the receipt, `publishPage`, and
+   paste `chatLine` verbatim.
 
-   - **`sinceCommit` is the head the last round was translated at**, and
-     bounding the read to it is not an optimisation: an unbounded translator
-     re-reads the whole PR every round, which is how this role becomes too
-     expensive to keep and David goes back to one account instead of two.
-   - **`finalRound: true` on the stopping round only.** That is what asks for
-     `known_gaps` and `what_landed`, and it is the last moment anyone looks at
-     a decline.
-   - **The model is disclosed, not observed.** A subagent dispatch cannot
-     prove what answered it, so the role reports its own model and a mismatch
-     prints on the page. Never describe the page as Fable's if the notice says
-     otherwise.
-   - **A failed dispatch is disclosed and never blocks the loop.** D0 is off
-     the critical path by design: say the translator could not run, in plain
-     English, and carry on.
+   - **The answer comes from the file, never from the dispatch.** The Agent
+     tool returns a launch notice; the answer is also recoverable from the
+     subagent transcript, but **its location there has moved three times in a
+     month** and the payload's own memory note about it was wrong for months.
+     The file is the contract.
+   - **`readAnswer` turns all three delivery failures into one honest state** —
+     no file, unparseable, schema-invalid. Write a `failed` receipt and let the
+     page say so. **Never a `skipped` receipt**: that renders "no findings were
+     raised and nothing was pushed", which over a failed round is a false clean
+     bill of health.
+   - **Two cursors, and do not mix them.** `head` pins which commits count;
+     `since` is a **timestamp** bounding review activity. Rounds routinely
+     happen with the head unchanged — a decline round is exactly that — so a
+     SHA alone cannot bound comments.
+   - **`finalRound: true` on the stopping round only**, which is what asks for
+     `known_gaps` and `what_landed`. Pass the earlier rounds' answer files as
+     `priorAccounts`: the role uses them to know where to look and then checks
+     the live threads, because repeating an earlier account of its own would
+     launder any error in it into the round David reads most carefully.
+   - **The model is disclosed, not observed.** A subagent dispatch cannot prove
+     what answered it. The role reports its own model; a mismatch prints on the
+     page and the page's attribution line is derived from the receipts.
+   - **A failed dispatch never blocks the loop.** D0 is off the critical path by
+     design: disclose it in plain English and carry on.
+
+   **The agent type is not loadable in the session that installs it.** The
+   harness enumerates agent types at session start, so the first session after a
+   sync — or after this skill changes — cannot dispatch the role it just
+   received. That is not a failure: write the round up by hand, say the
+   translator was unavailable, and the next session has it.
 
 8. **Merge, sync, report**, per `claude-core.md`'s *Close-out is mine, end to
    end*: re-verify live state with a fresh `pull_request_read` — not cached

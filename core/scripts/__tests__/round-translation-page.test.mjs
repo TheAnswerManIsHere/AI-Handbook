@@ -28,11 +28,13 @@ import {
   publishPage,
   pagePath,
   unavailable,
-  composeBrief,
+  roundBrief,
   validateAnswer,
+  readAnswer,
+  answerPath,
   dispatchModel,
   modelNote,
-  rolePath,
+  attribution,
   schemaPath,
   ROLE,
 } from "../round-translation-page.mjs";
@@ -217,147 +219,153 @@ test("R16: the page is written atomically, so no reader sees it half-built", () 
 
 
 // ---------------------------------------------------------------------------
-// #95: composing the dispatch, and refusing what comes back malformed
+// #95: the round's coordinates, the answer file, and the failed state
 // ---------------------------------------------------------------------------
 
-test("the brief is the role file verbatim, with only the round's coordinates appended", () => {
-  const roleFile = rolePath(ROLE);
-  const onDisk = fs.readFileSync(roleFile, "utf8").trim();
-  const brief = composeBrief({ repo: "Owner/Repo", pr: 12, round: 3, sinceCommit: "abc1234" });
-
-  // VERBATIM MEANS VERBATIM. This is the one property worth keeping from the
-  // 1,450-line dispatcher: a role whose instructions the builder could
-  // paraphrase is a role that says whatever the builder remembers it saying.
-  assert.ok(brief.startsWith(onDisk), "the role file must open the brief unmodified");
-  const appended = brief.slice(onDisk.length);
-  assert.match(appended, /Owner\/Repo/);
-  assert.match(appended, /#12/);
-  assert.match(appended, /\*\*Round:\*\* 3/);
-  // and nothing else: the appendix is coordinates, not instructions.
-  assert.ok(appended.length < 900, `appendix should be short, was ${appended.length} chars`);
+test("the brief carries coordinates only — the harness supplies the role itself", () => {
+  const b = roundBrief({ pr: 12, round: 3, head: "abc1234", since: "2026-09-16T10:00:00Z", answerFile: "/x/a.json" });
+  // It must NOT contain the role's instructions: those live in the agent
+  // definition the harness loads, and a copy here would be a second source of
+  // truth for what the translator is told.
+  assert.doesNotMatch(b, /David is the product owner/);
+  assert.doesNotMatch(b, /disagreements/);
+  assert.match(b, /\*\*Pull request:\*\* #12/);
+  assert.match(b, /\*\*Round:\*\* 3/);
+  assert.match(b, /abc1234/);
+  assert.match(b, /\/x\/a\.json/);
+  assert.ok(b.length < 1200, `coordinates should be short, were ${b.length}`);
 });
 
-test("the brief bounds the reading to this round, and says so differently on the first", () => {
-  const later = composeBrief({ repo: "Owner/Repo", pr: 12, round: 4, sinceCommit: "abc1234" });
-  assert.match(later, /AFTER commit `abc1234`/);
+test("the repository is derived, never passed in", () => {
+  const io = { root: "/repo-derive", read: () => JSON.stringify({ repo: "Owner/Name", models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } } }) };
+  assert.match(roundBrief({ pr: 1, round: 1, head: "h", answerFile: "/a.json", io }), /Owner\/Name/);
+});
 
-  const first = composeBrief({ repo: "Owner/Repo", pr: 12, round: 1, sinceCommit: null });
+test("the head is pinned and the two cursors are kept apart", () => {
+  const later = roundBrief({ pr: 1, round: 4, head: "deadbee", since: "2026-09-16T10:00:00Z", answerFile: "/a.json" });
+  assert.match(later, /select this round's commits against this, not against the default branch/);
+  // The timestamp bounds REVIEW ACTIVITY; commits are selected by identity.
+  // Conflating them is what made a SHA-only cursor undefined for comments.
+  assert.match(later, /review activity after this timestamp/i);
+  assert.match(later, /Commits are selected by identity, not by this/);
+
+  const first = roundBrief({ pr: 1, round: 1, head: "deadbee", since: null, answerFile: "/a.json" });
   assert.match(first, /first round translated/);
-  assert.doesNotMatch(first, /AFTER commit/);
-  // An unbounded read is the expensive one, so the first round is told to
-  // disclose a diff it could not finish rather than to guess at the rest.
   assert.match(first, /could_not_assess/);
 });
 
-test("the final-round sections are asked for only on the final round", () => {
-  assert.match(composeBrief({ repo: "O/R", pr: 1, round: 9, finalRound: true }), /YES -- return `known_gaps`/);
-  const ordinary = composeBrief({ repo: "O/R", pr: 1, round: 2, finalRound: false });
-  assert.match(ordinary, /omit `known_gaps` and `what_landed`/);
+test("prior accounts are offered on the final round only, and only as navigation", () => {
+  const fin = roundBrief({ pr: 1, round: 9, head: "h", finalRound: true, answerFile: "/a.json", priorAccounts: ["/r1.json", "/r2.json"] });
+  assert.match(fin, /navigation only/);
+  assert.match(fin, /check the current threads and the code before repeating any of it/);
+  const ordinary = roundBrief({ pr: 1, round: 2, head: "h", answerFile: "/a.json", priorAccounts: ["/r1.json"] });
+  assert.doesNotMatch(ordinary, /navigation only/);
 });
 
-test("validateAnswer runs against the role's REAL schema, so the two cannot drift apart", () => {
-  // Deliberately not a fixture schema. If the shipped schema and the shipped
-  // role brief stop agreeing, this test is where it shows up.
+test("validateAnswer runs against the REAL shipped schema, so brief and schema cannot drift", () => {
   assert.deepEqual(validateAnswer(answer()), []);
-  assert.ok(fs.existsSync(schemaPath(ROLE)));
+  assert.ok(fs.existsSync(schemaPath()));
 });
 
-test("validateAnswer refuses a malformed answer, and returns the problems rather than throwing", () => {
-  const { took_on_trust, ...missing } = answer();
-  const problems = validateAnswer(missing);
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /took_on_trust/);
-
-  // Returned, never thrown: D0 is off the critical path, and a broken
-  // translation must not be able to stop a review loop.
-  assert.doesNotThrow(() => validateAnswer({ nonsense: true }));
-  assert.ok(validateAnswer({ nonsense: true }).length > 0);
+test("the final-round sections are required on the final round and refused otherwise", () => {
+  const withFinal = answer({
+    known_gaps: [{ what: "x", reasonable: true, why: "y" }],
+    what_landed: { landed: "a", does_not_do: "b", now_trusting: "c" },
+  });
+  assert.deepEqual(validateAnswer(withFinal, { finalRound: true }), []);
+  // Missing on a final round is the failure that would blank out the last
+  // review anyone gives a shipped decline.
+  assert.match(validateAnswer(answer(), { finalRound: true }).join(" "), /must return "known_gaps"/);
+  // And volunteering them on an ordinary round means the role misread its
+  // instructions, which should surface rather than render.
+  assert.match(validateAnswer(withFinal, { finalRound: false }).join(" "), /belongs to the final round only/);
 });
 
-test("validateAnswer enforces the emptiness the schema claims to require", () => {
-  assert.match(validateAnswer(answer({ recommendation: "" }))[0], /at least 1 is required/);
-  // could_not_assess is a union type and both arms are real answers.
-  assert.deepEqual(validateAnswer(answer({ could_not_assess: null })), []);
-  assert.deepEqual(validateAnswer(answer({ could_not_assess: "the diff was too large to read" })), []);
-  assert.match(validateAnswer(answer({ could_not_assess: 42 }))[0], /matched none of the permitted types/);
+test("readAnswer turns all three delivery failures into one honest shape", () => {
+  const root = tmpRepo();
+  fs.mkdirSync(path.join(root, ".agents/reviews/pr-7"), { recursive: true });
+
+  assert.match(readAnswer(root, 7, 1).why, /wrote no answer file/);
+
+  fs.writeFileSync(answerPath(root, 7, 1), "not json at all");
+  assert.match(readAnswer(root, 7, 1).why, /not valid JSON/);
+
+  fs.writeFileSync(answerPath(root, 7, 1), JSON.stringify({ summary_for_david: "x" }));
+  assert.match(readAnswer(root, 7, 1).why, /did not match the expected shape/);
+
+  fs.writeFileSync(answerPath(root, 7, 1), JSON.stringify(answer()));
+  const good = readAnswer(root, 7, 1);
+  assert.equal(good.ok, true);
+  assert.equal(good.answer.model, "claude-fable-5-1");
 });
 
-test("the final-round sections validate when present and are optional when absent", () => {
-  assert.deepEqual(validateAnswer(answer()), []);
-  assert.deepEqual(
-    validateAnswer(
-      answer({
-        known_gaps: [{ what: "A stale comment stays", reasonable: true, why: "Nothing reads it." }],
-        what_landed: { landed: "a", does_not_do: "b", now_trusting: "c" },
-      }),
-    ),
-    [],
-  );
-  assert.ok(validateAnswer(answer({ known_gaps: [{ what: "x", why: "y" }] })).length > 0, "reasonable is required");
+test("a failed round is NOT a skipped round, on the page or in the line", () => {
+  // The whole point: `skipped` prose says "no findings were raised and nothing
+  // was pushed", which over a failed round is a false clean bill of health.
+  const r = receipt(3, null, { failed: true, reason: "the answer file was not valid JSON" });
+  assert.equal(facts(r).failed, true);
+  assert.equal(facts(r).skipped, false);
+  assert.match(chatLine(r), /^round 3: translation failed —/);
+  const html = renderPage([r], { pr: PR });
+  assert.match(html, /No account for this round/);
+  assert.match(html, /not a report that the round was quiet/);
+  assert.doesNotMatch(html, /No findings were raised and nothing was pushed/);
 });
 
-test("dispatchModel turns the configured tier into the name the Agent tool takes", () => {
-  // DISTINCT ROOTS ON PURPOSE. `machineryConfig` caches on `io.root`, so two
-  // fixtures sharing a root silently test the first one twice -- which is how
-  // the refusal below first passed while checking nothing.
+test("dispatchModel returns the configured effort and says it is not applied", () => {
   const io = (root, id) => ({ root, read: () => JSON.stringify({ repo: "O/R", models: { strongestClaude: { id, effort: "xhigh" } } }) });
-  assert.deepEqual(dispatchModel(io("/repo-fable", "claude-fable-5-1")), { id: "claude-fable-5-1", agentModel: "fable" });
-  assert.deepEqual(dispatchModel(io("/repo-opus", "claude-opus-5")), { id: "claude-opus-5", agentModel: "opus" });
-
-  // The Agent tool takes a Claude short name, so a non-Claude tier cannot be
-  // dispatched this way at all -- and says so rather than guessing.
+  const d = dispatchModel(io("/repo-fable", "claude-fable-5-1"));
+  assert.deepEqual(d, { id: "claude-fable-5-1", agentModel: "fable", effort: "xhigh", effortApplied: false });
+  // Carried rather than dropped, so a caller can disclose a dial that turns
+  // nothing instead of leaving it in the config looking effective.
   assert.throws(() => dispatchModel(io("/repo-codex", "gpt-6-astra")), /not a Claude model/);
 });
 
 test("the model is disclosed rather than observed, and only a mismatch is printed", () => {
-  // Silent on the ordinary case ON PURPOSE: a line on every page saying the
-  // model was the right one trains a reader to skip the place the real notice
-  // appears.
   assert.equal(modelNote({ askedModel: "claude-fable-5-1", output: { model: "claude-fable-5-1" } }), null);
   assert.match(modelNote({ askedModel: "claude-fable-5-1", output: { model: "claude-sonnet-5" } }), /not the claude-fable-5-1/);
   assert.match(modelNote({ askedModel: "claude-fable-5-1", output: {} }), /did not report which model/);
-  // No asked-for model recorded at all -- an older receipt -- says nothing
-  // rather than inventing a mismatch.
   assert.equal(modelNote({ output: { model: "claude-sonnet-5" } }), null);
 });
 
-test("a model mismatch reaches David's page", () => {
+test("page attribution is derived from the receipts, never asserted", () => {
+  assert.match(attribution([receipt(1, answer())]), /Written by claude-fable-5-1\./);
+  assert.match(
+    attribution([receipt(1, answer()), receipt(2, answer({ model: "claude-sonnet-5" }))]),
+    /more than one model/,
+  );
+  assert.equal(attribution([receipt(1, answer({ model: undefined }))]), "");
+
+  // The defect this closes: the page saying "written by Fable" while a
+  // mismatch notice printed two inches below it.
   const html = renderPage([receipt(1, answer({ model: "claude-sonnet-5" }), { askedModel: "claude-fable-5-1" })], { pr: PR });
+  assert.doesNotMatch(html, /Written by claude-fable-5-1\./);
   assert.match(html, /not the claude-fable-5-1 that was asked for/);
 });
 
 test("took_on_trust renders but does NOT make the round partial", () => {
-  // The whole reason it is a separate field. `could_not_assess` means "I could
-  // not look" and sets partial; `took_on_trust` means "I looked and took the
-  // builder's word", which is true of nearly every round and would make the
-  // partial signal fire constantly if the two were one field.
   const r = receipt(1, answer({ took_on_trust: "I did not run the test suite." }));
   assert.equal(facts(r).unassessed, false);
   assert.equal(chatLine(r), "round 1: agrees with the builder's account");
   const html = renderPage([r], { pr: PR });
   assert.match(html, /Taken on the builder's word/);
-  assert.match(html, /I did not run the test suite\./);
 });
 
-test("the final round's gaps are rendered, and a disputed decline is set apart from an accepted one", () => {
+test("the final round's gaps render, and a disputed decline is set apart", () => {
   const html = renderPage(
-    [
-      receipt(7, answer({
-        known_gaps: [
-          { what: "A stale comment stays in a script", reasonable: true, why: "Nothing reads it." },
-          { what: "A consumer keeps deleted files on re-sync", reasonable: false, why: "This one will bite the first consumer." },
-        ],
-        what_landed: { landed: "The accounting is gone.", does_not_do: "It does not rewrite the rulebook.", now_trusting: "The builder's own triage, unassisted." },
-      })),
-    ],
+    [receipt(7, answer({
+      known_gaps: [
+        { what: "A stale comment stays", reasonable: true, why: "Nothing reads it." },
+        { what: "A consumer keeps deleted files", reasonable: false, why: "This will bite the first consumer." },
+      ],
+      what_landed: { landed: "The accounting is gone.", does_not_do: "It does not rewrite the rulebook.", now_trusting: "The builder's own triage." },
+    }))],
     { pr: PR },
   );
   assert.match(html, /Shipping unfixed/);
   assert.match(html, /Reasonable to ship: Nothing reads it\./);
-  assert.match(html, /The translator disagrees with this decline: This one will bite/);
-  assert.match(html, /What landed, against what was promised/);
+  assert.match(html, /The translator disagrees with this decline: This will bite/);
   assert.match(html, /What you are now trusting/);
-  assert.match(html, /The builder&#x27;s own triage|The builder's own triage/);
 });
 
 test("an ordinary round renders none of the final-round sections", () => {
