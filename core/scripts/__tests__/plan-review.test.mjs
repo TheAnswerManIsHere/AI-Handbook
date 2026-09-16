@@ -67,7 +67,7 @@ const assessment = (over = {}) => ({
       title: "The always-run rail validates receipts with io:null",
       why_it_matters: "A clean pass never opens the cited record, so the check is bypassable.",
       what_should_change: "Pass a real io on the rail path, or refuse when io is null.",
-      acceptance_check: "node --test core/scripts/__tests__/pr-ready.test.mjs covers a null-io rail",
+      acceptance_check: "node --test core/scripts/__tests__/machinery.test.mjs covers the null-config path",
       evidence: ["core/scripts/machinery.mjs:130-160", "core/scripts/plan-review.mjs:504"],
       class: "a check satisfiable without the thing it exists to check",
     },

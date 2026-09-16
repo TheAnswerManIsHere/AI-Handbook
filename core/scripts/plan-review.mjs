@@ -143,9 +143,10 @@ export const REVIEWS_DIR = ".agents/reviews";
 /**
  * The contract, by its CONSUMER path first. In the handbook the payload sits
  * one directory deeper and there is no consumer-shaped copy, so the resolver
- * retries under `core/`. Same two-layout problem the adjudication record
- * solves at a commit; this one reads the working tree, because the plan under
- * review is a working-tree file that may never be committed at all.
+ * retries under `core/`. Same two-layout problem `fable-dispatch.mjs` solves
+ * when it reads a role definition at a commit; this one reads the working
+ * tree, because the plan under review is a working-tree file that may never
+ * be committed at all.
  */
 export const CONTRACT_PATH = "docs/ai-context/plan-review-contract.md";
 
