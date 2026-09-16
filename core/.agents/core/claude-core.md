@@ -613,10 +613,13 @@ Two layers, in order of authority: the **harness classifier** refuses to let me
 edit my own guardrails in place (the platform's layer, unaffected by the
 close-out change above: a guard change goes through a PR like any other, and a
 blocked in-place edit is that layer working); and **GitHub's rulesets**,
-server-side, binding on **me** in every shape I can push.
+server-side, binding on **me** in every shape I can push **to the branches
+they target**, and on no other branch.
 
 On `main`: block force pushes, restrict deletions, require linear history,
-require a PR, require status checks. On `claude/**`: **block force pushes**
+require a PR, require status checks, require conversation resolution (that
+last is what makes the Merge button inert while a thread is open, in
+*Close-out* above). On `claude/**`: **block force pushes**
 (#94, created and verified 2026-09-16 — `--force-with-lease` on a probe branch
 was refused with GH013, and a plain push of a further commit landed).
 
@@ -634,15 +637,27 @@ recorded anywhere in the fleet's history, the only force-push event on file is
 one where the guard *prevented* fixing a corrupted commit message, and the
 repo's own archive names a hand-rolled parser chasing a real language's syntax
 as a losing shape. What it refused is now covered without a parser — force
-pushes by the rulesets above, `drizzle-kit push` by `permissions.deny`,
-`curl`/`wget` by a memory note about a hang rather than a loss, and a root
-`rm -rf` by the ephemeral container.
+pushes on `main` and `claude/**` by the rulesets above, `drizzle-kit push`
+by `permissions.deny`, `curl`/`wget` by a memory note about a hang rather than
+a loss, and a root `rm -rf` by the ephemeral container. **The guard was not
+scoped to a namespace and the rulesets are**, so that swap is not
+like-for-like, and the table below says where the gap is rather than rounding
+it away.
 
-**No force push works, on any branch, and none is needed.**
+**I never force-push, and no flow of mine needs to.** On `main` and
+`claude/**` that is also mechanical. **Outside those two namespaces it is
+not**: a runner can assign me a working branch under some other prefix (the
+assigned-branch case in the `bugfix` skill), no ruleset targets it, and the
+local guard that used to refuse every force shape on every branch is gone. So
+on such a branch this line is the **only** control — which is the reason it is
+written as a rule about me rather than as a fact about the server, and the
+reason a contract that said "blocked everywhere" would be worse than useless:
+it would retire the habit that is doing the work.
 
 | Command | Result |
 |---|---|
-| any force push, any shape, any branch | blocked by a ruleset |
+| any force push to `main` or to `claude/**` | blocked by a ruleset |
+| any force push to a branch outside those namespaces | **nothing blocks it** — refused by this contract and by nothing else |
 | a plain push of new commits to `claude/**` | **works** — this is every flow |
 | `git reset --hard` | works (cannot reach the remote) |
 | `git push origin --delete <branch>` | does **not** work (proxy hangs) |

@@ -599,7 +599,7 @@ finding is read, and nothing more. On the **internal rubric** the judge writes
 only for a very high chance of a **critical flaw** — a destructive or
 irreversible action, broken workstream tracking, or an unauthorised widening
 of agent authority. Ordinary correctness nits, prose and structure ship as
-recorded gaps, each with its own `gap` issue (#98).
+recorded gaps.
 
 What the 2026-08-20 decision got right survives in that rubric, not in
 refusing review: every runaway loop this repo measured was internal tooling

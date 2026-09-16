@@ -241,7 +241,14 @@ to worry about strange links."*)
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
-   status checks. The seeded `.claude/settings.json` sets
+   status checks, and **require conversation resolution before merging**. That
+   last one used to be the merge-gate hook's job; with the hook deleted it is
+   the only thing that keeps an unresolved review thread from being mergeable,
+   and the contract now states it as fact (`claude-core.md`, *Close-out*: "the
+   `main` ruleset requires conversation resolution, so the Merge button is
+   inert while a thread is open"). A consumer that omits it gets a contract
+   asserting a protection its repository does not have. The seeded
+   `.claude/settings.json` sets
    `defaultMode: bypassPermissions`, and with the local shell guard removed by
    the #89 cut **this ruleset is the whole of the mechanical protection**: a
    consumer running `bypassPermissions` without it has nothing server-side
