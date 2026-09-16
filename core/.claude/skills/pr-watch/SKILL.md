@@ -92,7 +92,7 @@ step 5, stated once, with the duplicated material left out.
      flag exists, that a class has no other member — is a load-bearing claim
      under `claude-core.md`'s *A load-bearing claim is quoted, or it is marked
      unverified*: it quotes what was read, or it carries `unable to verify:`.
-     The reply that motivated this is on file in #113.
+     The reply that motivated this is on file in AI-Handbook #113.
 
    **If I cannot write the command, I have not understood the finding** — that
    is a signal to go back to the code, never a licence to reply in prose. This

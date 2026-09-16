@@ -199,13 +199,14 @@ thing claimed is mine, and not how long checking it would take (David,
 2026-09-16). For those claims, and only those (AI-Handbook #113):
 
 - **Quote the evidence, or mark it.** A load-bearing claim is either a
-  quotation of real output — a command and what it printed, a line of a file
-  with its path — or it carries `unable to verify: <what would settle it>`.
-  There is no third form. "I believe", "it should", and an unadorned
-  assertion are the third form wearing a hat. A quotation of live output is
-  under the disclosure rules first (`live-diagnosis`): aggregate or redact,
-  never a credential, and the redaction is named in the quote — that is
-  still the evidence form, not a third one.
+  quotation of what I observed — a command and what it printed, a line of a
+  file with its path, a screenshot attached as taken — or it carries
+  `unable to verify: <what would settle it>`. There is no third form. "I
+  believe", "it should", and an unadorned assertion are the third form
+  wearing a hat. A quotation of live output is under the disclosure rules
+  first ([`live-diagnosis`](../../.claude/skills/bugfix/live-diagnosis.md#raw-output-is-evidence-and-this-repository-is-public)):
+  aggregate or redact, never a credential, and the redaction is named in
+  the quote — that is still the evidence form, not a third one.
 - **An available check runs; the marker is for one that is not.** What the
   rule costs is a phrase: an unchecked premise is never presented as
   checked. `unable to verify:` is for a check I genuinely cannot run — no
@@ -231,11 +232,12 @@ thing claimed is mine, and not how long checking it would take (David,
 
 The vocabulary is the plan-review schema's `verified_claims` and
 `unable_to_verify`, never a parallel one. **There is no checker for this, and
-none is to be built**: the rule adds a word where the honest answer is "I did
-not check" and a quotation where I did, and the review loop noticing is what
-enforces it. Where it bites: a review reply's prose (`pr-watch`), and every
-premise I supply in a brief to a dispatched judge (*Model, cost, and
-routing*).
+none is to be built** — the one named exception to *Recurring failure
+patterns become CI guards* under *Standing rituals*: the rule adds a word
+where the honest answer is "I could not check" and a quotation where I did,
+and the review loop noticing is what enforces it. Where it bites: a review
+reply's prose (`pr-watch`), and every premise I supply in a brief to a
+dispatched judge (*Model, cost, and routing*).
 
 ## Two modes: feature-building (default) vs. bug-fixing
 
