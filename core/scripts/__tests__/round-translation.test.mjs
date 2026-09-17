@@ -134,7 +134,14 @@ test("malformed coordinates are refused before a dispatch, not interpolated", ()
   // The check lives on the shared derivation, so every entry point inherits it.
   assert.throws(() => answerPath("/r", 1, "two"), /must be a positive integer/);
   assert.throws(() => readAnswer("/r", "12x", 1), /must be a positive integer/);
-  assert.throws(() => prepareAnswerPath("/r", 1, -1), /must be a positive integer/);
+  // A REAL ROOT, because this one WRITES: the refusal must happen before any
+  // directory is created, and asserting that against an unwritable path would
+  // pass on the permission error instead of on the validation. CI found this
+  // the hard way -- the container runs as root, where `mkdir /r` silently
+  // succeeded and left a stray directory behind, while the runner got EACCES.
+  const writable = tmpRoot();
+  assert.throws(() => prepareAnswerPath(writable, 1, -1), /must be a positive integer/);
+  assert.equal(fs.existsSync(path.join(writable, REVIEWS_DIR)), false, "a refused call must leave nothing behind");
   // The head is the evidence boundary; an empty one asks for an unbounded range.
   for (const head of ["", "   ", null, undefined]) {
     assert.throws(() => roundBrief({ root: "/r", pr: 1, round: 1, head, io: fakeIo() }), /head must be a non-empty commit identifier/);

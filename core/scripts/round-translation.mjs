@@ -135,8 +135,15 @@ export function ensureReviewsIgnored(root) {
  * is the whole lifecycle; there is no attempt ledger. (Astra, 2026-09-16.)
  */
 export function prepareAnswerPath(root, pr, round) {
-  ensureReviewsIgnored(root);
+  // VALIDATE BEFORE ANY SIDE EFFECT. `answerPath` is what checks the
+  // coordinates, so it runs FIRST: the earlier order created the answer
+  // directory and only then refused a malformed round, leaving a directory
+  // behind for a call that was rejected. CI caught it as the difference
+  // between a root-owned container (where the stray mkdir silently succeeded)
+  // and an ordinary runner (EACCES) -- the failure was the ordering, and the
+  // permission error was only what made it visible.
   const file = answerPath(root, pr, round);
+  ensureReviewsIgnored(root);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.rmSync(file, { force: true });
   return file;
