@@ -223,8 +223,8 @@ step 5, stated once, with the duplicated material left out.
      blaming the translator.
    - **Nothing is remembered between rounds, and nothing has to be.** The
      activity window's lower bound, the commit the reviewer reviewed and the
-     previous round's boundary are all read off **the reviewer's own markers
-     on the pull request** — a formal review submission when a round has
+     previous round's boundary are all read off **Codex's own markers on the
+     pull request** — a formal review submission when a round has
      findings, a `**Reviewed commit:**` issue comment when it has none
      (measured on #115) — and the Nth marker is round N. The receipt store
      that went with the page had been carrying those coordinates silently,

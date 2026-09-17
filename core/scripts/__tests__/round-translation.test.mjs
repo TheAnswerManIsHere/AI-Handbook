@@ -102,7 +102,6 @@ const fakeIo = (over = {}) => ({
   read: () =>
     JSON.stringify({
       repo: "Owner/Name",
-      reviewer: { login: "some-reviewer[bot]" },
       models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } },
       ...over,
     }),
@@ -112,35 +111,20 @@ test("the repository is derived, never passed in", () => {
   assert.match(roundBrief({ finalRound: false, root: "/r", pr: 1, round: 1, head: "h", io: fakeIo() }), /Owner\/Name/);
 });
 
-test("the reviewer's identity is supplied as a coordinate, never inferred from a comment", () => {
-  // Telling a role to filter on "the reviewer's login" without supplying it is
-  // circular: the only evidence it has for who the reviewer is are the very
-  // comments it is classifying, and any participant can post one carrying the
-  // marker line -- the builder's own round summaries quote it routinely.
-  // (Codex, #109 round 5; the round-4 translation raised the same gap itself.)
-  const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "h", io: fakeIo() });
-  assert.match(b, /\*\*The code reviewer is `some-reviewer\[bot\]`\*\*/);
-  assert.match(b, /the ONLY account whose comments and review submissions count/);
-  assert.match(b, /Never infer this from a comment's content/);
-  // And a configuration that does not say refuses rather than letting the role guess.
-  assert.throws(
-    () => roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "h", io: fakeIo({ reviewer: undefined }) }),
-    /declares no "reviewer"\.login/,
-  );
-});
 
-test("the brief tells the translator how the reviewer's login is spelled by each method", () => {
-  // MEASURED on this repository, and the defect is silent in the favourable
-  // direction: `get_reviews`/`get_comments` return `<login>[bot]` while
-  // `get_review_comments` returns the bare `<login>` for the SAME account, so
-  // an exact match finds every review submission and not one inline finding --
-  // a round full of findings reads as a round with no reviewer comments.
-  // (Codex, #109 round 9, P1; core/.agents/memory/
-  // github-mcp-review-comments-shape-differs-from-rest.md records it too.)
+
+test("the brief names Codex as the reviewer, and does not make identity a lookup", () => {
+  // Round 5 found a real circularity -- the role was told to filter on "the
+  // reviewer's login" and never given one, so the only available test was what
+  // a comment looked like. I answered it with a config key, a refusal, a
+  // coordinate and then a spelling-normalisation rule. David, 2026-09-17:
+  // "The reviewer is ALWAYS CODEX". Naming the constant closes the same hole
+  // with none of that machinery.
   const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h", finalRound: false, io: fakeIo() });
-  assert.match(b, /trailing `\[bot\]` stripped from both sides/);
-  assert.match(b, /ignoring case/);
-  assert.match(b, /never read "nothing matched" as "the reviewer said nothing"/);
+  assert.match(b, /\*\*The code reviewer is Codex\*\*/);
+  assert.match(b, /Never infer this from a comment's content/);
+  // No configured login, and nothing to normalise.
+  assert.doesNotMatch(b, /\[bot\]|stripped|reviewer's login/);
 });
 
 test("malformed coordinates are refused before a dispatch, not interpolated", () => {

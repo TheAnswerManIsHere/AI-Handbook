@@ -56,7 +56,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { modelTier, validate, assertSchemaSupported, repoSlug, reviewerLogin } from "./machinery.mjs";
+import { modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
 
 export const REVIEWS_DIR = ".agents/reviews";
 
@@ -251,13 +251,13 @@ export function roundBrief({
         `boundary the evidence stops at, and an empty one asks for an unbounded range rather than refusing here.`,
     );
   }
-  // SUPPLIED, NEVER INFERRED. See `reviewerLogin` in machinery.mjs: a role told
-  // to find "the reviewer's" markers with no login has only the comments it is
-  // classifying as evidence of who the reviewer is, and any participant can
-  // post one carrying the same marker line -- the builder's own round summaries
-  // quote it routinely. (Codex, #109 round 5, and the round-4 translation
-  // raised the same gap unprompted.)
-  const reviewer = reviewerLogin(io);
+  // THE REVIEWER IS CODEX. Not configuration, not a lookup, not a comparison
+  // rule -- a constant, because it is one (David, 2026-09-17: "The reviewer is
+  // ALWAYS CODEX"). Round 5 found a real circularity -- the role was told to
+  // filter on "the reviewer's login" and never given one, so the only test
+  // available was what a comment looked like -- and I answered it with a config
+  // key, a refusal, a coordinate and then a spelling-normalisation rule on top.
+  // Naming the constant closes the same hole with none of that.
   // THE UPPER BOUND IS DERIVED, NOT SUPPLIED. It is "the moment this dispatch
   // was made", and this function IS that moment -- so a caller passing it
   // could only ever get it wrong. Accepted as an input it was: `null` printed
@@ -280,7 +280,7 @@ export function roundBrief({
     // N. That is what makes the window and the commit ranges derivable in a
     // session that has never seen this pull request before. (Codex, #109
     // round 4 -- the receipt store had been carrying this silently.)
-    `- **The code reviewer is \`${reviewer}\`** — the ONLY account whose comments and review submissions count as the reviewer's. **Compare with a trailing \`[bot]\` stripped from both sides and ignoring case**: the GitHub methods spell one account two ways, and \`get_review_comments\` returns it WITHOUT the suffix, so an exact match finds every review submission and no inline finding at all. Comments by anyone else, including the builder, are not the reviewer's however closely they resemble one: the builder's round summaries routinely quote the marker line below. Never infer this from a comment's content, and never read "nothing matched" as "the reviewer said nothing".`,
+    `- **The code reviewer is Codex** — the GitHub account of the Codex connector app, and the only account whose comments and review submissions are the reviewer's. Comments by anyone else, including the builder, are not the reviewer's however closely they resemble one: the builder's round summaries routinely quote the marker line below. Never infer this from a comment's content.`,
     `- **Round:** ${round} — the ${ordinal(round)} review the reviewer has returned on this pull request, counting in time order across BOTH shapes a returned review takes: a formal review submission (a round with findings) and an issue comment carrying the literal line \`**Reviewed commit:**\` (a round with none). Locate this round's marker and, when ${round} > 1, the previous round's. If the ${ordinal(round)} marker cannot be found, or the markers you can see do not number ${round} or more, say so in \`could_not_assess\` and do not guess a window.`,
     // EVIDENCE STOPS AT THE HEAD; THE REVIEWED COMMIT IS IN THE MARKER. Pinning
     // the head to the reviewed commit meant the translator could never verify

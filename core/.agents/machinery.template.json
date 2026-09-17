@@ -2,9 +2,6 @@
   "_README": "Seeded once by the AI-Handbook sync, then owned by this repository. EDIT \"repo\" BEFORE USE. Left as-is, the machinery refuses rather than guesses: the placeholder below is rejected by name the moment any script reads this file, with a message naming it. That is the intended failure -- it announces itself instead of silently binding to a repository that does not exist.",
   "repo": "OWNER/REPO",
   "_repo": "This repository's GitHub owner/name, exactly as the API spells it. Read from this file by scripts/machinery.mjs, which is the ONE place identity is read. A wrong value is a mistake the machinery catches by refusing, with a message naming both values. It is not a security boundary: the person who can edit this file is the person running the scripts.",
-  "reviewer": {
-    "login": "chatgpt-codex-connector[bot]"
-  },
   "models": {
     "strongestClaude": {
       "id": "claude-fable-5-1",

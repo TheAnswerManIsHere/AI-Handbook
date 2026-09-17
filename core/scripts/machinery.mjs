@@ -161,7 +161,7 @@ export function machineryConfig(io = nodeIo()) {
           `this repository's real owner/name -- the seed is a form to fill in, not a default.`,
       );
     }
-    CONFIG_CACHE.set(key, { repo, models: parsed?.models ?? null, reviewer: parsed?.reviewer ?? null });
+    CONFIG_CACHE.set(key, { repo, models: parsed?.models ?? null });
   }
   return CONFIG_CACHE.get(key);
 }
@@ -222,38 +222,6 @@ export function modelTier(tier, io = nodeIo()) {
 
 export function repoSlug(io = nodeIo()) {
   return machineryConfig(io).repo;
-}
-
-/**
- * The code reviewer's GitHub login, read from the same one place identity is.
- *
- * WHY THIS IS CONFIGURATION AND NOT SOMETHING AN AGENT WORKS OUT. A dispatched
- * role is told to find the reviewer's rounds on a pull request by the markers
- * the reviewer leaves. Telling it to "filter on the reviewer's login" without
- * supplying that login is circular: the only evidence it has for who the
- * reviewer is are the very comments it is trying to classify, and ANY
- * participant can post a comment carrying the same marker line -- the builder's
- * own round summaries quote it routinely. So the login is supplied from here,
- * where a human set it, and a comment cannot assert its way into being the
- * reviewer. (Codex, #109 round 5; the same gap the round-4 translation raised
- * on its own.)
- *
- * NOT A SECURITY BOUNDARY, and the distinction is the same one `repo` carries:
- * whoever can edit this file is whoever runs these scripts. What it buys is
- * that the answer comes from a decision rather than from the data being
- * judged.
- */
-export function reviewerLogin(io = nodeIo()) {
-  const login = machineryConfig(io).reviewer?.login;
-  if (typeof login !== "string" || login.trim() === "") {
-    throw new Error(
-      `${MACHINERY_CONFIG_FILE} declares no "reviewer".login, so a dispatched role cannot be told which account's ` +
-        `comments are the code reviewer's. Add {"reviewer": {"login": "<the review bot's GitHub login>"}}. ` +
-        `Leaving it out would make a role infer the reviewer from the comments it is trying to classify, which any ` +
-        `participant can imitate.`,
-    );
-  }
-  return login.trim();
 }
 
 /** Test seam: forget any parsed configuration. Never called in production. */

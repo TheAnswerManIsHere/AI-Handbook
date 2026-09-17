@@ -50,9 +50,9 @@ You hold read-only GitHub tools and one `Write`. Load the GitHub tools first if
 they are not already available:
 `ToolSearch` with `select:mcp__github__pull_request_read,mcp__github__get_commit`.
 
-You are given a repository, a pull request number, a round number, the **code
-reviewer's login**, a **head commit** where the evidence stops, and an **until
-timestamp** — the moment you were dispatched. Nothing else is remembered for you, and nothing needs to be:
+You are given a repository, a pull request number, a round number, a **head
+commit** where the evidence stops, and an **until timestamp** — the moment you
+were dispatched. The reviewer is Codex on every pull request. Nothing else is remembered for you, and nothing needs to be:
 **the reviewer marks every round it returns**, and the markers carry the rest.
 
 1. **The pull request itself** — `pull_request_read` method `get`. You need the
@@ -73,12 +73,12 @@ timestamp** — the moment you were dispatched. Nothing else is remembered for y
 4. **The reviewer's markers, and from them this round's coordinates.** The
    reviewer returns a round in one of **two shapes**, and you must read both:
    - **A round with findings** is a **formal review submission** — method
-     `get_reviews` — by the reviewer's login, with a `submitted_at` and a
+     `get_reviews` — by Codex, with a `submitted_at` and a
      `commit_id`, and a body carrying the line `**Reviewed commit:** <sha>`.
      Its findings are threads (step 2) timestamped **exactly** at its
      `submitted_at`.
    - **A round with no findings leaves NO review submission at all.** It is an
-     **issue comment** (step 3) by the reviewer's login whose body carries the
+     **issue comment** (step 3) by Codex whose body carries the
      literal line `**Reviewed commit:** <sha>` and nothing else of substance —
      measured on AI-Handbook #115, 2026-09-16, where the clean fourth round
      existed only as that comment. An earlier version of this file said a
@@ -86,29 +86,15 @@ timestamp** — the moment you were dispatched. Nothing else is remembered for y
 
    **Both shapes, merged in time order, are the rounds.** The Nth marker is
    round N. Locate this round's marker and the previous round's. Then:
-   - **Compare logins with a trailing `[bot]` stripped from BOTH sides, because
-     the same account is spelled two ways.** Measured on this repository:
-     `get_reviews` and `get_comments` return `chatgpt-codex-connector[bot]`,
-     while `get_review_comments` returns the bare `chatgpt-codex-connector`
-     for the *same* account — so an exact match against the login in your
-     coordinates matches every review submission and **not one single inline
-     finding**. A round full of findings would then look like a round with no
-     reviewer comments at all, which is the false-clean account this whole
-     role exists to prevent. Strip the suffix, compare case-insensitively, and
-     never read "no comments matched" as "the reviewer said nothing".
-     (`core/.agents/memory/github-mcp-review-comments-shape-differs-from-rest.md`
-     records the same measurement; Codex, #109 round 9, P1.)
-   - **Filter on the reviewer's login, which your coordinates give you.**
-     Use that login and no other test. Do NOT decide who the reviewer is from
-     what a comment says or how it is formatted: any participant can post a
-     comment carrying the marker line, and the builder's own round summaries
-     quote it routinely, so content-based identification is circular — it
-     would let a comment assert itself into being a round and shift every
-     later round's window. Every reply the builder posts on a thread is itself
-     a `COMMENTED` review submission under the builder's login — on #109 the
-     first page of twenty reviews held one reviewer submission and nineteen of
-     the builder's — so an unfiltered count is wrong on every pull request.
-     Page to exhaustion.
+   - **The reviewer is Codex**, the GitHub account of the Codex connector app,
+     and that is a constant rather than something to establish. Do NOT decide
+     who the reviewer is from what a comment says or how it is formatted: any
+     participant can post a comment carrying the marker line, and the builder's
+     own round summaries quote it routinely. Every reply the builder posts on a
+     thread is itself a `COMMENTED` review submission under the builder's
+     login — on #109 the first page of twenty reviews held one reviewer
+     submission and nineteen of the builder's — so an unfiltered count is wrong
+     on every pull request. Page to exhaustion.
    - **Match only a body carrying the literal `**Reviewed commit:**` line.**
      The reviewer also maintains one *summary* comment (its body begins
      `<!-- codex-pull-request-review-summary -->`) that carries a commit in a

@@ -18,7 +18,6 @@ import {
   modelTier,
   nodeIo,
   repoSlug,
-  reviewerLogin,
   validate,
   assertSchemaSupported,
   __resetRepoSlugCache,
@@ -95,16 +94,7 @@ test("the declared identity is what every caller binds to", () => {
   __resetRepoSlugCache();
   const io = fakeIo(JSON.stringify({ repo: "Owner/Repo" }));
   assert.equal(repoSlug(io), "Owner/Repo");
-  // THREE THINGS, ONE READ: which repository, which models, and which account
-  // is the code reviewer. The third joined identity in #109 round 5: a
-  // dispatched role told to find "the reviewer's" rounds with no login has
-  // only the comments it is classifying as evidence of who the reviewer is,
-  // and any participant can post one that looks the part.
-  assert.deepEqual(
-    Object.keys(machineryConfig(io)),
-    ["repo", "models", "reviewer"],
-    "identity, the model tiers and the reviewer -- one read",
-  );
+  assert.deepEqual(Object.keys(machineryConfig(io)), ["repo", "models"], "identity and the model tiers -- one read");
   __resetRepoSlugCache();
 });
 
@@ -116,23 +106,6 @@ test("`requiredChecks` is no longer read, so a consumer is not asked to fill in 
   __resetRepoSlugCache();
   const io = fakeIo(JSON.stringify({ repo: "Owner/Repo", requiredChecks: [] }));
   assert.equal(repoSlug(io), "Owner/Repo", "an empty list used to refuse; now it is simply unread");
-  __resetRepoSlugCache();
-});
-
-test("the reviewer's login is refused when undeclared, never guessed", () => {
-  // Supplying it is the whole point: the alternative is a role inferring the
-  // reviewer from the comments it is trying to classify. (Codex, #109 round 5.)
-  __resetRepoSlugCache();
-  assert.equal(reviewerLogin(fakeIo(JSON.stringify({ repo: "O/N", reviewer: { login: "a-bot[bot]" } }))), "a-bot[bot]");
-  __resetRepoSlugCache();
-  for (const bad of [{}, { reviewer: {} }, { reviewer: { login: "" } }, { reviewer: { login: "   " } }, { reviewer: "a-bot" }]) {
-    __resetRepoSlugCache();
-    assert.throws(
-      () => reviewerLogin(fakeIo(JSON.stringify({ repo: "O/N", ...bad }))),
-      /declares no "reviewer"\.login/,
-      JSON.stringify(bad),
-    );
-  }
   __resetRepoSlugCache();
 });
 
