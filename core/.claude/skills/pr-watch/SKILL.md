@@ -267,10 +267,20 @@ step 5, stated once, with the duplicated material left out.
      **different pull request** is refused rather than quoted — one session can
      hold several, and a foreign account presented as this PR's own earlier
      work would steer the round David reads most carefully. `roundBrief`
-     quotes each one's summary, narrative, whether the builder had replied,
-     what it could not assess and every disagreement, and names each round
-     that has no account, so the final round can state the limitation the
-     role requires of it.
+     quotes each one's `about` line, its findings list in the report's own
+     one-line-per-finding shape (outcome, whether it held, overbuilt),
+     whether the builder had replied, what it could not assess, what it took
+     on trust and every disagreement, and names each round that has no
+     account, so the final round can state the limitation the role requires
+     of it.
+   - **The report's order is David's** (2026-09-17): the recommendation
+     leads with its reasoning under it, then disagreements, then one line per
+     finding tagged with its outcome and an **OVERBUILT** flag where the
+     builder wrote more than the finding was worth, then the final-round
+     sections, then the trust footer. He reads the recommendation and its
+     grounds and relies on the per-finding lines to catch over-building in
+     time to stop it; the headline carries the overbuilt count for the same
+     reason.
    - **`builder_answered` comes from the role, not from a receipt.** "Agrees
      with the builder's account" prints only when the translator says it saw a
      builder reply. That used to be read off a receipt field whose only writer

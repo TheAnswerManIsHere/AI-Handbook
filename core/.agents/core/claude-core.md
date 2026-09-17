@@ -957,6 +957,41 @@ Authorization boundaries — the mechanics live in
   `update_app_using_prompt` carrying the checks and an explicit read-only
   instruction, wait a few minutes, then `ask_question` for the results.
 
+### Astra (Codex CLI)
+
+**"Astra" is the `strongestCodex` tier in `.agents/machinery.json` — today
+ChatGPT's `gpt-6-astra` at `xhigh` — reached through the OpenAI Codex CLI
+(`codex exec`) running in this container, signed in per session by device
+code** (David, 2026-09-17). It is the reviewer the in-session plan loop already
+runs, and both uses resolve the same pin, so a consumer with a different pin or
+a later model upgrade still means one reviewer by the name; the resolved id is
+what a report names. When David asks for an **"Astra review"** he means that
+reviewer on the artifact at hand: a plan, through the `plan-review-loop` skill and its script; or a PR
+round, with no script — `codex exec` over the branch's diff against `main` in
+a read-only sandbox, given the round's findings and my replies as context, its
+answer read from `--output-last-message`. His stated shape for a loop is
+**a Fable review, an Astra review and a Codex review, every round**: three
+accounts of one round, none of them mine.
+
+- **Sign-in comes first, every session, and it is David's phone step.**
+  The binary is rarely on `PATH`: `npm install @openai/codex` in the
+  scratchpad, set `CODEX_BIN` to its `node_modules/.bin/codex`, and invoke
+  it as `$CODEX_BIN` throughout. `$CODEX_BIN login status` decides. Not
+  signed in means `$CODEX_BIN login --device-auth </dev/null`, detached;
+  then the URL and code to David as a 🛑 with a push notification **in the
+  same turn**, since the code expires in about fifteen minutes. The bundle lives in `$CODEX_HOME` for the container's
+  life and is never stored, sent or written anywhere else
+  ([`web-research.md`](../../docs/ai-context/web-research.md)). No sign-in
+  means the Astra review is reported as not run — never replaced by my
+  reading my own diff.
+- **Its standing is interaction rule 12's.** Substance findings — product,
+  design, correctness — are triaged under review-loop rules 5 and 6 like any
+  reviewer's; shipping-mechanics opinions carry no authority. It is not the
+  merge bar: Codex's GitHub review of the code still is.
+- Spawning gotchas (closed stdin, the sandbox blocking `/tmp`, detaching a
+  long run, the `pkill` that kills the caller):
+  [`codex-cli-in-container.md`](../../.agents/memory/codex-cli-in-container.md).
+
 ### Firecrawl
 
 `.mcp.json` declares the hosted server; the key is a **free-tier key only**, set

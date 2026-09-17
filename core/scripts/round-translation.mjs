@@ -370,7 +370,13 @@ export function roundBrief({
       } else {
         lines.push("- **Disagreements reported:** none");
       }
-      lines.push("", ans.summary_for_david ?? "", "", ans.what_happened ?? "", "");
+      lines.push("", ans.about ?? "", "");
+      // ONE LINE PER FINDING, THE SAME LINE THE REPORT PRINTS. The final round
+      // is told to recheck what an earlier round flagged, and a finding whose
+      // fix was not borne out or was overbuilt is exactly that; quoting the
+      // list in the report's own shape means there is one rendering to read.
+      for (const x of Array.isArray(ans.findings) ? ans.findings : []) lines.push(`- ${findingLine(x)}`);
+      lines.push("");
     }
   }
   lines.push(
@@ -513,7 +519,69 @@ export function facts(round) {
     // two possible wrong accounts, the false favourable is the one that must
     // never print.
     answered: out.builder_answered === true,
+    ...findingCounts(out.findings),
   };
+}
+
+/**
+ * The counts the findings list yields, read once so the headline and the
+ * section heading cannot disagree. An absent or malformed list counts as
+ * empty; `validateAnswer` refuses that shape before it gets here.
+ */
+function findingCounts(list) {
+  const f = Array.isArray(list) ? list : [];
+  const n = (k) => f.filter((x) => x && x.outcome === k).length;
+  return {
+    findings: f.length,
+    fixed: n("fixed"),
+    declined: n("declined"),
+    unanswered: n("unanswered"),
+    // NOT HOLDING IS ANYTHING BUT `true` ON A FIX OR A DECLINE. The schema
+    // admits `null` there too, and `findingLine` already prints it as "not
+    // borne out"; counting only an explicit `false` let the headline say
+    // "agrees" above a line saying the opposite. (Astra, #119 round 1.)
+    notHolding: f.filter((x) => x && x.outcome !== "unanswered" && x.holds !== true).length,
+    overbuilt: f.filter((x) => x && x.overbuilt === true).length,
+  };
+}
+
+/**
+ * How many points the translator differs on, DERIVED rather than trusted.
+ *
+ * The role is told that a `holds: false` finding is also a disagreement and
+ * gets an entry in the list -- but the list and the flag are two fields the
+ * model fills, and prompt compliance is not a guarantee. A finding marked
+ * "not borne out" with no matching entry fell through to "agrees with the
+ * builder's account": the one false favourable this module exists to never
+ * print, from the field that carries the definitive contradiction. So the
+ * written-up list is authoritative when it has entries, and the flags are
+ * the fallback when it has none -- never summed, because the instructed
+ * shape (flag AND entry) would then count one problem twice. (Codex, #119
+ * round 1, P1.)
+ */
+const differs = (f) => (f.disagreements > 0 ? f.disagreements : f.notHolding);
+
+/**
+ * One finding, one line. Printed in the report and quoted back to the final
+ * round as navigation, so the two are the same function.
+ *
+ * The tag names the outcome and whether it held, because those are the two
+ * things David scans for; OVERBUILT is appended in bold because it is the
+ * signal he asked for (2026-09-17): the builder writing more than a finding
+ * was worth, which he wants to see in time to stop it.
+ */
+export function findingLine(x) {
+  const tag =
+    x.outcome === "unanswered"
+      ? "unanswered"
+      : x.outcome === "fixed"
+        ? x.holds === true
+          ? "fixed ✓"
+          : "fixed ✗ not borne out by the code"
+        : x.holds === true
+          ? "declined ✓ holds"
+          : "declined ✗ does not hold";
+  return `${tag}${x.overbuilt === true ? " · **OVERBUILT**" : ""} — ${x.raised} ${x.done}`;
 }
 
 const plural = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
@@ -533,18 +601,28 @@ export function chatLine(round) {
   const r = `round ${round.round}`;
   if (f.failed) return `${r}: translation failed — ${f.reason}`;
   if (f.skipped) return `${r}: skipped — ${f.reason}`;
+  // OVERBUILT IS ON THE HEADLINE, in every answered-or-not shape, because it
+  // is the thing David scans for and it is orthogonal to agreement: a fix can
+  // do exactly what the reply claims and still be code nobody needed.
+  const over = f.overbuilt > 0 ? `; ${f.overbuilt} overbuilt` : "";
+  const d = differs(f);
   if (!f.answered) {
-    if (f.disagreements > 0) {
-      return `${r}: no builder account yet — the translator raises ${plural(f.disagreements, "concern")} of its own${f.unassessed ? ", and something could not be assessed" : ""}`;
+    if (d > 0) {
+      return `${r}: no builder account yet — the translator raises ${plural(d, "concern")} of its own${f.unassessed ? ", and something could not be assessed" : ""}${over}`;
     }
-    if (f.unassessed) return `${r}: no builder account yet — partial, something could not be assessed`;
-    return `${r}: no builder account yet — the round was unanswered when this was read`;
+    if (f.unassessed) return `${r}: no builder account yet — partial, something could not be assessed${over}`;
+    return `${r}: no builder account yet — the round was unanswered when this was read${over}`;
   }
-  if (f.disagreements > 0) return `${r}: differs on ${plural(f.disagreements, "point")}`;
-  if (f.unassessed) return `${r}: partial — something could not be assessed`;
+  if (d > 0) return `${r}: differs on ${plural(d, "point")}${over}`;
+  // A ROUND WITH AN UNANSWERED FINDING IS PARTIAL, whatever `builder_answered`
+  // says: that flag is the round's, the count is the findings', and "agrees"
+  // over a finding still awaiting a reply presents an open concern as settled.
+  // (Astra, #119 round 1.)
+  if (f.unanswered > 0) return `${r}: partial — ${plural(f.unanswered, "finding")} still unanswered${over}`;
+  if (f.unassessed) return `${r}: partial — something could not be assessed${over}`;
   // LAST, AND ONLY HERE, because "agrees" is the only shape that asserts a
   // builder account exists and that everything reachable was assessed.
-  return `${r}: agrees with the builder's account`;
+  return `${r}: agrees with the builder's account${over}`;
 }
 
 /**
@@ -563,17 +641,24 @@ export function chatLine(round) {
  * "agrees" defect in a smaller font. (Codex, #109 round 4; Astra, 2026-09-16.)
  */
 function disagreementsWording(f) {
+  const d = differs(f);
+  // THE LIST IS EMPTY BUT A FINDING DID NOT HOLD: the label says so and points
+  // at the findings list, where the flag is printed, so the headline's count
+  // and this section never name different facts.
+  const flagged = f.notHolding > 0 ? `*No disagreement written up, but ${plural(f.notHolding, "finding")} below did not hold.*` : null;
   if (!f.answered) {
     return {
-      heading: `**Concerns the translator raises on its own — the builder has not replied** (${f.disagreements})`,
-      empty: `*No concerns of its own reported; there is no builder account yet to disagree with${f.unassessed ? ", and something could not be assessed" : ""}.*`,
+      heading: `**Concerns the translator raises on its own — the builder has not replied** (${d})`,
+      empty: flagged ?? `*No concerns of its own reported; there is no builder account yet to disagree with${f.unassessed ? ", and something could not be assessed" : ""}.*`,
     };
   }
   return {
-    heading: `**Where it disagrees with the builder** (${f.disagreements})`,
-    empty: f.unassessed
-      ? "*No disagreements reported on what could be assessed.*"
-      : "*No disagreements reported with the builder's account.*",
+    heading: `**Where it disagrees with the builder** (${d})`,
+    empty:
+      flagged ??
+      (f.unassessed
+        ? "*No disagreements reported on what could be assessed.*"
+        : "*No disagreements reported with the builder's account.*"),
   };
 }
 
@@ -586,6 +671,15 @@ function disagreementsWording(f) {
  * which is the whole reason this is a function and not a note telling me to
  * explain the round. The only text here that is not the translator's is the
  * labels.
+ *
+ * ORDERED BY WHAT DAVID DOES WITH IT (David, 2026-09-17). The recommendation
+ * is what he relies on, so it leads, with its reasoning directly under it;
+ * then the disagreements, the field the role calls its most valuable; then
+ * one line per finding, which he asked for so he can see what was written
+ * for each and stop over-building in time; then the final-round sections;
+ * then the trust footer. The earlier shape put a finding-by-finding narrative
+ * second and the recommendation last, so the longest section sat above the
+ * line he reads for.
  *
  * `model` prints only when it is worth a reader's attention: a mismatch
  * against the model asked for, or an answer that could not name its own model.
@@ -606,7 +700,7 @@ export function chatReport(round, { askedModel = null } = {}) {
   }
 
   const a = round.answer ?? {};
-  out.push(a.summary_for_david ?? "", "", "**What happened**", "", a.what_happened ?? "");
+  out.push(`**Needs you:** ${a.recommendation ?? ""}`, "", a.reasoning ?? "");
 
   if (Array.isArray(a.disagreements)) {
     const w = disagreementsWording(f);
@@ -617,6 +711,23 @@ export function chatReport(round, { askedModel = null } = {}) {
       out.push("", w.empty);
     }
   }
+
+  if (Array.isArray(a.findings)) {
+    // THE COUNTS ARE THE HEADING, so a list David skims still tells him the
+    // round's shape; an empty list is rendered as its own explicit result,
+    // for the same reason an empty disagreements list is.
+    const parts = [];
+    if (f.fixed) parts.push(`${f.fixed} fixed`);
+    if (f.declined) parts.push(`${f.declined} declined`);
+    if (f.unanswered) parts.push(`${f.unanswered} unanswered`);
+    out.push("", `**Findings** (${f.findings ? `${f.findings} raised: ${parts.join(", ")}` : "none raised"})`);
+    if (a.findings.length) {
+      out.push("");
+      for (const x of a.findings) out.push(`- ${findingLine(x)}`);
+    }
+  }
+
+  if (a.about) out.push("", `*About:* ${a.about}`);
 
   if (Array.isArray(a.known_gaps)) {
     out.push("", "**Shipping unfixed**", "");
@@ -651,6 +762,5 @@ export function chatReport(round, { askedModel = null } = {}) {
     out.push("", `*Written by ${got}, not the ${askedModel} that was asked for — the dispatch cannot enforce the model, only report what answered.*`);
   }
 
-  out.push("", `**${a.recommendation}**`);
   return out.join("\n");
 }
