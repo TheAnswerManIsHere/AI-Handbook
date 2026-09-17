@@ -31,19 +31,22 @@ import {
   facts,
   chatLine,
   chatReport,
+  findingLine,
 } from "../round-translation.mjs";
 
 const PR = 81;
 
+const fixed = { raised: "Two rounds could have been filed under one number.", done: "The dispatch moment now bounds the window.", outcome: "fixed", holds: true, overbuilt: false };
+const declined = { raised: "A mistyped flag would not be caught.", done: "Declined: you type it yourself.", outcome: "declined", holds: true, overbuilt: false };
+
 const answer = (over = {}) => ({
-  summary_for_david:
-    "The reviewer raised two points on this round.\nOne was fixed, one declined.\nNothing here should worry you.",
-  what_happened:
-    "The first point was a real ordering mistake and the builder fixed it. The second was about a value you type yourself, and the builder declined it.",
+  recommendation: "Nothing to do.",
+  reasoning: "Both fixes do what the replies claim; I read the diff for each. The decline rests on the flag being yours to type.",
+  about: "Two points on how a round is located.",
   disagreements: [],
+  findings: [fixed, declined],
   took_on_trust: "I took the builder's word that the test suite passes; I did not run it.",
   could_not_assess: null,
-  recommendation: "Nothing to do.",
   model: "claude-fable-5-1",
   builder_answered: true,
   ...over,
@@ -216,8 +219,8 @@ test("a prior account from another pull request is refused, never quoted as this
   // Refused rather than dropped: a silent drop would name the round as having
   // no account and bury the real reason. (Codex, #109 round 6.)
   const root = tmpRoot();
-  const mine = writeAndRead(root, 12, 1, answer({ summary_for_david: "MINE" }));
-  const theirs = writeAndRead(root, 99, 1, answer({ summary_for_david: "FOREIGN" }));
+  const mine = writeAndRead(root, 12, 1, answer({ about: "MINE" }));
+  const theirs = writeAndRead(root, 99, 1, answer({ about: "FOREIGN" }));
   assert.equal(theirs.pr, 99, "every read result carries the pull request it came from");
   assert.throws(
     () => roundBrief({ root, pr: 12, round: 2, head: "h", finalRound: true, priorAccounts: [theirs] }),
@@ -286,7 +289,7 @@ test("the brief carries the schema, nested field names included", () => {
   // (Astra, 2026-09-16.)
   const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 1, head: "h" });
   assert.match(b, /## The shape of your answer/);
-  for (const key of ["why_it_matters", "does_not_do", "now_trusting", "builder_answered", "could_not_assess"]) {
+  for (const key of ["why_it_matters", "does_not_do", "now_trusting", "builder_answered", "could_not_assess", "overbuilt", "reasoning"]) {
     assert.ok(b.includes(`"${key}"`), `schema key ${key} missing from the brief`);
   }
   // The quoted schema is the shipped one, so the two cannot drift.
@@ -295,15 +298,19 @@ test("the brief carries the schema, nested field names included", () => {
 
 test("prior accounts are readAnswer results, quoted whole, on the final round only", () => {
   const root = tmpRoot();
-  const one = writeAndRead(root, PR, 1, answer({ summary_for_david: "SUMMARY-ONE", what_happened: "HAPPENED-ONE", builder_answered: false, could_not_assess: "CNA-ONE", disagreements: [{ what: "D-ONE", why_it_matters: "WHY-ONE" }] }));
+  const one = writeAndRead(root, PR, 1, answer({ about: "ABOUT-ONE", findings: [{ ...fixed, raised: "RAISED-ONE", overbuilt: true }], builder_answered: false, could_not_assess: "CNA-ONE", disagreements: [{ what: "D-ONE", why_it_matters: "WHY-ONE" }] }));
   const fin = roundBrief({ root, pr: PR, round: 3, head: "h", finalRound: true, priorAccounts: [one] });
   assert.match(fin, /navigation only/);
   // The round number comes from the readAnswer result, not from a bare answer
   // -- which carries none and rendered "### Round undefined". (Astra.)
   assert.match(fin, /### Round 1\n/);
   assert.doesNotMatch(fin, /undefined/);
-  assert.match(fin, /SUMMARY-ONE/);
-  assert.match(fin, /HAPPENED-ONE/);
+  assert.match(fin, /ABOUT-ONE/);
+  // Each finding is quoted as the SAME line the report prints, flags included,
+  // so the final round sees what an earlier one marked as not holding or as
+  // overbuilt in the shape David saw it.
+  assert.ok(fin.includes(`- ${findingLine({ ...fixed, raised: "RAISED-ONE", overbuilt: true })}`));
+  assert.match(fin, /OVERBUILT\*\* — RAISED-ONE/);
   // The navigation fields the final round is REQUIRED to use, all quoted:
   // whether the builder had replied, the limitation, and each disagreement.
   // (Codex, #109 round 4.)
@@ -319,7 +326,7 @@ test("prior accounts are readAnswer results, quoted whole, on the final round on
   assert.doesNotMatch(section, /\.json/);
 
   const ordinary = roundBrief({ finalRound: false, root, pr: PR, round: 2, head: "h", priorAccounts: [one] });
-  assert.doesNotMatch(ordinary, /navigation only|SUMMARY-ONE/);
+  assert.doesNotMatch(ordinary, /navigation only|ABOUT-ONE/);
 });
 
 test("a missing or failed earlier account is named as such, never silently omitted", () => {
@@ -441,7 +448,7 @@ test("every delivery failure reaches chatReport as a FAILED round, never as a be
   text = chatReport(readAnswer(root, PR, 4, { finalRound: false }));
   assert.match(text, /^\*\*D0 — round 4: translation failed — the answer file is not valid JSON/);
 
-  fs.writeFileSync(prepareAnswerPath(root, PR, 4), JSON.stringify({ summary_for_david: "x" }));
+  fs.writeFileSync(prepareAnswerPath(root, PR, 4), JSON.stringify({ about: "x" }));
   text = chatReport(readAnswer(root, PR, 4, { finalRound: false }));
   assert.match(text, /^\*\*D0 — round 4: translation failed — the answer did not match the expected shape/);
   assert.match(text, /No independent account of this round exists/);
@@ -582,12 +589,16 @@ test("the chat report is the translator's words, not the builder's summary of th
   // Every prose field appears VERBATIM. This is the one property worth having
   // machinery for: a builder-written summary of an independent account is just
   // the builder's account again.
-  assert.ok(text.includes(a.summary_for_david));
-  assert.ok(text.includes(a.what_happened));
+  assert.ok(text.includes(a.recommendation));
+  assert.ok(text.includes(a.reasoning));
+  assert.ok(text.includes(a.about));
+  for (const x of a.findings) {
+    assert.ok(text.includes(x.raised));
+    assert.ok(text.includes(x.done));
+  }
   assert.ok(text.includes(a.disagreements[0].what));
   assert.ok(text.includes(a.disagreements[0].why_it_matters));
   assert.ok(text.includes(a.took_on_trust));
-  assert.ok(text.includes(a.recommendation));
   // And the verdict leads, so the headline cannot disagree with the body.
   assert.ok(text.startsWith("**D0 — round 2: differs on 1 point**"));
   // The builder's thread shorthand never reaches David.
@@ -646,4 +657,96 @@ test("the model is mentioned only when it is worth a reader's attention", () => 
     /Written by claude-sonnet-5, not the claude-fable-5-1 that was asked for/,
   );
   assert.match(chatReport(round(1, answer({ model: null })), { askedModel: "claude-fable-5-1" }), /did not report which model wrote it/);
+});
+
+// ---------------------------------------------------------------------------
+// The report's order and the findings list (David, 2026-09-17)
+// ---------------------------------------------------------------------------
+
+test("the report is ordered by what David does with it: recommendation, reasoning, disagreements, findings", () => {
+  // He relies on the recommendation and reads its grounds before anything
+  // else; the earlier shape put a finding-by-finding narrative second and the
+  // recommendation last, so the longest section sat above the line he reads
+  // for. The order is asserted, not just the presence of each part.
+  const a = answer({ disagreements: [disagreement] });
+  const text = chatReport(round(2, a));
+  const at = (needle) => {
+    const i = text.indexOf(needle);
+    assert.ok(i >= 0, `missing: ${needle}`);
+    return i;
+  };
+  const headline = at("**D0 — round 2");
+  const needs = at(`**Needs you:** ${a.recommendation}`);
+  const why = at(a.reasoning);
+  const differs = at("**Where it disagrees with the builder** (1)");
+  const findings = at("**Findings** (2 raised: 1 fixed, 1 declined)");
+  const about = at(`*About:* ${a.about}`);
+  const trust = at("*Taken on trust, not checked:*");
+  assert.ok(headline < needs && needs < why && why < differs && differs < findings && findings < about && about < trust);
+  // The recommendation appears once, at the top, and never as a closing line.
+  assert.equal(text.split(a.recommendation).length - 1, 1);
+});
+
+test("every finding is one line carrying its outcome, whether it held, and whether it was overbuilt", () => {
+  // One line per finding is what David asked for, so he can see what was
+  // written for each -- and OVERBUILT is the flag he reads to stop the builder
+  // writing more than a finding is worth. The tag states the outcome and
+  // whether it held, and a false `holds` is printed as such, never softened.
+  const notBorneOut = { raised: "R-NOT", done: "D-NOT", outcome: "fixed", holds: false, overbuilt: false };
+  const badDecline = { raised: "R-BAD", done: "D-BAD", outcome: "declined", holds: false, overbuilt: false };
+  const over = { raised: "R-OVER", done: "D-OVER: 134 lines for a constant", outcome: "fixed", holds: true, overbuilt: true };
+  const open = { raised: "R-OPEN", done: "Nothing yet.", outcome: "unanswered", holds: null, overbuilt: false };
+  assert.equal(findingLine(fixed), `fixed ✓ — ${fixed.raised} ${fixed.done}`);
+  assert.equal(findingLine(declined), `declined ✓ holds — ${declined.raised} ${declined.done}`);
+  assert.equal(findingLine(notBorneOut), "fixed ✗ not borne out by the code — R-NOT D-NOT");
+  assert.equal(findingLine(badDecline), "declined ✗ does not hold — R-BAD D-BAD");
+  assert.equal(findingLine(over), "fixed ✓ · **OVERBUILT** — R-OVER D-OVER: 134 lines for a constant");
+  assert.equal(findingLine(open), "unanswered — R-OPEN Nothing yet.");
+
+  const text = chatReport(round(3, answer({ findings: [fixed, notBorneOut, badDecline, over, open] })));
+  assert.match(text, /\*\*Findings\*\* \(5 raised: 3 fixed, 1 declined, 1 unanswered\)/);
+  for (const x of [fixed, notBorneOut, badDecline, over, open]) assert.ok(text.includes(`- ${findingLine(x)}`));
+});
+
+test("overbuilt is counted on the headline, in every state, because agreement does not clear it", () => {
+  // A fix can do exactly what the reply claims and still be code nobody
+  // needed; the headline is what David scans, so the count is there whether
+  // the round agrees, differs, is partial or is unanswered.
+  const over = { raised: "R", done: "D", outcome: "fixed", holds: true, overbuilt: true };
+  const two = [over, { ...over, raised: "R2" }];
+  assert.equal(chatLine(round(1, answer({ findings: two }))), "round 1: agrees with the builder's account; 2 overbuilt");
+  assert.equal(chatLine(round(1, answer({ findings: two, disagreements: [disagreement] }))), "round 1: differs on 1 point; 2 overbuilt");
+  assert.equal(chatLine(round(1, answer({ findings: two, could_not_assess: "one thread" }))), "round 1: partial — something could not be assessed; 2 overbuilt");
+  assert.equal(
+    chatLine(round(1, answer({ findings: [over], builder_answered: false }))),
+    "round 1: no builder account yet — the round was unanswered when this was read; 1 overbuilt",
+  );
+  // And absent, nothing is appended: a line on every round saying nothing was
+  // overbuilt would train him to skip the place the real count appears.
+  assert.equal(chatLine(round(1, answer())), "round 1: agrees with the builder's account");
+  assert.equal(facts(round(1, answer({ findings: two }))).overbuilt, 2);
+});
+
+test("a round that raised no findings renders that as its own explicit result", () => {
+  // The same rule as an empty disagreements list: David must be able to tell
+  // "nothing was raised" from "the list was never written".
+  const text = chatReport(round(4, answer({ findings: [] })));
+  assert.match(text, /\*\*Findings\*\* \(none raised\)/);
+  assert.doesNotMatch(text, /raised: /);
+});
+
+test("a finding's shape is enforced by the schema: the outcome is an enum and every flag is required", () => {
+  // The renderer reads `outcome`, `holds` and `overbuilt` to build the line,
+  // and an omitted flag would render as the favourable "fixed ✓". So each is
+  // required, and an outcome outside the three words is refused.
+  const bad = (x) => validateAnswer(answer({ findings: [x] }), { finalRound: false });
+  assert.equal(bad(fixed).length, 0);
+  assert.ok(bad({ ...fixed, outcome: "resolved" }).some((p) => /not one of/.test(p)));
+  for (const k of ["holds", "overbuilt", "outcome", "raised", "done"]) {
+    const { [k]: _dropped, ...without } = fixed;
+    assert.ok(bad(without).length > 0, `a finding without ${k} was accepted`);
+  }
+  // And the recommendation's grounds are required, not optional prose.
+  const { reasoning: _r, ...noReasoning } = answer();
+  assert.ok(validateAnswer(noReasoning, { finalRound: false }).length > 0);
 });
