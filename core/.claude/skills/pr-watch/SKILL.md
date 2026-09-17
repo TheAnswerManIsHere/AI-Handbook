@@ -152,11 +152,13 @@ step 5, stated once, with the duplicated material left out.
 
    1. **`prepareAnswerPath(root, pr, round)`** — the answer directory exists
       and is ignored, and any earlier attempt's answer for this round is gone,
-      so a re-dispatch can never be read as its predecessor. Then **capture
-      `until`**, the current timestamp, and **bind the model once**:
-      `dispatch = dispatchModel()`.
+      so a re-dispatch can never be read as its predecessor. Then **bind the
+      model once**: `dispatch = dispatchModel()`.
    2. **Dispatch `fable-round-translation`** with `model: dispatch.agentModel`,
-      passing `roundBrief({ root, pr, round, head, until, finalRound, priorAccounts })`.
+      passing `roundBrief({ root, pr, round, head, finalRound, priorAccounts })`.
+      **The activity window's upper bound is not passed** — `roundBrief` is the
+      moment of the dispatch, so it stamps that moment itself. There is no
+      `until` to capture, forget, or mistype (Codex, #109 round 6).
       `head` is the branch head at dispatch — **where the evidence stops, not
       the commit the reviewer reviewed**; the translator reads the reviewed
       commit off the round's own marker. `run_in_background: false` may be
@@ -238,15 +240,21 @@ step 5, stated once, with the duplicated material left out.
      closed, because the inclusive-both-ends rule this replaced would have
      collected 23 findings for #109's round 1 instead of 14 (Astra,
      2026-09-16).
-   - **Always pass `until`.** The comment reads are live and this dispatch
-     runs detached by design, so a slow round-N translation can read round
-     N+1's findings and replies — an account of a round that never happened,
-     filed under N's number and indistinguishable from a correct one.
+   - **The upper bound is stamped, not supplied.** The comment reads are live
+     and this dispatch runs detached by design, so a slow round-N translation
+     can read round N+1's findings and replies — an account of a round that
+     never happened, filed under N's number and indistinguishable from a
+     correct one. `roundBrief` derives that bound because it *is* the moment of
+     the dispatch; accepted as an input, `null` left the window open at the top
+     and `"yesterday"` was interpolated as though it were a timestamp.
    - **`finalRound: true` on the stopping round only**, which is what asks for
      `known_gaps` and `what_landed`. Pass the earlier rounds' **`readAnswer`
      results** as `priorAccounts`, whole and unedited — never bare answers,
      which carry no round number, and never file paths, since the role holds
-     no `Read` tool and cannot be given a narrow one (below). `roundBrief`
+     no `Read` tool and cannot be given a narrow one (below). A result from a
+     **different pull request** is refused rather than quoted — one session can
+     hold several, and a foreign account presented as this PR's own earlier
+     work would steer the round David reads most carefully. `roundBrief`
      quotes each one's summary, narrative, whether the builder had replied,
      what it could not assess and every disagreement, and names each round
      that has no account, so the final round can state the limitation the

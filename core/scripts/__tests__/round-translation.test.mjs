@@ -172,7 +172,7 @@ test("the round's boundaries are located on the pull request, never remembered",
   // every earlier round to the current one. The remedy is not a smaller
   // store: the reviewer marks every round it returns, in two shapes, and the
   // Nth marker IS round N. (Codex, #109 round 4; measured on #115.)
-  const b = roundBrief({ root: "/r", pr: 1, round: 4, head: "deadbee", until: "2026-09-16T11:00:00Z" });
+  const b = roundBrief({ root: "/r", pr: 1, round: 4, head: "deadbee", now: () => new Date("2026-09-16T11:00:00Z") });
   assert.match(b, /\*\*Round:\*\* 4 — the 4th review the reviewer has returned/);
   assert.match(b, /formal review submission/);
   assert.match(b, /\*\*Reviewed commit:\*\*/);
@@ -181,8 +181,46 @@ test("the round's boundaries are located on the pull request, never remembered",
   // No coordinate is remembered by the caller: neither a lower timestamp
   // bound nor a previous head is accepted, so neither can be stale.
   assert.doesNotMatch(b, /Review activity, from|Previous head/);
-  assert.match(b, /\*\*Review activity, until:\*\* `2026-09-16T11:00:00Z` — the moment this dispatch was made/);
+  assert.match(b, /\*\*Review activity, until:\*\* `2026-09-16T11:00:00\.000Z` — the moment this dispatch was made/);
   assert.match(b, /IGNORE every comment, review and reply after this timestamp/);
+});
+
+test("the activity window's upper bound is derived, so there is no way to dispatch without one", () => {
+  // Accepted as an input it was: `null` printed "none supplied" and left the
+  // window open at the top, and "yesterday", 42 and "2026-13-45T99:99:99Z"
+  // were interpolated verbatim as though they were timestamps. Either way a
+  // detached round could absorb the next round's findings and file them under
+  // this one. (Codex, #109 round 6.) The bound IS the moment of the dispatch,
+  // and this function is that moment, so a caller could only get it wrong.
+  const before = new Date();
+  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h" });
+  const m = /\*\*Review activity, until:\*\* `([^`]+)`/.exec(b);
+  assert.ok(m, "every brief carries an upper bound");
+  const stamped = new Date(m[1]);
+  assert.equal(Number.isNaN(stamped.getTime()), false, "and it is a real timestamp");
+  assert.ok(stamped >= before && stamped <= new Date(), "taken at the moment of the dispatch");
+  // The open-topped branch is gone, not merely unreachable.
+  assert.doesNotMatch(b, /none supplied/);
+  // A caller cannot supply one: the key is not read.
+  assert.doesNotMatch(roundBrief({ root: "/r", pr: 1, round: 2, head: "h", until: "yesterday" }), /yesterday/);
+});
+
+test("a prior account from another pull request is refused, never quoted as this one's", () => {
+  // One session can hold several PRs. Quoted here, a foreign result would be
+  // presented to the translator as its OWN earlier work on THIS pull request
+  // -- a foreign history steering the round David reads most carefully.
+  // Refused rather than dropped: a silent drop would name the round as having
+  // no account and bury the real reason. (Codex, #109 round 6.)
+  const root = tmpRoot();
+  const mine = writeAndRead(root, 12, 1, answer({ summary_for_david: "MINE" }));
+  const theirs = writeAndRead(root, 99, 1, answer({ summary_for_david: "FOREIGN" }));
+  assert.equal(theirs.pr, 99, "every read result carries the pull request it came from");
+  assert.throws(
+    () => roundBrief({ root, pr: 12, round: 2, head: "h", finalRound: true, priorAccounts: [theirs] }),
+    /carries a result from pull request #99 .*this brief is for #12/s,
+  );
+  // This PR's own accounts are quoted as before.
+  assert.match(roundBrief({ root, pr: 12, round: 2, head: "h", finalRound: true, priorAccounts: [mine] }), /MINE/);
 });
 
 test("the head is where the evidence stops, not the commit the reviewer reviewed", () => {

@@ -210,10 +210,10 @@ export function roundBrief({
   pr,
   round,
   head,
-  until = null,
   finalRound = false,
   priorAccounts = [],
   io = undefined,
+  now = () => new Date(),
 }) {
   const repo = repoSlug(io);
   const answerFile = answerPath(root, pr, round);
@@ -230,6 +230,18 @@ export function roundBrief({
   // quote it routinely. (Codex, #109 round 5, and the round-4 translation
   // raised the same gap unprompted.)
   const reviewer = reviewerLogin(io);
+  // THE UPPER BOUND IS DERIVED, NOT SUPPLIED. It is "the moment this dispatch
+  // was made", and this function IS that moment -- so a caller passing it
+  // could only ever get it wrong. Accepted as an input it was: `null` printed
+  // "none supplied" and left the window open at the top, and `"yesterday"`,
+  // `42` and `2026-13-45T99:99:99Z` were all interpolated verbatim as though
+  // they were timestamps. Either way a detached round could absorb the next
+  // round's findings and file them under this one -- an account of a round
+  // that never happened, in the shape of a correct one. The `derivable` arm of
+  // the Worth test says remove the input rather than check it, and there is
+  // now no way to dispatch without an upper bound. `now` is a test seam, not
+  // a caller's choice. (Codex, #109 round 6.)
+  const until = now().toISOString();
   const lines = [
     "## This round",
     "",
@@ -253,9 +265,7 @@ export function roundBrief({
     // whole next round (Astra replayed #109: 23 findings for round 1, not 14).
     // `until` is the dispatch moment: this dispatch runs detached and the
     // next round can land while it reads.
-    until
-      ? `- **Review activity, until:** \`${until}\` — the moment this dispatch was made. IGNORE every comment, review and reply after this timestamp; they belong to a later round, and this dispatch runs detached, so later activity may well have landed while you were reading.`
-      : `- **Review activity, until:** none supplied — if you find activity that plainly belongs to a later round, say so in \`could_not_assess\` rather than folding it into this one.`,
+    `- **Review activity, until:** \`${until}\` — the moment this dispatch was made. IGNORE every comment, review and reply after this timestamp; they belong to a later round, and this dispatch runs detached, so later activity may well have landed while you were reading.`,
     `- **Final round:** ${finalRound ? "YES — also return `known_gaps` and `what_landed`." : "no — omit `known_gaps` and `what_landed`."}`,
     `- **Write your answer to:** \`${answerFile}\``,
   ];
@@ -280,7 +290,25 @@ export function roundBrief({
       "",
     );
     const byRound = new Map();
-    for (const a of priorAccounts) if (a && Number.isInteger(a.round)) byRound.set(a.round, a);
+    for (const a of priorAccounts) {
+      if (!a || !Number.isInteger(a.round)) continue;
+      // REFUSED, NOT FILTERED. Every read result carries the pull request it
+      // came from, and one session can hold several: a result from another PR
+      // quoted here would be presented to the translator as ITS OWN earlier
+      // work on THIS pull request -- a foreign history steering the final
+      // account, in the round David reads most carefully. Dropping it quietly
+      // would be worse than the bug it fixes, because the round would then be
+      // named as having no account and the real reason would never surface.
+      // (Codex, #109 round 6.)
+      if (a.pr !== pr) {
+        throw new Error(
+          `round-translation: priorAccounts carries a result from pull request #${a.pr} (round ${a.round}), but this ` +
+            `brief is for #${pr}. An account from another pull request would be quoted to the translator as its own ` +
+            `earlier work on this one. Pass only this pull request's results.`,
+        );
+      }
+      byRound.set(a.round, a);
+    }
     for (let k = 1; k < round; k += 1) {
       const a = byRound.get(k);
       lines.push(`### Round ${k}`, "");
