@@ -247,8 +247,13 @@ step 5, stated once, with the duplicated material left out.
      correct one. `roundBrief` derives that bound because it *is* the moment of
      the dispatch; accepted as an input, `null` left the window open at the top
      and `"yesterday"` was interpolated as though it were a timestamp.
-   - **`finalRound: true` on the stopping round only**, which is what asks for
-     `known_gaps` and `what_landed`. The cumulative change that answers
+   - **`finalRound` is stated on EVERY round, true or false, and omitting it
+     is refused** at all three entry points. `true` on the stopping round only,
+     which is what asks for `known_gaps` and `what_landed`. It used to default
+     to `false`, which is silently wrong in exactly one direction: omitted on
+     both the dispatch and the read, the two agree on "ordinary", the mismatch
+     check never fires, and the stopping round reads as translated with no
+     cumulative assessment at all (Codex, #109 round 8). The cumulative change that answers
      `what_landed` is pinned to the head I pass: the live file-list endpoint
      takes no commit, so the role uses it only after confirming — **in the same
      breath as the read, never once at the start of the dispatch** — that the

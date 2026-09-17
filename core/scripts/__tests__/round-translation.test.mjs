@@ -60,11 +60,17 @@ const round = (n, a, over = {}) => ({ pr: PR, round: n, answer: a, ...over });
 
 const tmpRoot = () => fs.mkdtempSync(path.join(os.tmpdir(), "d0-"));
 
-/** Write an answer where the translator would, then read it back the way the skill does. */
-function writeAndRead(root, pr, n, a, opts = {}) {
+/**
+ * Write an answer where the translator would, then read it back the way the
+ * skill does. The round's classification is stated here rather than defaulted,
+ * because a default is the defect under test: omitted on both sides it makes
+ * the dispatch and the read agree on "ordinary" and a stopping round reads as
+ * translated with no cumulative assessment.
+ */
+function writeAndRead(root, pr, n, a, opts = { finalRound: false }) {
   const file = prepareAnswerPath(root, pr, n);
   fs.writeFileSync(file, JSON.stringify(a));
-  return readAnswer(root, pr, n, opts);
+  return readAnswer(root, pr, n, opts, { finalRound: false });
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +82,7 @@ test("the answer path is derived, and derived the same way by writer and reader"
   // The brief must name EXACTLY the path readAnswer will open. When the brief
   // accepted a path from a caller, a mistyped one meant a valid answer written
   // where nothing looked -- reported as a failed round. (Codex, #109 round 2.)
-  const b = roundBrief({ root: "/r", pr: 12, round: 3, head: "abc1234" });
+  const b = roundBrief({ finalRound: false, root: "/r", pr: 12, round: 3, head: "abc1234" });
   assert.ok(b.includes(answerPath("/r", 12, 3)));
 });
 
@@ -103,7 +109,7 @@ const fakeIo = (over = {}) => ({
 });
 
 test("the repository is derived, never passed in", () => {
-  assert.match(roundBrief({ root: "/r", pr: 1, round: 1, head: "h", io: fakeIo() }), /Owner\/Name/);
+  assert.match(roundBrief({ finalRound: false, root: "/r", pr: 1, round: 1, head: "h", io: fakeIo() }), /Owner\/Name/);
 });
 
 test("the reviewer's identity is supplied as a coordinate, never inferred from a comment", () => {
@@ -112,13 +118,13 @@ test("the reviewer's identity is supplied as a coordinate, never inferred from a
   // comments it is classifying, and any participant can post one carrying the
   // marker line -- the builder's own round summaries quote it routinely.
   // (Codex, #109 round 5; the round-4 translation raised the same gap itself.)
-  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h", io: fakeIo() });
+  const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "h", io: fakeIo() });
   assert.match(b, /\*\*The code reviewer is `some-reviewer\[bot\]`\*\*/);
   assert.match(b, /the ONLY account whose comments and review submissions count/);
   assert.match(b, /Never infer this from a comment's content/);
   // And a configuration that does not say refuses rather than letting the role guess.
   assert.throws(
-    () => roundBrief({ root: "/r", pr: 1, round: 2, head: "h", io: fakeIo({ reviewer: undefined }) }),
+    () => roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "h", io: fakeIo({ reviewer: undefined }) }),
     /declares no "reviewer"\.login/,
   );
 });
@@ -129,11 +135,11 @@ test("malformed coordinates are refused before a dispatch, not interpolated", ()
   // reports a FAILED translation of a round that actually ran -- a typo
   // becoming an account of the wrong round. (Codex, #109 round 5.)
   for (const bad of [{ pr: "12x", round: 1 }, { pr: 0, round: 1 }, { pr: 1, round: "two" }, { pr: 1, round: 1.5 }, { pr: 1, round: 0 }]) {
-    assert.throws(() => roundBrief({ root: "/r", head: "h", io: fakeIo(), ...bad }), /must be a positive integer/, JSON.stringify(bad));
+    assert.throws(() => roundBrief({ finalRound: false, root: "/r", head: "h", io: fakeIo(), ...bad }), /must be a positive integer/, JSON.stringify(bad));
   }
   // The check lives on the shared derivation, so every entry point inherits it.
   assert.throws(() => answerPath("/r", 1, "two"), /must be a positive integer/);
-  assert.throws(() => readAnswer("/r", "12x", 1), /must be a positive integer/);
+  assert.throws(() => readAnswer("/r", "12x", 1, { finalRound: false }), /must be a positive integer/);
   // A REAL ROOT, because this one WRITES: the refusal must happen before any
   // directory is created, and asserting that against an unwritable path would
   // pass on the permission error instead of on the validation. CI found this
@@ -144,7 +150,7 @@ test("malformed coordinates are refused before a dispatch, not interpolated", ()
   assert.equal(fs.existsSync(path.join(writable, REVIEWS_DIR)), false, "a refused call must leave nothing behind");
   // The head is the evidence boundary; an empty one asks for an unbounded range.
   for (const head of ["", "   ", null, undefined]) {
-    assert.throws(() => roundBrief({ root: "/r", pr: 1, round: 1, head, io: fakeIo() }), /head must be a non-empty commit identifier/);
+    assert.throws(() => roundBrief({ finalRound: false, root: "/r", pr: 1, round: 1, head, io: fakeIo() }), /head must be a non-empty commit identifier/);
   }
 });
 
@@ -172,7 +178,7 @@ test("the round's boundaries are located on the pull request, never remembered",
   // every earlier round to the current one. The remedy is not a smaller
   // store: the reviewer marks every round it returns, in two shapes, and the
   // Nth marker IS round N. (Codex, #109 round 4; measured on #115.)
-  const b = roundBrief({ root: "/r", pr: 1, round: 4, head: "deadbee", now: () => new Date("2026-09-16T11:00:00Z") });
+  const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 4, head: "deadbee", now: () => new Date("2026-09-16T11:00:00Z") });
   assert.match(b, /\*\*Round:\*\* 4 — the 4th review the reviewer has returned/);
   assert.match(b, /formal review submission/);
   assert.match(b, /\*\*Reviewed commit:\*\*/);
@@ -193,7 +199,7 @@ test("the activity window's upper bound is derived, so there is no way to dispat
   // this one. (Codex, #109 round 6.) The bound IS the moment of the dispatch,
   // and this function is that moment, so a caller could only get it wrong.
   const before = new Date();
-  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h" });
+  const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "h" });
   const m = /\*\*Review activity, until:\*\* `([^`]+)`/.exec(b);
   assert.ok(m, "every brief carries an upper bound");
   const stamped = new Date(m[1]);
@@ -202,7 +208,7 @@ test("the activity window's upper bound is derived, so there is no way to dispat
   // The open-topped branch is gone, not merely unreachable.
   assert.doesNotMatch(b, /none supplied/);
   // A caller cannot supply one: the key is not read.
-  assert.doesNotMatch(roundBrief({ root: "/r", pr: 1, round: 2, head: "h", until: "yesterday" }), /yesterday/);
+  assert.doesNotMatch(roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "h", until: "yesterday" }), /yesterday/);
 });
 
 test("a prior account from another pull request is refused, never quoted as this one's", () => {
@@ -223,10 +229,51 @@ test("a prior account from another pull request is refused, never quoted as this
   assert.match(roundBrief({ root, pr: 12, round: 2, head: "h", finalRound: true, priorAccounts: [mine] }), /MINE/);
 });
 
+test("a round must be classified explicitly, because an omitted flag is silently wrong", () => {
+  // Omitted on BOTH sides of the stopping round, the old default made the
+  // dispatch and the read agree on "ordinary": the round-4 mismatch check
+  // never fired, the answer was schema-valid without known_gaps or
+  // what_landed, and the stopping round read as translated with the one
+  // section that tells David what is shipping unfixed simply absent.
+  // (Codex, #109 round 8.)
+  const root = tmpRoot();
+  for (const call of [
+    () => roundBrief({ root, pr: 1, round: 2, head: "h" }),
+    () => validateAnswer(answer()),
+    () => readAnswer(root, 1, 2),
+  ]) {
+    assert.throws(call, /needs finalRound stated explicitly as true or false, got undefined/);
+  }
+  // Both explicit values are accepted at every entry point.
+  assert.ok(roundBrief({ root, pr: 1, round: 2, head: "h", finalRound: false }));
+  assert.ok(roundBrief({ root, pr: 1, round: 2, head: "h", finalRound: true }));
+  assert.deepEqual(validateAnswer(answer(), { finalRound: false }), []);
+  // And the reproduction that motivated it: a stopping round whose answer
+  // carries no final sections is now a FAILED read rather than a quiet one.
+  fs.writeFileSync(prepareAnswerPath(root, 12, 9), JSON.stringify(answer()));
+  assert.match(readAnswer(root, 12, 9, { finalRound: true }).reason, /written for an ordinary round but read as the final one/);
+});
+
+test("prior accounts carry what an earlier round did NOT verify", () => {
+  // `took_on_trust` is the one field naming claims an earlier account accepted
+  // without checking -- exactly the list the final round should recheck. It was
+  // dropped while three other navigation fields were kept, because I enumerated
+  // by what read like navigation rather than by what the final round needs.
+  // (Codex, #109 round 8; same class as round 4's finding, one field over.)
+  const root = tmpRoot();
+  const prior = writeAndRead(root, 12, 1, answer({ took_on_trust: "TRUSTED-THE-TEST-COUNTS" }));
+  const fin = roundBrief({ root, pr: 12, round: 2, head: "h", finalRound: true, priorAccounts: [prior] });
+  assert.match(fin, /Took on trust, unverified by that round:\*\* TRUSTED-THE-TEST-COUNTS/);
+  // Every navigation field the final round is told to use travels together.
+  for (const needed of [/Builder had replied/, /Could not assess/, /Disagreements reported|Disagreed with the builder/, /Took on trust/]) {
+    assert.match(fin, needed);
+  }
+});
+
 test("the head is where the evidence stops, not the commit the reviewer reviewed", () => {
   // Pinned to the reviewed commit, the translator could never check a reply's
   // "fixed in <later sha>". (Astra, 2026-09-16.)
-  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "deadbee" });
+  const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 2, head: "deadbee" });
   const headLine = b.split("\n").find((l) => l.includes("**Head:**"));
   assert.match(headLine, /`deadbee` — where the evidence stops/);
   assert.match(headLine, /NOT necessarily the commit the reviewer reviewed/);
@@ -239,7 +286,7 @@ test("the brief carries the schema, nested field names included", () => {
   // role nor the coordinates named `why_it_matters`, `does_not_do` or
   // `now_trusting`. A validator the writer cannot see rejects honest answers.
   // (Astra, 2026-09-16.)
-  const b = roundBrief({ root: "/r", pr: 1, round: 1, head: "h" });
+  const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 1, head: "h" });
   assert.match(b, /## The shape of your answer/);
   for (const key of ["why_it_matters", "does_not_do", "now_trusting", "builder_answered", "could_not_assess"]) {
     assert.ok(b.includes(`"${key}"`), `schema key ${key} missing from the brief`);
@@ -273,7 +320,7 @@ test("prior accounts are readAnswer results, quoted whole, on the final round on
   const section = fin.slice(fin.indexOf("## Earlier accounts"), fin.indexOf("## The shape of your answer"));
   assert.doesNotMatch(section, /\.json/);
 
-  const ordinary = roundBrief({ root, pr: PR, round: 2, head: "h", priorAccounts: [one] });
+  const ordinary = roundBrief({ finalRound: false, root, pr: PR, round: 2, head: "h", priorAccounts: [one] });
   assert.doesNotMatch(ordinary, /navigation only|SUMMARY-ONE/);
 });
 
@@ -284,7 +331,7 @@ test("a missing or failed earlier account is named as such, never silently omitt
   // brief emitted no section at all, so the final round read as though there
   // had been no earlier rounds. (Fable, 2026-09-16.)
   const root = tmpRoot();
-  const two = readAnswer(root, PR, 2); // nothing written: a FAILED result
+  const two = readAnswer(root, PR, 2, { finalRound: false }); // nothing written: a FAILED result
   assert.equal(two.failed, true);
   const fin = roundBrief({ root, pr: PR, round: 4, head: "h", finalRound: true, priorAccounts: [two] });
   assert.match(fin, /### Round 1\n\nNo account of this round exists in this session/);
@@ -311,7 +358,7 @@ test("prepareAnswerPath clears a stale answer, so a re-dispatch cannot be read a
   assert.equal(fs.existsSync(path.dirname(file)), true);
   assert.equal(fs.readFileSync(path.join(root, REVIEWS_DIR, ".gitignore"), "utf8"), "*\n");
   // A second attempt that writes nothing is a FAILED round, not the first attempt's answer.
-  const second = readAnswer(root, PR, 5);
+  const second = readAnswer(root, PR, 5, { finalRound: false });
   assert.equal(second.failed, true);
   assert.match(second.reason, /wrote no answer file/);
 });
@@ -321,7 +368,7 @@ test("prepareAnswerPath clears a stale answer, so a re-dispatch cannot be read a
 // ---------------------------------------------------------------------------
 
 test("validateAnswer runs against the REAL shipped schema, so brief and schema cannot drift", () => {
-  assert.deepEqual(validateAnswer(answer()), []);
+  assert.deepEqual(validateAnswer(answer(), { finalRound: false }), []);
 });
 
 test("the final-round sections are required on the final round and refused otherwise", () => {
@@ -329,7 +376,7 @@ test("the final-round sections are required on the final round and refused other
   // Both directions, because an optional field nothing enforces is the defect
   // this machinery keeps paying for.
   assert.notDeepEqual(validateAnswer(answer(), { finalRound: true }), []);
-  assert.notDeepEqual(validateAnswer(answer(finalSections)), []);
+  assert.notDeepEqual(validateAnswer(answer(finalSections), { finalRound: false }), []);
 });
 
 test("an empty or blank could_not_assess is refused, not read as 'nothing to report'", () => {
@@ -337,10 +384,10 @@ test("an empty or blank could_not_assess is refused, not read as 'nothing to rep
   // checks disagreeing about what empty means, with the favourable state as
   // the result. (Codex, #109 round 2.) Then "   " passed `minLength` and was
   // trimmed into the favourable state one character away. (Astra, 2026-09-16.)
-  assert.notDeepEqual(validateAnswer(answer({ could_not_assess: "" })), []);
-  assert.match(validateAnswer(answer({ could_not_assess: "   " })).join("; "), /is blank/);
-  assert.deepEqual(validateAnswer(answer({ could_not_assess: null })), []);
-  assert.deepEqual(validateAnswer(answer({ could_not_assess: "The diff was cut." })), []);
+  assert.notDeepEqual(validateAnswer(answer({ could_not_assess: "" }), { finalRound: false }), []);
+  assert.match(validateAnswer(answer({ could_not_assess: "   " }), { finalRound: false }).join("; "), /is blank/);
+  assert.deepEqual(validateAnswer(answer({ could_not_assess: null }), { finalRound: false }), []);
+  assert.deepEqual(validateAnswer(answer({ could_not_assess: "The diff was cut." }), { finalRound: false }), []);
   // And the reader side does not trim either: only null is fully assessed.
   assert.equal(facts(round(1, answer({ could_not_assess: "   " }))).unassessed, true);
 });
@@ -348,8 +395,8 @@ test("an empty or blank could_not_assess is refused, not read as 'nothing to rep
 test("an undeterminable model is null, never prose", () => {
   // The brief permitted prose, and every reader treats a non-empty string as a
   // model id -- so the honest answer printed as the model's name.
-  assert.deepEqual(validateAnswer(answer({ model: null })), []);
-  assert.notDeepEqual(validateAnswer(answer({ model: "" })), []);
+  assert.deepEqual(validateAnswer(answer({ model: null }), { finalRound: false }), []);
+  assert.notDeepEqual(validateAnswer(answer({ model: "" }), { finalRound: false }), []);
 });
 
 test("the answer directory is kept ignored, because an answer must never be committed", () => {
@@ -385,7 +432,7 @@ test("every delivery failure reaches chatReport as a FAILED round, never as a be
   // unanswered when this was read": a failure wearing a benign state's
   // clothes, the third instance on this PR. (Codex, #109 round 4.)
   const root = tmpRoot();
-  const missing = readAnswer(root, PR, 4);
+  const missing = readAnswer(root, PR, 4, { finalRound: false });
   assert.deepEqual(Object.keys(missing).sort(), ["failed", "pr", "reason", "round"]);
   assert.match(missing.reason, /wrote no answer file/);
   let text = chatReport(missing);
@@ -393,11 +440,11 @@ test("every delivery failure reaches chatReport as a FAILED round, never as a be
   assert.doesNotMatch(text, /undefined|no builder account|agrees/);
 
   fs.writeFileSync(prepareAnswerPath(root, PR, 4), "not json at all");
-  text = chatReport(readAnswer(root, PR, 4));
+  text = chatReport(readAnswer(root, PR, 4, { finalRound: false }));
   assert.match(text, /^\*\*D0 — round 4: translation failed — the answer file is not valid JSON/);
 
   fs.writeFileSync(prepareAnswerPath(root, PR, 4), JSON.stringify({ summary_for_david: "x" }));
-  text = chatReport(readAnswer(root, PR, 4));
+  text = chatReport(readAnswer(root, PR, 4, { finalRound: false }));
   assert.match(text, /^\*\*D0 — round 4: translation failed — the answer did not match the expected shape/);
   assert.match(text, /No independent account of this round exists/);
 });

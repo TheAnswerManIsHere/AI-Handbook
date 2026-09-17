@@ -74,6 +74,33 @@ export const REVIEWS_DIR = ".agents/reviews";
  * typo becomes an account of the wrong round, or a failure blamed on the
  * translator. (Codex, #109 round 5.)
  */
+/**
+ * The stopping round's classification, which is a CHOICE and never derivable.
+ *
+ * WHY IT IS REFUSED RATHER THAN DEFAULTED. Omitted on the stopping round it
+ * defaulted to `false` on BOTH sides -- the dispatch and the read -- so the two
+ * agreed, the mismatch check added in round 4 never fired, and a schema-valid
+ * answer silently arrived with no `known_gaps` and no `what_landed`. The
+ * stopping round then reads as translated while the one section that exists to
+ * tell David what is shipping unfixed, and what he is now trusting, is simply
+ * absent. A default that is wrong in the favourable direction is the shape this
+ * component has paid for four times. Whether a round is the last one is intent
+ * this code cannot know, so under the Worth test it stays an input -- and an
+ * input whose omission is silently wrong gets a well-formedness check.
+ * (Codex, #109 round 8.)
+ */
+function assertClassified(finalRound, where) {
+  if (typeof finalRound !== "boolean") {
+    throw new Error(
+      `round-translation: ${where} needs finalRound stated explicitly as true or false, got ` +
+        `${JSON.stringify(finalRound)}. Whether this is the stopping round decides whether the answer must carry ` +
+        `known_gaps and what_landed, and an omitted value would make the dispatch and the read agree on "ordinary" ` +
+        `-- so the stopping round would read as translated with its cumulative assessment missing and nothing to ` +
+        `say so.`,
+    );
+  }
+}
+
 function assertCoordinates(pr, round) {
   for (const [name, value] of [["pr", pr], ["round", round]]) {
     if (!Number.isInteger(value) || value < 1) {
@@ -210,11 +237,12 @@ export function roundBrief({
   pr,
   round,
   head,
-  finalRound = false,
+  finalRound,
   priorAccounts = [],
   io = undefined,
   now = () => new Date(),
 }) {
+  assertClassified(finalRound, "roundBrief");
   const repo = repoSlug(io);
   const answerFile = answerPath(root, pr, round);
   if (typeof head !== "string" || head.trim() === "") {
@@ -324,6 +352,17 @@ export function roundBrief({
       lines.push(
         `- **Builder had replied when this was written:** ${ans.builder_answered === true ? "yes" : "no — treat its conclusions as provisional"}`,
         `- **Could not assess:** ${typeof ans.could_not_assess === "string" ? ans.could_not_assess : "nothing reported"}`,
+        // WHAT AN EARLIER ROUND DID NOT CHECK IS THE POINT OF NAVIGATION. The
+        // final round is told to use these accounts to target rechecks, and
+        // `took_on_trust` is the one field that says which claims were never
+        // verified -- exactly the list worth rechecking. Dropped, the final
+        // round can repeat an earlier unverified claim with no idea it needs
+        // verifying, which launders the trust into the round David reads most
+        // carefully. I enumerated these fields by picking the ones that read
+        // like navigation instead of asking what the final round needs; this is
+        // the same class as the round-4 finding, one field over. (Codex, #109
+        // round 8.)
+        `- **Took on trust, unverified by that round:** ${typeof ans.took_on_trust === "string" && ans.took_on_trust.trim() !== "" ? ans.took_on_trust : "nothing recorded"}`,
       );
       if (Array.isArray(ans.disagreements) && ans.disagreements.length) {
         lines.push(`- **Disagreed with the builder on ${ans.disagreements.length}:**`);
@@ -373,7 +412,8 @@ const ordinal = (n) => {
  * Returns the problems rather than throwing. D0 is off the critical path and a
  * broken translation must never be able to stop a review loop.
  */
-export function validateAnswer(answer, { finalRound = false } = {}) {
+export function validateAnswer(answer, { finalRound } = {}) {
+  assertClassified(finalRound, "validateAnswer");
   const schema = loadSchema();
   assertSchemaSupported(schema, ROLE);
   const problems = validate(answer, schema, ROLE);
@@ -408,7 +448,8 @@ export function validateAnswer(answer, { finalRound = false } = {}) {
  * round, so the reason says exactly that rather than "did not match the
  * expected shape". (Fable, 2026-09-16.)
  */
-export function readAnswer(root, pr, round, { finalRound = false } = {}) {
+export function readAnswer(root, pr, round, { finalRound } = {}) {
+  assertClassified(finalRound, "readAnswer");
   const file = answerPath(root, pr, round);
   const failed = (reason) => ({ pr, round, failed: true, reason });
   let raw;
