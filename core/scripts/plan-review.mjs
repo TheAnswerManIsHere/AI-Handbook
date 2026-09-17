@@ -82,7 +82,16 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier, validate, assertSchemaSupported } from "./machinery.mjs";
+import {
+  modelTier,
+  validate,
+  assertSchemaSupported,
+  codexBin,
+  signInStatus,
+  spawnSyncDefault,
+  SIGN_IN_INSTRUCTIONS,
+  runCodex,
+} from "./machinery.mjs";
 
 /**
  * The repository root, found by walking up to `.git` rather than counting
@@ -1107,104 +1116,17 @@ export function assemblePrompt(parts) {
 }
 
 // ---------------------------------------------------------------------------
-// Codex
+// The Codex CLI runner: imported, not defined here
 // ---------------------------------------------------------------------------
 
-const codexBin = () => process.env.CODEX_BIN || "codex";
-
 /**
- * Is there a ChatGPT sign-in in this container?
- *
- * `codex login status` exits 1 and prints "Not logged in" when there is not
- * (measured, CLI 0.153.4). Both signals are read, because an exit code is a
- * thin thing to hang a refusal on and a future version could change either.
- * This function never touches $CODEX_HOME/auth.json — the bundle is David's
- * ChatGPT account credential, and nothing in this repo reads, prints or
- * copies it.
+ * `runCodex` and the sign-in check moved to `machinery.mjs` when the review
+ * proxy became their second caller (#96). They are re-exported under their
+ * old names because this module's suite and its callers already name them
+ * here, and because the flags they carry are this loop's guarantees as much
+ * as the proxy's.
  */
-export function signInStatus({ run = spawnSyncDefault } = {}) {
-  let result;
-  try {
-    result = run(codexBin(), ["login", "status"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  } catch (err) {
-    return { signedIn: false, missingBinary: true, detail: err.message };
-  }
-  if (result.error) {
-    return { signedIn: false, missingBinary: result.error.code === "ENOENT", detail: String(result.error.message) };
-  }
-  const text = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
-  const signedIn = result.status === 0 && !/not logged in/i.test(text);
-  return { signedIn, missingBinary: false, detail: text };
-}
-
-const spawnSyncDefault = (...args) => spawnSync(...args);
-
-export const SIGN_IN_INSTRUCTIONS = [
-  "No ChatGPT sign-in in this container, so there is no reviewer to run.",
-  "",
-  "Sign-in is per session and is never stored (core/docs/ai-context/web-research.md). To get one:",
-  "",
-  "  1. npm install @openai/codex   (in a scratch directory; set CODEX_BIN to the binary)",
-  "  2. codex login --device-auth </dev/null",
-  "  3. Give David the URL and the code as a 🛑 blocking ask, with a push notification.",
-  "     He approves it on his phone; David never runs a command.",
-  "",
-  "The token bundle stays in $CODEX_HOME for the life of this container. It is never written to the",
-  "environment block, never sent through chat, and never handed over in a file.",
-].join("\n");
-
-/**
- * One `codex exec` run.
- *
- * Every flag here is load-bearing:
- *   -                        the prompt arrives on stdin. `codex exec` waits
- *                            forever on an open stdin in this harness, so the
- *                            stream is written and closed, never inherited.
- *   --output-schema          constrains the final message to the contract's shape.
- *   --output-last-message    writes that message to a file, so the result is
- *                            read from disk rather than scraped out of a
- *                            transcript that contains 45 tool calls.
- *   --sandbox read-only      the reviewer reads the repo and cannot change it.
- *                            (It also blocks /tmp — a reviewer that must run
- *                            the suite needs workspace-write on a scratch
- *                            checkout, or a TMPDIR inside the workspace.)
- *   --ignore-user-config     a stray ~/.codex/config.toml must not steer this
- *                            reviewer. It is also the guard on a measured
- *                            defect: --output-schema is IGNORED when MCP tools
- *                            are active, and user config is how MCP tools get
- *                            turned on. Auth still comes from CODEX_HOME.
- *   --ignore-rules           same reasoning for execpolicy .rules files.
- *   --ephemeral              no session file on disk; each round is a fresh
- *                            context by construction, not by convention.
- *
- * stdout and stderr are inherited so a long run shows progress where a human
- * or a log file can see it; the answer never comes from either stream.
- */
-export function runCodex({ prompt, schemaFile, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
-  const args = [
-    "exec",
-    "--model", model,
-    "-c", `model_reasoning_effort="${effort}"`,
-    "--sandbox", sandbox,
-    "--cd", cwd,
-    "--output-schema", schemaFile,
-    "--output-last-message", outFile,
-    "--ephemeral",
-    "--ignore-user-config",
-    "--ignore-rules",
-    "--color", "never",
-    "-",
-  ];
-  const started = Date.now();
-  const result = run(codexBin(), args, {
-    input: prompt,
-    encoding: "utf8",
-    stdio: ["pipe", "inherit", "inherit"],
-    timeout: timeoutMs,
-    cwd,
-  });
-  return { args, status: result.status, signal: result.signal, error: result.error, seconds: (Date.now() - started) / 1000 };
-}
+export { codexBin, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex };
 
 // ---------------------------------------------------------------------------
 // Files

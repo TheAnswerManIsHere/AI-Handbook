@@ -93,7 +93,7 @@ test("the schema resolves relative to the module, not to a caller's root", () =>
   // Resolving it under the ANSWER FILE's root works in this repo and breaks in
   // a consumer, where this file sits at `scripts/` rather than `core/scripts/`.
   assert.ok(fs.existsSync(schemaPath()));
-  assert.ok(schemaPath().endsWith(path.join(".agents", "fable-roles", "schemas", `${ROLE}.schema.json`)));
+  assert.ok(schemaPath().endsWith(path.join(".agents", "roles", "schemas", `${ROLE}.schema.json`)));
 });
 
 // A DISTINCT ROOT PER FIXTURE, because machineryConfig memoizes per root: two

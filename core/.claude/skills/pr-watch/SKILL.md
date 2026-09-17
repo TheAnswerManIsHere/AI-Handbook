@@ -47,12 +47,70 @@ step 5, stated once, with the duplicated material left out.
    silence is never "all clear". An echo of my own comment still gets the
    silent live-state check and produces no output on either surface.
 
-3. **Triage every finding before writing anything for it**, under
-   `claude-core.md`'s review-loop rules: fix / accept-and-document / escalate,
-   stated explicitly, with the `Worth:` test deciding whether a fix is written
-   at all. **The external adjudicator that used to rule on this was removed by
-   the #89 cut**; until #96 lands the call is mine, and a fork or a call I am
-   unsure of goes to David.
+3. **Dispatch the review proxy, and execute what it returns.** It is the judge
+   for every round that returns findings, on every tier, and it runs **before
+   anything is written for them**. The rule is `claude-core.md`'s *The review
+   proxy*; what is here is only how it runs.
+
+   **The oracle comes first, and it is agreed with David before round 1**
+   (David, 2026-09-17). It is the intent he agreed before building — an
+   approved plan, an issue discussion, or a request he made in conversation —
+   written where it can be quoted, normally a comment on the workstream issue.
+   `proxyBrief` refuses to compose a brief without one, so a loop that starts
+   with no agreed oracle stops at its first round rather than judging against
+   my own PR body. **If I reach round 1 and there is no agreed oracle, that is
+   a 🛑 to David, not a brief I write myself.**
+
+   Five steps:
+
+   1. **Collect the round's findings** from the live PR state read in step 2 —
+      `get_review_comments` threads plus any issue comment the reviewer posted
+      this round — and write them as JSON: `[{ id, body, author, path, line }]`.
+      **The `id` is GitHub's own comment id**, so every disposition traces back
+      to the thread it rules on and my reply can name it.
+   2. **Write the oracle and the labelled history to files.** History entries
+      are `{ label, text }` with `label` one of `David`, `oracle`, `reviewer`,
+      `builder`, `proxy` — David's decisions, earlier rounds' dispositions, my
+      own earlier declines. Provenance is what lets the judge weigh them: mine
+      and the reviewer's are claims to check, **David's are authority**.
+   3. **Run it**, from the repository root:
+
+      ```
+      P=core/scripts/review-proxy.mjs; [ -f "$P" ] || P=scripts/review-proxy.mjs
+      node "$P" --pr <n> --round <n> --commit <the reviewed sha> --tier <product|sensitive|internal> \
+        --oracle-file <path> --findings-file <path> [--history-file <path>] [--note "<where we are>"]
+      ```
+
+      It prints the PR comment on stdout and exits non-zero if the dispatch
+      failed. The reviewer is pinned to `strongestCodex` in a `read-only`
+      sandbox with **no override flag** — unlike the plan runner, this one
+      reads the live checkout.
+   4. **Post that comment on the PR, verbatim.** It is the durable record of
+      the proxy's reasoning and it is never paraphrased, shortened, or folded
+      into my own round summary.
+   5. **Execute the dispositions without re-weighing them.** `write` goes in
+      the batch at step 4 and my thread reply transcribes the proxy's `worth:`
+      reasoning rather than composing a second one; `decline` is a recorded gap
+      and an issue per #98; `no_change_needed` is a reply and a resolve;
+      `to_david` and every `product_decisions_for_david` entry reach him as a
+      🛑 with a push notification. **If I think a disposition is wrong, both
+      views go to David immediately** — never an override, and never delayed by
+      the two-consecutive-rounds rule.
+
+   **A failed dispatch stops the round.** It is reported in plain English and
+   is never permission to ship, and never a fallback to my own triage. Retry
+   once if the cause is transient (no sign-in, a timeout); a second failure
+   goes to David.
+
+   **Sign-in before the first dispatch, not mid-round.** `$CODEX_BIN login
+   status` decides; the steps are in `claude-core.md`'s *Astra* section, and
+   the device code expires in about fifteen minutes, so the ask and the code go
+   to David in the same turn.
+
+   **Six hours of unattended wall-clock per PR loop is a hard stop**, read from
+   the PR's `created_at` on GitHub. It covers waits and retries and does not
+   reset per dispatch. Expiry pauses the loop and asks David to resume; it is
+   never convergence.
 
 4. **Batch the fixes.** Everything being written for goes in one push, with the
    repo's own fast checks run first — lint, format, typecheck, the changed

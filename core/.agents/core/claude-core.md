@@ -362,10 +362,10 @@ never in question.** Everything below governs what may be layered on top.
 to write more, never after a push.** Stated as the sequence: a round returns
 findings → the judge rules *write* or *stop* → if write, the fixes are pushed
 and **another review round is automatic and mandatory** → if stop, the loop
-ends right there, on a head the last round already reviewed. **The external
-adjudicator that used to be that judge was removed by the #89 cut** and is
-rebuilt as #96; until it lands the judge is me, under the tier rubric, with a
-fork or an uncertain call going to David.
+ends right there, on a head the last round already reviewed. **The judge is the review
+proxy** (#96): Astra, dispatched on every round that returns findings, before
+anything is written for them, and its per-finding disposition decides. See
+*The review proxy* below.
 
 Two invariants, and they are the point: **no commit ever merges unreviewed**,
 and **a loop always terminates on a reviewed head** — because the stop happens
@@ -397,6 +397,65 @@ get no harvest ceremony, and internal tooling still ships with rougher edges as
 an accepted trade — its failure mode is wrongly-blocking, which announces
 itself, and `main`'s real protection is GitHub's server-side rulesets.
 
+### The review proxy — David's step-back, fired automatically
+
+**What it is.** David's own account of what works: when he senses a build
+drifting he switches me to a stronger model and asks me to take a step back,
+and the recommendations that come back are better than anything the loop
+produced on its own. The proxy is that step-back, dispatched automatically
+instead of waiting for him to notice.
+
+**What it is for**, stated as the failure it removes: I write code for every
+finding, because a decline is a paragraph I must compose, justify at class
+level and defend on a public thread, while a fix is a diff. The cheaper option
+is always the one that writes code. Measured: 41 findings and 41 fixes on #109;
+roughly one decline in seventeen on #102. The proxy fills the field instead, so
+declining costs one line.
+
+- **Dispatched on every round that returns findings, before anything is
+  written for them.** A moment, never a count — no budget, no round
+  arithmetic, and if it fires too often the fix is a narrower trigger, never a
+  counter. Every tier, for now (David, 2026-09-17), to be dialled back if
+  product work makes it heavy.
+- **Astra, not Fable** (David, 2026-09-17). The Codex CLI takes `--model` as a
+  flag and a read-only sandbox the role cannot escape, which is a stronger
+  guarantee for a verdict that decides than the disclosure a subagent can
+  offer. D0 stays Fable: the proxy rules before fixes, D0 accounts afterwards,
+  and they stay separate roles.
+- **Its per-finding disposition DECIDES.** I execute `write` / `decline` /
+  `no_change_needed` / `to_david` without re-weighing, adopting in part, or
+  paraphrasing. Its direction, next action and batch assessment are
+  recommendations I weigh. A product fork is its `product_decisions_for_david`
+  and reaches David as a 🛑 with a push notification.
+- **If I disagree, it goes to David with both views, immediately** — never an
+  override, and the two-consecutive-rounds rule never delays it.
+- **The oracle is agreed with David before the first round runs** (David,
+  2026-09-17): the intent he agreed before building, from an approved plan, an
+  issue discussion or a request he made, recorded where it can be quoted. The
+  script refuses to compose a brief without one, which is what makes the
+  agreement happen up front. **The PR body is my own prose and is never the
+  oracle.**
+- **Its answer is posted on the PR, rendered from the validated answer, every
+  dispatch**, and I never paraphrase it. One line per dispatch on the
+  workstream issue says whether it changed what I did; after five live loops
+  we read that ledger and narrow the trigger if most dispatches changed
+  nothing.
+- **A failed dispatch is never permission to ship.** It is reported in plain
+  English and the round stops, rather than defaulting to my own call.
+- **Six hours of unattended wall-clock per PR loop is a hard stop**, read from
+  the PR's age on GitHub, covering waits and retries and not resetting per
+  dispatch. Expiry pauses the loop and asks David to resume. Never
+  convergence, never an automatic extension.
+
+Mechanics: `core/scripts/review-proxy.mjs`. The brief David reviews is
+`core/.agents/roles/review-proxy.md`, read verbatim into every dispatch.
+
+**Astra's dissent is recorded** (#96): it would make the proxy advisory and
+trigger it on churn rather than every round, on the grounds that binding
+per-round authority turns every finding into a jurisdiction decision. David
+kept the binding field because "advisory" puts the decision back in the
+paragraph that is the measured failure.
+
 ### What the #89 cut removed from this section, and what replaced it
 
 **Nothing replaced it, which is the change** (the audit, David 2026-09-16).
@@ -414,11 +473,9 @@ without making it *shorter*.
 
 **What decides a loop's length now is rules 4 through 6 below** — a behavioural
 change before a re-request, pre-registered flip conditions, and the `Worth:`
-test at triage. **The judge that replaces the adjudicator is #96**, and it is
-not built: until it lands I make the per-finding call myself under the tier
-rubric above, and a fork or a call I am unsure of goes to David. That is the
-loop's weakest link meanwhile, because the measured failure #96 exists to fix is
-me writing for every finding.
+test at triage. **The judge that replaces the adjudicator landed as the
+review proxy**, stated above: the per-finding call is no longer mine, which
+closes the weakest link this section named.
 
 4. **No re-request without a behavioral change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
@@ -441,7 +498,9 @@ me writing for every finding.
    and that evidence: `pr-watch`.
 
 5. **Triage every finding: fix / accept-and-document / escalate**, stated
-   explicitly. Codex marks everything "Required Revision" because that is its
+   explicitly. **The proxy makes this call and I execute it**; what follows is
+   the rubric it applies and the reasoning my reply transcribes, not a second
+   triage of mine. Codex marks everything "Required Revision" because that is its
    job; treating that as automatically meaning *fix* is how a GitHub label write
    ended up with compare-and-swap semantics. Product/design forks, scope
    additions, splits and disclosure questions go to David.
@@ -842,8 +901,9 @@ shows the true delta.
   doesn't inherit).
 - **Bounded judgements dispatch at the strongest available tier, named once in
   the role's own definition and resolved through `.agents/machinery.json`** —
-  the plan reviewer is the live case, and #96's judge will be the second. (The
-  `review-loop-adjudicator` agent that stood here was removed by the #89 cut.)
+  the plan reviewer and the review proxy are the two live cases, both resolving
+  `strongestCodex`. (The `review-loop-adjudicator` agent that stood here was
+  removed by the #89 cut.)
   A dispatched verdict **decides**; if I think it's wrong that's a disagreement
   for David, not license to overrule.
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
@@ -966,10 +1026,12 @@ code** (David, 2026-09-17). It is the reviewer the in-session plan loop already
 runs, and both uses resolve the same pin, so a consumer with a different pin or
 a later model upgrade still means one reviewer by the name; the resolved id is
 what a report names. When David asks for an **"Astra review"** he means that
-reviewer on the artifact at hand: a plan, through the `plan-review-loop` skill and its script; or a PR
-round, with no script — `codex exec` over the branch's diff against `main` in
-a read-only sandbox, given the round's findings and my replies as context, its
-answer read from `--output-last-message`. His stated shape for a loop is
+reviewer on the artifact at hand: a plan, through the `plan-review-loop` skill
+and its script; or a code-review round, through `review-proxy.mjs`. Both run
+`codex exec` in a read-only sandbox and read the answer from
+`--output-last-message`; one copy of those flags lives in `machinery.mjs`,
+because two copies of `--sandbox read-only` is two chances for one of them to
+stop being read-only. His stated shape for a loop is
 **a Fable review, an Astra review and a Codex review, every round**: three
 accounts of one round, none of them mine.
 

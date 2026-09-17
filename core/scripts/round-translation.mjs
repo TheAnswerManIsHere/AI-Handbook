@@ -131,7 +131,7 @@ export const answerPath = (root, pr, round) => {
 export const ROLE = "fable-round-translation";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const schemaPath = () =>
-  path.resolve(SCRIPT_DIR, "..", ".agents", "fable-roles", "schemas", `${ROLE}.schema.json`);
+  path.resolve(SCRIPT_DIR, "..", ".agents", "roles", "schemas", `${ROLE}.schema.json`);
 
 const loadSchema = () => JSON.parse(fs.readFileSync(schemaPath(), "utf8"));
 
