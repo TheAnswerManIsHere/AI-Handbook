@@ -957,6 +957,38 @@ Authorization boundaries — the mechanics live in
   `update_app_using_prompt` carrying the checks and an explicit read-only
   instruction, wait a few minutes, then `ask_question` for the results.
 
+### Astra (Codex CLI)
+
+**"Astra" is ChatGPT's `gpt-6-astra`, reached through the OpenAI Codex CLI
+(`codex exec`) running in this container, signed in per session by device
+code** (David, 2026-09-17). It is the reviewer the in-session plan loop already
+runs, pinned in `.agents/machinery.json` as `strongestCodex` at `xhigh`. When
+David asks for an **"Astra review"** he means that reviewer on the artifact at
+hand: a plan, through the `plan-review-loop` skill and its script; or a PR
+round, with no script — `codex exec` over the branch's diff against `main` in
+a read-only sandbox, given the round's findings and my replies as context, its
+answer read from `--output-last-message`. His stated shape for a loop is
+**a Fable review, an Astra review and a Codex review, every round**: three
+accounts of one round, none of them mine.
+
+- **Sign-in comes first, every session, and it is David's phone step.**
+  `codex login status` decides. Not signed in means: `npm install
+  @openai/codex` in the scratchpad and set `CODEX_BIN`; `codex login
+  --device-auth </dev/null`, detached; then the URL and code to David as a
+  🛑 with a push notification **in the same turn**, since the code expires in
+  about fifteen minutes. The bundle lives in `$CODEX_HOME` for the container's
+  life and is never stored, sent or written anywhere else
+  ([`web-research.md`](../../docs/ai-context/web-research.md)). No sign-in
+  means the Astra review is reported as not run — never replaced by my
+  reading my own diff.
+- **Its standing is interaction rule 12's.** Substance findings — product,
+  design, correctness — are triaged under review-loop rules 5 and 6 like any
+  reviewer's; shipping-mechanics opinions carry no authority. It is not the
+  merge bar: Codex's GitHub review of the code still is.
+- Spawning gotchas (closed stdin, the sandbox blocking `/tmp`, detaching a
+  long run, the `pkill` that kills the caller):
+  [`codex-cli-in-container.md`](../../.agents/memory/codex-cli-in-container.md).
+
 ### Firecrawl
 
 `.mcp.json` declares the hosted server; the key is a **free-tier key only**, set
