@@ -771,3 +771,22 @@ test("a finding that did not hold is a point of difference even when the list om
   // Unanswered rounds get the same derivation under their own heading.
   assert.match(chatLine(round(2, answer({ findings: [notBorneOut], builder_answered: false }))), /raises 1 concern of its own/);
 });
+
+test("agrees is never printed over a finding still unanswered, or over a null holds on a fix or decline", () => {
+  // Two more ways the headline could contradict the body (Astra, #119 round
+  // 1, written for on David's ruling): `builder_answered: true` with one
+  // finding still `unanswered`, and `holds: null` on a fixed or declined
+  // finding, which the schema admits and `findingLine` prints as not holding.
+  const open = { raised: "R-OPEN", done: "Nothing yet.", outcome: "unanswered", holds: null, overbuilt: false };
+  assert.equal(chatLine(round(3, answer({ findings: [fixed, open] }))), "round 3: partial — 1 finding still unanswered");
+  const text = chatReport(round(3, answer({ findings: [fixed, open] })));
+  assert.doesNotMatch(text, /agrees with the builder/);
+  // A written-up disagreement still outranks it, as it outranks "unassessed".
+  assert.equal(chatLine(round(3, answer({ findings: [fixed, open], disagreements: [disagreement] }))), "round 3: differs on 1 point");
+
+  for (const outcome of ["fixed", "declined"]) {
+    const nullHolds = { ...fixed, outcome, holds: null };
+    assert.equal(chatLine(round(3, answer({ findings: [nullHolds] }))), "round 3: differs on 1 point", `${outcome} with null holds`);
+    assert.match(findingLine(nullHolds), /✗/);
+  }
+});

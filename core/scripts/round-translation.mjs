@@ -536,7 +536,11 @@ function findingCounts(list) {
     fixed: n("fixed"),
     declined: n("declined"),
     unanswered: n("unanswered"),
-    notHolding: f.filter((x) => x && x.holds === false).length,
+    // NOT HOLDING IS ANYTHING BUT `true` ON A FIX OR A DECLINE. The schema
+    // admits `null` there too, and `findingLine` already prints it as "not
+    // borne out"; counting only an explicit `false` let the headline say
+    // "agrees" above a line saying the opposite. (Astra, #119 round 1.)
+    notHolding: f.filter((x) => x && x.outcome !== "unanswered" && x.holds !== true).length,
     overbuilt: f.filter((x) => x && x.overbuilt === true).length,
   };
 }
@@ -610,6 +614,11 @@ export function chatLine(round) {
     return `${r}: no builder account yet — the round was unanswered when this was read${over}`;
   }
   if (d > 0) return `${r}: differs on ${plural(d, "point")}${over}`;
+  // A ROUND WITH AN UNANSWERED FINDING IS PARTIAL, whatever `builder_answered`
+  // says: that flag is the round's, the count is the findings', and "agrees"
+  // over a finding still awaiting a reply presents an open concern as settled.
+  // (Astra, #119 round 1.)
+  if (f.unanswered > 0) return `${r}: partial — ${plural(f.unanswered, "finding")} still unanswered${over}`;
   if (f.unassessed) return `${r}: partial — something could not be assessed${over}`;
   // LAST, AND ONLY HERE, because "agrees" is the only shape that asserts a
   // builder account exists and that everything reachable was assessed.
