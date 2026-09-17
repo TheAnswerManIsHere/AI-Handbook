@@ -155,10 +155,17 @@ timestamp** — the moment you were dispatched. Nothing else is remembered for y
      silently, while your account promises that nothing after the head is in
      reach. So:
 
-     1. Compare the pull request's current head (step 1) with the head in
-        your coordinates. **Equal** — the ordinary case — then `get_files`
-        *is* the cumulative change through your head, and it is the cheap
-        read to take.
+     1. Compare the pull request's current head with the head in your
+        coordinates — and **read it again, immediately before the `get_files`
+        call**, not once at the start. The check authorises that one read, so
+        it has to be adjacent to it: a head fetched in step 1 and trusted at
+        the end leaves the whole dispatch as a window in which a push can land
+        and still pass. **Equal** — the ordinary case — then `get_files` *is*
+        the cumulative change through your head, and it is the cheap read to
+        take. If the head moves between that check and the read itself, the
+        file list you get back names files whose content you then read from
+        commits through your own head, which is the mixing forbidden below;
+        prefer arm 2 whenever the two reads are not effectively adjacent.
      2. **Different**, or you cannot establish the pull request's current
         head: build the cumulative view from the ordered commit list instead,
         `get_commit` with `detail: "full_patch"` for every commit up to and

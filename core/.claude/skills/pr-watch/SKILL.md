@@ -250,9 +250,12 @@ step 5, stated once, with the duplicated material left out.
    - **`finalRound: true` on the stopping round only**, which is what asks for
      `known_gaps` and `what_landed`. The cumulative change that answers
      `what_landed` is pinned to the head I pass: the live file-list endpoint
-     takes no commit, so the role uses it only after confirming the pull
-     request has not moved past that head, and otherwise composes the
-     cumulative view from the commits and says so (Codex, #109 round 7). Pass the earlier rounds' **`readAnswer`
+     takes no commit, so the role uses it only after confirming — **in the same
+     breath as the read, never once at the start of the dispatch** — that the
+     pull request has not moved past that head, and otherwise composes the
+     cumulative view from the commits and says so (Codex, #109 round 7; the
+     adjacency is that round's translation correcting my own reply, which
+     claimed a guarantee the first version did not deliver). Pass the earlier rounds' **`readAnswer`
      results** as `priorAccounts`, whole and unedited — never bare answers,
      which carry no round number, and never file paths, since the role holds
      no `Read` tool and cannot be given a narrow one (below). A result from a
