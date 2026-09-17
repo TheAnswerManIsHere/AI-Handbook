@@ -959,12 +959,14 @@ Authorization boundaries — the mechanics live in
 
 ### Astra (Codex CLI)
 
-**"Astra" is ChatGPT's `gpt-6-astra`, reached through the OpenAI Codex CLI
+**"Astra" is the `strongestCodex` tier in `.agents/machinery.json` — today
+ChatGPT's `gpt-6-astra` at `xhigh` — reached through the OpenAI Codex CLI
 (`codex exec`) running in this container, signed in per session by device
 code** (David, 2026-09-17). It is the reviewer the in-session plan loop already
-runs, pinned in `.agents/machinery.json` as `strongestCodex` at `xhigh`. When
-David asks for an **"Astra review"** he means that reviewer on the artifact at
-hand: a plan, through the `plan-review-loop` skill and its script; or a PR
+runs, and both uses resolve the same pin, so a consumer with a different pin or
+a later model upgrade still means one reviewer by the name; the resolved id is
+what a report names. When David asks for an **"Astra review"** he means that
+reviewer on the artifact at hand: a plan, through the `plan-review-loop` skill and its script; or a PR
 round, with no script — `codex exec` over the branch's diff against `main` in
 a read-only sandbox, given the round's findings and my replies as context, its
 answer read from `--output-last-message`. His stated shape for a loop is
@@ -972,11 +974,12 @@ answer read from `--output-last-message`. His stated shape for a loop is
 accounts of one round, none of them mine.
 
 - **Sign-in comes first, every session, and it is David's phone step.**
-  `codex login status` decides. Not signed in means: `npm install
-  @openai/codex` in the scratchpad and set `CODEX_BIN`; `codex login
-  --device-auth </dev/null`, detached; then the URL and code to David as a
-  🛑 with a push notification **in the same turn**, since the code expires in
-  about fifteen minutes. The bundle lives in `$CODEX_HOME` for the container's
+  The binary is rarely on `PATH`: `npm install @openai/codex` in the
+  scratchpad, set `CODEX_BIN` to its `node_modules/.bin/codex`, and invoke
+  it as `$CODEX_BIN` throughout. `$CODEX_BIN login status` decides. Not
+  signed in means `$CODEX_BIN login --device-auth </dev/null`, detached;
+  then the URL and code to David as a 🛑 with a push notification **in the
+  same turn**, since the code expires in about fifteen minutes. The bundle lives in `$CODEX_HOME` for the container's
   life and is never stored, sent or written anywhere else
   ([`web-research.md`](../../docs/ai-context/web-research.md)). No sign-in
   means the Astra review is reported as not run — never replaced by my
