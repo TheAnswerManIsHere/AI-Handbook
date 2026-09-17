@@ -76,7 +76,7 @@ export const MAX_NOTE_CHARS = 300;
 
 export const LABELS = ["David", "oracle", "reviewer", "builder", "proxy"];
 export const TIERS = ["product", "sensitive", "internal"];
-export const DISPOSITIONS = ["write", "decline", "no_change_needed", "to_david"];
+export const DISPOSITIONS = ["write", "decline", "no_change_needed", "to_david", "not_judged"];
 export const OUTCOMES = ["write", "finish", "ask_david", "insufficient_context"];
 
 /**
@@ -192,13 +192,18 @@ export function proxyBrief({
   if (!Array.isArray(findings) || findings.length === 0) {
     throw new Error("review-proxy: the proxy is dispatched on a round that RETURNED findings; there are none here");
   }
+  // THE ID IS COERCED, BECAUSE GITHUB'S IS A NUMBER. `get_review_comments`
+  // returns integer comment ids and JSON keeps them integers, so the skill's
+  // own instruction -- "the id is GitHub's own comment id" -- produced findings
+  // this refused, which would have broken the mandatory dispatch on every real
+  // round. The answer schema types ids as strings, so one coercion here is what
+  // makes both ends agree. (Codex, #120 round 1.)
   const seen = new Set();
   for (const f of findings) {
-    if (!f || typeof f.id !== "string" || f.id.trim() === "") {
-      throw new Error(`review-proxy: every finding needs a stable id, got ${JSON.stringify(f?.id)}`);
-    }
-    if (seen.has(f.id)) throw new Error(`review-proxy: finding id ${f.id} appears twice; ids key the answer`);
-    seen.add(f.id);
+    const id = f == null || f.id == null ? "" : String(f.id).trim();
+    if (id === "") throw new Error(`review-proxy: every finding needs a stable id, got ${JSON.stringify(f?.id)}`);
+    if (seen.has(id)) throw new Error(`review-proxy: finding id ${id} appears twice; ids key the answer`);
+    seen.add(id);
   }
 
   const lines = [
@@ -236,7 +241,7 @@ export function proxyBrief({
 
   lines.push("## [reviewer] This round's findings", "", "Judge every one. Return one entry per id, using these ids exactly.", "");
   for (const f of findings) {
-    lines.push(`### Finding \`${f.id}\``, "");
+    lines.push(`### Finding \`${String(f.id).trim()}\``, "");
     if (f.path) lines.push(`- Location: \`${f.path}\`${f.line ? `:${f.line}` : ""}`);
     if (f.author) lines.push(`- Raised by: ${f.author}`);
     lines.push("", String(f.body ?? "").trim(), "");
@@ -305,6 +310,22 @@ export function validateAnswer(answer, { findingIds = [], reviewedCommit = null 
   }
   if (answer.outcome === "ask_david" && !questions.length) {
     problems.push(`${ROLE}: outcome "ask_david" but no question is recorded for him`);
+  }
+  // AN ANSWER THAT COULD NOT JUDGE MUST NOT BIND. The brief tells the proxy to
+  // say `insufficient_context` rather than guess, and the builder executes
+  // `write` without re-weighing -- so the two together were a validated answer
+  // that says "I could not judge this" and still orders code written. The
+  // per-finding `not_judged` state is what lets it decline to rule on one
+  // finding at all, and it travels with the outcome in both directions.
+  // (Codex, #120 round 1.)
+  const notJudged = answer.findings.filter((f) => f.disposition === "not_judged");
+  if (answer.outcome === "insufficient_context" && writes.length) {
+    problems.push(`${ROLE}: outcome "insufficient_context" cannot order ${writes.length} finding(s) written`);
+  }
+  if (notJudged.length && answer.outcome !== "insufficient_context") {
+    problems.push(
+      `${ROLE}: ${notJudged.length} finding(s) are "not_judged" but the outcome is "${answer.outcome}"; a round that could not judge a finding is "insufficient_context"`,
+    );
   }
   // A `to_david` DISPOSITION IS A QUESTION OR IT IS NOTHING: without an entry
   // in the list, the finding is parked with nobody holding it.
@@ -526,7 +547,19 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
     return 2;
   }
   log(`review-proxy: round ${flags.round} on ${result.reviewer.id} (${result.reviewer.effort}, ${SANDBOX}) — ${result.seconds}s`);
-  const read = readAnswer(root, flags.pr, flags.round, { findingIds: findings.map((f) => f.id), reviewedCommit: flags.commit });
+  // A FAILED PROCESS IS NEVER AN ACCEPTED ANSWER, even when a schema-valid file
+  // is sitting there: `codex exec` can write its last message and then exit
+  // non-zero, and reading the file anyway printed a confident verdict and
+  // exited 0 while the contract promised the opposite. The dispatch's own
+  // status is checked before the file is believed. (Codex, #120 round 1.)
+  const read = result.ok
+    ? readAnswer(root, flags.pr, flags.round, { findingIds: findings.map((f) => String(f.id).trim()), reviewedCommit: flags.commit })
+    : {
+        pr: flags.pr,
+        round: flags.round,
+        failed: true,
+        reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}${result.error ? `: ${result.error.message}` : ""}`,
+      };
   process.stdout.write(`${prComment(read)}\n`);
   // A FAILED DISPATCH IS NEVER PERMISSION TO SHIP. It exits non-zero, and the
   // comment it printed says so in words rather than leaving a caller to read

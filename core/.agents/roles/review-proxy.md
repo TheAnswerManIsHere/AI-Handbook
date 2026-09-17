@@ -174,9 +174,13 @@ each is for:
   its `id` from the input. `disposition` is `write` (with a bounded
   `correction` and an `acceptance_check` someone can actually observe),
   `decline` (a real defect shipped knowingly, which becomes a recorded gap),
-  `no_change_needed` (the finding is wrong, duplicated, or already covered), or
-  `to_david`. `worth` carries your class-level reasoning in one or two
-  sentences.
+  `no_change_needed` (the finding is wrong, duplicated, or already covered),
+  `to_david`, or `not_judged`. `worth` carries your class-level reasoning in
+  one or two sentences.
+  **`not_judged` is how you decline to rule on a single finding**, when the
+  round as a whole was judgeable but that one was not. It binds the builder to
+  nothing, and it requires `outcome: insufficient_context` — because an answer
+  that could not judge something must not also be ordering code written.
 - **`batch_assessment`** — the batch as a whole, including what a further
   review round of it would cost.
 - **`product_decisions_for_david`** — each with the question in plain English,

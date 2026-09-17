@@ -34,6 +34,7 @@ import {
   prComment,
   dispatch,
   parseArgs,
+  main,
   USAGE,
 } from "../review-proxy.mjs";
 
@@ -352,4 +353,84 @@ test("the CLI refuses an unknown flag or a flag with no value rather than guessi
   assert.throws(() => parseArgs(["--nope", "1"]), /unknown flag/);
   assert.throws(() => parseArgs(["pr", "1"]), /unexpected argument/);
   assert.deepEqual(parseArgs(["--pr", "120", "--round", "2", "--tier", "internal"]), { pr: 120, round: 2, tier: "internal" });
+});
+
+// ---------------------------------------------------------------------------
+// Round 1 of this PR's own review (Codex, #120)
+// ---------------------------------------------------------------------------
+
+test("a GitHub comment id is a number, and the composer takes it as one", () => {
+  // `get_review_comments` returns integer ids and JSON keeps them integers, so
+  // the skill's own instruction -- "the id is GitHub's own comment id" --
+  // produced findings the composer refused, which would have broken the
+  // mandatory dispatch on every real round. (Codex, #120 round 1, P1.)
+  const text = brief({ findings: [finding({ id: 4033623440 })] });
+  assert.match(text, /### Finding `4033623440`/);
+  assert.throws(() => brief({ findings: [finding({ id: 7 }), finding({ id: "7" })] }), /appears twice/);
+  for (const bad of [null, undefined, "", "  "]) {
+    assert.throws(() => brief({ findings: [finding({ id: bad })] }), /stable id/);
+  }
+  // And the coerced id is what the read compares against, so a numeric input
+  // and the answer's string id are the same finding.
+  const root = tmpRoot();
+  const result = writeAndRead(root, PR, 1, answer({ findings: [disposition({ id: "4033623440" })] }), { findingIds: ["4033623440"] });
+  assert.equal(result.failed, undefined);
+});
+
+test("an answer that could not judge cannot also order code written", () => {
+  // The brief tells the proxy to say `insufficient_context` rather than guess,
+  // and the builder executes `write` without re-weighing -- so the two together
+  // validated an answer saying "I could not judge this" that still ordered a
+  // fix. `not_judged` is the per-finding state that binds nothing, and it
+  // travels with the outcome in both directions. (Codex, #120 round 1, P1.)
+  assert.ok(
+    validateAnswer(answer({ outcome: "insufficient_context", findings: [writeDisp()] })).some((p) =>
+      /cannot order 1 finding\(s\) written/.test(p),
+    ),
+  );
+  assert.ok(
+    validateAnswer(answer({ outcome: "finish", findings: [disposition({ disposition: "not_judged" })] })).some((p) =>
+      /the outcome is "finish"/.test(p),
+    ),
+  );
+  assert.deepEqual(validateAnswer(answer({ outcome: "insufficient_context", findings: [disposition({ disposition: "not_judged" })] })), []);
+});
+
+test("a reviewer process that failed is never an accepted answer, even with a valid file on disk", () => {
+  // `codex exec` can write its last message and then exit non-zero. Reading
+  // the file anyway printed a confident verdict and exited 0, while the
+  // contract promised a failed dispatch is never permission to ship.
+  // (Codex, #120 round 1, P2.)
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-in-"));
+  const write = (name, value) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return file;
+  };
+  const findings = write("f.json", [{ id: "c1", body: "b" }]);
+  const oracle = write("o.md", "ORACLE");
+  const argv = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle, "--findings-file", findings];
+
+  let printed = "";
+  const stdout = process.stdout.write;
+  process.stdout.write = (chunk) => {
+    printed += chunk;
+    return true;
+  };
+  try {
+    const run = (_bin, args) => {
+      if (args[0] === "login") return { status: 0, stdout: "Logged in using ChatGPT", stderr: "" };
+      // A schema-valid answer IS written, and the process still fails.
+      fs.writeFileSync(args[args.indexOf("--output-last-message") + 1], JSON.stringify(answer()));
+      return { status: 3 };
+    };
+    const code = main(argv, { root, run, log: () => {} });
+    assert.equal(code, 1);
+  } finally {
+    process.stdout.write = stdout;
+  }
+  assert.match(printed, /dispatch failed/);
+  assert.match(printed, /exited 3/);
+  assert.doesNotMatch(printed, /nothing left to write/);
 });

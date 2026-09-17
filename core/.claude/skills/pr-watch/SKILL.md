@@ -12,12 +12,11 @@ for machinery that no longer exists**: budget cadence, receipt shapes, snapshot
 recipes, round-count recovery and adjudicator dispatch. All of it is gone,
 along with the scripts it drove.
 
-**What is here is what survived the deletion, plus one restoration.** The
-rewritten, re-sequenced version of this skill — the draft-first flow, the
-judge's dispatch step, the gap-issue step and the shared-vocabulary
-references — is deliberately NOT in this PR; it lands with the rulebook
-rewrite, beside #92. So a step below that reads thin is thin on purpose: this
-change removes, it does not re-specify.
+**What is here is what survived the deletion, plus the judge.** The judge's
+dispatch step is step 3 and is live (#96). What is still deliberately absent —
+the draft-first flow and the shared-vocabulary references — lands with the
+rulebook rewrite, beside #92, so a step below that reads thin is thin on
+purpose.
 
 **The restoration, because a strip that overshoots is a deletion nobody
 approved.** Most of the old reply section was a second statement of
@@ -90,8 +89,12 @@ step 5, stated once, with the duplicated material left out.
       into my own round summary.
    5. **Execute the dispositions without re-weighing them.** `write` goes in
       the batch at step 4 and my thread reply transcribes the proxy's `worth:`
-      reasoning rather than composing a second one; `decline` is a recorded gap
-      and an issue per #98; `no_change_needed` is a reply and a resolve;
+      reasoning rather than composing a second one; `decline` is a recorded
+      gap: a row in the PR body's **Recorded gaps** table carrying what ships
+      unfixed and the proxy's reasoning, and a reply on the thread quoting that
+      reasoning. That table is the whole procedure — a gap needs no issue to be
+      recorded, and a bare cross-repo issue number would mean something else
+      after the sync. `no_change_needed` is a reply and a resolve;
       `to_david` and every `product_decisions_for_david` entry reach him as a
       🛑 with a push notification. **If I think a disposition is wrong, both
       views go to David immediately** — never an override, and never delayed by

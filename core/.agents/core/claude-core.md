@@ -447,8 +447,11 @@ declining costs one line.
   dispatch. Expiry pauses the loop and asks David to resume. Never
   convergence, never an automatic extension.
 
-Mechanics: `core/scripts/review-proxy.mjs`. The brief David reviews is
-`core/.agents/roles/review-proxy.md`, read verbatim into every dispatch.
+Mechanics: `core/scripts/review-proxy.mjs` here, `scripts/review-proxy.mjs`
+in a consumer — the sync routes `core/X -> X`, so a single hardcoded path is
+wrong in one of the two repos. The brief David reviews is
+`core/.agents/roles/review-proxy.md` (`.agents/roles/review-proxy.md` in a
+consumer), read verbatim into every dispatch.
 
 **Astra's dissent is recorded** (#96): it would make the proxy advisory and
 trigger it on churn rather than every round, on the grounds that binding

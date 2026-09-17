@@ -46,8 +46,8 @@
           "id": { "type": "string", "minLength": 1, "description": "The finding's id, exactly as the input gave it." },
           "disposition": {
             "type": "string",
-            "enum": ["write", "decline", "no_change_needed", "to_david"],
-            "description": "write: fix it. decline: a real defect shipped knowingly, becoming a recorded gap. no_change_needed: the finding is wrong, duplicated or already covered. to_david: only he can decide."
+            "enum": ["write", "decline", "no_change_needed", "to_david", "not_judged"],
+            "description": "write: fix it. decline: a real defect shipped knowingly, becoming a recorded gap. no_change_needed: the finding is wrong, duplicated or already covered. to_david: only he can decide. not_judged: you could not judge this one, which binds the builder to nothing and requires outcome insufficient_context."
           },
           "worth": {
             "type": "string",
