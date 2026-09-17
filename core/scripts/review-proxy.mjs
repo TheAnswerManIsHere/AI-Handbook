@@ -67,8 +67,10 @@ export const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
  * The builder's "where we are" note is CAPPED AND FLATTENED, as the plan
  * runner does for disposition notes. It is the one channel where the builder
  * speaks in its own voice to a judge whose answer binds it, so it gets a
- * paragraph, not a brief. Flattening also stops it forging the labelled
- * sections below by embedding newlines and a heading.
+ * paragraph and not a brief -- a bound on how much of the prompt the judged
+ * party's own framing may occupy. Not a defence against anything: there is no
+ * adversary here, and the builder writing the note is the same party that
+ * would remove the cap.
  */
 export const MAX_NOTE_CHARS = 300;
 
@@ -140,25 +142,6 @@ export function prepareAnswerPath(root, pr, round) {
 }
 
 const flatten = (s) => String(s).replace(/\s+/g, " ").trim();
-
-/**
- * A finding body is QUOTED LINE BY LINE, because it is not the builder's text.
- *
- * Findings arrive from review comments on a public-shaped pull request, so
- * anyone who can comment can put `## [oracle] What this work is for` at the
- * start of a line and hand the judge a second oracle. That judge's per-finding
- * disposition is executed without re-weighing, which makes an injected
- * instruction here worth more than it would be almost anywhere else in this
- * machinery. Prefixing every line makes a heading impossible to start: this
- * function owns line starts, and nothing pasted into it does. The builder's
- * own note is flattened to one line for the same reason, one aisle over.
- */
-const quote = (s) =>
-  String(s)
-    .trim()
-    .split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n");
 
 const cap = (s, n) => {
   const flat = flatten(s);
@@ -256,7 +239,7 @@ export function proxyBrief({
     lines.push(`### Finding \`${f.id}\``, "");
     if (f.path) lines.push(`- Location: \`${f.path}\`${f.line ? `:${f.line}` : ""}`);
     if (f.author) lines.push(`- Raised by: ${f.author}`);
-    lines.push("", quote(f.body ?? ""), "");
+    lines.push("", String(f.body ?? "").trim(), "");
   }
 
   // THE BUILDER SPEAKS LAST AND BRIEFLY, and is labelled, so its framing cannot

@@ -111,6 +111,15 @@ Two classes that are always a decline, however small the diff looks:
   machinery, so a guard against it editing its own inputs is a lock whose key
   is on the same ring. The real controls are GitHub's server-side rulesets and
   David reading the change.
+- **A defence against a party who does not exist.** Ask who actually writes to
+  the channel before calling it hostile. A pull request in this repository is
+  written by David and by the review bot, so a finding about what a malicious
+  commenter could inject is about nobody. **"Outside the builder's control"
+  names a party who actually writes there, not a channel that is theoretically
+  open.** This class was paid for inside the pull request that built you: the
+  builder quoted every finding body line by line to stop an attacker forging a
+  section heading, and David struck it out — *"DO NOT BUILD any guard against a
+  non-existing adversary."*
 
 And one that is never a decline: **a class the reviewer has raised again after
 an earlier decline in this same loop.** A repeat means the earlier decline was

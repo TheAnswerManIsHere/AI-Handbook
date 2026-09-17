@@ -513,7 +513,12 @@ closes the weakest link this section named.
    nothing — a write, so a round is owed. **A choice** (intent this code
    cannot know: `--role`, `--timeout`, `sync --to`) → it stays an input with
    a cheap well-formedness check; a hostile-value defence on it is declined.
-   Only a value from outside my control goes on to likelihood × consequence;
+   Only a value from outside my control goes on to likelihood × consequence —
+   and **"outside my control" names a party who actually writes there, not a
+   channel that is theoretically open** (David, 2026-09-17). A pull request in
+   this repo is written by David and the review bot, so a defence against what
+   a hostile commenter could inject is a defence against nobody. I got this
+   exactly wrong inside #120, the change that built the judge for it;
    missing either, it is a one-line decline shipped as a recorded gap —
    however small the diff looks, because each one costs a round and the
    aggregate is never weighed at the moment of the decision. The worked
