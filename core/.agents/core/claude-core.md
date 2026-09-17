@@ -515,17 +515,35 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
 
 **Every code-review round is translated for David, after its trigger is
 posted** (David, 2026-09-12): Fable reads the round itself — findings, my
-replies, the diff — not my account of it. The script prints one line; I paste
-it verbatim with the page link and write nothing else about the round.
-**After, never before** — a translation I could act on is an in-loop advisor
-reading my own prose. **Every round is delivered before the merge, the
-stopping round included.** The `Rounds translated` merge-gate item that used to
-prove this went with the gate; the delivery record is the page link posted on
-the PR. The merge report then restates the loop, which is where David reads it
-now that no PR waits for his click (below). **While D0's plumbing is being
-rebuilt (#95) a round is summarised on the PR by hand, in plain English, saying
-that the translator could not run** — its record builder read the review
-snapshot the cut removed. Mechanics: `pr-watch`.
+replies, the diff — not my account of it. **After, never before** — a
+translation I could act on is an in-loop advisor reading my own prose. **Every
+round is delivered before the merge, the stopping round included.**
+
+**The delivery is a message in chat, and there is nothing else** (David,
+2026-09-16). `chatReport` composes it from the answer's own fields and I paste
+that verbatim, saying nothing else about the round. **No page, no Artifact, no
+HTML, no link, no receipt store** — and rebuilding any of them is forbidden
+rather than merely unnecessary. There *was* a page, and #109 round 3 found what
+it actually was: HTML written to a gitignored path, so the delivery was a file
+nobody could open while this contract claimed a link that never existed. Three
+of that round's four findings were the inside of that hole. David reads chat and
+uses it well; a page is something he would have to go and open, and building a
+delivery system for one agent telling him the answer is undoing the #89 cut by
+hand.
+
+**Fable fetches the round from GitHub itself** — the threads, the comments, the
+reviews and the diff — and writes its answer to a file this module derives, so
+the account is neither assembled nor rewritten by me. That is the one property
+here worth machinery: **the translator's account reaches David unedited**. It
+is a second account, not a ban on mine — my own write-up of a round is welcome
+beside it, labelled as mine (David, 2026-09-16: a builder-written account is
+*"not an issue at all"*; the earlier prohibition here was over-caution). **It is an independent assessment, and it is not a guarantee**: I launch
+the dispatch, choose the coordinates and paste the result, so it defends against
+my being *wrong*, never against my being deliberately misleading. The account
+says what it verified and what it took on trust, and that honesty is the value —
+not a claim of immunity. **A dispatch that fails is disclosed in plain English
+and never blocks the loop**: D0 is off the critical path by design. Mechanics:
+`pr-watch`.
 
 ## Pull requests
 
@@ -858,9 +876,38 @@ shows the true delta.
   checks. When a David-prompted re-check finds nothing, I say so; when the check
   was mine (a scheduled wake, a webhook echo), silence wins.
 
-- **Fable dispatches only through `fable-dispatch.mjs`**, never a prompt I
-  write; what it does and does not enforce:
-  [`fable-dispatch.md`](../../docs/ai-context/fable-dispatch.md).
+- **Fable dispatches as a subagent whose instructions I do not write.** The
+  role is an agent definition under `core/.claude/agents/`, loaded by the
+  harness; I pass only the round's coordinates. **A `tools:` list there is a
+  hard upper bound** — measured 2026-09-16: an agent declaring four tools held
+  exactly those plus the injected `SubagentHandback`, with no `Write`, no MCP
+  and no `ToolSearch`. That makes **which** tools a role holds a real boundary
+  rather than an asserted one, and `fable-dispatch.mjs`'s remaining 1,300 lines
+  — which defended against my tampering with the second Claude — went as a lock
+  on the same ring under the 2026-09-11 rule.
+  **It bounds which tools, never where they reach.** A path specifier in a
+  `tools:` list is not honoured: the documentation says a specifier in a
+  subagent's tool config removes the whole tool rather than narrowing it, and
+  what an *allow* specifier grants is undocumented — so writing one may grant
+  nothing and break the role silently. A tool list is therefore never described
+  as read-only while a write tool is on it. I did exactly that on #109, naming
+  the tools absent from the list and not the one present that contradicted the
+  claim.
+  **Two things that costs, named rather than buried:** the old dispatcher
+  *observed* the model and refused on a mismatch, and a subagent cannot, so the
+  model is **disclosed** and a mismatch prints in the chat report. And **agent
+  definitions are cached, in two ways that both look like something else.** A
+  newly added type is not dispatchable immediately — measured 2026-09-16, a
+  dispatch minutes after the definition was written failed with `Agent type not
+  found` and the same type worked later in the same session, no restart; a
+  refusal there means wait, not that the definition is wrong. And an **edit** to
+  an already-loaded definition may not be served either: the same day, a
+  dispatch after a frontmatter change ran against the old definition, and
+  without a control it would have been recorded as a measurement of the new one.
+  So **a probe of a definition change carries a freshness token planted in the
+  same edit** — without one, a stale definition is indistinguishable from the
+  result being looked for, and the probe silently measures the thing it
+  replaced.
 
 ### Subagent delegation is capped
 

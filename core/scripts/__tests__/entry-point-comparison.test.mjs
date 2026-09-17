@@ -21,7 +21,8 @@ const SCRIPTS = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 //
 // THE GUARDS ARE GONE (#89 cut, #94) AND THE CLASS IS NOT. A CLI that reports
 // success having evaluated nothing is the same defect wherever it runs: a
-// check in CI goes green, a dispatcher writes no receipt and says nothing.
+// check in CI goes green; a sync reports nothing to copy; a translation is
+// never written and no page says it is missing.
 // Ten scripts carried the idiom and only one was ever reachable through a
 // hook, so the static check was always what closed the class -- and it is
 // what survives.

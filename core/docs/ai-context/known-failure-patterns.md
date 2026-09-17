@@ -2812,8 +2812,9 @@ indistinguishable, in the moment and in the written reply, from applying it
 correctly.
 
 **The worked example (AI-Handbook #73).** Round 3 reported that
-`fable-dispatch.mjs` checked its `--out` path *lexically*, so a symlinked
-component could put the receipt outside the repository. The decline weighed
+`fable-dispatch.mjs` — since deleted, #95 — checked its `--out` path
+*lexically*, so a symlinked component could put the receipt outside the
+repository. The decline weighed
 that as *"what escapes is a single gitignored receipt JSON written to a
 directory I chose by hand"* — likelihood near zero, consequence trivial — and
 it shipped as a gap over an oracle that had genuinely been run.
