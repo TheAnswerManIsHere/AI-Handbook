@@ -248,7 +248,11 @@ step 5, stated once, with the duplicated material left out.
      the dispatch; accepted as an input, `null` left the window open at the top
      and `"yesterday"` was interpolated as though it were a timestamp.
    - **`finalRound: true` on the stopping round only**, which is what asks for
-     `known_gaps` and `what_landed`. Pass the earlier rounds' **`readAnswer`
+     `known_gaps` and `what_landed`. The cumulative change that answers
+     `what_landed` is pinned to the head I pass: the live file-list endpoint
+     takes no commit, so the role uses it only after confirming the pull
+     request has not moved past that head, and otherwise composes the
+     cumulative view from the commits and says so (Codex, #109 round 7). Pass the earlier rounds' **`readAnswer`
      results** as `priorAccounts`, whole and unedited — never bare answers,
      which carry no round number, and never file paths, since the role holds
      no `Read` tool and cannot be given a narrow one (below). A result from a

@@ -141,11 +141,35 @@ timestamp** — the moment you were dispatched. Nothing else is remembered for y
    round whose code you never saw, with nothing marking the omission. The pull
    request's commit list is ordered by ancestry and contains those commits
    regardless of their dates.
-   - **On a final round, ALSO** `pull_request_read` method `get_files`, for
-     the **cumulative** change. `what_landed` compares the pull request's
-     stated intent against what the change actually does, and the last
-     increment is not the change — reading it as though it were reports a
-     fragment as the whole, in the round David reads most carefully.
+   - **On a final round, ALSO the CUMULATIVE change** — every commit on the
+     pull request through your head, not the last increment. `what_landed`
+     compares the pull request's stated intent against what the change
+     actually does, and reading the last increment as though it were the
+     change reports a fragment as the whole, in the round David reads most
+     carefully.
+
+     **`get_files` is LIVE and takes no commit**, so it answers for the pull
+     request's *current* head, not yours. Those are the same thing on an
+     ordinary final round and different the moment anything is pushed while
+     you read — and then it would hand you code from past your own boundary,
+     silently, while your account promises that nothing after the head is in
+     reach. So:
+
+     1. Compare the pull request's current head (step 1) with the head in
+        your coordinates. **Equal** — the ordinary case — then `get_files`
+        *is* the cumulative change through your head, and it is the cheap
+        read to take.
+     2. **Different**, or you cannot establish the pull request's current
+        head: build the cumulative view from the ordered commit list instead,
+        `get_commit` with `detail: "full_patch"` for every commit up to and
+        including your head, exactly as the two incremental ranges are built.
+        Say in `could_not_assess` that the pull request moved past your
+        boundary while you were reading, and that `what_landed` describes the
+        change through your head rather than the pull request as it now
+        stands.
+
+     Never mix the two: a file list from the live head read together with
+     patches through yours describes a change that exists nowhere.
 
 **Two selectors, and they must not be swapped.** **Code** is selected by
 **ancestry** — commit ranges between the markers' commits and the head, per
