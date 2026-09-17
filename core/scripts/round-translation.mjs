@@ -536,9 +536,26 @@ function findingCounts(list) {
     fixed: n("fixed"),
     declined: n("declined"),
     unanswered: n("unanswered"),
+    notHolding: f.filter((x) => x && x.holds === false).length,
     overbuilt: f.filter((x) => x && x.overbuilt === true).length,
   };
 }
+
+/**
+ * How many points the translator differs on, DERIVED rather than trusted.
+ *
+ * The role is told that a `holds: false` finding is also a disagreement and
+ * gets an entry in the list -- but the list and the flag are two fields the
+ * model fills, and prompt compliance is not a guarantee. A finding marked
+ * "not borne out" with no matching entry fell through to "agrees with the
+ * builder's account": the one false favourable this module exists to never
+ * print, from the field that carries the definitive contradiction. So the
+ * written-up list is authoritative when it has entries, and the flags are
+ * the fallback when it has none -- never summed, because the instructed
+ * shape (flag AND entry) would then count one problem twice. (Codex, #119
+ * round 1, P1.)
+ */
+const differs = (f) => (f.disagreements > 0 ? f.disagreements : f.notHolding);
 
 /**
  * One finding, one line. Printed in the report and quoted back to the final
@@ -584,14 +601,15 @@ export function chatLine(round) {
   // is the thing David scans for and it is orthogonal to agreement: a fix can
   // do exactly what the reply claims and still be code nobody needed.
   const over = f.overbuilt > 0 ? `; ${f.overbuilt} overbuilt` : "";
+  const d = differs(f);
   if (!f.answered) {
-    if (f.disagreements > 0) {
-      return `${r}: no builder account yet — the translator raises ${plural(f.disagreements, "concern")} of its own${f.unassessed ? ", and something could not be assessed" : ""}${over}`;
+    if (d > 0) {
+      return `${r}: no builder account yet — the translator raises ${plural(d, "concern")} of its own${f.unassessed ? ", and something could not be assessed" : ""}${over}`;
     }
     if (f.unassessed) return `${r}: no builder account yet — partial, something could not be assessed${over}`;
     return `${r}: no builder account yet — the round was unanswered when this was read${over}`;
   }
-  if (f.disagreements > 0) return `${r}: differs on ${plural(f.disagreements, "point")}${over}`;
+  if (d > 0) return `${r}: differs on ${plural(d, "point")}${over}`;
   if (f.unassessed) return `${r}: partial — something could not be assessed${over}`;
   // LAST, AND ONLY HERE, because "agrees" is the only shape that asserts a
   // builder account exists and that everything reachable was assessed.
@@ -614,17 +632,24 @@ export function chatLine(round) {
  * "agrees" defect in a smaller font. (Codex, #109 round 4; Astra, 2026-09-16.)
  */
 function disagreementsWording(f) {
+  const d = differs(f);
+  // THE LIST IS EMPTY BUT A FINDING DID NOT HOLD: the label says so and points
+  // at the findings list, where the flag is printed, so the headline's count
+  // and this section never name different facts.
+  const flagged = f.notHolding > 0 ? `*No disagreement written up, but ${plural(f.notHolding, "finding")} below did not hold.*` : null;
   if (!f.answered) {
     return {
-      heading: `**Concerns the translator raises on its own — the builder has not replied** (${f.disagreements})`,
-      empty: `*No concerns of its own reported; there is no builder account yet to disagree with${f.unassessed ? ", and something could not be assessed" : ""}.*`,
+      heading: `**Concerns the translator raises on its own — the builder has not replied** (${d})`,
+      empty: flagged ?? `*No concerns of its own reported; there is no builder account yet to disagree with${f.unassessed ? ", and something could not be assessed" : ""}.*`,
     };
   }
   return {
-    heading: `**Where it disagrees with the builder** (${f.disagreements})`,
-    empty: f.unassessed
-      ? "*No disagreements reported on what could be assessed.*"
-      : "*No disagreements reported with the builder's account.*",
+    heading: `**Where it disagrees with the builder** (${d})`,
+    empty:
+      flagged ??
+      (f.unassessed
+        ? "*No disagreements reported on what could be assessed.*"
+        : "*No disagreements reported with the builder's account.*"),
   };
 }
 

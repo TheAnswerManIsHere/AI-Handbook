@@ -750,3 +750,24 @@ test("a finding's shape is enforced by the schema: the outcome is an enum and ev
   const { reasoning: _r, ...noReasoning } = answer();
   assert.ok(validateAnswer(noReasoning, { finalRound: false }).length > 0);
 });
+
+test("a finding that did not hold is a point of difference even when the list omits it", () => {
+  // The role is told a `holds: false` finding also gets a disagreements
+  // entry, but both are model-filled fields and compliance is not a
+  // guarantee. Without the entry the round fell through to "agrees with the
+  // builder's account" over a fix the translator said was not borne out --
+  // the false favourable this module must never print. The written-up list
+  // is authoritative when present; the flags are the fallback, never summed
+  // with it. (Codex, #119 round 1, P1.)
+  const notBorneOut = { raised: "R-NOT", done: "D-NOT", outcome: "fixed", holds: false, overbuilt: false };
+  const a = answer({ findings: [fixed, notBorneOut] });
+  assert.equal(chatLine(round(2, a)), "round 2: differs on 1 point");
+  const text = chatReport(round(2, a));
+  assert.doesNotMatch(text, /agrees with the builder|No disagreements reported/);
+  // The list is empty, so no heading: the qualified label stands in its place.
+  assert.match(text, /\*No disagreement written up, but 1 finding below did not hold\.\*/);
+  // Listed AND flagged is the instructed shape and counts once, not twice.
+  assert.equal(chatLine(round(2, answer({ findings: [notBorneOut], disagreements: [disagreement] }))), "round 2: differs on 1 point");
+  // Unanswered rounds get the same derivation under their own heading.
+  assert.match(chatLine(round(2, answer({ findings: [notBorneOut], builder_answered: false }))), /raises 1 concern of its own/);
+});
