@@ -56,13 +56,41 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
+import { modelTier, validate, assertSchemaSupported, repoSlug, reviewerLogin } from "./machinery.mjs";
 
 export const REVIEWS_DIR = ".agents/reviews";
 
+/**
+ * The two numbers every coordinate is built from, checked once where they are
+ * first used rather than in each of the four places that interpolate them.
+ *
+ * A CHEAP WELL-FORMEDNESS CHECK ON AN INPUT THAT IS A CHOICE. The round number
+ * and the pull request are mine to supply and no rule can derive them, so they
+ * stay inputs -- but an unchecked one is interpolated straight into the
+ * evidence boundary and the answer path, and the failure is silent in the worst
+ * way: `round: "two"` asked the translator for "the twoth review", and
+ * `pr: "12x"` sent the answer to `pr-12x/`, where the read for #12 finds
+ * nothing and reports a FAILED translation of a round that actually ran. A
+ * typo becomes an account of the wrong round, or a failure blamed on the
+ * translator. (Codex, #109 round 5.)
+ */
+function assertCoordinates(pr, round) {
+  for (const [name, value] of [["pr", pr], ["round", round]]) {
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(
+        `round-translation: ${name} must be a positive integer, got ${JSON.stringify(value)}. It is interpolated ` +
+          `into the answer path and the round's coordinates, so a mistyped one silently addresses a round that ` +
+          `does not exist rather than refusing here.`,
+      );
+    }
+  }
+}
+
 /** Where the translator writes its answer. Derived, never supplied. */
-export const answerPath = (root, pr, round) =>
-  path.join(root, REVIEWS_DIR, `pr-${pr}`, `round-${round}.answer.json`);
+export const answerPath = (root, pr, round) => {
+  assertCoordinates(pr, round);
+  return path.join(root, REVIEWS_DIR, `pr-${pr}`, `round-${round}.answer.json`);
+};
 
 /**
  * The role's agent type, and the schema its answer must satisfy.
@@ -182,6 +210,19 @@ export function roundBrief({
 }) {
   const repo = repoSlug(io);
   const answerFile = answerPath(root, pr, round);
+  if (typeof head !== "string" || head.trim() === "") {
+    throw new Error(
+      `round-translation: head must be a non-empty commit identifier, got ${JSON.stringify(head)}. It is the ` +
+        `boundary the evidence stops at, and an empty one asks for an unbounded range rather than refusing here.`,
+    );
+  }
+  // SUPPLIED, NEVER INFERRED. See `reviewerLogin` in machinery.mjs: a role told
+  // to find "the reviewer's" markers with no login has only the comments it is
+  // classifying as evidence of who the reviewer is, and any participant can
+  // post one carrying the same marker line -- the builder's own round summaries
+  // quote it routinely. (Codex, #109 round 5, and the round-4 translation
+  // raised the same gap unprompted.)
+  const reviewer = reviewerLogin(io);
   const lines = [
     "## This round",
     "",
@@ -192,6 +233,7 @@ export function roundBrief({
     // N. That is what makes the window and the commit ranges derivable in a
     // session that has never seen this pull request before. (Codex, #109
     // round 4 -- the receipt store had been carrying this silently.)
+    `- **The code reviewer is \`${reviewer}\`** — the ONLY account whose comments and review submissions count as the reviewer's. Comments by anyone else, including the builder, are not the reviewer's however closely they resemble one: the builder's round summaries routinely quote the marker line below. Never infer this from a comment's content.`,
     `- **Round:** ${round} — the ${ordinal(round)} review the reviewer has returned on this pull request, counting in time order across BOTH shapes a returned review takes: a formal review submission (a round with findings) and an issue comment carrying the literal line \`**Reviewed commit:**\` (a round with none). Locate this round's marker and, when ${round} > 1, the previous round's. If the ${ordinal(round)} marker cannot be found, or the markers you can see do not number ${round} or more, say so in \`could_not_assess\` and do not guess a window.`,
     // EVIDENCE STOPS AT THE HEAD; THE REVIEWED COMMIT IS IN THE MARKER. Pinning
     // the head to the reviewed commit meant the translator could never verify

@@ -2,6 +2,9 @@
   "_README": "Seeded once by the AI-Handbook sync, then owned by this repository. EDIT \"repo\" BEFORE USE. Left as-is, the machinery refuses rather than guesses: the placeholder below is rejected by name the moment any script reads this file, with a message naming it. That is the intended failure -- it announces itself instead of silently binding to a repository that does not exist.",
   "repo": "OWNER/REPO",
   "_repo": "This repository's GitHub owner/name, exactly as the API spells it. Read from this file by scripts/machinery.mjs, which is the ONE place identity is read. A wrong value is a mistake the machinery catches by refusing, with a message naming both values. It is not a security boundary: the person who can edit this file is the person running the scripts.",
+  "reviewer": {
+    "login": "chatgpt-codex-connector[bot]"
+  },
   "models": {
     "strongestClaude": {
       "id": "claude-fable-5-1",
@@ -12,5 +15,6 @@
       "effort": "xhigh"
     }
   },
+  "_reviewer": "The GitHub login of the code reviewer whose rounds a dispatched role reads. Supplied rather than inferred: a role told to find \"the reviewer's comments\" with no login has only the comments it is classifying as evidence, and any participant can post one carrying the same marker line (Codex, AI-Handbook #109 round 5). Seeded with the Codex connector's login as of 2026-09-16; change it if this repository's reviewer is a different account.",
   "_models": "The strongest model available from each family, by TIER rather than by version (David, 2026-09-11). Every role definition and every reviewer pin names a tier -- `strongestClaude`, `strongestCodex` -- and this is the one place a tier becomes a version. A new model release is an edit here and nowhere else. `id` must be a full model id, never an alias: a dispatch stamps the id it asked for against the id that answered, and an alias cannot be compared. `effort` is the reasoning depth that tier runs at. Seeded with what was current on 2026-09-11; check it before relying on it."
 }

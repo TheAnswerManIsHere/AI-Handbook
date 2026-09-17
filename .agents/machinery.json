@@ -1,5 +1,8 @@
 {
   "repo": "TheAnswerManIsHere/AI-Handbook",
+  "reviewer": {
+    "login": "chatgpt-codex-connector[bot]"
+  },
   "models": {
     "strongestClaude": {
       "id": "claude-fable-5-1",

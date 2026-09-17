@@ -46,7 +46,7 @@
     },
     "builder_answered": {
       "type": "boolean",
-      "description": "Whether the BUILDER has replied to this round's findings at the moment you read them -- their login is in your coordinates. False is a real answer and a legitimate round to translate: it reads as a round awaiting a response. It is required because the chat report prints \"agrees with the builder's account\" only when this is true, and a field that could be omitted could buy that line by omission."
+      "description": "Whether the BUILDER has replied to this round's findings at the moment you read them -- the builder is the pull request's AUTHOR, whose login you fetch in step 1 of the protocol (your coordinates carry the REVIEWER's login, which is a different account). False is a real answer and a legitimate round to translate: it reads as a round awaiting a response. It is required because the chat report prints \"agrees with the builder's account\" only when this is true, and a field that could be omitted could buy that line by omission."
     },
     "known_gaps": {
       "type": "array",

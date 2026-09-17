@@ -87,20 +87,62 @@ test("the schema resolves relative to the module, not to a caller's root", () =>
   assert.ok(schemaPath().endsWith(path.join(".agents", "fable-roles", "schemas", `${ROLE}.schema.json`)));
 });
 
+// A DISTINCT ROOT PER FIXTURE, because machineryConfig memoizes per root: two
+// fixtures sharing one root would silently serve the first one's configuration
+// to the second, and a test for a refusal would pass against the wrong file.
+let fakeRoots = 0;
+const fakeIo = (over = {}) => ({
+  root: `/repo-fixture-${(fakeRoots += 1)}`,
+  read: () =>
+    JSON.stringify({
+      repo: "Owner/Name",
+      reviewer: { login: "some-reviewer[bot]" },
+      models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } },
+      ...over,
+    }),
+});
+
 test("the repository is derived, never passed in", () => {
-  const io = {
-    root: "/repo-derive",
-    read: () => JSON.stringify({ repo: "Owner/Name", models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } } }),
-  };
-  assert.match(roundBrief({ root: "/r", pr: 1, round: 1, head: "h", io }), /Owner\/Name/);
+  assert.match(roundBrief({ root: "/r", pr: 1, round: 1, head: "h", io: fakeIo() }), /Owner\/Name/);
+});
+
+test("the reviewer's identity is supplied as a coordinate, never inferred from a comment", () => {
+  // Telling a role to filter on "the reviewer's login" without supplying it is
+  // circular: the only evidence it has for who the reviewer is are the very
+  // comments it is classifying, and any participant can post one carrying the
+  // marker line -- the builder's own round summaries quote it routinely.
+  // (Codex, #109 round 5; the round-4 translation raised the same gap itself.)
+  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h", io: fakeIo() });
+  assert.match(b, /\*\*The code reviewer is `some-reviewer\[bot\]`\*\*/);
+  assert.match(b, /the ONLY account whose comments and review submissions count/);
+  assert.match(b, /Never infer this from a comment's content/);
+  // And a configuration that does not say refuses rather than letting the role guess.
+  assert.throws(
+    () => roundBrief({ root: "/r", pr: 1, round: 2, head: "h", io: fakeIo({ reviewer: undefined }) }),
+    /declares no "reviewer"\.login/,
+  );
+});
+
+test("malformed coordinates are refused before a dispatch, not interpolated", () => {
+  // Measured before the fix: `round: "two"` asked for "the twoth review" and
+  // `pr: "12x"` addressed `pr-12x/`, where the read for #12 finds nothing and
+  // reports a FAILED translation of a round that actually ran -- a typo
+  // becoming an account of the wrong round. (Codex, #109 round 5.)
+  for (const bad of [{ pr: "12x", round: 1 }, { pr: 0, round: 1 }, { pr: 1, round: "two" }, { pr: 1, round: 1.5 }, { pr: 1, round: 0 }]) {
+    assert.throws(() => roundBrief({ root: "/r", head: "h", io: fakeIo(), ...bad }), /must be a positive integer/, JSON.stringify(bad));
+  }
+  // The check lives on the shared derivation, so every entry point inherits it.
+  assert.throws(() => answerPath("/r", 1, "two"), /must be a positive integer/);
+  assert.throws(() => readAnswer("/r", "12x", 1), /must be a positive integer/);
+  assert.throws(() => prepareAnswerPath("/r", 1, -1), /must be a positive integer/);
+  // The head is the evidence boundary; an empty one asks for an unbounded range.
+  for (const head of ["", "   ", null, undefined]) {
+    assert.throws(() => roundBrief({ root: "/r", pr: 1, round: 1, head, io: fakeIo() }), /head must be a non-empty commit identifier/);
+  }
 });
 
 test("dispatchModel returns both the agent name and the full id, from one call", () => {
-  const io = {
-    root: "/repo-model",
-    read: () => JSON.stringify({ repo: "O/N", models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" } } }),
-  };
-  const d = dispatchModel(io);
+  const d = dispatchModel(fakeIo());
   // The Agent call takes `agentModel`; `chatReport` compares against `id`.
   // Naming them from two separate calls is how the skill lost the binding.
   // (Codex, #109 round 4.)
@@ -113,7 +155,7 @@ test("dispatchModel returns both the agent name and the full id, from one call",
 });
 
 test("a non-Claude dispatch model is refused, because the Agent tool cannot take it", () => {
-  const io = { root: "/repo-bad", read: () => JSON.stringify({ repo: "O/N", models: { strongestClaude: { id: "gpt-5", effort: "xhigh" } } }) };
+  const io = fakeIo({ models: { strongestClaude: { id: "gpt-5", effort: "xhigh" } } });
   assert.throws(() => dispatchModel(io), /not a Claude model/);
 });
 
