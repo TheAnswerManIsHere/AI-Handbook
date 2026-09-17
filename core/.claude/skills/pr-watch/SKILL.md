@@ -325,9 +325,20 @@ step 5, stated once, with the duplicated material left out.
    the answer directory is `*`-gitignored, so the legitimate output can never
    be committed; the container is ephemeral; and **the only route to `main` is a
    commit I make**, so after any translation dispatch, read
-   `git status --porcelain` and treat anything outside `.agents/reviews/` as a
-   finding rather than noise. That last one is an honest party looking, not a
+   `git status --porcelain`. That last one is an honest party looking, not a
    lock on the same ring: the attacker here is a third party, not me.
+
+   **What counts as noise is exactly one thing: an UNTRACKED file inside
+   `.agents/reviews/`.** Everything else in that output is a finding, and in
+   particular **a modification to any TRACKED file is a finding wherever it
+   sits, that directory included**. The earlier rule said "treat anything
+   outside `.agents/reviews/` as a finding", which exempted the whole
+   directory — and `.agents/reviews/.gitignore` is a tracked payload file
+   living in it. So the one file whose contents decide whether answer files
+   can ever be committed was the one file a hostile write could change while
+   the check that exists to catch hostile writes called it noise. The answer
+   files are written from adversarial input, this repository is public, and
+   publication cannot be undone. (Codex, #109 round 9, P1.)
    **Unable to verify in this session: whether a path specifier would in fact
    scope `Write`.** Agent definitions are cached, so the probe needs a fresh
    session. #114 carries it, and if scoping does work the bare grant narrows to

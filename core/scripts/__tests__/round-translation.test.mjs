@@ -129,6 +129,20 @@ test("the reviewer's identity is supplied as a coordinate, never inferred from a
   );
 });
 
+test("the brief tells the translator how the reviewer's login is spelled by each method", () => {
+  // MEASURED on this repository, and the defect is silent in the favourable
+  // direction: `get_reviews`/`get_comments` return `<login>[bot]` while
+  // `get_review_comments` returns the bare `<login>` for the SAME account, so
+  // an exact match finds every review submission and not one inline finding --
+  // a round full of findings reads as a round with no reviewer comments.
+  // (Codex, #109 round 9, P1; core/.agents/memory/
+  // github-mcp-review-comments-shape-differs-from-rest.md records it too.)
+  const b = roundBrief({ root: "/r", pr: 1, round: 2, head: "h", finalRound: false, io: fakeIo() });
+  assert.match(b, /trailing `\[bot\]` stripped from both sides/);
+  assert.match(b, /ignoring case/);
+  assert.match(b, /never read "nothing matched" as "the reviewer said nothing"/);
+});
+
 test("malformed coordinates are refused before a dispatch, not interpolated", () => {
   // Measured before the fix: `round: "two"` asked for "the twoth review" and
   // `pr: "12x"` addressed `pr-12x/`, where the read for #12 finds nothing and
