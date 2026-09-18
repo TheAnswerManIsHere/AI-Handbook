@@ -560,8 +560,7 @@ export function readVerbatim(rel, root = REPO_ROOT) {
  * commands re-send a growing conversation, and a whole package is ~9.5k tokens --
  * under a third of a percent of it (#124 round 5, both assessors). What the
  * ordering buys between exchanges is unmeasured here; what it costs is nothing,
- * and keeping the varying part last is right on its own terms
- * under the old file's version of this ordering.
+ * and keeping the varying part last is right on its own terms.
  *
  * The PLAN is handed over as a PATH, not inlined -- which both keeps this
  * prefix stable while the plan is rewritten under it, and keeps the reader's
