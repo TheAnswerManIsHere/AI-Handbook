@@ -226,7 +226,9 @@ test("the role block states who holds the plan and who settles a tie, per role",
   const claude = roleBlock("claude");
   assert.match(astra, /Your counterpart holds the authoritative plan/);
   assert.match(astra, /is your counterpart's to settle/);
-  assert.match(astra, /Write your assessment to:.*out\.md/);
+  assert.match(astra, /Return the complete assessment as your final message/);
+  assert.match(astra, /read-only sandbox and cannot write that file yourself/);
+  assert.match(astra, /out\.md/);
   assert.match(claude, /You hold the authoritative plan/);
   assert.match(claude, /is yours to settle/);
   assert.match(claude, /no assessment file is written by you/);
@@ -475,7 +477,7 @@ test("a discussion needs a question and named concerns, or it is a re-assessment
 
 test("a discussion refuses a concern id the ledger does not carry", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n" });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN });
   const { log } = runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md", "--concerns", "C9", "--question", "q", "--dry-run"]);
   assert.match(log, /--concerns names C9, which the ledger does not carry/);
@@ -484,7 +486,7 @@ test("a discussion refuses a concern id the ledger does not carry", () => {
 
 test("a discussion quotes back the assessment it revisits, and refuses without it", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", { "concerns.json": [concern()] });
+  seed(root, "x", { "concerns.json": [concern()], "plan-round-1.md": PLAN });
   const args = ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "Does it still hold?", "--dry-run"];
   assert.match(runMain(root, args).log, /a discussion quotes back the assessment it revisits/);
@@ -507,7 +509,7 @@ test("a discussion is not a new assessment, and says so", () => {
 
 test("a discussion advances no round and rewrites no plan", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n" });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN });
   const before = readFileSync(join(root, "docs/plans/PLAN_X.md"), "utf8");
   const { code } = runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]);
@@ -520,7 +522,7 @@ test("a discussion advances no round and rewrites no plan", () => {
 
 test("two discussions of one round do not overwrite each other", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n" });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN });
   const args = (n) => ["--kind", "discuss", "--round", "1", "--discussion", String(n), "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", `q${n}`];
   runMain(root, args(1), { script: [SIGNED_IN, writesAssessment("first")] });
@@ -541,7 +543,7 @@ test("discuss → revise → present-to-david runs with no acknowledgement in th
     concern({ id: "C2", state: "for-david", concern: "a product choice only David can make" }),
     concern({ id: "C3", state: "open", concern: "an unrelated open point" }),
   ];
-  seed(root, "x", { "concerns.json": ledger, "round-1.md": "# Assessment\n\nC1, C2, C3.\n" });
+  seed(root, "x", { "concerns.json": ledger, "round-1.md": "# Assessment\n\nC1, C2, C3.\n", "plan-round-1.md": PLAN });
 
   // 1. A focused discussion about C1 alone.
   assert.equal(runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
@@ -556,6 +558,7 @@ test("discuss → revise → present-to-david runs with no acknowledgement in th
 
   // 3. A revision is assessed. The discussion did not consume a round.
   writeFileSync(join(root, "docs/plans/PLAN_X.md"), PLAN.replace("Do the thing.", "Do the thing, invalidating on write."));
+  // The revision is what round 2 assesses; round 1's snapshot stays as it was.
   assert.equal(runMain(root, ["--kind", "assess", "--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]).code, 0);
 
   // 4. The question for David survived every step of it, in full.
@@ -722,9 +725,14 @@ test("--prompt-only prints the package and spawns nothing", () => {
   drop(root);
 });
 
-test("--prompt-only for the other party clears the destination, so a stale answer is never read as fresh", () => {
+test("--prompt-only clears the ATTEMPT, never the accepted assessment", () => {
+  // It used to clear the canonical file, which is the same continuity failure
+  // --force had, reached through prompt generation where nobody was looking.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", { "round-1.md": "A STALE ASSESSMENT FROM AN EARLIER, DIFFERENT PACKAGE" });
+  seed(root, "x", {
+    "round-1.md": "AN ACCEPTED ASSESSMENT A LEDGER ENTRY CITES",
+    "round-1.attempt.md": "A STALE ATTEMPT FROM AN EARLIER, DIFFERENT PACKAGE",
+  });
   const stdout = process.stdout.write;
   process.stdout.write = () => true;
   try {
@@ -733,7 +741,26 @@ test("--prompt-only for the other party clears the destination, so a stale answe
   } finally {
     process.stdout.write = stdout;
   }
-  assert.equal(existsSync(join(root, ".agents/reviews/x/round-1.md")), false);
+  assert.equal(readFileSync(join(root, ".agents/reviews/x/round-1.md"), "utf8"), "AN ACCEPTED ASSESSMENT A LEDGER ENTRY CITES");
+  assert.equal(existsSync(join(root, ".agents/reviews/x/round-1.attempt.md")), false);
+  drop(root);
+});
+
+test("a Claude-role package does not overwrite the record of what Astra was sent", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const stdout = process.stdout.write;
+  process.stdout.write = () => true;
+  try {
+    for (const role of ["astra", "claude"]) {
+      main(["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-ledger", "--role", role, "--prompt-only"],
+        { root, run: fakeRun([]), log: () => {}, git: () => ({ status: 128 }) });
+    }
+  } finally {
+    process.stdout.write = stdout;
+  }
+  const d = join(root, ".agents/reviews/x");
+  assert.match(readFileSync(join(d, "round-1.prompt.md"), "utf8"), /You are Astra/);
+  assert.match(readFileSync(join(d, "round-1.claude.prompt.md"), "utf8"), /You are Claude/);
   drop(root);
 });
 
@@ -961,12 +988,17 @@ test("USAGE names the invocation path by computing it, never by hardcoding a lay
   assert.match(USAGE, /node \S*scripts\/plan-review\.mjs/);
 });
 
-test("an existing exchange is not silently overwritten", () => {
+test("an accepted assessment is never replaced, and no flag overrides that", () => {
+  // --force was removed rather than guarded: with promotion in place its only
+  // remaining job was re-running an accepted exchange, and its only remaining
+  // effect was deleting the file a ledger entry cites as its source.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
   seed(root, "x", { "round-1.md": "the earlier assessment" });
   const args = ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-ledger"];
-  assert.match(runMain(root, args).log, /already exists\. Pass --force/);
-  assert.equal(runMain(root, [...args, "--force"]).code, 0);
+  assert.match(runMain(root, args).log, /an accepted assessment is never replaced/);
+  assert.match(runMain(root, [...args, "--force"]).log, /unknown flag --force/);
+  assert.equal(readFileSync(join(root, ".agents/reviews/x/round-1.md"), "utf8"), "the earlier assessment");
+  assert.equal(USAGE.includes("--force"), false);
   drop(root);
 });
 
@@ -1035,4 +1067,112 @@ test("a tie settled over a dissent keeps its reasoning in full, so it can be rev
 
 test("a tie settled over a dissent must carry the reasoning it was settled against", () => {
   assert.throws(() => normalizeLedger([concern({ state: "settled-over-dissent", concern: "" })]), /carries no "concern" text/);
+});
+
+// ── only an accepted exchange reaches the canonical path ───────────────────
+//
+// `round-N.md` means "an exchange that happened", and three consumers depend on
+// it: roundsRun counts it, a discussion reads it as the prior assessment, and a
+// ledger entry cites it as a concern's durable source. Both assessors called the
+// drift finding and the --force finding one mechanism rather than two fixes, so
+// these test the mechanism from both ends.
+
+test("a plan edited mid-flight leaves nothing at the canonical path, and the exchange re-runs with no flag", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const edits = ({ args }) => {
+    writeFileSync(join(root, "docs/plans/PLAN_X.md"), `${PLAN}\n<!-- edited mid-flight -->\n`);
+    return writesAssessment("# Assessment\n")({ args });
+  };
+  const first = runMain(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+    script: [SIGNED_IN, edits],
+  });
+  assert.equal(first.code, 1);
+
+  const dir = join(root, ".agents/reviews/x");
+  assert.equal(existsSync(join(dir, "round-1.md")), false, "a rejected attempt never reaches the canonical path");
+  assert.deepEqual(roundsRun(dir), [], "so nothing counts it as an exchange that happened");
+  assert.equal(existsSync(join(dir, "round-1.attempt.md")), true, "but what the reader returned is still readable");
+  assert.match(first.log, /deliberately NOT at the canonical path/);
+
+  // The same round re-runs with no flag, because nothing was accepted.
+  const again = runMain(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  assert.equal(again.code, 0);
+  assert.deepEqual(roundsRun(dir), [1]);
+  drop(root);
+});
+
+test("a reader that writes nothing leaves nothing at the canonical path either", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const { code } = runMain(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+    script: [SIGNED_IN, { status: 0, stdout: "", stderr: "" }],
+  });
+  assert.equal(code, 1);
+  assert.equal(existsSync(join(root, ".agents/reviews/x/round-1.md")), false);
+  assert.deepEqual(roundsRun(join(root, ".agents/reviews/x")), []);
+  drop(root);
+});
+
+test("a reader that exits non-zero having written something does not get promoted", () => {
+  // The failure class the reviewer named for plan drift, reached by the other
+  // branch: a process can write its last message and still exit non-zero.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const writesThenFails = ({ args }) => {
+    writesAssessment("# A partial answer\n")({ args });
+    return { status: 7, stdout: "", stderr: "boom" };
+  };
+  assert.equal(runMain(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"], {
+    script: [SIGNED_IN, writesThenFails],
+  }).code, 1);
+  assert.equal(existsSync(join(root, ".agents/reviews/x/round-1.md")), false);
+  drop(root);
+});
+
+// ── a discussion's premise about the plan is checked, not asserted ─────────
+
+test("a discussion refuses when the plan has changed since the assessment", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN });
+  writeFileSync(join(root, "docs/plans/PLAN_X.md"), PLAN.replace("Do the thing.", "Do something else entirely."));
+  const { code, log } = runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]);
+  assert.equal(code, 1);
+  assert.match(log, /has changed since round 1 assessed it/);
+  assert.match(log, /A revised plan belongs in an assessment/);
+  drop(root);
+});
+
+test("a discussion leaves the assessment's snapshot untouched", () => {
+  // The snapshot is the baseline the check above compares against, so an
+  // exchange that rewrote it destroyed the only record of a mismatch.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const dir = seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN });
+  assert.equal(runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]).code, 0);
+  assert.equal(readFileSync(join(dir, "plan-round-1.md"), "utf8"), PLAN);
+  drop(root);
+});
+
+test("a discussion with no snapshot to compare against refuses rather than guessing", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n" });
+  assert.match(runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]).log, /no plan snapshot at/);
+  drop(root);
+});
+
+// ── the tier pin covers a discussion of the only assessment ───────────────
+
+test("a discussion cannot silently re-frame what is downstream", () => {
+  // `earlier` excluded the current round, so a discussion of round 1 had no
+  // metadata to pin against and an accidental --tier product was accepted.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", {
+    "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN,
+    "round-1.meta.json": { slug: "x", kind: "assess", round: 1, tier: "internal" },
+  });
+  const args = (tier) => ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", tier,
+    "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q", "--dry-run"];
+  assert.match(runMain(root, args("product")).log, /ran exchange 1 as tier "internal"/);
+  assert.equal(runMain(root, args("internal")).code, 0);
+  drop(root);
 });

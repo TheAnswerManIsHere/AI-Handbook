@@ -343,10 +343,14 @@ enactment is `.claude/skills/document/`.
    on it existed only because the page made it unnecessary. The plan file is
    still pushed nowhere. **v1 is shown and the loop proceeds without waiting** —
    it changes anyway.
-7. **Genuine product/design forks escalate to David** as numbered questions
-   carrying Astra's view and mine side by side — never absorbed into a revision.
-   So does anything that changes intended behaviour, scope, or an accepted
-   user-facing consequence. **A purely technical disagreement that survives
+7. **Choices that change intended behaviour, scope, or an accepted user-facing
+   consequence escalate to David** as numbered questions carrying Astra's view
+   and mine side by side — never absorbed into a revision. **A purely technical
+   design fork is not one of them**: two approaches serving the same agreed
+   behaviour are ours to settle. (This rule opened with "genuine product/design
+   forks escalate" until 2026-09-18, which took back the tie-break it granted
+   six lines later — Astra caught the contradiction while assessing the change
+   that introduced it.) **A purely technical disagreement that survives
    investigation and discussion is mine to settle**, with the reasoning recorded
    and Astra not obliged to agree; I record it as `settled-over-dissent` so it
    stays readable and revisable, and I name it in the approval ask. (This

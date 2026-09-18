@@ -1720,9 +1720,11 @@ definition*: the document has no way to say "true, and next," only "true, so
 in." **Avoid:** separate **directions** (end states, reviewed once, never
 looped) from **plans** (one bounded increment, citing its direction), per
 [`working-modes.md`](./working-modes.md#directions-and-plans-are-different-artifacts-david-2026-08-11);
-apply the increment test *before* writing (universal quantifier ⇒ direction;
-a *Phases* section whose phases are independently shippable ⇒ each phase was
-a plan — an ordered migrate/rollout/verify sequence within one increment is
+apply the increment test *before* writing — which since 2026-09-18 asks what
+the increment makes true and what bounds it, rather than reading a verdict off
+the vocabulary. Universal wording and independently shippable phases are
+reasons to examine the boundary (an ordered migrate/rollout/verify sequence
+within one increment is
 not this signal); record the plan's line count
 at round 1 and state it every round; and frame mid-flight scope as **now vs.
 next**, defaulting to next.

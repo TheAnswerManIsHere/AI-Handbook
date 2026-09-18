@@ -202,16 +202,24 @@ export const ROLES = ["astra", "claude"];
  * "addressed", and a trade-off is recorded as accepted only under the name of
  * the person entitled to accept it.
  *
- * `settled-over-dissent` is the tie-break's own state, and it exists because
- * the first sequence test of this loop found what its absence cost. A purely
- * technical disagreement the plan's holder settles is recorded with its
- * reasoning -- and if it then rendered as one line like any other resolved
- * concern, the party that was overruled would stop seeing the argument on the
- * very next exchange. It could not bring new evidence against a conclusion it
- * can no longer read, which is "do not interpret silence as agreement" failing
- * in the one place the contract most needs it to hold. It is also what the
- * approval handoff must name, so a dedicated state makes that findable rather
- * than something to remember.
+ * `settled-over-dissent` records a technical choice the plan's holder made
+ * after discussion while the other party maintained its recommendation. It
+ * keeps both arguments prominent in later exchanges and identifies the
+ * disagreement for the approval handoff. Ordinary settled concerns remain
+ * recoverable from their sources. This state neither selects an action nor
+ * requires the other party's agreement.
+ *
+ * THE JUSTIFICATION IS NARROWER THAN THE ONE IT REPLACED, deliberately. The
+ * first version said the argument would otherwise become unreadable. Astra
+ * corrected that while assessing this change: rendering by reference does not
+ * make an argument unreadable -- the source stays available, and a settled
+ * concern selected for a discussion already expands. What the state actually
+ * buys is prominence for a disagreement that must be disclosed at handoff, and
+ * the distinction between "resolved" and "decided over an objection", which the
+ * other states cannot express. The two alternatives were weighed: references
+ * alone preserve recoverability but give a live disagreement no prominence, and
+ * expanding every entry with a non-empty response uses the wrong distinction,
+ * since ordinary resolved concerns have responses too.
  */
 export const CONCERN_STATES = [
   "open",
@@ -503,7 +511,7 @@ export function roleBlock(role, { assessmentFile = null } = {}) {
       : "- **A purely technical disagreement that survives investigation and discussion is yours to settle.** Record the reasoning and the material concern that remains. Astra is not obliged to agree.",
     "- **Neither of you can settle what is reserved for David**: intended behaviour, scope, whether a user-facing shortfall is acceptable, and approval of the plan itself. If a disagreement turns out to rest on one of those, say so and stop.",
     astra
-      ? `- **Write your assessment to:** \`${assessmentFile ?? "(the file named in your instructions)"}\` — Markdown, and nothing else to it. Your closing message is not the deliverable; the file is.`
+      ? `- **Return the complete assessment as your final message, in Markdown.** The CLI saves that message to \`${assessmentFile ?? "the file named in your instructions"}\`. You are in a read-only sandbox and cannot write that file yourself — you do not need to. Do not replace the assessment with a completion acknowledgement, and do not spend it narrating the sandbox.`
       : "- **Your output is the readout you give David in chat, and the revision you make to the plan.** Nothing is published to a page, and no assessment file is written by you.",
     "",
   ].join("\n");
@@ -1012,7 +1020,7 @@ const sha256 = (text) => sha256Full(text).slice(0, 12);
 
 export function parseArgs(argv) {
   const flags = {};
-  const bools = { "dry-run": "dryRun", "no-ledger": "noLedger", force: "force", help: "help", "prompt-only": "promptOnly" };
+  const bools = { "dry-run": "dryRun", "no-ledger": "noLedger", help: "help", "prompt-only": "promptOnly" };
   const values = {
     kind: "kind", round: "round", discussion: "discussion", plan: "plan", oracle: "oracle", slug: "slug",
     lens: "lens", ledger: "ledger", concerns: "concerns", question: "question", role: "role",
@@ -1067,7 +1075,6 @@ export const USAGE = [
   "  --concerns    ids rendered in FULL for a discussion, whatever state they are in",
   "  --prompt-only print the package and run nothing — how I get my own copy",
   "  --dry-run     assemble the package, write it, spawn nothing",
-  "  --force       re-run an exchange that already exists, discarding its result first",
   "  --oracle-changed <reason>   the oracle differs from the pinned one, deliberately",
   "",
   `  Astra is PINNED to the strongestCodex tier in \`.agents/machinery.json\`, in a ${DEFAULT_SANDBOX} sandbox.`,
@@ -1164,7 +1171,14 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // `ensureRoundDir` is what CREATES that protection, and it verifies itself.
     const slug = flags.slug ? assertSlug(flags.slug) : slugFromPlanPath(planPath ?? "");
     const dir = ensureRoundDir(root, slug, git);
-    const earlier = roundsRun(dir).filter((n) => n !== round);
+    // A DISCUSSION'S PREDECESSOR IS ITS OWN ROUND, so it must not be filtered
+    // out. The filter exists for an assessment, where round N cannot be its own
+    // prior; on a discussion of round N the round-N assessment is exactly the
+    // exchange whose tier has to stay pinned, and excluding it left the pin with
+    // no metadata to read on the ordinary first discussion. (Codex and both
+    // assessors, #124 round 1.)
+    const ran = roundsRun(dir);
+    const earlier = kind === "discuss" ? ran : ran.filter((n) => n !== round);
 
     // --- oracle -----------------------------------------------------------
     let oraclePath = null;
@@ -1247,6 +1261,34 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       priorAssessment = prior.markdown;
     }
 
+    // --- a discussion says the plan has not moved, so check that it has not --
+    //
+    // The discussion package tells the other party "the plan is exactly what you
+    // last saw". The drift check below establishes only that the plan did not
+    // change DURING this process, so an ordinary edit between the assessment and
+    // the discussion made that sentence false. Worse, the snapshot that would
+    // reveal it was itself rewritten by every exchange including a discussion --
+    // found by the Fable assessor on #124 round 1, which is why the snapshot
+    // write below is now conditional. A revised plan belongs in an assessment,
+    // so this refuses rather than describing the difference.
+    if (kind === "discuss") {
+      const snapshot = path.join(dir, `plan-round-${round}.md`);
+      if (!fs.existsSync(snapshot)) {
+        throw new Error(
+          `no plan snapshot at ${path.relative(root, snapshot)}, so this discussion cannot establish that the plan ` +
+            `is the one round ${round} assessed. Re-run the assessment, or discuss a round whose snapshot exists.`,
+        );
+      }
+      const assessed = fs.readFileSync(snapshot, "utf8");
+      if (assessed !== planText) {
+        throw new Error(
+          `${planPath} has changed since round ${round} assessed it (${sha256(assessed)} -> ${sha256(planText)}). A ` +
+            `discussion tells the other party the plan is exactly what it last saw, and that would be false. A ` +
+            `revised plan belongs in an assessment, not a discussion: run --kind assess --round ${round + 1}.`,
+        );
+      }
+    }
+
     // --- the rest ---------------------------------------------------------
     const lens = flags.lens ? flags.lens.trim().replace(/\s+/g, " ").slice(0, MAX_LENS_CHARS) : null;
     const inventory = planText ? extractFenced(planText, "affected-files") : null;
@@ -1281,17 +1323,28 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error(`--timeout must be a positive number of seconds`);
 
     const outFile = assessmentPath(dir, round, discussion);
+    // THE READER WRITES HERE; THE SCRIPT PROMOTES. `round-N.md` means "an
+    // exchange that happened", and three consumers depend on that: `roundsRun`
+    // counts it, a discussion reads it as the prior assessment, and a ledger
+    // entry cites it as the durable source of a concern's reasoning. Until this
+    // existed, `--output-last-message` wrote straight to the canonical path and
+    // the drift and failure branches returned without touching it -- so an
+    // exchange the log said did not happen left a file that all three consumers
+    // treated as one. (Codex, #124 round 1; both assessors called it one
+    // mechanism rather than three fixes.)
+    const attemptFile = outFile.replace(/\.md$/, ".attempt.md");
     if (fs.existsSync(outFile) && !flags.promptOnly) {
-      if (!flags.force) {
-        throw new Error(`${path.relative(root, outFile)} already exists. Pass --force to re-run it, or use the next number.`);
-      }
-      // Discarded BEFORE the attempt, not overwritten after it. A forced re-run
-      // that then fails would otherwise leave the old assessment at the
-      // canonical path, describing an earlier plan revision while the log says
-      // the exchange did not happen.
-      if (!flags.dryRun) {
-        for (const stale of [outFile, outFile.replace(/\.md$/, ".meta.json")]) fs.rmSync(stale, { force: true });
-      }
+      // NO --force. It was removed rather than guarded: with promotion in place
+      // its only remaining job is re-running an exchange that WAS accepted, and
+      // its only remaining effect is deleting the file a ledger entry cites as
+      // its source. The message below is already the right answer. (Fable
+      // assessor's recommendation, #124 round 1; Claude chose removal over the
+      // refuse-when-cited alternative, because removing a mechanism beats adding
+      // a check around it.)
+      throw new Error(
+        `${path.relative(root, outFile)} already exists, and an accepted assessment is never replaced — a ledger ` +
+          `entry may cite it as the source of a concern's reasoning. Use the next number.`,
+      );
     }
 
     const packageParts = {
@@ -1302,7 +1355,14 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     };
     const prompt = assemblePackage(packageParts);
 
-    const promptFile = path.join(dir, `${path.basename(outFile, ".md")}.prompt.md`);
+    // THE PACKAGE RECORD IS PER ROLE. Named by round alone, a `--role claude
+    // --prompt-only` run overwrote `round-N.prompt.md` -- the record of what
+    // Astra was actually sent -- with Claude's variant, while the meta's
+    // `packageDigest` still described Astra's. (Fable assessor, #124 round 1,
+    // offered as adjacent to the recipe fix and taken because the recipe is
+    // being edited anyway.)
+    const stem = path.basename(outFile, ".md") + (role === "claude" ? ".claude" : "");
+    const promptFile = path.join(dir, `${stem}.prompt.md`);
     const metaFile = path.join(dir, `${path.basename(outFile, ".md")}.meta.json`);
 
     // `--prompt-only` writes the package the other party gets, so both
@@ -1317,7 +1377,12 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // file is read under a header naming the right exchange.
     if (flags.promptOnly) {
       fs.writeFileSync(promptFile, `${prompt}\n`);
-      if (role === "astra") fs.rmSync(outFile, { force: true });
+      // IT CLEARS THE ATTEMPT PATH, NEVER THE ACCEPTED ASSESSMENT. This used to
+      // delete `outFile`, which is the same continuity failure `--force` had --
+      // reached through prompt generation, where nobody was looking for it.
+      // Astra named it while assessing the --force finding: "Prompt generation
+      // should not destroy accepted reasoning." (#124 round 1.)
+      if (role === "astra") fs.rmSync(attemptFile, { force: true });
       process.stdout.write(`${prompt}\n`);
       return 0;
     }
@@ -1356,9 +1421,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // answer is prose, there is nothing for it to violate, and re-asking a
     // reader that crashed spends another full timeout telling it to fix output
     // that does not exist.
-    fs.rmSync(outFile, { force: true });
+    fs.rmSync(attemptFile, { force: true });
     log(`planning: ${kind} ${kind === "discuss" ? `${round}.${discussion}` : round} on ${model} (${effort}, ${sandbox})…`);
-    const outcome = runCodex({ prompt, outFile, model, effort, sandbox, cwd: root, timeoutMs, run });
+    const outcome = runCodex({ prompt, outFile: attemptFile, model, effort, sandbox, cwd: root, timeoutMs, run });
 
     // --- the plan must not have moved under the reader --------------------
     //
@@ -1390,7 +1455,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
             `the reader exited ${outcome.status ?? "(no status)"}${outcome.signal ? ` on signal ${outcome.signal}` : ""}` +
             `${outcome.error ? `: ${outcome.error.message}` : ""}`,
         }
-      : readAssessment(outFile);
+      : readAssessment(attemptFile);
 
     const meta = {
       slug, kind, round, discussion, role, model, effort, sandbox, lens,
@@ -1399,10 +1464,12 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // `planText !== null`, never truthiness: an empty plan file is still a
       // plan, and the snapshot below is written on exactly that condition.
       planDigest: planText !== null ? sha256(planText) : null,
-      // The FULL digest, because it leaves this file and goes into the
-      // implementation PR's `private-plan` provenance block. With no commit and
-      // no PR page holding the approved revision, this is the only thing that
-      // pins WHICH text David approved.
+      // The FULL digest of the plan THIS EXCHANGE ASSESSED. It is NOT the
+      // provenance pin: the redesign lets agreed edits reach David without
+      // another assessment, so the last exchange's digest can predate the plan
+      // he approves. The skill takes the provenance digest from the plan file at
+      // the moment of approval. (Codex, #124 round 1; both assessors agreed the
+      // correction belongs in the instruction, not here.)
       planSha256: planText !== null ? sha256Full(planText) : null,
       planSnapshot: planText !== null ? `plan-round-${round}.md` : null,
       oracleDigest: sha256(oracle),
@@ -1425,7 +1492,12 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // THE PLAN, SNAPSHOTTED BESIDE THE ASSESSMENT: the exact bytes that were
     // read, so a later reader of this directory is not left with a digest and
     // no document.
-    if (planText !== null) fs.writeFileSync(path.join(dir, `plan-round-${round}.md`), planText);
+    // NOT ON A DISCUSSION. The snapshot belongs to the assessment: it is the
+    // baseline the discussion check above compares against, so an exchange that
+    // rewrote it destroyed the only record that would reveal a mismatch.
+    if (planText !== null && kind !== "discuss") {
+      fs.writeFileSync(path.join(dir, `plan-round-${round}.md`), planText);
+    }
     fs.writeFileSync(metaFile, `${JSON.stringify(meta, null, 2)}\n`);
 
     if (planDrift) {
@@ -1434,7 +1506,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           `(${planDrift.before} -> ${planDrift.after ?? "gone"}). The plan was read live, so this assessment ` +
           `describes bytes that no longer exist and the digest that would pin it names a different document. ` +
           `This exchange did not happen — do not count it and do not relay it to David. Re-run it against the ` +
-          `plan as it now stands. The record is at ${path.relative(root, metaFile)}.`,
+          `plan as it now stands. The record is at ${path.relative(root, metaFile)}, and what the reader returned ` +
+          `is at ${path.relative(root, attemptFile)} — deliberately NOT at the canonical path, so nothing ` +
+          `downstream mistakes it for an exchange that happened.`,
       );
       return 1;
     }
@@ -1443,11 +1517,15 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       log(
         `planning: the ${kind} exchange produced no assessment — ${read.reason}. This is a FAILED dispatch, not a ` +
           `quiet exchange: do not relay it to David as "nothing to report", and do not proceed on the strength of ` +
-          `it. The record is at ${path.relative(root, metaFile)}.`,
+          `it. The record is at ${path.relative(root, metaFile)}. Nothing was promoted to the canonical path, so ` +
+          `this exchange can simply be re-run.`,
       );
       return 1;
     }
 
+    // PROMOTED ONLY NOW, after the drift and read checks have both passed.
+    // Everything downstream keys on the canonical path meaning "accepted".
+    fs.renameSync(attemptFile, outFile);
     pin.commit();
     log(
       `planning: ${path.relative(root, outFile)}\n` +

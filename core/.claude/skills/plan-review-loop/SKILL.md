@@ -36,11 +36,26 @@ never says which of us holds the plan. The script's **role block** supplies
 that, per role, and it is the only thing that differs between the two packages.
 
 **Read my own copy before I start drafting**, and again whenever I have been
-away from the loop:
+away from the loop. There are two forms, and picking the wrong one is how this
+instruction used to fail.
+
+**Before drafting**, when no plan file exists yet:
+
+```
+node "$P" --kind scope --slug <slug> --oracle $S/oracle-<slug>.md --role claude --prompt-only
+```
+
+**Returning to an existing plan**, once one is written:
 
 ```
 node "$P" --kind assess --round <N> --tier <tier> --plan <file> --role claude --prompt-only
 ```
+
+The assessment form needs `--plan`, so it cannot be the pre-draft command — a
+recipe that refuses at the moment it is meant to run is a recipe that fails the
+agent following it. The scope form yields the same role block, contract, Worth
+rule and oracle with no plan. My copy is written to `<stem>.claude.prompt.md`, a
+separate file, so it never overwrites the record of what Astra was sent.
 
 That is not ceremony. The standards I hold the plan to and the standards Astra
 holds it to are the same words, or a difference between our conclusions is a
@@ -75,7 +90,7 @@ the record rests on me — nothing checks for a concern I never wrote down.
 | `addressed` | the engineering concern is genuinely resolved |
 | `superseded` | a revision made it moot; say why |
 | `withdrawn` | whoever raised it no longer believes it, and said so |
-| `settled-over-dissent` | I settled a purely technical tie against a sustained recommendation. **Renders in full every exchange**, so it can be revisited on new evidence, and **it is named in the approval ask** |
+| `settled-over-dissent` | I chose the approach after discussion while Astra maintained its recommendation. **Renders in full every exchange**, keeping both arguments prominent so new evidence has something to argue with, and **it is named in the approval ask**. Distinct from `addressed`, which means the concern was resolved rather than decided over an objection |
 | `for-david` | a choice only he can make; renders in full, and blocks nothing else |
 | `accepted-by-david` | he accepted the trade-off, in words |
 
@@ -171,11 +186,23 @@ stamped on the exchange. Silence is what is refused.
 **A disagreement costs one question, not a round trip through the whole loop.**
 No plan edit, no new round, no commit:
 
+**Detached, like every exchange after scope** — it is the same `xhigh` process
+with the same package, and a foreground run that gets cut off loses it:
+
 ```
-node "$P" --kind discuss --round <N> --discussion <M> --tier <tier> \
-     --plan docs/plans/PLAN_<SLUG>.md \
-     --concerns C2,C5 --question "<the disputed premise, my argument, the evidence>"
+S=.agents/reviews/<slug>; Q=$S/question-<M>.txt   # write the question to a file:
+                                                  # it is long, and quoting it
+                                                  # through the detached shell is
+                                                  # where this goes wrong
+setsid nohup bash -c "cd $PWD && node $PWD/$P \
+  --kind discuss --round <N> --discussion <M> --tier <tier> \
+  --plan docs/plans/PLAN_<SLUG>.md --concerns C2,C5 \
+  --question \"\$(cat $Q)\" \
+  > $S/discuss-<M>.log 2>&1; echo \$? > $S/discuss-<M>.exit" &
 ```
+
+Its own log and exit file, per discussion, so a retry cannot mistake an earlier
+marker for this one's completion.
 
 The named concerns render **in full whatever state they are in**, because a
 focused question is often about something already settled. The question carries
@@ -194,8 +221,15 @@ wrong. Do not use it to relitigate something I simply dislike.
    after the revision.** A clean exchange still gets its readout: that
    independent opinion is the thing he is otherwise reading blind without.
 
-2. **Update the ledger** — every concern's state, my response in full, and the
-   source of anything new.
+2. **Update the ledger — after every exchange, including one that raised
+   nothing.** Every concern's state, my response in full, and the source of
+   anything new. **An exchange that raised nothing still writes `[]`**, because
+   continuity lives in that file and the script refuses a later exchange when it
+   is absent. That refusal is deliberate: an absent ledger reads as *forgotten*,
+   which is the one thing no check can distinguish from *nothing was raised*. So
+   it is mine to answer, by writing the file. `--no-ledger` is the escape the
+   error names, for the case where earlier exchanges genuinely returned nothing
+   and I have not written one.
 
 3. **State the next action, explicitly.** Nothing in an assessment decides this.
 
@@ -218,9 +252,9 @@ wrong. Do not use it to relitigate something I simply dislike.
 **There is no stop rule to compute and no round budget.** The loop ends when the
 judgement is that nothing more is worth writing, and that judgement is mine,
 stated in an action block. What still stops it for David, at any point: a
-genuine product or design fork, a scope addition, a split, a disclosure
-question, and any change to intended behaviour or a knowingly accepted
-user-facing shortfall.
+choice that changes intended behaviour, scope, or an accepted user-facing
+consequence; a scope addition; a split; and a disclosure question. A purely
+technical fork between two approaches to agreed behaviour is not on that list.
 
 **An assessment that says it could not do the job is not a clean exchange.** The
 old loop had two status labels that computed this; now it is prose I read. If
@@ -229,9 +263,14 @@ material, that is mine to supply and re-run — never convergence.
 
 ## What never gets settled inside the loop
 
-- **Product and design forks.** Astra may critique the idea itself, and when it
-  does, that goes to David as a **numbered question carrying its view and mine
-  side by side** — never absorbed into a revision.
+- **Choices that change intended behaviour, scope, or an accepted user-facing
+  consequence.** Astra may critique the idea itself, and when it does, that goes
+  to David as a **numbered question carrying its view and mine side by side** —
+  never absorbed into a revision. **A purely technical design fork is not one of
+  these**: two approaches serving the same agreed behaviour are ours to settle,
+  and calling every design question David's would take back the tie-break
+  granted three paragraphs below. (Astra, assessing this change: the two
+  instructions contradicted each other and either could fire.)
 - **Anything that changes intended behaviour, scope, or an accepted user-facing
   consequence.** His, always, including his own use of the software factory.
 - **A scope addition.** Any revision that would introduce a new mechanism — a
@@ -320,10 +359,18 @@ approved_on: <YYYY-MM-DD>
 ```
 ````
 
-The digest is in the exchange's `.meta.json` as `planSha256`, so it is copied
-rather than recomputed — and it pins **which text** David approved, which
-matters because there is no commit and no PR page holding the approved revision.
-Keys and grammars:
+**Take the digest from the plan file as it stands at the moment David approves
+it** — `sha256sum docs/plans/PLAN_<SLUG>.md` — and never by copying an
+exchange's `planSha256`. Those were the same thing under the old loop, which
+forced another round after every revision. They are not the same now: agreed
+edits reach David without another assessment, so the last exchange's digest can
+predate the plan he approved, and nothing would catch it — `plan_sha256` is
+validated as sixty-four hexadecimal characters and compared to no bytes
+anywhere. A wrong digest is worse than none, because the block claims to pin
+what he approved. (Codex and both assessors, #124 round 1.)
+
+An exchange's `planSha256` still identifies what *that exchange* assessed, which
+is a different and still useful fact. Keys and grammars:
 [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md).
 
 **What that block does and does not establish.** The parser refuses a

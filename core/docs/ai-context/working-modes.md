@@ -161,16 +161,30 @@ the same private/manual path a disclosure-carve-out workstream would.
 
 ### The increment test
 
-**A universal quantifier in the intent sentence means you're holding a
-direction, not a plan.** "All", "every", "everything", "any and all",
-"exclusively" — any of these, needed to say what the intent means, is the
-signal. Write or update the direction first (per the routing rule above), then
-cut the first increment out of it and plan that one. Don't narrow the
-requester's words to make the test pass — the totalising sentence stays intact
-in the direction, which is exactly where it belongs.
+**Establish what the increment makes true, what bounds it, and how completion
+will be recognised** (David, 2026-09-18, replacing the categorical form below).
+Universal wording — "all", "every", "everything", "any and all", "exclusively" —
+can describe a bounded requirement holding across many affected paths, or an end
+state spanning several increments. **Determine which it describes; the wording
+alone does not decide.** Where the intent makes additional work belong merely
+because the eventual direction needs it, surface the boundary question before
+detailed planning: write or update the direction, then cut the first increment
+out of it. Don't narrow the requester's words to make a test pass — the
+totalising sentence stays intact in the direction, which is exactly where it
+belongs — and don't split work that is one coherent change merely because its
+sentence needed the word "every".
 
-**A *Phases* section that separates independently shippable pieces means each
-phase was probably its own plan.** The distinction is **independent
+**Why this replaced a categorical rule.** It used to read "a universal
+quantifier in the intent sentence *means* you're holding a direction", and the
+planning contract's scope assessment now says the opposite: phases, breadth and
+universal wording do not automatically require a split. A rule and its contract
+disagreeing on the entry path is worse than either, and the categorical form is
+the one that lost.
+
+**A *Phases* section that separates independently shippable pieces is a reason
+to consider separate plans, not a verdict.** Assess whether separation reduces
+uncertainty, simplifies verification, or delivers useful outcomes sooner,
+against the dependencies and the cost of intermediate states. The distinction is **independent
 deliverability**, not the mere presence of ordered steps — a single increment
 can legitimately need an ordered migrate → rollout → verify sequence, and that
 is not a split signal. It's a split signal when a phase could ship, be
