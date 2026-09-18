@@ -39,11 +39,18 @@ that, per role, and it is the only thing that differs between the two packages.
 away from the loop. There are two forms, and picking the wrong one is how this
 instruction used to fail.
 
-**Before drafting**, when no plan file exists yet:
+**Before drafting**, once the oracle file exists — the scope-of-work gate below
+writes it, and it runs before anything — and when no plan file exists yet:
 
 ```
-node "$P" --kind scope --slug <slug> --oracle $S/oracle-<slug>.md --role claude --prompt-only
+node "$P" --kind scope --slug <slug> --oracle .agents/reviews/<slug>/oracle-<slug>.md --role claude --prompt-only
 ```
+
+The path is written out rather than using `$S`, which is not assigned until the
+scope-exchange recipe far below: an unset variable expands to nothing, so this
+line used to send the script looking for an oracle at the filesystem root. **`$P`
+is the only variable any block here relies on from another** — every other block
+assigns what it uses, and keeping it that way is what the recipe check enforces.
 
 **Returning to an existing plan**, once one is written:
 

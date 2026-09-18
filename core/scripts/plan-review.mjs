@@ -54,9 +54,13 @@
  *   node <this file> --kind discuss --round 1 --discussion 1 --tier internal \
  *        --plan docs/plans/PLAN_X.md --concerns C2,C5 --question "<the question>"
  *
- *   # My own copy of the same package.
+ *   # My own copy of the same package. TWO FORMS, and the assess one is not
+ *   # usable before a plan exists -- which is how the skill's recipe failed
+ *   # twice (#124 rounds 1 and 3). Corrected there and, until round 3, not here.
+ *   node <this file> --kind scope --slug <slug> --oracle <file> \
+ *        --role claude --prompt-only            # before drafting
  *   node <this file> --kind assess --round 1 --tier internal --plan <file> \
- *        --role claude --prompt-only
+ *        --role claude --prompt-only            # once a plan is written
  *
  *   --dry-run  assembles the prompt, writes it, spawns nothing.
  *
