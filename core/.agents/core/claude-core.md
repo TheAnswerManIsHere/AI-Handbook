@@ -362,10 +362,11 @@ never in question.** Everything below governs what may be layered on top.
 to write more, never after a push.** Stated as the sequence: a round returns
 findings → the judge rules *write* or *stop* → if write, the fixes are pushed
 and **another review round is automatic and mandatory** → if stop, the loop
-ends right there, on a head the last round already reviewed. **The judge is the review
-proxy** (#96): Astra, dispatched on every round that returns findings, before
-anything is written for them, and its per-finding disposition decides. See
-*The review proxy* below.
+ends right there, on a head the last round already reviewed. **What rules
+write-or-stop is a shared judgement** (#96): Astra and a Fable assessor advise
+independently on every round that returns findings, before anything is written
+for them, and I decide from the two. See *Shared judgement on a review round*
+below.
 
 Two invariants, and they are the point: **no commit ever merges unreviewed**,
 and **a loop always terminates on a reviewed head** — because the stop happens
@@ -386,78 +387,78 @@ docs and harvests run the loop above with the **`internal` tier**:
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
   finding nothing, it needs no adjudication and no receipt — nothing was
   written, so the head is already reviewed.
-- **Findings are triaged, and written for only when they pass rule 5's worth
-  test.** This is the tier that declines most. The rubric: write only for a
-  very high chance of a CRITICAL flaw — a destructive or irreversible action,
-  broken workstream tracking, or a widening of my authority. Everything softer
-  ships with gaps recorded.
+- **Every finding is judged on what it is worth, and the tier says what is
+  downstream rather than setting a threshold** (David, 2026-09-17). The old
+  rubric here reserved a write for "a very high chance of a critical flaw" and
+  declined everything softer; that is a decline quota, the mirror image of the
+  fix quota it was built to correct, and both are gone. What internal tooling
+  means for the judgement is that nobody's money or data is downstream, so a
+  consequence is weighed by its effect on David's ability to direct agents and
+  understand results — **including recurring reversible disruption**, which
+  costs him real time even though each incident is individually recoverable.
+  The rule itself is
+  [`review-judgment.md`](../../docs/ai-context/review-judgment.md).
 
-One triage pass and one-line declines still govern engagement, harvests still
+Harvests still
 get no harvest ceremony, and internal tooling still ships with rougher edges as
 an accepted trade — its failure mode is wrongly-blocking, which announces
 itself, and `main`'s real protection is GitHub's server-side rulesets.
 
-### The review proxy — David's step-back, fired automatically
+### Shared judgement on a review round
 
-**What it is.** David's own account of what works: when he senses a build
-drifting he switches me to a stronger model and asks me to take a step back,
-and the recommendations that come back are better than anything the loop
-produced on its own. The proxy is that step-back, dispatched automatically
-instead of waiting for him to notice.
+**Two independent assessments, and neither of them commands me** (David,
+2026-09-17, replacing the binding-disposition design of the day before).
+Codex returns findings; **Astra** and a **Fable assessor** each read the same
+findings, the same agreed intent and the same revision, separately, and each
+says what is actually wrong and whether acting on it is worthwhile.
 
-**What it is for**, stated as the failure it removes: I write code for every
-finding, because a decline is a paragraph I must compose, justify at class
-level and defend on a public thread, while a fix is a diff. The cheaper option
-is always the one that writes code. Measured: 41 findings and 41 fixes on #109;
-roughly one decline in seventeen on #102. The proxy fills the field instead, so
-declining costs one line.
+What this fixes is measured in both directions. Triaging alone, I wrote code
+for nearly every finding, because declining was harder to write than fixing —
+41 findings and 41 fixes on #109. The first attempt to fix that told the judge
+to decline most findings, which is the same quota facing the other way. **There
+is no target rate in either direction.** The measure is whether David can see
+what mattered and why the response was proportionate.
 
-- **Dispatched on every round that returns findings, before anything is
-  written for them.** A moment, never a count — no budget, no round
-  arithmetic, and if it fires too often the fix is a narrower trigger, never a
-  counter. Every tier, for now (David, 2026-09-17), to be dialled back if
-  product work makes it heavy.
-- **Astra, not Fable** (David, 2026-09-17). The Codex CLI takes `--model` as a
-  flag and a read-only sandbox the role cannot escape, which is a stronger
-  guarantee for a verdict that decides than the disclosure a subagent can
-  offer. D0 stays Fable: the proxy rules before fixes, D0 accounts afterwards,
-  and they stay separate roles.
-- **Its per-finding disposition DECIDES.** I execute `write` / `decline` /
-  `no_change_needed` / `to_david` without re-weighing, adopting in part, or
-  paraphrasing. Its direction, next action and batch assessment are
-  recommendations I weigh. A product fork is its `product_decisions_for_david`
-  and reaches David as a 🛑 with a push notification.
-- **If I disagree, it goes to David with both views, immediately** — never an
-  override, and the two-consecutive-rounds rule never delays it.
-- **The oracle is agreed with David before the first round runs** (David,
-  2026-09-17): the intent he agreed before building, from an approved plan, an
-  issue discussion or a request he made, recorded where it can be quoted. The
-  script refuses to compose a brief without one, which is what makes the
-  agreement happen up front. **The PR body is my own prose and is never the
-  oracle.**
-- **Its answer is posted on the PR, rendered from the validated answer, every
-  dispatch**, and I never paraphrase it. One line per dispatch on the
-  workstream issue says whether it changed what I did; after five live loops
-  we read that ledger and narrow the trigger if most dispatches changed
-  nothing.
-- **A failed dispatch is never permission to ship.** It is reported in plain
-  English and the round stops, rather than defaulting to my own call.
+The loop:
+
+1. Both assessments are dispatched on the same package and posted on the PR
+   verbatim, each under a header naming the pull request, the revision and the
+   findings. I never summarise one away.
+2. **I investigate disputed facts myself**, in the repository and the tests,
+   rather than asking anyone to settle something a few tool calls answer.
+3. **A focused follow-up to Astra costs no commit and no Codex round** — the
+   disputed recommendation, Fable's reasoning, the new evidence and the exact
+   question. Everything it is not asked about keeps its status, including
+   questions still waiting on David.
+4. **A purely technical disagreement that survives is the Fable assessor's to
+   settle**, with its reasoning recorded. Unanimity is not required and Astra
+   does not have to agree.
+5. **Intended behaviour and accepted user-facing shortfalls are David's** —
+   including his own use of the software factory. Agent agreement never
+   substitutes for his answer, and a clean later round never clears a question
+   he has not answered.
+6. I implement what is agreed and verify the failure class across materially
+   different paths, not just the reviewer's example.
+
+- **The oracle is agreed with David before the first round runs.** The script
+  refuses to compose a package without one, which is what makes the agreement
+  happen up front. **My PR body is my own prose and is never the oracle.**
+- **What happens next is what I state, in a `review-action` block.** Nothing
+  parses an assessment, so no phrase in one can authorise work.
+- **A failed dispatch is not permission to proceed on one assessment alone.**
+  It is reported in plain English and the round stops.
+- **Both assessors read the live checkout, so the dispatch refuses unless the
+  tree is at the reviewed commit and clean.** Advice about code the reviewer
+  never saw is worse than no advice.
 - **Six hours of unattended wall-clock per PR loop is a hard stop**, read from
-  the PR's age on GitHub, covering waits and retries and not resetting per
-  dispatch. Expiry pauses the loop and asks David to resume. Never
-  convergence, never an automatic extension.
+  the PR's age. Expiry pauses and asks David to resume; never convergence.
 
-Mechanics: `core/scripts/review-proxy.mjs` here, `scripts/review-proxy.mjs`
-in a consumer — the sync routes `core/X -> X`, so a single hardcoded path is
-wrong in one of the two repos. The brief David reviews is
-`core/.agents/roles/review-proxy.md` (`.agents/roles/review-proxy.md` in a
-consumer), read verbatim into every dispatch.
-
-**Astra's dissent is recorded** (#96): it would make the proxy advisory and
-trigger it on churn rather than every round, on the grounds that binding
-per-round authority turns every finding into a jurisdiction decision. David
-kept the binding field because "advisory" puts the decision back in the
-paragraph that is the measured failure.
+The judgement itself — the Worth rule both assessors and I apply — is
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md), and that file
+is its only statement. Mechanics: `core/scripts/review-proxy.mjs` here,
+`scripts/review-proxy.mjs` in a consumer. Astra's brief is
+`core/.agents/roles/review-proxy.md`; the Fable assessor is an agent
+definition; both are read verbatim into every dispatch.
 
 ### What the #89 cut removed from this section, and what replaced it
 
@@ -500,72 +501,37 @@ closes the weakest link this section named.
    one I will reinterpret** — measured one loop each way, #83 and #85. Shapes
    and that evidence: `pr-watch`.
 
-5. **Triage every finding: fix / accept-and-document / escalate**, stated
-   explicitly. **The proxy makes this call and I execute it**; what follows is
-   the rubric it applies and the reasoning my reply transcribes, not a second
-   triage of mine. Codex marks everything "Required Revision" because that is its
-   job; treating that as automatically meaning *fix* is how a GitHub label write
-   ended up with compare-and-swap semantics. Product/design forks, scope
-   additions, splits and disclosure questions go to David.
-   **A fix needs both a real likelihood and a real consequence** (David,
-   2026-09-10). The reply names the **`Class:`** first, then a **`Worth:`**
-   line answered against that class. `Worth:` asks **who supplies the
-   value** before anything else. If this code or its own operator does:
-   **derivable** (this code already holds what it needs) → remove the input
-   and derive it, never a check, because a check whose two sides I own guards
-   nothing — a write, so a round is owed. **A choice** (intent this code
-   cannot know: `--role`, `--timeout`, `sync --to`) → it stays an input with
-   a cheap well-formedness check; a hostile-value defence on it is declined.
-   Only a value from outside my control goes on to likelihood × consequence —
-   and **"outside my control" names a party who actually writes there, not a
-   channel that is theoretically open** (David, 2026-09-17). A pull request in
-   this repo is written by David and the review bot, so a defence against what
-   a hostile commenter could inject is a defence against nobody. I got this
-   exactly wrong inside #120, the change that built the judge for it;
-   missing either, it is a one-line decline shipped as a recorded gap —
-   however small the diff looks, because each one costs a round and the
-   aggregate is never weighed at the moment of the decision. The worked
-   examples are in `pr-watch`, stated once.
-   **A consequence nobody would feel is not a consequence** (David,
-   2026-09-11). Two classes this settles, because I kept building for both:
-   **accounting precision** — a miscounted round changes no decision, so
-   machinery that makes a count exact is pure cost, and a finding about how
-   a round might be miscounted is declined; and **my own influence on my own
-   tools** — I run every script in this machinery, so a defence against my
-   editing its inputs is a lock whose key is on the same ring. The real
-   controls are the server-side ruleset and David working beside me, reading
-   the latitude line every widening PR carries. Both classes are one-line
-   declines however cheap the diff looks. The measured case is this
-   rule's own plan loop: eleven findings, eleven fixes, no declines, and the
-   Worth rule had been contract for a day.
-   This is *engineer-to-the-blast-radius* fired at triage, which is where a
-   review loop actually over-builds: the design-time rule never collides
-   with a P2 badge. Three bindings, without which the rule is a licence to
-   decline anything described narrowly enough —
+5. **Triage is a shared judgement, and the rule it applies lives in one
+   file.** [`review-judgment.md`](../../docs/ai-context/review-judgment.md) is
+   the Worth rule — the same words Astra, the Fable assessor and I apply, and
+   the only statement of it. Never restate it here or in a skill; point at it.
+   Codex marks everything "Required Revision" because that is its job, and
+   treating that as automatically meaning *fix* is how a GitHub label write
+   ended up with compare-and-swap semantics.
+   What is mine rather than the rule's: **the class-level discipline is the
+   part I most often get wrong in my own favour**, so
    [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
-   carries what each one cost:
-   **the consequence is the class's, never the reported instance's**, since
-   a reviewer names one example and the decline must answer the worst case
-   the class reaches; **sensitive tiers are bound by the line, not exempt
-   from it** — consequence dominates there, so an unlikely situation with a
-   severe one is fixed; and **a declined class the reviewer raises again is
-   the decline being wrong**, re-triaged on the new instance, naming which
-   half of the earlier `Worth:` line was mis-sized.
+   carries what it cost — a decline scoped to the reviewer's example rather
+   than to the class the example belongs to reads as careful engineering while
+   resting on a boundary nobody drew. State the class before the consequence,
+   and answer the consequence of that class at its worst.
+   Product and design forks, scope additions, splits and disclosure questions
+   go to David, as do intended behaviour and any shortfall he or a user would
+   feel.
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in
    a batch. No standalone summary comment in place of per-thread replies.
-   **Every reply carries `Class:` / `Worth:` / `Oracle:` / `Result:`, in
-   that order, and says its outcome in plain words in its first sentence**
-   — the class first because `Worth:` is answered against it; no closed
-   disposition field, because the one tried on #73 could not express "no
-   change needed" (Codex, rounds 7–8). The
-   command ran before the reply was written, and its real output is
-   transcribed. A reply missing those lines is malformed and doesn't get
-   posted; declines included, because declining without an oracle asserts the
-   class is empty without looking, and a fix without a `Worth:` line is the
-   over-build rule 5 exists to stop. Shape and the two escape valves:
-   `pr-watch`.
+   **Every reply says its outcome in plain words in its first sentence, names
+   the failure class it is answering, and cites the assessment it rests on.**
+   Evidence is proportionate to the stakes and distinguishes what I inspected
+   from what I was handed; a load-bearing claim is still quoted or marked, per
+   the rule above. **There is no fixed line count and no mandatory command on a
+   decline** (David, 2026-09-17, retiring the four-line `Class:` / `Worth:` /
+   `Oracle:` / `Result:` form of 2026-09-10): that form made declining more
+   burdensome to write than fixing, which is the asymmetry this whole section
+   exists to remove. Where a command genuinely settles the question, it still
+   runs before the reply is written and its real output is transcribed.
 
 ### Watching the PRs I open
 
@@ -912,8 +878,11 @@ shows the true delta.
   the plan reviewer and the review proxy are the two live cases, both resolving
   `strongestCodex`. (The `review-loop-adjudicator` agent that stood here was
   removed by the #89 cut.)
-  A dispatched verdict **decides**; if I think it's wrong that's a disagreement
-  for David, not license to overrule.
+  **What a dispatch returns differs by loop.** The plan reviewer's assessment
+  decides, and if I think it is wrong that is a disagreement for David rather
+  than licence to overrule. The review proxy's assessments **advise**: I weigh
+  them, investigate disputed facts, and decide — under *Shared judgement on a
+  review round*, which says who settles what.
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
   the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
   premise produces a confidently wrong verdict** — so pin the commit the
@@ -1039,9 +1008,12 @@ and its script; or a code-review round, through `review-proxy.mjs`. Both run
 `codex exec` in a read-only sandbox and read the answer from
 `--output-last-message`; one copy of those flags lives in `machinery.mjs`,
 because two copies of `--sandbox read-only` is two chances for one of them to
-stop being read-only. His stated shape for a loop is
-**a Fable review, an Astra review and a Codex review, every round**: three
-accounts of one round, none of them mine.
+stop being read-only. **The two uses differ in what comes back and what it
+does**: a plan assessment is JSON against a fixed contract surface and it
+decides; a review-round assessment is Markdown a person reads and it advises.
+On a code round Astra's assessment is one of two, beside the Fable assessor's
+(*Shared judgement on a review round*), and D0 still accounts for the round
+afterwards.
 
 - **Sign-in comes first, every session, and it is David's phone step.**
   The binary is rarely on `PATH`: `npm install @openai/codex` in the

@@ -75,14 +75,15 @@ one line per finding so he can see what was written for each.
      decline, whether its reasoning stands; `null` when unanswered. A `false`
      here is also a disagreement, and gets an entry there.
    - `overbuilt` — `true` when the builder wrote more than the finding was
-     worth. The builder's reply carries a `Worth:` line naming the
-     consequence; read the diff against it. Code written for a consequence
-     nobody would feel, or a fix out of proportion to what it prevents, is
-     overbuilt. The measured case (AI-Handbook #109): the reviewer's login is
-     a constant, and it got a config key, a reader, a refusal and a
-     normalisation rule before being replaced by the constant. David reads
-     this flag to stop that the next time, so set it whenever it applies and
-     say in `done` what was built.
+     worth. The builder's reply names the failure class and cites the
+     assessment it rests on; read the diff against that. Code written for a
+     consequence nobody would feel, or a fix out of proportion to what it
+     prevents, is overbuilt. The measured case (AI-Handbook #109): the
+     reviewer's login is a constant, and it got a config key, a reader, a
+     refusal and a normalisation rule before being replaced by the constant.
+     David reads this flag to stop that the next time, so set it whenever it
+     applies and say in `done` what was built. **A fix is not overbuilt merely
+     for being large**, and a decline is not right merely for being small.
 
 6. **`took_on_trust`** — what you saw and accepted without checking, one or
    two lines. Almost never empty: an account that cannot say which parts it

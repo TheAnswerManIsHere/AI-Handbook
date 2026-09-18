@@ -548,11 +548,13 @@ it is two mechanical things and one external judge.
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
-**Every tier.** The judge rules *before* code is written, not after it is
+**Every tier.** The judgement happens *before* code is written, not after it is
 pushed:
 
 1. A round returns findings.
-2. The judge rules **write** or **decline**, per finding.
+2. The judgement is made per finding: on a code loop from two independent
+   assessments and the builder's own reading of them, on a plan loop from the
+   reviewer's required/recommended split.
 3. **Anything written** → the fixes are pushed, and another review round is
    *automatic and mandatory*. Back to 1.
 4. **Nothing written** → the loop ends there, on a head the last round already
@@ -572,34 +574,40 @@ older "fix-round merge path" workarounds (David posting the trigger himself, <!-
 recutting the PR) stay retired for the same reason.
 
 **The cost, chosen rather than discovered:** fixing even a typo costs a full
-round. So the judge's question is not "another round?" but **"is this finding
-worth writing code for at all?"** — and on internal tooling most are not.
+round. So the question is not "another round?" but **"is acting on this finding
+worthwhile?"** — answered by [`review-judgment.md`](review-judgment.md), which
+is the only statement of it and sets no target rate in either direction.
 
 #### There is no budget any more (#89 cut, 2026-09-16)
 
 **Who judges.** On a plan loop, the reviewer performs the
 required/recommended triage itself, in a schema field, and the loop stops on
-it. On a code loop the external adjudicator that used to rule was removed with
-everything below, and #96 rebuilds it; until then the call is the builder's own,
-under the tier rubric, with a fork or an uncertain call going to David.
+it. On a code loop (#96, David 2026-09-17) **Astra and a Fable assessor advise
+independently and the builder decides from both**, investigating disputed facts
+itself; a purely technical disagreement that survives is the Fable assessor's
+to settle, and intended behaviour or an accepted user-facing shortfall is
+David's. Neither assessment binds, and neither substitutes for his answer.
 
 **What went, and what nothing replaced.** A declared per-PR round budget, its
 committed receipts, extension grants and their arithmetic, a round-count
 cache, a merge-readiness receipt, a translation-delivery gate, and the
 adjudicator that ruled from round 3. Measured across PR #91's ten rounds, not
-one of them changed a decision. **Termination is now a field in the judge's
-answer**, and a judge that can say "ship it" needs no counter; the thing
+one of them changed a decision. **Termination is a judgement rather than a
+count**, and a loop that can conclude on the evidence needs no counter; the thing
 budgets were compensating for was a builder writing code for every finding
 because the decline was a paragraph it had to compose.
 
 **The tiers survive as rubric selectors.** `product`, `sensitive`
 (auth/payments/migrations) and `internal` (guards, `scripts/`, skills, agent
 contracts, process documentation, documentation harvests) say how strictly a
-finding is read, and nothing more. On the **internal rubric** the judge writes
-only for a very high chance of a **critical flaw** — a destructive or
-irreversible action, broken workstream tracking, or an unauthorised widening
-of agent authority. Ordinary correctness nits, prose and structure ship as
-recorded gaps.
+finding is read, and nothing more — and since 2026-09-17 they say **what is
+downstream** rather than setting a threshold. The `internal` tier's old rubric
+wrote only for "a very high chance of a critical flaw" and declined everything
+else; that is a decline quota and it is retired with the fix quota it was built
+to correct. What the tier still supplies is the thing no rule can derive: with
+no money or data downstream, an internal consequence is weighed by its effect
+on David's ability to direct agents and understand results, recurring
+reversible disruption included.
 
 What the 2026-08-20 decision got right survives in that rubric, not in
 refusing review: every runaway loop this repo measured was internal tooling
@@ -607,7 +615,8 @@ reviewed at product rigor (PR #488 ran 22 rounds on a ~10-line guard change;
 then #503, #526, #531, #534, #539, and #91's ten), so the strictness lives in
 the write decision, sized to a class of artifact whose failure mode is
 wrongly-blocking and whose real protection is GitHub's server-side rulesets.
-One triage pass and one-line declines still govern engagement.
+Engagement stays one pass and a proportionate reply, never a form that makes
+declining harder to write than fixing.
 
 **Codex review of product code is unaffected and is not negotiable.** It is
 the safety net a non-code-reading product manager depends on.
@@ -725,20 +734,20 @@ Every substantive round pauses before any fix is implemented: triage first
 (nature, affected area, verdict, and whether the finding sits in code an
 earlier fix in this loop already changed), then the judgement is made per
 finding — by the reviewer's own required/recommended split on a plan loop, and
-on a code loop by the builder under the tier rubric until #96 restores an
-external one. The agent driving the loop does not make that call for
-itself: self-policing is precisely what the 0-for-15 record measured, and
+on a code loop from two independent assessments the builder weighs but did not
+write. The agent driving the loop does not make that call alone:
+self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 
-What still stops the loop for David, whatever the judge says: a genuine
-product or design fork, a scope addition, a split, or a disclosure question.
-So does a disagreement with the judge itself, immediately.
+What still stops the loop for David, whatever the assessors say: a genuine
+product or design fork, a scope addition, a split, a disclosure question, and
+any change to intended behaviour or knowingly accepted user-facing shortfall.
 
 A round with **no findings** — or whose findings are all reasoned declines,
 so nothing gets written — needs no dispatch: the loop ends on the head that
 round reviewed. Note one status line so the discipline stays visible.
 
-**Trivial nits do not skip the judge** (David, 2026-08-22, the write-gate
+**Trivial nits do not skip the judgement** (David, 2026-08-22, the write-gate
 rule). Writing for them is exactly the decision it exists to make: under this
 rule a typo fix costs a full mandatory review round, so "it's only a nit" is
 precisely the trade the loop must not settle for itself — in either direction,

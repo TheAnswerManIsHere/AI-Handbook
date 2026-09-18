@@ -46,74 +46,73 @@ step 5, stated once, with the duplicated material left out.
    silence is never "all clear". An echo of my own comment still gets the
    silent live-state check and produces no output on either surface.
 
-3. **Dispatch the review proxy, and execute what it returns.** It is the judge
-   for every round that returns findings, on every tier, and it runs **before
-   anything is written for them**. The rule is `claude-core.md`'s *The review
-   proxy*; what is here is only how it runs.
+3. **Get two independent assessments, then decide.** Every round that returns
+   findings, before anything is written for them, on every tier. The rule is
+   `claude-core.md`'s *Shared judgement on a review round*; what is here is how
+   it runs.
 
-   **The oracle comes first, and it is agreed with David before round 1**
-   (David, 2026-09-17). It is the intent he agreed before building — an
-   approved plan, an issue discussion, or a request he made in conversation —
-   written where it can be quoted, normally a comment on the workstream issue.
-   `proxyBrief` refuses to compose a brief without one, so a loop that starts
-   with no agreed oracle stops at its first round rather than judging against
-   my own PR body. **If I reach round 1 and there is no agreed oracle, that is
-   a 🛑 to David, not a brief I write myself.**
+   **The oracle comes first, and it is agreed with David before round 1.** It
+   is the outcome he agreed the work should achieve — an approved plan, an
+   issue discussion, or an explicit request — recorded where it can be quoted,
+   normally a comment on the workstream issue. `assessmentBrief` refuses
+   without one. **Reaching round 1 with no agreed oracle is a 🛑 to David, not
+   a package I write myself.**
 
-   Five steps:
-
-   1. **Collect the round's findings** from the live PR state read in step 2 —
-      `get_review_comments` threads plus any issue comment the reviewer posted
-      this round — and write them as JSON: `[{ id, body, author, path, line }]`.
-      **The `id` is GitHub's own comment id**, so every disposition traces back
-      to the thread it rules on and my reply can name it.
-   2. **Write the oracle and the labelled history to files.** History entries
-      are `{ label, text }` with `label` one of `David`, `oracle`, `reviewer`,
-      `builder`, `proxy` — David's decisions, earlier rounds' dispositions, my
-      own earlier declines. Provenance is what lets the judge weigh them: mine
-      and the reviewer's are claims to check, **David's are authority**.
-   3. **Run it**, from the repository root:
+   1. **Collect this round's findings** from the live state read in step 2,
+      bounded to this round by the reviewer's own markers — the same
+      inclusive-current, exclusive-next window the translation step uses, and
+      for the same reason: `get_review_comments` returns every thread on the
+      pull request, so an unbounded read on round 2 hands the assessors round
+      1's findings again and collects fresh advice on settled work. Write them
+      as `[{ id, body, path, line }]`, with GitHub's own comment id.
+   2. **Write the oracle and the labelled history to files.** Labels are
+      `David`, `oracle`, `reviewer`, `builder`, `astra`, `fable`. Provenance is
+      what lets an assessor weigh them: mine and the reviewer's are claims to
+      check, **David's are authority**.
+   3. **Dispatch both, on the same package.** Astra through the script; the
+      Fable assessor as a subagent given the package `--prompt-only` emits, so
+      the two demonstrably receive the same words. **Neither sees the other's
+      answer** — that is what makes the readings independent rather than
+      merely separate, so do not pass one into the other.
 
       ```
       P=core/scripts/review-proxy.mjs; [ -f "$P" ] || P=scripts/review-proxy.mjs
-      node "$P" --pr <n> --round <n> --commit <the reviewed sha> --tier <product|sensitive|internal> \
+      node "$P" --pr <n> --round <n> --commit <reviewed sha> --tier <product|sensitive|internal> \
         --oracle-file <path> --findings-file <path> [--history-file <path>] [--note "<where we are>"]
       ```
 
-      It prints the PR comment on stdout and exits non-zero if the dispatch
-      failed. The reviewer is pinned to `strongestCodex` in a `read-only`
-      sandbox with **no override flag** — unlike the plan runner, this one
-      reads the live checkout.
-   4. **Post that comment on the PR, verbatim.** It is the durable record of
-      the proxy's reasoning and it is never paraphrased, shortened, or folded
-      into my own round summary.
-   5. **Execute the dispositions without re-weighing them.** `write` goes in
-      the batch at step 4 and my thread reply transcribes the proxy's `worth:`
-      reasoning rather than composing a second one; `decline` is a recorded
-      gap: a row in the PR body's **Recorded gaps** table carrying what ships
-      unfixed and the proxy's reasoning, and a reply on the thread quoting that
-      reasoning. That table is the whole procedure — a gap needs no issue to be
-      recorded, and a bare cross-repo issue number would mean something else
-      after the sync. `no_change_needed` is a reply and a resolve;
-      `to_david` and every `product_decisions_for_david` entry reach him as a
-      🛑 with a push notification. **If I think a disposition is wrong, both
-      views go to David immediately** — never an override, and never delayed by
-      the two-consecutive-rounds rule.
-
-   **A failed dispatch stops the round.** It is reported in plain English and
-   is never permission to ship, and never a fallback to my own triage. Retry
-   once if the cause is transient (no sign-in, a timeout); a second failure
-   goes to David.
+      The dispatch **refuses unless the checkout is at that commit and clean**,
+      because both assessors read the live tree. Retry once on a transient
+      failure; a second failure goes to David, and one assessment alone is not
+      permission to proceed.
+   4. **Post both on the PR verbatim**, each under the header `prComment`
+      renders. Never summarise one away, and never drop the one I disagree
+      with.
+   5. **Decide, and say what I decided.** Investigate disputed facts myself in
+      the repository and the tests — an assessor should not be asked to settle
+      what a few tool calls answer. Where a real question of reasoning remains,
+      run a focused Astra follow-up (`--follow-up <n> --question … --findings …
+      --prior-file … [--fable-file …]`), which needs **no commit and no Codex
+      round**, and continue the Fable assessor with the same question. A purely
+      technical disagreement that survives is the Fable assessor's to settle,
+      with its reasoning recorded. **Intended behaviour and any accepted
+      user-facing shortfall go to David** as a 🛑 with a push notification, and
+      stay open until he answers — a later clean round never clears them.
+   6. **State the next action explicitly** in a `review-action` block
+      (`proceed`, `investigate`, `follow-up`, `ask-david`, `conclude`) with the
+      finding ids it covers. Nothing parses an assessment, so this block is
+      what says what happens; there is no `merge` action and agent agreement is
+      never David's approval.
 
    **Sign-in before the first dispatch, not mid-round.** `$CODEX_BIN login
-   status` decides; the steps are in `claude-core.md`'s *Astra* section, and
-   the device code expires in about fifteen minutes, so the ask and the code go
-   to David in the same turn.
+   status` decides; the steps are in `claude-core.md`'s *Astra* section, and the
+   device code expires in about fifteen minutes, so the ask and the code go to
+   David in the same turn.
 
    **Six hours of unattended wall-clock per PR loop is a hard stop**, read from
-   the PR's `created_at` on GitHub. It covers waits and retries and does not
-   reset per dispatch. Expiry pauses the loop and asks David to resume; it is
-   never convergence.
+   the PR's `created_at`. It covers waits and retries and does not reset per
+   dispatch. Expiry pauses the loop and asks David to resume; never
+   convergence.
 
 4. **Batch the fixes.** Everything being written for goes in one push, with the
    repo's own fast checks run first — lint, format, typecheck, the changed
@@ -122,43 +121,35 @@ step 5, stated once, with the duplicated material left out.
 
 5. **Reply to every finding and resolve its thread**, right after posting that
    reply, never in a batch, and never as a standalone summary comment in place
-   of per-thread replies. The reply carries the fields `claude-core.md` rule 6
-   requires — `Class:` / `Worth:` / `Oracle:` / `Result:`, in that order, with
-   the outcome said in plain words in the first sentence. **What those lines
-   mean is stated once, in rule 6 and rule 5, and is not restated here**; a
-   second copy is what this cut exists to stop. What is here is only what rule
-   6 points at and states nowhere else:
+   of per-thread replies. The shape is `claude-core.md` rule 6's and is not
+   restated here. What that rule points at and states nowhere else:
 
    - **The sweep is class-level, always.** A fix closes the class the finding
-     belongs to, not the line the reviewer happened to land on, and the
-     `Oracle:` line carries the command that proves it. Measured cost of not
-     doing this: on #553 I posted twenty-plus replies across five rounds that
-     read as thorough — naming the class, describing what I had checked — and
-     ran zero commands. **Prose that sounds thorough is not an oracle that
-     ran**, so the command runs *before* the reply is written and `Result:`
-     transcribes its real output.
+     belongs to, not the line the reviewer happened to land on, and a decline
+     answers the consequence that class reaches at its worst. Measured cost of
+     not doing this: on #553 I posted twenty-plus replies across five rounds
+     that read as thorough — naming the class, describing what I had checked —
+     and ran zero commands. **Prose that sounds thorough is not a check that
+     ran.**
 
-   - **Escape valve 1 — a class with no mechanical oracle.** Some classes are
-     design judgement or naming preference and cannot be enumerated by any
-     command. The reply says so on the Oracle line rather than going silent:
-     `Oracle: none — <why this class is not mechanically enumerable>`. That is
-     a claim I can be held to; silence is not.
+   - **Where a command settles the question, it runs before the reply is
+     written** and its real output is transcribed. Where the class is design
+     judgement or naming preference and no command can enumerate it, the reply
+     says so rather than going silent. **Neither is a fixed four-line form any
+     more** (David, 2026-09-17): that form made declining more burdensome to
+     write than fixing, which is the asymmetry this loop exists to remove.
 
-   - **Escape valve 2 — the class has exactly one member.** `instance = class`
-     is not an exemption from the oracle line. The command that proves the
-     class has one member goes on `Oracle:`, and its `1` goes on `Result:`.
-
-   - **The prose is held to the `Result:` bar.** A sentence in the reply's
-     body that asserts a fact about the code — that an edit applied, that a
-     flag exists, that a class has no other member — is a load-bearing claim
-     under `claude-core.md`'s *A load-bearing claim is quoted, or it is marked
+   - **The prose is held to the same bar as any evidence.** A sentence
+     asserting a fact about the code — that an edit applied, that a flag
+     exists, that a class has no other member — is a load-bearing claim under
+     `claude-core.md`'s *A load-bearing claim is quoted, or it is marked
      unverified*: it quotes what was read, or it carries `unable to verify:`.
      The reply that motivated this is on file in AI-Handbook #113.
 
-   **If I cannot write the command, I have not understood the finding** — that
-   is a signal to go back to the code, never a licence to reply in prose. This
-   applies to declines as hard as to fixes: declining with no oracle asserts
-   the class is empty without having looked.
+   - **A decline is recorded, not just replied to**: a row in the PR body's
+     **Recorded gaps** table naming what ships unfixed and why, so the final
+     round and David can see it in one place rather than inside a resolved
+     thread nobody re-reads.
 
 6. **Re-request review on the actual head.**
 

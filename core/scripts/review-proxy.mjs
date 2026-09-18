@@ -1,61 +1,57 @@
 #!/usr/bin/env node
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
- * The review proxy: David's step-back on a code-review round, fired
- * automatically instead of waiting for him to sense drift (#96).
+ * The review proxy: independent technical advice on a code-review round (#96).
  *
- * WHAT IT REPLACES, AND WHY THE REPLACEMENT IS SMALLER. The #89 cut removed an
- * adjudicator of 3,002 lines plus 2,607 of tests whose measured record on #91
- * was four dispatches, four agreements with the builder, and zero declines
- * citing it. It answered a compliance question the builder could already
- * answer, on a record a script assembled, on a trigger that was a number. This
- * asks an open question, on GitHub's own state, on a moment.
+ * WHAT THIS IS, AFTER THE 2026-09-17 REDESIGN. Codex returns findings. Astra
+ * and a Fable assessor each read the same findings, the same agreed intent and
+ * the same revision, separately, and each says what is actually wrong and
+ * whether acting on it is worthwhile. I compare the two, check disputed facts
+ * in the repository, ask Astra a focused follow-up when a real question of
+ * reasoning remains, and implement what is agreed. A purely technical
+ * disagreement that survives that is settled by the Fable assessor, with its
+ * reasoning recorded. Intended behaviour and accepted user-facing shortfalls
+ * are David's.
  *
- * WHAT IT IS FOR, IN ONE SENTENCE: the builder writes code for every finding
- * because a decline is a paragraph it must compose and defend while a fix is a
- * diff, and this fills the field instead so declining costs one line. The
- * measured failure is 41 findings and 41 fixes on #109, and roughly one
- * decline in seventeen on #102 -- the pull request that removed the previous
- * judge.
+ * WHAT IT REPLACED, AND WHY THE SHAPE CHANGED. The first version had Astra
+ * emit JSON whose per-finding disposition BOUND me, under a rubric that told
+ * it to decline most findings. David replaced that design after working
+ * through it with Astra: binding dispositions made every finding a
+ * jurisdiction question, and a decline quota is the mirror image of the fix
+ * quota it was built to fix. Both quotas are gone. There is no target rate in
+ * either direction, and the measure is whether David can see what mattered and
+ * why the response was proportionate.
  *
- * ITS ANSWER DECIDES, PER FINDING (David, 2026-09-16). The builder executes
- * each disposition without re-weighing it; a disagreement goes to David with
- * both views and is never an override. Its direction and next action are
- * recommendations. Product forks go to David. That split is deliberate: Astra
- * argued for a wholly advisory proxy, David kept the binding per-finding field
- * because "advisory" puts the decision back in the paragraph that is the
- * measured failure, and the dissent is recorded on #96.
+ * SO THERE IS NO SCHEMA HERE, DELIBERATELY. The substantive output is Markdown
+ * because a person reads it. This module supplies the same package to both
+ * assessors, stamps the metadata the harness already owns, and gets out of the
+ * way. **Nothing parses an assessment to decide what happens next.** What
+ * happens next is the action I state explicitly, in the block `actionBlock`
+ * renders -- so no phrase in an assessment can authorise work, and agent
+ * agreement never substitutes for David's approval.
  *
- * THE REVIEWER IS ASTRA, NOT FABLE (David, 2026-09-17). D0 stays Fable. A
- * Fable subagent can only DISCLOSE its model; the Codex CLI takes `--model` as
- * a flag and a read-only sandbox the role cannot escape, which is a stronger
- * guarantee for a verdict that decides than for an account that informs.
- *
- * NO SANDBOX OVERRIDE, unlike the plan runner, which permits workspace-write
- * under `--unpinned`. This reviews the live checkout.
+ * ASTRA IS THE CODEX CLI, PINNED, IN A READ-ONLY SANDBOX WITH NO OVERRIDE. The
+ * plan runner permits workspace-write under `--unpinned`; this reviews the live
+ * checkout and must not copy that escape hatch.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import {
-  modelTier,
-  validate,
-  assertSchemaSupported,
-  signInStatus,
-  spawnSyncDefault,
-  SIGN_IN_INSTRUCTIONS,
-  runCodex,
-} from "./machinery.mjs";
+import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex } from "./machinery.mjs";
 import { REVIEWS_DIR, ensureReviewsIgnored } from "./round-translation.mjs";
 
 export const ROLE = "review-proxy";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const briefPath = () => path.resolve(SCRIPT_DIR, "..", ".agents", "roles", `${ROLE}.md`);
-export const schemaPath = () => path.resolve(SCRIPT_DIR, "..", ".agents", "roles", "schemas", `${ROLE}.schema.json`);
-
-const loadSchema = () => JSON.parse(fs.readFileSync(schemaPath(), "utf8"));
+/**
+ * The Worth rule lives in ONE file and is quoted verbatim into both assessors'
+ * prompts and pointed at by the contracts. A judgement rule restated in three
+ * places is three rules a year from now.
+ */
+export const judgmentPath = () => path.resolve(SCRIPT_DIR, "..", "docs", "ai-context", "review-judgment.md");
 
 /** Read-only, with no flag that relaxes it. See the header. */
 export const SANDBOX = "read-only";
@@ -64,64 +60,76 @@ export const SANDBOX = "read-only";
 export const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 
 /**
- * The builder's "where we are" note is CAPPED AND FLATTENED, as the plan
- * runner does for disposition notes. It is the one channel where the builder
- * speaks in its own voice to a judge whose answer binds it, so it gets a
- * paragraph and not a brief -- a bound on how much of the prompt the judged
- * party's own framing may occupy. Not a defence against anything: there is no
- * adversary here, and the builder writing the note is the same party that
- * would remove the cap.
+ * My "where we are" note is capped and flattened, as the plan runner does for
+ * disposition notes: a bound on how much of the prompt the assessed party's
+ * own framing may occupy. Not a defence against anything -- I write the note
+ * and I would be the one removing the cap.
  */
 export const MAX_NOTE_CHARS = 300;
 
-export const LABELS = ["David", "oracle", "reviewer", "builder", "proxy"];
+export const LABELS = ["David", "oracle", "reviewer", "builder", "astra", "fable"];
 export const TIERS = ["product", "sensitive", "internal"];
-export const DISPOSITIONS = ["write", "decline", "no_change_needed", "to_david", "not_judged"];
-export const OUTCOMES = ["write", "finish", "ask_david", "insufficient_context"];
 
 /**
- * What each tier asks of the proxy, in the SCRIPT-OWNED prefix.
+ * What each tier tells an assessor, now that no tier sets a threshold.
  *
- * The lesson is `plan-review.mjs`'s, paid for on #102 round 1: a tier that is
- * validated, pinned and logged while never reaching the reviewer selects
- * nothing, and all three tiers generate identical instructions. So the caller
- * passes a name this file validates, and never a word the reviewer reads.
+ * UNDER THE OLD DESIGN THIS WAS A RUBRIC THAT DECIDED: `internal` reserved a
+ * write for "a very high chance of a CRITICAL flaw" and everything softer was
+ * a decline. That is exactly the quota David removed. What survives is the
+ * only thing a tier ever genuinely knew -- **what is downstream of the change**
+ * -- which the Worth rule needs in order to weigh a consequence at all, and
+ * which nobody but the caller can supply.
+ *
+ * The lesson from `plan-review.mjs` on #102 round 1 still binds: a tier that
+ * is validated, pinned and logged while never reaching the assessor selects
+ * nothing. So it reaches the assessor, in the script-owned prefix.
  */
-export const TIER_RUBRICS = {
+export const TIER_LENSES = {
   product: [
-    "**Tier: product.** This change becomes code David's users run and he cannot read. Write for a",
-    "defect that would reach a user or corrupt data. Weigh a finding by what someone would feel if it",
-    "shipped, never by how visible it is in the diff.",
+    "**What is downstream: product code.** Users run this and David cannot read it. Weigh consequences by",
+    "what someone using the product would experience, and for how long, before anyone noticed.",
   ],
   sensitive: [
-    "**Tier: sensitive.** This touches auth, payments or a migration, so consequence dominates",
-    "likelihood: an unlikely situation with a severe outcome is a `write`, and the usual 'this is a",
-    "narrow case' discount does not apply. Irreversibility is the test. The class-level rule still",
-    "binds here -- a sensitive tier is bound by it, never exempt from it.",
+    "**What is downstream: auth, payments or a migration.** Recoverability is the thing to weigh hardest",
+    "here, because a wrong authorization decision and a wrong migration cannot be taken back by a",
+    "follow-up fix. This does not make every finding in these areas worthwhile; it changes which factor",
+    "dominates.",
   ],
   internal: [
-    "**Tier: internal.** This is tooling, process or agent-facing documentation. Its blast radius is a",
-    "confused agent or a wrongly-blocked action, both of which announce themselves; nobody's data or",
-    "money is downstream. **`write` is reserved for a very high chance of a CRITICAL flaw: a",
-    "destructive or irreversible action, broken workstream tracking, or a widening of the builder's",
-    "own authority.** Everything softer is a `decline` and ships as a recorded gap. This repository's",
-    "measured failure is over-building tooling in response to correct findings, so expect most of this",
-    "round to be declines and do not read that as shirking.",
+    "**What is downstream: the software factory.** This is tooling, process, or instructions agents read.",
+    "Nobody's money or data is downstream, so weigh it by its effect on David's ability to direct agents,",
+    "build features, fix bugs and understand results -- including recurring reversible disruption, which",
+    "costs him real time even though each incident is individually recoverable.",
   ],
-};
-
-/** The answer file, derived identically by the writer and the reader. */
-export const answerPath = (root, pr, round) => {
-  assertCoordinates(pr, round);
-  return path.join(root, REVIEWS_DIR, `pr-${pr}`, `round-${round}.proxy.json`);
 };
 
 /**
- * A CHEAP WELL-FORMEDNESS CHECK ON AN INPUT THAT IS A CHOICE. The pull request
- * and round are the builder's to supply and no rule derives them, so they stay
- * inputs -- but both are interpolated into the answer path, where `pr: "12x"`
- * writes an answer the read for #12 never finds and reports as a failed
- * dispatch of a round that actually ran.
+ * What I can state as the next action. The list is short on purpose: it exists
+ * so the step after an assessment is something I SAY, never something inferred
+ * from an assessment's prose.
+ */
+export const ACTIONS = ["proceed", "investigate", "follow-up", "ask-david", "conclude"];
+
+export const SOURCES = ["astra", "fable"];
+
+/** The assessment file, derived identically by the writer and the reader. */
+export const assessmentPath = (root, pr, round, { source, followUp = 0 } = {}) => {
+  assertCoordinates(pr, round);
+  if (!SOURCES.includes(source)) {
+    throw new Error(`review-proxy: source must be one of ${SOURCES.join(", ")}, got ${JSON.stringify(source)}`);
+  }
+  if (!Number.isInteger(followUp) || followUp < 0) {
+    throw new Error(`review-proxy: followUp must be a non-negative integer, got ${JSON.stringify(followUp)}`);
+  }
+  const suffix = followUp > 0 ? `.followup-${followUp}` : "";
+  return path.join(root, REVIEWS_DIR, `pr-${pr}`, `round-${round}.${source}${suffix}.md`);
+};
+
+/**
+ * A cheap well-formedness check on inputs that are a choice. The pull request
+ * and round are mine to supply and no rule derives them, but both land in the
+ * assessment path, where `pr: "12x"` writes where the read for #12 never looks
+ * and reports a failed dispatch of an assessment that actually ran.
  */
 function assertCoordinates(pr, round) {
   for (const [name, value] of [["pr", pr], ["round", round]]) {
@@ -131,12 +139,60 @@ function assertCoordinates(pr, round) {
   }
 }
 
-export function prepareAnswerPath(root, pr, round) {
-  const file = answerPath(root, pr, round);
+const defaultGit = (args, cwd) => spawnSync("git", args, { cwd, encoding: "utf8" });
+
+/**
+ * REFUSE UNLESS THE CHECKOUT IS THE REVISION BEING ASSESSED.
+ *
+ * Both assessors read the live working tree. The prompt tells them which commit
+ * they are judging, and until this existed nothing made that true: on a delayed
+ * webhook, or after I had already pushed, they would read newer or uncommitted
+ * source, name the requested revision back, and give advice about code that was
+ * never reviewed. `claude-core.md` already required this of any dispatched
+ * judgement -- "check my working tree matches it when the question is about a
+ * tree" -- and the dispatch did not do it. (Codex, #120 round 2.)
+ *
+ * Refusing is right rather than harsh: the remedy is one checkout or one fresh
+ * dispatch for the new head, and both are cheaper than advice about the wrong
+ * code.
+ */
+export function assertCheckout(root, reviewedCommit, { git = defaultGit } = {}) {
+  const head = git(["rev-parse", "HEAD"], root);
+  if (head.status !== 0) {
+    throw new Error(`review-proxy: cannot read HEAD in ${root}: ${String(head.stderr ?? "").trim()}`);
+  }
+  const at = String(head.stdout ?? "").trim();
+  const want = reviewedCommit.trim();
+  // The shorter of the two decides: a marker carries a 10-character prefix, a
+  // caller may pass 7, and `rev-parse` returns all 40.
+  const n = Math.min(at.length, want.length);
+  if (at.slice(0, n) !== want.slice(0, n)) {
+    throw new Error(
+      `review-proxy: the checkout is at ${at.slice(0, 10)} but this assessment is of ${want}. Both assessors read ` +
+        `the live tree, so assessing from here would give advice about code the reviewer never saw. Check out the ` +
+        `reviewed commit, or dispatch for the current head instead.`,
+    );
+  }
+  const dirty = git(["status", "--porcelain"], root);
+  if (dirty.status !== 0) {
+    throw new Error(`review-proxy: cannot read the worktree state in ${root}: ${String(dirty.stderr ?? "").trim()}`);
+  }
+  const changed = String(dirty.stdout ?? "").trim();
+  if (changed !== "") {
+    throw new Error(
+      `review-proxy: the worktree has uncommitted changes, so it is not the revision being assessed:\n${changed}\n` +
+        `Commit or stash them, then dispatch.`,
+    );
+  }
+  return at;
+}
+
+export function prepareAssessmentPath(root, pr, round, opts) {
+  const file = assessmentPath(root, pr, round, opts);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   ensureReviewsIgnored(root);
-  // A STALE ANSWER MUST NEVER BE READ AS THIS DISPATCH'S. A re-dispatch after a
-  // crash would otherwise read its predecessor and report it as fresh.
+  // A stale assessment must never be read as this dispatch's. A re-dispatch
+  // after a crash would otherwise read its predecessor and report it as fresh.
   fs.rmSync(file, { force: true });
   return file;
 }
@@ -148,18 +204,27 @@ const cap = (s, n) => {
   return flat.length <= n ? flat : `${flat.slice(0, n - 1)}…`;
 };
 
+const readBrief = () => `${fs.readFileSync(briefPath(), "utf8").trim()}
+
+---
+
+# The Worth rule
+
+${fs.readFileSync(judgmentPath(), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "").trim()}`;
+
 /**
- * Compose the prompt.
+ * Compose the package both assessors receive.
  *
- * THE ROLE BRIEF IS READ VERBATIM FROM ITS FILE, never assembled here, so the
- * instruction David reviews is the instruction that runs. Everything this
- * function adds is the round's evidence, and every piece of it is labelled
- * with who said it -- which is the correction to the old adjudicator, whose
- * "untouchable context" doctrine excluded the builder's reasoning entirely and
- * so judged a round it could not see the argument of.
+ * THE BRIEF AND THE WORTH RULE ARE READ VERBATIM FROM THEIR FILES, never
+ * assembled here, so the instructions David reviewed are the instructions that
+ * run. Everything this function adds is the round's evidence, labelled with who
+ * said it.
+ *
+ * BOTH ASSESSORS GET THE SAME PACKAGE. That is what makes the two readings
+ * independent rather than merely separate: a difference between them is a
+ * difference of judgement, not of what they were told.
  */
-export function proxyBrief({
-  root = undefined,
+export function assessmentBrief({
   pr,
   round,
   tier,
@@ -168,68 +233,63 @@ export function proxyBrief({
   findings,
   history = [],
   builderNote = "",
-  io = undefined,
+  assessmentFile,
 }) {
   assertCoordinates(pr, round);
-  if (!TIER_RUBRICS[tier]) {
+  if (!TIER_LENSES[tier]) {
     throw new Error(`review-proxy: tier must be one of ${TIERS.join(", ")}, got ${JSON.stringify(tier)}`);
   }
   if (typeof reviewedCommit !== "string" || reviewedCommit.trim() === "") {
-    throw new Error("review-proxy: reviewedCommit must be the commit this round reviewed; the answer names it back");
+    throw new Error("review-proxy: reviewedCommit must be the commit this round reviewed");
   }
-  // THE ORACLE IS REQUIRED, AND THAT IS THE POINT (David, 2026-09-17): "we
-  // should officially agree on an oracle before any round starts". A proxy
-  // with no statement of what the work is for judges against the builder's
-  // own description of it, which is the blind spot #39 gap 3 named. Refusing
-  // here is what makes the agreement happen before the loop, not after.
+  // THE ORACLE IS REQUIRED (David, 2026-09-17): "we should officially agree on
+  // an oracle before any round starts". Refusing here is what makes the
+  // agreement happen before the loop rather than being noticed after it. The PR
+  // body is my own prose and is never the oracle.
   if (typeof oracle !== "string" || oracle.trim() === "") {
     throw new Error(
-      "review-proxy: an oracle is required and must be agreed with David before the first round. It is the intent " +
-        "he agreed before building -- an approved plan, an issue discussion, or a request he made -- recorded where " +
-        "it can be quoted. The PR body is the builder's own prose and is not an oracle.",
+      "review-proxy: an oracle is required and must be agreed with David before the first round. It is the outcome " +
+        "he agreed the work should achieve -- an approved plan, an issue discussion, or an explicit request -- " +
+        "recorded where it can be quoted. The PR body is the builder's own prose and is not an oracle.",
     );
   }
   if (!Array.isArray(findings) || findings.length === 0) {
-    throw new Error("review-proxy: the proxy is dispatched on a round that RETURNED findings; there are none here");
+    throw new Error("review-proxy: the assessors are dispatched on a round that RETURNED findings; there are none here");
   }
-  // THE ID IS COERCED, BECAUSE GITHUB'S IS A NUMBER. `get_review_comments`
-  // returns integer comment ids and JSON keeps them integers, so the skill's
-  // own instruction -- "the id is GitHub's own comment id" -- produced findings
-  // this refused, which would have broken the mandatory dispatch on every real
-  // round. The answer schema types ids as strings, so one coercion here is what
-  // makes both ends agree. (Codex, #120 round 1.)
   const seen = new Set();
   for (const f of findings) {
+    // GitHub's review-comment ids are integers and JSON keeps them integers, so
+    // the id is coerced rather than demanded as a string. (Codex, #120 round 1.)
     const id = f == null || f.id == null ? "" : String(f.id).trim();
     if (id === "") throw new Error(`review-proxy: every finding needs a stable id, got ${JSON.stringify(f?.id)}`);
-    if (seen.has(id)) throw new Error(`review-proxy: finding id ${id} appears twice; ids key the answer`);
+    if (seen.has(id)) throw new Error(`review-proxy: finding id ${id} appears twice; ids key the assessment`);
     seen.add(id);
   }
 
   const lines = [
-    fs.readFileSync(briefPath(), "utf8").trim(),
+    readBrief(),
     "",
     "---",
     "",
     "# This round",
     "",
-    ...TIER_RUBRICS[tier],
+    ...TIER_LENSES[tier],
     "",
-    `- **Pull request:** #${pr}, round ${round}.`,
-    `- **Reviewed commit:** \`${reviewedCommit}\` — the commit this round reviewed and the one you are judging. ` +
-      "Read source and tests at this commit. Return it unchanged in `reviewed_commit`.",
-    `- **Repository root:** the working directory you were started in, read-only.`,
+    `- **Reviewed commit:** \`${reviewedCommit}\` — the revision you are assessing. The checkout you are reading ` +
+      "is at this commit and is clean; the dispatch refuses otherwise.",
+    `- **Repository root:** the working directory you were started in.`,
+    assessmentFile ? `- **Write your assessment to:** \`${assessmentFile}\`` : null,
     "",
-    "## [oracle] What this work is for",
+    "## [oracle] The outcome this work is meant to achieve",
     "",
-    "Agreed with David before this loop started. This is the authority on scope; the pull request body is not.",
+    "Agreed with David before this loop started. Authority over intended behaviour, scope and acceptance.",
     "",
     oracle.trim(),
     "",
-  ];
+  ].filter((l) => l !== null);
 
   if (history.length) {
-    lines.push("## The loop so far, labelled by who said it", "");
+    lines.push("## What has happened so far, labelled by who said it", "");
     for (const entry of history) {
       if (!entry || !LABELS.includes(entry.label)) {
         throw new Error(`review-proxy: every history entry carries a label from ${LABELS.join(", ")}, got ${JSON.stringify(entry?.label)}`);
@@ -239,22 +299,19 @@ export function proxyBrief({
     lines.push("");
   }
 
-  lines.push("## [reviewer] This round's findings", "", "Judge every one. Return one entry per id, using these ids exactly.", "");
+  lines.push("## [reviewer] This round's findings", "", "Cover every one, using these IDs exactly.", "");
   for (const f of findings) {
     lines.push(`### Finding \`${String(f.id).trim()}\``, "");
     if (f.path) lines.push(`- Location: \`${f.path}\`${f.line ? `:${f.line}` : ""}`);
-    if (f.author) lines.push(`- Raised by: ${f.author}`);
     lines.push("", String(f.body ?? "").trim(), "");
   }
 
-  // THE BUILDER SPEAKS LAST AND BRIEFLY, and is labelled, so its framing cannot
-  // pass as the round's facts.
   lines.push(
     "## [builder] Where the builder says it is",
     "",
     builderNote.trim() ? cap(builderNote, MAX_NOTE_CHARS) : "(the builder supplied no note)",
     "",
-    "A claim to check, never authority. Weigh it against the code.",
+    "A claim to evaluate, never authority.",
     "",
   );
 
@@ -262,216 +319,172 @@ export function proxyBrief({
 }
 
 /**
- * Validate the answer: the schema first, then what a schema cannot say.
+ * Compose a focused follow-up.
  *
- * The semantic checks are the ones whose absence would let a well-formed
- * answer be incoherent -- and an incoherent answer here is worse than a
- * malformed one, because the builder executes it. Each is a behaviour, tested
- * as one.
+ * THIS RUNS ON THE SAME REVISION, WITH NO NEW COMMIT AND NO NEW CODEX ROUND.
+ * That is the property the design turns on: a disagreement about reasoning
+ * should cost one question, not a round trip through the whole loop.
+ *
+ * IT IS NARROW BY CONSTRUCTION. The earlier assessment is quoted so nothing has
+ * to be remembered, and the brief says plainly that everything not asked about
+ * keeps its earlier status -- including unresolved questions and decisions
+ * waiting on David. A follow-up that silently cleared them would be worse than
+ * no follow-up, because it would look like agreement.
  */
-export function validateAnswer(answer, { findingIds = [], reviewedCommit = null } = {}) {
-  const schema = loadSchema();
-  assertSchemaSupported(schema, ROLE);
-  const problems = validate(answer, schema, ROLE);
-  if (problems.length) return problems;
-
-  const given = new Set(findingIds);
-  const answered = new Map();
-  for (const f of answer.findings) {
-    if (answered.has(f.id)) problems.push(`${ROLE}: finding "${f.id}" is dispositioned twice`);
-    answered.set(f.id, f);
-    if (given.size && !given.has(f.id)) problems.push(`${ROLE}: finding "${f.id}" was not in this round`);
-    // A `write` WITHOUT AN OBSERVABLE CHECK IS A WISH. The builder executes
-    // dispositions without re-weighing them, so "fix this" with no condition
-    // to meet hands it an unbounded task and no way to know it is done.
-    if (f.disposition === "write") {
-      if (!f.correction.trim()) problems.push(`${ROLE}: finding "${f.id}" is a write with no correction`);
-      if (!f.acceptance_check.trim()) problems.push(`${ROLE}: finding "${f.id}" is a write with no acceptance check`);
-    } else if (f.correction.trim() || f.acceptance_check.trim()) {
-      // A DECLINE CARRYING A FIX IS A WRITE IN DISGUISE, and the builder would
-      // read the fix and write it, which is exactly the failure being removed.
-      problems.push(`${ROLE}: finding "${f.id}" is "${f.disposition}" but carries a correction or acceptance check`);
+export function followUpBrief({
+  pr,
+  round,
+  reviewedCommit,
+  findingIds,
+  question,
+  fableReasoning,
+  newEvidence = [],
+  priorAssessment,
+  assessmentFile,
+}) {
+  assertCoordinates(pr, round);
+  for (const [name, value] of [["question", question], ["priorAssessment", priorAssessment]]) {
+    if (typeof value !== "string" || value.trim() === "") {
+      throw new Error(`review-proxy: a follow-up needs ${name}; got ${JSON.stringify(value)}`);
     }
   }
-  for (const id of given) {
-    if (!answered.has(id)) problems.push(`${ROLE}: finding "${id}" was raised this round and has no disposition`);
+  if (!Array.isArray(findingIds) || findingIds.length === 0) {
+    throw new Error("review-proxy: a follow-up names the finding IDs in dispute; there are none here");
   }
+  const lines = [
+    readBrief(),
+    "",
+    "---",
+    "",
+    "# A focused follow-up",
+    "",
+    "This is not a new assessment. Answer the question below directly: what the new evidence establishes, whether",
+    "your recommendation changes, and what remains unresolved. **Everything you are not asked about keeps the status",
+    "it already has**, including unresolved questions and decisions waiting on David. Do not repeat the assessment.",
+    "",
+    `- **Reviewed commit:** \`${reviewedCommit}\` — unchanged since your assessment; no new code has been written.`,
+    `- **Findings in dispute:** ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`,
+    assessmentFile ? `- **Write your answer to:** \`${assessmentFile}\`` : null,
+    "",
+    "## The question",
+    "",
+    question.trim(),
+    "",
+  ].filter((l) => l !== null);
 
-  const writes = answer.findings.filter((f) => f.disposition === "write");
-  const questions = answer.product_decisions_for_david;
-  // A CLEAN ROUND NEVER ERASES AN OUTSTANDING HUMAN DECISION, and never hides
-  // a fix nobody wrote. This is the check that makes `finish` mean something.
-  if (answer.outcome === "finish") {
-    if (writes.length) problems.push(`${ROLE}: outcome "finish" with ${writes.length} finding(s) still to write`);
-    if (questions.length) problems.push(`${ROLE}: outcome "finish" with ${questions.length} unanswered question(s) for David`);
+  if (fableReasoning && fableReasoning.trim()) {
+    lines.push("## [fable] The other assessor's reasoning", "", fableReasoning.trim(), "");
   }
-  if (answer.outcome === "write" && !writes.length) {
-    problems.push(`${ROLE}: outcome "write" but no finding is dispositioned "write"`);
+  if (newEvidence.length) {
+    lines.push("## New evidence, with its provenance", "");
+    for (const e of newEvidence) lines.push(`- **[${e.source ?? "builder"}]** ${flatten(e.text ?? e)}`);
+    lines.push("");
   }
-  if (answer.outcome === "ask_david" && !questions.length) {
-    problems.push(`${ROLE}: outcome "ask_david" but no question is recorded for him`);
-  }
-  // AN ANSWER THAT COULD NOT JUDGE MUST NOT BIND. The brief tells the proxy to
-  // say `insufficient_context` rather than guess, and the builder executes
-  // `write` without re-weighing -- so the two together were a validated answer
-  // that says "I could not judge this" and still orders code written. The
-  // per-finding `not_judged` state is what lets it decline to rule on one
-  // finding at all, and it travels with the outcome in both directions.
-  // (Codex, #120 round 1.)
-  const notJudged = answer.findings.filter((f) => f.disposition === "not_judged");
-  if (answer.outcome === "insufficient_context" && writes.length) {
-    problems.push(`${ROLE}: outcome "insufficient_context" cannot order ${writes.length} finding(s) written`);
-  }
-  if (notJudged.length && answer.outcome !== "insufficient_context") {
-    problems.push(
-      `${ROLE}: ${notJudged.length} finding(s) are "not_judged" but the outcome is "${answer.outcome}"; a round that could not judge a finding is "insufficient_context"`,
-    );
-  }
-  // A `to_david` DISPOSITION IS A QUESTION OR IT IS NOTHING: without an entry
-  // in the list, the finding is parked with nobody holding it.
-  if (answer.findings.some((f) => f.disposition === "to_david") && !questions.length) {
-    problems.push(`${ROLE}: a finding is sent to David but no question is recorded for him`);
-  }
-  if (reviewedCommit && answer.reviewed_commit.trim() !== reviewedCommit.trim()) {
-    problems.push(`${ROLE}: the answer names commit "${answer.reviewed_commit}" but this round judged "${reviewedCommit}"`);
-  }
-  return problems;
+  lines.push("## [astra] Your earlier assessment of this round, quoted", "", priorAssessment.trim(), "");
+  return lines.join("\n");
 }
 
 /**
- * Read the answer, in the shape the renderers consume.
+ * Read an assessment.
  *
- * One shape for all three delivery failures -- no file, unparseable, invalid
- * -- because each is visibly a failure and none may wear the clothes of a
- * quiet round. The lesson is D0's: a failed read that rendered as "nothing to
- * report" was a P1 on #109.
+ * ALL THAT IS CHECKED IS THAT SOMETHING SUBSTANTIVE ARRIVED. There is no schema
+ * any more, so there is nothing to validate against; prose is judged by reading
+ * it. What still matters is that a missing or empty file is reported as a
+ * FAILED dispatch in plain words, never as a quiet round -- the lesson from
+ * #109, where a failed read rendered as "nothing to report".
  */
-export function readAnswer(root, pr, round, { findingIds = [], reviewedCommit = null } = {}) {
-  const file = answerPath(root, pr, round);
-  const failed = (reason) => ({ pr, round, failed: true, reason });
+export function readAssessment(root, pr, round, opts = {}) {
+  const file = assessmentPath(root, pr, round, opts);
+  const failed = (reason) => ({ pr, round, source: opts.source, failed: true, reason });
   let raw;
   try {
     raw = fs.readFileSync(file, "utf8");
   } catch (err) {
-    return failed(`the proxy wrote no answer file (${err.code === "ENOENT" ? "not found" : err.code})`);
+    return failed(`${opts.source} wrote no assessment file (${err.code === "ENOENT" ? "not found" : err.code})`);
   }
-  let answer;
-  try {
-    answer = JSON.parse(raw);
-  } catch (err) {
-    return failed(`the answer file is not valid JSON: ${err.message}`);
-  }
-  const problems = validateAnswer(answer, { findingIds, reviewedCommit });
-  if (problems.length) return failed(`the answer did not match the expected shape: ${problems.join("; ")}`);
-  return { pr, round, answer };
+  if (raw.trim() === "") return failed(`${opts.source} wrote an empty assessment file`);
+  return { pr, round, source: opts.source, followUp: opts.followUp ?? 0, markdown: raw.trim() };
 }
 
-/**
- * What the builder must do, read off the answer rather than off its own
- * reading of it. The loop's next step is a function of the verdict, so the
- * verdict is what computes it.
- */
-export function dispositions(result) {
-  if (result.failed) return { failed: true, reason: result.reason, writes: [], declines: [], questions: [] };
-  const a = result.answer;
-  return {
-    failed: false,
-    outcome: a.outcome,
-    writes: a.findings.filter((f) => f.disposition === "write"),
-    declines: a.findings.filter((f) => f.disposition === "decline"),
-    noChange: a.findings.filter((f) => f.disposition === "no_change_needed"),
-    toDavid: a.findings.filter((f) => f.disposition === "to_david"),
-    questions: a.product_decisions_for_david,
-  };
-}
-
-const OUTCOME_HEADLINES = {
-  write: "write the fixes below, and nothing else from this round",
-  finish: "nothing left to write — the loop stops on this head",
-  ask_david: "David has to decide before this goes further",
-  insufficient_context: "could not judge this round on what it could reach",
-};
+const SOURCE_NAMES = { astra: "Astra", fable: "Fable" };
 
 /**
- * The comment posted on the pull request, every dispatch.
+ * The comment posted on the pull request.
  *
- * IT IS RENDERED FROM THE VALIDATED ANSWER, NEVER PARAPHRASED. This is the
- * durable record of the proxy's reasoning, replacing the committed verdict
- * JSON the #89 cut removed, and it is what David and the next session read. A
- * builder that summarised it could summarise away the decline it disliked.
- *
- * The declines are printed in full and never folded into a count, because a
- * decline is the proxy overruling the reviewer on David's behalf and he asked
- * to see what is being chosen against (2026-09-17).
+ * THE ASSESSMENT IS PASSED THROUGH VERBATIM. I do not summarise it, reorder it,
+ * or drop the part I disagree with; my own view goes in my own comment, beside
+ * it. The only thing this adds is the header, and the header is deliberately
+ * the metadata the harness already owns -- pull request, revision, which
+ * assessment, which findings -- because asking a model to restate facts nobody
+ * was missing spends the reader's attention for nothing.
  */
-export function prComment(result) {
+export function prComment(result, { reviewedCommit = null, findingIds = [], model = null } = {}) {
+  const who = SOURCE_NAMES[result.source] ?? result.source;
+  const what = result.followUp ? `round ${result.round}, follow-up ${result.followUp}` : `round ${result.round}`;
   if (result.failed) {
     return [
-      `## Review proxy — round ${result.round}: **dispatch failed**`,
+      `## ${who} — ${what}: **dispatch failed**`,
       "",
-      `No independent judgement of this round exists: ${result.reason}.`,
+      `No independent assessment from ${who} exists for this round: ${result.reason}.`,
       "",
-      "This is a failure of the proxy, not a report that the round was quiet. The builder does not",
-      "take it as permission to write, and says in the round report that the proxy could not run.",
+      "This is a failure of the dispatch, not a report that the round was quiet, and it is not permission to",
+      "proceed on one assessment alone.",
     ].join("\n");
   }
-  const a = result.answer;
-  const d = dispositions(result);
-  const out = [
-    `## Review proxy — round ${result.round}: **${OUTCOME_HEADLINES[a.outcome]}**`,
-    "",
-    a.summary_for_david,
-    "",
-    `**Should this exist?** ${a.should_this_exist} — ${a.should_this_exist_reason}`,
-    "",
-    `**Next action.** ${a.next_action}`,
-    "",
-    `**Judged at** \`${a.reviewed_commit}\`.`,
-    "",
-    `### Dispositions (${a.findings.length})`,
-    "",
-  ];
-  for (const f of a.findings) {
-    out.push(`- **${f.disposition}** \`${f.id}\` — ${f.worth}`);
-    if (f.disposition === "write") out.push(`  - Correction: ${f.correction}`, `  - Done when: ${f.acceptance_check}`);
-  }
-  if (d.declines.length) {
-    out.push("", `### Shipping as recorded gaps (${d.declines.length})`, "");
-    for (const f of d.declines) out.push(`- \`${f.id}\` — ${f.worth}`);
-  }
-  if (a.product_decisions_for_david.length) {
-    out.push("", `### For David (${a.product_decisions_for_david.length})`, "");
-    for (const q of a.product_decisions_for_david) {
-      out.push(`- **${q.question}**`);
-      for (const o of q.options) out.push(`  - ${o}`);
-      out.push(`  - *Proxy's recommendation:* ${q.recommendation}`);
-    }
-  }
-  out.push("", `### The batch as a whole`, "", a.batch_assessment);
-  out.push("", "### What it checked, and what it could not", "");
-  out.push(a.verified_claims.length ? a.verified_claims.map((c) => `- Verified: ${c}`).join("\n") : "- Verified: nothing recorded");
-  out.push(
-    a.unable_to_verify.length
-      ? a.unable_to_verify.map((c) => `- Unable to verify: ${c}`).join("\n")
-      : "- Unable to verify: nothing reported",
-  );
-  return out.join("\n");
+  const header = [`## ${who} — ${what}`, ""];
+  const facts = [];
+  if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
+  if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
+  if (model) facts.push(`${model}`);
+  if (facts.length) header.push(`*${facts.join(" · ")}*`, "");
+  return [...header, result.markdown].join("\n");
 }
 
 /**
- * Run the proxy. Returns the runner's own outcome; the ANSWER is read from the
- * file, never from this return value and never from the transcript.
+ * The next action, stated by me.
+ *
+ * NOTHING PARSES AN ASSESSMENT TO GET HERE. The oracle is explicit that the
+ * harness acts on my explicit selection and never on a phrase inferred from an
+ * assessment, and that agent agreement does not substitute for David's
+ * approval. This renders that selection as a block a reader can find, in the
+ * shape `plan-provenance` already uses in a PR body.
  */
-export function dispatch({ root, pr, round, prompt, timeoutMs = DEFAULT_TIMEOUT_MS, run = spawnSyncDefault, io = undefined }) {
+export function actionBlock({ action, findingIds = [], note = "" }) {
+  if (!ACTIONS.includes(action)) {
+    throw new Error(`review-proxy: action must be one of ${ACTIONS.join(", ")}, got ${JSON.stringify(action)}`);
+  }
+  const lines = ["```review-action", `action: ${action}`];
+  if (findingIds.length) lines.push(`findings: ${findingIds.map((id) => String(id).trim()).join(", ")}`);
+  if (note.trim()) lines.push(`note: ${flatten(note)}`);
+  lines.push("```");
+  return lines.join("\n");
+}
+
+/**
+ * Run Astra. The assessment is read from the file, never from this return
+ * value and never from the transcript.
+ */
+export function dispatch({
+  root,
+  pr,
+  round,
+  prompt,
+  reviewedCommit,
+  followUp = 0,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  run = spawnSyncDefault,
+  git = defaultGit,
+  io = undefined,
+}) {
+  assertCheckout(root, reviewedCommit, { git });
   const status = signInStatus({ run });
   if (!status.signedIn) {
     return { ok: false, signIn: true, reason: status.missingBinary ? "no codex binary" : status.detail, instructions: SIGN_IN_INSTRUCTIONS };
   }
   const reviewer = modelTier("strongestCodex", io);
-  const outFile = prepareAnswerPath(root, pr, round);
+  const outFile = prepareAssessmentPath(root, pr, round, { source: "astra", followUp });
   const outcome = runCodex({
     prompt,
-    schemaFile: schemaPath(),
     outFile,
     model: reviewer.id,
     effort: reviewer.effort,
@@ -484,37 +497,67 @@ export function dispatch({ root, pr, round, prompt, timeoutMs = DEFAULT_TIMEOUT_
 }
 
 export const USAGE = [
-  "review-proxy — David's step-back on one code-review round.",
+  "review-proxy — independent technical advice on one code-review round.",
   "",
-  "  node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --tier <t> \\",
-  "      --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
+  "  Assessment:",
+  "    node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --tier <t> \\",
+  "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   "",
-  `  --tier          one of ${TIERS.join(", ")}`,
-  "  --oracle-file   the intent David agreed BEFORE this loop started. Required; there is no default.",
-  "  --findings-file JSON array of { id, body, author?, path?, line? } — this round's findings.",
+  "  Focused follow-up (same revision, no new commit, no new Codex round):",
+  "    node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --follow-up <n> \\",
+  "        --question <text> --findings <id,id> --prior-file <path> [--fable-file <path>]",
+  "",
+  `  --tier          one of ${TIERS.join(", ")} — what is downstream, not a threshold`,
+  "  --oracle-file   the outcome David agreed BEFORE this loop started. Required; there is no default.",
+  "  --findings-file JSON array of { id, body, path?, line? } — this round's findings.",
   "  --history-file  JSON array of { label, text } — labels: " + LABELS.join(", "),
   "  --note          the builder's 'where we are', capped at " + MAX_NOTE_CHARS + " characters.",
   "",
-  `  The reviewer is pinned to the strongestCodex tier and the ${SANDBOX} sandbox, with no override.`,
+  `  Astra is pinned to the strongestCodex tier in the ${SANDBOX} sandbox, with no override, and the`,
+  "  dispatch refuses unless the checkout is at --commit and clean. The Fable assessment is a subagent",
+  "  dispatched by the builder, not by this script; both read the package this script composes.",
 ].join("\n");
+
+const FLAGS = {
+  pr: "pr",
+  round: "round",
+  commit: "commit",
+  tier: "tier",
+  "oracle-file": "oracleFile",
+  "findings-file": "findingsFile",
+  "history-file": "historyFile",
+  note: "note",
+  "follow-up": "followUp",
+  question: "question",
+  findings: "findings",
+  "prior-file": "priorFile",
+  "fable-file": "fableFile",
+  "prompt-only": "promptOnly",
+};
+
+const NUMERIC = new Set(["pr", "round", "followUp"]);
+const BOOLEAN = new Set(["promptOnly"]);
 
 export function parseArgs(argv) {
   const flags = {};
-  const names = { pr: "pr", round: "round", commit: "commit", tier: "tier", "oracle-file": "oracleFile", "findings-file": "findingsFile", "history-file": "historyFile", note: "note" };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (!arg.startsWith("--")) throw new Error(`review-proxy: unexpected argument ${JSON.stringify(arg)}`);
-    const key = names[arg.slice(2)];
+    const key = FLAGS[arg.slice(2)];
     if (!key) throw new Error(`review-proxy: unknown flag ${arg}`);
+    if (BOOLEAN.has(key)) {
+      flags[key] = true;
+      continue;
+    }
     const value = argv[i + 1];
     if (value === undefined || value.startsWith("--")) throw new Error(`review-proxy: ${arg} needs a value`);
-    flags[key] = key === "pr" || key === "round" ? Number(value) : value;
+    flags[key] = NUMERIC.has(key) ? Number(value) : value;
     i += 1;
   }
   return flags;
 }
 
-export function main(argv = process.argv.slice(2), { root = process.cwd(), run = spawnSyncDefault, log = console.error } = {}) {
+export function main(argv = process.argv.slice(2), { root = process.cwd(), run = spawnSyncDefault, git = defaultGit, log = console.error } = {}) {
   let flags;
   try {
     flags = parseArgs(argv);
@@ -522,48 +565,68 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
     log(`${err.message}\n\n${USAGE}`);
     return 2;
   }
-  const findings = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));
-  const history = flags.historyFile ? JSON.parse(fs.readFileSync(flags.historyFile, "utf8")) : [];
+  const followUp = flags.followUp ?? 0;
   let prompt;
   try {
-    prompt = proxyBrief({
-      root,
-      pr: flags.pr,
-      round: flags.round,
-      tier: flags.tier,
-      reviewedCommit: flags.commit,
-      oracle: fs.readFileSync(flags.oracleFile, "utf8"),
-      findings,
-      history,
-      builderNote: flags.note ?? "",
-    });
+    const file = assessmentPath(root, flags.pr, flags.round, { source: "astra", followUp });
+    prompt = followUp
+      ? followUpBrief({
+          pr: flags.pr,
+          round: flags.round,
+          reviewedCommit: flags.commit,
+          findingIds: String(flags.findings ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+          question: flags.question,
+          fableReasoning: flags.fableFile ? fs.readFileSync(flags.fableFile, "utf8") : "",
+          priorAssessment: fs.readFileSync(flags.priorFile, "utf8"),
+          assessmentFile: file,
+        })
+      : assessmentBrief({
+          pr: flags.pr,
+          round: flags.round,
+          tier: flags.tier,
+          reviewedCommit: flags.commit,
+          oracle: fs.readFileSync(flags.oracleFile, "utf8"),
+          findings: JSON.parse(fs.readFileSync(flags.findingsFile, "utf8")),
+          history: flags.historyFile ? JSON.parse(fs.readFileSync(flags.historyFile, "utf8")) : [],
+          builderNote: flags.note ?? "",
+          assessmentFile: file,
+        });
   } catch (err) {
     log(`${err.message}\n\n${USAGE}`);
     return 2;
   }
-  const result = dispatch({ root, pr: flags.pr, round: flags.round, prompt, run });
+  // `--prompt-only` writes the package the Fable assessor gets, so both
+  // assessors demonstrably receive the same words rather than two compositions
+  // that happen to look alike.
+  if (flags.promptOnly) {
+    process.stdout.write(`${prompt}\n`);
+    return 0;
+  }
+  let result;
+  try {
+    result = dispatch({ root, pr: flags.pr, round: flags.round, prompt, reviewedCommit: flags.commit, followUp, run, git });
+  } catch (err) {
+    log(`review-proxy: ${err.message}`);
+    return 2;
+  }
   if (result.signIn) {
     log(`review-proxy: ${result.instructions}`);
     return 2;
   }
-  log(`review-proxy: round ${flags.round} on ${result.reviewer.id} (${result.reviewer.effort}, ${SANDBOX}) — ${result.seconds}s`);
-  // A FAILED PROCESS IS NEVER AN ACCEPTED ANSWER, even when a schema-valid file
-  // is sitting there: `codex exec` can write its last message and then exit
-  // non-zero, and reading the file anyway printed a confident verdict and
-  // exited 0 while the contract promised the opposite. The dispatch's own
-  // status is checked before the file is believed. (Codex, #120 round 1.)
+  log(`review-proxy: ${followUp ? `follow-up ${followUp} on ` : ""}round ${flags.round} on ${result.reviewer.id} (${result.reviewer.effort}, ${SANDBOX}) — ${result.seconds}s`);
+  // A FAILED PROCESS IS NEVER AN ACCEPTED ASSESSMENT, even when a file is
+  // sitting there: `codex exec` can write its last message and then exit
+  // non-zero. (Codex, #120 round 1.)
   const read = result.ok
-    ? readAnswer(root, flags.pr, flags.round, { findingIds: findings.map((f) => String(f.id).trim()), reviewedCommit: flags.commit })
+    ? readAssessment(root, flags.pr, flags.round, { source: "astra", followUp })
     : {
         pr: flags.pr,
         round: flags.round,
+        source: "astra",
         failed: true,
-        reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}${result.error ? `: ${result.error.message}` : ""}`,
+        reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };
-  process.stdout.write(`${prComment(read)}\n`);
-  // A FAILED DISPATCH IS NEVER PERMISSION TO SHIP. It exits non-zero, and the
-  // comment it printed says so in words rather than leaving a caller to read
-  // an exit code it may not check.
+  process.stdout.write(`${prComment(read, { reviewedCommit: flags.commit, model: result.reviewer.id })}\n`);
   return read.failed ? 1 : 0;
 }
 

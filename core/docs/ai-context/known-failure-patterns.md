@@ -2831,6 +2831,8 @@ answer the consequence *of that class at its worst*, not of the example in
 front of you. The tell is a decline whose consequence clause quotes details
 specific to the reviewer's scenario — "gitignored", "one directory over", "a
 file I chose by hand". Those are properties of the example. Strip them and ask
-what remains reachable. And treat a class the reviewer raises a second time as
-evidence the first decline was mis-sized, not as repetition: re-triage it on
-the new instance and name which half of the original judgement was wrong.
+what remains reachable. And re-examine a class the reviewer raises a second
+time on its new evidence and scope, naming what the new instance shows that the
+first did not. **Repetition alone does not establish that the earlier judgement
+was wrong** (David, 2026-09-17): the rule used to say it did, which turned any
+persistent reviewer into an override.

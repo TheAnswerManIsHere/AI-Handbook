@@ -450,14 +450,20 @@ export const SIGN_IN_INSTRUCTIONS = [
  * stdout and stderr are inherited so a long run shows progress where a human
  * or a log file can see it; the answer never comes from either stream.
  */
-export function runCodex({ prompt, schemaFile, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
+export function runCodex({ prompt, schemaFile = null, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
   const args = [
     "exec",
     "--model", model,
     "-c", `model_reasoning_effort="${effort}"`,
     "--sandbox", sandbox,
     "--cd", cwd,
-    "--output-schema", schemaFile,
+    // `--output-schema` IS OPTIONAL, because one caller has no schema. The plan
+    // reviewer fills a contract's fixed surface and is constrained to it; the
+    // review proxy's substantive output is Markdown a person reads, so there is
+    // nothing to constrain it to and a schema would only invent one. Omitting
+    // the flag entirely is the honest shape -- passing an empty path would make
+    // `codex exec` fail on a file it cannot open.
+    ...(schemaFile ? ["--output-schema", schemaFile] : []),
     "--output-last-message", outFile,
     "--ephemeral",
     "--ignore-user-config",
