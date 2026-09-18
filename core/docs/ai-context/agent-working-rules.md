@@ -337,6 +337,18 @@ in the product.
   → summarize your position and escalate to David; don't silently rewrite the
   design on a reviewer's say-so, even a bot's. David doesn't need to triage every
   nit, but he weighs in on anything that's a real decision.
+  **On a PLANNING loop this bullet stops at the word "behavior"** (2026-09-18):
+  two approaches serving the same agreed behaviour, scope and explicit
+  constraints are the loop's own to settle — through investigation and
+  discussion, and if the disagreement survives both, by the party holding the
+  plan, with the reasoning recorded. What still reaches David there is intended
+  behaviour, scope, a knowingly accepted user-facing shortfall, and approval of
+  the plan; and a constraint he required explicitly does not become negotiable
+  for being technical. [`planning-contract.md`](./planning-contract.md) is the
+  authority. **The code review loop keeps this bullet exactly as written above**
+  — it has no technical tie-break, and the same rule in
+  [`code-review.md`](../engineering/code-review.md) and the `pr-watch` skill is
+  correct there and deliberately unchanged.
 - Keep external-facing chatter (GitHub replies) frugal and specific.
 
 ---

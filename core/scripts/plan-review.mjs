@@ -388,11 +388,29 @@ export function normalizeLedger(raw) {
           `can be READ rather than reconstructed from a summary of it.`,
       );
     }
+    // EVERY STATE CARRIES ITS TEXT. This used to exempt the settled states, on
+    // the premise that `source` held the reasoning instead -- a premise the
+    // test that covered it stated in its own name ("because its source holds
+    // it") and which is false: `source` is validated as any non-empty string,
+    // and the error above documents a PERSON'S NAME as a valid one. A settled
+    // concern sourced to "Astra" rendered an empty fenced block under the
+    // heading "The concern, as written", followed by prose saying the full
+    // reasoning was in the source file (Codex and both assessors, #124 round 7,
+    // reproduced verbatim by the Fable assessor).
+    //
+    // REMOVING THE EXEMPTION RATHER THAN VALIDATING `source` AS A PATH, which
+    // was the reviewer's first suggestion and the Fable assessor's tie-break
+    // went the other way: this deletes a conditional instead of adding a check,
+    // keeps the documented person-name source safe rather than forbidden, and
+    // makes the ledger self-contained -- which is what "earlier reasoning
+    // survives across exchanges" actually requires. Rendering by reference is
+    // untouched, so no package grows; only the ledger file does.
     const concern = typeof c.concern === "string" ? c.concern.trim() : "";
-    if (ALWAYS_FULL.has(c.state) && concern === "") {
+    if (concern === "") {
       throw new Error(
-        `${at} (${id}) is "${c.state}" but carries no "concern" text. An unresolved concern with no reasoning is a ` +
-          `title pretending to be a concern, and the exchange that reads it cannot engage with anything.`,
+        `${at} (${id}) carries no "concern" text. Every concern keeps its reasoning in the ledger, in every state: ` +
+          `a settled one is rendered by reference rather than in full, and "by reference" has to lead somewhere. ` +
+          `"source" can be a person rather than a file, so it cannot be relied on to hold the argument.`,
       );
     }
     return {
@@ -658,7 +676,14 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
         "",
         `- \`${predecessor.plan}\` — the plan exactly as exchange ${predecessor.round} read it. Diff it against the`,
         "  live plan to see what the revision actually changed.",
-        `- \`${predecessor.assessment}\` — your own assessment from that exchange, in full.`,
+        // ROLE-NEUTRAL, because this line is emitted to BOTH roles from the
+        // shared section. It said "your own assessment", which is true for
+        // Astra and false for me -- the file is Astra's, and my own package
+        // addresses me in the second person as a participant, so it read as an
+        // attribution rather than a mirror (Codex and both assessors, #124
+        // round 7). A role-dependent fact outside the role block is exactly
+        // what the role block exists to prevent.
+        `- \`${predecessor.assessment}\` — the assessment from that exchange, in full.`,
         "",
         "Read them if you are judging what changed or whether an earlier conclusion still holds. The concern",
         "ledger below carries the concerns that were named; these two files carry everything that was not.",
@@ -688,7 +713,8 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
   out.push(...renderLedger(concerns, { selected }));
 
   if (priorAssessment) {
-    out.push("", "### Your earlier assessment of this round, quoted", "", priorAssessment.trim());
+    // Same class as the predecessor line above: the second site Astra found.
+    out.push("", "### The earlier assessment of this round, quoted", "", priorAssessment.trim());
   }
 
   if (inventory) {
@@ -1245,6 +1271,37 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const ran = roundsRun(dir);
     const earlier = kind === "discuss" ? ran : ran.filter((n) => n !== round);
 
+    // --- a scope exchange is the FIRST exchange, and now it has to be --------
+    //
+    // The scope branch derived its ordering from `--plan` being absent, so it
+    // was blind to exchanges that had already run. Started through the
+    // supported no-scope path, a mistaken late `--kind scope` was accepted and
+    // told the other party "There is no plan file and no earlier exchange"
+    // while an accepted assessment sat in the same directory -- substantive
+    // work dispatched on a false chronology, ending in a spurious round-0.md
+    // that is then immutable (Codex and both assessors, #124 round 7, both
+    // reproduced). The complement was already covered: with round-0.md present
+    // the immutability refusal fires. This is the other half.
+    //
+    // ONE CONDITION, deliberately. The alternative -- a separate immutable
+    // sequence for scope exchanges -- is the question round 5 declined and put
+    // to David as a now/next/never, and it is still with him. This patch is
+    // low-regret under either answer: a late scope is an operator error in the
+    // current design, and the condition moves with the mechanism if he picks
+    // the other one.
+    if (kind === "scope") {
+      const assessed = ran.filter((n) => n >= 1);
+      if (assessed.length) {
+        throw new Error(
+          `the scope exchange comes before the plan, and assessment(s) ${assessed.join(", ")} have already run for ` +
+            `this slug. Asking it now would tell the other party there is no plan and no earlier exchange, which is ` +
+            `false, and leave an immutable round-0.md recording an exchange that could not have happened. If the ` +
+            `boundary changed, carry the revised oracle into the next assessment with --oracle-changed "<why>"; ` +
+            `if this is genuinely new work, start a new slug.`,
+        );
+      }
+    }
+
     // --- assessment rounds go up by one, and this is what makes that true ---
     //
     // THE INVARIANT WAS ALWAYS RELIED ON AND NEVER STATED. Round numbers are
@@ -1326,6 +1383,22 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     let concerns = [];
     if (fs.existsSync(ledgerAbs)) {
       concerns = normalizeLedger(JSON.parse(fs.readFileSync(ledgerAbs, "utf8")));
+    } else if (flags.ledger) {
+      // AN EXPLICIT --ledger IS AN ASSERTION THAT THE FILE EXISTS. The
+      // interface already distinguishes all three states -- the default path,
+      // an explicit path, and --no-ledger for "there are genuinely none" -- so
+      // a non-existent explicit path is the one combination it has no reading
+      // for. It used to be read as an empty ledger on a first exchange, which
+      // is indistinguishable from a legitimate clean start: an operator who
+      // typed --ledger BECAUSE they had concerns to carry in, and mistyped it,
+      // got a package reporting zero and no way to notice (Codex and both
+      // assessors, #124 round 7; the reviewer and the Fable assessor each
+      // reproduced it).
+      throw new Error(
+        `--ledger ${flags.ledger} does not exist at ${path.join(root, ledgerPath)}. An explicit --ledger says ` +
+          `the file is there; omit it to use ${path.relative(root, path.join(dir, "concerns.json"))}, or pass ` +
+          `--no-ledger when the earlier exchanges genuinely raised nothing.`,
+      );
     } else if ((earlier.length || kind === "discuss") && !flags.noLedger) {
       // A ledger that is absent after an exchange has run is the failure this
       // loop most needs to refuse: continuity lives here now, so a missing file

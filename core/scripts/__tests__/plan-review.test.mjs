@@ -338,10 +338,25 @@ test("an unresolved concern with no reasoning is a title pretending to be a conc
   }
 });
 
-test("a settled concern may carry no reasoning, because its source holds it", () => {
-  for (const state of ["addressed", "superseded", "withdrawn", "accepted-by-david"]) {
-    assert.equal(normalizeLedger([concern({ state, concern: "" })])[0].state, state);
+test("a concern keeps its reasoning in EVERY state -- source is not a substitute", () => {
+  // THIS TEST USED TO ASSERT THE OPPOSITE, under the name "a settled concern may
+  // carry no reasoning, because its source holds it". That name was the premise
+  // and the premise was false: `source` is validated as any non-empty string and
+  // the validator's own error documents a person's name as valid, so a settled
+  // concern sourced to "Astra" rendered an empty block under "The concern, as
+  // written" (#124 round 7). A test whose name states an assumption is the place
+  // that assumption goes unexamined.
+  for (const state of CONCERN_STATES) {
+    assert.throws(
+      () => normalizeLedger([concern({ state, concern: "" })]),
+      /carries no "concern" text/,
+      `state ${state}`,
+    );
   }
+  // A person as the source is still valid -- it is the reasoning that must be
+  // present, not a resolvable path.
+  const kept = normalizeLedger([concern({ state: "addressed", source: "Astra", concern: "The transport should be chat." })]);
+  assert.equal(kept[0].concern, "The transport should be chat.");
 });
 
 test("a ledger that is not an array is refused", () => {
@@ -1368,5 +1383,62 @@ test("a discussion is untouched by the sequential rule", () => {
     "round-3.md": "# Three\n", "plan-round-3.md": PLAN });
   assert.equal(runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]).code, 0);
+  drop(root);
+});
+
+// ── an input asserted explicitly is not optional ───────────────────────────
+
+test("an explicit --ledger that does not exist refuses, on the first exchange too", () => {
+  // It used to be read as an empty ledger when nothing had run yet, which is
+  // indistinguishable from a legitimate clean start -- so an operator who typed
+  // --ledger BECAUSE they had concerns to carry in, and mistyped it, got a
+  // package reporting zero concerns and no way to notice (#124 round 7).
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const { code, log } = runMain(root, ["--kind", "assess", "--round", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--ledger", ".agents/reviews/x/typo.json"]);
+  assert.equal(code, 1);
+  assert.match(log, /--ledger \.agents\/reviews\/x\/typo\.json does not exist/);
+  drop(root);
+});
+
+test("omitting --ledger on a first exchange still means an empty ledger", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  assert.equal(runMain(root, ["--kind", "assess", "--round", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--no-ledger"]).code, 0);
+  drop(root);
+});
+
+// ── a scope exchange is the first exchange ─────────────────────────────────
+
+test("a scope exchange is refused once an assessment has run", () => {
+  // Started through the supported no-scope path, a late --kind scope used to be
+  // accepted and told the other party there was no plan and no earlier
+  // exchange, with an accepted assessment sitting in the same directory.
+  const root = fixtureRoot();
+  seed(root, "x", { "round-1.md": "# Assessment 1\n", "concerns.json": [concern()] });
+  writeFileSync(join(root, "oracle.md"), "# The oracle\n\nBuild the thing.\n");
+  const { code, log } = runMain(root, ["--kind", "scope", "--slug", "x", "--oracle", "oracle.md"]);
+  assert.equal(code, 1);
+  assert.match(log, /the scope exchange comes before the plan, and assessment\(s\) 1 have already run/);
+  assert.match(log, /start a new slug/);
+  assert.equal(existsSync(join(root, ".agents/reviews/x/round-0.prompt.md")), false, "and nothing was composed");
+  drop(root);
+});
+
+test("a first scope exchange on an empty directory still runs", () => {
+  const root = fixtureRoot();
+  writeFileSync(join(root, "oracle.md"), "# The oracle\n\nBuild the thing.\n");
+  assert.equal(runMain(root, ["--kind", "scope", "--slug", "x", "--oracle", "oracle.md", "--no-ledger"]).code, 0);
+  drop(root);
+});
+
+test("the predecessor and the quoted assessment claim no authorship", () => {
+  // Both lines are emitted to BOTH roles from the shared section, so neither
+  // may say "your own" -- true for Astra, false for Claude (#124 round 7).
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  assert.match(prompt, /the assessment from that exchange, in full/);
+  assert.doesNotMatch(prompt, /your own assessment/i);
   drop(root);
 });
