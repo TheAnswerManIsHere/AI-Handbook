@@ -69,7 +69,10 @@ const followUp = (over = {}) =>
   followUpBrief({
     pr: PR,
     round: 1,
+    tier: "internal",
     reviewedCommit: COMMIT,
+    oracle: "ORACLE-TEXT: judgement, by more than one mind, that David can follow.",
+    findings: [finding()],
     findingIds: ["c1"],
     question: "Does the scope of the correction change given the new evidence?",
     priorAssessment: "PRIOR-ASSESSMENT-TEXT",
@@ -293,6 +296,75 @@ test("a follow-up names the dispute, and refuses to be composed without one", ()
 
 test("a follow-up carries the same brief and Worth rule as the assessment it revisits", () => {
   assert.ok(followUp().startsWith(fs.readFileSync(briefPath(), "utf8").trim()));
+});
+
+test("a follow-up carries the oracle, the tier and the disputed findings, because the process is ephemeral", () => {
+  // `codex exec --ephemeral` starts cold, and the prior assessment cannot stand
+  // in for the package: the brief tells its author NOT to restate the revision
+  // or the finding list, so the one document quoted back is the one guaranteed
+  // to omit them. Without this a follow-up revises a recommendation against no
+  // agreed intent. (Codex, #120 round 3.)
+  const text = followUp();
+  assert.match(text, /ORACLE-TEXT/);
+  assert.match(text, /\*\*What is downstream/, "the tier lens is missing");
+  assert.match(text, /### Finding `c1`/);
+  assert.ok(text.includes("The flag could be mistyped."), "the disputed finding's body is missing");
+
+  for (const bad of [undefined, "", "   "]) {
+    assert.throws(() => followUp({ oracle: bad }), /carries the same oracle as the assessment/);
+  }
+  assert.throws(() => followUp({ tier: "trivial" }), /tier must be one of/);
+
+  // Only the findings in dispute, so a follow-up stays focused.
+  const two = followUp({ findings: [finding(), finding({ id: "c2", body: "A SECOND FINDING BODY" })] });
+  assert.doesNotMatch(two, /A SECOND FINDING BODY/, "a finding not in dispute was carried in");
+});
+
+test("--prompt-only clears the destination and verifies the checkout, exactly as a dispatch does", () => {
+  // The branch "only prints", which reads as harmless and is not. It emits a
+  // package telling its reader the tree is at the reviewed commit and clean,
+  // and it names a file a subagent will write. Clearing nothing lets a retried
+  // dispatch post its predecessor's assessment under the new header; checking
+  // nothing makes the package's own sentence a claim of success by something
+  // that evaluated nothing. (Codex, #120 rounds 3 and 4.)
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-in-"));
+  const write = (name, value) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return file;
+  };
+  const argv = (...extra) => [
+    "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal",
+    "--source", "fable", "--prompt-only",
+    "--oracle-file", write("o.md", "ORACLE-FROM-FILE"),
+    "--findings-file", write("f.json", [{ id: "c1", body: "b" }]),
+    ...extra,
+  ];
+  const stale = prepareAssessmentPath(root, PR, 1, { source: "fable" });
+  fs.writeFileSync(stale, "A PREVIOUS ATTEMPT'S ASSESSMENT");
+  assert.equal(readAssessment(root, PR, 1, { source: "fable" }).markdown, "A PREVIOUS ATTEMPT'S ASSESSMENT");
+
+  const stdout = process.stdout.write;
+  process.stdout.write = () => true;
+  try {
+    assert.equal(main(argv(), { root, run: () => ({ status: 0 }), git: cleanGit(), log: () => {} }), 0);
+  } finally {
+    process.stdout.write = stdout;
+  }
+  // The retry's subagent dies before writing: the read must report a failure,
+  // never the predecessor.
+  const after = readAssessment(root, PR, 1, { source: "fable" });
+  assert.equal(after.failed, true, "a stale assessment survived and would be posted as fresh");
+  assert.match(after.reason, /wrote no assessment file/);
+
+  // And the checkout is verified before the package is emitted.
+  let logged = "";
+  assert.equal(
+    main(argv(), { root, run: () => ({ status: 0 }), git: cleanGit("0000000000abcdef"), log: (m) => (logged += m) }),
+    2,
+  );
+  assert.match(logged, /the checkout is at 0000000000 but this assessment is of f1c89d2/);
 });
 
 // ---------------------------------------------------------------------------

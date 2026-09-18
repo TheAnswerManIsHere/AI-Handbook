@@ -597,11 +597,13 @@ count**, and a loop that can conclude on the evidence needs no counter; the thin
 budgets were compensating for was a builder writing code for every finding
 because the decline was a paragraph it had to compose.
 
-**The tiers survive as rubric selectors.** `product`, `sensitive`
+**The tiers survive, and since 2026-09-17 they name what is downstream rather
+than how strictly to read a finding.** `product`, `sensitive`
 (auth/payments/migrations) and `internal` (guards, `scripts/`, skills, agent
-contracts, process documentation, documentation harvests) say how strictly a
-finding is read, and nothing more — and since 2026-09-17 they say **what is
-downstream** rather than setting a threshold. The `internal` tier's old rubric
+contracts, process documentation, documentation harvests) each say who or what
+bears the consequence, and nothing more. They set no threshold and select no
+rubric — that sentence said both things at once until round 4 of #120 caught
+it. The `internal` tier's old rubric
 wrote only for "a very high chance of a critical flaw" and declined everything
 else; that is a decline quota and it is retired with the fix quota it was built
 to correct. What the tier still supplies is the thing no rule can derive: with
@@ -609,7 +611,7 @@ no money or data downstream, an internal consequence is weighed by its effect
 on David's ability to direct agents and understand results, recurring
 reversible disruption included.
 
-What the 2026-08-20 decision got right survives in that rubric, not in
+What the 2026-08-20 decision got right survives in that weighting, not in
 refusing review: every runaway loop this repo measured was internal tooling
 reviewed at product rigor (PR #488 ran 22 rounds on a ~10-line guard change;
 then #503, #526, #531, #534, #539, and #91's ten), so the strictness lives in
@@ -767,7 +769,8 @@ unworthy fix expensive.
 **Scope: every review loop** — plan review and code review, feature and bugfix,
 whichever agent is driving it. Plan-review loops take the tier of what they are
 planning: a plan for product code is a product loop, because a wrong plan
-becomes wrong code. The tier selects the rubric; it is not a number of rounds.
+becomes wrong code. The tier names what is downstream; it is neither a
+threshold nor a number of rounds.
 
 **Plan approval is David's alone**, whatever a code loop does.
 

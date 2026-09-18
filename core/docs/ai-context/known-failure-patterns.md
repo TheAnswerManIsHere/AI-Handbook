@@ -1777,9 +1777,10 @@ the diff. Two rounds of this is not bad luck, it is the shape.
 **Avoid — the response is never a third patch.** This part holds, and it is
 guidance rather than a trigger. One of three, in order of preference:
 **remove the mechanism** (if what it guards is inconsequential,
-`claude-core.md` review-loop rule 5's `Worth:` line already says delete it);
-**derive the value** rather than check it (rule 5's *derivable* — a check whose
-two sides the same code owns guards nothing); or **change the operation**, which
+[`review-judgment.md`](review-judgment.md) already says delete it);
+**derive the value** rather than check it (its *understand the source* step — a
+check whose two sides the same code owns guards nothing); or **change the
+operation**, which
 is the move that actually ends these.
 
 ### The stop rule written from this entry did not work (AI-Handbook #91)

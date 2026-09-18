@@ -74,7 +74,13 @@ replaced them is step 5's proportionate-evidence rule.)
       check, **David's are authority**.
    3. **Dispatch both, on the same package.** Astra through the script; the
       Fable assessor as a subagent given the package `--prompt-only` emits with
-      `--source fable`. **One brief serves both** — it says "the other
+      `--source fable`, **dispatched with `model:` resolved from
+      `strongestClaude`** the way the round-translation step already does. An
+      agent definition carries no `model:` field, so an unbound subagent
+      inherits the parent session's model: on an ordinary Opus session the
+      second assessment would be Opus wearing the Fable label while holding the
+      tie-break, and the post would not say so. Stamp the resolved id into the
+      header when posting it. **One brief serves both** — it says "the other
       assessor" throughout — and the only difference between the two packages
       is the identity block the script adds, which names who each reader is and
       which of them holds the tie-break. A brief that named a role would be

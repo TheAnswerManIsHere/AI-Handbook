@@ -376,10 +376,14 @@ review of something written.
 
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
 full round. So the real question at every round is no longer "another round?"
-but **"is this finding worth writing code for at all?"** — and on internal tooling most are not. They ship
-as recorded gaps. The test that decides it is rule 5's `Worth:` line, below.
+but **"is this finding worth writing code for at all?"** — answered by
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md), which is the
+only statement of that test and sets no target rate in either direction. This
+paragraph used to predict that most internal findings ship as recorded gaps.
+That is a decline rate wearing a prediction's clothes, two paragraphs above the
+text retiring it, and it is gone with the rubric it survived.
 
-### Internal tooling: the strict rubric
+### Internal tooling: what is downstream
 
 Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
 docs and harvests run the loop above with the **`internal` tier**:
@@ -476,10 +480,15 @@ on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
 **What decides a loop's length now is rules 4 through 6 below** — a behavioural
-change before a re-request, pre-registered flip conditions, and the `Worth:`
-test at triage. **The judge that replaces the adjudicator landed as the
-review proxy**, stated above: the per-finding call is no longer mine, which
-closes the weakest link this section named.
+change before a re-request, pre-registered flip conditions, and the worth test
+at triage, which lives in
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md). **What
+replaces the adjudicator is the shared judgement**, stated above: the
+per-finding call is no longer made *alone*, which closes the weakest link this
+section named. It is still mine — two assessments advise and I decide from
+them. An earlier draft of this sentence said the call was "no longer mine",
+which is the binding-verdict design David replaced on 2026-09-17, left standing
+in the file that every session loads.
 
 4. **No re-request without a behavioral change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts

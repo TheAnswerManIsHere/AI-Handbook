@@ -4,6 +4,16 @@ description: "The second independent assessment of a code-review round (AI-Handb
 tools: Read, Grep, Glob, Bash, Write
 ---
 
+<!--
+NO `model:` FIELD HERE, DELIBERATELY. The tier lives in `.agents/machinery.json`
+(`models.strongestClaude`) and the dispatch resolves it and passes `model:`,
+which is what the round-translation dispatch has always done. Naming a model in
+this frontmatter would be a second place for it to drift from the config, and a
+consumer repo pinning a different tier would be silently overridden by whatever
+this file happened to say. See `model-routing`, which used to claim the opposite
+and was corrected in #120.
+-->
+
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
 # You are the second independent assessment of this review round

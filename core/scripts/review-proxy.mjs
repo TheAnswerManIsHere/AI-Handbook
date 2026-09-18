@@ -379,7 +379,10 @@ export function followUpBrief({
   source = "astra",
   pr,
   round,
+  tier,
   reviewedCommit,
+  oracle,
+  findings,
   findingIds,
   question,
   fableReasoning,
@@ -392,6 +395,23 @@ export function followUpBrief({
     if (typeof value !== "string" || value.trim() === "") {
       throw new Error(`review-proxy: a follow-up needs ${name}; got ${JSON.stringify(value)}`);
     }
+  }
+  // THE FOLLOW-UP CARRIES THE ORACLE AND THE FINDING BODIES, because the
+  // process answering it remembers nothing. `codex exec --ephemeral` starts
+  // cold, and the prior assessment cannot stand in for the package: the brief
+  // tells its author NOT to restate the pull request, the revision or the
+  // finding list, so the one document being quoted back is the one guaranteed
+  // to omit them. Without this, a follow-up could revise a recommendation
+  // without the agreed intent it exists to preserve. (Codex, #120 round 3.)
+  if (typeof oracle !== "string" || oracle.trim() === "") {
+    throw new Error(
+      "review-proxy: a follow-up carries the same oracle as the assessment it revisits; the process answering it " +
+        "is ephemeral and the prior assessment is told not to restate metadata, so omitting it asks for a revision " +
+        "against no agreed intent",
+    );
+  }
+  if (!TIER_LENSES[tier]) {
+    throw new Error(`review-proxy: tier must be one of ${TIERS.join(", ")}, got ${JSON.stringify(tier)}`);
   }
   if (!Array.isArray(findingIds) || findingIds.length === 0) {
     throw new Error("review-proxy: a follow-up names the finding IDs in dispute; there are none here");
@@ -412,11 +432,30 @@ export function followUpBrief({
     `- **Findings in dispute:** ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`,
     assessmentFile ? `- **Write your answer to:** \`${assessmentFile}\`` : null,
     "",
+    ...TIER_LENSES[tier],
+    "",
+    "## [oracle] The outcome this work is meant to achieve",
+    "",
+    "The same oracle as your assessment, carried here because this process starts cold.",
+    "",
+    oracle.trim(),
+    "",
     "## The question",
     "",
     question.trim(),
     "",
   ].filter((l) => l !== null);
+
+  if (Array.isArray(findings) && findings.length) {
+    lines.push("## [reviewer] The findings in dispute, in full", "");
+    const wanted = new Set(findingIds.map((id) => String(id).trim()));
+    for (const f of findings) {
+      if (!wanted.has(String(f?.id ?? "").trim())) continue;
+      lines.push(`### Finding \`${String(f.id).trim()}\``, "");
+      if (f.path) lines.push(`- Location: \`${f.path}\`${f.line == null ? "" : `:${f.line}`}`, "");
+      lines.push(String(f.body ?? "").trim(), "");
+    }
+  }
 
   if (fableReasoning && fableReasoning.trim()) {
     lines.push(`## [${source === "astra" ? "fable" : "astra"}] The other assessor's reasoning`, "", fableReasoning.trim(), "");
@@ -550,8 +589,11 @@ export const USAGE = [
   "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   "",
   "  Focused follow-up (same revision, no new commit, no new Codex round):",
-  "    node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --follow-up <n> \\",
-  "        --question <text> --findings <id,id> --prior-file <path> [--fable-file <path>]",
+  "    node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\",
+  "        --question <text> --findings <id,id> --prior-file <path> --oracle-file <path> \\",
+  "        [--findings-file <path.json>] [--fable-file <path>]",
+  "                  A follow-up carries the oracle, the tier and the disputed findings' bodies:",
+  "                  the process answering it is ephemeral and remembers nothing.",
   "",
   `  --tier          one of ${TIERS.join(", ")} — what is downstream, not a threshold`,
   "  --oracle-file   the outcome David agreed BEFORE this loop started. Required; there is no default.",
@@ -627,32 +669,46 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
     return 2;
   }
   let prompt;
+  // THE IDS ARE KEPT, NOT RE-DERIVED. They are parsed here to compose the
+  // package and used again to stamp the rendered comment's header, so a reader
+  // can see which findings the prose covers -- which matters most exactly when
+  // there are several assessments and follow-ups on one pull request. They used
+  // to be parsed and dropped one block later. (Codex, #120 round 3.)
+  let findingIds = [];
   try {
     const file = assessmentPath(root, flags.pr, flags.round, { source, followUp });
-    prompt = followUp
-      ? followUpBrief({
-          source,
-          pr: flags.pr,
-          round: flags.round,
-          reviewedCommit: flags.commit,
-          findingIds: String(flags.findings ?? "").split(",").map((s) => s.trim()).filter(Boolean),
-          question: flags.question,
-          fableReasoning: flags.fableFile ? fs.readFileSync(flags.fableFile, "utf8") : "",
-          priorAssessment: fs.readFileSync(flags.priorFile, "utf8"),
-          assessmentFile: file,
-        })
-      : assessmentBrief({
-          source,
-          pr: flags.pr,
-          round: flags.round,
-          tier: flags.tier,
-          reviewedCommit: flags.commit,
-          oracle: fs.readFileSync(flags.oracleFile, "utf8"),
-          findings: JSON.parse(fs.readFileSync(flags.findingsFile, "utf8")),
-          history: flags.historyFile ? JSON.parse(fs.readFileSync(flags.historyFile, "utf8")) : [],
-          builderNote: flags.note ?? "",
-          assessmentFile: file,
-        });
+    if (followUp) {
+      findingIds = String(flags.findings ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+      prompt = followUpBrief({
+        source,
+        pr: flags.pr,
+        round: flags.round,
+        tier: flags.tier,
+        reviewedCommit: flags.commit,
+        oracle: fs.readFileSync(flags.oracleFile, "utf8"),
+        findings: flags.findingsFile ? JSON.parse(fs.readFileSync(flags.findingsFile, "utf8")) : [],
+        findingIds,
+        question: flags.question,
+        fableReasoning: flags.fableFile ? fs.readFileSync(flags.fableFile, "utf8") : "",
+        priorAssessment: fs.readFileSync(flags.priorFile, "utf8"),
+        assessmentFile: file,
+      });
+    } else {
+      const findings = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));
+      findingIds = Array.isArray(findings) ? findings.map((f) => f?.id).filter((id) => id != null) : [];
+      prompt = assessmentBrief({
+        source,
+        pr: flags.pr,
+        round: flags.round,
+        tier: flags.tier,
+        reviewedCommit: flags.commit,
+        oracle: fs.readFileSync(flags.oracleFile, "utf8"),
+        findings,
+        history: flags.historyFile ? JSON.parse(fs.readFileSync(flags.historyFile, "utf8")) : [],
+        builderNote: flags.note ?? "",
+        assessmentFile: file,
+      });
+    }
   } catch (err) {
     log(`${err.message}\n\n${USAGE}`);
     return 2;
@@ -660,7 +716,37 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
   // `--prompt-only` writes the package the Fable assessor gets, so both
   // assessors demonstrably receive the same words rather than two compositions
   // that happen to look alike.
+  //
+  // IT DOES THE SAME TWO THINGS `dispatch` DOES BEFORE STARTING A REVIEWER, and
+  // for the same reasons. The branch used to do neither, because it "only
+  // prints", which reads as harmless and is not:
+  //
+  //   - It CLEARS the destination. Otherwise a retried Fable dispatch whose
+  //     subagent dies before writing leaves the previous attempt's file in
+  //     place, and `readAssessment` accepts any non-empty file there. The worst
+  //     instance is not a retry of the same package but a re-dispatch with a
+  //     CORRECTED one -- a missed finding, a wrong oracle -- after which the
+  //     stale file is posted under a header naming the right round and commit,
+  //     with nothing to give it away. (Codex #120 round 4; both assessors
+  //     concurred, and the Astra path has carried this since round 2.)
+  //   - It VERIFIES THE CHECKOUT. The package it prints tells its reader the
+  //     tree "is at this commit and is clean; the dispatch refuses otherwise".
+  //     Emitting that sentence without checking is the one shape this
+  //     repository's archive names as the worst available failure: a control
+  //     reporting success having evaluated nothing. In the ordinary flow
+  //     Astra's own refusal covers both, but a Fable-only re-dispatch never
+  //     reaches it. (Codex #120 round 3.)
   if (flags.promptOnly) {
+    // Reported in plain words and exit 2, the way every other refusal in this
+    // CLI is. A raw stack trace here would be the operator's first sight of a
+    // guard that is working correctly.
+    try {
+      assertCheckout(root, flags.commit, { git });
+      prepareAssessmentPath(root, flags.pr, flags.round, { source, followUp });
+    } catch (err) {
+      log(`review-proxy: ${err.message}`);
+      return 2;
+    }
     process.stdout.write(`${prompt}\n`);
     return 0;
   }
@@ -688,7 +774,9 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
         failed: true,
         reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };
-  process.stdout.write(`${prComment(read, { reviewedCommit: flags.commit, model: result.reviewer.id })}\n`);
+  process.stdout.write(
+    `${prComment(read, { reviewedCommit: flags.commit, findingIds, model: result.reviewer.id })}\n`,
+  );
   return read.failed ? 1 : 0;
 }
 
