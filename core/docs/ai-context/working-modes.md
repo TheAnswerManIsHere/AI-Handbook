@@ -563,8 +563,8 @@ pushed:
 Two invariants follow, and they are the reason for the shape: **no commit
 ever merges unreviewed**, and **a loop always terminates on a reviewed
 head**, because a stop precedes the existence of any new commit. The exit
-ramp from eternal looping is the judge refusing to write — never anyone
-skipping the review of something written.
+ramp from eternal looping is the judgement that nothing more is worth
+writing — never anyone skipping the review of something written.
 
 This supersedes the 2026-08-21 internal tier's ending, which deliberately
 stopped with the last fixes unreviewed and carried machinery to make that
@@ -743,15 +743,25 @@ What still stops the loop for David, whatever the assessors say: a genuine
 product or design fork, a scope addition, a split, a disclosure question, and
 any change to intended behaviour or knowingly accepted user-facing shortfall.
 
-A round with **no findings** — or whose findings are all reasoned declines,
-so nothing gets written — needs no dispatch: the loop ends on the head that
-round reviewed. Note one status line so the discipline stays visible.
+A round with **no findings** needs no dispatch: there is nothing to assess,
+and the loop ends on the head that round reviewed.
+
+**A round that did return findings is dispatched, whatever those findings look
+like** (David, 2026-09-18). The exemption here used to extend to a round "whose
+findings are all reasoned declines, so nothing gets written", which was
+coherent while a dispatch produced a binding verdict — a round that wrote
+nothing needed no verdict. Under two advisory assessments it is circular: a
+reasoned decline is what the assessments *produce*, so reading one's own guess
+that the findings will all be declined as grounds for skipping the assessments
+ends the round on the builder's judgement alone. That is the exact behaviour
+the shared judgement replaces. Note one status line either way, so the
+discipline stays visible.
 
 **Trivial nits do not skip the judgement** (David, 2026-08-22, the write-gate
 rule). Writing for them is exactly the decision it exists to make: under this
 rule a typo fix costs a full mandatory review round, so "it's only a nit" is
 precisely the trade the loop must not settle for itself — in either direction,
-since the same arithmetic that forbids skipping the judge is what makes an
+since the same arithmetic that forbids skipping the judgement is what makes an
 unworthy fix expensive.
 
 **Scope: every review loop** — plan review and code review, feature and bugfix,

@@ -220,10 +220,11 @@ cost more than the defects they describe. This is the *depth* rule. The
 *continuation* rule is the internal tier (David, 2026-08-21, superseding
 the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
 ceremony, but when the pass finds a real defect the pushed fixes are
-re-reviewed under the internal tier, with its strict rubric deciding per
-finding whether anything is written at all — there is no round budget and no
-leash, and the external adjudicator that used to rule went with the #89 cut
-(2026-09-16) — see
+re-reviewed under the internal tier, which says what is downstream rather than
+setting a threshold — there is no round budget and no leash, the tier's old
+"only a critical flaw is written for" rubric is retired as a decline quota, and
+the external adjudicator that used to rule went with the #89 cut (2026-09-16)
+and was replaced by two advisory assessments per round (#96) — see
 [`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)'s
 internal-tier section. The retired fix-round merge-path workarounds no
 longer apply.
@@ -590,9 +591,10 @@ sentence was not precise enough.
 **PR #504 is the worked example: five definitions of one boundary failed in
 sequence**, each refuted by a concrete counter-example, while the behaviour
 underneath never changed. The enumeration and what each attempt got wrong are
-in `CLAUDE.md`'s *Whether a judgement dispatches is fixed in advance* — not
-repeated here, since the instance belongs to that contract and only the
-generalization belongs in shared review practice.
+in `CLAUDE.md`'s *Model, cost, and routing*, under the rule that an
+unclassified judgement does not dispatch — not repeated here, since the
+instance belongs to that contract and only the generalization belongs in shared
+review practice.
 
 **What actually ended it was two things arriving together, and neither was a
 better sentence:** an owner resolving what a dispatched verdict is *worth*,

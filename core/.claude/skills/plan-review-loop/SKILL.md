@@ -83,7 +83,7 @@ plus one capped `--lens` the script frames as emphasis and never as scope.
 **Fresh context every round.** Not a resumed thread. Prior findings cross as
 ids, titles and dispositions — never their bodies — so the reviewer reconciles
 against the *current whole plan* rather than against its own memory of what it
-argued last time. Same principle the code loop's judge rests on, and the same
+argued last time. Same principle the code loop's assessments rest on, and the same
 reason.
 
 ## The loop
@@ -495,7 +495,7 @@ of the old loop can find each piece's fate:
 | `review-budget.mjs` / `review-loop-record.mjs`, for plan loops | Both were keyed to a PR number | Both are gone everywhere (#89 cut); `--tier` survives as a rubric selector |
 | The disclosure gate on the plan | The channel was public | The plan is never published |
 | The three-round minimum and the fresh-lens stop condition | A defect-only reviewer could not say *done* | `required_revisions` empty and priors reconciled |
-| The adjudicator, everywhere | Nothing could tell required from recommended | Here, the reviewer's own required/recommended split; on the code side, the builder's own triage until #96 |
+| The adjudicator, everywhere | Nothing could tell required from recommended | Here, the reviewer's own required/recommended split; on the code side, two independent assessments the builder weighs but did not write (#96) |
 | The growth tripwire's line-count ledger | A proxy for convergence | The stop rule reads convergence directly |
 | Deriving the status label and reconciliation myself | The transport could not carry them | The reviewer returns both, in fields |
 | `SendUserFile` as the plan fallback | No PR page on the private path | The Artifact page, which is already private |

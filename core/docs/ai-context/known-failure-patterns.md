@@ -2826,9 +2826,10 @@ misplaced JSON. The question the triage answered was *where does the file
 land*; the question the class asked was *what does this write destroy*. Nothing
 about the reported instance hinted at the second one, which is the point.
 
-**Avoid:** state the class in the `Worth:` line before the consequence, then
-answer the consequence *of that class at its worst*, not of the example in
-front of you. The tell is a decline whose consequence clause quotes details
+**Avoid:** state the class before the consequence, then answer the consequence
+*of that class at its worst*, not of the example in front of you. (This used to
+name the `Worth:` line of a fixed four-line reply form; the form was retired on
+2026-09-17 and the discipline was not.) The tell is a decline whose consequence clause quotes details
 specific to the reviewer's scenario — "gitignored", "one directory over", "a
 file I chose by hand". Those are properties of the example. Strip them and ask
 what remains reachable. And re-examine a class the reviewer raises a second

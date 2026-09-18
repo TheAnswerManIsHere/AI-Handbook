@@ -340,11 +340,12 @@ live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
 what the fix touches (a rubric selector, not a round budget), the **write-gate
-rule — the judge rules per finding on whether to WRITE for it, before anything
-is written, and any commit that does get written gets a mandatory review round;
-the in-loop continue/stop, criticality gate, count trend and oscillation
-diagnosis are all retired, and the external adjudicator that used to be that
-judge went with the #89 cut pending #96**, the
+rule — every round that returns findings gets two independent assessments
+before anything is written for it, and any commit that does get written gets a
+mandatory review round; the in-loop continue/stop, criticality gate, count
+trend and oscillation diagnosis are all retired, and the external adjudicator
+that used to rule per finding was replaced by the shared judgement (#96), which
+advises rather than binds**, the
 fix / accept-and-document / escalate triage stated per finding, the
 class-sweep protocol (name the class, cite the mechanical oracle, sweep to
 zero, re-run prior rounds' oracles before every push), resolving each thread

@@ -12,8 +12,9 @@ for machinery that no longer exists**: budget cadence, receipt shapes, snapshot
 recipes, round-count recovery and adjudicator dispatch. All of it is gone,
 along with the scripts it drove.
 
-**What is here is what survived the deletion, plus the judge.** The judge's
-dispatch step is step 3 and is live (#96). What is still deliberately absent —
+**What is here is what survived the deletion, plus the shared judgement.** The
+two assessments are step 3 and are live (#96); neither of them binds, and what
+happens next is the action step 6 states. What is still deliberately absent —
 the draft-first flow and the shared-vocabulary references — lands with the
 rulebook rewrite, beside #92, so a step below that reads thin is thin on
 purpose.
@@ -21,11 +22,13 @@ purpose.
 **The restoration, because a strip that overshoots is a deletion nobody
 approved.** Most of the old reply section was a second statement of
 `claude-core.md` rules 5 and 6, and losing a second copy is the point of this
-cut. But three things lived *only* here and rule 6 still points at them — the
-class-level sweep and the two escape valves on the `Oracle:` line. Stripping
-those would have left the always-loaded contract pointing at a spec that no
-longer exists, which is a worse outcome than the duplication. They are back in
-step 5, stated once, with the duplicated material left out.
+cut. But the class-level sweep lived *only* here and rule 6 still points at it.
+Stripping it would have left the always-loaded contract pointing at a spec that
+no longer exists, which is a worse outcome than the duplication. It is back in
+step 5, stated once, with the duplicated material left out. (The two escape
+valves this sentence also named belonged to the four-line `Class:` / `Worth:` /
+`Oracle:` / `Result:` reply form, which rule 6 retired on 2026-09-17; what
+replaced them is step 5's proportionate-evidence rule.)
 ## The loop
 
 1. **Subscribe, immediately, on whatever tier the session is on** (David,

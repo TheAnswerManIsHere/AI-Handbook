@@ -358,21 +358,21 @@ never in question.** Everything below governs what may be layered on top.
 
 ### The write-gate rule (David, 2026-08-22) — every tier
 
-**If code was written, it gets reviewed. The loop stops when the judge refuses
-to write more, never after a push.** Stated as the sequence: a round returns
-findings → the judge rules *write* or *stop* → if write, the fixes are pushed
-and **another review round is automatic and mandatory** → if stop, the loop
-ends right there, on a head the last round already reviewed. **What rules
-write-or-stop is a shared judgement** (#96): Astra and a Fable assessor advise
-independently on every round that returns findings, before anything is written
-for them, and I decide from the two. See *Shared judgement on a review round*
-below.
+**If code was written, it gets reviewed. The loop stops when the judgement is
+that nothing more is worth writing, never after a push.** Stated as the
+sequence: a round returns findings → the judgement is made, *write* or *stop*
+→ if write, the fixes are pushed and **another review round is automatic and
+mandatory** → if stop, the loop ends right there, on a head the last round
+already reviewed. **That judgement is shared and nobody's alone** (#96): Astra
+and a Fable assessor advise independently on every round that returns findings,
+before anything is written for them, and I decide from the two. See *Shared
+judgement on a review round* below.
 
 Two invariants, and they are the point: **no commit ever merges unreviewed**,
 and **a loop always terminates on a reviewed head** — because the stop happens
-before any new commit exists. The exit ramp from eternal looping is the judge
-refusing to *write*; it is never anyone skipping the review of something
-written.
+before any new commit exists. The exit ramp from eternal looping is the
+judgement that nothing more is worth *writing*; it is never anyone skipping the
+review of something written.
 
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
 full round. So the real question at every round is no longer "another round?"
