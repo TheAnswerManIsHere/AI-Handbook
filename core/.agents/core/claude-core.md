@@ -454,8 +454,18 @@ The loop:
 - **Both assessors read the live checkout, so the dispatch refuses unless the
   tree is at the reviewed commit and clean.** Advice about code the reviewer
   never saw is worse than no advice.
-- **Six hours of unattended wall-clock per PR loop is a hard stop**, read from
-  the PR's age. Expiry pauses and asks David to resume; never convergence.
+- **A loop stops at six hours and asks David to resume.** The clock is **the
+  PR's `created_at`, or David's last explicit resume, whichever is later** — one
+  quantity, readable from GitHub, needing no judgement about what counted as
+  attended. Expiry pauses and asks; never convergence, never an automatic
+  extension.
+  **This rule was written on #120 and #120 was its first counter-example.** Its
+  earlier form said "six hours of unattended wall-clock" and, in the same
+  breath, "read from the PR's age" — two different quantities, so it could not
+  be obeyed as written and was never once consulted across seven rounds. A
+  stopping rule whose reading is arguable is one I will argue with, which is the
+  same lesson the flip-condition rule already carries: **name an observable, not
+  an adjective.**
 
 The judgement itself — the Worth rule both assessors and I apply — is
 [`review-judgment.md`](../../docs/ai-context/review-judgment.md), and that file

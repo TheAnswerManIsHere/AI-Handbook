@@ -323,6 +323,15 @@ export function assessmentBrief({
     const id = f == null || f.id == null ? "" : String(f.id).trim();
     if (id === "") throw new Error(`review-proxy: every finding needs a stable id, got ${JSON.stringify(f?.id)}`);
     if (seen.has(id)) throw new Error(`review-proxy: finding id ${id} appears twice; ids key the assessment`);
+    // AND IT NEEDS TEXT, the same requirement the follow-up path enforces. An
+    // id with a blank body dispatches both assessors without the reviewer's
+    // argument, which neither can recover from the checkout -- so the round can
+    // post advice that appears to cover the finding while never having read it.
+    // The asymmetry was mine: round 5 put this check on the follow-up side
+    // only. (Codex, #120 round 7.)
+    if (String(f.body ?? "").trim() === "") {
+      throw new Error(`review-proxy: finding ${id} has no body; both assessors would be dispatched without the reviewer's argument`);
+    }
     seen.add(id);
   }
 
@@ -842,6 +851,15 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
         pr: flags.pr,
         round: flags.round,
         source: "astra",
+        // THE SECOND OF THE TWO FAILURE PATHS. `readAssessment`'s own failure
+        // result carries `followUp` for the reason stated there; this literal
+        // is the other one the finding named, and it was left behind while the
+        // first was fixed and the fix was announced as covering both. The test
+        // written for it drove the helpers directly and never `main()` with a
+        // failing process, so it was shaped to the fix rather than to the
+        // finding. (Codex #120 round 7; the round-6 assessment had named this
+        // line, and the round-6 finding body had said "both failure paths".)
+        followUp,
         failed: true,
         reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };

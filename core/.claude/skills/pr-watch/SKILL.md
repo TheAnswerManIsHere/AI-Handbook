@@ -125,7 +125,15 @@ replaced them is step 5's proportionate-evidence rule.)
       --oracle-file … --tier … --prior-file … [--fable-file …]`. The Fable
       assessor's is a **transcript continuation**: the harness resumes the same
       subagent, which still holds its own assessment and the evidence behind it,
-      so it is sent the question and nothing else. That asymmetry is why the
+      so it is sent the question and nothing else — **plus the path to write to,
+      which is the one thing the continuation must be told.** Its retained
+      instruction still names the base assessment's file, so a continuation sent
+      without a new path would overwrite the assessment it is supposed to
+      supplement, and a continuation that then wrote nothing would leave the
+      base assessment looking like the follow-up. Name
+      `round-<n>.fable.followup-<k>.md` explicitly. (Codex, #120 round 7. It did
+      not bite on the one live run only because the subagent chose that path
+      itself.) That asymmetry is why the
       Astra package took three rounds of guards to get right and the Fable side
       needed none — and why a package guard is worth writing on one side only.
 
@@ -142,7 +150,13 @@ replaced them is step 5's proportionate-evidence rule.)
       technical disagreement that survives is the Fable assessor's to settle,
       with its reasoning recorded. **Intended behaviour and any accepted
       user-facing shortfall go to David** as a 🛑 with a push notification, and
-      stay open until he answers — a later clean round never clears them.
+      stay open until he answers — a later clean round never clears them, and
+      **neither does a default of mine.** A question of his that goes unanswered
+      is **re-asked**, not resolved by whatever I pre-registered as the fallback:
+      on #120 round 5 a question about his own ruling was closed by my default
+      and the loop carried on, which is this sentence being contradicted by the
+      loop that wrote it. A pre-registered default is for what *I* do while
+      waiting, never for what *he* decided.
    6. **State the next action explicitly** in a `review-action` block
       (`proceed`, `investigate`, `follow-up`, `ask-david`, `conclude`) with the
       finding ids it covers. Nothing parses an assessment, so this block is
@@ -154,10 +168,12 @@ replaced them is step 5's proportionate-evidence rule.)
    device code expires in about fifteen minutes, so the ask and the code go to
    David in the same turn.
 
-   **Six hours of unattended wall-clock per PR loop is a hard stop**, read from
-   the PR's `created_at`. It covers waits and retries and does not reset per
-   dispatch. Expiry pauses the loop and asks David to resume; never
-   convergence.
+   **A loop stops at six hours and asks David to resume.** The clock is the PR's
+   `created_at`, or his last explicit resume, whichever is later — one quantity,
+   read from GitHub, with no judgement about what counted as attended. It covers
+   waits and retries and does not reset per dispatch. Expiry pauses and asks;
+   never convergence. **Check it at the top of every round**, because #120 wrote
+   this rule and then ran seven rounds without once reading it.
 
 4. **Batch the fixes.** Everything being written for goes in one push, with the
    repo's own fast checks run first — lint, format, typecheck, the changed

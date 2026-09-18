@@ -690,6 +690,62 @@ test("a failed follow-up is reported as a failed follow-up, never as a round wit
   assert.match(prComment(base), /No independent assessment from Astra exists for this round/);
 });
 
+test("a follow-up whose PROCESS fails is reported as a failed follow-up, through main()", () => {
+  // THE TEST THAT WAS MISSING, and its absence is why round 7 happened. The
+  // finding named two failure paths; the fix took one; and the test written for
+  // that fix drove `readAssessment` and `prComment` directly, so it was shaped
+  // to the fix rather than to the finding and passed while the other path was
+  // still wrong. This one goes through `main()` with a process that fails.
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-in-"));
+  const write = (name, value) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return file;
+  };
+  const argv = [
+    "--pr", String(PR), "--round", "6", "--commit", COMMIT, "--tier", "internal",
+    "--follow-up", "1", "--findings", "c1",
+    "--question", "Does the new evidence change the scope?",
+    "--oracle-file", write("o.md", "ORACLE"),
+    "--findings-file", write("f.json", [finding({ body: "THE DISPUTED BODY" })]),
+    "--prior-file", write("prior.md", "PRIOR"),
+  ];
+  const run = (_bin, args) =>
+    args[0] === "login" ? { status: 0, stdout: "Logged in using ChatGPT" } : { status: 3 };
+
+  let printed = "";
+  const stdout = process.stdout.write;
+  process.stdout.write = (chunk) => ((printed += chunk), true);
+  try {
+    assert.equal(main(argv, { root, run, git: cleanGit(), log: () => {} }), 1);
+  } finally {
+    process.stdout.write = stdout;
+  }
+  assert.match(printed, /## Astra — round 6, follow-up 1: \*\*dispatch failed\*\*/);
+  assert.match(printed, /Follow-up 1 to Astra on round 6 produced no answer/);
+  assert.match(printed, /exited 3/);
+  assert.doesNotMatch(
+    printed,
+    /No independent assessment from Astra exists for this round/,
+    "a failed follow-up is still being reported as a round with no assessment",
+  );
+});
+
+test("a finding with no body is refused before either assessor is dispatched", () => {
+  // The follow-up path got this check in round 5 and the base path did not, so
+  // an id with a blank body dispatched both assessors without the reviewer's
+  // argument — which neither can recover from the checkout. (Codex, #120 round 7.)
+  for (const bad of ["", "   ", null, undefined]) {
+    assert.throws(() => brief({ findings: [finding({ body: bad })] }), /has no body/);
+  }
+  assert.throws(
+    () => brief({ findings: [finding(), finding({ id: "c2", body: "" })] }),
+    /finding c2 has no body/,
+  );
+  assert.doesNotThrow(() => brief({ findings: [finding()] }));
+});
+
 test("history is refused in the wrong container, the way findings already are", () => {
   // `history.length` on an object is undefined, so a preparation mistake
   // composed a package with no history and no complaint. Neither assessor can
