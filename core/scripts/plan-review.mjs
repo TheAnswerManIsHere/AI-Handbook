@@ -540,7 +540,22 @@ export function roleBlock(role) {
       : "- **A purely technical disagreement that survives investigation and discussion is yours to settle.** Record the reasoning and the material concern that remains. Astra is not obliged to agree.",
     "- **Neither of you can settle what is reserved for David**: intended behaviour, scope, whether a user-facing shortfall is acceptable, and approval of the plan itself. If a disagreement turns out to rest on one of those, say so and stop.",
     astra
-      ? "- **Return the complete assessment as your final message, in Markdown.** The CLI saves that message to this exchange's assessment file. You are in a read-only sandbox and cannot write that file yourself — you do not need to, and you do not need its path. Do not replace the assessment with a completion acknowledgement, and do not spend it narrating the sandbox."
+      // KIND-NEUTRAL, DELIBERATELY. This said "return the complete assessment",
+      // which every `--kind discuss` package then carried alongside
+      // `exchangeContext`'s "It is not a new assessment" and "Do not repeat your
+      // assessment" -- two live instructions in one package, either of which can
+      // fire, and the one that fires wrong costs a ten-minute xhigh re-review
+      // landing in the discussion file and updating the ledger. What the reply
+      // IS belongs to `exchangeContext`, which knows the kind; what belongs here
+      // is what is true of every exchange: the final message is the deliverable.
+      //
+      // NOT A KIND-CONDITIONAL ROLE BLOCK, which is what the finding asked for.
+      // This block is the first bytes of `stablePrefix`, and round 5 removed
+      // per-exchange variation from it for that reason; making it vary by kind
+      // reintroduces the same class one step weaker. Both assessors recommended
+      // against the literal suggestion, independently. (Codex, #124 round 10
+      // `4049965635`.)
+      ? "- **Return your complete reply as your final message, in Markdown.** The CLI saves that message to this exchange's file. You are in a read-only sandbox and cannot write that file yourself — you do not need to, and you do not need its path. Do not replace the reply with a completion acknowledgement, and do not spend it narrating the sandbox."
       : "- **Your output is the readout you give David in chat, and the revision you make to the plan.** Nothing is published to a page, and no assessment file is written by you.",
     "",
   ].join("\n");
@@ -684,9 +699,15 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
         // round 7). A role-dependent fact outside the role block is exactly
         // what the role block exists to prevent.
         `- \`${predecessor.assessment}\` — the assessment from that exchange, in full.`,
+        ...(predecessor.discussions ?? []).map(
+          (d) =>
+            `- \`${d.file}\` — focused discussion ${d.discussion} on that exchange: the question asked and the ` +
+            `reply given. A concern the ledger shows as settled was often settled here, and this is where the ` +
+            `reasoning that settled it is written.`,
+        ),
         "",
         "Read them if you are judging what changed or whether an earlier conclusion still holds. The concern",
-        "ledger below carries the concerns that were named; these two files carry everything that was not.",
+        "ledger below carries the concerns that were named; these files carry everything that was not.",
       );
     }
   }
@@ -749,7 +770,10 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
 
   out.push(
     "",
-    `### Emphasis for this exchange: ${lens ? lens : "none — assess evenly"}`,
+    // `--lens` is refused with `--kind discuss` (see the parser), so this
+    // branch only ever describes an assessment. The no-lens heading still has
+    // to stop saying "assess" on a discussion, whose scope is the question.
+    `### Emphasis for this exchange: ${lens ? lens : kind === "discuss" ? "none — answer the question asked" : "none — assess evenly"}`,
     "",
     lens
       ? "Attack from that angle specifically. It directs EMPHASIS, not scope: still read and assess the whole thing, and a serious problem outside it is still worth raising."
@@ -1078,6 +1102,45 @@ export function assertTierPinned(dir, earlier, tier) {
 }
 
 /** Exchanges already run for this loop, counted from disk rather than stored. */
+/**
+ * The focused discussions that actually ran on one round, by path.
+ *
+ * DERIVED FROM DISK, like `roundsRun` below, because a discussion leaves a file
+ * and nothing else records that it happened -- no ledger field, no meta key.
+ *
+ * WHY A LATER ASSESSMENT NEEDS THEM. The predecessor block names the previous
+ * plan snapshot and the previous assessment, and told the reader "these two
+ * files carry everything that was not" in the ledger. That was false whenever a
+ * discussion settled a concern: `renderLedger` emits a by-reference line whose
+ * `source` is the assessment the concern was RAISED in, so a cold Astra was
+ * handed its own original argument, a one-word state, and an invitation to
+ * reopen -- and no route at all to the reply in which it changed position. The
+ * contract requires the opposite ("Titles and dispositions alone are
+ * insufficient when meaning depends on the omitted reasoning"), and the oracle
+ * names earlier reasoning surviving across exchanges as product intent.
+ *
+ * PATHS, NOT TRANSCRIPTS, AND NOT THE LEDGER'S `response`. Inlining replies
+ * would grow every later package by the whole settled history. Rendering
+ * `response` was the other candidate and is worse for this case: it is the
+ * BUILDER's account ("what I did about it, or argued"), and the party who
+ * changed position here is Astra, whose own words are in the file. The design
+ * comment on CONCERN_STATES already weighed and rejected expanding entries on a
+ * non-empty response, "since ordinary resolved concerns have responses too".
+ * (Codex, #124 round 10 `4049965628`; the Fable assessor held the tie-break
+ * against Astra's response-rendering, and both its premises were checked in
+ * the source before it was accepted.)
+ */
+export function discussionsOf(dir, round) {
+  if (!fs.existsSync(dir)) return [];
+  const re = new RegExp(`^round-${round}\\.discussion-(\\d+)\\.md$`);
+  return fs
+    .readdirSync(dir)
+    .map((n) => [n, re.exec(n)])
+    .filter(([, m]) => m)
+    .sort((a, b) => Number(a[1][1]) - Number(b[1][1]))
+    .map(([n, m]) => ({ discussion: Number(m[1]), file: path.join(dir, n) }));
+}
+
 export function roundsRun(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -1234,6 +1297,21 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         throw new Error(
           "--kind discuss needs --concerns <id,id>: the concerns in dispute are rendered in full whatever state " +
             "they are in, and without them the other party is asked to argue about nothing in particular.",
+        );
+      }
+      // A lens is emphasis for a reading of the WHOLE plan, and its own prose
+      // says so -- "still read and assess the whole thing" -- which is the
+      // instruction a discussion exists to avoid. `USAGE` documents `--lens` on
+      // the assess line only; the parser took it anywhere, so the undocumented
+      // combination shipped the contradiction. Removing the input beats
+      // branching on it: the question already carries the emphasis. (Codex,
+      // #124 round 10 `4049965635`; the Fable assessor preferred the refusal
+      // over a branch and Astra was content with either.)
+      if (flags.lens != null) {
+        throw new Error(
+          "--lens belongs to --kind assess: it directs emphasis across a whole plan, and its own wording asks for " +
+            "the whole thing to be read and assessed -- which is the opposite of a focused discussion. Put the " +
+            "emphasis in --question, which is what the other party is answering.",
         );
       }
     } else {
@@ -1649,6 +1727,10 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           round: prev,
           plan: path.relative(root, prevPlan),
           assessment: path.relative(root, prevAssessment),
+          discussions: discussionsOf(dir, prev).map((d) => ({
+            discussion: d.discussion,
+            file: path.relative(root, d.file),
+          })),
         };
       }
     }

@@ -266,6 +266,15 @@ wrong. Do not use it to relitigate something I simply dislike.
    the escape the error names, for the case where earlier exchanges genuinely
    returned nothing and I have not written one.
 
+   **When a discussion changes the OTHER party's position, the `response` says
+   so and says why** — not just what I argued. A concern settled because Astra
+   withdrew it on new evidence reads, from its state alone, exactly like one I
+   talked it out of, and the next cold reader is handed my side of an argument
+   whose conclusion it cannot see. The discussion file is now named in the next
+   assessment's package (round 10 `4049965628`), so the reasoning is reachable;
+   this keeps the ledger's own line honest about which way it went. (Astra,
+   #124 round 10.)
+
    **`[]` is only ever what the file contains while nothing has been raised in
    the loop so far** — never what an exchange writes over entries that exist.
    This bullet used to read "an exchange that raised nothing still writes `[]`",

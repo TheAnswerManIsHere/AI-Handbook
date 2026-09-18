@@ -226,7 +226,11 @@ test("the role block states who holds the plan and who settles a tie, per role",
   const claude = roleBlock("claude");
   assert.match(astra, /Your counterpart holds the authoritative plan/);
   assert.match(astra, /is your counterpart's to settle/);
-  assert.match(astra, /Return the complete assessment as your final message/);
+  // KIND-NEUTRAL. It said "the complete assessment", which contradicted
+  // `exchangeContext`'s "It is not a new assessment" in every discuss package
+  // (#124 round 10 `4049965635`).
+  assert.match(astra, /Return your complete reply as your final message/);
+  assert.doesNotMatch(astra, /complete assessment/, "the standing block never names one kind of exchange");
   assert.match(astra, /read-only sandbox and cannot write that file yourself/);
   // NO CONCRETE PATH. It made the "stable" prefix change every exchange, and
   // Astra cannot write the file anyway (#124 round 5).
@@ -1532,5 +1536,91 @@ test("the predecessor and the quoted assessment claim no authorship", () => {
   const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
   assert.match(prompt, /the assessment from that exchange, in full/);
   assert.doesNotMatch(prompt, /your own assessment/i);
+  drop(root);
+});
+
+// ── the standing prefix is the same bytes whatever the exchange is ─────────
+
+test("the role block never asks for an assessment, and is identical across kinds", () => {
+  // THE PROPERTY THAT DECIDES THE SHAPE of `4049965635`'s fix, so it is
+  // asserted rather than asserted-about. The finding asked for a role block
+  // conditional on `kind`; both assessors recommended against, because it is
+  // the first bytes of `stablePrefix` and round 5 removed per-exchange
+  // variation from it for exactly that reason. The contradiction is removable
+  // by saying only what is true of every kind, and this test is what stops the
+  // next fix reintroducing the variation.
+  //
+  // The narrow claim, not a ban on the WORD: "a disagreement that survives
+  // investigation and discussion" is process language true of every exchange.
+  // What must not appear is an instruction to PRODUCE an assessment, which is
+  // what contradicted a discussion package.
+  assert.doesNotMatch(roleBlock("astra"), /(?:return|produce|write)[^.]*\bassessment\b/i);
+
+  const parts = { contract: "c", judgment: "j", oracle: "o", planPath: "docs/plans/PLAN_X.md", tier: "internal" };
+  for (const role of ["astra", "claude"]) {
+    assert.equal(
+      stablePrefix({ ...parts, role, kind: "assess" }),
+      stablePrefix({ ...parts, role, kind: "discuss" }),
+      `${role}'s standing prefix is the same bytes whatever the exchange is`,
+    );
+  }
+});
+
+test("a lens belongs to an assessment, and a discussion refuses it", () => {
+  // `--lens`'s own prose is "still read and assess the whole thing", which is
+  // the instruction a focused discussion exists to avoid. USAGE documents it on
+  // the assess line only; the parser took it anywhere, so the undocumented
+  // combination shipped the contradiction. Removing the input beats branching
+  // on it -- the question already carries the emphasis.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN });
+  const { code, log } = runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1",
+    "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q",
+    "--lens", "failure modes"]);
+  assert.equal(code, 1);
+  assert.match(log, /--lens belongs to --kind assess/);
+  assert.match(log, /Put the emphasis in --question/);
+  drop(root);
+});
+
+test("a discussion's emphasis heading does not tell it to assess", () => {
+  const text = exchangeContext({ kind: "discuss", round: 1, discussion: 1, lens: null, concerns: [], question: "q" });
+  assert.match(text, /none — answer the question asked/);
+  assert.doesNotMatch(text, /assess evenly/, "that heading belongs to an assessment");
+});
+
+// ── a later assessment can read what settled an earlier concern ────────────
+
+test("the predecessor block names the discussions that ran on that round", () => {
+  // `4049965628`: the block named the previous plan and the previous
+  // assessment and claimed "these two files carry everything that was not" in
+  // the ledger -- false whenever a discussion settled a concern, because the
+  // ledger's by-reference line points at the assessment the concern was RAISED
+  // in. A cold reader got its own original argument, a one-word state, and an
+  // invitation to reopen, with no route to the reply that changed its mind.
+  //
+  // PATHS, NOT TRANSCRIPTS: one line per discussion that actually ran, derived
+  // from disk. Rendering the ledger's `response` was the alternative and is
+  // the builder's account rather than the other party's words.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN,
+    "round-1.discussion-1.md": "# The reply that settled it\n",
+    "round-1.discussion-2.md": "# A later reply\n" });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md"]);
+  assert.match(prompt, /round-1\.discussion-1\.md/, "the discussion is named by path");
+  assert.match(prompt, /round-1\.discussion-2\.md/, "every discussion that ran, in order");
+  assert.doesNotMatch(prompt, /these two files carry everything/, "the claim that was false is gone");
+  assert.doesNotMatch(prompt, /The reply that settled it/, "named by path, never inlined");
+  drop(root);
+});
+
+test("a round with no discussions names none, and the block is unchanged", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md"]);
+  assert.match(prompt, /plan-round-1\.md/, "the predecessor is still named");
+  assert.doesNotMatch(prompt, /discussion-/, "nothing invented for a round that had none");
   drop(root);
 });
