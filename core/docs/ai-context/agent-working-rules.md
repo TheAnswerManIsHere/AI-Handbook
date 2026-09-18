@@ -320,18 +320,17 @@ in the product.
 - Codex and other AI reviewers are the **independent reviewers**; Claude Code is
   the product engineer. Codex is increasingly expected to **build** features too.
 - **Do not rubber-stamp another agent's plan or code.** Review it on its merits.
-- Reviewers use **review-status labels, not approval language** — only David
-  approves (see the product's plan-review skill). **This is the
-  full-document-surface expectation.** On the GitHub structured-review
-  transport (the `@codex review` connector), there is no status-label or
-  top-level write-up channel at all — only diff-anchored findings — so a
-  reviewer on that surface doesn't compute or post a label. This is a
-  confirmed transport limitation, not an exception to "no approval language":
-  the connector still never posts approval, it just has no label channel to
-  post anything in. See
-  [`code-review.md`](../engineering/code-review.md#review-output-format) and
-  [`plan-review-contract.md`](./plan-review-contract.md#output) for what each
-  surface does instead.
+- **No reviewer posts approval language — only David approves.** That holds on
+  every surface; what differs is whether a surface has a status label to post
+  instead. A code review's full-assessment surface has one. The GitHub
+  structured-review transport (the `@codex review` connector) has no
+  status-label or top-level write-up channel at all, only diff-anchored
+  findings, so a reviewer there doesn't compute or post one — a confirmed
+  transport limitation, not an exception. **A planning loop has no labels at
+  all** (2026-09-18): both parties write prose, and what happens next is stated
+  explicitly by the party holding the plan rather than derived from a field.
+  See [`code-review.md`](../engineering/code-review.md#review-output-format)
+  and [`planning-contract.md`](./planning-contract.md).
 - **Clear mechanical issue** (off-by-one, missing await, dead import, obvious lint,
   a clear logic bug) → fix it, push, mention briefly. **Design/architecture/
   trade-off** call (which abstraction, whether to refactor more, a behavior change)

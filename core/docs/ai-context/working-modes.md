@@ -553,8 +553,9 @@ pushed:
 
 1. A round returns findings.
 2. The judgement is made per finding: on a code loop from two independent
-   assessments and the builder's own reading of them, on a plan loop from the
-   reviewer's required/recommended split.
+   assessments and the builder's own reading of them. (A planning loop is not
+   a review loop and this write gate does not govern it — see *Who judges*
+   below.)
 3. **Anything written** → the fixes are pushed, and another review round is
    *automatic and mandatory*. Back to 1.
 4. **Nothing written** → the loop ends there, on a head the last round already
@@ -580,13 +581,23 @@ is the only statement of it and sets no target rate in either direction.
 
 #### There is no budget any more (#89 cut, 2026-09-16)
 
-**Who judges.** On a plan loop, the reviewer performs the
-required/recommended triage itself, in a schema field, and the loop stops on
-it. On a code loop (#96, David 2026-09-17) **Astra and a Fable assessor advise
-independently and the builder decides from both**, investigating disputed facts
-itself; a purely technical disagreement that survives is the Fable assessor's
-to settle, and intended behaviour or an accepted user-facing shortfall is
-David's. Neither assessment binds, and neither substitutes for his answer.
+**Who judges.** On a **code** loop (#96, David 2026-09-17) **Astra and a Fable
+assessor advise independently and the builder decides from both**, investigating
+disputed facts itself; a purely technical disagreement that survives is the
+Fable assessor's to settle, and intended behaviour or an accepted user-facing
+shortfall is David's. Neither assessment binds, and neither substitutes for his
+answer.
+
+On a **planning** loop (David, 2026-09-18) there is no triage to perform,
+because there are no tiers to triage into: Astra and the builder are peers
+reading one contract, Astra returns Markdown, and **the builder states the next
+action explicitly** rather than deriving it from an assessment. A purely
+technical disagreement that survives investigation and discussion is the
+builder's to settle, with the reasoning recorded where it stays readable. The
+plan reaches David for approval, which nothing else substitutes for. Until that
+date the reviewer performed a required/recommended split in a schema field and
+the loop stopped on it; that verdict-driven design is what the redesign
+replaced.
 
 **What went, and what nothing replaced.** A declared per-PR round budget, its
 committed receipts, extension grants and their arithmetic, a round-count
@@ -735,9 +746,10 @@ costs one round against a document a page long.
 Every substantive round pauses before any fix is implemented: triage first
 (nature, affected area, verdict, and whether the finding sits in code an
 earlier fix in this loop already changed), then the judgement is made per
-finding — by the reviewer's own required/recommended split on a plan loop, and
-on a code loop from two independent assessments the builder weighs but did not
-write. The agent driving the loop does not make that call alone:
+finding — on a code loop from two independent assessments the builder weighs but
+did not write. (A planning loop has no round to judge in this sense; *Who
+judges* above says what happens there instead.) The agent driving a code loop
+does not make that call alone:
 self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 

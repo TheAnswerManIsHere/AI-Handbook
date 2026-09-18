@@ -165,11 +165,12 @@ stored records. From the merged-PR list for the window:
 - **Rounds per loop.** From the PRs' own review history — how many code loops
   ran, and how long each took. Include closed `[PLAN REVIEW]` PRs in a window
   that reaches back before 2026-09-09; after that date there are none.
-  **Plan loops are no longer countable from GitHub** (Codex, #69 round 1):
-  they run in-session, their round files are gitignored, and the private
-  Artifact page is not a record. So the number comes from the **approval ask's
-  loop-close trail, restated in the workstream issue's harvest comment** —
-  `plan-review-loop` requires rounds-run there for exactly this reason.
+  **Planning loops are no longer countable from GitHub** (Codex, #69 round 1):
+  they run in-session, their exchange files are gitignored, and since
+  2026-09-18 they reach David in chat, which is not a record either. So the
+  number comes from the **approval ask's trail, restated in the workstream
+  issue's harvest comment** — `plan-review-loop` requires exchanges-run there
+  for exactly this reason.
   **Say so when a plan loop has no harvest comment**, rather than reporting a
   rounds-per-loop figure that silently omits it: understating review cost is
   the bias the old dual inventory existed to prevent, and it comes back the

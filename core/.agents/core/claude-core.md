@@ -62,8 +62,8 @@ file, that's the same smell facing the other way.
 - **Working modes** — [`working-modes.md`](../../docs/ai-context/working-modes.md).
 - **Documentation contract** —
   [`documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).
-- **Plan review** —
-  [`plan-review-contract.md`](../../docs/ai-context/plan-review-contract.md).
+- **Planning** — the contract both parties to a planning loop read:
+  [`planning-contract.md`](../../docs/ai-context/planning-contract.md).
 - **Workstream tracking** —
   [`workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md).
 - **Failure patterns the fleet has already paid for** —
@@ -230,8 +230,10 @@ thing claimed is mine, and not how long checking it would take (David,
 - **A fix I claim is a fix I re-read.** Asserting that an edit applied,
   without reading the file back, is the same failure one level down.
 
-The vocabulary is the plan-review schema's `verified_claims` and
-`unable_to_verify`, never a parallel one. **There is no checker for this, and
+The vocabulary is the planning contract's — *verified* and *unable to
+verify*, in its evidence section — never a parallel one. (It used to be the
+plan-review schema's fields; the schema went with the verdict-driven design on
+2026-09-18 and the contract kept both terms.) **There is no checker for this, and
 none is to be built** — the one named exception to *Recurring failure
 patterns become CI guards* under *Standing rituals*: the rule adds a word
 where the honest answer is "I could not check" and a quotation where I did,
@@ -318,8 +320,8 @@ enactment is `.claude/skills/document/`.
    invariants, not implementation — applied line by line as I draft, not as a
    trimming pass afterwards.
 3. **A plan is never published, so the pre-push disclosure gate is gone**
-   (David, 2026-09-09): working tree, in-session reviewer, private Artifact
-   page — no public channel. What survives is narrower and still binding: a
+   (David, 2026-09-09): working tree, in-session peer, chat — no public
+   channel. What survives is narrower and still binding: a
    `docs/plans/` file reaches `main` only if David asks, and **the disclosure
    check runs before it does** — unpatched vulnerabilities, auth-bypass
    specifics, secrets, payment-fraud paths, private customer data or embargoed
@@ -332,21 +334,31 @@ enactment is `.claude/skills/document/`.
    ramifications, default **next**. A two-option scope question is a bug in the
    question. Override only when the current plan cannot be *correct* without the
    addition.
-6. **One private Artifact page is the plan's delivery surface, redeployed in
-   place each round** (David, 2026-09-09, superseding the plan-review PR): same
-   URL all loop, "what changed this round" on top, so a link he saved on round 1
-   is still current on round 5. No `SendUserFile`, no plan file pushed anywhere.
-   **v1 is shown and the loop proceeds without waiting** — it changes anyway.
+6. **Chat is the plan's delivery surface** (David, 2026-09-18, retiring the
+   private Artifact page of 2026-09-09, which in turn replaced the plan-review
+   PR). A readout per exchange; at approval, a short readout and then **the
+   complete plan**, in chat. No page, no HTML, no link — the same rule the code
+   loop already carries, and rebuilding one is forbidden rather than merely
+   unnecessary. `SendUserFile` for the plan document is **on request**: the ban
+   on it existed only because the page made it unnecessary. The plan file is
+   still pushed nowhere. **v1 is shown and the loop proceeds without waiting** —
+   it changes anyway.
 7. **Genuine product/design forks escalate to David** as numbered questions
-   carrying the reviewer's view and mine side by side — never absorbed into a
-   revision. So does a decline the reviewer keeps `Still open` for **two**
-   consecutive rounds: twice is evidence the disagreement is real, not evidence
-   I explained it badly.
-8. **Every round is relayed in plain English before the revision, never after**
-   — what the reviewer disagrees with, then one line per finding saying what I
-   am doing with it (fix / decline with the reason / bring to David). A clean
-   round still relays its `summary_for_david`; that paragraph is the
-   independent plan opinion, free with every round.
+   carrying Astra's view and mine side by side — never absorbed into a revision.
+   So does anything that changes intended behaviour, scope, or an accepted
+   user-facing consequence. **A purely technical disagreement that survives
+   investigation and discussion is mine to settle**, with the reasoning recorded
+   and Astra not obliged to agree; I record it as `settled-over-dissent` so it
+   stays readable and revisable, and I name it in the approval ask. (This
+   replaces the two-consecutive-rounds escalation of 2026-09-09, which belonged
+   to a loop where a reviewer's verdict decided.)
+8. **Every exchange is relayed in plain English before the revision, never
+   after** — what Astra disagrees with, then one line per concern saying what I
+   am doing with it (act / leave it with the reason / bring to David). A clean
+   exchange still gets its readout: that independent opinion is the thing David
+   is otherwise reading blind without, and it arrives free with every exchange.
+   **An assessment saying it could not do the job is not a clean exchange** —
+   that is mine to supply and re-run, never convergence.
 
 Planning runs in my main loop end to end — continuous, stateful, judgment-dense,
 never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
@@ -898,11 +910,17 @@ shows the true delta.
   the plan reviewer and the review proxy are the two live cases, both resolving
   `strongestCodex`. (The `review-loop-adjudicator` agent that stood here was
   removed by the #89 cut.)
-  **What a dispatch returns differs by loop.** The plan reviewer's assessment
-  decides, and if I think it is wrong that is a disagreement for David rather
-  than licence to overrule. The review proxy's assessments **advise**: I weigh
-  them, investigate disputed facts, and decide — under *Shared judgement on a
-  review round*, which says who settles what.
+  **Both loops' assessments advise; neither decides** (David, 2026-09-18 for
+  planning, 2026-09-17 for code review). I weigh them, investigate disputed
+  facts myself, and decide. On a planning exchange the next action is something
+  I state in a `plan-action` block, never something inferred from an
+  assessment's wording; a purely technical disagreement that survives discussion
+  is mine to settle with the reasoning recorded. On a code round the same holds
+  under *Shared judgement on a review round*, where the Fable assessor settles
+  the surviving technical tie. In both, what is reserved for David stays his.
+  (The planning assessment used to decide, and overruling it was a disagreement
+  for David; that was the verdict-driven design the 2026-09-18 redesign
+  replaced.)
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
   the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
   premise produces a confidently wrong verdict** — so pin the commit the
