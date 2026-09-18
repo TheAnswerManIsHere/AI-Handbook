@@ -204,6 +204,48 @@ const cap = (s, n) => {
   return flat.length <= n ? flat : `${flat.slice(0, n - 1)}…`;
 };
 
+/**
+ * Who each assessor is, who the other one is, and who holds the tie-break.
+ *
+ * ONE BRIEF, TWO READERS, SO THE ROLE-SPECIFIC FACTS ARE THE SCRIPT'S. The
+ * brief is deliberately generic -- "the other assessor" throughout -- because
+ * both assessors must receive the same words for a difference between their
+ * answers to mean a difference of judgement rather than of briefing. But a
+ * generic brief cannot tell Fable that the tie-break is *its own*, and the
+ * first version of this file shipped Astra's brief to Fable unchanged: it read
+ * that it discussed with Fable and that Fable settled ties, which is a role
+ * talking to itself about a third party that is also itself. (David,
+ * 2026-09-17, on reading what the subagent was actually sent.)
+ *
+ * So the three facts that genuinely differ are emitted here, per source, and
+ * never left for either model to infer.
+ */
+export const identityBlock = (source) => {
+  if (!SOURCES.includes(source)) {
+    throw new Error(`review-proxy: source must be one of ${SOURCES.join(", ")}, got ${JSON.stringify(source)}`);
+  }
+  const astra = source === "astra";
+  return [
+    "## Who you are in this round",
+    "",
+    astra
+      ? "- **You are Astra**, reached through the Codex CLI in a read-only sandbox."
+      : "- **You are the Fable assessor**, a Claude subagent with the checkout to read.",
+    astra
+      ? "- **The other assessor is the Fable assessor**, a Claude subagent reading this same package separately."
+      : "- **The other assessor is Astra**, reached through the Codex CLI, reading this same package separately.",
+    "- **Neither of you sees the other's assessment before writing your own.** That is the point: two",
+    "  independent readings, not a second opinion formed by reading the first.",
+    astra
+      ? "- **The tie-break is the Fable assessor's**, not yours: once Claude has investigated the facts and you have had a focused follow-up where one was warranted, a purely technical disagreement that still remains is settled there. You are not obliged to agree with how it is settled."
+      : "- **The tie-break is yours**, once Claude has investigated the facts and Astra has had a focused follow-up where one was warranted. Choose, and record why in a short paragraph. Astra is not obliged to agree.",
+    "- **Neither of you can settle anything reserved for David**: what the software should do, and whether a",
+    "  shortfall he or a user would feel is acceptable. If a disagreement turns out to rest on one of those,",
+    "  say so and stop.",
+    "",
+  ].join("\n");
+};
+
 const readBrief = () => `${fs.readFileSync(briefPath(), "utf8").trim()}
 
 ---
@@ -225,6 +267,7 @@ ${fs.readFileSync(judgmentPath(), "utf8").replace(/^<!--[\s\S]*?-->\s*/, "").tri
  * difference of judgement, not of what they were told.
  */
 export function assessmentBrief({
+  source = "astra",
   pr,
   round,
   tier,
@@ -271,6 +314,7 @@ export function assessmentBrief({
     "",
     "---",
     "",
+    identityBlock(source),
     "# This round",
     "",
     ...TIER_LENSES[tier],
@@ -332,6 +376,7 @@ export function assessmentBrief({
  * no follow-up, because it would look like agreement.
  */
 export function followUpBrief({
+  source = "astra",
   pr,
   round,
   reviewedCommit,
@@ -356,6 +401,7 @@ export function followUpBrief({
     "",
     "---",
     "",
+    identityBlock(source),
     "# A focused follow-up",
     "",
     "This is not a new assessment. Answer the question below directly: what the new evidence establishes, whether",
@@ -373,14 +419,14 @@ export function followUpBrief({
   ].filter((l) => l !== null);
 
   if (fableReasoning && fableReasoning.trim()) {
-    lines.push("## [fable] The other assessor's reasoning", "", fableReasoning.trim(), "");
+    lines.push(`## [${source === "astra" ? "fable" : "astra"}] The other assessor's reasoning`, "", fableReasoning.trim(), "");
   }
   if (newEvidence.length) {
     lines.push("## New evidence, with its provenance", "");
     for (const e of newEvidence) lines.push(`- **[${e.source ?? "builder"}]** ${flatten(e.text ?? e)}`);
     lines.push("");
   }
-  lines.push("## [astra] Your earlier assessment of this round, quoted", "", priorAssessment.trim(), "");
+  lines.push(`## [${source}] Your earlier assessment of this round, quoted`, "", priorAssessment.trim(), "");
   return lines.join("\n");
 }
 
@@ -512,10 +558,13 @@ export const USAGE = [
   "  --findings-file JSON array of { id, body, path?, line? } — this round's findings.",
   "  --history-file  JSON array of { label, text } — labels: " + LABELS.join(", "),
   "  --note          the builder's 'where we are', capped at " + MAX_NOTE_CHARS + " characters.",
+  `  --source        ${SOURCES.join(" | ")} (default astra). Selects the identity block and the output path.`,
+  "  --prompt-only   print the package and run nothing — how the Fable subagent is given the same words.",
   "",
   `  Astra is pinned to the strongestCodex tier in the ${SANDBOX} sandbox, with no override, and the`,
   "  dispatch refuses unless the checkout is at --commit and clean. The Fable assessment is a subagent",
-  "  dispatched by the builder, not by this script; both read the package this script composes.",
+  "  dispatched by the builder, not by this script; both read the package this script composes, which",
+  "  differs only in the identity block — so `--source fable` is only meaningful with `--prompt-only`.",
 ].join("\n");
 
 const FLAGS = {
@@ -533,6 +582,7 @@ const FLAGS = {
   "prior-file": "priorFile",
   "fable-file": "fableFile",
   "prompt-only": "promptOnly",
+  source: "source",
 };
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
@@ -566,11 +616,22 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
     return 2;
   }
   const followUp = flags.followUp ?? 0;
+  // THE SOURCE PICKS BOTH THE IDENTITY BLOCK AND THE OUTPUT PATH, and it has to
+  // pick both or neither: a Fable package naming Astra's file would have the
+  // subagent overwrite the answer this script is about to read. Only `--source
+  // fable --prompt-only` is meaningful, because this script runs the Codex CLI
+  // and nothing else -- the subagent is dispatched by the harness.
+  const source = flags.source ?? "astra";
+  if (source !== "astra" && !flags.promptOnly) {
+    log(`review-proxy: --source ${source} composes a package for an assessor this script does not run; use --prompt-only\n\n${USAGE}`);
+    return 2;
+  }
   let prompt;
   try {
-    const file = assessmentPath(root, flags.pr, flags.round, { source: "astra", followUp });
+    const file = assessmentPath(root, flags.pr, flags.round, { source, followUp });
     prompt = followUp
       ? followUpBrief({
+          source,
           pr: flags.pr,
           round: flags.round,
           reviewedCommit: flags.commit,
@@ -581,6 +642,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
           assessmentFile: file,
         })
       : assessmentBrief({
+          source,
           pr: flags.pr,
           round: flags.round,
           tier: flags.tier,

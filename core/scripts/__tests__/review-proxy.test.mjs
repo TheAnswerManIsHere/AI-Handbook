@@ -35,6 +35,7 @@ import {
   assessmentPath,
   prepareAssessmentPath,
   assertCheckout,
+  identityBlock,
   assessmentBrief,
   followUpBrief,
   readAssessment,
@@ -167,12 +168,59 @@ test("the builder's note is capped, so the assessed party's framing cannot fill 
   assert.match(brief(), /\(the builder supplied no note\)/);
 });
 
-test("both assessors get the same words, so a difference between them is a difference of judgement", () => {
-  // Independence is only meaningful over a common factual basis. Two
-  // compositions that merely look alike would make every disagreement
-  // ambiguous: judgement, or a different briefing?
+test("both assessors get the same brief, Worth rule and round, differing only in who they are", () => {
+  // Independence is only meaningful over a common factual basis. A difference
+  // between the two answers has to be a difference of judgement, so everything
+  // except the identity block is byte-identical -- and that block exists
+  // because the brief cannot both stay generic and tell each reader which of
+  // them holds the tie-break.
   const args = { tier: "product", history: [{ label: "oracle", text: "Ship the thing." }], builderNote: "Round 1." };
-  assert.equal(brief(args), brief(args));
+  const astra = brief({ ...args, source: "astra" });
+  const fable = brief({ ...args, source: "fable" });
+  assert.notEqual(astra, fable, "the two packages are identical, so neither reader is told which role it holds");
+  assert.equal(
+    astra.replace(identityBlock("astra"), ""),
+    fable.replace(identityBlock("fable"), ""),
+    "the packages differ somewhere other than the identity block",
+  );
+  assert.equal(brief({ ...args, source: "astra" }), astra, "the same source composed twice differs");
+  // Default to Astra: the Codex CLI path is the one the script runs itself.
+  assert.equal(brief(args), astra);
+});
+
+test("each assessor is told who it is, who the other is, and which of them settles a technical tie", () => {
+  // The defect this replaces: Astra's brief went to the Fable subagent
+  // unchanged, so it read that it discussed with Fable and that Fable settled
+  // ties -- a role talking to itself about a third party that is also itself.
+  const astra = identityBlock("astra");
+  assert.match(astra, /\*\*You are Astra\*\*/);
+  assert.match(astra, /\*\*The other assessor is the Fable assessor\*\*/);
+  assert.match(astra, /\*\*The tie-break is the Fable assessor's\*\*, not yours/);
+
+  const fable = identityBlock("fable");
+  assert.match(fable, /\*\*You are the Fable assessor\*\*/);
+  assert.match(fable, /\*\*The other assessor is Astra\*\*/);
+  assert.match(fable, /\*\*The tie-break is yours\*\*/);
+
+  for (const block of [astra, fable]) {
+    assert.match(block, /Neither of you sees the other's assessment/);
+    assert.match(block, /Neither of you can settle anything reserved for David/);
+  }
+  assert.throws(() => identityBlock("codex"), /source must be one of/);
+});
+
+test("the brief itself names no role, so one file serves both readers", () => {
+  // The brief says "the other assessor" throughout. A role name left in it
+  // would be wrong for exactly one of the two, silently.
+  const text = fs.readFileSync(briefPath(), "utf8");
+  assert.doesNotMatch(text, /Astra|Fable/, "the shared brief names a specific assessor");
+  assert.match(brief({ source: "fable" }), /the other\nassessor|the other assessor/);
+});
+
+test("a follow-up names the other assessor correctly for whoever is reading it", () => {
+  assert.match(followUp({ source: "astra", fableReasoning: "X" }), /\[fable\] The other assessor's reasoning/);
+  assert.match(followUp({ source: "fable", fableReasoning: "X" }), /\[astra\] The other assessor's reasoning/);
+  assert.ok(followUp({ source: "fable" }).includes(identityBlock("fable")));
 });
 
 // ---------------------------------------------------------------------------
@@ -411,6 +459,53 @@ test("--prompt-only emits the package without running anything, so the Fable ass
   assert.deepEqual(calls, [], "--prompt-only started a process");
   assert.match(printed, /ORACLE-FROM-FILE/);
   assert.ok(printed.includes(fs.readFileSync(briefPath(), "utf8").trim()));
+});
+
+test("--source picks the identity block and the output path together, or the CLI refuses", () => {
+  // The two have to move together. A Fable package naming Astra's file would
+  // have the subagent overwrite the answer the script is about to read, and the
+  // mismatch would be invisible: both files exist and both hold Markdown.
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-in-"));
+  const write = (name, value) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return file;
+  };
+  const argv = (...extra) => [
+    "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal",
+    "--oracle-file", write("o.md", "ORACLE-FROM-FILE"),
+    "--findings-file", write("f.json", [{ id: "c1", body: "b" }]),
+    ...extra,
+  ];
+  const capture = (args) => {
+    let printed = "";
+    const stdout = process.stdout.write;
+    process.stdout.write = (chunk) => ((printed += chunk), true);
+    let code;
+    try {
+      code = main(args, { root, run: () => ({ status: 0 }), git: cleanGit(), log: () => {} });
+    } finally {
+      process.stdout.write = stdout;
+    }
+    return { code, printed };
+  };
+
+  const fable = capture(argv("--source", "fable", "--prompt-only"));
+  assert.equal(fable.code, 0);
+  assert.ok(fable.printed.includes(identityBlock("fable")), "the fable package carries Astra's identity block");
+  assert.match(fable.printed, /round-1\.fable\.md/);
+  assert.doesNotMatch(fable.printed, /round-1\.astra\.md/);
+
+  const astra = capture(argv("--prompt-only"));
+  assert.match(astra.printed, /round-1\.astra\.md/);
+
+  // The script runs the Codex CLI and nothing else, so a fable dispatch is a
+  // request it cannot honour -- refused, rather than silently run as Astra.
+  let logged = "";
+  assert.equal(main(argv("--source", "fable"), { root, run: () => ({ status: 0 }), git: cleanGit(), log: (m) => (logged += m) }), 2);
+  assert.match(logged, /this script does not run; use --prompt-only/);
+  assert.match(USAGE, /--source/);
 });
 
 test("the CLI refuses an unknown flag or a flag with no value rather than guessing", () => {

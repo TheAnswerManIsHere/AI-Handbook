@@ -70,14 +70,22 @@ step 5, stated once, with the duplicated material left out.
       what lets an assessor weigh them: mine and the reviewer's are claims to
       check, **David's are authority**.
    3. **Dispatch both, on the same package.** Astra through the script; the
-      Fable assessor as a subagent given the package `--prompt-only` emits, so
-      the two demonstrably receive the same words. **Neither sees the other's
-      answer** — that is what makes the readings independent rather than
-      merely separate, so do not pass one into the other.
+      Fable assessor as a subagent given the package `--prompt-only` emits with
+      `--source fable`. **One brief serves both** — it says "the other
+      assessor" throughout — and the only difference between the two packages
+      is the identity block the script adds, which names who each reader is and
+      which of them holds the tie-break. A brief that named a role would be
+      wrong for exactly one of them, silently, and once was: the first version
+      shipped Astra's brief to the subagent unchanged, so it read that it
+      discussed with Fable and that Fable settled ties. **Neither sees the
+      other's answer** — that is what makes the readings independent rather
+      than merely separate, so do not pass one into the other.
 
       ```
       P=core/scripts/review-proxy.mjs; [ -f "$P" ] || P=scripts/review-proxy.mjs
       node "$P" --pr <n> --round <n> --commit <reviewed sha> --tier <product|sensitive|internal> \
+        --oracle-file <path> --findings-file <path> [--history-file <path>] [--note "<where we are>"]
+      node "$P" --source fable --prompt-only --pr <n> --round <n> --commit <reviewed sha> --tier <…> \
         --oracle-file <path> --findings-file <path> [--history-file <path>] [--note "<where we are>"]
       ```
 
