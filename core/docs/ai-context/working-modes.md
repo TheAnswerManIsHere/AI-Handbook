@@ -767,7 +767,13 @@ desk. **What does not become negotiable is a constraint David required
 explicitly**: a requirement does not stop being his because it happens to be
 about technology. (The code review loop's own escalation list, under *The
 post-round judgement* below, still names a product or design fork and is correct
-as written — that loop has no technical tie-break and is deliberately unchanged.)
+as written. **It is not that the code loop lacks a technical tie-break** — *Who
+judges* above gives a surviving purely technical disagreement to the Fable
+assessor there, and `claude-core.md` rule 4 says so on `main`. This parenthesis
+claimed the opposite for one round, which is this very paragraph's warning
+happening to the paragraph itself: added at #124 round 7 to stop an escalation
+rule negating the planning tie-break, it negated the code loop's in the same
+breath. Corrected at round 9 `4049773956`.)
 
 **The scope gate now carries a second opinion (David, 2026-09-09).** Before the
 plan is written, the reviewer is given the oracle alone and asked whether the

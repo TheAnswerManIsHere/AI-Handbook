@@ -714,7 +714,25 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
 
   if (priorAssessment) {
     // Same class as the predecessor line above: the second site Astra found.
-    out.push("", "### The earlier assessment of this round, quoted", "", priorAssessment.trim());
+    //
+    // NAMED BY WHAT THE FILE ACTUALLY IS, because for discussion 2 onward it is
+    // NOT the assessment. `assessmentPath(dir, round, discussion - 1)` returns
+    // `round-N.discussion-(M-1).md` once `M-1 > 0`, so a chained reply quoted a
+    // narrow focused answer under a heading calling it the round's assessment
+    // -- in the same package that tells the reader a discussion "is not a new
+    // assessment" and "Do not repeat your assessment". A cold reader handed a
+    // narrow reply labelled as the assessment can reasonably conclude that
+    // everything absent from it was dropped, which is the opposite of the
+    // "everything you are not asked about keeps its state" line two paragraphs
+    // above it. (Codex, #124 round 9 `4049773970`; both assessors concurred.)
+    out.push(
+      "",
+      discussion > 1
+        ? `### The previous focused reply of this round (discussion ${discussion - 1}), quoted`
+        : "### The assessment of this round, quoted",
+      "",
+      priorAssessment.trim(),
+    );
   }
 
   if (inventory) {
@@ -1429,6 +1447,52 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           `--concerns names ${missing.join(", ")}, which the ledger does not carry. A discussion renders the named ` +
             `concerns in full so the other party can argue about the actual reasoning; an id with nothing behind it ` +
             `asks it to argue about a label.`,
+        );
+      }
+    }
+
+    // --- a discussion revisits the LATEST assessment, never an older one ----
+    //
+    // Two valid targets for one operation. The sequential rule above is gated
+    // on `kind === "assess"`, so the discuss path checked only that
+    // `round-N.md` existed and that `plan-round-N.md` matched the live plan --
+    // and identical plan bytes do NOT establish current reasoning, because two
+    // assessments of the same plan can reach different conclusions. So
+    // `--round <older>` briefed the cold peer from the older assessment while
+    // the newer one, which by construction saw the same plan and more history,
+    // was silently omitted; the reply then landed as
+    // `round-<older>.discussion-M.md` and the ledger was updated from it.
+    //
+    // A REFUSAL, NOT A DERIVATION, and that is David's call (2026-09-18):
+    // "Please stop trying to derive round numbers. You always know what the
+    // round number is. Simply tell whatever consumer needs it what the round
+    // number is." Astra had recommended deriving this from the highest accepted
+    // round and dropping the flag. The evidence against it is in the recipe:
+    // `<N>` appears FOUR times there -- the question file, the marker, the log
+    // and this flag -- and the three shell paths are the operator's own, keyed
+    // by round deliberately (a marker named by `<M>` alone collides across
+    // rounds, #124 round 2). Deriving would remove one of the four uses and
+    // leave three unchecked on the very value that goes stale. Checking what
+    // the operator typed covers all four.
+    //
+    // Nothing is lost. An older concern is reopened by naming it in
+    // `--concerns` on the latest round, where `renderLedger` shows it in full
+    // whatever its state -- that is what the ledger's "settled is not closed"
+    // design is for. (Codex, #124 round 9 `4049773985`; the Fable assessor
+    // chose the refusal and David settled the shape.)
+    if (kind === "discuss") {
+      // `roundsRun` counts `round-0.md`, the scope exchange, which is not an
+      // assessment and can never be the target of a discussion.
+      const assessed = ran.filter((n) => n >= 1);
+      const latest = Math.max(0, ...assessed);
+      if (latest > 0 && round !== latest) {
+        throw new Error(
+          `--round ${round} is not the latest assessment: ${latest} has since run, so a discussion of ${round} ` +
+            `would brief the other party from superseded reasoning while ${latest} -- which saw this same plan and ` +
+            `more history -- is left out, and the ledger would then be updated from the older answer. Discuss ` +
+            `round ${latest}. To reopen something raised earlier, name its concern id in --concerns: the ledger ` +
+            `renders a selected concern in full whatever state it is in, which is what carries the older reasoning ` +
+            `forward.`,
         );
       }
     }

@@ -528,6 +528,21 @@ test("a discussion is not a new assessment, and says so", () => {
   assert.match(text, /Everything you are not asked about keeps the state it already has/);
 });
 
+test("a chained discussion quotes the previous reply, and says that is what it is", () => {
+  // `4049773985`'s sibling (`4049773970`): from discussion 2 onward the quoted
+  // file is `round-N.discussion-(M-1).md`, a narrow focused answer -- and the
+  // heading called it the round's assessment, in the same package that tells
+  // the reader a discussion "is not a new assessment". A cold reader handed a
+  // narrow reply under that heading can conclude everything absent from it was
+  // dropped, which contradicts the line three paragraphs up.
+  const first = exchangeContext({ kind: "discuss", round: 2, discussion: 1, lens: null, concerns: [], question: "q", priorAssessment: "the full assessment" });
+  assert.match(first, /### The assessment of this round, quoted/);
+
+  const chained = exchangeContext({ kind: "discuss", round: 2, discussion: 3, lens: null, concerns: [], question: "q", priorAssessment: "a narrow reply" });
+  assert.match(chained, /### The previous focused reply of this round \(discussion 2\), quoted/);
+  assert.doesNotMatch(chained, /assessment of this round, quoted/, "a focused reply is never labelled the assessment");
+});
+
 test("a discussion advances no round and rewrites no plan", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
   seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment\n", "plan-round-1.md": PLAN });
@@ -1423,10 +1438,41 @@ test("rereading my own copy of an accepted round is exempt, and is not handed a 
   drop(root);
 });
 
-test("a discussion is untouched by the sequential rule", () => {
+test("a discussion targets the latest assessment, not an older one on the same plan", () => {
+  // FLIPPED AT #124 ROUND 9 (`4049773985`), and the flip is the finding. This
+  // test asserted that discussing round 1 SUCCEEDED while round 3 existed, and
+  // its old name -- "a discussion is untouched by the sequential rule" -- says
+  // what it was actually protecting: a discussion must not hit the "not the
+  // next assessment" error, which is a different rule. It was never a decision
+  // that discussing a superseded round is desirable, and nothing in `SKILL.md`
+  // documents doing so.
+  //
+  // Identical plan bytes are what make this reachable AND what make it silent:
+  // the snapshot check passes, because two assessments of the same plan can
+  // still reach different conclusions. The cold peer is then briefed from the
+  // older reasoning and the ledger updated from its reply.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
   seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN,
     "round-3.md": "# Three\n", "plan-round-3.md": PLAN });
+  const discuss = (n) => runMain(root, ["--kind", "discuss", "--round", String(n), "--discussion", "1",
+    "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]);
+
+  const stale = discuss(1);
+  assert.equal(stale.code, 1, "round 1 is superseded by round 3");
+  assert.match(stale.log, /--round 1 is not the latest assessment: 3 has since run/);
+  assert.match(stale.log, /name its concern id in --concerns/, "and it names the way to reopen the older concern");
+
+  assert.equal(discuss(3).code, 0, "the latest assessment is what a discussion revisits");
+  drop(root);
+});
+
+test("the scope exchange is not an assessment, so it never counts as the latest", () => {
+  // `roundsRun` counts `round-0.md`. Comparing against it unfiltered would make
+  // a slug whose only exchange is the scope one refuse every discussion of
+  // round 1 -- naming round 0, which no discussion can target.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-0.md": "# Scope\n", "plan-round-0.md": PLAN,
+    "round-1.md": "# One\n", "plan-round-1.md": PLAN });
   assert.equal(runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]).code, 0);
   drop(root);

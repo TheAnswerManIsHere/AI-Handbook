@@ -337,18 +337,27 @@ in the product.
   → summarize your position and escalate to David; don't silently rewrite the
   design on a reviewer's say-so, even a bot's. David doesn't need to triage every
   nit, but he weighs in on anything that's a real decision.
-  **On a PLANNING loop this bullet stops at the word "behavior"** (2026-09-18):
+  **On either loop this bullet stops at the word "behavior"** (2026-09-18):
   two approaches serving the same agreed behaviour, scope and explicit
   constraints are the loop's own to settle — through investigation and
-  discussion, and if the disagreement survives both, by the party holding the
-  plan, with the reasoning recorded. What still reaches David there is intended
-  behaviour, scope, a knowingly accepted user-facing shortfall, and approval of
-  the plan; and a constraint he required explicitly does not become negotiable
-  for being technical. [`planning-contract.md`](./planning-contract.md) is the
-  authority. **The code review loop keeps this bullet exactly as written above**
-  — it has no technical tie-break, and the same rule in
-  [`code-review.md`](../engineering/code-review.md) and the `pr-watch` skill is
-  correct there and deliberately unchanged.
+  discussion, and if the disagreement survives both, by **whoever holds that
+  loop's tie-break**, with the reasoning recorded. The holder differs and is
+  the only thing that does: the party holding the plan on a **planning** loop
+  ([`planning-contract.md`](./planning-contract.md)), the Fable assessor on a
+  **code** round (`claude-core.md`'s *Shared judgement on a review round*).
+  What still reaches David on either is intended behaviour, scope, a knowingly
+  accepted user-facing shortfall, and approval; and a constraint he required
+  explicitly does not become negotiable for being technical.
+  **This paragraph asserted the opposite for one round.** Added at #124 round 7
+  to fix the planning half, it went on to say the code review loop "has no
+  technical tie-break" — contradicting `claude-core.md` rule 4,
+  `working-modes.md`'s *Who judges* and the reviewer's own brief, all of which
+  give a surviving purely technical disagreement to the Fable assessor, and the
+  first of those was already on `main`. A fix that introduces the very
+  contradiction it was closing is worth naming rather than quietly correcting:
+  the sweep checked the siblings against the fixer's memory of the rule instead
+  of against the rule (Codex, #124 round 9 `4049773956`; both assessors
+  concurred, and Astra found the second instance).
 - Keep external-facing chatter (GitHub replies) frugal and specific.
 
 ---

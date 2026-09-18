@@ -256,14 +256,29 @@ wrong. Do not use it to relitigate something I simply dislike.
    independent opinion is the thing he is otherwise reading blind without.
 
 2. **Update the ledger — after every exchange, including one that raised
-   nothing.** Every concern's state, my response in full, and the source of
-   anything new. **An exchange that raised nothing still writes `[]`**, because
-   continuity lives in that file and the script refuses a later exchange when it
-   is absent. That refusal is deliberate: an absent ledger reads as *forgotten*,
-   which is the one thing no check can distinguish from *nothing was raised*. So
-   it is mine to answer, by writing the file. `--no-ledger` is the escape the
-   error names, for the case where earlier exchanges genuinely returned nothing
-   and I have not written one.
+   nothing.** Every existing entry is carried forward with its reasoning intact,
+   its state and my response updated where the exchange moved them, and anything
+   new is added with its source. **The file exists after every exchange**,
+   because continuity lives in it and the script refuses a later exchange when
+   it is absent. That refusal is deliberate: an absent ledger reads as
+   *forgotten*, which is the one thing no check can distinguish from *nothing
+   was raised*. So it is mine to answer, by writing the file. `--no-ledger` is
+   the escape the error names, for the case where earlier exchanges genuinely
+   returned nothing and I have not written one.
+
+   **`[]` is only ever what the file contains while nothing has been raised in
+   the loop so far** — never what an exchange writes over entries that exist.
+   This bullet used to read "an exchange that raised nothing still writes `[]`",
+   which an agent reading the bold text would follow literally: exchange 2
+   raises nothing, the ledger holding exchange 1's concerns is overwritten with
+   `[]`, and **the loss is silent** — the script loads an empty array happily
+   and the next cold reader is told "No concerns are on the ledger yet." It
+   surfaces only when a later discussion names an id and is refused, by which
+   time the reasoning is gone. That is the same requirement round 7 enforced one
+   entry at a time (a concern may not drop its text) failing wholesale, and the
+   script cannot catch it: a genuinely empty ledger and an emptied one are the
+   same bytes, so the instruction is the only layer that can say it (Codex, #124
+   round 9 `4049773962`; both assessors concurred).
 
 3. **State the next action, explicitly.** Nothing in an assessment decides this.
 
@@ -407,12 +422,28 @@ An exchange's `planSha256` still identifies what *that exchange* assessed, which
 is a different and still useful fact. Keys and grammars:
 [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md).
 
-**What that block does and does not establish.** The parser refuses a
-`private-plan` block that omits the approver or the date, so a plan-backed PR
-cannot silently claim an approval it never records. It does not establish that
-David approved, and it runs when the PR opens — by which time the code exists.
-The real boundary is item 3 above: an operating instruction, with nothing
-mechanical gating it.
+**What that block does and does not establish.** The block's job is to record,
+in a fixed shape, that a plan was approved and by whom — so a plan-backed PR
+cannot silently claim an approval it never names. **Nothing reads it at
+runtime.** `planProvenanceDeclaration` has no caller outside its own tests;
+what checks the block is the reviewer, by eye, which
+[`code-review.md`](../../../docs/engineering/code-review.md) already assigns —
+a missing, malformed or key-short block is a finding. So the block does not
+establish that David approved, and no machinery refuses one that omits the
+approver or the date.
+
+This paragraph claimed the opposite until #124 round 9 (`4049773976`): that the
+parser "refuses" such a block "when the PR opens". It runs nowhere, and two
+other documents already said so —
+[`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md) ("Nothing
+reads a PR body's block at runtime now") and `code-review.md`, which records
+that the runtime reader went in the #89 cut. **A protection described but not
+built is worse than an absent one**, because the author relies on it. Both
+assessors advised correcting the description rather than building the check:
+rebuilding that reader to make a sentence true would restore machinery the cut
+removed, for a block whose only consumer reads it by eye. The real boundary is
+item 3 above, and it is stronger stated plainly: an operating instruction, with
+nothing mechanical gating it.
 
 ## The workstream issue
 
