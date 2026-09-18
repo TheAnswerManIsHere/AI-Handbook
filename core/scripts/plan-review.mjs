@@ -1218,6 +1218,46 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const ran = roundsRun(dir);
     const earlier = kind === "discuss" ? ran : ran.filter((n) => n !== round);
 
+    // --- assessment rounds go up by one, and this is what makes that true ---
+    //
+    // THE INVARIANT WAS ALWAYS RELIED ON AND NEVER STATED. Round numbers are
+    // typed by hand, and `Math.max` over them is a proxy for "the most recently
+    // run exchange" that holds only while they are assigned monotonically. Run
+    // 1, then 3, then 2, and a later round 4 hands the reader exchange 3's
+    // snapshot while the most recent exchange was 2 -- a generation stale,
+    // silently, in the one paragraph that tells the reader what changed
+    // (measured by the Fable assessor, #124 round 4).
+    //
+    // A REFUSAL RATHER THAN A COMPENSATION. Bounding the predecessor to
+    // `n < round` was the reviewer's proposal and it is worse: measured, it
+    // picks round 1 for the round-2 case (staler than what it replaces) and
+    // leaves the round-4 case untouched. Removing the ambiguity beats reading
+    // around it. If this ever blocks a real workflow the fallback is
+    // `meta.finishedAt`, which every meta already carries -- never `n < round`.
+    //
+    // `--prompt-only` IS EXEMPT, and that is Astra's constraint rather than an
+    // afterthought: the documented "returning to an existing plan" recipe
+    // rereads MY copy of an already-accepted round, creates no exchange, and a
+    // sequential rule without this exemption refuses it. The predecessor bound
+    // below is what keeps that path's package honest.
+    //
+    // AN ALREADY-ACCEPTED ROUND SKIPS THIS, so it still meets the refusal that
+    // is actually about it -- "an accepted assessment is never replaced" names
+    // the ledger entry that cites the file, which is the thing at stake there.
+    // A sequencing message would be true and less useful.
+    if (kind === "assess" && !flags.promptOnly && !ran.includes(round)) {
+      const next = Math.max(0, ...ran) + 1;
+      if (round !== next) {
+        throw new Error(
+          `--round ${round} is not the next assessment: ${ran.length ? `exchange(s) ${ran.join(", ")} have run` : "nothing has run yet"}, ` +
+            `so the next one is ${next}. Assessment rounds go up by one, because the loop reads the highest ` +
+            `number as the most recent exchange -- a gap filled in later would brief the other party against a ` +
+            `stale revision and say nothing. A failed or drifted exchange leaves no round-${round}.md, so re-running ` +
+            `it keeps its own number.`,
+        );
+      }
+    }
+
     // --- oracle -----------------------------------------------------------
     let oraclePath = null;
     if (flags.oracle) {
@@ -1406,9 +1446,15 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // match. Naming a file that is not there would be one more instance of the
     // class this fix belongs to. Scope conclusions are not lost by that: they
     // reach a later exchange through the ledger, which is the designed carrier.
+    //
+    // BOUNDED BELOW THE REQUESTED ROUND, which the sequential refusal above
+    // makes redundant for a real run and which is load-bearing for the exempt
+    // `--prompt-only` reread: rereading round 1 after round 3 must not name
+    // round 3 as what round 1 was assessed against.
     let predecessor = null;
-    if (kind === "assess" && earlier.length) {
-      const prev = Math.max(...earlier);
+    const before = earlier.filter((n) => n < round);
+    if (kind === "assess" && before.length) {
+      const prev = Math.max(...before);
       const prevPlan = path.join(dir, `plan-round-${prev}.md`);
       const prevAssessment = assessmentPath(dir, prev);
       if (fs.existsSync(prevPlan) && fs.existsSync(prevAssessment)) {

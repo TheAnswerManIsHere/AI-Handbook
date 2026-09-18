@@ -265,6 +265,10 @@ test("the reviewer is never given an output schema", () => {
 
 test("the assessment lands as Markdown, at a path derived identically by writer and reader", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  // Round 1 is seeded so that round 2 is the NEXT round rather than a skip --
+  // assessment rounds go up by one, and this test is about the path, not the
+  // sequence.
+  seed(root, "x", { "round-1.md": "# Assessment 1\n" });
   const { code } = runMain(root, ["--kind", "assess", "--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-ledger"]);
   assert.equal(code, 0);
   assert.equal(existsSync(join(root, ".agents/reviews/x/round-2.md")), true);
@@ -1250,5 +1254,92 @@ test("a scope exchange creates the plan ignore, before any plan is drafted", () 
   assert.equal(existsSync(join(root, "docs/plans/.gitignore")), false, "nothing has created it yet");
   assert.equal(runMain(root, ["--kind", "scope", "--slug", "x", "--tier", "internal", "--oracle", "oracle.md", "--no-ledger"]).code, 0);
   assert.match(readFileSync(join(root, "docs/plans/.gitignore"), "utf8"), /^PLAN_\*\.md$/m);
+  drop(root);
+});
+
+// ── assessment rounds go up by one ─────────────────────────────────────────
+//
+// `Math.max` over round numbers stands for "the most recently run exchange",
+// and that proxy holds only while the numbers are assigned monotonically. The
+// numbers are typed by hand and nothing checked them, so a gap filled in later
+// briefed the other party against a stale revision and said nothing about it
+// (#124 round 4).
+
+test("a skipped round cannot be filled in later", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const dir = seed(root, "x", { "round-1.md": "# One\n", "round-3.md": "# Three\n" });
+  const { code, log } = runMain(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--no-ledger"]);
+  assert.equal(code, 1);
+  assert.match(log, /--round 2 is not the next assessment/);
+  assert.match(log, /the next one is 4/);
+  assert.equal(existsSync(join(dir, "round-2.prompt.md")), false, "and it refuses before composing anything");
+  drop(root);
+});
+
+test("the round after a gap is allowed, because the gap is what was refused", () => {
+  // Fable's acceptance list asked for round 4 to be refused under this seed
+  // too. It does not follow from the rule it proposed and it should not: with
+  // rounds 1 and 3 run, 4 IS the next number. Refusing the fill-in above is
+  // what stops the 1-3-2 ordering that corrupts round 4 from ever existing.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "round-1.md": "# One\n", "round-3.md": "# Three\n" });
+  assert.equal(runMain(root, ["--kind", "assess", "--round", "4", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--no-ledger"]).code, 0);
+  drop(root);
+});
+
+test("a retry after a failed exchange keeps its own number", () => {
+  // A rejected exchange leaves no round-N.md, so `ran` does not carry it and
+  // round N is still next -- which is what the script's own failure messages
+  // already tell the operator to do.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "round-1.md": "# One\n", "round-2.attempt.md": "# An exchange that did not happen\n" });
+  assert.equal(runMain(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--no-ledger"]).code, 0);
+  drop(root);
+});
+
+test("the first assessment is round 1, with or without a scope exchange", () => {
+  // A FRESH FIXTURE PER CASE. Running round 1 first makes round 2 genuinely
+  // next, so reusing the tree would have asserted the opposite of the point.
+  for (const seeded of [{}, { "round-0.md": "# Scope\n" }]) {
+    for (const [round, want] of [[1, 0], [2, 1]]) {
+      const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+      seed(root, "x", seeded);
+      assert.equal(
+        runMain(root, ["--kind", "assess", "--round", String(round), "--tier", "internal",
+          "--plan", "docs/plans/PLAN_X.md", "--no-ledger"]).code,
+        want,
+        `round ${round} with ${Object.keys(seeded).join(", ") || "nothing"} seeded`,
+      );
+      drop(root);
+    }
+  }
+});
+
+test("rereading my own copy of an accepted round is exempt, and is not handed a later round", () => {
+  // The documented "returning to an existing plan" recipe rereads an
+  // already-accepted round. It creates no exchange, so the sequential rule does
+  // not apply to it -- and the predecessor bound is what keeps its package
+  // honest, since round 3's snapshot is not what round 1 was assessed against.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", {
+    "concerns.json": [concern()],
+    "round-1.md": "# One\n", "plan-round-1.md": PLAN,
+    "round-3.md": "# Three\n", "plan-round-3.md": PLAN,
+  });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  assert.doesNotMatch(prompt, /plan-round-3\.md/, "round 3 is not what round 1 was assessed against");
+  assert.doesNotMatch(prompt, /readable, not remembered/, "and round 1 has no predecessor at all");
+  drop(root);
+});
+
+test("a discussion is untouched by the sequential rule", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN,
+    "round-3.md": "# Three\n", "plan-round-3.md": PLAN });
+  assert.equal(runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]).code, 0);
   drop(root);
 });
