@@ -1050,9 +1050,17 @@ and its script; or a code-review round, through `review-proxy.mjs`. Both run
 `codex exec` in a read-only sandbox and read the answer from
 `--output-last-message`; one copy of those flags lives in `machinery.mjs`,
 because two copies of `--sandbox read-only` is two chances for one of them to
-stop being read-only. **The two uses differ in what comes back and what it
-does**: a plan assessment is JSON against a fixed contract surface and it
-decides; a review-round assessment is Markdown a person reads and it advises.
+stop being read-only. **Both uses come back as Markdown a person reads, and
+both advise**; what differs is where the next action is stated — a
+`plan-action` block on a planning exchange, a `review-action` block on a code
+round — and who holds the tie-break on a technical disagreement that survives
+discussion. This sentence used to say a plan assessment was JSON against a
+fixed contract surface and *decided*: the verdict-driven design the 2026-09-18
+redesign replaced, left standing in the file every session loads, three hundred
+lines below the rule saying the opposite. **Two live instructions that
+contradict each other means either can fire** — which is why an obsolete
+description is a defect rather than archaeology (Codex, #124 round 8
+`4045616295`; both assessors concurred).
 On a code round Astra's assessment is one of two, beside the Fable assessor's
 (*Shared judgement on a review round*), and D0 still accounts for the round
 afterwards.

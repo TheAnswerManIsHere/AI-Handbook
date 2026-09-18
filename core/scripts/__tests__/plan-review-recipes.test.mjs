@@ -32,6 +32,17 @@
  *      `<tier>` and `<file>` are substituted from the table below. A recipe that
  *      only fails on some other value is not covered.
  *
+ * BOTH PAYLOAD LAYOUTS ARE RUN, and until #124 round 8 only one was. The sync
+ * routes `core/X -> X`, so the payload sits at `core/scripts/...` here and at
+ * `scripts/...` in every consumer -- and the consumer layout is the one every
+ * repository except this one actually runs. The fixture built only the
+ * handbook's, so two consumer-only mechanisms were documented and never
+ * executed: the `P=` line's `[ -f "$P" ] || P=scripts/plan-review.mjs` fallback
+ * (`SKILL.md:23`), and `readVerbatim`'s consumer-first candidate, which tries
+ * `docs/ai-context/...` before retrying under `core/`. `LAYOUTS` below runs
+ * every recipe under both, which is what David asked for when he said the
+ * check should cover the other repositories.
+ *
  * WHAT THE FIXTURE SUPPLIES, and why the line is where it is. Only what the
  * skill tells an agent to create: the oracle (the scope-of-work gate says to
  * write it), the plan (the drafting step), the concern ledger (written after
@@ -54,6 +65,15 @@
  *   the assess form at :45    -> `--plan docs/plans/PLAN_RECIPES.md does not exist`
  *   the ledger not written    -> `no concern ledger at .agents/reviews/recipes/
  *                                concerns.json, and exchange(s) 0 already ran`
+ *
+ * THE LAYOUT SPLIT IS MEASURED THE SAME WAY, once per consumer-only mechanism,
+ * and the discriminating result is that the handbook half stays green -- a
+ * check that went all-red would not have told us which half it was exercising:
+ *
+ *   `readVerbatim`'s consumer candidate removed  -> 5 consumer cases fail,
+ *                                                   5 handbook cases pass
+ *   the `P=` fallback removed from SKILL.md:23   -> 5 consumer cases fail,
+ *                                                   5 handbook cases pass
  *
  * The third is reached by changing the fixture rather than the document, which
  * is the honest shape of that one: the staging is authored here, so it holds
@@ -180,8 +200,17 @@ const neverSpawns = (cmd) => (/--prompt-only|--dry-run/.test(cmd) ? cmd : `${cmd
  * the ledger, this fixture would keep supplying one and the check would keep
  * passing.
  */
-function fixture({ stage }) {
+const LAYOUTS = [
+  { name: "handbook", prefix: "core" },
+  { name: "consumer", prefix: "" },
+];
+
+function fixture({ stage, layout }) {
   const root = mkdtempSync(join(tmpdir(), "recipes-"));
+  // `core/` in the handbook, nothing in a consumer -- the one difference the
+  // sync makes, and the whole point of running every recipe twice.
+  const at = (rel) => join(root, layout.prefix, rel);
+  mkdirSync(join(root, layout.prefix || "."), { recursive: true });
   // The script, reachable at the path the recipe's own `P=` line looks for.
   //
   // COPIED, NEVER SYMLINKED, and this is not a detail. `node` sets
@@ -193,13 +222,13 @@ function fixture({ stage }) {
   // exact "reports success having evaluated nothing" failure CLAUDE.md records
   // three instances of (#11, #16, #59). `machinery.mjs` imports only node
   // builtins, so copying the pair is enough.
-  mkdirSync(join(root, "core/scripts"), { recursive: true });
-  copyFileSync(SCRIPT, join(root, "core/scripts/plan-review.mjs"));
-  copyFileSync(join(PAYLOAD, "scripts/machinery.mjs"), join(root, "core/scripts/machinery.mjs"));
+  mkdirSync(at("scripts"), { recursive: true });
+  copyFileSync(SCRIPT, at("scripts/plan-review.mjs"));
+  copyFileSync(join(PAYLOAD, "scripts/machinery.mjs"), at("scripts/machinery.mjs"));
 
-  mkdirSync(join(root, "core/docs/ai-context"), { recursive: true });
-  writeFileSync(join(root, "core/docs/ai-context/planning-contract.md"), "# The planning contract\n\nRole-neutral body.\n");
-  writeFileSync(join(root, "core/docs/ai-context/review-judgment.md"), "# The Worth rule\n\nIs this intervention worthwhile?\n");
+  mkdirSync(at("docs/ai-context"), { recursive: true });
+  writeFileSync(at("docs/ai-context/planning-contract.md"), "# The planning contract\n\nRole-neutral body.\n");
+  writeFileSync(at("docs/ai-context/review-judgment.md"), "# The Worth rule\n\nIs this intervention worthwhile?\n");
 
   // Repository configuration, in the same class as the contract files above:
   // the checkout has it before any planning happens, and the skill never tells
@@ -281,11 +310,12 @@ test("the document still has the shape this check assumes", () => {
   }
 });
 
+for (const layout of LAYOUTS)
 for (const recipe of recipes) {
   const label = `${recipe.body.match(/--kind (\w+)/)?.[1] ?? "?"}${recipe.body.includes("--role claude") ? ", my own copy" : ""}${recipe.body.includes("setsid") ? ", detached" : ""}`;
 
-  test(`SKILL.md:${recipe.line} — the ${label} recipe runs as written`, () => {
-    const { root, dir } = fixture({ stage: stageOf(recipe) });
+  test(`SKILL.md:${recipe.line} — the ${label} recipe runs as written, ${layout.name} layout`, () => {
+    const { root, dir } = fixture({ stage: stageOf(recipe), layout });
     // An accepted assessment and its snapshot: script outputs, not authored
     // content, and a dry run cannot produce them.
     if (recipe.body.includes("--kind discuss")) {

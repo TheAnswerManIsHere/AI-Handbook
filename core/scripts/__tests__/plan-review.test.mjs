@@ -1270,6 +1270,18 @@ test("a first assessment names no predecessor and does not claim one", () => {
 test("a rejected exchange is never named as the predecessor", () => {
   // Since the promotion fix a rejected round leaves no `round-N.md`, so the
   // predecessor is the highest ACCEPTED round rather than `round - 1`.
+  //
+  // RE-SEEDED AT #124 ROUND 8, and the re-seeding is the point rather than
+  // bookkeeping. This test used to run round **3** against a tree where only
+  // round 1 was accepted, and assert that it SUCCEEDED -- which is exactly the
+  // hole `4045616282` reported, staged here as a fixture and thereby asserted
+  // to be correct. Round 2 failed and left `round-2.attempt.md`, so the retry
+  // KEEPS ITS NUMBER (the sequencing refusal says so in its own message), and
+  // round 2 is what the operator runs next. Same tree, same question -- does a
+  // rejected exchange get cited -- now asked at the number the workflow
+  // actually reaches. (The Fable assessor supplied this shape; without it the
+  // fix would have landed against a red test I would have been tempted to
+  // delete.)
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
   seed(root, "x", {
     "concerns.json": [concern()],
@@ -1278,9 +1290,43 @@ test("a rejected exchange is never named as the predecessor", () => {
     "round-2.attempt.md": "# An exchange that did not happen\n",
     "plan-round-2.md": PLAN,
   });
-  const prompt = promptOf(root, ["--kind", "assess", "--round", "3", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
   assert.match(prompt, /plan-round-1\.md/);
   assert.doesNotMatch(prompt, /round-2\.md/, "round 2 was never accepted");
+  drop(root);
+});
+
+test("a Claude preview obeys the sequence, because it is briefed like any other", () => {
+  // `4045616282`: `myReread` is `--prompt-only && role === "claude"` -- EVERY
+  // preview -- and it used to short-circuit the sequencing gate entirely. So
+  // with only round 1 accepted, the plan holder could compose a package headed
+  // "This is assessment 3" while the Astra dispatch of that same number was
+  // refused as out of order: briefed against an exchange that cannot exist.
+  //
+  // The three cases together are what say the fix is bounded: the out-of-order
+  // preview refuses, the NEXT one passes, and the documented reread of an
+  // ALREADY-ACCEPTED round still passes -- that last one is the path the old
+  // exemption was written for, and it survives on the `ran.includes` clause
+  // that was always sitting beside it.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", {
+    "concerns.json": [concern()],
+    "round-1.md": "# Assessment 1\n",
+    "plan-round-1.md": PLAN,
+  });
+  const preview = (n) =>
+    runMain(root, [
+      "--kind", "assess", "--round", String(n), "--role", "claude", "--prompt-only",
+      "--tier", "internal", "--plan", "docs/plans/PLAN_X.md",
+    ]);
+
+  const skipped = preview(3);
+  assert.notEqual(skipped.code, 0, "a preview of a round that is not next is refused, as the dispatch of it would be");
+  assert.match(skipped.log, /not the next assessment/, "and it says which number it wanted");
+  assert.equal(existsSync(join(root, ".agents/reviews/x/round-3.prompt.md")), false, "and it writes no package");
+
+  assert.equal(preview(2).code, 0, "the next round previews, because it is next");
+  assert.equal(preview(1).code, 0, "and an accepted round still rereads -- the case the old exemption was for");
   drop(root);
 });
 

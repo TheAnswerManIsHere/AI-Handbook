@@ -1319,17 +1319,26 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // around it. If this ever blocks a real workflow the fallback is
     // `meta.finishedAt`, which every meta already carries -- never `n < round`.
     //
-    // `--prompt-only` IS EXEMPT, and that is Astra's constraint rather than an
-    // afterthought: the documented "returning to an existing plan" recipe
-    // rereads MY copy of an already-accepted round, creates no exchange, and a
-    // sequential rule without this exemption refuses it. The predecessor bound
-    // below is what keeps that path's package honest.
-    //
     // AN ALREADY-ACCEPTED ROUND SKIPS THIS, so it still meets the refusal that
     // is actually about it -- "an accepted assessment is never replaced" names
     // the ledger entry that cites the file, which is the thing at stake there.
-    // A sequencing message would be true and less useful.
-    if (kind === "assess" && !myReread && !ran.includes(round)) {
+    // A sequencing message would be true and less useful. That same clause is
+    // what exempts the documented "returning to an existing plan" recipe, which
+    // rereads MY copy of an ALREADY-ACCEPTED round and creates no exchange.
+    //
+    // A CLAUDE PREVIEW IS NOT EXEMPT, and the guard used to say otherwise.
+    // `myReread` is `--prompt-only && role === "claude"` -- EVERY preview, not
+    // the accepted-round reread the paragraph above describes -- so it waved
+    // through a preview of any number at all: with only round 1 accepted,
+    // `--round 3 --role claude --prompt-only` composed a package headed "This
+    // is assessment 3" while the Astra dispatch of that same number was refused
+    // as out of order. The exemption the recipe actually needs is the
+    // `ran.includes` clause beside it, which is why removing this one costs
+    // that path nothing. A preview of the NEXT round still passes, because it
+    // is next. (Codex, #124 round 8 `4045616282`; both assessors concurred, and
+    // the Fable assessment supplied the re-seeding of the predecessor test that
+    // had staged this very scenario as a success.)
+    if (kind === "assess" && !ran.includes(round)) {
       const next = Math.max(0, ...ran) + 1;
       if (round !== next) {
         throw new Error(
