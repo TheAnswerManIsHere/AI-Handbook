@@ -191,7 +191,9 @@ stored records. From the merged-PR list for the window:
   account. **Read them from the close-out harvest comments**, the same source
   plan-loop rounds come from: D0's receipts are gitignored evidence that dies
   with its session, deliberately — making a gut-level count exact is the
-  accounting-precision class the `Worth:` rule declines. **Say so when a
+  accounting-precision class the worth rule
+  ([`review-judgment.md`](../../../docs/ai-context/review-judgment.md))
+  declines. **Say so when a
   merged loop's harvest comment carries no D0 line**, rather than reporting a
   figure that silently omits it.
 

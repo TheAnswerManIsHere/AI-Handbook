@@ -340,11 +340,12 @@ live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
 what the fix touches (a rubric selector, not a round budget), the **write-gate
-rule — the judge rules per finding on whether to WRITE for it, before anything
-is written, and any commit that does get written gets a mandatory review round;
-the in-loop continue/stop, criticality gate, count trend and oscillation
-diagnosis are all retired, and the external adjudicator that used to be that
-judge went with the #89 cut pending #96**, the
+rule — every round that returns findings gets two independent assessments
+before anything is written for it, and any commit that does get written gets a
+mandatory review round; the in-loop continue/stop, criticality gate, count
+trend and oscillation diagnosis are all retired, and the external adjudicator
+that used to rule per finding was replaced by the shared judgement (#96), which
+advises rather than binds**, the
 fix / accept-and-document / escalate triage stated per finding, the
 class-sweep protocol (name the class, cite the mechanical oracle, sweep to
 zero, re-run prior rounds' oracles before every push), resolving each thread
@@ -373,9 +374,13 @@ What is *bugfix-specific* about the loop:
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or
   process tooling, the internal tier governs (David, 2026-08-21) — the
-  automatic pass, one triage, fix rounds re-reviewed under the strict internal
-  rubric, where only a critical flaw is written for — exactly as if the same
-  change had arrived through feature mode. Entering through this mode never
+  automatic pass, one triage, fix rounds re-reviewed under the internal tier,
+  which says nobody's money or data is downstream and leaves the judgement to
+  [`review-judgment.md`](../../../docs/ai-context/review-judgment.md) — exactly
+  as if the same change had arrived through feature mode. **This bullet used to
+  say "where only a critical flaw is written for"**, which was the tier's
+  retired decline quota and, on an internal bugfix, the only triage rule this
+  skill stated. Entering through this mode never
   raises an artifact's ceremony, and never lowers product code's.
 - **The re-reviewer's oracle is the bugfix oracle** (step 3), not a plan —
   it's what lets Codex ask "root cause or symptom-patch?" and "did this

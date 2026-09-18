@@ -51,10 +51,15 @@ risk. So:
 ## Ceremony
 
 **Internal tier**, per the core's review-loop rules: a clean automatic review
-pass is the whole ceremony, and a round that returns findings is triaged under
-the internal rubric before anything is written. Findings that are not critical
-ship as recorded gaps. (The external adjudicator that used to rule on that was
-removed by this cut; #96 rebuilds it.)
+pass is the whole ceremony, and a round that returns findings gets two
+independent assessments before anything is written for it. What each finding is
+worth is decided by
+[`review-judgment.md`](core/docs/ai-context/review-judgment.md), which sets no
+target rate in either direction; the tier says only that nobody's money or data
+is downstream. (This paragraph used to say findings that are not critical ship
+as recorded gaps — the decline quota #96 retired — and that #96 would rebuild
+the external adjudicator the #89 cut removed. It replaced it instead, with a
+shared judgement that advises rather than rules.)
 
 The core's guardrail-and-authority carve-out is **retired** (David,
 2026-09-14), and this repo is where that bites hardest, since it is made almost

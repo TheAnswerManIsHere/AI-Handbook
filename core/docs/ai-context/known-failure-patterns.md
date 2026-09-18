@@ -1777,9 +1777,10 @@ the diff. Two rounds of this is not bad luck, it is the shape.
 **Avoid — the response is never a third patch.** This part holds, and it is
 guidance rather than a trigger. One of three, in order of preference:
 **remove the mechanism** (if what it guards is inconsequential,
-`claude-core.md` review-loop rule 5's `Worth:` line already says delete it);
-**derive the value** rather than check it (rule 5's *derivable* — a check whose
-two sides the same code owns guards nothing); or **change the operation**, which
+[`review-judgment.md`](review-judgment.md) already says delete it);
+**derive the value** rather than check it (its *understand the source* step — a
+check whose two sides the same code owns guards nothing); or **change the
+operation**, which
 is the move that actually ends these.
 
 ### The stop rule written from this entry did not work (AI-Handbook #91)
@@ -2826,11 +2827,14 @@ misplaced JSON. The question the triage answered was *where does the file
 land*; the question the class asked was *what does this write destroy*. Nothing
 about the reported instance hinted at the second one, which is the point.
 
-**Avoid:** state the class in the `Worth:` line before the consequence, then
-answer the consequence *of that class at its worst*, not of the example in
-front of you. The tell is a decline whose consequence clause quotes details
+**Avoid:** state the class before the consequence, then answer the consequence
+*of that class at its worst*, not of the example in front of you. (This used to
+name the `Worth:` line of a fixed four-line reply form; the form was retired on
+2026-09-17 and the discipline was not.) The tell is a decline whose consequence clause quotes details
 specific to the reviewer's scenario — "gitignored", "one directory over", "a
 file I chose by hand". Those are properties of the example. Strip them and ask
-what remains reachable. And treat a class the reviewer raises a second time as
-evidence the first decline was mis-sized, not as repetition: re-triage it on
-the new instance and name which half of the original judgement was wrong.
+what remains reachable. And re-examine a class the reviewer raises a second
+time on its new evidence and scope, naming what the new instance shows that the
+first did not. **Repetition alone does not establish that the earlier judgement
+was wrong** (David, 2026-09-17): the rule used to say it did, which turned any
+persistent reviewer into an override.

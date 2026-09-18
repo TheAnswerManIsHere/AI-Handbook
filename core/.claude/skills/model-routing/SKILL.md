@@ -245,15 +245,30 @@ exceptions, no tier judgement at the dispatch site.** David's instruction:
 Opus/Fable split that used to run through the two sections below, where
 triggers 1–3 went to Opus and the stopping-rule trigger went to Fable.
 
-**The tier is named in one place: the role's own definition, resolved through
-`.agents/machinery.json`'s `models` block** — `strongestClaude` and
-`strongestCodex`, each mapping to a full model id and an effort. So the
-instruction survives a change of which model is strongest as a one-value edit,
-and **the dispatch passes no per-invocation `model`**: a per-invocation model
-outranks the definition, so passing one would re-pin exactly what this is
-meant to keep unpinned. A tier must resolve to a FULL model id, never an
-alias — a dispatch stamps the id it asked for against the id that answered,
-and an alias cannot be compared.
+**The tier is named in one place: `.agents/machinery.json`'s `models` block** —
+`strongestClaude` and `strongestCodex`, each mapping to a full model id and an
+effort. So the instruction survives a change of which model is strongest as a
+one-value edit. A tier must resolve to a FULL model id, never an alias — a
+dispatch stamps the id it asked for against the id that answered, and an alias
+cannot be compared.
+
+**A Claude subagent is bound by resolving that tier and passing `model:` on the
+dispatch.** This paragraph used to say the opposite — that the tier is named in
+the role's own definition and "the dispatch passes no per-invocation `model`",
+because a per-invocation model would outrank the definition. That premise was
+false for every live role: **no agent definition in this payload carries a
+`model:` field**, so "unpinned" meant the subagent silently inherited whatever
+model the parent session was running. The round-translation dispatch has always
+resolved the tier and passed it; the review assessor did not, which meant an
+Opus session would have run an Opus assessor under the label "Fable" and
+recorded its tie-break as Fable's, with nothing on the page to say so (Codex,
+#120 round 4, and both assessors independently). Resolve the tier, pass the
+model, and stamp the id it asked for into whatever the dispatch posts.
+
+Two limits worth stating rather than solving: `effortApplied` is false, so a
+tier's effort does not reach a subagent, and a subagent cannot prove which
+model answered it — the stamp is a disclosure of what was requested, which is
+the same standard the translation already accepts.
 
 **What made the old split wrong is not that Opus was too weak — it is that
 the split asked the wrong question.** It sorted triggers by how consequential
@@ -281,14 +296,15 @@ Fable.
 Two sections lived here — the three structural adjudication triggers
 (any decline, any oracle-less finding, any swept-class recurrence) and the
 adversarial stopping-rule subagent. **Both were superseded by the single
-per-round judge** in `CLAUDE.md`'s *Review loops*, and that judge was itself
-removed by the #89 cut pending #96. Reinstating the old per-finding and
-per-decline dispatches in the gap would re-create the parallel self-refereeing
-the #541 review deleted (Codex, #543 round 3) — the gap is covered by my own
-triage under the tier rubric, not by more dispatches.
+per-round judge** in `CLAUDE.md`'s *Review loops*; that judge was removed by
+the #89 cut, and #96 replaced it with **two independent assessments per round
+that advise rather than bind**. Reinstating the old per-finding and
+per-decline dispatches on top of them would re-create the parallel
+self-refereeing the #541 review deleted (Codex, #543 round 3) — a round is
+covered by the two assessments, not by more dispatches.
 
 What survives from those sections, because it is about dispatch hygiene rather
-than dispatch law: announce every dispatch out loud (the judge's tier spends
-well above Opus); a dispatch that reuses my own reasoning is not rescued by the
-tier; and the judge runs after triage but before fixes are implemented, so a
-decline can still prevent unnecessary fix work.
+than dispatch law: announce every dispatch out loud (the assessors' tier
+spends well above Opus); a dispatch that reuses my own reasoning is not rescued
+by the tier; and the assessments run after triage but before fixes are
+implemented, so a decline can still prevent unnecessary fix work.
