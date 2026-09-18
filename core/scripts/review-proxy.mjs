@@ -39,12 +39,29 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex } from "./machinery.mjs";
+import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot } from "./machinery.mjs";
 import { REVIEWS_DIR, ensureReviewsIgnored } from "./round-translation.mjs";
 
 export const ROLE = "review-proxy";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * The command to run this script, COMPUTED rather than written down.
+ *
+ * The sync routes `core/X -> X`, so this file is `core/scripts/review-proxy.mjs`
+ * in the handbook and `scripts/review-proxy.mjs` in every consumer. A literal
+ * path in the usage text is therefore wrong in one of the two layouts, and it
+ * is printed on every argument error -- telling an operator who has just
+ * mistyped a flag to run a file that is not there. `plan-review.mjs` has
+ * computed its own invocation since Codex #69 round 7, for this same defect.
+ * (Codex #120 round 5; both assessors concurred, and Fable pointed at the
+ * existing helper rather than a new one.)
+ */
+export const INVOCATION = (() => {
+  const root = findRepoRoot(SCRIPT_DIR) ?? path.resolve(SCRIPT_DIR, "..", "..");
+  return path.relative(root, fileURLToPath(import.meta.url)).split(path.sep).join("/");
+})();
 export const briefPath = () => path.resolve(SCRIPT_DIR, "..", ".agents", "roles", `${ROLE}.md`);
 /**
  * The Worth rule lives in ONE file and is quoted verbatim into both assessors'
@@ -410,6 +427,26 @@ export function followUpBrief({
         "against no agreed intent",
     );
   }
+  // AND IT CARRIES THE DISPUTED FINDINGS' BODIES, for exactly the reason above.
+  // The oracle half of that guarantee was enforced; this half was claimed in a
+  // commit message and left optional, so the advertised command composed a
+  // package naming finding ids with no text behind them. The assessor would
+  // then revise a recommendation about a finding it had never read, against a
+  // question written by the builder -- and nothing in the posted answer would
+  // show it. (Codex #120 round 5; both assessors concurred.)
+  const bodies = new Map(
+    (Array.isArray(findings) ? findings : [])
+      .filter((f) => f != null && f.id != null && String(f.body ?? "").trim() !== "")
+      .map((f) => [String(f.id).trim(), f]),
+  );
+  const missing = findingIds.map((id) => String(id).trim()).filter((id) => !bodies.has(id));
+  if (missing.length) {
+    throw new Error(
+      `review-proxy: a follow-up carries the body of every finding in dispute; ${missing.join(", ")} ` +
+        "had no entry with text in the findings file. The assessor is told not to restate the finding list, so the " +
+        "prior assessment cannot supply it.",
+    );
+  }
   if (!TIER_LENSES[tier]) {
     throw new Error(`review-proxy: tier must be one of ${TIERS.join(", ")}, got ${JSON.stringify(tier)}`);
   }
@@ -446,15 +483,12 @@ export function followUpBrief({
     "",
   ].filter((l) => l !== null);
 
-  if (Array.isArray(findings) && findings.length) {
-    lines.push("## [reviewer] The findings in dispute, in full", "");
-    const wanted = new Set(findingIds.map((id) => String(id).trim()));
-    for (const f of findings) {
-      if (!wanted.has(String(f?.id ?? "").trim())) continue;
-      lines.push(`### Finding \`${String(f.id).trim()}\``, "");
-      if (f.path) lines.push(`- Location: \`${f.path}\`${f.line == null ? "" : `:${f.line}`}`, "");
-      lines.push(String(f.body ?? "").trim(), "");
-    }
+  lines.push("## [reviewer] The findings in dispute, in full", "");
+  for (const id of findingIds.map((i) => String(i).trim())) {
+    const f = bodies.get(id);
+    lines.push(`### Finding \`${id}\``, "");
+    if (f.path) lines.push(`- Location: \`${f.path}\`${f.line == null ? "" : `:${f.line}`}`, "");
+    lines.push(String(f.body).trim(), "");
   }
 
   if (fableReasoning && fableReasoning.trim()) {
@@ -585,15 +619,16 @@ export const USAGE = [
   "review-proxy — independent technical advice on one code-review round.",
   "",
   "  Assessment:",
-  "    node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --tier <t> \\",
+  `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> \\`,
   "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   "",
   "  Focused follow-up (same revision, no new commit, no new Codex round):",
-  "    node core/scripts/review-proxy.mjs --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\",
+  `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\`,
   "        --question <text> --findings <id,id> --prior-file <path> --oracle-file <path> \\",
-  "        [--findings-file <path.json>] [--fable-file <path>]",
+  "        --findings-file <path.json> [--fable-file <path>]",
   "                  A follow-up carries the oracle, the tier and the disputed findings' bodies:",
-  "                  the process answering it is ephemeral and remembers nothing.",
+  "                  the process answering it is ephemeral and remembers nothing, so all three are",
+  "                  required and every --findings id must have text in --findings-file.",
   "",
   `  --tier          one of ${TIERS.join(", ")} — what is downstream, not a threshold`,
   "  --oracle-file   the outcome David agreed BEFORE this loop started. Required; there is no default.",

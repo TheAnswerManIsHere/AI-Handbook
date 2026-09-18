@@ -68,10 +68,17 @@ replaced them is step 5's proportionate-evidence rule.)
       pull request, so an unbounded read on round 2 hands the assessors round
       1's findings again and collects fresh advice on settled work. Write them
       as `[{ id, body, path, line }]`, with GitHub's own comment id.
-   2. **Write the oracle and the labelled history to files.** Labels are
-      `David`, `oracle`, `reviewer`, `builder`, `astra`, `fable`. Provenance is
-      what lets an assessor weigh them: mine and the reviewer's are claims to
-      check, **David's are authority**.
+   2. **Write the oracle and the labelled history to files, in the session
+      scratchpad — never inside the repository.** The dispatch refuses on an
+      unclean tree and `git status --porcelain` lists untracked files, so an
+      input written at a repo-relative path refuses both assessments before
+      either starts. Under `.agents/reviews/` is not a safe answer either: that
+      directory is only made ignored by `prepareAssessmentPath`, which runs
+      *after* the checkout guard, so on a consumer that has never run this
+      script the first dispatch would still refuse. Labels are `David`,
+      `oracle`, `reviewer`, `builder`, `astra`, `fable`. Provenance is what lets
+      an assessor weigh them: mine and the reviewer's are claims to check,
+      **David's are authority**.
    3. **Dispatch both, on the same package.** Astra through the script; the
       Fable assessor as a subagent given the package `--prompt-only` emits with
       `--source fable`, **dispatched with `model:` resolved from

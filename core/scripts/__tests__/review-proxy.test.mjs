@@ -36,6 +36,7 @@ import {
   prepareAssessmentPath,
   assertCheckout,
   identityBlock,
+  INVOCATION,
   assessmentBrief,
   followUpBrief,
   readAssessment,
@@ -296,6 +297,42 @@ test("a follow-up names the dispute, and refuses to be composed without one", ()
 
 test("a follow-up carries the same brief and Worth rule as the assessment it revisits", () => {
   assert.ok(followUp().startsWith(fs.readFileSync(briefPath(), "utf8").trim()));
+});
+
+test("a follow-up refuses unless every disputed finding has text behind its id", () => {
+  // The round-4 commit CLAIMED this guarantee and enforced only the oracle half,
+  // so the advertised command composed a package naming ids with no bodies. The
+  // assessor would revise a recommendation about a finding it had never read,
+  // and the posted answer would look like any other. (Codex, #120 round 5.)
+  assert.throws(() => followUp({ findings: [] }), /c1 had no entry with text/);
+  assert.throws(() => followUp({ findings: undefined }), /c1 had no entry with text/);
+  assert.throws(
+    () => followUp({ findings: [finding({ id: "other" })] }),
+    /carries the body of every finding in dispute; c1/,
+  );
+  // Present but empty is the same defect wearing a hat.
+  assert.throws(() => followUp({ findings: [finding({ body: "   " })] }), /c1 had no entry with text/);
+  // Two disputed, one supplied: the error names the one that is missing.
+  assert.throws(
+    () => followUp({ findingIds: ["c1", "c2"], findings: [finding()] }),
+    /dispute; c2 had no entry/,
+  );
+  // And the CLI cannot route around the composer.
+  assert.doesNotMatch(USAGE, /\[--findings-file/, "the follow-up still advertises the flag as optional");
+});
+
+test("the invocation in the usage text is computed, so it is right in both layouts", () => {
+  // The sync routes `core/X -> X`, so a literal path is wrong in one of the two
+  // repos — and it prints on every argument error, telling an operator who just
+  // mistyped a flag to run a file that is not there. (Codex, #120 round 5.)
+  // The property is that the path is DERIVED, not that it has a given value:
+  // in this repo the correct derived value happens to be `core/scripts/...`,
+  // and in a consumer it is `scripts/...`. Asserting either literal would be
+  // the defect under test.
+  assert.ok(INVOCATION.endsWith("scripts/review-proxy.mjs"), INVOCATION);
+  assert.ok(!path.isAbsolute(INVOCATION), "the invocation must be repo-relative");
+  assert.ok(USAGE.includes(`node ${INVOCATION} --pr`), "the usage text does not use the computed invocation");
+  assert.ok(USAGE.includes(`node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> --follow-up`));
 });
 
 test("a follow-up carries the oracle, the tier and the disputed findings, because the process is ephemeral", () => {

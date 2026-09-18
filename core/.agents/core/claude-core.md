@@ -461,8 +461,9 @@ The judgement itself — the Worth rule both assessors and I apply — is
 [`review-judgment.md`](../../docs/ai-context/review-judgment.md), and that file
 is its only statement. Mechanics: `core/scripts/review-proxy.mjs` here,
 `scripts/review-proxy.mjs` in a consumer. Astra's brief is
-`core/.agents/roles/review-proxy.md`; the Fable assessor is an agent
-definition; both are read verbatim into every dispatch.
+`core/.agents/roles/review-proxy.md` here and `.agents/roles/review-proxy.md`
+in a consumer; the Fable assessor is an agent definition; both are read
+verbatim into every dispatch.
 
 ### What the #89 cut removed from this section, and what replaced it
 
