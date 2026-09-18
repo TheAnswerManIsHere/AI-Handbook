@@ -134,14 +134,21 @@ const stageOf = (block) =>
  * in general. If it ever stops matching, the assertions below fail loudly rather
  * than quietly checking nothing -- which is the failure mode a check like this
  * must not have.
+ *
+ * THAT IS NOT A HOPE, IT IS MEASURED. Quoting `$PWD` in the two launch blocks
+ * (#124 round 5) stopped this matching, and the shape test below failed on the
+ * recipe count rather than the file quietly checking three recipes instead of
+ * five. Keep `LAUNCH` in step with the document; the guard is what tells you.
  */
+const LAUNCH = 'setsid nohup bash -c "cd \\"$PWD\\" && ';
+
 function undetach(body) {
-  const start = body.indexOf('setsid nohup bash -c "cd $PWD && ');
+  const start = body.indexOf(LAUNCH);
   if (start === -1) return body;
   const head = body.slice(0, start);
-  let cmd = body.slice(start + 'setsid nohup bash -c "cd $PWD && '.length);
+  let cmd = body.slice(start + LAUNCH.length);
   cmd = cmd.slice(0, cmd.indexOf("> $S/"));
-  return `${head}${cmd.replace(/\$PWD\/\$P/g, '"$P"').replace(/\\"/g, '"').replace(/\\\$/g, "$")}`;
+  return `${head}${cmd.replace(/\\"\$PWD\/\$P\\"/g, '"$P"').replace(/\\"/g, '"').replace(/\\\$/g, "$")}`;
 }
 
 /**
@@ -253,7 +260,10 @@ function runRecipe(root, script) {
 const text = readFileSync(SKILL, "utf8");
 const blocks = fencedBlocks(text);
 const setup = blocks.find((b) => /^P=/.test(b.body.trim()));
-const recipes = blocks.filter((b) => /node\s+("\$P"|\$PWD\/\$P)/.test(b.body));
+// Tolerates the escaped quoting the detached blocks use (`node \"$PWD/$P\"`)
+// as well as the plain `node "$P"` of the foreground ones. The shape test below
+// is what catches this drifting, and did (#124 round 5).
+const recipes = blocks.filter((b) => /node\s+[\\"]*\$(P\b|PWD)/.test(b.body));
 
 test("the document still has the shape this check assumes", () => {
   // WITHOUT THIS THE WHOLE FILE CAN PASS VACUOUSLY. If the `P=` line moves or a

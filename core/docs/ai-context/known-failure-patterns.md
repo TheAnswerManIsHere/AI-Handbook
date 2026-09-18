@@ -2765,57 +2765,65 @@ the sibling failure at the opposite end — there the check under-trusted the
 authoritative source and kept a redundant local copy; here it over-trusts a
 local proxy for a property only the outside world can confirm.
 
-## A pre-registered stopping condition whose observable and whose intent can disagree
+## An observable scoped to the mechanism you had in mind, not the harm you were watching for
 
-**Looks like:** you write a flip condition the right way — an observable read
-off the round, not a judgement made in the moment, exactly as the rule demands.
-The round arrives, you evaluate the observable honestly, and it says one thing
-while the reason you wrote the condition says another. Now the discipline that
-was supposed to remove your discretion has handed it straight back, at the
-worst possible moment: after you have read the findings.
+**Looks like:** you do the disciplined thing. You write the stopping condition as
+an observable rather than a judgement, exactly as the rule demands. Or you scope
+a decline to a class rather than to the reviewer's example, exactly as the other
+rule demands. Then the thing you were guarding against happens in a form your
+words do not cover, and the guard sits there not firing while being, on its own
+terms, correctly evaluated.
 
-**The worked example.** AI-Handbook #124 round 2 carried the pre-registered
-condition *"three or more findings landing on the corrections themselves rather
-than on untouched code → the batch was wrong-headed; stop and reconsider rather
-than filing a third round of patches."* Four findings came back. Checked
-mechanically against `git diff -U0 b89fe03 00223b8`, two sat on lines the
-correction batch had written and two did not, so the observable read **two** and
-the condition did not trip. But one of the two that "did not trip" was the
-missed *sibling* of a correction the batch had made — the same rule restated in
-a third document, which the batch fixed in two and missed in one. By the
-condition's **intent** — did this batch go wrong? — that is as much a
-consequence of the batch as a finding on a line it touched. A stricter reading
-gives three and trips it. The second assessor raised the divergence rather than
-letting the arithmetic settle it silently, and both readings happened to agree
-that the batch was not wrong-headed, so nothing turned on it that round. **That
-is luck, not design.**
+**These are one failure in two layers.** A fix scoped to the example and a flip
+condition scoped to the example are the same error — the words name the shape
+that was in your head, and the shape that arrives is a sibling of it. The
+observable rule and the class rule both survive intact; what neither of them
+supplies is the step where you ask *what is the harm, and what else produces it?*
 
-**Why the obvious repair is wrong.** The temptation is to write a condition
-that names the intent — "findings showing the batch was wrong-headed" — which
-is precisely the judgement-shaped condition the existing rule bans, for the
-measured reason that a condition you have to interpret is one you will
-reinterpret. Moving back that way trades a detectable divergence for an
-undetectable one.
+**The worked examples, all from AI-Handbook #124.** Three flip conditions in one
+pull request had their wording and their intent pull apart:
+
+- **Round 2.** *"Three or more findings landing on the corrections themselves"* —
+  counted two mechanically, and a defensible stricter reading counted three. Both
+  readings happened to agree the batch was sound, so nothing turned on it. Luck.
+- **Round 4.** *"Any finding that the new check can pass while the thing it checks
+  is broken"* — satisfied by **every check that has ever been written**, since a
+  stated-limits paragraph is a list of exactly that. A condition satisfied by
+  everything selects nothing, and it fired on a coverage gap it was not aimed at.
+- **Round 5.** *"Any finding that an **assessment** which should be allowed is now
+  refused"* — the thing refused was a *scope exchange*. The intent covered it
+  plainly; one noun kept it from tripping. Its instruction was "go to David",
+  which is where the question went anyway — again by luck, not by drafting.
+
+And the same error one layer down, in the same pull request: a fix that gave
+Claude's package record its own path stopped one role overwriting the other's,
+and left the *default* role overwriting it — because the fix was scoped to the
+role in the finding rather than to the mechanism. That was written one round
+after the builder recorded the class-not-example rule against himself.
 
 **Avoid:**
 
-1. **Write the observable, and write the intent beside it, in the same
-   sentence.** "Three or more findings on lines this batch wrote — the signal
-   being that the batch itself went wrong." The observable still decides; the
-   intent is what tells you, at evaluation time, whether you are looking at the
-   thing you meant to catch.
-2. **When the two disagree, that disagreement is the finding.** Record it and
-   fix the condition's wording for next time. Do not quietly take whichever
-   reading is more convenient, and do not treat "they happened to agree" as
-   evidence the condition was well drafted.
-3. **Have someone else evaluate it too.** The divergence in #124 was surfaced
-   by an independent assessor reading the same condition, not by the party who
-   wrote it — which is the general shape: the author of a condition is the
-   worst-placed reader of it.
+1. **Write the observable, and write the harm beside it, in the same sentence.**
+   "Three or more findings on lines this batch wrote — the signal being that the
+   batch itself went wrong." The observable still decides; the harm is what tells
+   you, at evaluation time, whether you are looking at the thing you meant.
+2. **Before writing either kind of scope, name one sibling.** Not an exhaustive
+   enumeration — one. If the condition or the fix does not cover the sibling, the
+   wording is scoped to your example. The three cases above all had an obvious
+   sibling: findings on a correction's *missed twin*, a check that covers one
+   *layout*, an exchange that is not an *assessment*.
+3. **When the two disagree, that disagreement is the finding.** Record it, fix
+   the wording, and do not take whichever reading is more convenient. Three times
+   in one pull request the destination survived a bad reading by luck; that is
+   not a record to build on.
+4. **Have someone else evaluate it.** Every one of these was surfaced by an
+   independent assessor or a translator reading the same words, never by the
+   person who wrote them. The author of a condition is its worst reader.
 
-**Related:** *A guard that encodes the shape that occurred, and calls it a
-class* above is the same error one level down, in code rather than in a
-stopping rule.
+**Related:** *A guard that encodes the shape that occurred, and calls it a class*
+above is this same error in code rather than in prose, and *A decline scoped to
+the reviewer's example instead of the finding's class* below is its third face.
+The fact that it has three entries in this file is itself the finding.
 
 ## Building a second validator beside an existing one re-derives its gaps, not its answers
 

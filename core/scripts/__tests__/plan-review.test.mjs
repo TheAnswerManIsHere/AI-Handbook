@@ -222,13 +222,15 @@ test("both roles receive byte-identical packages outside the role block", () => 
 });
 
 test("the role block states who holds the plan and who settles a tie, per role", () => {
-  const astra = roleBlock("astra", { assessmentFile: "out.md" });
+  const astra = roleBlock("astra");
   const claude = roleBlock("claude");
   assert.match(astra, /Your counterpart holds the authoritative plan/);
   assert.match(astra, /is your counterpart's to settle/);
   assert.match(astra, /Return the complete assessment as your final message/);
   assert.match(astra, /read-only sandbox and cannot write that file yourself/);
-  assert.match(astra, /out\.md/);
+  // NO CONCRETE PATH. It made the "stable" prefix change every exchange, and
+  // Astra cannot write the file anyway (#124 round 5).
+  assert.doesNotMatch(astra, /round-\d+\.md/);
   assert.match(claude, /You hold the authoritative plan/);
   assert.match(claude, /is yours to settle/);
   assert.match(claude, /no assessment file is written by you/);
@@ -732,11 +734,11 @@ test("--prompt-only prints the package and spawns nothing", () => {
 test("--prompt-only clears the ATTEMPT, never the accepted assessment", () => {
   // It used to clear the canonical file, which is the same continuity failure
   // --force had, reached through prompt generation where nobody was looking.
+  // NO ACCEPTED round-1.md HERE any more: with one present, an astra preview is
+  // now refused outright (see the test below), so seeding it would have made
+  // this test pass on the refusal rather than on the thing it is for.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", {
-    "round-1.md": "AN ACCEPTED ASSESSMENT A LEDGER ENTRY CITES",
-    "round-1.attempt.md": "A STALE ATTEMPT FROM AN EARLIER, DIFFERENT PACKAGE",
-  });
+  seed(root, "x", { "round-1.attempt.md": "A STALE ATTEMPT FROM AN EARLIER, DIFFERENT PACKAGE" });
   const stdout = process.stdout.write;
   process.stdout.write = () => true;
   try {
@@ -745,9 +747,30 @@ test("--prompt-only clears the ATTEMPT, never the accepted assessment", () => {
   } finally {
     process.stdout.write = stdout;
   }
-  assert.equal(readFileSync(join(root, ".agents/reviews/x/round-1.md"), "utf8"), "AN ACCEPTED ASSESSMENT A LEDGER ENTRY CITES");
   assert.equal(existsSync(join(root, ".agents/reviews/x/round-1.attempt.md")), false);
   drop(root);
+});
+
+test("an astra preview cannot overwrite the record of a dispatch that happened", () => {
+  // THE PATH WAS COVERED AND THE PROPERTY WAS NOT. The test above ran this exact
+  // scenario at the default astra role and passed, because it asserted on the
+  // assessment and the attempt and never looked at the prompt record -- which
+  // was being replaced while the meta still described the original package
+  // (Codex and both assessors, #124 round 5).
+  for (const kind of [["assess", "1"], ["scope", "0"]]) {
+    const [k, n] = kind;
+    const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+    seed(root, "x", { [`round-${n}.md`]: "AN ACCEPTED ASSESSMENT", [`round-${n}.prompt.md`]: "THE PACKAGE ASTRA WAS ACTUALLY SENT" });
+    writeFileSync(join(root, "oracle.md"), "# The oracle\n\nBuild the thing.\n");
+    const args = k === "scope"
+      ? ["--kind", "scope", "--slug", "x", "--oracle", "oracle.md", "--no-ledger", "--prompt-only"]
+      : ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--no-ledger", "--prompt-only"];
+    const { code, log } = runMain(root, args, { script: [] });
+    assert.equal(code, 1, `${k} preview is refused`);
+    assert.match(log, /an accepted assessment is never replaced/);
+    assert.equal(readFileSync(join(root, `.agents/reviews/x/round-${n}.prompt.md`), "utf8"), "THE PACKAGE ASTRA WAS ACTUALLY SENT");
+    drop(root);
+  }
 });
 
 test("a Claude-role package does not overwrite the record of what Astra was sent", () => {
@@ -1194,7 +1217,11 @@ function promptOf(root, argv) {
   const stdout = process.stdout.write;
   process.stdout.write = (s) => (written.push(s), true);
   try {
-    const code = main([...argv, "--prompt-only"], { root, run: fakeRun([]), log: () => {}, git: () => ({ status: 128 }) });
+    // `--role claude`, because this composes MY copy -- which is what
+    // `--prompt-only` is exempt for. Running it as astra made these tests
+    // exercise a path no recipe uses, and made the reread test below assert
+    // one role while running another (#124 round 5).
+    const code = main([...argv, "--role", "claude", "--prompt-only"], { root, run: fakeRun([]), log: () => {}, git: () => ({ status: 128 }) });
     assert.equal(code, 0, "the package was composed");
   } finally {
     process.stdout.write = stdout;

@@ -493,7 +493,14 @@ export function renderLedger(concerns, { selected = [] } = {}) {
  * So the facts that genuinely differ are emitted here, per role, and never left
  * for either party to infer.
  */
-export function roleBlock(role, { assessmentFile = null } = {}) {
+/**
+ * NO ASSESSMENT PATH IN HERE. It used to name the concrete file, which made the
+ * first bytes of the package change every exchange -- so `stablePrefix` was not
+ * stable, which is the property its name and its comment both assert (Codex and
+ * both assessors, #124 round 5). Astra is in a read-only sandbox and cannot
+ * write the file, so the path was informational and is now simply absent.
+ */
+export function roleBlock(role) {
   if (!ROLES.includes(role)) {
     throw new Error(`role must be one of ${ROLES.join(", ")}, got ${JSON.stringify(role)}`);
   }
@@ -515,7 +522,7 @@ export function roleBlock(role, { assessmentFile = null } = {}) {
       : "- **A purely technical disagreement that survives investigation and discussion is yours to settle.** Record the reasoning and the material concern that remains. Astra is not obliged to agree.",
     "- **Neither of you can settle what is reserved for David**: intended behaviour, scope, whether a user-facing shortfall is acceptable, and approval of the plan itself. If a disagreement turns out to rest on one of those, say so and stop.",
     astra
-      ? `- **Return the complete assessment as your final message, in Markdown.** The CLI saves that message to \`${assessmentFile ?? "the file named in your instructions"}\`. You are in a read-only sandbox and cannot write that file yourself — you do not need to. Do not replace the assessment with a completion acknowledgement, and do not spend it narrating the sandbox.`
+      ? "- **Return the complete assessment as your final message, in Markdown.** The CLI saves that message to this exchange's assessment file. You are in a read-only sandbox and cannot write that file yourself — you do not need to, and you do not need its path. Do not replace the assessment with a completion acknowledgement, and do not spend it narrating the sandbox."
       : "- **Your output is the readout you give David in chat, and the revision you make to the plan.** Nothing is published to a page, and no assessment file is written by you.",
     "",
   ].join("\n");
@@ -548,14 +555,19 @@ export function readVerbatim(rel, root = REPO_ROOT) {
  * ORDERING IS FOR THE PREFIX CACHE. The role block, the contract, the Worth
  * rule, the tier and the oracle do not change while a loop runs, so they go
  * first and the provider serves them from cache; only "## This exchange"
- * varies. The pilot measured 2.89M of 3.09M input tokens served from cache
+ * varies. The pilot's 2,893,824-of-3,089,593 cached figure is NOT evidence for this
+ * ordering and never was: it aggregates one `codex exec` run whose many repository
+ * commands re-send a growing conversation, and a whole package is ~9.5k tokens --
+ * under a third of a percent of it (#124 round 5, both assessors). What the
+ * ordering buys between exchanges is unmeasured here; what it costs is nothing,
+ * and keeping the varying part last is right on its own terms
  * under the old file's version of this ordering.
  *
  * The PLAN is handed over as a PATH, not inlined -- which both keeps this
  * prefix stable while the plan is rewritten under it, and keeps the reader's
  * evidence its own.
  */
-export function stablePrefix({ role, kind, contract, judgment, oracle, planPath, tier = null, assessmentFile = null }) {
+export function stablePrefix({ role, kind, contract, judgment, oracle, planPath, tier = null }) {
   const looking =
     kind === "scope"
       ? [
@@ -582,7 +594,7 @@ export function stablePrefix({ role, kind, contract, judgment, oracle, planPath,
         ];
 
   return [
-    roleBlock(role, { assessmentFile }),
+    roleBlock(role),
     "---",
     "",
     "# The contract you both apply",
@@ -1139,6 +1151,22 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       );
     }
 
+    // --- what `--prompt-only` is actually exempt FOR ----------------------
+    //
+    // TWO REFUSALS EXEMPT IT, and both were written as `!flags.promptOnly`
+    // while the reason for both is one legitimate use: me re-reading my own
+    // copy. An exemption granted to the FLAG rather than to the REASON let an
+    // astra-role preview past the accepted-assessment refusal and overwrite
+    // `round-N.prompt.md` -- the record of what Astra was actually sent --
+    // while the meta still carried the original package digest, on a round
+    // that is otherwise immutable (Codex and both assessors, #124 round 5).
+    //
+    // Named once, used at both sites, so the next exemption cannot drift from
+    // its reason the way these two did. Checked before narrowing: both
+    // `--prompt-only` recipes in the payload pass `--role claude`
+    // (SKILL.md:46 and :58), so nothing documented is refused by this.
+    const myReread = flags.promptOnly && role === "claude";
+
     let round = 0;
     if (kind === "scope") {
       if (flags.round != null && Number(flags.round) !== 0) {
@@ -1245,7 +1273,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // is actually about it -- "an accepted assessment is never replaced" names
     // the ledger entry that cites the file, which is the thing at stake there.
     // A sequencing message would be true and less useful.
-    if (kind === "assess" && !flags.promptOnly && !ran.includes(round)) {
+    if (kind === "assess" && !myReread && !ran.includes(round)) {
       const next = Math.max(0, ...ran) + 1;
       if (round !== next) {
         throw new Error(
@@ -1411,7 +1439,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // treated as one. (Codex, #124 round 1; both assessors called it one
     // mechanism rather than three fixes.)
     const attemptFile = outFile.replace(/\.md$/, ".attempt.md");
-    if (fs.existsSync(outFile) && !flags.promptOnly) {
+    if (fs.existsSync(outFile) && !myReread) {
       // NO --force. It was removed rather than guarded: with promotion in place
       // its only remaining job is re-running an exchange that WAS accepted, and
       // its only remaining effect is deleting the file a ledger entry cites as
@@ -1419,9 +1447,23 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // assessor's recommendation, #124 round 1; Claude chose removal over the
       // refuse-when-cited alternative, because removing a mechanism beats adding
       // a check around it.)
+      // THE REMEDY SENTENCE BRANCHES ON KIND, and it has to. One refusal is
+      // shared by all three kinds; its advice was written for one of them. A
+      // scope exchange is fixed at round 0 and the parser refuses a --round on
+      // it, so "use the next number" named an action this same program rejects
+      // -- leaving deleting round-0.md as the only visible way out, which is
+      // the exact loss this refusal exists to prevent (Codex and both
+      // assessors, #124 round 5). A message that invites a destructive
+      // workaround is worse than one that names nothing.
       throw new Error(
         `${path.relative(root, outFile)} already exists, and an accepted assessment is never replaced — a ledger ` +
-          `entry may cite it as the source of a concern's reasoning. Use the next number.`,
+          `entry may cite it as the source of a concern's reasoning. ` +
+          (kind === "scope"
+            ? `DO NOT DELETE IT. A scope exchange is fixed at round 0, so there is no next number to use: if David ` +
+              `revised the boundary, carry the revised oracle into the first assessment with --oracle-changed ` +
+              `"<why>", which records the change and shows Astra the new intent. A second scope exchange under this ` +
+              `slug is not supported; if you genuinely need one, start a new slug.`
+            : `Use the next number.`),
       );
     }
 
@@ -1469,7 +1511,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const packageParts = {
       role, kind, round, discussion, lens, concerns, selected,
       question: flags.question ?? null, priorAssessment, predecessor, inventory,
-      oracle, planPath, tier, assessmentFile: path.relative(root, outFile),
+      oracle, planPath, tier,
       contract: contract.text, judgment: judgment.text,
     };
     const prompt = assemblePackage(packageParts);
@@ -1495,6 +1537,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     // package but a re-dispatch with a CORRECTED one, after which the stale
     // file is read under a header naming the right exchange.
     if (flags.promptOnly) {
+      // Reachable for astra only while no accepted assessment exists at this
+      // round -- the refusal above now stops the case where this write would
+      // have replaced the record of a dispatch that happened.
       fs.writeFileSync(promptFile, `${prompt}\n`);
       // IT CLEARS THE ATTEMPT PATH, NEVER THE ACCEPTED ASSESSMENT. This used to
       // delete `outFile`, which is the same continuity failure `--force` had --

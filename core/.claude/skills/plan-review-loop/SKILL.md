@@ -167,7 +167,7 @@ S=.agents/reviews/<slug>
 mkdir -p "$S"          # bash opens the redirects below BEFORE node runs
 rm -f "$S/run-<N>.exit"   # a marker left by an earlier attempt reads as THIS
                           # one finishing, instantly, with the wrong status
-setsid nohup bash -c "cd $PWD && node $PWD/$P \
+setsid nohup bash -c "cd \"$PWD\" && node \"$PWD/$P\" \
   --kind assess --round <N> --tier <product|sensitive|internal> \
   --plan docs/plans/PLAN_<SLUG>.md \
   > $S/run-<N>.log 2>&1; echo \$? > $S/run-<N>.exit" &
@@ -175,6 +175,13 @@ setsid nohup bash -c "cd $PWD && node $PWD/$P \
 
 Then wait on `run-<N>.exit` appearing — its existence is the completion signal
 and its contents are the status.
+
+**`$PWD` is quoted because a checkout path can contain a space**, and the outer
+shell expands it into the inner program text: unquoted, `cd /a b/repo` is two
+arguments, `cd` fails, `&&` short-circuits and the script never runs. Loud rather
+than silent — the marker still gets `1` — but this is payload text and a consumer
+chooses its own checkout path (Codex and both assessors, #124 round 5; the
+mechanism is inherited from #69 rather than new here).
 
 **The marker is per round AND cleared before launch, and it needs both.** It
 used to be one `run.exit` for every exchange in a slug: round 2's launch found
@@ -215,7 +222,7 @@ S=.agents/reviews/<slug>; Q=$S/question-<N>-<M>.txt   # write the question to a
                                                      # detached shell is where
                                                      # this goes wrong
 rm -f "$S/discuss-<N>-<M>.exit"   # same reason as the assessment recipe above
-setsid nohup bash -c "cd $PWD && node $PWD/$P \
+setsid nohup bash -c "cd \"$PWD\" && node \"$PWD/$P\" \
   --kind discuss --round <N> --discussion <M> --tier <tier> \
   --plan docs/plans/PLAN_<SLUG>.md --concerns C2,C5 \
   --question \"\$(cat $Q)\" \
