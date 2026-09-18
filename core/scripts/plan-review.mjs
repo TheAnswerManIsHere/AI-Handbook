@@ -532,9 +532,19 @@ export function roleBlock(role) {
     astra
       ? "- **Your counterpart is Claude**, running Fable, reading this same contract."
       : "- **Your counterpart is Astra**, reached through the Codex CLI, reading this same contract.",
+    // PROSPECTIVE, because the block is emitted at the scope exchange too --
+    // where the same package says "There is no plan yet." These said the
+    // counterpart "holds the authoritative plan" and asked for "replacement
+    // passages" for a document that does not exist, which is the last
+    // role-block sentence failing one of the four corners the block has to
+    // survive (scope, first assessment, chained discussion, Claude's pre-draft
+    // reread). Pre-existing rather than introduced by round 10 -- what round 10
+    // got wrong was its CHECK, "true of every exchange", tested against assess
+    // and discuss and never against scope. (Codex, #124 round 11 `4050124296`;
+    // both assessors concurred, and neither wanted `kind` threaded in here.)
     astra
-      ? "- **Your counterpart holds the authoritative plan.** Propose alternatives and replacement passages; it maintains the plan and incorporates the conclusions of your discussion. Do not implement the work."
-      : "- **You hold the authoritative plan.** Incorporate the conclusions of the discussion into it. Do not implement the work: building starts only on David's explicit approval of the plan.",
+      ? "- **The authoritative plan is your counterpart's to write and hold.** Propose alternatives, and once a plan exists, replacement passages; it maintains the plan and incorporates the conclusions of your discussion. Do not implement the work."
+      : "- **The authoritative plan is yours to write and hold.** Incorporate the conclusions of the discussion into it. Do not implement the work: building starts only on David's explicit approval of the plan.",
     astra
       ? "- **A purely technical disagreement that survives investigation and discussion is your counterpart's to settle**, with its reasoning recorded. You are not obliged to agree, and you are not asked to declare agreement afterwards."
       : "- **A purely technical disagreement that survives investigation and discussion is yours to settle.** Record the reasoning and the material concern that remains. Astra is not obliged to agree.",
@@ -556,7 +566,7 @@ export function roleBlock(role) {
       // against the literal suggestion, independently. (Codex, #124 round 10
       // `4049965635`.)
       ? "- **Return your complete reply as your final message, in Markdown.** The CLI saves that message to this exchange's file. You are in a read-only sandbox and cannot write that file yourself — you do not need to, and you do not need its path. Do not replace the reply with a completion acknowledgement, and do not spend it narrating the sandbox."
-      : "- **Your output is the readout you give David in chat, and the revision you make to the plan.** Nothing is published to a page, and no assessment file is written by you.",
+      : "- **Your output is the readout you give David in chat, and — once there is a plan — the revision you make to it.** Nothing is published to a page, and no assessment file is written by you.",
     "",
   ].join("\n");
 }
@@ -699,21 +709,56 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
         // round 7). A role-dependent fact outside the role block is exactly
         // what the role block exists to prevent.
         `- \`${predecessor.assessment}\` — the assessment from that exchange, in full.`,
-        ...(predecessor.discussions ?? []).map(
-          (d) =>
-            `- \`${d.file}\` — focused discussion ${d.discussion} on that exchange: the question asked and the ` +
-            `reply given. A concern the ledger shows as settled was often settled here, and this is where the ` +
-            `reasoning that settled it is written.`,
-        ),
         "",
-        "Read them if you are judging what changed or whether an earlier conclusion still holds. The concern",
-        "ledger below carries the concerns that were named; these files carry everything that was not.",
+        "Read them if you are judging what changed or whether an earlier conclusion still holds. Those two are the",
+        "baseline to compare against; the whole record of this loop is named below.",
       );
     }
   }
 
   if (question) {
     out.push("", "### The question", "", question.trim());
+  }
+
+  // --- where the whole record is, stated once, instead of listed ------------
+  //
+  // A POINTER AND A CONVENTION, NOT AN ENUMERATION, and that is this feature's
+  // third shape rather than its first. Round 9 made a sentence conditional,
+  // round 10 made one neutral, round 10 also enumerated the previous round's
+  // discussion files -- and each move fixed one corner of a space with four
+  // axes (role, kind, round, discussion index) and exposed the next. The
+  // enumeration's corner was the round axis: it listed `prev` only, so a
+  // concern settled in round 1's discussion vanished from round 3's package
+  // once round 2 legitimately omitted the settled concern (Codex, #124 round 11
+  // `4050124291`). Completing the enumeration would have worked today and kept
+  // the shape whose correctness depends on the script listing every relevant
+  // file.
+  //
+  // Naming the directory and the convention says ONE thing that is true at
+  // every corner, and it closes cases nobody reported: `round-0.md`, the scope
+  // reply, was never named in any later package either. It derives nothing --
+  // the directory is already computed and the convention is already enforced by
+  // `assessmentPath` -- which is the shape David asked for on the round-9 fork:
+  // tell the consumer, do not compute it. (Both assessors concurred; the Fable
+  // assessor revised its own round-10 recommendation to reach it.)
+  //
+  // NOT ON A SCOPE EXCHANGE, where the directory holds nothing yet.
+  if (kind !== "scope") {
+    out.push(
+      "",
+      "### The whole record of this loop, if you need it",
+      "",
+      `Everything either of us has written is in \`${REVIEWS_DIR}/<slug>/\`, beside the files named above, under one`,
+      "convention:",
+      "",
+      "- `round-0.md` — the scope exchange's reply, before any plan existed.",
+      "- `round-N.md` — assessment N. `plan-round-N.md` — the plan exactly as assessment N read it.",
+      "- `round-N.discussion-M.md` — the M-th focused discussion on assessment N: a question and its answer.",
+      "",
+      "**A concern the ledger below shows as settled was usually settled in one of the discussion files**, not in",
+      "the assessment that raised it — so the entry's own source names the argument, and the reply that answered",
+      "it is a file away. Read what you need; nothing here asks you to read all of it.",
+    );
   }
 
   out.push("", "### The concern ledger", "");
@@ -1102,45 +1147,6 @@ export function assertTierPinned(dir, earlier, tier) {
 }
 
 /** Exchanges already run for this loop, counted from disk rather than stored. */
-/**
- * The focused discussions that actually ran on one round, by path.
- *
- * DERIVED FROM DISK, like `roundsRun` below, because a discussion leaves a file
- * and nothing else records that it happened -- no ledger field, no meta key.
- *
- * WHY A LATER ASSESSMENT NEEDS THEM. The predecessor block names the previous
- * plan snapshot and the previous assessment, and told the reader "these two
- * files carry everything that was not" in the ledger. That was false whenever a
- * discussion settled a concern: `renderLedger` emits a by-reference line whose
- * `source` is the assessment the concern was RAISED in, so a cold Astra was
- * handed its own original argument, a one-word state, and an invitation to
- * reopen -- and no route at all to the reply in which it changed position. The
- * contract requires the opposite ("Titles and dispositions alone are
- * insufficient when meaning depends on the omitted reasoning"), and the oracle
- * names earlier reasoning surviving across exchanges as product intent.
- *
- * PATHS, NOT TRANSCRIPTS, AND NOT THE LEDGER'S `response`. Inlining replies
- * would grow every later package by the whole settled history. Rendering
- * `response` was the other candidate and is worse for this case: it is the
- * BUILDER's account ("what I did about it, or argued"), and the party who
- * changed position here is Astra, whose own words are in the file. The design
- * comment on CONCERN_STATES already weighed and rejected expanding entries on a
- * non-empty response, "since ordinary resolved concerns have responses too".
- * (Codex, #124 round 10 `4049965628`; the Fable assessor held the tie-break
- * against Astra's response-rendering, and both its premises were checked in
- * the source before it was accepted.)
- */
-export function discussionsOf(dir, round) {
-  if (!fs.existsSync(dir)) return [];
-  const re = new RegExp(`^round-${round}\\.discussion-(\\d+)\\.md$`);
-  return fs
-    .readdirSync(dir)
-    .map((n) => [n, re.exec(n)])
-    .filter(([, m]) => m)
-    .sort((a, b) => Number(a[1][1]) - Number(b[1][1]))
-    .map(([n, m]) => ({ discussion: Number(m[1]), file: path.join(dir, n) }));
-}
-
 export function roundsRun(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -1727,10 +1733,6 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
           round: prev,
           plan: path.relative(root, prevPlan),
           assessment: path.relative(root, prevAssessment),
-          discussions: discussionsOf(dir, prev).map((d) => ({
-            discussion: d.discussion,
-            file: path.relative(root, d.file),
-          })),
         };
       }
     }

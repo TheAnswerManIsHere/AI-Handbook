@@ -224,7 +224,10 @@ test("both roles receive byte-identical packages outside the role block", () => 
 test("the role block states who holds the plan and who settles a tie, per role", () => {
   const astra = roleBlock("astra");
   const claude = roleBlock("claude");
-  assert.match(astra, /Your counterpart holds the authoritative plan/);
+  // PROSPECTIVE since round 11: the block is emitted at the scope exchange too,
+  // where the same package says there is no plan yet (`4050124296`).
+  assert.match(astra, /The authoritative plan is your counterpart's to write and hold/);
+  assert.doesNotMatch(astra, /holds the authoritative plan/, "no sentence asserts a plan already exists");
   assert.match(astra, /is your counterpart's to settle/);
   // KIND-NEUTRAL. It said "the complete assessment", which contradicted
   // `exchangeContext`'s "It is not a new assessment" in every discuss package
@@ -235,7 +238,8 @@ test("the role block states who holds the plan and who settles a tie, per role",
   // NO CONCRETE PATH. It made the "stable" prefix change every exchange, and
   // Astra cannot write the file anyway (#124 round 5).
   assert.doesNotMatch(astra, /round-\d+\.md/);
-  assert.match(claude, /You hold the authoritative plan/);
+  assert.match(claude, /The authoritative plan is yours to write and hold/);
+  assert.doesNotMatch(claude, /You hold the authoritative plan/, "prospective for the scope exchange too");
   assert.match(claude, /is yours to settle/);
   assert.match(claude, /no assessment file is written by you/);
 });
@@ -1280,7 +1284,11 @@ test("a first assessment names no predecessor and does not claim one", () => {
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
   seed(root, "x", { "concerns.json": [concern()], "round-0.md": "# Scope\n" });
   const prompt = promptOf(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
-  assert.doesNotMatch(prompt, /plan-round-/, "no snapshot is named");
+  // A CONCRETE snapshot, not the naming convention. Round 11 added a sentence
+  // describing `plan-round-N.md` as a shape, which is true before any snapshot
+  // exists and is how `round-0.md` finally becomes reachable; `/plan-round-/`
+  // could not tell the two apart and failed on the convention line.
+  assert.doesNotMatch(prompt, /plan-round-\d/, "no actual snapshot is named");
   assert.doesNotMatch(prompt, /readable, not remembered/);
   assert.doesNotMatch(prompt, /changes since you last saw it/, "and the instruction does not assert one either");
   drop(root);
@@ -1591,36 +1599,44 @@ test("a discussion's emphasis heading does not tell it to assess", () => {
 
 // ── a later assessment can read what settled an earlier concern ────────────
 
-test("the predecessor block names the discussions that ran on that round", () => {
-  // `4049965628`: the block named the previous plan and the previous
-  // assessment and claimed "these two files carry everything that was not" in
-  // the ledger -- false whenever a discussion settled a concern, because the
-  // ledger's by-reference line points at the assessment the concern was RAISED
-  // in. A cold reader got its own original argument, a one-word state, and an
-  // invitation to reopen, with no route to the reply that changed its mind.
+test("every assess and discuss package names the record directory and its convention", () => {
+  // REPLACES THE ENUMERATION (#124 round 11 `4050124291`). Round 10 listed the
+  // previous round's discussion files one by one; this round showed the list
+  // misses older ones -- a concern settled in round 1's discussion is gone from
+  // round 3's package once round 2 legitimately omits the settled concern.
   //
-  // PATHS, NOT TRANSCRIPTS: one line per discussion that actually ran, derived
-  // from disk. Rendering the ledger's `response` was the alternative and is
-  // the builder's account rather than the other party's words.
+  // Completing the enumeration would have worked and kept the shape whose
+  // correctness depends on listing every relevant file. Naming the directory
+  // and the convention says one thing true at every corner, and closes the
+  // scope reply (`round-0.md`) which no package ever named either.
   const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
   seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN,
     "round-1.discussion-1.md": "# The reply that settled it\n",
-    "round-1.discussion-2.md": "# A later reply\n" });
-  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
+    "round-2.md": "# Two\n", "plan-round-2.md": PLAN });
+
+  const assess = promptOf(root, ["--kind", "assess", "--round", "3", "--tier", "internal",
     "--plan", "docs/plans/PLAN_X.md"]);
-  assert.match(prompt, /round-1\.discussion-1\.md/, "the discussion is named by path");
-  assert.match(prompt, /round-1\.discussion-2\.md/, "every discussion that ran, in order");
-  assert.doesNotMatch(prompt, /these two files carry everything/, "the claim that was false is gone");
-  assert.doesNotMatch(prompt, /The reply that settled it/, "named by path, never inlined");
+  assert.match(assess, /round-N\.discussion-M\.md/, "the convention, not a list of the files that exist");
+  assert.match(assess, /round-0\.md/, "including the scope reply, which no package named before");
+  assert.match(assess, /settled in one of the discussion files/);
+  assert.doesNotMatch(assess, /The reply that settled it/, "named by convention, never inlined");
+  // Round 2 ran no discussions, and the sentence is the same either way --
+  // which is the property an enumeration could not have.
+  assert.doesNotMatch(assess, /focused discussion 1 on that exchange/, "the enumeration is gone");
+
+  const discuss = promptOf(root, ["--kind", "discuss", "--round", "2", "--discussion", "1",
+    "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q"]);
+  assert.match(discuss, /round-N\.discussion-M\.md/, "a discussion package gets it too");
   drop(root);
 });
 
-test("a round with no discussions names none, and the block is unchanged", () => {
-  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
-  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN });
-  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
-    "--plan", "docs/plans/PLAN_X.md"]);
-  assert.match(prompt, /plan-round-1\.md/, "the predecessor is still named");
-  assert.doesNotMatch(prompt, /discussion-/, "nothing invented for a round that had none");
+test("a scope package does not point at a directory that holds nothing yet", () => {
+  const root = fixtureRoot();
+  writeFileSync(join(root, "oracle.md"), "# The oracle\n\nBuild the thing.\n");
+  const { code, log } = runMain(root, ["--kind", "scope", "--slug", "x", "--tier", "internal",
+    "--oracle", "oracle.md", "--no-ledger", "--prompt-only"]);
+  assert.equal(code, 0);
+  const prompt = readFileSync(join(root, ".agents/reviews/x/round-0.prompt.md"), "utf8");
+  assert.doesNotMatch(prompt, /The whole record of this loop/, "there is no record yet");
   drop(root);
 });
