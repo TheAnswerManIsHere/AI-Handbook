@@ -672,7 +672,7 @@ export function stablePrefix({ role, kind, contract, judgment, oracle, planPath,
 }
 
 /** The varying half. Everything that changes exchange to exchange lives here, and only here. */
-export function exchangeContext({ kind, round, discussion = 0, lens, concerns, selected = [], question = null, priorAssessment = null, predecessor = null, inventory = null }) {
+export function exchangeContext({ kind, round, discussion = 0, lens, concerns, selected = [], question = null, priorAssessment = null, predecessor = null, inventory = null, reviewDir = null }) {
   const out = ["## This exchange", ""];
 
   if (kind === "scope") {
@@ -748,12 +748,26 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
       "",
       "### The whole record of this loop, if you need it",
       "",
-      `Everything either of us has written is in \`${REVIEWS_DIR}/<slug>/\`, beside the files named above, under one`,
-      "convention:",
+      // THE RESOLVED DIRECTORY, not the literal `<slug>`. A pointer that names
+      // no path is not a pointer: with an explicit `--slug` differing from the
+      // plan filename, on a first assessment or a round-1 discussion, nothing
+      // else in the package names the directory either -- the predecessor block
+      // only exists from round 2, and a ledger `source` may be a person's name.
+      // The value was already computed at the call site and simply not passed.
+      // (Codex, #124 round 12 `4050265290`; both assessors concurred.)
+      `Everything either of us has written is in \`${reviewDir ?? REVIEWS_DIR + "/<slug>"}/\`, beside the files named above,`,
+      "under one convention:",
       "",
       "- `round-0.md` — the scope exchange's reply, before any plan existed.",
       "- `round-N.md` — assessment N. `plan-round-N.md` — the plan exactly as assessment N read it.",
-      "- `round-N.discussion-M.md` — the M-th focused discussion on assessment N: a question and its answer.",
+      // NOT "a question and its answer": the canonical file is promoted from
+      // `--output-last-message`, so it holds the reply alone. A free rider on
+      // `4050265290`'s edit -- six lines away, same function, same commit --
+      // rather than a finding that earned a write (Codex, #124 round 12
+      // `4050265293`; both assessors called it a recorded gap under David's
+      // lens, and both said to correct it anyway while the block is open).
+      "- `round-N.discussion-M.md` — the reply in the M-th focused discussion on assessment N. The question it",
+      "  answered is under *The question* in `round-N.discussion-M.prompt.md` beside it; the two are the record.",
       "",
       "**A concern the ledger below shows as settled was usually settled in one of the discussion files**, not in",
       "the assessment that raised it — so the entry's own source names the argument, and the reply that answered",
@@ -1740,6 +1754,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     const packageParts = {
       role, kind, round, discussion, lens, concerns, selected,
       question: flags.question ?? null, priorAssessment, predecessor, inventory,
+      reviewDir: path.relative(root, dir),
       oracle, planPath, tier,
       contract: contract.text, judgment: judgment.text,
     };

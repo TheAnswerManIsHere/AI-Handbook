@@ -167,21 +167,32 @@ S=.agents/reviews/<slug>
 mkdir -p "$S"          # bash opens the redirects below BEFORE node runs
 rm -f "$S/run-<N>.exit"   # a marker left by an earlier attempt reads as THIS
                           # one finishing, instantly, with the wrong status
-setsid nohup bash -c "cd \"$PWD\" && node \"$PWD/$P\" \
+setsid nohup bash -c 'cd "$1" && node "$1/$2" \
   --kind assess --round <N> --tier <product|sensitive|internal> \
   --plan docs/plans/PLAN_<SLUG>.md \
-  > $S/run-<N>.log 2>&1; echo \$? > $S/run-<N>.exit" &
+  > "$3/run-<N>.log" 2>&1; echo $? > "$3/run-<N>.exit"' _ "$PWD" "$P" "$S" &
 ```
 
 Then wait on `run-<N>.exit` appearing — its existence is the completion signal
 and its contents are the status.
 
-**`$PWD` is quoted because a checkout path can contain a space**, and the outer
-shell expands it into the inner program text: unquoted, `cd /a b/repo` is two
-arguments, `cd` fails, `&&` short-circuits and the script never runs. Loud rather
-than silent — the marker still gets `1` — but this is payload text and a consumer
-chooses its own checkout path (Codex and both assessors, #124 round 5; the
-mechanism is inherited from #69 rather than new here).
+**Nothing from the outer shell appears in the program text.** That is the whole
+rule, and it is why the program is in single quotes with `$PWD`, `$P` and `$S`
+passed as arguments (`_` is `$0`, which `bash -c` consumes). Anything
+interpolated into a `bash -c` string is program *text*, read a second time by
+the inner shell — so a checkout path is re-parsed as shell. Quoting it closed
+exactly one character: measured in a directory named `repo$cash`, the inner
+shell expanded `$cash` to nothing, `cd` failed, `&&` short-circuited and the
+script never ran; a backtick in the name executed part of the path as a command.
+Loud rather than silent — the marker still gets `1`, with no log — but the loop
+cannot be run from that checkout at all, and a consumer chooses its own path.
+
+This line has now produced three findings in seven rounds: a space (#124 round
+5), then `$` and a backtick (round 12). Round 5 had this same positional shape
+offered by the reviewer and by Astra, and took a pair of quotes instead; the
+Fable assessor, who recommended the quotes, revised that here — *"it did not
+regress; it was incomplete."* Passing values as arguments needs no escaping
+rule, so there is no next character.
 
 **The marker is per round AND cleared before launch, and it needs both.** It
 used to be one `run.exit` for every exchange in a slug: round 2's launch found
@@ -222,11 +233,11 @@ S=.agents/reviews/<slug>; Q=$S/question-<N>-<M>.txt   # write the question to a
                                                      # detached shell is where
                                                      # this goes wrong
 rm -f "$S/discuss-<N>-<M>.exit"   # same reason as the assessment recipe above
-setsid nohup bash -c "cd \"$PWD\" && node \"$PWD/$P\" \
+setsid nohup bash -c 'cd "$1" && node "$1/$2" \
   --kind discuss --round <N> --discussion <M> --tier <tier> \
   --plan docs/plans/PLAN_<SLUG>.md --concerns C2,C5 \
-  --question \"\$(cat $Q)\" \
-  > $S/discuss-<N>-<M>.log 2>&1; echo \$? > $S/discuss-<N>-<M>.exit" &
+  --question "$(cat "$4")" \
+  > "$3/discuss-<N>-<M>.log" 2>&1; echo $? > "$3/discuss-<N>-<M>.exit"' _ "$PWD" "$P" "$S" "$Q" &
 ```
 
 Keyed by round *and* discussion, because `<M>` restarts inside each round — the

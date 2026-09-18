@@ -1640,3 +1640,35 @@ test("a scope package does not point at a directory that holds nothing yet", () 
   assert.doesNotMatch(prompt, /The whole record of this loop/, "there is no record yet");
   drop(root);
 });
+
+test("the record pointer names the resolved directory, not a placeholder", () => {
+  // `4050265290`: the block emitted the literal `<slug>`. With an explicit
+  // --slug differing from the plan filename, on a first assessment, nothing
+  // else in the package names the directory -- the predecessor block only
+  // exists from round 2, and a ledger `source` may be a person's name. A
+  // pointer that names no path is not a pointer, and the value was already
+  // computed at the call site.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "elsewhere", { "concerns.json": [concern()] });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "1", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md", "--slug", "elsewhere"]);
+  assert.match(prompt, /\.agents\/reviews\/elsewhere\//, "the slug the operator chose, not the one the plan implies");
+  assert.doesNotMatch(prompt, /<slug>/, "no placeholder survives into a composed package");
+  assert.doesNotMatch(prompt, /reviews\/x\//, "and not the plan-derived slug");
+  drop(root);
+});
+
+test("the discussion file is described as the reply, with its question beside it", () => {
+  // Folded in with `4050265290` rather than earned: the canonical file is
+  // promoted from `--output-last-message`, so it holds the reply alone and the
+  // question stays in the `.prompt.md`. A recorded gap under David's lens
+  // (#128) -- the reader recovers it from the directory it was just pointed
+  // at -- corrected because it sits six lines from an edit already open.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal",
+    "--plan", "docs/plans/PLAN_X.md"]);
+  assert.match(prompt, /discussion-M\.prompt\.md/, "the question's actual home is named");
+  assert.doesNotMatch(prompt, /a question and its answer/, "the false description is gone");
+  drop(root);
+});

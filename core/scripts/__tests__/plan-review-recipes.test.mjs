@@ -160,15 +160,20 @@ const stageOf = (block) =>
  * recipe count rather than the file quietly checking three recipes instead of
  * five. Keep `LAUNCH` in step with the document; the guard is what tells you.
  */
-const LAUNCH = 'setsid nohup bash -c "cd \\"$PWD\\" && ';
+const LAUNCH = `setsid nohup bash -c 'cd "$1" && `;
 
 function undetach(body) {
   const start = body.indexOf(LAUNCH);
   if (start === -1) return body;
   const head = body.slice(0, start);
   let cmd = body.slice(start + LAUNCH.length);
-  cmd = cmd.slice(0, cmd.indexOf("> $S/"));
-  return `${head}${cmd.replace(/\\"\$PWD\/\$P\\"/g, '"$P"').replace(/\\"/g, '"').replace(/\\\$/g, "$")}`;
+  cmd = cmd.slice(0, cmd.indexOf('> "$3/'));
+  // The positional shape (#124 round 12): the program text is single-quoted and
+  // the outer shell's values arrive as `$1`/`$2`/`$3`/`$4`. Running it here
+  // without the wrapper means substituting them back -- `$1` is the checkout,
+  // which is the fixture root the recipe already runs in, so `node "$1/$2"`
+  // becomes `node "$P"`.
+  return `${head}${cmd.replace(/"\$1\/\$2"/g, '"$P"').replace(/"\$4"/g, '"$Q"')}`;
 }
 
 /**
@@ -289,10 +294,12 @@ function runRecipe(root, script) {
 const text = readFileSync(SKILL, "utf8");
 const blocks = fencedBlocks(text);
 const setup = blocks.find((b) => /^P=/.test(b.body.trim()));
-// Tolerates the escaped quoting the detached blocks use (`node \"$PWD/$P\"`)
-// as well as the plain `node "$P"` of the foreground ones. The shape test below
-// is what catches this drifting, and did (#124 round 5).
-const recipes = blocks.filter((b) => /node\s+[\\"]*\$(P\b|PWD)/.test(b.body));
+// Two shapes: the foreground blocks invoke `node "$P"`, and the detached ones
+// `node "$1/$2"` since #124 round 12 put the checkout and script paths in
+// positional arguments. The shape test below is what catches this drifting,
+// and did twice -- on round 5's quoting change and again on round 12's, where
+// the count went 5 -> 3 the moment `$P` left the `node` call.
+const recipes = blocks.filter((b) => /node\s+"\$(P"|1\/\$2")/.test(b.body));
 
 test("the document still has the shape this check assumes", () => {
   // WITHOUT THIS THE WHOLE FILE CAN PASS VACUOUSLY. If the `P=` line moves or a
