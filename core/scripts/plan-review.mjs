@@ -450,11 +450,24 @@ export function fenced(text) {
   return `${fence}\n${text}\n${fence}`;
 }
 
-/** Cut a field, and say so, with the source one `cat` away. */
-function capField(text, source) {
+/**
+ * Cut a field, and say WHERE THE REST IS -- a storage location, never an
+ * attribution.
+ *
+ * It used to name `c.source`, which is validated as any non-empty string and is
+ * documented to be a person: a 9,000-character concern sourced to "Astra"
+ * ended "the full text is in Astra", telling the reader to go and read a
+ * person. The class is a retrieval reference that supplies attribution where a
+ * storage location is needed, and this was its third site and the worst one,
+ * because truncation fires on an OPEN concern rendered in full -- the one case
+ * the design means to show completely. (Codex, #124 round 13 `4050405448`;
+ * Astra bounded the class and the Fable assessor reversed its own stop to
+ * reach it.)
+ */
+function capField(text, where) {
   const s = String(text ?? "");
   if (s.length <= MAX_FIELD_CHARS) return s;
-  return `${s.slice(0, MAX_FIELD_CHARS)}\n\n[truncated at ${MAX_FIELD_CHARS} characters — the full text is in ${source}]`;
+  return `${s.slice(0, MAX_FIELD_CHARS)}\n\n[truncated at ${MAX_FIELD_CHARS} characters — the full text is in ${where}]`;
 }
 
 /**
@@ -467,7 +480,8 @@ function capField(text, source) {
  * about -- and a rule that gave full text only to open concerns would strip
  * exactly the reasoning the discussion is about (Astra, on the redesign plan).
  */
-export function renderLedger(concerns, { selected = [] } = {}) {
+export function renderLedger(concerns, { selected = [], ledgerPath = null } = {}) {
+  const ledger = ledgerPath ?? `${REVIEWS_DIR}/<slug>/concerns.json`;
   if (!concerns.length) return ["No concerns are on the ledger yet."];
   const pick = new Set(selected.map((s) => String(s).trim()));
   const full = [];
@@ -479,18 +493,20 @@ export function renderLedger(concerns, { selected = [] } = {}) {
     }
     const lines = [`### ${c.id} — ${c.title}`, "", `- State: **${c.state}**${c.raised ? ` · raised ${c.raised}` : ""}`, `- Source: \`${c.source}\``];
     if (c.evidence.length) lines.push(`- Evidence: ${c.evidence.map((e) => `\`${e}\``).join(", ")}`);
-    lines.push("", "**The concern, as written:**", "", fenced(capField(c.concern, c.source)));
-    if (c.proposed) lines.push("", "**What was proposed:**", "", fenced(capField(c.proposed, c.source)));
-    if (c.response) lines.push("", "**The response to it:**", "", fenced(capField(c.response, c.source)));
-    if (c.david) lines.push("", "**David's decision:**", "", fenced(capField(c.david, c.source)));
+    const where = `${ledger} (entry ${c.id})`;
+    lines.push("", "**The concern, as written:**", "", fenced(capField(c.concern, where)));
+    if (c.proposed) lines.push("", "**What was proposed:**", "", fenced(capField(c.proposed, where)));
+    if (c.response) lines.push("", "**The response to it:**", "", fenced(capField(c.response, where)));
+    if (c.david) lines.push("", "**David's decision:**", "", fenced(capField(c.david, where)));
     full.push(lines.join("\n"));
   }
   const out = [];
   if (full.length) out.push(...full);
   if (brief.length) {
     out.push(
-      ["**Concerns already settled**, listed for reference. Their full reasoning is in the source file named on each,",
-       "and any of them can be reopened by naming it in a discussion — settled is not closed.", "", ...brief].join("\n"),
+      [`**Concerns already settled**, listed for reference. The full reasoning of each is in \`${ledger}\`, under its id;`,
+       "the source on each says where it was RAISED, which may be a person rather than a file.",
+       "Any of them can be reopened by naming it in a discussion — settled is not closed.", "", ...brief].join("\n"),
     );
   }
   return out;
@@ -672,7 +688,8 @@ export function stablePrefix({ role, kind, contract, judgment, oracle, planPath,
 }
 
 /** The varying half. Everything that changes exchange to exchange lives here, and only here. */
-export function exchangeContext({ kind, round, discussion = 0, lens, concerns, selected = [], question = null, priorAssessment = null, predecessor = null, inventory = null, reviewDir = null }) {
+export function exchangeContext({ kind, round, discussion = 0, lens, concerns, selected = [], question = null, priorAssessment = null, predecessor = null, inventory = null, reviewDir = null, ledgerPath = null }) {
+  const ledgerRef = ledgerPath ?? `${REVIEWS_DIR}/<slug>/concerns.json`;
   const out = ["## This exchange", ""];
 
   if (kind === "scope") {
@@ -770,8 +787,16 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
       "  answered is under *The question* in `round-N.discussion-M.prompt.md` beside it; the two are the record.",
       "",
       "**A concern the ledger below shows as settled was usually settled in one of the discussion files**, not in",
-      "the assessment that raised it — so the entry's own source names the argument, and the reply that answered",
-      "it is a file away. Read what you need; nothing here asks you to read all of it.",
+      // NOT "the entry's own source names the argument". `source` is validated as
+      // any non-empty string and is documented to be a person, so it is
+      // attribution; the argument itself is in the ledger, whose path is
+      // computed at the call site and was simply not passed -- the same defect
+      // round 12 fixed one field over for `reviewDir`. A custom `--ledger` is what
+      // makes this more than wording: the ledger then sits outside the review
+      // directory this block names, and nothing in the package located it at
+      // all (Codex, #124 round 13 `4050405448`; Astra bounded the class).
+      `the assessment that raised it — so the full text of every concern is in \`${ledgerRef}\`, and the reply`,
+      "that answered it is a file away. Read what you need; nothing here asks you to read all of it.",
     );
   }
 
@@ -785,12 +810,12 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
   } else {
     out.push(
       "Concerns still open, those waiting on David, and those settled over a maintained objection are rendered",
-      "in full with the reasoning as it was written. The rest are listed by reference; each names the file its",
-      "full text is in, and any of them can be reopened if its basis changed.",
+      "in full with the reasoning as it was written. The rest are listed by reference; the full text of each is",
+      `in \`${ledgerRef}\` under its id, and any of them can be reopened if its basis changed.`,
       "",
     );
   }
-  out.push(...renderLedger(concerns, { selected }));
+  out.push(...renderLedger(concerns, { selected, ledgerPath }));
 
   if (priorAssessment) {
     // Same class as the predecessor line above: the second site Astra found.
@@ -1334,6 +1359,43 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
             "emphasis in --question, which is what the other party is answering.",
         );
       }
+      // THE SECOND INSTANCE OF THE CLASS THE --lens REFUSAL ABOVE CLOSED, and
+      // the worse one. USAGE documents --oracle, --lens, --ledger and
+      // --oracle-changed on the assess line and none of them on the discuss
+      // line; the parser takes them anywhere. --lens widened what the other
+      // party was asked to READ; --oracle-changed changes what it MEASURES
+      // AGAINST, while the ledger it is shown was settled under the old
+      // boundary and the package says in its own words that the plan is
+      // exactly what it last saw and everything unasked keeps its state.
+      //
+      // NOTHING TELLS ANYONE. `pin.changed` reaches `round-N.meta.json` and the
+      // DRY-RUN log line only; the live completion log prints kind, concerns,
+      // seconds and tier and no oracle line at all, and the package has no
+      // oracle-change input. So the operator gets no notice at the time and
+      // the peer gets none ever.
+      //
+      // REFUSED HERE, before `pinOracle` runs, so nothing is pinned and no
+      // prompt file is written. The message names the next round, because
+      // `pinOracle`'s own refusal says "pass --oracle-changed" without knowing
+      // the kind -- a caller who follows that advice on a discussion lands
+      // here, and this has to be the last hop.
+      //
+      // --oracle ITSELF IS NOT REFUSED: a loop whose assessments took an
+      // external oracle file, with no fenced block in the plan, needs the
+      // discussion to receive the same file or `oracleFrom` refuses outright.
+      // An UNCHANGED external oracle is already harmless -- the pin matches.
+      // (Codex, #124 round 13 `4050405459`; Astra recommended the refusal and
+      // the Fable assessor reversed its own stop to it once the false log-line
+      // premise I had supplied was corrected.)
+      if (flags.oracleChanged != null) {
+        throw new Error(
+          `--oracle-changed belongs to --kind assess. A discussion tells the other party the plan is exactly what ` +
+            `it last saw and that everything it is not asked about keeps its state -- both of which are measured ` +
+            `against the pinned oracle, and nothing in the package or the live log would say the boundary moved. ` +
+            `A changed boundary belongs in an assessment: run --kind assess --round ${round + 1} --oracle-changed ` +
+            `"<what David agreed to change>". An UNCHANGED --oracle file is still fine on a discussion.`,
+        );
+      }
     } else {
       if (flags.discussion != null) throw new Error("--discussion belongs to --kind discuss");
       if (flags.question != null) throw new Error("--question belongs to --kind discuss");
@@ -1755,6 +1817,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       role, kind, round, discussion, lens, concerns, selected,
       question: flags.question ?? null, priorAssessment, predecessor, inventory,
       reviewDir: path.relative(root, dir),
+      ledgerPath,
       oracle, planPath, tier,
       contract: contract.text, judgment: judgment.text,
     };

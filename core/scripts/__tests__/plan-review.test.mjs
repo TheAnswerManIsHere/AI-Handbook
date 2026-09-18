@@ -437,11 +437,53 @@ test("ordinary text gets an ordinary fence", () => {
 });
 
 test("a field that is cut says so and names where the full text is", () => {
+  // THE LEDGER, NOT THE SOURCE. This assertion used to read `round-7.md` and
+  // passed for the wrong reason: it only ever seeded a filename as the source.
   const long = "x".repeat(MAX_FIELD_CHARS + 500);
   const rows = normalizeLedger([concern({ concern: long, source: "round-7.md" })]);
-  const text = renderLedger(rows).join("\n");
-  assert.match(text, /truncated at \d+ characters — the full text is in round-7\.md/);
+  const text = renderLedger(rows, { ledgerPath: ".agents/reviews/x/concerns.json" }).join("\n");
+  assert.match(text, /truncated at \d+ characters — the full text is in \.agents\/reviews\/x\/concerns\.json \(entry C1\)/);
   assert.equal(text.includes("x".repeat(MAX_FIELD_CHARS + 1)), false, "it is actually cut, not merely annotated");
+});
+
+test("a person-name source is never handed to the reader as a place to look", () => {
+  // The class: a retrieval reference that supplies ATTRIBUTION where a STORAGE
+  // LOCATION is needed. `source` is validated as any non-empty string and the
+  // validator's own refusal says it may be a person, so every sentence that
+  // told the reader to read "the source file" was false for a documented
+  // input. Three sites had it; the truncation one fires on an OPEN concern,
+  // which is the case the design renders in full.
+  // (Codex, #124 round 13 `4050405448`.)
+  const ledgerPath = ".agents/reviews/x/concerns.json";
+  const long = "y".repeat(MAX_FIELD_CHARS + 500);
+
+  const open = renderLedger(normalizeLedger([concern({ concern: long, source: "Astra" })]), { ledgerPath }).join("\n");
+  assert.doesNotMatch(open, /full text is in Astra/, "a truncated open concern must not point at a person");
+  assert.match(open, /full text is in \.agents\/reviews\/x\/concerns\.json \(entry C1\)/);
+
+  const settled = renderLedger(
+    normalizeLedger([concern({ id: "C2", state: "addressed", source: "Astra" })]),
+    { ledgerPath },
+  ).join("\n");
+  assert.doesNotMatch(settled, /the source file named on each/, "the retired sentence named no real file");
+  assert.match(settled, /The full reasoning of each is in `\.agents\/reviews\/x\/concerns\.json`/);
+});
+
+test("a custom ledger location reaches the package in both exchange kinds", () => {
+  // The default ledger sits in the review directory the package already names,
+  // so a reader could list it. A custom --ledger does not, and its path was
+  // computed at the call site and never passed -- the same defect round 12
+  // fixed one field over for `reviewDir`.
+  const ledgerPath = "somewhere/else/carried-over.json";
+  const rows = normalizeLedger([concern({ id: "C3", state: "addressed", source: "Astra" })]);
+  for (const kind of ["assess", "discuss"]) {
+    const text = exchangeContext({
+      kind, round: 2, discussion: kind === "discuss" ? 1 : 0, lens: null,
+      concerns: rows, selected: [], question: kind === "discuss" ? "q" : null,
+      reviewDir: ".agents/reviews/x", ledgerPath,
+    });
+    assert.match(text, /somewhere\/else\/carried-over\.json/, `the ${kind} package must locate the ledger`);
+  }
 });
 
 // ── the exchange kinds ─────────────────────────────────────────────────────
@@ -1588,6 +1630,40 @@ test("a lens belongs to an assessment, and a discussion refuses it", () => {
   assert.equal(code, 1);
   assert.match(log, /--lens belongs to --kind assess/);
   assert.match(log, /Put the emphasis in --question/);
+  drop(root);
+});
+
+test("a changed oracle belongs to an assessment, and a discussion refuses it", () => {
+  // The second instance of the class the --lens refusal above closed, and the
+  // worse one: --lens widened what the other party READ, --oracle-changed
+  // changes what it MEASURES AGAINST while the package says the plan is
+  // exactly what it last saw and everything unasked keeps its state. Nothing
+  // would have told anyone -- `pin.changed` reaches the meta file and the
+  // DRY-RUN log only, and the live completion log carries no oracle line.
+  // (Codex, #124 round 13 `4050405459`; Astra recommended the refusal, the
+  // Fable assessor reversed its own stop once I corrected the false log-line
+  // premise I had given both of them.)
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  const dir = seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# One\n", "plan-round-1.md": PLAN });
+  const pin = join(dir, "oracle.txt");
+  writeFileSync(pin, `${ORACLE}\n`);
+  const before = readFileSync(pin, "utf8");
+
+  const { code, log } = runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1",
+    "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q",
+    "--oracle-changed", "David widened the scope"]);
+  assert.equal(code, 1);
+  assert.match(log, /--oracle-changed belongs to --kind assess/);
+  assert.match(log, /--kind assess --round 2 --oracle-changed/, "the message must name the next round, or the caller loops");
+  assert.equal(readFileSync(pin, "utf8"), before, "it refuses BEFORE pinOracle, so nothing is re-pinned");
+  assert.equal(existsSync(join(dir, "round-1.discussion-1.prompt.md")), false, "and before any package is written");
+
+  // The other half: an UNCHANGED oracle still discusses. Removing the input
+  // would have cost a loop whose assessments took an external --oracle file.
+  const ok = runMain(root, ["--kind", "discuss", "--round", "1", "--discussion", "1",
+    "--tier", "internal", "--plan", "docs/plans/PLAN_X.md", "--concerns", "C1", "--question", "q",
+    "--dry-run"]);
+  assert.equal(ok.code, 0, ok.log);
   drop(root);
 });
 

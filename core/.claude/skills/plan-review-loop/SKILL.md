@@ -12,7 +12,7 @@ Astra and I develop the plan together. The script spawns Codex CLI with the
 and takes back Markdown. **I hold the authoritative plan**, I argue where I
 disagree, I investigate disputed facts myself, and **I state what happens next**.
 Nothing parses an assessment. The plan is a file in my working tree that is
-never pushed; everything David sees arrives in chat.
+not pushed unless David asks for it; everything David sees arrives in chat.
 
 **The script's path differs by repository, so resolve it once per session**
 rather than typing either form. The sync routes `core/X -> X`, so the file is
