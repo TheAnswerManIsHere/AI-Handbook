@@ -349,6 +349,13 @@ export function assessmentBrief({
     "",
   ].filter((l) => l !== null);
 
+  // The same shape check `findings` gets two blocks up. A JSON object here has
+  // `length === undefined`, so an ordinary preparation mistake composed a
+  // package with no history section and no complaint -- and neither assessor can
+  // notice a section it never saw. (Codex, #120 round 6.)
+  if (!Array.isArray(history)) {
+    throw new Error(`review-proxy: history must be an array of { label, text }, got ${typeof history === "object" ? "an object" : typeof history}`);
+  }
   if (history.length) {
     lines.push("## What has happened so far, labelled by who said it", "");
     for (const entry of history) {
@@ -403,7 +410,6 @@ export function followUpBrief({
   findingIds,
   question,
   fableReasoning,
-  newEvidence = [],
   priorAssessment,
   assessmentFile,
 }) {
@@ -494,14 +500,28 @@ export function followUpBrief({
   if (fableReasoning && fableReasoning.trim()) {
     lines.push(`## [${source === "astra" ? "fable" : "astra"}] The other assessor's reasoning`, "", fableReasoning.trim(), "");
   }
-  if (newEvidence.length) {
-    lines.push("## New evidence, with its provenance", "");
-    for (const e of newEvidence) lines.push(`- **[${e.source ?? "builder"}]** ${flatten(e.text ?? e)}`);
-    lines.push("");
-  }
   lines.push(`## [${source}] Your earlier assessment of this round, quoted`, "", priorAssessment.trim(), "");
   return lines.join("\n");
 }
+
+// THERE IS NO SEPARATE EVIDENCE INPUT, and its absence is the measured answer
+// rather than an omission. `newEvidence` existed here from the redesign's first
+// commit with no flag ever able to reach it, and three consecutive rounds each
+// found a different instance of the same gap: the composer promising what the
+// documented command could not deliver.
+//
+// It was removed rather than wired up, on both assessors' recommendation, after
+// the first live follow-up settled the question they disagreed on. Two facts
+// decided it. The section rendered every entry through `flatten()`, collapsing a
+// quoted multi-line output or diff hunk to one run-on line under a `source`
+// label nothing validated -- so it carried evidence WORSE than the question
+// does, which inserts `question.trim()` with its structure intact. And the
+// builder composes the question anyway: what it quotes is protected by the
+// load-bearing-claim rule, not by a flag.
+//
+// The inputs that remain are the ones where a FILE is what keeps another party's
+// whole document out of the builder's hands: the oracle, the finding bodies, the
+// prior assessment, the other assessor's reasoning.
 
 /**
  * Read an assessment.
@@ -514,7 +534,13 @@ export function followUpBrief({
  */
 export function readAssessment(root, pr, round, opts = {}) {
   const file = assessmentPath(root, pr, round, opts);
-  const failed = (reason) => ({ pr, round, source: opts.source, failed: true, reason });
+  // THE ATTEMPT'S IDENTITY SURVIVES ITS FAILURE. Without `followUp` here, a
+  // failed follow-up 2 renders as "no independent assessment exists for this
+  // round" -- false, since the round's assessment exists and only the follow-up
+  // failed. That is a failure report misnaming what failed, which is the shape
+  // this repository's archive treats as the worst available. (Codex, #120
+  // round 6; both assessors concurred.)
+  const failed = (reason) => ({ pr, round, source: opts.source, followUp: opts.followUp ?? 0, failed: true, reason });
   let raw;
   try {
     raw = fs.readFileSync(file, "utf8");
@@ -544,7 +570,15 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], mode
     return [
       `## ${who} — ${what}: **dispatch failed**`,
       "",
-      `No independent assessment from ${who} exists for this round: ${result.reason}.`,
+      // SCOPED TO THE ATTEMPT, not to the round. Restoring `followUp` on the
+      // result fixes the heading and leaves this sentence lying: a failed
+      // follow-up does not mean the round has no assessment -- it has one, and
+      // a supplementary question about it failed. (Astra named this as the
+      // incomplete-fix trap on the same finding, #120 round 6.)
+      result.followUp
+        ? `Follow-up ${result.followUp} to ${who} on round ${result.round} produced no answer: ${result.reason}. ` +
+          `${who}'s assessment of the round itself is unaffected and still stands.`
+        : `No independent assessment from ${who} exists for this round: ${result.reason}.`,
       "",
       "This is a failure of the dispatch, not a report that the round was quiet, and it is not permission to",
       "proceed on one assessment alone.",
@@ -629,6 +663,8 @@ export const USAGE = [
   "                  A follow-up carries the oracle, the tier and the disputed findings' bodies:",
   "                  the process answering it is ephemeral and remembers nothing, so all three are",
   "                  required and every --findings id must have text in --findings-file.",
+  "                  --question carries the evidence too, quoted with its origin per the",
+  "                  load-bearing-claim rule. There is no evidence flag, deliberately.",
   "",
   `  --tier          one of ${TIERS.join(", ")} — what is downstream, not a threshold`,
   "  --oracle-file   the outcome David agreed BEFORE this loop started. Required; there is no default.",

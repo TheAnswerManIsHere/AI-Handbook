@@ -288,7 +288,6 @@ test("a follow-up preserves everything it does not ask about", () => {
 test("a follow-up names the dispute, and refuses to be composed without one", () => {
   assert.match(followUp(), /Findings in dispute:\*\* `c1`/);
   assert.match(followUp({ fableReasoning: "FABLE-SAYS" }), /\[fable\] The other assessor's reasoning/);
-  assert.match(followUp({ newEvidence: [{ source: "builder", text: "the grep now finds it" }] }), /\*\*\[builder\]\*\* the grep now finds it/);
   for (const bad of [{ question: "" }, { priorAssessment: "  " }]) {
     assert.throws(() => followUp(bad), /a follow-up needs/);
   }
@@ -615,6 +614,90 @@ test("--source picks the identity block and the output path together, or the CLI
   assert.equal(main(argv("--source", "fable"), { root, run: () => ({ status: 0 }), git: cleanGit(), log: (m) => (logged += m) }), 2);
   assert.match(logged, /this script does not run; use --prompt-only/);
   assert.match(USAGE, /--source/);
+});
+
+test("the CLI drives a whole follow-up, which is the path three rounds of findings walked through", () => {
+  // THE GAP THAT PRODUCED THREE ROUNDS. `followUpBrief` was unit-tested as a
+  // function while nothing exercised flags -> package -> dispatch -> read ->
+  // comment, so each round a reviewer diffed the rich composer against the thin
+  // CLI and found a different instance of the same shortfall. This is that path.
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-in-"));
+  const write = (name, value) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return file;
+  };
+  const argv = [
+    "--pr", String(PR), "--round", "6", "--commit", COMMIT, "--tier", "internal",
+    "--follow-up", "1", "--findings", "c1",
+    "--question", "Does the new evidence change the scope?\n\n    a quoted line\n",
+    "--oracle-file", write("o.md", "ORACLE-FROM-FILE"),
+    "--findings-file", write("f.json", [finding({ body: "THE DISPUTED BODY" })]),
+    "--prior-file", write("prior.md", "PRIOR-ASSESSMENT"),
+    "--fable-file", write("fable.md", "THE OTHER ASSESSOR SAID THIS"),
+  ];
+
+  let sent = "";
+  const run = (_bin, args, opts = {}) => {
+    if (args[0] === "login") return { status: 0, stdout: "Logged in using ChatGPT" };
+    // The package reaches `codex exec` on stdin, not as a path in argv.
+    sent = opts.input ?? "";
+    fs.writeFileSync(args[args.indexOf("--output-last-message") + 1], "My recommendation changes, and here is why.");
+    return { status: 0 };
+  };
+  let printed = "";
+  let logged = "";
+  const stdout = process.stdout.write;
+  process.stdout.write = (chunk) => ((printed += chunk), true);
+  try {
+    assert.equal(main(argv, { root, run, git: cleanGit(), log: (m) => (logged += m) }), 0, logged);
+  } finally {
+    process.stdout.write = stdout;
+  }
+
+  // The answer is read from the follow-up's own path and rendered as one.
+  assert.match(printed, /## Astra — round 6, follow-up 1/);
+  assert.match(printed, /My recommendation changes, and here is why\./);
+  assert.equal(readAssessment(root, PR, 6, { source: "astra", followUp: 1 }).failed, undefined);
+
+  // And the package the process actually received carried every party's words.
+  for (const needed of ["ORACLE-FROM-FILE", "THE DISPUTED BODY", "PRIOR-ASSESSMENT", "THE OTHER ASSESSOR SAID THIS"]) {
+    assert.ok(sent.includes(needed), `the follow-up package omitted ${needed}`);
+  }
+  // The question's own structure survives, which is what lets it carry quoted
+  // evidence now that there is no separate evidence input.
+  assert.ok(sent.includes("    a quoted line"), "the question was flattened");
+});
+
+test("a failed follow-up is reported as a failed follow-up, never as a round with no assessment", () => {
+  // Restoring the number on the result fixes the heading and leaves the body
+  // lying, which is the trap the assessment named. Both are checked here.
+  const root = tmpRoot();
+  const missing = readAssessment(root, PR, 6, { source: "astra", followUp: 2 });
+  assert.equal(missing.failed, true);
+  assert.equal(missing.followUp, 2, "the attempt's identity did not survive its failure");
+
+  const text = prComment(missing);
+  assert.match(text, /## Astra — round 6, follow-up 2: \*\*dispatch failed\*\*/);
+  assert.match(text, /Follow-up 2 to Astra on round 6 produced no answer/);
+  assert.match(text, /assessment of the round itself is unaffected and still stands/);
+  assert.doesNotMatch(text, /No independent assessment from Astra exists for this round/);
+
+  // A base-round failure still says the round has none, which is true there.
+  const base = readAssessment(root, PR, 6, { source: "astra" });
+  assert.equal(base.followUp, 0);
+  assert.match(prComment(base), /No independent assessment from Astra exists for this round/);
+});
+
+test("history is refused in the wrong container, the way findings already are", () => {
+  // `history.length` on an object is undefined, so a preparation mistake
+  // composed a package with no history and no complaint. Neither assessor can
+  // notice a section it never saw. (Codex, #120 round 6.)
+  assert.throws(() => brief({ history: { label: "David", text: "one entry, not in an array" } }), /history must be an array/);
+  assert.throws(() => brief({ history: "David said so" }), /history must be an array/);
+  assert.doesNotThrow(() => brief({ history: [] }));
+  assert.match(brief({ history: [{ label: "David", text: "SAID THIS" }] }), /\*\*\[David\]\*\* SAID THIS/);
 });
 
 test("the CLI refuses an unknown flag or a flag with no value rather than guessing", () => {

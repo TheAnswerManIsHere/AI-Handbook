@@ -115,9 +115,30 @@ replaced them is step 5's proportionate-evidence rule.)
    5. **Decide, and say what I decided.** Investigate disputed facts myself in
       the repository and the tests — an assessor should not be asked to settle
       what a few tool calls answer. Where a real question of reasoning remains,
-      run a focused Astra follow-up (`--follow-up <n> --question … --findings …
-      --prior-file … [--fable-file …]`), which needs **no commit and no Codex
-      round**, and continue the Fable assessor with the same question. A purely
+      put it to both. **This costs no commit and no Codex round** — measured on
+      #120 round 6, the first time either was run.
+
+      **They are two different mechanisms, and one verb used to hide that.**
+      Astra's follow-up is a **cold re-dispatch**: a fresh `codex exec` that
+      remembers nothing, so the script rebuilds the whole package —
+      `--follow-up <n> --question … --findings <ids> --findings-file …
+      --oracle-file … --tier … --prior-file … [--fable-file …]`. The Fable
+      assessor's is a **transcript continuation**: the harness resumes the same
+      subagent, which still holds its own assessment and the evidence behind it,
+      so it is sent the question and nothing else. That asymmetry is why the
+      Astra package took three rounds of guards to get right and the Fable side
+      needed none — and why a package guard is worth writing on one side only.
+
+      **The question carries the evidence**, in the form
+      `claude-core.md`'s *A load-bearing claim is quoted, or it is marked
+      unverified* already requires: command output and source lines quoted with
+      their origin, never paraphrased into my own assertion, and my inference
+      from them labelled as mine. There is no separate evidence input; one was
+      removed on #120 round 6 because it flattened multi-line output to a single
+      line under a label nothing validated, which is worse fidelity than the
+      question gives.
+
+      A purely
       technical disagreement that survives is the Fable assessor's to settle,
       with its reasoning recorded. **Intended behaviour and any accepted
       user-facing shortfall go to David** as a 🛑 with a push notification, and
