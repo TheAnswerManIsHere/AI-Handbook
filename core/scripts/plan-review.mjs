@@ -531,8 +531,12 @@ export function renderLedger(concerns, { selected = [], ledgerPath = null } = {}
  * NO ASSESSMENT PATH IN HERE. It used to name the concrete file, which made the
  * first bytes of the package change every exchange -- so `stablePrefix` was not
  * stable, which is the property its name and its comment both assert (Codex and
- * both assessors, #124 round 5). Astra is in a read-only sandbox and cannot
- * write the file, so the path was informational and is now simply absent.
+ * both assessors, #124 round 5). The CLI writes that file from the final
+ * message whatever the sandbox, so the path was informational and is now
+ * simply absent. (This sentence used to say Astra is in a read-only sandbox
+ * and cannot write the file -- true by default, false under the supported
+ * workspace-write override, and the stale rationale for a decision is exactly
+ * what gets re-litigated later.)
  */
 export function roleBlock(role) {
   if (!ROLES.includes(role)) {
@@ -543,7 +547,19 @@ export function roleBlock(role) {
     "## Your role in this exchange",
     "",
     astra
-      ? "- **You are Astra**, the independent technical planning peer, reached through the Codex CLI in a read-only sandbox."
+      // SANDBOX-NEUTRAL, because "read-only" is the DEFAULT and not a fact.
+      // `--sandbox workspace-write --unpinned "<why>"` is supported, and the
+      // danger-full-access refusal below RECOMMENDS it -- "If it must run the
+      // suite, that is workspace-write on a scratch checkout" -- so on a path
+      // the script itself proposes, this sentence told the reviewer it could
+      // not do what it had just been given permission to do. The class is a
+      // standing instruction asserting an environmental restriction that
+      // supported execution can change (Astra's bounding), and it had TWO
+      // sites; the reviewer reported one. Rendering the selected sandbox here
+      // instead would make the role block configuration-dependent, which is
+      // what neither assessor wanted. (Codex, #124 round 14 `4051418744`, plus
+      // the second site the Fable assessment found.)
+      ? "- **You are Astra**, the independent technical planning peer, reached through the Codex CLI in a sandbox."
       : "- **You are Claude**, running Fable: the product engineer developing this plan.",
     astra
       ? "- **Your counterpart is Claude**, running Fable, reading this same contract."
@@ -581,7 +597,7 @@ export function roleBlock(role) {
       // reintroduces the same class one step weaker. Both assessors recommended
       // against the literal suggestion, independently. (Codex, #124 round 10
       // `4049965635`.)
-      ? "- **Return your complete reply as your final message, in Markdown.** The CLI saves that message to this exchange's file. You are in a read-only sandbox and cannot write that file yourself — you do not need to, and you do not need its path. Do not replace the reply with a completion acknowledgement, and do not spend it narrating the sandbox."
+      ? "- **Return your complete reply as your final message, in Markdown.** The CLI saves that message to this exchange's file — you do not need to write it yourself, and you do not need its path. Do not replace the reply with a completion acknowledgement, and do not spend it narrating the sandbox."
       : "- **Your output is the readout you give David in chat, and — once there is a plan — the revision you make to it.** Nothing is published to a page, and no assessment file is written by you.",
     "",
   ].join("\n");

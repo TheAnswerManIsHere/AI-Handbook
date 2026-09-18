@@ -234,9 +234,15 @@ test("the role block states who holds the plan and who settles a tie, per role",
   // (#124 round 10 `4049965635`).
   assert.match(astra, /Return your complete reply as your final message/);
   assert.doesNotMatch(astra, /complete assessment/, "the standing block never names one kind of exchange");
-  assert.match(astra, /read-only sandbox and cannot write that file yourself/);
+  // THE CLI OWNS THE FILE -- which is true whatever the sandbox, and is why
+  // this replaced an assertion pinning "read-only sandbox and cannot write
+  // that file yourself". That sentence was false under the supported
+  // `--sandbox workspace-write --unpinned` override, and this test was
+  // holding it in place (#124 round 14 `4051418744`).
+  assert.match(astra, /The CLI saves that message to this exchange.s file/);
   // NO CONCRETE PATH. It made the "stable" prefix change every exchange, and
-  // Astra cannot write the file anyway (#124 round 5).
+  // the CLI writes the file from the final message anyway (#124 round 5; the
+  // "Astra cannot write it" half retired at round 14).
   assert.doesNotMatch(astra, /round-\d+\.md/);
   assert.match(claude, /The authoritative plan is yours to write and hold/);
   assert.doesNotMatch(claude, /You hold the authoritative plan/, "prospective for the scope exchange too");
@@ -251,6 +257,30 @@ test("neither role may settle what is David's, and both are told so in the same 
 
 test("an unknown role is refused rather than defaulted", () => {
   assert.throws(() => roleBlock("reviewer"), /role must be one of astra, claude/);
+});
+
+test("the role block states no capability the supported sandbox override would falsify", () => {
+  // The class: a standing instruction asserting an environmental restriction
+  // that supported execution can change. `--sandbox workspace-write
+  // --unpinned "<why>"` is accepted, and the danger-full-access refusal
+  // RECOMMENDS it for running the suite -- so two categorical "read-only"
+  // claims were false on a path the script itself proposes. The reviewer
+  // reported one site; the Fable assessment found the second.
+  // (Codex, #124 round 14 `4051418744`; Astra bounded the class and
+  // recommended the write, the Fable assessor would have left it, and the
+  // builder held himself to the flip condition he registered before the
+  // round ran.)
+  //
+  // ASSERTED AS AN ABSENCE, deliberately: rendering the selected sandbox into
+  // the block would make it configuration-dependent, which is the shape both
+  // assessors declined.
+  for (const role of ROLES) {
+    assert.doesNotMatch(roleBlock(role), /read-only/i, role + ": the role block must not pin the sandbox");
+    assert.doesNotMatch(roleBlock(role), /cannot write/i, role + ": the role block must not assert what it cannot do");
+  }
+  // The useful half survives: the CLI still owns the file, so nothing here
+  // asks the reviewer to write one whatever the sandbox.
+  assert.match(roleBlock("astra"), /The CLI saves that message to this exchange.s file/);
 });
 
 // ── Markdown out: no schema anywhere ───────────────────────────────────────
