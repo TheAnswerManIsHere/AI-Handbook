@@ -568,8 +568,13 @@ export function stablePrefix({ role, kind, contract, judgment, oracle, planPath,
       : [
           "## The plan",
           "",
-          `\`${planPath}\` in the current checkout. Read the whole file. The repository is checked out at the`,
-          "revision the plan was written against, so every path and line it cites is live.",
+          `\`${planPath}\` in the current checkout. Read the whole file.`,
+          "",
+          "**The plan cites paths and lines in this checkout, and nothing here has verified that the checkout is",
+          "the one it was written against.** The loop checks that the plan file itself does not change while an",
+          "exchange runs; it makes no claim about the rest of the tree. So treat a path or line number the plan",
+          "cites as a claim to check, not as a given — and if what you find does not match what the plan",
+          "describes, say so rather than assuming you are looking at the wrong revision.",
         ];
 
   return [
@@ -609,7 +614,7 @@ export function stablePrefix({ role, kind, contract, judgment, oracle, planPath,
 }
 
 /** The varying half. Everything that changes exchange to exchange lives here, and only here. */
-export function exchangeContext({ kind, round, discussion = 0, lens, concerns, selected = [], question = null, priorAssessment = null, inventory = null }) {
+export function exchangeContext({ kind, round, discussion = 0, lens, concerns, selected = [], question = null, priorAssessment = null, predecessor = null, inventory = null }) {
   const out = ["## This exchange", ""];
 
   if (kind === "scope") {
@@ -627,9 +632,23 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
     out.push(
       `This is assessment ${round}.`,
       round > 1
-        ? "Assess the plan as it now stands and the changes since you last saw it. Carry forward conclusions whose premises have not changed; there is no obligation to reinvestigate everything, to find something new, or to attack from an angle you have not used before."
+        ? "Assess the plan as it now stands. Carry forward conclusions whose premises have not changed; there is no obligation to reinvestigate everything, to find something new, or to attack from an angle you have not used before."
         : "This is the first assessment of this plan.",
     );
+    if (predecessor) {
+      out.push(
+        "",
+        `**The changes since you last saw it are readable, not remembered.** You start cold every time, so what`,
+        `exchange ${predecessor.round} worked from is preserved in the checkout:`,
+        "",
+        `- \`${predecessor.plan}\` — the plan exactly as exchange ${predecessor.round} read it. Diff it against the`,
+        "  live plan to see what the revision actually changed.",
+        `- \`${predecessor.assessment}\` — your own assessment from that exchange, in full.`,
+        "",
+        "Read them if you are judging what changed or whether an earlier conclusion still holds. The concern",
+        "ledger below carries the concerns that were named; these two files carry everything that was not.",
+      );
+    }
   }
 
   if (question) {
@@ -645,9 +664,9 @@ export function exchangeContext({ kind, round, discussion = 0, lens, concerns, s
     );
   } else {
     out.push(
-      "Concerns still open, and those waiting on David, are rendered in full with the reasoning as it was",
-      "written. Settled ones are listed by reference; each names the file its full text is in, and any of them",
-      "can be reopened if its basis changed.",
+      "Concerns still open, those waiting on David, and those settled over a maintained objection are rendered",
+      "in full with the reasoning as it was written. The rest are listed by reference; each names the file its",
+      "full text is in, and any of them can be reopened if its basis changed.",
       "",
     );
   }
@@ -1148,6 +1167,21 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     }
 
     // --- plan -------------------------------------------------------------
+    //
+    // CREATED UNCONDITIONALLY, BEFORE THE KIND CHECK, because the window this
+    // closes is between the exchanges rather than inside one: the documented
+    // sequence is scope exchange, then draft the plan, then assess -- so tying
+    // creation to "an exchange that has a plan" left the draft unignored for
+    // exactly as long as it took to write it, and a `git add -A` in that gap
+    // published it (Codex and both assessors, #124 round 2). The payload copy
+    // is what protects a synced consumer; this covers a repository that has not
+    // synced yet, where no committed copy exists at all.
+    //
+    // `assertIgnored` returns immediately on a null path, so this creates and
+    // verifies nothing concrete. The real plan path is verified below, once
+    // there is one -- two calls, deliberately, rather than one moved.
+    ensurePlansIgnored(root, null, git);
+
     let planPath = null;
     let planText = null;
     if (kind !== "scope") {
@@ -1347,9 +1381,44 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       );
     }
 
+    // --- what a later assessment is asked to compare against ---------------
+    //
+    // The round > 1 instruction says "the changes since you last saw it", and
+    // nothing in the package supplied a previous version -- so the reader was
+    // asked to judge a diff it had never been given, and would either re-derive
+    // the whole plan cold or assert something about a revision it never saw
+    // (Codex and both assessors, #124 round 2). The files exist; what was
+    // missing was naming them. Paths rather than inlined text, so the reader's
+    // evidence stays its own and the cached prefix stays stable.
+    //
+    // THE HIGHEST EARLIER ACCEPTED ROUND, not `round - 1`. Since the promotion
+    // fix a rejected exchange leaves no `round-N.md`, and `roundsRun` lists
+    // accepted rounds only -- so `Math.max(...earlier)` is the only source that
+    // cannot name an exchange that did not happen.
+    //
+    // DEGRADES TO SILENCE. The scope exchange writes `round-0.md` but no plan
+    // snapshot (there is no plan yet), so a first assessment finds no complete
+    // predecessor and the package names nothing and softens the instruction to
+    // match. Naming a file that is not there would be one more instance of the
+    // class this fix belongs to. Scope conclusions are not lost by that: they
+    // reach a later exchange through the ledger, which is the designed carrier.
+    let predecessor = null;
+    if (kind === "assess" && earlier.length) {
+      const prev = Math.max(...earlier);
+      const prevPlan = path.join(dir, `plan-round-${prev}.md`);
+      const prevAssessment = assessmentPath(dir, prev);
+      if (fs.existsSync(prevPlan) && fs.existsSync(prevAssessment)) {
+        predecessor = {
+          round: prev,
+          plan: path.relative(root, prevPlan),
+          assessment: path.relative(root, prevAssessment),
+        };
+      }
+    }
+
     const packageParts = {
       role, kind, round, discussion, lens, concerns, selected,
-      question: flags.question ?? null, priorAssessment, inventory,
+      question: flags.question ?? null, priorAssessment, predecessor, inventory,
       oracle, planPath, tier, assessmentFile: path.relative(root, outFile),
       contract: contract.text, judgment: judgment.text,
     };

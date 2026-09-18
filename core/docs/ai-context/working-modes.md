@@ -162,7 +162,7 @@ the same private/manual path a disclosure-carve-out workstream would.
 ### The increment test
 
 **Establish what the increment makes true, what bounds it, and how completion
-will be recognised** (David, 2026-09-18, replacing the categorical form below).
+will be recognised** (#124, 2026-09-18, replacing the categorical form below).
 Universal wording — "all", "every", "everything", "any and all", "exclusively" —
 can describe a bounded requirement holding across many affected paths, or an end
 state spanning several increments. **Determine which it describes; the wording
@@ -180,6 +180,13 @@ planning contract's scope assessment now says the opposite: phases, breadth and
 universal wording do not automatically require a split. A rule and its contract
 disagreeing on the entry path is worse than either, and the categorical form is
 the one that lost.
+
+**Attributed to the change rather than to David**, deliberately. He approved a
+planning contract that entails this, and never ruled on this wording — so a
+`(David, ...)` stamp here would put his name on a consequence someone else
+derived, which is exactly the kind of claim a later session cannot check and
+will not think to question. The rule stands on the contradiction above, not on
+whose initials are next to it.
 
 **A *Phases* section that separates independently shippable pieces is a reason
 to consider separate plans, not a verdict.** Assess whether separation reduces
@@ -743,10 +750,24 @@ David's control point at the front of the loop, paired with explicit plan
 approval at the back. **The agreed scope of work is also the review oracle
 itself** — it is handed to the reviewer verbatim, every round, as the thing the
 plan is checked against. The corollary is the escalation rule: anything that
-would *change* the agreed scope of work — a mid-loop scope addition, a
-split, a product/design fork — is outside the loop's authority and goes to
-David, however the loop is otherwise pacing itself. (Claude's enactment of the gate's
-mechanics lives in the `plan-review-loop` skill.)
+would *change* the agreed scope of work — a mid-loop scope addition, a split, a
+change to intended behaviour, or a user-facing shortfall being knowingly
+accepted — is outside the loop's authority and goes to David, however the loop
+is otherwise pacing itself. (Claude's enactment of the gate's mechanics lives in
+the `plan-review-loop` skill.)
+
+**A purely technical design fork is not one of them** (2026-09-18). Two
+approaches serving the same agreed behaviour, scope and explicit constraints are
+the loop's to settle — through investigation and discussion, and if the
+disagreement survives both, by the builder, with the reasoning recorded. This
+list used to name "a product/design fork", which a technical fork also satisfies,
+so an agent could read the escalation rule as negating the tie-break the same
+redesign grants and send David a question the loop was built to keep off his
+desk. **What does not become negotiable is a constraint David required
+explicitly**: a requirement does not stop being his because it happens to be
+about technology. (The code review loop's own escalation list, under *The
+post-round judgement* below, still names a product or design fork and is correct
+as written — that loop has no technical tie-break and is deliberately unchanged.)
 
 **The scope gate now carries a second opinion (David, 2026-09-09).** Before the
 plan is written, the reviewer is given the oracle alone and asked whether the

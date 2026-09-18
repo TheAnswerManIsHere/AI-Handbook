@@ -7,12 +7,18 @@
 # A plan reaches `main` only when David asks for it, deliberately, with the
 # disclosure check in front of it.
 #
-# COMMITTED RATHER THAN LEFT TO THE SCRIPT. `ensurePlansIgnored` writes this
-# file on demand in any repository that runs a planning exchange, which is what
-# protects a fresh consumer. In THIS repository the directory is used by hand
-# too -- a plan copied in before any exchange has run is a plan nothing is
-# ignoring yet, which is a gap reached during the loop's own live validation on
-# 2026-09-18. Committing it makes the protection exist before the script rather
-# than because of it. The pattern matches what the script looks for, so a later
-# run finds it and appends nothing.
+# COMMITTED RATHER THAN LEFT TO THE SCRIPT. In THIS repository the directory is
+# used by hand -- a plan copied in before any exchange has run is a plan nothing
+# is ignoring yet, which is a gap reached during the loop's own live validation
+# on 2026-09-18. Committing it makes the protection exist before the script
+# rather than because of it. The pattern matches what the script looks for, so a
+# later run finds it and appends nothing.
+#
+# THIS COMMENT USED TO CLAIM the script "protects a fresh consumer", which was
+# false and is the reason the gap stayed invisible: a scope exchange is a
+# planning exchange and wrote nothing, so a consumer's draft sat unignored
+# between the scope exchange and the first assessment. What protects a consumer
+# is `core/docs/plans/.gitignore`, which the sync delivers; this file is this
+# repository's own copy and `scripts/check-root-wiring.mjs` holds the two
+# copies' pattern lines identical (#124).
 PLAN_*.md

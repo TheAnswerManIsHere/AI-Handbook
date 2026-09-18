@@ -1176,3 +1176,79 @@ test("a discussion cannot silently re-frame what is downstream", () => {
   assert.equal(runMain(root, args("internal")).code, 0);
   drop(root);
 });
+
+// ── a later assessment is given the version it is asked to compare against ──
+//
+// The round > 1 instruction used to say "the changes since you last saw it"
+// while the package carried no earlier plan, no diff and no path to either --
+// the third instance in this file's own history of the package asserting
+// something its contents do not supply (#124 round 2).
+
+/** The package text, without spawning anything. */
+function promptOf(root, argv) {
+  const written = [];
+  const stdout = process.stdout.write;
+  process.stdout.write = (s) => (written.push(s), true);
+  try {
+    const code = main([...argv, "--prompt-only"], { root, run: fakeRun([]), log: () => {}, git: () => ({ status: 128 }) });
+    assert.equal(code, 0, "the package was composed");
+  } finally {
+    process.stdout.write = stdout;
+  }
+  return written.join("");
+}
+
+test("a later assessment names the previous exchange's plan and assessment by path", () => {
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-1.md": "# Assessment 1\n", "plan-round-1.md": PLAN });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "2", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  assert.match(prompt, /\.agents\/reviews\/x\/plan-round-1\.md/, "the plan as round 1 read it");
+  assert.match(prompt, /\.agents\/reviews\/x\/round-1\.md/, "round 1's own assessment");
+  assert.match(prompt, /readable, not remembered/);
+  drop(root);
+});
+
+test("a first assessment names no predecessor and does not claim one", () => {
+  // The scope exchange leaves `round-0.md` but no plan snapshot -- there was no
+  // plan yet -- so there is nothing complete to point at. Naming a file that is
+  // not there would be one more instance of the class this fix belongs to.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", { "concerns.json": [concern()], "round-0.md": "# Scope\n" });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "1", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  assert.doesNotMatch(prompt, /plan-round-/, "no snapshot is named");
+  assert.doesNotMatch(prompt, /readable, not remembered/);
+  assert.doesNotMatch(prompt, /changes since you last saw it/, "and the instruction does not assert one either");
+  drop(root);
+});
+
+test("a rejected exchange is never named as the predecessor", () => {
+  // Since the promotion fix a rejected round leaves no `round-N.md`, so the
+  // predecessor is the highest ACCEPTED round rather than `round - 1`.
+  const root = fixtureRoot({ plan: { path: "docs/plans/PLAN_X.md", text: PLAN } });
+  seed(root, "x", {
+    "concerns.json": [concern()],
+    "round-1.md": "# Assessment 1\n",
+    "plan-round-1.md": PLAN,
+    "round-2.attempt.md": "# An exchange that did not happen\n",
+    "plan-round-2.md": PLAN,
+  });
+  const prompt = promptOf(root, ["--kind", "assess", "--round", "3", "--tier", "internal", "--plan", "docs/plans/PLAN_X.md"]);
+  assert.match(prompt, /plan-round-1\.md/);
+  assert.doesNotMatch(prompt, /round-2\.md/, "round 2 was never accepted");
+  drop(root);
+});
+
+// ── the plan ignore exists before the plan does ────────────────────────────
+
+test("a scope exchange creates the plan ignore, before any plan is drafted", () => {
+  // It used to be created only by an exchange that already had a plan, and the
+  // documented sequence drafts the plan between the scope exchange and the
+  // first assessment -- so the draft sat unignored for exactly that long, in
+  // every consumer (#124 round 2).
+  const root = fixtureRoot();
+  writeFileSync(join(root, "oracle.md"), "# The oracle\n\nBuild the thing.\n");
+  assert.equal(existsSync(join(root, "docs/plans/.gitignore")), false, "nothing has created it yet");
+  assert.equal(runMain(root, ["--kind", "scope", "--slug", "x", "--tier", "internal", "--oracle", "oracle.md", "--no-ledger"]).code, 0);
+  assert.match(readFileSync(join(root, "docs/plans/.gitignore"), "utf8"), /^PLAN_\*\.md$/m);
+  drop(root);
+});

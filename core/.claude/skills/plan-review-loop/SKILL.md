@@ -158,14 +158,26 @@ whenever he likes.
 ```
 S=.agents/reviews/<slug>
 mkdir -p "$S"          # bash opens the redirects below BEFORE node runs
+rm -f "$S/run-<N>.exit"   # a marker left by an earlier attempt reads as THIS
+                          # one finishing, instantly, with the wrong status
 setsid nohup bash -c "cd $PWD && node $PWD/$P \
-  --kind assess --round 1 --tier <product|sensitive|internal> \
+  --kind assess --round <N> --tier <product|sensitive|internal> \
   --plan docs/plans/PLAN_<SLUG>.md \
-  > $S/run.log 2>&1; echo \$? > $S/run.exit" &
+  > $S/run-<N>.log 2>&1; echo \$? > $S/run-<N>.exit" &
 ```
 
-Then wait on `run.exit` appearing — its existence is the completion signal and
-its contents are the status. **This is measured, not cautious**: an exchange is
+Then wait on `run-<N>.exit` appearing — its existence is the completion signal
+and its contents are the status.
+
+**The marker is per round AND cleared before launch, and it needs both.** It
+used to be one `run.exit` for every exchange in a slug: round 2's launch found
+round 1's marker already sitting there and reported an exchange complete before
+it had started. That is not hypothetical — in this loop's own live run,
+`run.exit` held `0` with the *discussion's* finish time, three minutes after the
+assessment it had already overwritten. Naming it per round fixes the collision
+between exchanges; deleting it fixes a retry of the same one. The cost of
+getting this wrong is not just a confused turn: if the agent relaunches, two
+`xhigh` processes write the same attempt path and both promote it. **This is measured, not cautious**: an exchange is
 ~9–10 minutes at `xhigh` (522 s hand-run, 576 s scripted), which is longer than
 a comfortable foreground Bash call, and a foreground run that gets cut off loses
 the whole exchange. Absolute paths inside the `bash -c`; the working directory
@@ -190,19 +202,27 @@ No plan edit, no new round, no commit:
 with the same package, and a foreground run that gets cut off loses it:
 
 ```
-S=.agents/reviews/<slug>; Q=$S/question-<M>.txt   # write the question to a file:
-                                                  # it is long, and quoting it
-                                                  # through the detached shell is
-                                                  # where this goes wrong
+S=.agents/reviews/<slug>; Q=$S/question-<N>-<M>.txt   # write the question to a
+                                                     # file: it is long, and
+                                                     # quoting it through the
+                                                     # detached shell is where
+                                                     # this goes wrong
+rm -f "$S/discuss-<N>-<M>.exit"   # same reason as the assessment recipe above
 setsid nohup bash -c "cd $PWD && node $PWD/$P \
   --kind discuss --round <N> --discussion <M> --tier <tier> \
   --plan docs/plans/PLAN_<SLUG>.md --concerns C2,C5 \
   --question \"\$(cat $Q)\" \
-  > $S/discuss-<M>.log 2>&1; echo \$? > $S/discuss-<M>.exit" &
+  > $S/discuss-<N>-<M>.log 2>&1; echo \$? > $S/discuss-<N>-<M>.exit" &
 ```
 
-Its own log and exit file, per discussion, so a retry cannot mistake an earlier
-marker for this one's completion.
+Keyed by round *and* discussion, because `<M>` restarts inside each round — the
+script's own output is `round-<N>.discussion-<M>.md`, so a marker named by `<M>`
+alone collides across rounds exactly as `run.exit` did. **This sentence used to
+claim "a retry cannot mistake an earlier marker for this one's completion",
+which was true per discussion and false per attempt**: the path was reused on a
+retry, so the previous attempt's marker satisfied the wait immediately. An
+overclaim beside a fix is worse than the gap, because it tells the next reader
+the case is handled (Codex and both assessors, #124 round 2).
 
 The named concerns render **in full whatever state they are in**, because a
 focused question is often about something already settled. The question carries

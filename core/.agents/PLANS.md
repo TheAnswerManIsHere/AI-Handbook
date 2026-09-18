@@ -20,7 +20,7 @@
 defines it, and it asks what this increment makes true, what bounds it, and how
 completion will be recognised. **Universal wording and independently shippable
 phases are reasons to examine the boundary, never grounds for an automatic
-split** (David, 2026-09-18): a bounded requirement may legitimately hold across
+split** (#124, 2026-09-18): a bounded requirement may legitimately hold across
 many paths. Where the boundary is genuinely wrong, recommend the split and its
 benefit — David decides changes to agreed scope. Scope that arrives *later* — during planning
 or during review — is framed **now vs. next**, defaulting to **next** unless
