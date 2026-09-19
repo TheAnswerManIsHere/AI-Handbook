@@ -363,7 +363,12 @@ to worry about strange links."*)
    forgotten argument runs the handbook's, and the posted header's requested
    line is what makes that visible. Effort has no argument at all, so a
    dispatched Claude role runs at the handbook's pinned effort regardless of
-   yours.
+   yours — and the header says so rather than quietly implying otherwise: it
+   names the effort the definition applies, and adds `(pin says <yours>)` where
+   your pin disagrees with it. `scripts/check-agent-models.mjs` keeps **this**
+   file's seeded `models` block equal to the handbook's pin, so a repository
+   enrolled today starts current; after that the file is yours and no later
+   handbook bump reaches it.
 
    **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
    a real slug, so every structural check passed it and an unedited template

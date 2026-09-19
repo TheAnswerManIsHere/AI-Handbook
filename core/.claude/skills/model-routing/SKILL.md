@@ -308,11 +308,23 @@ full id over the alias `fable`, since an alias keeps working while the pin
 rots.
 
 **What is disclosed and what is observed, said exactly.** The dispatch states
-what it *requested*, model and effort, in the header of whatever it posts. The
-role states what it is *running as*, in its own first line. They sit adjacent
-and a disagreement is a visible warning — David, 2026-09-18: *"any model call
-must report loudly if the requested model doesn't match the used model. Not a
-blocker; a highly visible warning."*
+what it asked for in the header of whatever it posts; the role states what it
+is *running as*, in its own first line. They sit adjacent and a disagreement is
+a visible warning — David, 2026-09-18: *"any model call must report loudly if
+the requested model doesn't match the used model. Not a blocker; a highly
+visible warning."*
+
+**The two fields are not equally solid, and the header says which is which.**
+The model is genuinely *requested*: the argument is passed. Effort is not — a
+Claude subagent is handed none — so the header names the effort the **role
+definition** applies, which is the only route it has, and adds the pin's value
+only where the pin disagrees with it. Rendering the pin's effort under the word
+"requested" would state a request nobody made, and in a consumer pinning a
+different effort it would fire the warning on every round with nothing wrong.
+The reporting side has its own limit, measured on AI-Handbook #131 round 1: an
+assessor answered `at unable to name`, because its context shows reasoning
+effort as a number (`80`) rather than a named level. **An effort nobody can
+name is a limit to state once, not a mismatch to raise every round.**
 
 The used model is a self-report, deliberately. The harness does record the
 serving model per turn independently of the subagent, so reading it is

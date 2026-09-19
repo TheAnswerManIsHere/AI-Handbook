@@ -129,14 +129,26 @@ replaced them is step 5's proportionate-evidence rule.)
         --commit <reviewed sha> [--findings-file <path>]
       ```
 
-      **The header says what was REQUESTED — model and effort — and the
-      assessment's own first line says what it is running as.** Nothing here
-      claims they match: this reads a file and cannot interrogate what wrote it,
-      and a control reporting success having evaluated nothing is the one shape
-      this repository's archive names as the worst available. When the two lines
-      disagree, that is an 👀 FYI to David naming both, not a blocker and not a
-      reason to discard the assessment (David, 2026-09-18: *"a highly visible
-      warning"*). A `running as` the assessor could not name is the same FYI.
+      **The header says what was asked for and the assessment's own first line
+      says what it is running as.** Nothing here claims they match: this reads a
+      file and cannot interrogate what wrote it, and a control reporting success
+      having evaluated nothing is the one shape this repository's archive names
+      as the worst available. When the two lines disagree, that is an 👀 FYI to
+      David naming both, not a blocker and not a reason to discard the
+      assessment (David, 2026-09-18: *"a highly visible warning"*).
+
+      **Effort is the weaker half of that comparison, and knowing why saves a
+      false alarm.** The model is genuinely requested — the argument is passed —
+      so `requested` is literal. Effort is not: a Claude subagent is handed none,
+      so the header names the effort the *role definition* applies, and adds
+      `(pin says X)` only where the pin disagrees with it. On the reporting side,
+      an assessor may not be able to name its effort at all: measured on this
+      PR's own round 1, the assessor answered `at unable to name` and said why —
+      its context shows reasoning effort as the number `80`, not one of the pin's
+      named levels. **So an effort the assessor could not name is not a
+      mismatch**; report it once as the limit it is and do not raise it every
+      round. A **model** it could not name, or one that disagrees, is the FYI
+      that matters.
    5. **Decide, and say what I decided.** Investigate disputed facts myself in
       the repository and the tests — an assessor should not be asked to settle
       what a few tool calls answer. Where a real question of reasoning remains,

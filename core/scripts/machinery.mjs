@@ -225,6 +225,68 @@ export function repoSlug(io = nodeIo()) {
   return machineryConfig(io).repo;
 }
 
+// ---------------------------------------------------------------------------
+// Agent-definition frontmatter
+// ---------------------------------------------------------------------------
+
+/**
+ * The settings block at the top of an agent definition, read as flat pairs.
+ *
+ * ONE COPY, BECAUSE TWO CONSUMERS NEED IT AND THEY LIVE IN DIFFERENT TREES.
+ * `scripts/check-agent-models.mjs` holds a role's declared model and effort
+ * equal to the pin; `review-proxy.mjs` reads the declared effort to say, in an
+ * assessment's header, what the role actually runs at. Those are the two ends
+ * of one fact, and a second copy of the reader is a second thing to drift --
+ * the failure this whole area is about. The handbook-only checker can import
+ * payload code; payload code cannot import the checker, so the shared copy
+ * lives here. (Both assessors, #131 round 1.)
+ *
+ * DELIBERATELY NOT A YAML PARSER. The only shapes in these files are
+ * `key: value` on one line, and this repository's archive names a hand-rolled
+ * parser chasing a real language's syntax as a losing shape. What it must not
+ * do is quietly accept a file it did not understand: a missing opening or
+ * closing `---` returns null rather than an empty block, so a caller cannot
+ * mistake "could not read it" for "it declares nothing".
+ */
+export function splitFrontmatter(text) {
+  const lines = String(text ?? "").split("\n");
+  if (lines[0]?.trim() !== "---") return null;
+  const end = lines.indexOf("---", 1);
+  if (end === -1) return null;
+  return { head: lines.slice(1, end), body: lines.slice(end + 1), endIndex: end };
+}
+
+/** `key: value` from a frontmatter block. Later wins, as YAML does. */
+export function frontmatterValue(head, key) {
+  let found = null;
+  for (const line of head ?? []) {
+    const m = new RegExp(`^${key}\\s*:\\s*(.*)$`).exec(line);
+    if (m) found = m[1].trim().replace(/^["']|["']$/g, "");
+  }
+  return found;
+}
+
+/**
+ * One key from an agent definition, or null if anything at all is in the way.
+ *
+ * THE PATH IS THE SAME IN BOTH LAYOUTS. `.claude/agents/<name>.md` is a real
+ * file in a consumer and a per-file symlink into `core/` in the handbook, so
+ * one relative path resolves in both -- which is why this does not need the
+ * `core/scripts` vs `scripts` dance `INVOCATION` does.
+ *
+ * NULL IS A REAL ANSWER AND CALLERS MUST TREAT IT AS ONE. A caller that
+ * substituted a plausible default here would be inventing the very fact this
+ * exists to report honestly.
+ */
+export function agentFrontmatter(root, name, key) {
+  try {
+    const parts = splitFrontmatter(fs.readFileSync(path.join(root, ".claude", "agents", `${name}.md`), "utf8"));
+    return parts ? frontmatterValue(parts.head, key) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Test seam: forget any parsed configuration. Never called in production. */
 export function __resetRepoSlugCache() {
   CONFIG_CACHE.clear();

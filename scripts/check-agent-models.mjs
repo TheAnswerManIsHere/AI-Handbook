@@ -56,7 +56,12 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve, dirname, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier, nodeIo } from "../core/scripts/machinery.mjs";
+// THE FRONTMATTER READER IS SHARED, NOT COPIED. `review-proxy.mjs` reads the
+// same `effort:` this check holds equal to the pin, and two readers of one
+// fact is the drift this file exists to prevent. Payload code cannot import
+// this handbook-only checker, so the shared copy lives in the payload and the
+// checker imports it. (Both assessors, #131 round 1.)
+import { modelTier, nodeIo, splitFrontmatter, frontmatterValue, MODEL_TIERS } from "../core/scripts/machinery.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(SCRIPT_DIR, "..");
@@ -73,33 +78,31 @@ export const PINNED_PREFIX = "fable-";
 export const PINNED_KEYS = ["model", "effort"];
 
 /**
- * Split a definition into its frontmatter lines and the rest.
+ * The other derived copy of the pin in the payload: the seed a fresh consumer's
+ * `.agents/machinery.json` is created from.
  *
- * DELIBERATELY NOT A YAML PARSER. The only shapes here are `key: value` on one
- * line, and a hand-rolled parser chasing a real language's syntax is named in
- * this repository's own archive as a losing shape. What it must not do is
- * quietly accept a file it did not understand: no leading `---`, or no closing
- * `---`, is a refusal, because a definition whose frontmatter this cannot read
- * is one whose `model:` it cannot check -- and reporting a pass on that is the
- * worst failure available to a checker.
+ * WHY IT BELONGS TO THIS CHECK. The file above says the frontmatter is "a
+ * derived copy of the pin, and this check is what makes the two identical".
+ * The seed is the second derived copy, and it was not held to anything --
+ * its own prose asked a person to "check it before relying on it", which is
+ * the recall-it-yourself shape the whole issue is about.
+ *
+ * THE CONSEQUENCE IS THE ONE THE MISMATCH WARNING CANNOT CATCH. The sync
+ * seeds this once and then leaves a consumer's configuration alone, by
+ * design. So after a pin bump here, a repository enrolled tomorrow starts on
+ * the OLD model -- and because its dispatch argument comes from that stale
+ * seed and outranks the freshly synced frontmatter, the header and the role's
+ * own "running as" line would agree with each other on the wrong model.
+ * Nothing fires. (Codex `4051922489`, #131 round 1; both assessors concurred
+ * and traced the chain independently through `sync.mjs`.)
+ *
+ * WHAT IS NOT TOUCHED: an existing consumer's own `.agents/machinery.json`.
+ * That is theirs, the sync never overwrites it, and this check never reaches
+ * outside this repository.
  */
-export function splitFrontmatter(text) {
-  const lines = text.split("\n");
-  if (lines[0]?.trim() !== "---") return null;
-  const end = lines.indexOf("---", 1);
-  if (end === -1) return null;
-  return { head: lines.slice(1, end), body: lines.slice(end + 1), endIndex: end };
-}
+export const SEED_FILE = join("core", ".agents", "machinery.template.json");
 
-/** `key: value` for the flat keys this check reads. Later wins, as YAML does. */
-export function frontmatterValue(head, key) {
-  let found = null;
-  for (const line of head) {
-    const m = new RegExp(`^${key}\\s*:\\s*(.*)$`).exec(line);
-    if (m) found = m[1].trim().replace(/^["']|["']$/g, "");
-  }
-  return found;
-}
+export { splitFrontmatter, frontmatterValue };
 
 /** Every agent definition in the payload, with its declared name. */
 export function agentDefinitions(root = REPO_ROOT) {
@@ -180,6 +183,52 @@ export function findings(root = REPO_ROOT, io = nodeIo(root)) {
       );
     }
   }
+  out.push(...seedFindings(root, io));
+  return out;
+}
+
+/** The seed, parsed, or a finding sentence explaining why it could not be. */
+function readSeed(root) {
+  const file = join(root, SEED_FILE);
+  if (!existsSync(file)) return { problem: `${SEED_FILE}: missing, so a fresh consumer has nothing to be seeded from.` };
+  try {
+    const raw = readFileSync(file, "utf8");
+    return { file, raw, seed: JSON.parse(raw) };
+  } catch (err) {
+    return { problem: `${SEED_FILE}: could not be read as JSON (${err.message}), so its pinned models cannot be checked.` };
+  }
+}
+
+/**
+ * BOTH TIERS, not just the Claude one.
+ *
+ * The definitions only carry `strongestClaude`, so the loop above checks only
+ * that. The seed carries both, and the drift mechanism is identical for each:
+ * a consumer enrolled after a bump starts on the superseded value. Checking
+ * one and not the other would leave half the seed silently stale, which is the
+ * same defect with a different tier's name on it.
+ */
+function seedFindings(root, io) {
+  const read = readSeed(root);
+  if (read.problem) return [read.problem];
+  const models = read.seed?.models;
+  if (!models || typeof models !== "object") {
+    return [`${SEED_FILE}: declares no "models" block, so a fresh consumer would be seeded with no pin at all.`];
+  }
+  const out = [];
+  for (const tier of MODEL_TIERS) {
+    const pin = modelTier(tier, io);
+    for (const [field, want] of [["id", pin.id], ["effort", pin.effort]]) {
+      const found = models[tier] && typeof models[tier] === "object" ? models[tier][field] : undefined;
+      if (found === want) continue;
+      out.push(
+        `${SEED_FILE}: models.${tier}.${field} is ${found === undefined ? "absent" : JSON.stringify(found)}, but ` +
+          `.agents/machinery.json pins it to ${JSON.stringify(want)}. This file seeds a fresh consumer's own pin, ` +
+          `and its dispatch argument then outranks the synced role definitions -- so a repository enrolled after a ` +
+          `bump here would keep dispatching the old value with both sides of the mismatch warning agreeing.`,
+      );
+    }
+  }
   return out;
 }
 
@@ -209,6 +258,30 @@ export function fix(root = REPO_ROOT, io = nodeIo(root)) {
     writeFileSync(def.file, ["---", ...head, "---", ...def.parts.body].join("\n"));
     changed.push(def.rel);
   }
+  // THE SEED IS REWRITTEN THROUGH ITS OWN PARSE, so every other key keeps its
+  // place and its prose -- the `_README`, the `OWNER/REPO` placeholder that is
+  // refused by name if left, and the `_models` note. Only the two values per
+  // tier move. (The file round-trips byte-identically through
+  // `JSON.stringify(_, null, 2)`, verified before this was written; a test
+  // asserts the untouched keys survive.)
+  const read = readSeed(root);
+  if (read.seed && read.seed.models && typeof read.seed.models === "object") {
+    let touched = false;
+    for (const tier of MODEL_TIERS) {
+      const pin = modelTier(tier, io);
+      const entry = read.seed.models[tier];
+      if (!entry || typeof entry !== "object") continue;
+      for (const [field, want] of [["id", pin.id], ["effort", pin.effort]]) {
+        if (entry[field] === want) continue;
+        entry[field] = want;
+        touched = true;
+      }
+    }
+    if (touched) {
+      writeFileSync(read.file, `${JSON.stringify(read.seed, null, 2)}\n`);
+      changed.push(SEED_FILE.split(/[\\/]/).join("/"));
+    }
+  }
   return changed;
 }
 
@@ -232,7 +305,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, io = unde
   if (problems.length === 0) return 0;
   log(
     [
-      `check-agent-models: ${problems.length} role declaration${problems.length === 1 ? "" : "s"} disagree with the pin.`,
+      // "declaration", not "role declaration": one of the things checked is the
+      // consumer seed, which is not a role.
+      `check-agent-models: ${problems.length} declaration${problems.length === 1 ? "" : "s"} disagree with the pin.`,
       "",
       ...problems.map((p) => `  - ${p}`),
       "",

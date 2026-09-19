@@ -39,7 +39,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot } from "./machinery.mjs";
+import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot, agentFrontmatter } from "./machinery.mjs";
 import { REVIEWS_DIR, ensureReviewsIgnored } from "./round-translation.mjs";
 
 export const ROLE = "review-proxy";
@@ -128,6 +128,16 @@ export const TIER_LENSES = {
 export const ACTIONS = ["proceed", "investigate", "follow-up", "ask-david", "conclude"];
 
 export const SOURCES = ["astra", "fable"];
+
+/**
+ * The subagent type the Fable assessment is dispatched as.
+ *
+ * NAMED HERE BECAUSE IT WAS NAMED NOWHERE. Until #126 the skill said "as a
+ * subagent" and no file in the payload said which one, so every dispatch of
+ * the second assessment was improvised. It is also where its `effort:` is
+ * read from, which is the only place that value exists.
+ */
+export const ASSESSOR_AGENT = "fable-review-assessor";
 
 /** The assessment file, derived identically by the writer and the reader. */
 export const assessmentPath = (root, pr, round, { source, followUp = 0 } = {}) => {
@@ -627,20 +637,47 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   const facts = [];
   if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
   if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
-  // WHAT WAS ASKED FOR, MODEL AND EFFORT, NEVER "what answered" (David,
-  // 2026-09-18: *"any model call must report loudly if the requested model
-  // doesn't match the used model"*). This script requests a model and reads a
-  // file; it cannot interrogate the thing that wrote the file, so claiming a
-  // match it never measured would be the #16 shape -- a control reporting
-  // success having evaluated nothing. It states the request, the assessor
-  // states what it ran as in its own first line (see the role definitions),
-  // and the two sit adjacent so a disagreement is readable rather than
-  // asserted. Effort is here because it is half of "strongest": the pin
-  // carries both, and until #126 a subagent silently ran at the session's.
+  // WHAT WAS ASKED FOR, NEVER "what answered" (David, 2026-09-18: *"any model
+  // call must report loudly if the requested model doesn't match the used
+  // model"*). This script requests a model and reads a file; it cannot
+  // interrogate the thing that wrote the file, so claiming a match it never
+  // measured would be the #16 shape -- a control reporting success having
+  // evaluated nothing. It states the request, the assessor states what it ran
+  // as in its own first line (see the role definitions), and the two sit
+  // adjacent so a disagreement is readable rather than asserted.
+  //
+  // EFFORT IS NOT "REQUESTED" ON BOTH PATHS, AND THE WORD USED TO CLAIM IT
+  // WAS. Astra is given its effort per call (`model_reasoning_effort`), so
+  // "requested X at Y" is literally true there. A Claude subagent is given no
+  // effort at all -- the Agent tool has no such argument -- so the value that
+  // applies is the role definition's frontmatter, and rendering the PIN's
+  // effort under the word "requested" states a request nobody made. In the
+  // handbook the two agree by construction, so nothing showed; in a consumer
+  // pinning a different effort the header would have been wrong on every
+  // round, firing the mismatch warning when nothing was wrong.
+  //
+  // BOTH FACTS SURVIVE, WHICH IS WHY THIS IS NOT A CHOICE BETWEEN THEM. The
+  // effort shown is the one that applies; the pin's value is shown too, but
+  // only where it differs, because that divergence is exactly what a consumer
+  // would otherwise never learn. (Codex `4051922484`; Astra argued for the
+  // pin's value, the Fable assessor for the definition's, and each was right
+  // about a different half. #131 round 1.)
   if (requested) {
     const id = typeof requested === "string" ? requested : requested.id;
-    const effort = typeof requested === "string" ? null : requested.effort;
-    if (id) facts.push(effort ? `requested \`${id}\` at \`${effort}\`` : `requested \`${id}\``);
+    if (id) {
+      const r = typeof requested === "string" ? {} : requested;
+      let fact = `requested \`${id}\``;
+      if (r.effort) {
+        fact += ` at \`${r.effort}\``;
+      } else if (r.appliedEffort) {
+        // NEVER THE PIN AS A FALLBACK. An unreadable definition means the
+        // effort is genuinely unknown to this process, and saying so by
+        // omission beats printing a plausible value nobody established.
+        fact += ` · effort \`${r.appliedEffort}\``;
+        if (r.pinnedEffort && r.pinnedEffort !== r.appliedEffort) fact += ` (pin says \`${r.pinnedEffort}\`)`;
+      }
+      facts.push(fact);
+    }
   }
   if (facts.length) header.push(`*${facts.join(" · ")}*`, "");
   return [...header, result.markdown].join("\n");
@@ -727,8 +764,12 @@ export const USAGE = [
   `  --source        ${SOURCES.join(" | ")} (default astra). Selects the identity block and the output path.`,
   "  --prompt-only   print the package and run nothing — how the Fable subagent is given the same words.",
   "  --render        print the PR comment for an assessment already on disk, with no dispatch. This is",
-  "                  how the Fable assessment gets posted: the header's requested model and effort are",
-  "                  resolved from the pin here rather than typed by whoever is posting.",
+  "                  how the Fable assessment gets posted: the header is derived here rather than typed",
+  "                  by whoever is posting. --commit is required (it is the evidence boundary); a",
+  "                  follow-up names the findings in --findings, an ordinary round those in",
+  "                  --findings-file. Astra's effort is the pin's, because it is passed per call; the",
+  "                  Fable assessor's is read from its agent definition, the only route it has, and is",
+  "                  omitted rather than guessed if that cannot be read.",
   "",
   `  Astra is pinned to the strongestCodex tier in the ${SANDBOX} sandbox, with no override, and the`,
   "  dispatch refuses unless the checkout is at --commit and clean. The Fable assessment is a subagent",
@@ -757,6 +798,31 @@ const FLAGS = {
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
 const BOOLEAN = new Set(["promptOnly", "render"]);
+
+/**
+ * The finding ids the header names — derived the same way for both paths.
+ *
+ * THE TWO PATHS DISAGREED, AND THE RENDER PATH WAS THE WRONG ONE. A follow-up
+ * addresses the subset named by `--findings`; the dispatch path has always used
+ * that, and the render path took every id in `--findings-file` regardless. Given
+ * the documented posting command -- which passes the round's findings file --
+ * a follow-up's comment claimed to cover findings its assessor never received.
+ * The header is exactly the metadata the reader is told to trust, so it is the
+ * one place a scope must not be approximated. (Codex `4051922487`, #131 round
+ * 1; both assessors concurred and both said to share the derivation rather than
+ * patch the render branch.)
+ */
+export function headerFindingIds({ followUp = 0, findings = "", findingsFile = null, parsed = null }) {
+  if (followUp) return String(findings ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  const list = parsed ?? (findingsFile ? JSON.parse(fs.readFileSync(findingsFile, "utf8")) : []);
+  // The same shape check the package composition makes. A JSON object here has
+  // no `.map`, and "x.map is not a function" is not a sentence that tells an
+  // operator their findings file is the wrong shape.
+  if (!Array.isArray(list)) {
+    throw new Error(`--findings-file must hold a JSON array of { id, ... }, got ${typeof list === "object" ? "an object" : typeof list}`);
+  }
+  return list.map((f) => f?.id).filter((id) => id != null);
+}
 
 export function parseArgs(argv) {
   const flags = {};
@@ -789,6 +855,26 @@ export function main(
     return 2;
   }
   const followUp = flags.followUp ?? 0;
+  // A NON-EMPTY REVIEWED COMMIT, ONCE, BEFORE ANY PATH PRODUCES ANYTHING.
+  //
+  // Three things made this one check rather than two. The render path accepted
+  // its absence and emitted a plausible comment with no `Assessed at` line --
+  // losing the evidence boundary that says which revision the advice is about,
+  // on the durable record of a squash-merged pull request. The dispatch path
+  // "refused" a missing commit only by way of `reviewedCommit.trim()` throwing
+  // a TypeError inside `assertCheckout`, surfaced to an operator as a raw
+  // runtime message. And `--commit ""` parses as an empty string -- `parseArgs`
+  // only rejects a value that looks like another flag -- so presence was never
+  // the right test. (Codex `4051922490`; the empty-string and TypeError halves
+  // were named by both assessors reading past the finding, #131 round 1.)
+  //
+  // RENDER STILL DOES NOT CALL `assertCheckout`. An assessment may legitimately
+  // be rendered after the tree has moved on; what the header must carry is the
+  // revision the assessor READ, which is this flag, not HEAD.
+  if (typeof flags.commit !== "string" || flags.commit.trim() === "") {
+    log(`review-proxy: --commit <reviewed sha> is required — it is the revision the assessment is of, and the header carries it as the evidence boundary\n\n${USAGE}`);
+    return 2;
+  }
   // THE SOURCE PICKS BOTH THE IDENTITY BLOCK AND THE OUTPUT PATH, and it has to
   // pick both or neither: a Fable package naming Astra's file would have the
   // subagent overwrite the answer this script is about to read. Only `--source
@@ -801,12 +887,12 @@ export function main(
   //
   // IT EXISTS SO THE HEADER IS NOT TYPED BY HAND. The Fable assessment is
   // written by a subagent this script does not run, so posting it used to mean
-  // an improvised node call -- and the one fact worth the most there, which
-  // model and effort were asked for, was the fact most easily left off. That is
-  // the same failure class as the dispatch argument this whole change is about:
-  // a step that has to be remembered is a step that gets skipped, measured
-  // seven rounds running on #124. Resolving the pin here makes the requested
-  // line arrive with the comment instead of with somebody's memory.
+  // an improvised node call -- and the facts worth the most there, which model
+  // was asked for and at what effort it actually ran, were the ones most easily
+  // left off. That is the same failure class as the dispatch argument this whole
+  // change is about: a step that has to be remembered is a step that gets
+  // skipped, measured seven rounds running on #124. Deriving them here makes
+  // them arrive with the comment instead of with somebody's memory.
   if (flags.render) {
     if (flags.promptOnly) {
       log(`review-proxy: --render prints a comment for an assessment on disk and --prompt-only prints a package to dispatch; they are different jobs\n\n${USAGE}`);
@@ -820,16 +906,19 @@ export function main(
       // EACH ASSESSOR AGAINST ITS OWN TIER. Astra is `strongestCodex` and the
       // Fable assessor is `strongestClaude`; rendering one against the other's
       // pin would put a confident wrong model in the header.
-      const requested = modelTier(source === "astra" ? "strongestCodex" : "strongestClaude", io);
-      // The same shape check the dispatch path makes. A JSON object here has
-      // no `.map`, and "x.map is not a function" is not a sentence that tells
-      // an operator their findings file is the wrong shape.
-      const parsed = flags.findingsFile ? JSON.parse(fs.readFileSync(flags.findingsFile, "utf8")) : [];
-      if (!Array.isArray(parsed)) {
-        throw new Error(`--findings-file must hold a JSON array of { id, ... }, got ${typeof parsed === "object" ? "an object" : typeof parsed}`);
-      }
-      const ids = parsed.map((f) => f?.id).filter((id) => id != null);
-      rendered = prComment(read, { reviewedCommit: flags.commit ?? null, findingIds: ids, requested });
+      const pin = modelTier(source === "astra" ? "strongestCodex" : "strongestClaude", io);
+      // AND EACH AGAINST ITS OWN ROUTE FOR EFFORT. Astra is handed its effort
+      // per call, so the pin IS the request. A Claude subagent is handed none,
+      // so the value that applies is the role definition's -- read from
+      // `.claude/agents/<role>.md`, one path that resolves in both layouts
+      // because the handbook links that directory per file into `core/`. Null
+      // when it cannot be read, and never the pin instead: see `prComment`.
+      const requested =
+        source === "astra"
+          ? { id: pin.id, effort: pin.effort }
+          : { id: pin.id, appliedEffort: agentFrontmatter(root, ASSESSOR_AGENT, "effort"), pinnedEffort: pin.effort };
+      const ids = headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
+      rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested });
     } catch (err) {
       log(`review-proxy: ${err.message}`);
       return 2;
@@ -854,7 +943,7 @@ export function main(
   try {
     const file = assessmentPath(root, flags.pr, flags.round, { source, followUp });
     if (followUp) {
-      findingIds = String(flags.findings ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+      findingIds = headerFindingIds({ followUp, findings: flags.findings });
       prompt = followUpBrief({
         source,
         pr: flags.pr,
@@ -871,7 +960,7 @@ export function main(
       });
     } else {
       const findings = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));
-      findingIds = Array.isArray(findings) ? findings.map((f) => f?.id).filter((id) => id != null) : [];
+      findingIds = headerFindingIds({ followUp, parsed: findings });
       prompt = assessmentBrief({
         source,
         pr: flags.pr,
