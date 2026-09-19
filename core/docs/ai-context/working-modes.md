@@ -161,16 +161,37 @@ the same private/manual path a disclosure-carve-out workstream would.
 
 ### The increment test
 
-**A universal quantifier in the intent sentence means you're holding a
-direction, not a plan.** "All", "every", "everything", "any and all",
-"exclusively" — any of these, needed to say what the intent means, is the
-signal. Write or update the direction first (per the routing rule above), then
-cut the first increment out of it and plan that one. Don't narrow the
-requester's words to make the test pass — the totalising sentence stays intact
-in the direction, which is exactly where it belongs.
+**Establish what the increment makes true, what bounds it, and how completion
+will be recognised** (#124, 2026-09-18, replacing the categorical form below).
+Universal wording — "all", "every", "everything", "any and all", "exclusively" —
+can describe a bounded requirement holding across many affected paths, or an end
+state spanning several increments. **Determine which it describes; the wording
+alone does not decide.** Where the intent makes additional work belong merely
+because the eventual direction needs it, surface the boundary question before
+detailed planning: write or update the direction, then cut the first increment
+out of it. Don't narrow the requester's words to make a test pass — the
+totalising sentence stays intact in the direction, which is exactly where it
+belongs — and don't split work that is one coherent change merely because its
+sentence needed the word "every".
 
-**A *Phases* section that separates independently shippable pieces means each
-phase was probably its own plan.** The distinction is **independent
+**Why this replaced a categorical rule.** It used to read "a universal
+quantifier in the intent sentence *means* you're holding a direction", and the
+planning contract's scope assessment now says the opposite: phases, breadth and
+universal wording do not automatically require a split. A rule and its contract
+disagreeing on the entry path is worse than either, and the categorical form is
+the one that lost.
+
+**Attributed to the change rather than to David**, deliberately. He approved a
+planning contract that entails this, and never ruled on this wording — so a
+`(David, ...)` stamp here would put his name on a consequence someone else
+derived, which is exactly the kind of claim a later session cannot check and
+will not think to question. The rule stands on the contradiction above, not on
+whose initials are next to it.
+
+**A *Phases* section that separates independently shippable pieces is a reason
+to consider separate plans, not a verdict.** Assess whether separation reduces
+uncertainty, simplifies verification, or delivers useful outcomes sooner,
+against the dependencies and the cost of intermediate states. The distinction is **independent
 deliverability**, not the mere presence of ordered steps — a single increment
 can legitimately need an ordered migrate → rollout → verify sequence, and that
 is not a split signal. It's a split signal when a phase could ship, be
@@ -553,8 +574,9 @@ pushed:
 
 1. A round returns findings.
 2. The judgement is made per finding: on a code loop from two independent
-   assessments and the builder's own reading of them, on a plan loop from the
-   reviewer's required/recommended split.
+   assessments and the builder's own reading of them. (A planning loop is not
+   a review loop and this write gate does not govern it — see *Who judges*
+   below.)
 3. **Anything written** → the fixes are pushed, and another review round is
    *automatic and mandatory*. Back to 1.
 4. **Nothing written** → the loop ends there, on a head the last round already
@@ -580,13 +602,23 @@ is the only statement of it and sets no target rate in either direction.
 
 #### There is no budget any more (#89 cut, 2026-09-16)
 
-**Who judges.** On a plan loop, the reviewer performs the
-required/recommended triage itself, in a schema field, and the loop stops on
-it. On a code loop (#96, David 2026-09-17) **Astra and a Fable assessor advise
-independently and the builder decides from both**, investigating disputed facts
-itself; a purely technical disagreement that survives is the Fable assessor's
-to settle, and intended behaviour or an accepted user-facing shortfall is
-David's. Neither assessment binds, and neither substitutes for his answer.
+**Who judges.** On a **code** loop (#96, David 2026-09-17) **Astra and a Fable
+assessor advise independently and the builder decides from both**, investigating
+disputed facts itself; a purely technical disagreement that survives is the
+Fable assessor's to settle, and intended behaviour or an accepted user-facing
+shortfall is David's. Neither assessment binds, and neither substitutes for his
+answer.
+
+On a **planning** loop (David, 2026-09-18) there is no triage to perform,
+because there are no tiers to triage into: Astra and the builder are peers
+reading one contract, Astra returns Markdown, and **the builder states the next
+action explicitly** rather than deriving it from an assessment. A purely
+technical disagreement that survives investigation and discussion is the
+builder's to settle, with the reasoning recorded where it stays readable. The
+plan reaches David for approval, which nothing else substitutes for. Until that
+date the reviewer performed a required/recommended split in a schema field and
+the loop stopped on it; that verdict-driven design is what the redesign
+replaced.
 
 **What went, and what nothing replaced.** A declared per-PR round budget, its
 committed receipts, extension grants and their arithmetic, a round-count
@@ -718,10 +750,30 @@ David's control point at the front of the loop, paired with explicit plan
 approval at the back. **The agreed scope of work is also the review oracle
 itself** — it is handed to the reviewer verbatim, every round, as the thing the
 plan is checked against. The corollary is the escalation rule: anything that
-would *change* the agreed scope of work — a mid-loop scope addition, a
-split, a product/design fork — is outside the loop's authority and goes to
-David, however the loop is otherwise pacing itself. (Claude's enactment of the gate's
-mechanics lives in the `plan-review-loop` skill.)
+would *change* the agreed scope of work — a mid-loop scope addition, a split, a
+change to intended behaviour, or a user-facing shortfall being knowingly
+accepted — is outside the loop's authority and goes to David, however the loop
+is otherwise pacing itself. (Claude's enactment of the gate's mechanics lives in
+the `plan-review-loop` skill.)
+
+**A purely technical design fork is not one of them** (2026-09-18). Two
+approaches serving the same agreed behaviour, scope and explicit constraints are
+the loop's to settle — through investigation and discussion, and if the
+disagreement survives both, by the builder, with the reasoning recorded. This
+list used to name "a product/design fork", which a technical fork also satisfies,
+so an agent could read the escalation rule as negating the tie-break the same
+redesign grants and send David a question the loop was built to keep off his
+desk. **What does not become negotiable is a constraint David required
+explicitly**: a requirement does not stop being his because it happens to be
+about technology. (The code review loop's own escalation list, under *The
+post-round judgement* below, still names a product or design fork and is correct
+as written. **It is not that the code loop lacks a technical tie-break** — *Who
+judges* above gives a surviving purely technical disagreement to the Fable
+assessor there, and `claude-core.md` rule 4 says so on `main`. This parenthesis
+claimed the opposite for one round, which is this very paragraph's warning
+happening to the paragraph itself: added at #124 round 7 to stop an escalation
+rule negating the planning tie-break, it negated the code loop's in the same
+breath. Corrected at round 9 `4049773956`.)
 
 **The scope gate now carries a second opinion (David, 2026-09-09).** Before the
 plan is written, the reviewer is given the oracle alone and asked whether the
@@ -735,9 +787,10 @@ costs one round against a document a page long.
 Every substantive round pauses before any fix is implemented: triage first
 (nature, affected area, verdict, and whether the finding sits in code an
 earlier fix in this loop already changed), then the judgement is made per
-finding — by the reviewer's own required/recommended split on a plan loop, and
-on a code loop from two independent assessments the builder weighs but did not
-write. The agent driving the loop does not make that call alone:
+finding — on a code loop from two independent assessments the builder weighs but
+did not write. (A planning loop has no round to judge in this sense; *Who
+judges* above says what happens there instead.) The agent driving a code loop
+does not make that call alone:
 self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 

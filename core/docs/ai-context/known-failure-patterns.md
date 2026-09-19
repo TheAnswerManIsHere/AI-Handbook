@@ -1720,9 +1720,11 @@ definition*: the document has no way to say "true, and next," only "true, so
 in." **Avoid:** separate **directions** (end states, reviewed once, never
 looped) from **plans** (one bounded increment, citing its direction), per
 [`working-modes.md`](./working-modes.md#directions-and-plans-are-different-artifacts-david-2026-08-11);
-apply the increment test *before* writing (universal quantifier ⇒ direction;
-a *Phases* section whose phases are independently shippable ⇒ each phase was
-a plan — an ordered migrate/rollout/verify sequence within one increment is
+apply the increment test *before* writing — which since 2026-09-18 asks what
+the increment makes true and what bounds it, rather than reading a verdict off
+the vocabulary. Universal wording and independently shippable phases are
+reasons to examine the boundary (an ordered migrate/rollout/verify sequence
+within one increment is
 not this signal); record the plan's line count
 at round 1 and state it every round; and frame mid-flight scope as **now vs.
 next**, defaulting to next.
@@ -2762,6 +2764,66 @@ proxy. *A persistent counter of state the source of truth already holds* is
 the sibling failure at the opposite end — there the check under-trusted the
 authoritative source and kept a redundant local copy; here it over-trusts a
 local proxy for a property only the outside world can confirm.
+
+## An observable scoped to the mechanism you had in mind, not the harm you were watching for
+
+**Looks like:** you do the disciplined thing. You write the stopping condition as
+an observable rather than a judgement, exactly as the rule demands. Or you scope
+a decline to a class rather than to the reviewer's example, exactly as the other
+rule demands. Then the thing you were guarding against happens in a form your
+words do not cover, and the guard sits there not firing while being, on its own
+terms, correctly evaluated.
+
+**These are one failure in two layers.** A fix scoped to the example and a flip
+condition scoped to the example are the same error — the words name the shape
+that was in your head, and the shape that arrives is a sibling of it. The
+observable rule and the class rule both survive intact; what neither of them
+supplies is the step where you ask *what is the harm, and what else produces it?*
+
+**The worked examples, all from AI-Handbook #124.** Three flip conditions in one
+pull request had their wording and their intent pull apart:
+
+- **Round 2.** *"Three or more findings landing on the corrections themselves"* —
+  counted two mechanically, and a defensible stricter reading counted three. Both
+  readings happened to agree the batch was sound, so nothing turned on it. Luck.
+- **Round 4.** *"Any finding that the new check can pass while the thing it checks
+  is broken"* — satisfied by **every check that has ever been written**, since a
+  stated-limits paragraph is a list of exactly that. A condition satisfied by
+  everything selects nothing, and it fired on a coverage gap it was not aimed at.
+- **Round 5.** *"Any finding that an **assessment** which should be allowed is now
+  refused"* — the thing refused was a *scope exchange*. The intent covered it
+  plainly; one noun kept it from tripping. Its instruction was "go to David",
+  which is where the question went anyway — again by luck, not by drafting.
+
+And the same error one layer down, in the same pull request: a fix that gave
+Claude's package record its own path stopped one role overwriting the other's,
+and left the *default* role overwriting it — because the fix was scoped to the
+role in the finding rather than to the mechanism. That was written one round
+after the builder recorded the class-not-example rule against himself.
+
+**Avoid:**
+
+1. **Write the observable, and write the harm beside it, in the same sentence.**
+   "Three or more findings on lines this batch wrote — the signal being that the
+   batch itself went wrong." The observable still decides; the harm is what tells
+   you, at evaluation time, whether you are looking at the thing you meant.
+2. **Before writing either kind of scope, name one sibling.** Not an exhaustive
+   enumeration — one. If the condition or the fix does not cover the sibling, the
+   wording is scoped to your example. The three cases above all had an obvious
+   sibling: findings on a correction's *missed twin*, a check that covers one
+   *layout*, an exchange that is not an *assessment*.
+3. **When the two disagree, that disagreement is the finding.** Record it, fix
+   the wording, and do not take whichever reading is more convenient. Three times
+   in one pull request the destination survived a bad reading by luck; that is
+   not a record to build on.
+4. **Have someone else evaluate it.** Every one of these was surfaced by an
+   independent assessor or a translator reading the same words, never by the
+   person who wrote them. The author of a condition is its worst reader.
+
+**Related:** *A guard that encodes the shape that occurred, and calls it a class*
+above is this same error in code rather than in prose, and *A decline scoped to
+the reviewer's example instead of the finding's class* below is its third face.
+The fact that it has three entries in this file is itself the finding.
 
 ## Building a second validator beside an existing one re-derives its gaps, not its answers
 

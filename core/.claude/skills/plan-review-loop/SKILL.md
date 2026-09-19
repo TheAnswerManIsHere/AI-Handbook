@@ -1,501 +1,550 @@
 ---
 name: plan-review-loop
-description: Use in feature-building mode once the pre-plan conversation has settled intent, or whenever a plan needs to be delivered to David for approval. Runs the reviewer in-session with the plan-review script — no PR, no branch, no GitHub. NOT for bugfix mode, which skips plan review entirely.
+description: Use in feature-building mode once the pre-plan conversation has settled intent, or whenever a plan needs to be delivered to David for approval. Runs the planning loop in-session — Astra and I develop the plan together as peers, reading one contract, with the next action stated by me rather than derived from an assessment. No PR, no branch, no GitHub, no page; everything reaches David in chat. NOT for bugfix mode, which skips planning entirely.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
-# The in-session plan-review loop
+# The in-session planning loop
 
-The reviewer runs **here**, in this container: the plan-review script spawns
-Codex CLI with `gpt-6-astra` at `xhigh` in a read-only sandbox, and the output
-is constrained by JSON schema to the plan-review contract's full-assessment
-shape. The plan is a file in my working tree that is never pushed. David reads
-it on one private Artifact page.
+Astra and I develop the plan together. The script spawns Codex CLI with the
+`strongestCodex` tier in a read-only sandbox, hands it the same contract I read,
+and takes back Markdown. **I hold the authoritative plan**, I argue where I
+disagree, I investigate disputed facts myself, and **I state what happens next**.
+Nothing parses an assessment. The plan is a file in my working tree that is
+not pushed unless David asks for it; everything David sees arrives in chat.
 
 **The script's path differs by repository, so resolve it once per session**
 rather than typing either form. The sync routes `core/X -> X`, so the file is
 `core/scripts/plan-review.mjs` in the handbook and `scripts/plan-review.mjs`
-in every consumer — a hardcoded path is wrong in one of the two, and wrong
-loudly (`MODULE_NOT_FOUND`) only if I am lucky:
+in every consumer:
 
 ```
 P=core/scripts/plan-review.mjs; [ -f "$P" ] || P=scripts/plan-review.mjs
 ```
 
-Every command below uses `$P`. Run it from the repository root; the script
-itself finds the root by walking up to `.git`, so its output lands inside the
-repository whichever layout it is in.
+Every command below uses `$P`. Run it from the repository root.
 
-**This replaces the plan loop only. The Codex GitHub review of CODE is
-untouched and remains David's safety net** — every implementation PR still gets
-it, unchanged.
+**This is the planning loop only. The Codex GitHub review of CODE is untouched
+and remains David's safety net** — every implementation PR still gets it.
 
-## Why the transport changed, in one paragraph
+## One contract, two roles
 
-Everything expensive about the old loop was a consequence of reviewing through
-GitHub, not of reviewing. The connector could post only diff-anchored defects,
-so the contract's status label, lens and reconciliation had to be derived by me
-and kept in a ledger in the PR body — and the three-round minimum existed
-because a defect-only reviewer has no way to say *done*. Round state lived on
-GitHub, so rounds were counted from it, receipts were committed and pushed to
-exist, and two scripts existed to make GitHub state legible again. The channel
-was public, so every plan passed a disclosure gate. And a round was a trigger,
-a queue, a webhook that might not arrive, and a fetch. A reviewer that returns
-one whole structured document into a local file has none of those problems.
+`docs/ai-context/planning-contract.md` is role-neutral and **read verbatim into
+every package, by both of us**. It addresses "you" and "your counterpart" and
+never says which of us holds the plan. The script's **role block** supplies
+that, per role, and it is the only thing that differs between the two packages.
 
-## The reading surface: one private Artifact page
+**Read my own copy before I start drafting**, and again whenever I have been
+away from the loop. There are two forms, and picking the wrong one is how this
+instruction used to fail.
 
-**The plan-review PR is retired as the plan's delivery surface** (David,
-2026-09-09, superseding 2026-07-28). There is no `[PLAN REVIEW]` PR, no
-`plan-review/<slug>` branch, and no plan file on any pushed branch.
+**Before drafting**, once the oracle file exists — the scope-of-work gate below
+writes it, and it runs before anything — and when no plan file exists yet:
 
-David reads the plan on **one private Artifact page, redeployed in place every
-round** — same URL for the life of the loop, so a link he saved on round 1 is
-still current on round 5. The page carries, top to bottom:
+```
+node "$P" --kind scope --slug <slug> --oracle .agents/reviews/<slug>/oracle-<slug>.md --role claude --prompt-only
+```
 
-1. **What changed this round** — the first thing on the page, every round after
-   the first: what the reviewer said, what I did about it, what is still open.
-   On round 1 this section says "first version".
-2. The plan itself.
-3. The oracle it is being reviewed against.
+The path is written out rather than using `$S`, which is not assigned until the
+scope-exchange recipe far below: an unset variable expands to nothing, so this
+line used to send the script looking for an oracle at the filesystem root. **`$P`
+is the only variable any block here relies on from another** — every other block
+assigns what it uses, and keeping it that way is what the recipe check enforces.
 
-He can interject at any point; nothing waits on him between the scope gate and
-the approval ask.
+**Returning to an existing plan**, once one is written:
 
-**This also dissolves the disclosure gate rather than passing it.** The old
-check existed because a closed-unmerged PR stays in public history forever. A
-plan that is never committed and never pushed is not published, so there is
-nothing to screen for publication. What survives is narrower and still real:
-`.agents/reviews/` is gitignored by a `.gitignore` the script writes, the plan
-file is never committed unless David asks for it, and an Artifact page is
-private by default and stays that way.
+```
+node "$P" --kind assess --round <N> --tier <tier> --plan <file> --role claude --prompt-only
+```
 
-## What the reviewer gets, and who writes it
+The assessment form needs `--plan`, so it cannot be the pre-draft command — a
+recipe that refuses at the moment it is meant to run is a recipe that fails the
+agent following it. The scope form yields the same role block, contract, Worth
+rule and oracle with no plan. My copy is written to `<stem>.claude.prompt.md`, a
+separate file, so it never overwrites the record of what Astra was sent.
 
-**I never write the reviewer's prompt.** `plan-review.mjs` assembles every
-instruction it receives. This is workstream #36's rule applied to a new
-reviewer: if the session driving the loop composes the reviewer's brief, the
-session can steer the reviewer, and the review stops being independent. What I
-supply is data — which plan, which round, which findings were disposed of how —
-plus one capped `--lens` the script frames as emphasis and never as scope.
+That is not ceremony. The standards I hold the plan to and the standards Astra
+holds it to are the same words, or a difference between our conclusions is a
+difference of briefing rather than of judgement. My posture differs and the role
+block says so: **I develop and hold the plan; I am not a second reviewer of my
+own work.**
 
-**Fresh context every round.** Not a resumed thread. Prior findings cross as
-ids, titles and dispositions — never their bodies — so the reviewer reconciles
-against the *current whole plan* rather than against its own memory of what it
-argued last time. Same principle the code loop's assessments rest on, and the same
-reason.
+## The concern ledger
 
-## The loop
+Continuity lives in `.agents/reviews/<slug>/concerns.json`, which I maintain and
+the script renders. It is the one piece of state in the loop, and the honesty of
+the record rests on me — nothing checks for a concern I never wrote down.
+
+```json
+[{ "id": "C1",
+   "title": "Cache invalidation is unspecified",
+   "raised": "assess-1",
+   "source": ".agents/reviews/<slug>/round-1.md",
+   "state": "open",
+   "concern": "the reasoning as it was written, in full",
+   "proposed": "what was proposed instead",
+   "evidence": ["src/thing.ts:12"],
+   "response": "what I did about it, or argued, in full",
+   "david": null }]
+```
+
+**States**, and what each one means:
+
+| State | Means |
+|---|---|
+| `open` | live; renders in full every exchange |
+| `addressed` | the engineering concern is genuinely resolved |
+| `superseded` | a revision made it moot; say why |
+| `withdrawn` | whoever raised it no longer believes it, and said so |
+| `settled-over-dissent` | I chose the approach after discussion while Astra maintained its recommendation. **Renders in full every exchange**, keeping both arguments prominent so new evidence has something to argue with, and **it is named in the approval ask**. Distinct from `addressed`, which means the concern was resolved rather than decided over an objection |
+| `for-david` | a choice only he can make; renders in full, and blocks nothing else |
+| `accepted-by-david` | he accepted the trade-off, in words |
+
+Open, `for-david` and `settled-over-dissent` concerns render in full. The rest
+render as one line naming their source, and any of them can be pulled back into
+full view by naming it in a discussion — **settled is not closed**.
+
+**Rules I keep, because no check enforces them:**
+
+- **Every entry names its source**, so the original argument can be read rather
+  than reconstructed from my summary of it. The script refuses an entry without
+  one.
+- **Never edit a concern's text to make it look answered.** The `response` field
+  is where my answer goes; the `concern` field stays as it was written.
+- **A withdrawal is written as a withdrawal**, never folded into `addressed`.
+- **`accepted-by-david` is only ever written after he has said so in words.**
+
+## The exchanges
 
 ### Before anything: the scope-of-work gate
 
-Unchanged, and still the thing that authorizes the loop to run autonomously:
-the direction served, this increment's product intent, must-not-change, settled
+Unchanged, and still the thing that authorizes the loop to run autonomously: the
+direction served, this increment's product intent, must-not-change, settled
 decisions, the now/next/never calls already made, the ceremony tier and the
 1–100 criticality, as a 🛑 NEED YOU banner with its push notification. See
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-scope-of-work-gate-david-2026-08-15).
 
-That agreed scope **is the oracle**. Write it to a file — the plan's fenced
-`plan-oracle` block, or a standalone file for round 0 — because the script
-refuses to run without one. A plan reviewed only against itself can be
-perfectly coherent and still have dropped a requirement the intent called for,
-and catching exactly that is what the oracle is for.
+That agreed scope **is the oracle**. Write it to a file under
+`.agents/reviews/<slug>/` — the script refuses to run without one, and that
+directory is the one it keeps ignored. A plan measured only against itself can
+be perfectly coherent and still have dropped a requirement the intent called
+for.
 
-**Put that file, and the `priors.json` later rounds need, under
-`.agents/reviews/<slug>/`.** Both restate the plan's concerns, so both can
-carry the vulnerability, customer or embargoed context the plan itself is kept
-out of git for — and that directory is the one the script keeps ignored. The
-script refuses either file if git reports it as stageable, so a path outside
-an ignored directory stops the round rather than leaking quietly.
+### The scope exchange — before the plan is written
 
-### Round 0 — the scope gate's second opinion
-
-**Before the plan is written**, the reviewer gets the oracle alone and answers
-one question: should this exist, and is the boundary in the right place.
+Astra gets the oracle alone and answers one question: should this exist, and is
+the boundary in the right place.
 
 ```
 S=.agents/reviews/<slug>; mkdir -p "$S"   # write the oracle here, not at the root
-node "$P" --round 0 --slug <slug> --oracle $S/oracle-<slug>.md
+node "$P" --kind scope --slug <slug> --oracle $S/oracle-<slug>.md
 ```
 
-Round 0 is the one round short enough to run in the foreground — it reads a
-page, not a plan. Every later round is detached; see below.
+Short enough to run in the foreground — it reads a page, not a plan. Every later
+exchange is detached.
 
-David sees its answer **beside mine** before he says go — my own view first, in
-my own words, then the reviewer's, then where we differ. This is the cheapest
-place in the whole system to catch "we are about to build the wrong thing", and
-it costs one round against a document that is a page long.
+David sees its answer **beside mine** before he says go: my own view first, in
+my own words, then Astra's, then where we differ. Cheapest place in the system
+to catch "we are about to build the wrong thing", and it costs one exchange
+against a document a page long.
 
-If it says *No* or *Not yet*, that is a product question for David, not a
-finding for me to absorb. Its `scope_concerns` carry ids and cross into round 1
-as prior findings like anything else.
+If it says the work should not exist, or not yet, **that is a product question
+for David**, not a finding for me to absorb. Its concerns go on the ledger like
+any other.
 
-### Round 1 — v1 is shown, and the loop does not wait
+### Assessing the plan
 
 Write the plan to `docs/plans/PLAN_<SLUG>.md` in the working tree, with the
-oracle as a fenced `plan-oracle` block at its head. Publish the Artifact
-page. Tell David it is up, and **keep going** — v1 will change anyway, and
-waiting for him to read it buys nothing. He interjects whenever he likes.
+oracle as a fenced `plan-oracle` block at its head. Tell David it is drafted and
+**keep going** — v1 changes anyway, and waiting buys nothing. He interjects
+whenever he likes.
 
-**Run it detached. A round outlives the tool call that starts it.**
+**Run it detached. An exchange outlives the tool call that starts it.**
 
 ```
 S=.agents/reviews/<slug>
-mkdir -p "$S"          # bash opens the redirects below BEFORE node runs, so on
-                       # a first round the directory must already exist
-setsid nohup bash -c "cd $PWD && node $PWD/$P \
-  --round 1 --tier <product|sensitive|internal> \
-  --plan docs/plans/PLAN_<SLUG>.md --prior $S/priors.json \
-  --lens '<the angle this round attacks from>' > $S/run.log 2>&1; echo \$? > $S/run.exit" &
+mkdir -p "$S"          # bash opens the redirects below BEFORE node runs
+rm -f "$S/run-<N>.exit"   # a marker left by an earlier attempt reads as THIS
+                          # one finishing, instantly, with the wrong status
+setsid nohup bash -c 'cd "$1" && node "$1/$2" \
+  --kind assess --round <N> --tier <product|sensitive|internal> \
+  --plan docs/plans/PLAN_<SLUG>.md \
+  > "$3/run-<N>.log" 2>&1; echo $? > "$3/run-<N>.exit"' _ "$PWD" "$P" "$S" &
 ```
 
-Then wait on `run.exit` appearing — its existence is the completion signal and
-its contents are the status. **This is measured, not cautious**: a round is
+Then wait on `run-<N>.exit` appearing — its existence is the completion signal
+and its contents are the status.
+
+**Nothing from the outer shell appears in the program text.** That is the whole
+rule, and it is why the program is in single quotes with `$PWD`, `$P` and `$S`
+passed as arguments (`_` is `$0`, which `bash -c` consumes). Anything
+interpolated into a `bash -c` string is program *text*, read a second time by
+the inner shell — so a checkout path is re-parsed as shell. Quoting it closed
+exactly one character: measured in a directory named `repo$cash`, the inner
+shell expanded `$cash` to nothing, `cd` failed, `&&` short-circuited and the
+script never ran; a backtick in the name executed part of the path as a command.
+Loud rather than silent — the marker still gets `1`, with no log — but the loop
+cannot be run from that checkout at all, and a consumer chooses its own path.
+
+This line has now produced three findings in seven rounds: a space (#124 round
+5), then `$` and a backtick (round 12). Round 5 had this same positional shape
+offered by the reviewer and by Astra, and took a pair of quotes instead; the
+Fable assessor, who recommended the quotes, revised that here — *"it did not
+regress; it was incomplete."* Passing values as arguments needs no escaping
+rule, so there is no next character.
+
+**The marker is per round AND cleared before launch, and it needs both.** It
+used to be one `run.exit` for every exchange in a slug: round 2's launch found
+round 1's marker already sitting there and reported an exchange complete before
+it had started. That is not hypothetical — in this loop's own live run,
+`run.exit` held `0` with the *discussion's* finish time, three minutes after the
+assessment it had already overwritten. Naming it per round fixes the collision
+between exchanges; deleting it fixes a retry of the same one. The cost of
+getting this wrong is not just a confused turn: if the agent relaunches, two
+`xhigh` processes write the same attempt path and both promote it. **This is measured, not cautious**: an exchange is
 ~9–10 minutes at `xhigh` (522 s hand-run, 576 s scripted), which is longer than
-a comfortable foreground Bash call, and a foreground run that gets cut off
-loses the whole round — the reviewer's work included. Absolute paths inside the
-`bash -c`; the working directory does not survive into the detached child the
-way you expect. The rest of the traps are in
+a comfortable foreground Bash call, and a foreground run that gets cut off loses
+the whole exchange. Absolute paths inside the `bash -c`; the working directory
+does not survive into the detached child the way you expect. The rest of the
+traps are in
 [`codex-cli-in-container.md`](../../../.agents/memory/codex-cli-in-container.md).
 
-`--prior` carries round 0's `scope_concerns` with what the plan did about each.
-The script refuses round 1 without it whenever round 0 ran — a scope concern is
-a finding like any other, and the first plan review is exactly where it has to
-be answered. `--no-prior` if round 0 genuinely raised none.
+**The oracle is pinned on the first exchange and checked on every one after.**
+Without that, the oracle is read from the plan file I rewrite each time, so
+deleting a requirement from the plan *and* from its oracle block would have the
+next exchange measure the plan against my rewritten intent — me steering the
+process through the one input nobody was watching. A deliberate change is still
+possible, with `--oracle-changed "<what David agreed to change>"`, and it is
+stamped on the exchange. Silence is what is refused.
 
-**The oracle is pinned on the first round and checked on every one after.**
-Without that, the oracle is read from the plan file I rewrite each round, so
-deleting a requirement from the plan *and* from its oracle block would make the
-next reviewer measure the plan against my rewritten intent — the builder
-steering the reviewer, coming back in through the one input nobody was
-watching. A deliberate change is still possible, with
-`--oracle-changed "<what David agreed to change>"`, and it is stamped on the
-round. Silence is what is refused.
+### Discussing before revising
 
-### Every round after: relay, triage, revise
+**A disagreement costs one question, not a round trip through the whole loop.**
+No plan edit, no new round, no commit:
 
-Four things happen every round, in this order, and none of them is optional.
+**Detached, like every exchange after scope** — it is the same `xhigh` process
+with the same package, and a foreground run that gets cut off loses it:
 
-1. **Relay the reviewer's summary to David, in plain English.** A round with
-   findings gets: what the reviewer disagrees with, and how it thinks each
-   thing should be handled. **A clean round still relays the reviewer's
-   `summary_for_david` paragraph** — that is the independent plan opinion
-   workstream #36 wanted for the decision points where David is otherwise
-   reading blind, and it arrives free with every round.
+```
+S=.agents/reviews/<slug>; Q=$S/question-<N>-<M>.txt   # write the question to a
+                                                     # file: it is long, and
+                                                     # quoting it through the
+                                                     # detached shell is where
+                                                     # this goes wrong
+rm -f "$S/discuss-<N>-<M>.exit"   # same reason as the assessment recipe above
+setsid nohup bash -c 'cd "$1" && node "$1/$2" \
+  --kind discuss --round <N> --discussion <M> --tier <tier> \
+  --plan docs/plans/PLAN_<SLUG>.md --concerns C2,C5 \
+  --question "$(cat "$4")" \
+  > "$3/discuss-<N>-<M>.log" 2>&1; echo $? > "$3/discuss-<N>-<M>.exit"' _ "$PWD" "$P" "$S" "$Q" &
+```
 
-2. **Say what I am doing with each finding, before I do it.** One line each:
-   **fix**, **decline with the reason**, or **bring to David**. In product
-   English — the outcome, not the mechanism. This is the moment David can stop
-   a revision he disagrees with, and he cannot use it if it arrives after the
-   revision.
+Keyed by round *and* discussion, because `<M>` restarts inside each round — the
+script's own output is `round-<N>.discussion-<M>.md`, so a marker named by `<M>`
+alone collides across rounds exactly as `run.exit` did. **This sentence used to
+claim "a retry cannot mistake an earlier marker for this one's completion",
+which was true per discussion and false per attempt**: the path was reused on a
+retry, so the previous attempt's marker satisfied the wait immediately. An
+overclaim beside a fix is worse than the gap, because it tells the next reader
+the case is handled (Codex and both assessors, #124 round 2).
 
-3. **Revise, and redeploy the Artifact page in place** with the "what changed
-   this round" section rewritten.
+The named concerns render **in full whatever state they are in**, because a
+focused question is often about something already settled. The question carries
+the evidence, quoted with its origin per the load-bearing-claim rule. Everything
+not asked about keeps its state — including questions waiting on David.
 
-4. **Run the next round, handing over the dispositions.**
+Use it when a revision would otherwise be built around an assumption I think is
+wrong. Do not use it to relitigate something I simply dislike.
 
-   Detached, like every round — same shape as round 1 above:
+## Four things happen after every exchange, in this order
 
+1. **Relay to David, in plain English, before the revision.** What Astra
+   disagrees with, and one line per concern saying what I am doing with it. In
+   product English — the outcome, never the mechanism. **This is the moment he
+   can stop a revision he disagrees with, and he cannot use it if it arrives
+   after the revision.** A clean exchange still gets its readout: that
+   independent opinion is the thing he is otherwise reading blind without.
+
+2. **Update the ledger — after every exchange, including one that raised
+   nothing.** Every existing entry is carried forward with its reasoning intact,
+   its state and my response updated where the exchange moved them, and anything
+   new is added with its source. **The file exists after every exchange**,
+   because continuity lives in it and the script refuses a later exchange when
+   it is absent. That refusal is deliberate: an absent ledger reads as
+   *forgotten*, which is the one thing no check can distinguish from *nothing
+   was raised*. So it is mine to answer, by writing the file. `--no-ledger` is
+   the escape the error names, for the case where earlier exchanges genuinely
+   returned nothing and I have not written one.
+
+   **When a discussion changes the OTHER party's position, the `response` says
+   so and says why** — not just what I argued. A concern settled because Astra
+   withdrew it on new evidence reads, from its state alone, exactly like one I
+   talked it out of, and the next cold reader is handed my side of an argument
+   whose conclusion it cannot see. The discussion file is now named in the next
+   assessment's package (round 10 `4049965628`), so the reasoning is reachable;
+   this keeps the ledger's own line honest about which way it went. (Astra,
+   #124 round 10.)
+
+   **`[]` is only ever what the file contains while nothing has been raised in
+   the loop so far** — never what an exchange writes over entries that exist.
+   This bullet used to read "an exchange that raised nothing still writes `[]`",
+   which an agent reading the bold text would follow literally: exchange 2
+   raises nothing, the ledger holding exchange 1's concerns is overwritten with
+   `[]`, and **the loss is silent** — the script loads an empty array happily
+   and the next cold reader is told "No concerns are on the ledger yet." It
+   surfaces only when a later discussion names an id and is refused, by which
+   time the reasoning is gone. That is the same requirement round 7 enforced one
+   entry at a time (a concern may not drop its text) failing wholesale, and the
+   script cannot catch it: a genuinely empty ledger and an emptied one are the
+   same bytes, so the instruction is the only layer that can say it (Codex, #124
+   round 9 `4049773962`; both assessors concurred).
+
+3. **State the next action, explicitly.** Nothing in an assessment decides this.
+
+   ````
+   ```plan-action
+   action: revise
+   concerns: C1, C3
+   note: C2 goes to David; C4 withdrawn on the evidence
    ```
-   node "$P" --round N --tier <tier> --plan <file> \
-        --prior $S/priors.json --lens "<a fresh angle>"
-   ```
+   ````
 
-   `$S/priors.json` is a JSON array of `{id, title, disposition, note}` with
-   disposition one of `fixed | declined | to-david | deferred`. The script
-   **refuses any round with an earlier round on disk without it** — `--no-prior`
-   is the explicit escape for a round that genuinely returned none.
+   The vocabulary is `investigate | scope | assess | discuss | revise |
+   present-to-david`. **There is no `approve`** — approval is not something this
+   loop can do.
 
-   Two refusals hold this together, and both close the same hole from opposite
-   ends. The script will not run a round that was not handed the prior findings,
-   **and it will not accept an assessment that failed to reconcile them** — a
-   returned `previous_findings` missing an id, inventing one, or naming one
-   twice is rejected on the same footing as a schema violation, and the re-ask
-   names exactly what went missing. The stop rule reads that reconciliation, so
-   without both, convergence could be faked by omission rather than argued.
+4. **Do it.** A revision is class-level: a concern names an instance, the fix
+   owes the class. Name the class in the `response` and sweep for siblings
+   before revising — a plan-file concern almost always has them.
 
-**Revisions are still class-level.** A finding names an instance; the fix owes
-the class. Name the class in the disposition note and sweep for siblings before
-pushing the revision — a plan-file finding almost always has them (a term used
-inconsistently, a section pattern repeated).
+**There is no stop rule to compute and no round budget.** The loop ends when the
+judgement is that nothing more is worth writing, and that judgement is mine,
+stated in an action block. What still stops it for David, at any point: a
+choice that changes intended behaviour, scope, or an accepted user-facing
+consequence; a scope addition; a split; and a disclosure question. A purely
+technical fork between two approaches to agreed behaviour is not on that list.
 
-### The stop rule
+**An assessment that says it could not do the job is not a clean exchange.** The
+old loop had two status labels that computed this; now it is prose I read. If
+Astra says it lacked the repository context, or could not reach something
+material, that is mine to supply and re-run — never convergence.
 
-**Stop when `required_revisions` is empty, every prior finding comes back
-`Resolved` or `Superseded`, and the status is not a blocking one.**
+## What never gets settled inside the loop
 
-The script computes this — `convergence` in the round's `.meta.json`, and a
-`CONVERGED` / `not converged: <why>` line in its output. It is not a judgement
-I make about the round afterwards.
+- **Choices that change intended behaviour, scope, or an accepted user-facing
+  consequence.** Astra may critique the idea itself, and when it does, that goes
+  to David as a **numbered question carrying its view and mine side by side** —
+  never absorbed into a revision. **A purely technical design fork is not one of
+  these**: two approaches serving the same agreed behaviour are ours to settle,
+  and calling every design question David's would take back the tie-break
+  granted three paragraphs below. (Astra, assessing this change: the two
+  instructions contradicted each other and either could fire.)
+- **Anything that changes intended behaviour, scope, or an accepted user-facing
+  consequence.** His, always, including his own use of the software factory.
+- **A scope addition.** Any revision that would introduce a new mechanism — a
+  table, a role, a config domain, an endpoint — is a now/next/never question for
+  David, defaulting to *next*.
 
-The third condition is the one that is easy to leave out. **`Repo context
-required` and `Human clarification required` mean the reviewer could not do the
-job** — and such a round naturally carries no required revisions, because the
-reviewer never got far enough to have any. Reading that as convergence takes "I
-could not see enough of the repository to judge this" for "this is fine". Both
-route to their own escalation instead: repo context is mine to supply and
-re-run; human clarification is a numbered question for David.
-
-- **`recommended_improvements` never hold a round open.** The reviewer knows
-  the difference and is told that anything it files as required is something it
-  is willing to spend another whole round on.
-- **The three-round minimum is retired** (David, 2026-09-09). It compensated
-  for a reviewer that could not signal completion. This one can, in a field.
-- **New ground after round 2 on an unchanged section is a recommendation**
-  unless the reviewer shows why it is required — the script puts that rule in
-  the prompt itself from round 3 onward, so it binds the reviewer rather than
-  being something I apply afterwards.
-
-### What never gets settled inside the loop
-
-- **Product-level findings.** The reviewer may critique the idea itself, and
-  when it does, that finding goes to David as a **numbered question carrying
-  the reviewer's view and mine side by side** — never absorbed into a
-  revision. Its `product_decisions_for_david` section is the feed, and my own
-  reading of a finding as product-shaped is the other. Technical findings are
-  the loop's; product findings are David's.
-- **A disagreement that will not resolve.** *(The two-round rule, David,
-  2026-09-09.)* A finding I declined that the reviewer marks `Still open` on
-  **two** consecutive rounds goes to David with both positions stated plainly.
-  It is never ground through a third time. Two rounds of the same disagreement
-  is evidence the disagreement is real, not evidence I explained it badly.
-- **A scope addition.** Any fix that would introduce a new mechanism — a table,
-  a role, a config domain, an endpoint — is a now/next/never question for
-  David, defaulting to *next*, exactly as before.
-
-## The tier, and how the loop ends
-
-**The loop ends when the reviewer says it does.** `convergence()` computes the
-stop rule from the round's own answer: no required revisions, no blocking
-status, no verdict against the work, every prior finding reconciled, and **no
-unanswered `product_decisions_for_david`**. Nothing counts rounds against a
-cap.
-
-**The tier is a rubric selector, not a budget** (#89 cut, 2026-09-16).
-`--tier` is still required from round 1 and still pinned by the first round
-that sets one, because it decides how strictly a finding is read; a changed
-flag on a later round is refused, so a typo cannot re-judge earlier rounds
-under a rubric they never ran against. What went with the cut: `TIER_BUDGETS`
-as numbers, the self-serve leash, `extensions.json` grants, `allowanceFor` and
-the past-the-allowance refusal. A round past what used to be the cap simply
-runs.
-
-**Why there is no counter here either.** The measured failure was never a loop
-that could not count — it was a builder writing code for every finding because
-the decline was a paragraph it had to compose. A reviewer whose answer carries
-a status field that can say "ship it" has termination built into its output. A
-budget on top of that is arithmetic standing in front of a judgement that has
-already been made.
-
-**The open-fork rule is the one behavioural addition.** A fork in
-`product_decisions_for_david` is not a required revision, so a round carrying
-one used to converge: the loop reached "nothing outstanding, take it to David
-for approval" while still holding the question only he could answer, and the
-approval ask went out with the fork inside it rather than before it.
-Reproduced by Astra during the #89 walkthrough.
-
-**The adjudicator is gone, here and everywhere.** Its round-3 dispatch was
-already retired for plan loops (David, 2026-09-09) because this reviewer
-performs the required/recommended triage itself, in a schema field; the two
-places it still ran — the budget cap and an `escalate` — went with the budget
-and with the adjudicator itself. An `escalate` now goes straight to David.
-
-**Plan approval is David's alone**, unchanged and not up for negotiation by
-anything the code loop does.
+**A purely technical disagreement that survives investigation and discussion is
+mine to settle**, with the reasoning recorded, and Astra is not obliged to
+agree. Record it as `settled-over-dissent` and name it in the approval ask. That
+state exists so the decision stays readable and can be revisited if new evidence
+arrives.
 
 ## The reviewer's identity is pinned
 
-`gpt-6-astra`, `xhigh`, read-only. `--model`, `--effort` and `--sandbox` are
-**refused** unless `--unpinned "<why>"` is given, and the reason is stamped on
-the round — so a loop run against a weaker reviewer says so on its own record.
-`danger-full-access` is refused with or without it: the reviewer reads, and
-nothing it does needs to escape a sandbox. If it genuinely must run the suite,
-that is `workspace-write` on a **scratch checkout**, never the live tree.
+The `strongestCodex` tier from `.agents/machinery.json`, read-only. `--model`,
+`--effort` and `--sandbox` are **refused** unless `--unpinned "<why>"` is given,
+and the reason is stamped on the exchange — so a loop run against a weaker peer
+says so on its own record. `danger-full-access` is refused with or without it.
 
-The point is not that the flags are dangerous to type. It is that the two
-things this design exists for — an independent reviewer, and one that cannot
-edit what it is judging — were both one unnoticed flag away from being lost.
+The point is not that the flags are dangerous to type. It is that the two things
+this design exists for — an independent peer, and one that cannot edit what it
+is discussing — were both one unnoticed flag away from being lost.
 
-## When the reviewer cannot run
+## When Astra cannot run
 
 **Sign-in is per session and never stored.** The script exits **2** when there
-is none, with the device-code instructions and without running anything. Get
-one before the loop starts, not mid-round:
+is none, with the device-code instructions and without running anything. Get one
+before the loop starts, not mid-exchange:
 
 1. `npm install @openai/codex` in a scratch directory; set `CODEX_BIN`.
-2. `codex login --device-auth </dev/null`, detached — the poller must stay
+2. `$CODEX_BIN login --device-auth </dev/null`, detached — the poller must stay
    alive to collect the token when David approves.
 3. Hand David the URL and code as a 🛑 with a push notification, **in the same
-   turn**: the code expires in about 15 minutes, so preparing other work first
-   wastes it.
+   turn**: the code expires in about 15 minutes.
 
-The bundle stays in `$CODEX_HOME` for the life of the container. It is never
-written to the environment block, never sent through chat, and never handed
-over in a file. The classifier refuses that write, and **that refusal is the
-rule working, not an obstacle to route around.**
+The bundle stays in `$CODEX_HOME` for the container's life. It is never written
+to the environment block, never sent through chat, never handed over in a file.
+The classifier refuses that write, and **that refusal is the rule working**.
 
-**A round that returns no schema-valid document did not happen.** The script
-re-asks once and then writes no JSON at all. Do not count it, and never
-summarise an unvalidated document to David as a review.
+**An exchange that produced no assessment did not happen.** The script reports
+it as a FAILED dispatch and writes nothing. Do not count it, and never relay it
+to David as "nothing to report" — that is the exact failure the honest reporting
+exists to prevent.
 
-**If Astra is unreachable**, say so as a 🛑 and stop — do not silently fall
-back to reviewing my own plan. The manual
-paste-into-ChatGPT path remains available as the human fallback, and I say
-plainly when I am on it.
-
-Other gotchas — closed stdin, the read-only sandbox blocking `/tmp`, detaching
-a long run, and why `pkill -f 'codex exec'` kills the calling shell — are in
-[`codex-cli-in-container.md`](../../../.agents/memory/codex-cli-in-container.md).
+**If Astra is unreachable**, say so as a 🛑 and stop — do not silently fall back
+to assessing my own plan. The manual paste-into-ChatGPT path remains available
+as the human fallback, and I say plainly when I am on it.
 
 ## Close-out
 
-One way a loop ends: the stop rule above. (There used to be a second — an
-adjudicated stop at the budget cap — and it went with the budget.)
+**Everything reaches David in chat. There is no page** (David, 2026-09-18,
+retiring the Artifact page of 2026-09-09). The plan loop now matches the
+code-review loop, where the core already says: no page, no Artifact, no HTML, no
+link.
 
-1. **Redeploy the Artifact page one last time**, with the final "what changed"
-   section and any remaining open items named.
-2. **Ask David for approval**, linking that page. The ask carries the
-   loop-close trail in product English: rounds run, the finding trend, what the
-   reviewer still disagrees with and why I declined it. **Rounds run also goes in the workstream issue's harvest comment**,
-   and that is not bookkeeping for its own sake: with no PR, the harvest
-   comment is the only place `/maintenance` can read plan-loop cost from. Leave
-   it out and the process-health numbers silently omit every plan loop.
-   **A private-path workstream has no public issue**, deliberately — its
-   tracking is the draft Project item
-   ([`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md)).
-   The same trail goes in that item's note instead, and never on any public
-   surface; `/maintenance` reads it from there. If there is no item either,
-   the trail goes in the approval ask and `/maintenance` is told the loop is
-   uncounted, rather than a public issue being created to hold it. This is the first moment he re-enters a loop that ran without him, so
-   the trail is what he audits before approving.
-3. **Plan approval is explicit only.** Reviewer convergence is not approval.
-   The scope gate authorized the loop to *review* without check-ins, never to
-   build.
+1. **The approval ask, in chat**: a short readout, then **the complete plan**.
+   The readout carries what will be built and what is excluded, why the approach
+   fits, how success will be recognised, the remaining uncertainty and accepted
+   trade-offs, anything still needing his decision, and any tie I settled over a
+   dissent with its practical implication. He should not have to reconstruct the
+   conversation to approve.
+2. `SendUserFile` for the plan document is **on request**, not the default. The
+   ban on it belonged to the page that replaced it.
+3. **Plan approval is explicit only.** Nothing else counts — not Astra's
+   agreement, not an empty ledger, not a harness nudge after a tool error. When
+   unsure whether I have been approved, I assume I have not. The scope gate
+   authorized the loop to *develop* without check-ins, never to build.
 4. **The plan file reaches `main` only if David asks.** Otherwise it stays in
-   the working tree and the Artifact page is the record. What survives a loop
-   by default is the approved plan's oracle, quoted verbatim into the
-   implementation PR body, plus the harvest comment on the workstream issue.
+   the working tree. What survives a loop by default is the approved plan's
+   oracle, quoted verbatim into the implementation PR body, plus the harvest
+   comment on the workstream issue.
+5. **Exchanges run go in the workstream issue's harvest comment.** With no PR,
+   that comment is the only place `/maintenance` can read planning cost from.
+   A private-path workstream has no public issue — its tracking is the draft
+   Project item, and the same trail goes in that item's note.
 
-**Provenance for the implementation PR declares `private-plan`.** Not
-`approved-plan`, which requires a `plan_review_pr` this loop does not produce —
-and there are no optional keys, so a block missing it is refused rather than
-accepted with a gap. `private-plan`'s keys already describe exactly what an
-in-session plan is: a file that was never committed, identified by name and
-digest.
+**Provenance for the implementation PR declares `private-plan`:**
 
 ````markdown
 ```plan-provenance
 kind: private-plan
 plan_filename: PLAN_<SLUG>.md
-plan_sha256: <sha256sum docs/plans/PLAN_<SLUG>.md — the 64-char digest>
+plan_sha256: <the 64-char digest>
 approved_by: David
 approved_on: <YYYY-MM-DD>
 ```
 ````
 
-The digest is in the round's `.meta.json` as `planSha256`, so it is copied
-rather than recomputed — and it pins **which text** David approved, which
-matters more here than it used to: there is no commit and no PR page holding
-the approved revision. Keys, grammars and what the block does not replace:
+**Take the digest from the plan file as it stands at the moment David approves
+it** — `sha256sum docs/plans/PLAN_<SLUG>.md` — and never by copying an
+exchange's `planSha256`. Those were the same thing under the old loop, which
+forced another round after every revision. They are not the same now: agreed
+edits reach David without another assessment, so the last exchange's digest can
+predate the plan he approved, and nothing would catch it — `plan_sha256` is
+validated as sixty-four hexadecimal characters and compared to no bytes
+anywhere. A wrong digest is worse than none, because the block claims to pin
+what he approved. (Codex and both assessors, #124 round 1.)
+
+An exchange's `planSha256` still identifies what *that exchange* assessed, which
+is a different and still useful fact. Keys and grammars:
 [`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md).
+
+**What that block does and does not establish.** The block's job is to record,
+in a fixed shape, that a plan was approved and by whom — so a plan-backed PR
+cannot silently claim an approval it never names. **Nothing reads it at
+runtime.** `planProvenanceDeclaration` has no caller outside its own tests;
+what checks the block is the reviewer, by eye, which
+[`code-review.md`](../../../docs/engineering/code-review.md) already assigns —
+a missing, malformed or key-short block is a finding. So the block does not
+establish that David approved, and no machinery refuses one that omits the
+approver or the date.
+
+This paragraph claimed the opposite until #124 round 9 (`4049773976`): that the
+parser "refuses" such a block "when the PR opens". It runs nowhere, and two
+other documents already said so —
+[`plan-provenance.md`](../../../docs/ai-context/plan-provenance.md) ("Nothing
+reads a PR body's block at runtime now") and `code-review.md`, which records
+that the runtime reader went in the #89 cut. **A protection described but not
+built is worse than an absent one**, because the author relies on it. Both
+assessors advised correcting the description rather than building the check:
+rebuilding that reader to make a sentence true would restore machinery the cut
+removed, for a block whose only consumer reads it by eye. The real boundary is
+item 3 above, and it is stronger stated plainly: an operating instruction, with
+nothing mechanical gating it.
 
 ## The workstream issue
 
 ### First: make sure it exists
 
-**A label transition needs an issue to carry it.** The loop no longer opens a
-PR, so the issue is the *only* spine this work has until an implementation PR
-exists — and a plan loop that runs without one is invisible to the Project, to
-`/status-all` and to `/maintenance` for its whole life. Do this at the scope
-gate, before the first label below is touched:
+**A label transition needs an issue to carry it.** The loop opens no PR, so the
+issue is the *only* spine this work has until an implementation PR exists. Do
+this at the scope gate, before the first label below is touched:
 
-0. **First ask whether this work may have a public issue at all.** Sensitive
-   and disclosure-carve-out work — an unpatched vulnerability, auth-bypass
+0. **First ask whether this work may have a public issue at all.** Sensitive and
+   disclosure-carve-out work — an unpatched vulnerability, auth-bypass
    specifics, payment-fraud paths, private customer data, embargoed work —
-   **never becomes a public issue**, per
-   [`agents-core.md`](../../../.agents/core/agents-core.md)'s *Workstream
-   tracking*. It is a **private draft Project item** instead: create or reuse
-   that, and skip steps 2 and 3 entirely. Step 1 still applies if a public
-   issue legitimately already exists for non-sensitive work.
+   **never becomes a public issue**. It is a **private draft Project item**
+   instead: create or reuse that, and skip steps 2 and 3 entirely.
 
-   **This step is numbered zero because it has to run before the others, not
-   alongside them.** Steps 2 and 3 both end in a public issue, so a carve-out
-   that reaches them has already lost — the title alone can carry the thing
-   the carve-out exists to protect. This is also the one step in the recipe
-   whose failure mode is disclosure rather than bad bookkeeping, so when it is
-   unclear whether a plan is sensitive, treat it as sensitive and ask David;
-   an unnecessary draft item costs nothing and is trivially promoted, while a
-   public issue cannot be unpublished.
-
-1. **The issue may already exist** at `stage:planning` — a workstream that was
-   already being tracked. Nothing to do.
+   **Numbered zero because it runs before the others, not alongside them.**
+   Steps 2 and 3 both end in a public issue, so a carve-out that reaches them
+   has already lost — the title alone can carry the thing the carve-out exists
+   to protect. This is the one step whose failure mode is disclosure rather than
+   bad bookkeeping, so when it is unclear, treat it as sensitive and ask David.
+   An unnecessary draft item costs nothing; a public issue cannot be
+   unpublished.
+1. **The issue may already exist** at `stage:planning`. Nothing to do.
 2. **Otherwise check the backlog first**, per
-   [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md)'s
-   *The backlog* section. This plan may be exactly a `queue:`-labeled item
-   David is now starting rather than a brand-new workstream. If a matching
-   backlog issue exists, **promote it** — drop `queue:`, add the full label
-   set — rather than opening a second issue for the same work. Skipping this
-   search duplicates the issue and orphans the backlog one open forever.
-3. **Only when no backlog match exists** — a Discovery conversation that went
-   straight to a plan without ever getting an issue — open a genuinely new
-   one, with the full initial label set (`stage:planning`, `waiting:claude`,
-   `mode:feature`) **and** a State of Play block, not just the issue itself.
-   An issue without those labels is invisible to `/status-all`, which filters
-   on `stage:`, and to the board's sync Action — so skipping them is not a
-   lighter kind of tracking, it is none.
+   [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md).
+   This may be exactly a `queue:`-labeled item David is now starting. If a
+   matching backlog issue exists, **promote it** — drop `queue:`, add the full
+   label set — rather than opening a second issue for the same work.
+3. **Only when no backlog match exists**, open a new one with the full initial
+   label set (`stage:planning`, `waiting:david`, `mode:feature`) **and** a State
+   of Play block. An issue without those labels is invisible to `/status-all`
+   and to the board's sync Action.
 
 ### Then: keep its labels current
 
-Per [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
-for a workstream at `stage:planning`:
-
-- **The SOW banner posts** (and at round 0's hand-over) → `waiting:david`.
-- **David agrees the SOW** → `waiting:claude`, and it stays there for the whole
-  loop. There is no `waiting:codex` state any more: a round is a local process
-  I am waiting on, not a remote reviewer, so I am the holder throughout.
+- **The scope banner posts** (and at the scope exchange's hand-over) →
+  `waiting:david`.
+- **David agrees the scope** → `waiting:claude`, and it stays there for the
+  whole loop. **There is no `waiting:codex` state**: an exchange is a local
+  process I am waiting on, so I am the holder throughout.
 - **The approval ask posts** → `waiting:david`.
 - **David approves** → `stage:coding`, `waiting:claude`.
 
 ### And at approval, if the plan ships in phases: write the checklist
 
 **This is this loop's one phase obligation, and nothing else performs it.**
-`workstream-tracking.md`'s ownership table assigns the Phases checklist to
-this skill by name, at exactly this moment; there is no second trigger
-anywhere that would catch a miss.
+`workstream-tracking.md`'s ownership table assigns the Phases checklist to this
+skill by name, at exactly this moment; there is no second trigger that would
+catch a miss.
 
-At David's approval of a **phased** plan, write the **Phases checklist** into
-the parent workstream issue's body, with *every* phase listed and each marked
-`not yet opened`. Writing only the phases that start immediately defeats the
-point: the checklist is the sole durable record of what the feature still
-owes, and a phase absent from it is a phase `/next` cannot see and nobody will
-remember.
+At David's approval of a **phased** plan, write the **Phases checklist** into the
+parent workstream issue's body, with *every* phase listed and each marked `not
+yet opened`. Writing only the phases that start immediately defeats the point:
+the checklist is the sole durable record of what the feature still owes, and a
+phase absent from it is one `/next` cannot see.
 
 **This loop never opens a phase sub-issue itself, for any phase, including the
 first.** Its lifecycle ends at this approval handoff and does not run again for
-phase 2 onward, so putting phase-opening here would work by accident for phase
-1 and silently fail for every phase after it. Opening a phase's sub-issue
-happens uniformly when that phase's implementation starts, which is the product
-implementation skill's job — the same skill for phase 1 as for phase 8.
+phase 2 onward, so putting phase-opening here would work by accident for phase 1
+and silently fail for every phase after it.
 
 **A split is proposed to David, never declared silently.** The checklist is
-written *after* he approves the phased shape, never as a way of announcing one.
+written *after* he approves the phased shape.
 
 ## What this skill no longer does
 
-Deleted rather than kept as history, because a retired instruction that is
-still readable is one an agent follows. Recorded here in one list so a reader
-of the old loop can find each piece's fate:
+Deleted rather than kept as history, because a retired instruction that is still
+readable is one an agent follows. Recorded here in one list so a reader of the
+old loop can find each piece's fate:
 
 | Retired | Why it existed | What replaced it |
 |---|---|---|
-| The `[PLAN REVIEW]` PR, its branch, its body template, the findings ledger | The reviewer was remote and diff-anchored | A local round JSON and one Artifact page |
-| The `-combined` branch for a step-10 split | A split plan had no single URL | The Artifact page is the single URL |
-| Round counting from GitHub, the round-check receipt, the trigger guard | Round state lived on GitHub | Rounds are read from `.agents/reviews/<slug>/round-N.json`; nothing counts them against a cap |
-| `review-budget.mjs` / `review-loop-record.mjs`, for plan loops | Both were keyed to a PR number | Both are gone everywhere (#89 cut); `--tier` survives as a rubric selector |
+| The `[PLAN REVIEW]` PR, its branch, its body template, the findings ledger | The reviewer was remote and diff-anchored | A local Markdown assessment and a chat readout |
+| Round counting from GitHub, the round-check receipt, the trigger guard | Round state lived on GitHub | Exchanges are read from `.agents/reviews/<slug>/`; nothing counts them against a cap |
+| `review-budget.mjs` / `review-loop-record.mjs` | Both were keyed to a PR number | Gone everywhere (#89 cut); `--tier` survives, naming what is downstream |
 | The disclosure gate on the plan | The channel was public | The plan is never published |
-| The three-round minimum and the fresh-lens stop condition | A defect-only reviewer could not say *done* | `required_revisions` empty and priors reconciled |
-| The adjudicator, everywhere | Nothing could tell required from recommended | Here, the reviewer's own required/recommended split; on the code side, two independent assessments the builder weighs but did not write (#96) |
-| The growth tripwire's line-count ledger | A proxy for convergence | The stop rule reads convergence directly |
-| Deriving the status label and reconciliation myself | The transport could not carry them | The reviewer returns both, in fields |
-| `SendUserFile` as the plan fallback | No PR page on the private path | The Artifact page, which is already private |
+| The three-round minimum, the fresh-lens stop condition, the adjudicator | A defect-only reviewer could not say *done* | The loop ends on a judgement I state |
+| **The JSON schema and its re-ask** | "Every section every round" had to be enforced rather than asked | Markdown, and nothing parses it |
+| **`convergence()` and the computed stop rule** | Astra's returned verdict drove the loop | The `plan-action` block |
+| **Prior findings as ids, titles and dispositions** | Anchoring was the worry | The concern ledger, with the reasoning intact and its source named |
+| **Reconcile-every-prior-or-be-rejected** | The stop rule read the reconciliation | The ledger is mine; Astra's silence closes nothing |
+| **A fresh lens every round; late findings auto-downgraded** | Convergence measured consistency, not quality | An angle when it addresses a credible gap; consequence judged whenever discovered |
+| **The `internal` tier's critical-flaw threshold** | A rubric that decided | The Worth rule, applied to what is actually downstream |
+| **The Artifact page** (David, 2026-09-18) | A plan had no single URL once the PR went | Chat: a readout per exchange, the plan itself at approval |

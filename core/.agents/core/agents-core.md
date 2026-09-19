@@ -169,23 +169,20 @@ For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
 approves the plan.**
 
-**Reviewing a plan (not code).** Plan review does not run on a pull request
-(2026-09-09). A plan reaches you as a **file in the checkout you are running
-in**, named in the instructions you are given, with its review oracle
-alongside. Apply the
-[plan-review contract](../../docs/ai-context/plan-review-contract.md): review
-the markdown as an implementation *specification* against that oracle and
-against the repo, return a **complete** assessment every round even when
-nothing is critical, pick one status label (never approval language — only
-David approves), and never implement anything.
+**Planning (not code review).** A planning loop does not run on a pull request
+(2026-09-09), and since 2026-09-18 it is not a review: two parties develop the
+plan together, one of them holding it. The plan reaches you as a **file in the
+checkout you are running in**, named in the instructions you are given, with the
+agreed oracle alongside.
 
-**On a re-review, what you are handed is not the scope.** You get a fresh
-context each round, with the previous rounds' findings as ids, titles and
-dispositions only. Re-read the *whole* current plan and re-verify it against
-the repo anyway, reconcile every one of those findings (Resolved / Still open /
-Superseded, where "the wording changed" is never Resolved), attack from a lens
-you haven't used yet, and report what you actually inspected — including the
-searches you ran — plus what you could not verify and why. The contract's
-*Re-reviews*, *Report what you verified* and *Output* sections are the
-authority; this paragraph is a summary.
+[`planning-contract.md`](../../docs/ai-context/planning-contract.md) is the whole
+authority. Both parties read it, and the facts that differ by role — who holds
+the plan, who may settle a purely technical tie — arrive in the **role block**
+the dispatch places above it. This paragraph deliberately does not summarise it:
+the summary that used to sit here outlived the rules it summarised by a full
+redesign, which is what a summary of a contract does.
+
+What is worth stating outside the contract, because it binds whoever reads this
+file: **no agent approves a plan, agreement between agents is not approval, and
+neither party implements the work.** Only David approves.
 

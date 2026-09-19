@@ -378,10 +378,20 @@ David-gate definition above):
   with no open question — say so plainly, and **match the example to the
   gate actually held**, since none of the three is a merge gate any more:
   "scope agreed in outline, waiting on your go-ahead before the plan is
-  drafted" / "plan v3 is up at <link>, reviewer converged, waiting on your
-  approval" / "merged — UAT doc at `docs/tests/UAT/PR<N>_..._UAT.md`, not
+  drafted" / "plan v3 delivered in chat, waiting on your approval" /
+  "merged — UAT doc at `docs/tests/UAT/PR<N>_..._UAT.md`, not
   yet run". Search for the UAT doc filename before claiming one doesn't
   exist.
+- **Never assert a reviewer's state from a gate.** The middle example above
+  once read "plan v3 delivered in chat, **nothing outstanding with Astra**,
+  waiting on your approval", and that sentence is false in a state the planning
+  loop explicitly supports: `settled-over-dissent`, where a technical tie was
+  settled over an objection Astra still holds and the approval ask is required
+  to name it. Nothing this session can read would catch it — the concern ledger
+  lives in `.agents/reviews/`, which is gitignored, so it never reaches GitHub.
+  Report a concern only when an available source establishes it; an approval
+  gate establishes neither unanimity nor a blocker. (Codex, #124 round 8
+  `4045616307`.)
 - Accuracy over cheapness here: a wrong restatement makes the whole report
   untrustworthy, which defeats the purpose. Read the actual comment/thread
   rather than inferring from labels alone.

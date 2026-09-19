@@ -373,12 +373,10 @@ export function assertSchemaSupported(schema, at = "$") {
  * `plan-review.mjs` while it had one caller. `review-proxy.mjs` is the second,
  * and a duplicated `runCodex` is not two copies of some glue: it is two copies
  * of `--sandbox read-only` and `--ignore-user-config`, either of which can
- * drift in one file and leave that caller's reviewer able to write, or its
- * `--output-schema` silently ignored (measured: a schema is ignored when MCP
- * tools are active, and user config is how those get turned on). A reviewer
- * whose output stopped being constrained looks exactly like one whose output
- * is fine. So both callers import this, and `plan-review.mjs` re-exports what
- * its own suite already names.
+ * drift in one file and leave that caller's reviewer able to write, or steered
+ * by a stray user config. A reviewer that quietly stopped being read-only looks
+ * exactly like one that is fine. So both callers import this, and
+ * `plan-review.mjs` re-exports what its own suite already names.
  */
 export const codexBin = () => process.env.CODEX_BIN || "codex";
 
@@ -430,7 +428,6 @@ export const SIGN_IN_INSTRUCTIONS = [
  *   -                        the prompt arrives on stdin. `codex exec` waits
  *                            forever on an open stdin in this harness, so the
  *                            stream is written and closed, never inherited.
- *   --output-schema          constrains the final message to the contract's shape.
  *   --output-last-message    writes that message to a file, so the result is
  *                            read from disk rather than scraped out of a
  *                            transcript that contains 45 tool calls.
@@ -439,10 +436,8 @@ export const SIGN_IN_INSTRUCTIONS = [
  *                            the suite needs workspace-write on a scratch
  *                            checkout, or a TMPDIR inside the workspace.)
  *   --ignore-user-config     a stray ~/.codex/config.toml must not steer this
- *                            reviewer. It is also the guard on a measured
- *                            defect: --output-schema is IGNORED when MCP tools
- *                            are active, and user config is how MCP tools get
- *                            turned on. Auth still comes from CODEX_HOME.
+ *                            reviewer -- its model, its sandbox or its tools.
+ *                            Auth still comes from CODEX_HOME.
  *   --ignore-rules           same reasoning for execpolicy .rules files.
  *   --ephemeral              no session file on disk; each round is a fresh
  *                            context by construction, not by convention.
@@ -450,20 +445,13 @@ export const SIGN_IN_INSTRUCTIONS = [
  * stdout and stderr are inherited so a long run shows progress where a human
  * or a log file can see it; the answer never comes from either stream.
  */
-export function runCodex({ prompt, schemaFile = null, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
+export function runCodex({ prompt, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
   const args = [
     "exec",
     "--model", model,
     "-c", `model_reasoning_effort="${effort}"`,
     "--sandbox", sandbox,
     "--cd", cwd,
-    // `--output-schema` IS OPTIONAL, because one caller has no schema. The plan
-    // reviewer fills a contract's fixed surface and is constrained to it; the
-    // review proxy's substantive output is Markdown a person reads, so there is
-    // nothing to constrain it to and a schema would only invent one. Omitting
-    // the flag entirely is the honest shape -- passing an empty path would make
-    // `codex exec` fail on a file it cannot open.
-    ...(schemaFile ? ["--output-schema", schemaFile] : []),
     "--output-last-message", outFile,
     "--ephemeral",
     "--ignore-user-config",

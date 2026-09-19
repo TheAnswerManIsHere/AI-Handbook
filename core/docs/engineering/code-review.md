@@ -20,7 +20,7 @@ A code diff can be internally sound — well-tested, correctly implemented,
 sensibly scoped — and still be the wrong PR, because it quietly narrowed or
 dropped part of what David actually approved. Reviewing the diff against
 itself can't catch that; it needs an oracle outside the diff, same principle
-as the [plan-review contract](../ai-context/plan-review-contract.md#the-review-oracle-the-pr-body).
+as the [planning contract](../ai-context/planning-contract.md#2-turn-agreed-intent-into-an-executable-plan).
 
 For a PR built from a David-approved plan, the PR body's **Approved-plan
 oracle** section (see the
@@ -353,8 +353,8 @@ What to take from it, as a reviewer or an author:
 ## Re-reviews (round 2 onward)
 
 A code review is a loop too: you review, the author pushes fixes, you review
-again. The plan-review contract's
-[*Re-reviews*](../ai-context/plan-review-contract.md#re-reviews-round-2-onward)
+again. The planning contract's
+[*Revise, discuss, and converge*](../ai-context/planning-contract.md#6-revise-discuss-and-converge)
 section is the plan-side analog of this one; these are the code-side
 invariants, and they are the engineering standard regardless of which agent is
 reviewing:
@@ -625,9 +625,11 @@ sees the sequence before the author admits it is one.
 
 ## Review output format
 
-**Two delivery surfaces exist; they don't support the same shape** — same split
-as the [plan-review contract's *Output*](../ai-context/plan-review-contract.md#output),
-adapted for a code diff instead of a markdown plan. Names for the two, used
+**Two delivery surfaces exist; they don't support the same shape.** This split
+is the code side's own. It used to be described as shared with the plan-review
+contract, which had the same two surfaces; the 2026-09-18 planning redesign left
+the plan side with one prose surface and no status label, so there is no longer a
+twin to point at. Nothing about the code surfaces changed. Names for the two, used
 throughout this doc: a **full assessment** (one complete document, with a
 status label) and a **structured defect pass** (diff-anchored findings only, no
 status label). Naming them is terminology, not permission to weaken either —
@@ -645,7 +647,8 @@ deciding them.
 
 ### Structured defect pass — GitHub structured review (the `@codex review` transport)
 
-Same confirmed limitation as the plan-review contract: this surface has no
+A confirmed limitation of this transport, and the code side's own to carry now
+that the planning contract describes a single prose surface: this surface has no
 freestanding top-level write-up, only diff-anchored inline findings, and no
 status-label or ledger channel. Don't ask this surface for the full-document
 shape above — it can't post it. Each finding is its own inline comment,

@@ -28,21 +28,28 @@ function fixture() {
   mkdirSync(join(root, ".agents/receipts"), { recursive: true });
   mkdirSync(join(root, ".agents/captures"), { recursive: true });
   mkdirSync(join(root, ".agents/reviews"), { recursive: true });
+  mkdirSync(join(root, "core/docs/plans"), { recursive: true });
+  mkdirSync(join(root, "docs/plans"), { recursive: true });
 
   writeFileSync(join(root, "core/.claude/skills/alpha/SKILL.md"), "alpha");
   writeFileSync(join(root, "core/.claude/skills/beta/SKILL.md"), "beta");
   writeFileSync(join(root, "core/.claude/agents/one.md"), "one");
   writeFileSync(join(root, "core/.agents/receipts/.gitignore"), IGNORE);
   writeFileSync(join(root, ".agents/receipts/.gitignore"), IGNORE);
-  // The second and third mirrored pairs. Every failure case below edits the
-  // RECEIPTS copy, so these stay wired and the assertions still count one
-  // problem. Each pair MUST be built here: an unbuilt pair is a missing-file
-  // problem in every test, which is how adding the reviews pair turned all
-  // ten of these red at once. (AI-Handbook #91 round 2.)
+  // The other mirrored pairs. Every failure case below edits the RECEIPTS copy,
+  // so these stay wired and the assertions still count one problem. Each pair
+  // MUST be built here: an unbuilt pair is a missing-file problem in every
+  // test, which is how adding the reviews pair turned all ten of these red at
+  // once (AI-Handbook #91 round 2) -- and how adding the plans pair turned all
+  // ten red again, this comment notwithstanding (#124 round 2). Reading a
+  // warning is not the same as being stopped by one, which is why the list of
+  // pairs and this fixture should one day be read from the same place.
   writeFileSync(join(root, "core/.agents/captures/.gitignore"), CAPTURES_IGNORE);
   writeFileSync(join(root, ".agents/captures/.gitignore"), CAPTURES_IGNORE);
   writeFileSync(join(root, "core/.agents/reviews/.gitignore"), CAPTURES_IGNORE);
   writeFileSync(join(root, ".agents/reviews/.gitignore"), CAPTURES_IGNORE);
+  writeFileSync(join(root, "core/docs/plans/.gitignore"), CAPTURES_IGNORE);
+  writeFileSync(join(root, "docs/plans/.gitignore"), CAPTURES_IGNORE);
 
   symlinkSync("../../core/.claude/skills/alpha", join(root, ".claude/skills/alpha"));
   symlinkSync("../../core/.claude/skills/beta", join(root, ".claude/skills/beta"));
