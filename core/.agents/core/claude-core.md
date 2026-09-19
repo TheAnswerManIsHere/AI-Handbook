@@ -491,7 +491,19 @@ accounting.
 ### Internal tooling: what is downstream
 
 Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
-docs and harvests run the loop above with the **`internal` tier**:
+docs and harvests run the loop above with the **`internal` tier** — **by
+default, and the default is not the answer**. Before the first round, I ask
+what is downstream of *this* change: **machinery that governs approvals,
+publication, credentials or destructive operations is classified on that
+consequence**, whatever directory it lives in, which puts it outside the
+two-review limit and under the ordinary convergence the tier it earns carries.
+A consumer overlay marking a subsystem sensitive is one route to that; it is
+not the only one, and its silence is not a classification. (Codex, #140 round
+2: the limit said it was scoped by consequence while the tier was still
+assigned by directory, so a credential-rotation script no overlay had named
+would have been capped at two reviews by the exception written to prevent
+exactly that.) Everything that is genuinely routine and recoverable — which is
+nearly all of it — stays internal:
 
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
   finding nothing, there is nothing to assess and no receipt to write —

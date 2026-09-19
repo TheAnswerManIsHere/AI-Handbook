@@ -92,8 +92,9 @@ Decide by what "this" refers to (contract's trigger table):
   the merged diffs, contradiction or duplication with existing docs; out of
   scope — prose style, structure preferences, completeness beyond the
   session's actual learnings.* Out-of-scope findings are declined against
-  the stated oracle in one triage pass — a harvest is an internal artifact, so
-  the **two-review limit** applies (`working-modes.md`): the automatic pass,
+  the stated oracle — a harvest is an internal artifact, so the **two-review
+  limit** applies (`working-modes.md`) and nothing here is a separate cap: the
+  automatic pass,
   one coherent batch of corrections if any are warranted, **a review of that
   corrected head**, then iteration stops. It never meant a pushed fix merges
   unreviewed. Once the ready bar is met I self-merge per CLAUDE.md's

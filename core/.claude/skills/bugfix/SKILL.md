@@ -375,8 +375,10 @@ What is *bugfix-specific* about the loop:
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or
   process tooling, the internal tier governs (David, 2026-08-21) — the
-  automatic pass, one triage, fix rounds re-reviewed under the internal tier,
-  which says nobody's money or data is downstream and leaves the judgement to
+  automatic pass, one coherent batch of corrections if any are warranted, and
+  a review of that corrected head — the two-review limit, the same as
+  everywhere. The tier itself only says nobody's money or data is downstream,
+  and leaves the judgement to
   [`review-judgment.md`](../../../docs/ai-context/review-judgment.md) — exactly
   as if the same change had arrived through feature mode. **This bullet used to
   say "where only a critical flaw is written for"**, which was the tier's

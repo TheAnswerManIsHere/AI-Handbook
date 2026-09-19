@@ -98,7 +98,13 @@ three rounds that ran 24 → 14 → 21 findings.
   account may do." It is **totalising by nature** — that is its job — and it
   carries the product decisions that constrain every increment beneath it. It
   lives with the other shared context docs in `docs/ai-context/`, is reviewed
-  **once** for soundness, and is updated as later discoveries land.
+  for soundness **without being iterated on the way a plan is**, and is updated
+  as later discoveries land. **"Reviewed once" meant not looping on an end
+  state; it never meant a corrected direction escapes review.** If that review
+  finds a soundness defect and the direction is changed, the changed head is
+  reviewed like any other — the two-review limit and the write-gate's
+  no-unreviewed-commit invariant apply here as everywhere. (Codex, #140 round
+  2, finding the third one-pass path.)
 - A **plan** builds **one bounded increment** toward a direction and **cites
   the direction it serves**. Its intent sentence says what *this increment*
   makes true — never what the end state is.

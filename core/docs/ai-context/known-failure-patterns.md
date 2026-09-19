@@ -1732,8 +1732,9 @@ the artifact that was approved for review.
 and a build plan.** A totalising Product Intent — "any and all X",
 "exclusively", "one source of truth" — makes every discovery in-scope *by
 definition*: the document has no way to say "true, and next," only "true, so
-in." **Avoid:** separate **directions** (end states, reviewed once, never
-looped) from **plans** (one bounded increment, citing its direction), per
+in." **Avoid:** separate **directions** (end states, reviewed for soundness but not
+iterated on the way a plan is — which never meant a corrected direction skips
+review of the correction; see `working-modes.md`) from **plans** (one bounded increment, citing its direction), per
 [`working-modes.md`](./working-modes.md#directions-and-plans-are-different-artifacts-david-2026-08-11);
 apply the increment test *before* writing — which since 2026-09-18 asks what
 the increment makes true and what bounds it, rather than reading a verdict off
