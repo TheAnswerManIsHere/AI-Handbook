@@ -1,6 +1,6 @@
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo.
 /**
- * D0's tests. The deliverable is a chat message, so these assert on text.
+ * The round translation's tests. The deliverable is a chat message, so these assert on text.
  *
  * Two rules under test throughout: **"agrees" is never printed over an
  * unassessed item, or over a round the builder has not answered** -- and the
@@ -41,7 +41,6 @@ const declined = { raised: "A mistyped flag would not be caught.", done: "Declin
 
 const answer = (over = {}) => ({
   recommendation: "Nothing to do.",
-  reasoning: "Both fixes do what the replies claim; I read the diff for each. The decline rests on the flag being yours to type.",
   about: "Two points on how a round is located.",
   disagreements: [],
   findings: [fixed, declined],
@@ -292,7 +291,7 @@ test("the brief carries the schema, nested field names included", () => {
   // (Astra, 2026-09-16.)
   const b = roundBrief({ finalRound: false, root: "/r", pr: 1, round: 1, head: "h" });
   assert.match(b, /## The shape of your answer/);
-  for (const key of ["why_it_matters", "does_not_do", "now_trusting", "builder_answered", "could_not_assess", "overbuilt", "reasoning"]) {
+  for (const key of ["why_it_matters", "does_not_do", "now_trusting", "builder_answered", "could_not_assess", "overbuilt", "took_on_trust"]) {
     assert.ok(b.includes(`"${key}"`), `schema key ${key} missing from the brief`);
   }
   // The quoted schema is the shipped one, so the two cannot drift.
@@ -424,12 +423,12 @@ test("a real readAnswer result feeds chatReport unchanged, on an ordinary and a 
   const root = tmpRoot();
   const ordinary = writeAndRead(root, PR, 2, answer());
   const text = chatReport(ordinary, { askedModel: "claude-fable-5-1" });
-  assert.ok(text.startsWith("**D0 — round 2: agrees with the builder's account**"));
+  assert.ok(text.startsWith("**Translation — round 2: agrees with the builder's account**"));
   assert.doesNotMatch(text, /undefined/);
 
   const fin = writeAndRead(root, PR, 3, answer(finalSections), { finalRound: true });
   const finText = chatReport(fin);
-  assert.ok(finText.startsWith("**D0 — round 3: agrees with the builder's account**"));
+  assert.ok(finText.startsWith("**Translation — round 3: agrees with the builder's account**"));
   assert.match(finText, /\*\*Shipping unfixed\*\*/);
   assert.match(finText, /\*\*What actually landed\*\*/);
   assert.doesNotMatch(finText, /undefined/);
@@ -444,16 +443,16 @@ test("every delivery failure reaches chatReport as a FAILED round, never as a be
   assert.deepEqual(Object.keys(missing).sort(), ["failed", "pr", "reason", "round"]);
   assert.match(missing.reason, /wrote no answer file/);
   let text = chatReport(missing);
-  assert.ok(text.startsWith("**D0 — round 4: translation failed — the translator wrote no answer file"));
+  assert.ok(text.startsWith("**Translation — round 4: translation failed — the translator wrote no answer file"));
   assert.doesNotMatch(text, /undefined|no builder account|agrees/);
 
   fs.writeFileSync(prepareAnswerPath(root, PR, 4), "not json at all");
   text = chatReport(readAnswer(root, PR, 4, { finalRound: false }));
-  assert.match(text, /^\*\*D0 — round 4: translation failed — the answer file is not valid JSON/);
+  assert.match(text, /^\*\*Translation — round 4: translation failed — the answer file is not valid JSON/);
 
   fs.writeFileSync(prepareAnswerPath(root, PR, 4), JSON.stringify({ about: "x" }));
   text = chatReport(readAnswer(root, PR, 4, { finalRound: false }));
-  assert.match(text, /^\*\*D0 — round 4: translation failed — the answer did not match the expected shape/);
+  assert.match(text, /^\*\*Translation — round 4: translation failed — the answer did not match the expected shape/);
   assert.match(text, /No independent account of this round exists/);
 });
 
@@ -593,7 +592,6 @@ test("the chat report is the translator's words, not the builder's summary of th
   // machinery for: a builder-written summary of an independent account is just
   // the builder's account again.
   assert.ok(text.includes(a.recommendation));
-  assert.ok(text.includes(a.reasoning));
   assert.ok(text.includes(a.about));
   for (const x of a.findings) {
     assert.ok(text.includes(x.raised));
@@ -601,9 +599,8 @@ test("the chat report is the translator's words, not the builder's summary of th
   }
   assert.ok(text.includes(a.disagreements[0].what));
   assert.ok(text.includes(a.disagreements[0].why_it_matters));
-  assert.ok(text.includes(a.took_on_trust));
   // And the verdict leads, so the headline cannot disagree with the body.
-  assert.ok(text.startsWith("**D0 — round 2: differs on 1 point**"));
+  assert.ok(text.startsWith("**Translation — round 2: differs on 1 point**"));
   // The builder's thread shorthand never reaches David.
   assert.doesNotMatch(text, /Class:|Worth:|Oracle:/);
 });
@@ -694,11 +691,14 @@ test("the model is mentioned only when it is worth a reader's attention", () => 
 // The report's order and the findings list (David, 2026-09-17)
 // ---------------------------------------------------------------------------
 
-test("the report is ordered by what David does with it: recommendation, reasoning, disagreements, findings", () => {
-  // He relies on the recommendation and reads its grounds before anything
-  // else; the earlier shape put a finding-by-finding narrative second and the
-  // recommendation last, so the longest section sat above the line he reads
-  // for. The order is asserted, not just the presence of each part.
+test("the report is ordered by what David does with it: about, the ask, disagreements, findings", () => {
+  // Revised 2026-09-19 on his reading of a live report. `about` leads, so he
+  // knows which round he is looking at before he is told what to do; the ask
+  // follows. Two sections are gone and their ABSENCE is asserted, because a
+  // renderer that quietly keeps printing what was cut is the failure here:
+  // the paragraph justifying the recommendation ("I don't care that you
+  // checked everything. I assume you did") and the trust footer ("I trust
+  // you"). The order is asserted, not just the presence of each part.
   const a = answer({ disagreements: [disagreement] });
   const text = chatReport(round(2, a));
   const at = (needle) => {
@@ -706,16 +706,27 @@ test("the report is ordered by what David does with it: recommendation, reasonin
     assert.ok(i >= 0, `missing: ${needle}`);
     return i;
   };
-  const headline = at("**D0 — round 2");
+  const headline = at("**Translation — round 2");
+  const about = at(a.about);
   const needs = at(`**Needs you:** ${a.recommendation}`);
-  const why = at(a.reasoning);
   const differs = at("**Where it disagrees with the builder** (1)");
   const findings = at("**Findings** (2 raised: 1 fixed, 1 declined)");
-  const about = at(`*About:* ${a.about}`);
-  const trust = at("*Taken on trust, not checked:*");
-  assert.ok(headline < needs && needs < why && why < differs && differs < findings && findings < about && about < trust);
+  assert.ok(headline < about && about < needs && needs < differs && differs < findings);
+  assert.doesNotMatch(text, /Taken on trust/, "the trust footer was cut and is still printing");
+  assert.doesNotMatch(text, /\*About:\*/, "About moved to the top; the old footer label survived");
+  assert.doesNotMatch(text, /\bD0\b/, "the role is called Translation now");
   // The recommendation appears once, at the top, and never as a closing line.
   assert.equal(text.split(a.recommendation).length - 1, 1);
+});
+
+test("what the report stops showing David is still collected for the next round", () => {
+  // `took_on_trust` has two consumers and only one of them is David. He asked
+  // for the section to go; the FIELD stays, because roundBrief renders it into
+  // a later round's prior-accounts block as the list worth rechecking (Codex
+  // #109 round 8). Dropping the field would have taken that with it.
+  const a = answer();
+  assert.doesNotMatch(chatReport(round(2, a)), /Taken on trust/);
+  assert.deepEqual(validateAnswer({ ...a, took_on_trust: undefined }, { finalRound: false }).length > 0, true);
 });
 
 test("every finding is one line carrying its outcome, whether it held, and whether it was overbuilt", () => {
@@ -777,9 +788,10 @@ test("a finding's shape is enforced by the schema: the outcome is an enum and ev
     const { [k]: _dropped, ...without } = fixed;
     assert.ok(bad(without).length > 0, `a finding without ${k} was accepted`);
   }
-  // And the recommendation's grounds are required, not optional prose.
-  const { reasoning: _r, ...noReasoning } = answer();
-  assert.ok(validateAnswer(noReasoning, { finalRound: false }).length > 0);
+  // And a field the schema no longer knows is refused rather than ignored:
+  // `reasoning` was cut on 2026-09-19 and a role still emitting it should be
+  // told, not silently rendered away.
+  assert.ok(validateAnswer({ ...answer(), reasoning: "x" }, { finalRound: false }).length > 0);
 });
 
 test("a finding that did not hold is a point of difference even when the list omits it", () => {

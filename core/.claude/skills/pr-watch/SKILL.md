@@ -298,6 +298,18 @@ replaced them is step 5's proportionate-evidence rule.)
      #85's observable pair fired twice and decided both times without my
      judgement entering it. **A condition I have to interpret is one I will
      reinterpret.**
+   - **One line naming what the round costs and what it protects**, in the same
+     comment, before it runs. Roughly: two assessments at a hundred and fifty
+     thousand tokens each, a translation when one is owed, and my own turns —
+     the same bill whatever the findings turn out to be. Then what is
+     downstream if this round finds nothing. When that reads "a sentence in a
+     comment two agents read", the disproportion is legible to both of us
+     *before* it is spent rather than after. The token counts are already
+     reported to me on every dispatch; this is putting them beside what they
+     bought, not building a ledger.
+   - **A round I would only run because the loop is already open is not run.**
+     Sunk cost is not a reason: the round already happening does not make the
+     next one free, it causes it.
    - **Name the branch head, never a specific SHA** (David, 2026-08-17). Codex
      reviews the head at the moment it runs, not the SHA it was told, and the
      `**Reviewed commit:**` line it emits is what binds.
@@ -313,9 +325,13 @@ replaced them is step 5's proportionate-evidence rule.)
      at. `get_check_runs` returning `total_count: 0` means checks have not
      reported yet, which is not green and must never be reported as green.
 
-7. **Translate the round for David (D0), after the trigger is posted.** Never
-   before: a translation I could act on is an in-loop advisor reading my own
-   prose.
+7. **Translate the round for David when I declined something in it, or when
+   something about it smells wrong — and always on the last round before a
+   merge** (David, 2026-09-19). Not every round: four translations on #131 were
+   the loop's single largest token line, and both of the translator's real
+   disagreements came on rounds carrying a decline. **After the trigger is
+   posted**, never before: a translation I could act on is an in-loop advisor
+   reading my own prose.
 
    **The deliverable is a message in chat. There is no page** (David,
    2026-09-16). There was one, and removing it is what #109 round 3 actually
@@ -391,7 +407,7 @@ replaced them is step 5's proportionate-evidence rule.)
      `chatReport` composes it from the validated answer's own fields; the only
      text in it that is not the translator's is the labels — including the
      deterministic "none reported" labels for an empty `disagreements` or
-     `known_gaps`, which state the field's value and evaluate nothing. **D0
+     `known_gaps`, which state the field's value and evaluate nothing. **The translation
      is a second account, not a ban on mine** (David, 2026-09-16: *"There's
      no need to be so paranoid about the builder writing up an account and
      giving it to me. That's not an issue at all."*). My own account of a
@@ -493,7 +509,7 @@ replaced them is step 5's proportionate-evidence rule.)
      self-report gives essentially all of the tracking value. Keep the
      disclosure honest about being a self-report; do not upgrade its wording to
      sound like an observation.
-   - **A failed dispatch never blocks the loop.** D0 is off the critical path by
+   - **A failed dispatch never blocks the loop.** The translation is off the critical path by
      design: say so in plain English and carry on.
 
    **A newly added agent type is not dispatchable immediately, and that is not

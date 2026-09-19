@@ -399,6 +399,55 @@ paragraph used to predict that most internal findings ship as recorded gaps.
 That is a decline rate wearing a prediction's clothes, two paragraphs above the
 text retiring it, and it is gone with the rubric it survived.
 
+### The ship gate: when the Worth rule stops being asked (David, 2026-09-19)
+
+**Both assessments open by answering one question: is the oracle met at this
+head, yes or no. Once both say yes, the default flips** — findings become
+recorded gaps unless one of two things is true: it would make the oracle
+*false* (a regression), or its blast radius reaches outside this pull request.
+I execute that stop; I do not judge it alone.
+
+**Why this exists, and why nothing already in this file does its job.** Every
+other gate here filters a *finding*: the Worth rule per finding, the shared
+judgement per finding twice, the intelligent-reader lens per finding. A chain
+of individually-defensible small fixes is exactly what a system of per-item
+filters produces, and nothing was watching the sequence. Measured on #131: five
+rounds, twelve findings. Rounds 1–3 fixed real defects. Rounds 4–5 were about
+the wording of a label in a PR comment, cost roughly a quarter of the loop's
+dispatched tokens plus its most expensive main-loop turns, and changed nothing
+anyone would do. Both assessments had opened rounds 3, 4 and 5 with *"the
+approach still serves David's goal"* and *"the change still does what you
+agreed"* — the signal was already being emitted every round and nothing
+consumed it. David stopped that loop by hand.
+
+**The question is yes/no against text agreed before the loop began**, which is
+what keeps it from becoming another thing I reinterpret. "Would this change
+what a reader does?" cannot do the job: every finding can be argued that way —
+that is what makes it a finding — and rounds 4 and 5 were both argued that way,
+honestly, by two assessors and by me.
+
+**One rationalisation is named and banned.** A fix worth doing *only because a
+round is already being written* is, by that fact, not worth its own round — and
+since it causes one, it is not worth doing. The phrase appeared verbatim in two
+#131 assessments (*"clearly over the line in a round already being written"*)
+and it is the engine: each round justifies its marginal fix by the round
+already happening, and each fix causes the next round. Sunk cost is not a
+reason to write.
+
+**A round is the unit of spend and its cost does not vary with what it finds.**
+Two assessments that each re-read the repository, a translation when one is
+owed, and my own turns to package, post, reply and resolve — the same bill for
+a label's wording as for a role running as the wrong model, and the Worth rule
+is applied only after it has been paid. My main loop is the larger half and the
+invisible one: every artifact I read into context is re-billed on every
+subsequent turn, so a loop's cost grows faster than its round count. So:
+**artifacts bound for GitHub are not read into my context when a hand-back
+summary decides the question**, and **a review request states what the round
+will cost and what it protects, in one line, before it runs** — the token
+counts are already reported to me, and putting them beside what they bought is
+the whole mechanism. No ledger, no receipts; the #89 cut is not to be undone by
+accounting.
+
 ### Internal tooling: what is downstream
 
 Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
@@ -582,11 +631,18 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
   call) and decide from that. Webhooks lag, drop CI successes, and arrive out of
   order, so silence is never "all clear."
 
-**Every code-review round is translated for David, after its trigger is
-posted** (David, 2026-09-12): Fable reads the round itself — findings, my
-replies, the diff — not my account of it. **After, never before** — a
-translation I could act on is an in-loop advisor reading my own prose. **Every
-round is delivered before the merge, the stopping round included.**
+**A round is translated for David when I declined something in it, or when
+something about it smells wrong** (David, 2026-09-19, narrowing the
+every-round rule of 2026-09-12). Those are the rounds where an independent
+reading has caught things — on #131 both of the translator's real
+disagreements came on rounds carrying a decline, and one was a defect no
+assessor had found. A round where I wrote for every finding has less to catch
+and costs the same, and four translations on #131 were the single largest
+token line in the loop. **The last round before a merge is always translated**,
+whatever its shape, so nothing merges unaccounted. The translation reads the
+round itself — findings, my replies, the diff — not my account of it, and
+comes **after** the trigger is posted, never before: a translation I could act
+on is an in-loop advisor reading my own prose.
 
 **The delivery is a message in chat, and there is nothing else** (David,
 2026-09-16). `chatReport` composes it from the answer's own fields and I paste
@@ -611,7 +667,8 @@ the dispatch, choose the coordinates and paste the result, so it defends against
 my being *wrong*, never against my being deliberately misleading. The account
 says what it verified and what it took on trust, and that honesty is the value —
 not a claim of immunity. **A dispatch that fails is disclosed in plain English
-and never blocks the loop**: D0 is off the critical path by design. Mechanics:
+and never blocks the loop**: the translation is off the critical path by
+design. Mechanics:
 `pr-watch`.
 
 ## Pull requests
@@ -675,7 +732,8 @@ from the Repl, which tracks `main`, so code on my branch exists nowhere David
 can click. Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
-resolved + every round translated for David.** That is the whole bar, for
+resolved + the translations that were owed delivered** (every decline round,
+plus the last round before the merge). That is the whole bar, for
 product and internal PRs alike. CI and Codex catch *broken*; David's UAT
 catches *wrong*, after the sync.
 
@@ -1077,7 +1135,8 @@ contradict each other means either can fire** — which is why an obsolete
 description is a defect rather than archaeology (Codex, #124 round 8
 `4045616295`; both assessors concurred).
 On a code round Astra's assessment is one of two, beside the Fable assessor's
-(*Shared judgement on a review round*), and D0 still accounts for the round
+(*Shared judgement on a review round*), and the translation still accounts for
+the round
 afterwards.
 
 - **Sign-in comes first, every session, and it is David's phone step.**

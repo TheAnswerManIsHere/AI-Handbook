@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
- * David's reading surface for D0: a message in chat. That is the whole surface.
+ * David's reading surface for the round translation: a message in chat. That is the whole surface.
  *
  * THERE IS NO PAGE, AND REMOVING IT WAS THE POINT (David, 2026-09-16, on #109
  * round 3). This module used to render an HTML page, write it to a gitignored
@@ -422,7 +422,7 @@ const ordinal = (n) => {
  * from the case round 2 fixed. Only `null` means fully assessed. (Astra,
  * 2026-09-16.)
  *
- * Returns the problems rather than throwing. D0 is off the critical path and a
+ * Returns the problems rather than throwing. The translation is off the critical path and a
  * broken translation must never be able to stop a review loop.
  */
 export function validateAnswer(answer, { finalRound } = {}) {
@@ -679,14 +679,16 @@ function disagreementsWording(f) {
  * explain the round. The only text here that is not the translator's is the
  * labels.
  *
- * ORDERED BY WHAT DAVID DOES WITH IT (David, 2026-09-17). The recommendation
- * is what he relies on, so it leads, with its reasoning directly under it;
- * then the disagreements, the field the role calls its most valuable; then
- * one line per finding, which he asked for so he can see what was written
- * for each and stop over-building in time; then the final-round sections;
- * then the trust footer. The earlier shape put a finding-by-finding narrative
- * second and the recommendation last, so the longest section sat above the
- * line he reads for.
+ * ORDERED BY WHAT DAVID DOES WITH IT (David, 2026-09-17, revised 2026-09-19).
+ * One italic line saying which round this is, so he knows what he is looking
+ * at; then the ask, which is what he relies on; then the disagreements, the
+ * field the role calls its most valuable; then one line per finding, so he can
+ * see what was written for each and stop over-building in time; then the
+ * final-round sections. Two sections were cut on 2026-09-19: the paragraph
+ * under the ask explaining that the translator had checked things, and the
+ * trust footer -- "I don't care that you checked everything. I assume you did"
+ * and "I trust you". What survives of the second is the FIELD, which a later
+ * round's brief still renders; what he reads is shorter by two sections.
  *
  * `model` prints only when it is worth a reader's attention: a mismatch
  * against the model asked for, or an answer that could not name its own model.
@@ -695,7 +697,7 @@ function disagreementsWording(f) {
  */
 export function chatReport(round, { askedModel = null } = {}) {
   const f = facts(round);
-  const out = [`**D0 — ${chatLine(round)}**`, ""];
+  const out = [`**Translation — ${chatLine(round)}**`, ""];
 
   if (f.failed || f.skipped) {
     out.push(
@@ -707,7 +709,13 @@ export function chatReport(round, { askedModel = null } = {}) {
   }
 
   const a = round.answer ?? {};
-  out.push(`**Needs you:** ${a.recommendation ?? ""}`, "", a.reasoning ?? "");
+  // ABOUT LEADS, THEN THE ASK (David, 2026-09-19). He needs to know which round
+  // this is before he is told what to do about it. And `reasoning` is gone --
+  // it rendered a paragraph explaining that the translator had checked things,
+  // which he reads as noise: "I don't care that you checked everything. I
+  // assume you did."
+  if (a.about) out.push(`*${a.about}*`, "");
+  out.push(`**Needs you:** ${a.recommendation ?? ""}`);
 
   if (Array.isArray(a.disagreements)) {
     const w = disagreementsWording(f);
@@ -734,7 +742,7 @@ export function chatReport(round, { askedModel = null } = {}) {
     }
   }
 
-  if (a.about) out.push("", `*About:* ${a.about}`);
+
 
   if (Array.isArray(a.known_gaps)) {
     out.push("", "**Shipping unfixed**", "");
@@ -760,7 +768,12 @@ export function chatReport(round, { askedModel = null } = {}) {
     );
   }
 
-  if (a.took_on_trust) out.push("", `*Taken on trust, not checked:* ${a.took_on_trust}`);
+  // `took_on_trust` IS NOT PRINTED HERE, and is still collected (David,
+  // 2026-09-19: "The Taken on trust section should be removed. I trust you.").
+  // It has a second consumer he never sees: `roundBrief` renders it into a
+  // later round's prior-accounts block as the list worth rechecking, which
+  // Codex #109 round 8 established. Dropping the field would take that with
+  // it; dropping the line gives him what he asked for.
   if (f.unassessed) out.push("", `*Could not assess:* ${a.could_not_assess}`);
 
   // WHAT THE CALL CARRIED IS THE ALIAS, NOT THE PIN, and this line used to say

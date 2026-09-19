@@ -668,7 +668,7 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   //     time. Never "applies": definitions are cached, so the file on disk may
   //     not be the one that ran, and the self-report is the only observation.
   //     (Astra raised that in round 1 and it went unanswered in the thread;
-  //     D0's translation to David flagged the same gap.)
+  //     the round translation to David flagged the same gap.)
   //
   // Round 1 fixed this class in the effort field and left the model field's
   // label alone, which is why the finding came back one field over. This is
