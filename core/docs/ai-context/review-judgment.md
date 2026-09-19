@@ -56,9 +56,10 @@ its cost.
 **4. Identify a credible failure path and its consequence.** What could happen,
 under what conditions, affecting whom. Weigh frequency, reach, detectability,
 recoverability and cumulative disruption. Where the consumer is a model reading
-prose, recoverability is decided by whether the error survives an intelligent
-reader: a contradiction, a mislabel or an instruction the rest of the package
-makes impossible is one the reader reconciles from what it has, and is not a
+prose, recoverability is decided by whether the error survives the model that
+actually consumes it — never assumed from the assessor's own reading: a
+contradiction, a mislabel or an instruction the rest of the package makes
+impossible is one that reader reconciles from what it has, and is not a
 credible failure path however real the imperfection. What does not survive is
 information the reader cannot recover — absent from the package, wrong in a way
 it cannot check, or destroyed on disk. That is the real failure class, and
