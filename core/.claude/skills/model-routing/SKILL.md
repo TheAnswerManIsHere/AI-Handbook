@@ -177,13 +177,24 @@ Fable 5 is enabled on David's account (confirmed 2026-07-24). It costs
 **$10/$50 per million tokens against Opus 5's $5/$25**, so it is always a
 deliberate escalation.
 
-- **Subagent routing is the mechanism I control.** Subagent `model` frontmatter
-  and the per-invocation `model` parameter both accept the `fable` alias (or a
-  full ID). So I can hand one genuinely hard piece of work — a migration design,
-  a root-cause hunt in the visual pipeline, an architecture call — to Fable while
-  the session stays where it is, with **no action from David**. Resolution order
-  is `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter →
-  the main conversation's model.
+- **Subagent routing is the mechanism I control.** So I can hand one genuinely
+  hard piece of work — a migration design, a root-cause hunt in the visual
+  pipeline, an architecture call — to Fable while the session stays where it is,
+  with **no action from David**.
+  **The two layers take different values, and this bullet used to say they take
+  the same ones** (AI-Handbook #131 round 2, where the Fable assessor found the
+  sentence contradicting the measured table below it, in the same file):
+  the **per-invocation `model` parameter takes an alias only** — the Agent
+  tool declares it as an enum of `sonnet`, `opus`, `haiku`, `fable`, and
+  David's 2026-09-18 probe of `best` was refused at input validation with
+  exactly that value list — while a **definition's `model:` frontmatter also
+  takes a full id**, which is what makes a stale id fail closed with a 404.
+  Resolution order is **per-invocation parameter → frontmatter →
+  `CLAUDE_CODE_SUBAGENT_MODEL` → the main conversation's model**; this bullet
+  had the first three in the wrong order, which mattered because it put the
+  environment variable above the argument every dispatch actually passes.
+  **Two live instructions that contradict each other means either can fire**,
+  so an obsolete one is a defect rather than archaeology.
 - **I announce it, I don't sneak it.** Because a Fable subagent spends at double
   rate without David touching anything, I say when I'm dispatching one and why,
   in the same breath as dispatching it. Silent escalation is the failure mode to

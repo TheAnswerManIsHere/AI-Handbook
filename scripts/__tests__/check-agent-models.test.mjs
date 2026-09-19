@@ -212,3 +212,67 @@ test("a seed that cannot be read is a finding, never a silent pass", () => {
   const noModels = fixtureRoot({ "fable-x.md": def("fable-x", "model: claude-fable-5-1\neffort: xhigh") }, { repo: "OWNER/REPO" });
   assert.match(findings(noModels, io(noModels)).join("\n"), /declares no "models" block/);
 });
+
+test("--fix rebuilds missing structure, because it is advertised as the way out of everything the check reports", () => {
+  // The check went red, named the missing field, told the operator to run
+  // --fix, and --fix changed nothing. A repair that cannot repair a shape its
+  // own detector reports promises a recovery it does not have.
+  for (const seed of [
+    { ...SEED, models: { strongestClaude: SEED.models.strongestClaude } }, // a tier deleted
+    { ...SEED, models: {} }, // both tiers deleted
+    { _README: SEED._README, repo: "OWNER/REPO", _models: SEED._models }, // the block deleted
+  ]) {
+    const root = fixtureRoot({ "fable-x.md": def("fable-x", "model: claude-fable-5-1\neffort: xhigh") }, seed);
+    assert.notDeepEqual(findings(root, io(root)), [], "the check did not detect the missing structure");
+
+    fix(root, io(root));
+    assert.deepEqual(findings(root, io(root)), [], `--fix left ${JSON.stringify(seed.models)} unrepaired`);
+
+    const after = seedOf(root);
+    assert.deepEqual(after.models.strongestClaude, { id: "claude-fable-5-1", effort: "xhigh" });
+    assert.deepEqual(after.models.strongestCodex, { id: "gpt-6-astra", effort: "xhigh" });
+    // Everything the repair does not own survives it, including the
+    // placeholder that is refused by name if left in place.
+    assert.equal(after.repo, "OWNER/REPO");
+    assert.equal(after._README, SEED._README);
+    assert.equal(after._models, SEED._models);
+
+    // And a second repair is a no-op: a fix that keeps rewriting is a fix that
+    // never converged.
+    assert.deepEqual(fix(root, io(root)), []);
+  }
+});
+
+test("a seed file that is absent or unparseable is still not invented", () => {
+  // The one shape --fix genuinely cannot repair, kept as a stated limit rather
+  // than guessed at: there is no parse to rewrite through and no prose to
+  // preserve, so reconstructing one would invent a file nobody wrote.
+  const missing = fixtureRoot({ "fable-x.md": def("fable-x", "model: claude-fable-5-1\neffort: xhigh") }, null);
+  assert.deepEqual(fix(missing, io(missing)), []);
+  assert.match(findings(missing, io(missing)).join("\n"), /missing, so a fresh consumer has nothing/);
+
+  const broken = fixtureRoot({ "fable-x.md": def("fable-x", "model: claude-fable-5-1\neffort: xhigh") });
+  fs.writeFileSync(path.join(broken, SEED_FILE), "{ not json");
+  assert.deepEqual(fix(broken, io(broken)), []);
+  assert.equal(fs.readFileSync(path.join(broken, SEED_FILE), "utf8"), "{ not json");
+});
+
+test("a CRLF definition reads identically to an LF one, so a pinned role is never silently skipped", () => {
+  // The assertion the delimiter-only fix fails, which is why the whole
+  // correction is one `split(/\r?\n/)`. With the close found by trimming but
+  // the fields still carrying \r, `name` reads null — and findings() selects
+  // roles by name.startsWith(PINNED_PREFIX), so the role would be SKIPPED and
+  // the check would pass having checked nothing.
+  const lf = def("fable-x", "model: claude-opus-5\neffort: low");
+  const crlf = fixtureRoot({ "fable-x.md": lf.replace(/\n/g, "\r\n") });
+  const plain = fixtureRoot({ "fable-x.md": lf });
+
+  const strip = (out) => out.map((line) => line.replace(/^core\/[^:]+:/, ""));
+  assert.deepEqual(strip(findings(crlf, io(crlf))), strip(findings(plain, io(plain))));
+  assert.notDeepEqual(findings(crlf, io(crlf)), [], "a CRLF role was skipped instead of checked");
+  assert.match(findings(crlf, io(crlf)).join("\n"), /is "claude-opus-5"/);
+
+  // And it repairs, rather than being reported as unreadable forever.
+  fix(crlf, io(crlf));
+  assert.deepEqual(findings(crlf, io(crlf)), []);
+});

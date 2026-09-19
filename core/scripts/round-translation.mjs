@@ -56,7 +56,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
+import { claudeAlias, modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
 
 export const REVIEWS_DIR = ".agents/reviews";
 
@@ -202,14 +202,14 @@ export function dispatchModel(io = undefined) {
   const entry = modelTier("strongestClaude", io);
   const id = typeof entry === "string" ? entry : entry?.id;
   const effort = typeof entry === "object" ? (entry?.effort ?? null) : null;
-  const m = typeof id === "string" ? /^claude-(fable|opus|sonnet|haiku)\b/.exec(id) : null;
-  if (!m) {
+  const alias = claudeAlias(id);
+  if (!alias) {
     throw new Error(
       `.agents/machinery.json's models.strongestClaude.id is ${JSON.stringify(id)}, which is not a Claude model, ` +
         `so it cannot be dispatched as a subagent. The Agent tool takes one of fable, opus, sonnet, haiku.`,
     );
   }
-  return { id, agentModel: m[1], effort, effortRoute: "definition" };
+  return { id, agentModel: alias, effort, effortRoute: "definition" };
 }
 
 /**
@@ -763,10 +763,24 @@ export function chatReport(round, { askedModel = null } = {}) {
   if (a.took_on_trust) out.push("", `*Taken on trust, not checked:* ${a.took_on_trust}`);
   if (f.unassessed) out.push("", `*Could not assess:* ${a.could_not_assess}`);
 
+  // WHAT THE CALL CARRIED IS THE ALIAS, NOT THE PIN, and this line used to say
+  // the pin was "asked for". It is not: the Agent tool takes `fable`, never a
+  // version, so a disagreement between the pin and what answered is most often
+  // the pin trailing the alias -- a one-line edit David owns -- and not the
+  // substitution the old wording implied. Naming the likelier cause first is
+  // the whole value of the notice; pointing at a platform fallback sends him
+  // to the one place he cannot fix. (Astra, #131 round 2, naming this line
+  // specifically as the same class as the header's label.)
   const got = a.model ?? null;
-  if (!got) out.push("", `*This round did not report which model wrote it${askedModel ? `; ${askedModel} was asked for` : ""}.*`);
+  const alias = askedModel ? claudeAlias(askedModel) : null;
+  if (!got) out.push("", `*This round did not report which model wrote it${askedModel ? `; this repository pins ${askedModel}` : ""}.*`);
   else if (askedModel && got.trim() !== askedModel.trim()) {
-    out.push("", `*Written by ${got}, not the ${askedModel} that was asked for — the dispatch cannot enforce the model, only report what answered.*`);
+    out.push(
+      "",
+      `*Written by ${got}; this repository pins ${askedModel}.` +
+        (alias ? ` The dispatch sends the family alias \`${alias}\`, not a version, so the likeliest cause is the pin trailing the alias rather than a substitution.` : "") +
+        ` The dispatch cannot enforce the model, only report what answered.*`,
+    );
   }
 
   return out.join("\n");

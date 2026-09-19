@@ -125,9 +125,20 @@ replaced them is step 5's proportionate-evidence rule.)
       its comment rather than assembling one:
 
       ```
-      node "$P" --render --source fable --pr <n> --round <n> [--follow-up <k>] \
-        --commit <reviewed sha> [--findings-file <path>]
+      # an ordinary round — the scope comes from the round's findings file
+      node "$P" --render --source fable --pr <n> --round <n> \
+        --commit <reviewed sha> --findings-file <path>
+
+      # a follow-up — the scope is the subset the follow-up actually addressed
+      node "$P" --render --source fable --pr <n> --round <n> --follow-up <k> \
+        --commit <reviewed sha> --findings <id,id>
       ```
+
+      **Two commands, and neither flag is optional.** A follow-up never reads
+      `--findings-file`, and an ordinary round never reads `--findings`. This
+      recipe used to show one command with both marked optional, which posted a
+      follow-up header naming no findings at all — the script refuses that now,
+      but the recipe is what a reader copies (Codex `4051974432`, #131 round 2).
 
       **The header says what was asked for and the assessment's own first line
       says what it is running as.** Nothing here claims they match: this reads a
@@ -137,11 +148,25 @@ replaced them is step 5's proportionate-evidence rule.)
       David naming both, not a blocker and not a reason to discard the
       assessment (David, 2026-09-18: *"a highly visible warning"*).
 
+      **The Fable header carries three facts and labels each one**, because the
+      assessor is reached by an alias and not by a version: `expected` is the
+      pin, which is what the self-report is compared against; `dispatched as` is
+      the family alias the call actually carried; `definition …` is what the
+      role's file declares, as read at render time. Only Astra's header says
+      `requested`, because only Astra is handed a full id and an effort per
+      call.
+
+      **So a model disagreement has two candidate causes, and the cheaper one is
+      checked first**: the pin has fallen behind the alias — David's one-line
+      edit — or the platform served something else, which `model-routing` records
+      as a content refusal falling back to Opus. Name the first in the FYI unless
+      something rules it out. And `definition …` never means "what ran":
+      definitions are cached, so the file on disk may not be the one that
+      answered, and the assessor's own line is the only observation there is.
+
       **Effort is the weaker half of that comparison, and knowing why saves a
-      false alarm.** The model is genuinely requested — the argument is passed —
-      so `requested` is literal. Effort is not: a Claude subagent is handed none,
-      so the header names the effort the *role definition* applies, and adds
-      `(pin says X)` only where the pin disagrees with it. On the reporting side,
+      false alarm.** It has no argument at all, so the header can only report
+      what the definition declares. On the reporting side,
       an assessor may not be able to name its effort at all: measured on this
       PR's own round 1, the assessor answered `at unable to name` and said why —
       its context shows reasoning effort as the number `80`, not one of the pin's
@@ -305,6 +330,15 @@ replaced them is step 5's proportionate-evidence rule.)
       so a re-dispatch can never be read as its predecessor. Then **bind the
       model once**: `dispatch = dispatchModel()`.
    2. **Dispatch `fable-round-translation`** with `model: dispatch.agentModel`,
+      **passing the brief inline, never as a path.** That role's `tools:` list is
+      `ToolSearch`, the two GitHub readers and `Write` — **no file-reading
+      tool** — so a brief handed to it by path is unreachable. Measured on #131:
+      it could not open the file, reconstructed every coordinate from GitHub
+      correctly, and then wrote its answer to a *guessed* filename, which is the
+      shape `prepareAnswerPath` exists to prevent — a valid answer written where
+      `readAnswer` never looks reports as a FAILED translation of a round that
+      actually ran. A `tools:` list is a hard upper bound, and the assessor role
+      holding `Read` is not evidence that this one does.
       passing `roundBrief({ root, pr, round, head, finalRound, priorAccounts })`.
       **The activity window's upper bound is not passed** — `roundBrief` is the
       moment of the dispatch, so it stamps that moment itself. There is no

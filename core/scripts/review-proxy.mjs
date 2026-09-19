@@ -39,7 +39,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot, agentFrontmatter } from "./machinery.mjs";
+import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot, agentFrontmatter, claudeAlias } from "./machinery.mjs";
 import { REVIEWS_DIR, ensureReviewsIgnored } from "./round-translation.mjs";
 
 export const ROLE = "review-proxy";
@@ -637,46 +637,62 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   const facts = [];
   if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
   if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
-  // WHAT WAS ASKED FOR, NEVER "what answered" (David, 2026-09-18: *"any model
-  // call must report loudly if the requested model doesn't match the used
-  // model"*). This script requests a model and reads a file; it cannot
-  // interrogate the thing that wrote the file, so claiming a match it never
-  // measured would be the #16 shape -- a control reporting success having
-  // evaluated nothing. It states the request, the assessor states what it ran
-  // as in its own first line (see the role definitions), and the two sit
-  // adjacent so a disagreement is readable rather than asserted.
+  // EVERY FACT LABELLED BY WHAT IT IS, AND "REQUESTED" ONLY WHERE THIS SCRIPT
+  // PASSED THE VALUE (David, 2026-09-18: *"any model call must report loudly if
+  // the requested model doesn't match the used model"*). The header states what
+  // was asked for; the assessor states what it is running as in its own first
+  // line; nothing here claims they match, because this reads a file and cannot
+  // interrogate what wrote it, and a control reporting success having evaluated
+  // nothing is the worst shape this repository's archive records.
   //
-  // EFFORT IS NOT "REQUESTED" ON BOTH PATHS, AND THE WORD USED TO CLAIM IT
-  // WAS. Astra is given its effort per call (`model_reasoning_effort`), so
-  // "requested X at Y" is literally true there. A Claude subagent is given no
-  // effort at all -- the Agent tool has no such argument -- so the value that
-  // applies is the role definition's frontmatter, and rendering the PIN's
-  // effort under the word "requested" states a request nobody made. In the
-  // handbook the two agree by construction, so nothing showed; in a consumer
-  // pinning a different effort the header would have been wrong on every
-  // round, firing the mismatch warning when nothing was wrong.
+  // THE TWO ASSESSORS ARE REACHED DIFFERENTLY AND ONE WORD USED TO COVER BOTH.
+  // Astra is handed a full id and an effort per call (`--model`,
+  // `model_reasoning_effort`), so "requested X at Y" is literally true there.
+  // A Claude subagent is handed the family ALIAS and no effort at all: the
+  // Agent tool's `model` parameter is an enum of four aliases, and there is no
+  // effort parameter. So the Fable header carries three separate facts:
   //
-  // BOTH FACTS SURVIVE, WHICH IS WHY THIS IS NOT A CHOICE BETWEEN THEM. The
-  // effort shown is the one that applies; the pin's value is shown too, but
-  // only where it differs, because that divergence is exactly what a consumer
-  // would otherwise never learn. (Codex `4051922484`; Astra argued for the
-  // pin's value, the Fable assessor for the definition's, and each was right
-  // about a different half. #131 round 1.)
+  //   - `expected` -- the pin, which is what the self-report is compared
+  //     against. Comparing against the family instead would conceal version
+  //     drift (Astra).
+  //   - `dispatched as` -- the alias the call actually carried. Without it a
+  //     disagreement reads as "the platform substituted a model" when the
+  //     likelier cause is a pin trailing the alias, which is David's one-line
+  //     edit. That wrong lead on an FYI is the whole defect.
+  //   - `definition …` -- what the role's file DECLARES, as read at render
+  //     time. Never "applies": definitions are cached, so the file on disk may
+  //     not be the one that ran, and the self-report is the only observation.
+  //     (Astra raised that in round 1 and it went unanswered in the thread;
+  //     D0's translation to David flagged the same gap.)
+  //
+  // Round 1 fixed this class in the effort field and left the model field's
+  // label alone, which is why the finding came back one field over. This is
+  // the class, not the instance: a fact appears here only when this process
+  // established it, and never under a verb describing a mechanism it did not
+  // perform. (Codex `4051974429`; both assessors, #131 round 2.)
   if (requested) {
-    const id = typeof requested === "string" ? requested : requested.id;
-    if (id) {
-      const r = typeof requested === "string" ? {} : requested;
-      let fact = `requested \`${id}\``;
+    // NO BARE-STRING SHORTHAND. The two shapes mean different things now --
+    // one says this script passed the value, the other says it did not -- and a
+    // caller handing over a bare id would silently get whichever this function
+    // guessed. Say which.
+    const r = requested;
+    if (r.id) {
       if (r.effort) {
-        fact += ` at \`${r.effort}\``;
-      } else if (r.appliedEffort) {
-        // NEVER THE PIN AS A FALLBACK. An unreadable definition means the
-        // effort is genuinely unknown to this process, and saying so by
-        // omission beats printing a plausible value nobody established.
-        fact += ` · effort \`${r.appliedEffort}\``;
-        if (r.pinnedEffort && r.pinnedEffort !== r.appliedEffort) fact += ` (pin says \`${r.pinnedEffort}\`)`;
+        facts.push(`requested \`${r.id}\` at \`${r.effort}\``);
+      } else {
+        const parts = [`expected \`${r.id}\``];
+        if (r.alias) parts.push(`dispatched as \`${r.alias}\``);
+        // The declared model is shown only when it disagrees with the pin: in
+        // the handbook the check holds them equal, and a line repeating itself
+        // trains a reader to skip the place the real notice appears.
+        if (r.definitionModel && r.definitionModel !== r.id) parts.push(`definition model \`${r.definitionModel}\``);
+        // Effort is always shown when it can be read, because the definition is
+        // its ONLY source -- there is nothing else to compare it against. An
+        // unreadable definition omits it rather than falling back to the pin,
+        // which would print a value nobody established.
+        if (r.definitionEffort) parts.push(`definition effort \`${r.definitionEffort}\``);
+        facts.push(parts.join(" · "));
       }
-      facts.push(fact);
     }
   }
   if (facts.length) header.push(`*${facts.join(" · ")}*`, "");
@@ -916,8 +932,29 @@ export function main(
       const requested =
         source === "astra"
           ? { id: pin.id, effort: pin.effort }
-          : { id: pin.id, appliedEffort: agentFrontmatter(root, ASSESSOR_AGENT, "effort"), pinnedEffort: pin.effort };
+          : {
+              id: pin.id,
+              alias: claudeAlias(pin.id),
+              definitionModel: agentFrontmatter(root, ASSESSOR_AGENT, "model"),
+              definitionEffort: agentFrontmatter(root, ASSESSOR_AGENT, "effort"),
+            };
       const ids = headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
+      // AN EMPTY SCOPE IS REFUSED, NOT PRINTED. Round 1 gave both paths one
+      // derivation and stopped there; the input that derivation needs never
+      // reached the operator-facing recipe, so a follow-up posted exactly as
+      // documented produced a header naming no findings at all -- the same
+      // asymmetry as `--commit`, where the render path accepted less than the
+      // dispatch path requires. Every round dispatched here has at least one
+      // finding (`assessmentBrief` refuses otherwise), so an empty list is
+      // always a missing flag and never a quiet round. Uniform on the
+      // failed-dispatch shape too: the operator composed the package from the
+      // same file minutes earlier. (Codex `4051974432`; both assessors said to
+      // put the refusal in the script rather than only in the recipe.)
+      if (ids.length === 0) {
+        const flag = followUp ? "--findings <id,id>" : "--findings-file <path.json>";
+        log(`review-proxy: ${flag} is required to render ${followUp ? "a follow-up" : "a round"} — the header names the findings the assessment covers, and a comment claiming no scope is worse than one that was not posted\n\n${USAGE}`);
+        return 2;
+      }
       rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested });
     } catch (err) {
       log(`review-proxy: ${err.message}`);

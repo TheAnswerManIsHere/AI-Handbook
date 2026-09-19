@@ -655,10 +655,24 @@ test("the model is mentioned only when it is worth a reader's attention", () => 
   // Silent on a match: a line on every round saying the model was right trains
   // a reader to skip the place the real notice would appear.
   assert.doesNotMatch(chatReport(round(1, answer()), { askedModel: "claude-fable-5-1" }), /Written by|did not report which model/);
-  assert.match(
-    chatReport(round(1, answer({ model: "claude-sonnet-5" })), { askedModel: "claude-fable-5-1" }),
-    /Written by claude-sonnet-5, not the claude-fable-5-1 that was asked for/,
-  );
+  // THE PIN IS NOT WHAT WAS ASKED FOR, and this line used to say it was. The
+  // Agent tool takes the family alias, never a version, so a disagreement
+  // between the pin and what answered is most often the pin trailing the alias
+  // -- David's one-line edit -- rather than a substitution he cannot fix.
+  // Naming the likelier cause first is the whole value of the notice.
+  // (Astra, #131 round 2.)
+  const mismatch = chatReport(round(1, answer({ model: "claude-sonnet-5" })), { askedModel: "claude-fable-5-1" });
+  assert.match(mismatch, /Written by claude-sonnet-5; this repository pins claude-fable-5-1/);
+  assert.match(mismatch, /sends the family alias `fable`, not a version/);
+  assert.match(mismatch, /likeliest cause is the pin trailing the alias/);
+  assert.doesNotMatch(mismatch, /asked for/);
+
+  // A pin that is not a Claude id has no alias to name, and the line says the
+  // rest rather than printing an empty one.
+  const noAlias = chatReport(round(1, answer({ model: "x-1" })), { askedModel: "gpt-6-astra" });
+  assert.match(noAlias, /Written by x-1; this repository pins gpt-6-astra/);
+  assert.doesNotMatch(noAlias, /family alias/);
+
   assert.match(chatReport(round(1, answer({ model: null })), { askedModel: "claude-fable-5-1" }), /did not report which model wrote it/);
 });
 

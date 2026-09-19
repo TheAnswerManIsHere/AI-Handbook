@@ -37,6 +37,27 @@
  * 3,862 at `max`). Before #126 the pin's `xhigh` reached nothing, and every
  * #124 translation ran at the session's `high` against it.
  *
+ * IF THE PIN EVER MOVES TO A DIFFERENT FAMILY, READ THIS BEFORE RENAMING
+ * ANYTHING. The plan of record (David, 2026-09-19) is to leave the `fable-`
+ * and `astra` names alone until then and "do a search and replace on the exact
+ * word". That is not safe on this word, because it occurs in three kinds of
+ * place with three different right answers:
+ *
+ *   - inside the pinned model id (`claude-fable-5-1`, and `gpt-6-astra` for
+ *     the other tier) -- already handled, and never hand-edited: it is one
+ *     value in `.agents/machinery.json` and `--fix` propagates it;
+ *   - as the Agent tool's own model ALIAS (`model: fable`) -- not ours to
+ *     rename. It is a platform token from a fixed set, and replacing it breaks
+ *     every dispatch;
+ *   - as our role and source names (`fable-review-assessor`,
+ *     `fable-round-translation`, `SOURCES`) -- the only ones a rename touches.
+ *
+ * And the third is not a text edit at all: those are agent TYPE names, which
+ * must equal their filenames and their `.claude/agents/` symlinks, and the sync
+ * only adds (#55, #104) -- so renaming a payload file leaves every consumer
+ * holding the old definition, still dispatchable. A rename waits on the sync's
+ * delete path.
+ *
  * WHICH ROLES ARE IN SCOPE: the ones whose `name` begins with `fable-`. The
  * convention is not decoration -- it is the claim being checked, since a role
  * named for a model is exactly the role where running as something else is a
@@ -264,13 +285,35 @@ export function fix(root = REPO_ROOT, io = nodeIo(root)) {
   // tier move. (The file round-trips byte-identically through
   // `JSON.stringify(_, null, 2)`, verified before this was written; a test
   // asserts the untouched keys survive.)
+  // MISSING STRUCTURE IS REBUILT, NOT SKIPPED. `--fix` is advertised
+  // unconditionally by `main()` as the way out of everything this check
+  // reports, and it used to `continue` past a deleted tier object and skip a
+  // deleted `models` block entirely -- so the check went red, named the missing
+  // field, told the operator to run `--fix`, and `--fix` changed nothing. A
+  // repair that cannot repair a shape its own detector reports is the same
+  // defect as a check that passes having checked nothing, one layer out: the
+  // system promises a recovery it does not have. Everything needed is in the
+  // pin. (Codex `4051974445`; Astra widened it from the named tier to missing
+  // structure generally, which is the bounded class.)
+  //
+  // WHAT IS STILL NOT REPAIRABLE, and is left as a stated limit rather than
+  // guessed at: a seed file that is absent or unparseable. There is no parse to
+  // rewrite through and no prose to preserve, so reconstructing one would
+  // invent a file nobody wrote.
   const read = readSeed(root);
-  if (read.seed && read.seed.models && typeof read.seed.models === "object") {
+  if (read.seed && typeof read.seed === "object") {
     let touched = false;
+    if (!read.seed.models || typeof read.seed.models !== "object") {
+      read.seed.models = {};
+      touched = true;
+    }
     for (const tier of MODEL_TIERS) {
       const pin = modelTier(tier, io);
+      if (!read.seed.models[tier] || typeof read.seed.models[tier] !== "object") {
+        read.seed.models[tier] = {};
+        touched = true;
+      }
       const entry = read.seed.models[tier];
-      if (!entry || typeof entry !== "object") continue;
       for (const [field, want] of [["id", pin.id], ["effort", pin.effort]]) {
         if (entry[field] === want) continue;
         entry[field] = want;

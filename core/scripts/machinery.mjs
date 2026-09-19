@@ -249,7 +249,31 @@ export function repoSlug(io = nodeIo()) {
  * mistake "could not read it" for "it declares nothing".
  */
 export function splitFrontmatter(text) {
-  const lines = String(text ?? "").split("\n");
+  // `/\r?\n/`, NOT `"\n"`. A CRLF checkout leaves the closing delimiter as
+  // `"---\r"`, which an exact `indexOf("---", 1)` never finds, so every
+  // definition read as unreadable. Splitting on the pair fixes the delimiters
+  // and the field lines in one token, and is byte-identical on LF.
+  //
+  // THE HALF-FIX IS WORSE THAN THE DEFECT, which is why this is the whole
+  // change and not a trimmed delimiter comparison. Measured: with the close
+  // found by trimming but the fields still carrying `\r`, `name`, `model` and
+  // `effort` all read null -- and `check-agent-models` selects roles by
+  // `name.startsWith("fable-")`, so the role would be SKIPPED rather than
+  // reported. That turns a loud refusal into a check that passes having
+  // checked nothing. (Astra, #131 round 2, naming the insufficiency; the
+  // Fable assessor weighed the same finding as unreachable and said folding
+  // in a one-token fix costs nothing. `plan-provenance.mjs` already splits
+  // this way.)
+  //
+  // SCOPE IS THIS FUNCTION, DELIBERATELY. Four other readers still split on
+  // `"\n"` -- `check-docs-accuracy.mjs`, `check-uat-format.mjs`,
+  // `check-root-wiring.mjs` and `plan-review.mjs` -- and are left alone, so
+  // this batch is not read as having fixed a class it did not. They are
+  // outside this finding's consequence. If a CRLF environment ever enters the
+  // fleet, the source-level answer is a `.gitattributes` pinning LF, which
+  // makes every parser immune at once, rather than per-parser tolerance
+  // spread by hand.
+  const lines = String(text ?? "").split(/\r?\n/);
   if (lines[0]?.trim() !== "---") return null;
   const end = lines.indexOf("---", 1);
   if (end === -1) return null;
@@ -264,6 +288,33 @@ export function frontmatterValue(head, key) {
     if (m) found = m[1].trim().replace(/^["']|["']$/g, "");
   }
   return found;
+}
+
+/**
+ * The family alias the Agent tool takes, from a full Claude model id.
+ *
+ * ONE COPY, BECAUSE THREE PLACES NEED THE SAME ANSWER. The dispatch passes it,
+ * an assessment header names it, and the translator's mismatch line explains
+ * it. A second derivation is a second thing to drift, and what drifts here is
+ * the difference between "the platform substituted a model" and "your pin is
+ * behind the alias" -- two diagnoses, one of which is a one-line edit David
+ * owns. (Astra and the Fable assessor, #131 round 2, independently.)
+ *
+ * THE ALIAS IS ALL THE ARGUMENT CAN CARRY. The Agent tool's per-invocation
+ * `model` parameter is an enum of `sonnet`, `opus`, `haiku`, `fable`; a full
+ * id is refused at input validation (David's 2026-09-18 probe of `best`
+ * returned exactly that value list, and this session's own tool schema
+ * declares the same four). A full id IS accepted in a definition's
+ * frontmatter -- which is why `model-routing` states the two layers
+ * separately, and why one sentence there conflating them was corrected in
+ * this same change.
+ *
+ * Null for anything that is not a Claude id, so a caller can say so rather
+ * than print a guess.
+ */
+export function claudeAlias(id) {
+  const m = typeof id === "string" ? /^claude-(fable|opus|sonnet|haiku)\b/.exec(id) : null;
+  return m ? m[1] : null;
 }
 
 /**
