@@ -20,6 +20,10 @@ import {
   repoSlug,
   validate,
   assertSchemaSupported,
+  splitFrontmatter,
+  frontmatterValue,
+  agentFrontmatter,
+  claudeAlias,
   __resetRepoSlugCache,
 } from "../machinery.mjs";
 
@@ -267,4 +271,81 @@ test("assertSchemaSupported refuses a keyword the validator cannot enforce", () 
   assert.doesNotThrow(() =>
     assertSchemaSupported({ type: "object", required: ["a"], additionalProperties: false, properties: { a: { type: "string" } } }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Agent-definition frontmatter (#126, #131)
+// ---------------------------------------------------------------------------
+
+const DEFINITION = [
+  "---",
+  "name: fable-review-assessor",
+  'description: "A role."',
+  "tools: Read, Grep",
+  "model: claude-fable-5-1",
+  "effort: xhigh",
+  "---",
+  "",
+  "# Prose",
+  "",
+  "Body text.",
+].join("\n");
+
+test("a CRLF definition parses identically to an LF one, field for field", () => {
+  // THE ASSERTION THE HALF-FIX FAILS, which is why it is here as a check
+  // rather than as a warning in prose. Finding 4051974440 proposed trimming
+  // the closing delimiter; that makes `splitFrontmatter` return a block whose
+  // every field still carries `\r`, and JS `.` does not match `\r`, so `name`,
+  // `model` and `effort` all read null. `check-agent-models` selects roles by
+  // `name.startsWith("fable-")`, so the role would be SKIPPED and the check
+  // would pass having checked nothing — strictly worse than today's loud
+  // "unreadable". Splitting on /\r?\n/ covers delimiters and fields together.
+  // (The Fable assessor, #131 round 2 follow-up 1, which asked for exactly
+  // this fixture; Astra named the insufficiency of the half-fix.)
+  const lf = splitFrontmatter(DEFINITION);
+  const crlf = splitFrontmatter(DEFINITION.replace(/\n/g, "\r\n"));
+
+  assert.ok(lf, "LF frontmatter did not parse");
+  assert.ok(crlf, "CRLF frontmatter did not parse");
+  for (const key of ["name", "model", "effort", "tools"]) {
+    assert.equal(frontmatterValue(crlf.head, key), frontmatterValue(lf.head, key), `${key} differs between LF and CRLF`);
+  }
+  assert.equal(frontmatterValue(crlf.head, "name"), "fable-review-assessor");
+  assert.equal(frontmatterValue(crlf.head, "effort"), "xhigh");
+});
+
+test("a file this cannot parse returns null, never an empty block", () => {
+  // A caller must be able to tell "declares nothing" from "could not be read":
+  // the first is a finding about the file, the second is a finding about this
+  // reader, and collapsing them is how a checker reports success having
+  // evaluated nothing.
+  assert.equal(splitFrontmatter("no frontmatter at all\n"), null);
+  assert.equal(splitFrontmatter("---\nname: x\nnever closed\n"), null);
+  assert.equal(splitFrontmatter(""), null);
+  assert.equal(splitFrontmatter(null), null);
+});
+
+test("a missing definition, or a missing key, is null rather than a plausible default", () => {
+  const root = fresh();
+  mkdirSync(join(root, ".claude", "agents"), { recursive: true });
+  writeFileSync(join(root, ".claude", "agents", "fable-review-assessor.md"), DEFINITION);
+
+  assert.equal(agentFrontmatter(root, "fable-review-assessor", "effort"), "xhigh");
+  assert.equal(agentFrontmatter(root, "fable-review-assessor", "nonesuch"), null);
+  assert.equal(agentFrontmatter(root, "does-not-exist", "effort"), null);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the alias is derived from the pin, and is null for anything that is not a Claude id", () => {
+  // The Agent tool's per-invocation `model` takes one of four aliases; a full
+  // id is refused at input validation. So the alias is what the call actually
+  // carries, and the header has to be able to say so separately from the pin
+  // — otherwise a pin trailing the alias reads as the platform substituting a
+  // model. (#131 round 2, both assessors.)
+  assert.equal(claudeAlias("claude-fable-5-1"), "fable");
+  assert.equal(claudeAlias("claude-opus-5"), "opus");
+  assert.equal(claudeAlias("claude-haiku-4-5-20251001"), "haiku");
+  for (const not of ["gpt-6-astra", "fable", "", null, undefined, 5]) {
+    assert.equal(claudeAlias(not), null, `claudeAlias(${JSON.stringify(not)})`);
+  }
 });
