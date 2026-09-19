@@ -447,8 +447,9 @@ code-review outage, and testing for "no review **and** no bounce" would let
 that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
 proceed: **every PR gets a code review, and nothing merges until it returns.**
-A PR's criticality governs how many rounds are worth requesting; it never
-governs whether the first one has to come back. So an agent that cannot get a
+What is worth writing for decides how many rounds follow — the Worth rule per
+finding, and the ship gate once the oracle is met; nothing governs whether the
+first one has to come back. So an agent that cannot get a
 code review stops and says so loudly to David rather than proceeding on a
 docs-only or low-criticality exemption — that exemption is retired. The retry
 limit in the implementing agent's ceremony (for Claude Code,

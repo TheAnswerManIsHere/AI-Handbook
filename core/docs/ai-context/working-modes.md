@@ -565,7 +565,10 @@ will keep finding things, and each fix adds surface for the next round.
 trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
-it is two mechanical things and one external judge.
+it is two mechanical things — the write-gate rule below and pre-registered flip
+conditions — and, since #96, a judgement made from two independent assessments
+rather than alone. (An external adjudicator whose verdict decided stood here
+until the #89 cut removed it; nothing dispatched now decides anything.)
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
@@ -683,7 +686,9 @@ one of three responses, stated explicitly:
    exceeds the risk *for this artifact*. Say so, in the thread and in the file.
 3. **Escalate it** — it's a genuine product or design decision. That's David's.
 
-Response 2 is legitimate and under-used. Specifying compare-and-swap semantics
+Response 2 is legitimate, and nothing here sets a rate for it in either
+direction — the Worth rule decides per finding
+([`review-judgment.md`](review-judgment.md)). Specifying compare-and-swap semantics
 for a GitHub label write, in a solo-operator repo, because a reviewer correctly
 noted a race, is response 1 applied where response 2 was right.
 
@@ -743,7 +748,9 @@ Before any plan-review loop opens, the pre-plan conversation's outcome is
 compressed into a **scope of work David explicitly agrees to**: the direction
 served, product intent for this increment, must-not-change, settled
 decisions, the explicit scope boundaries (what is already decided to be
-*next* or *never*), the artifact's ceremony tier, and its 1–100 criticality.
+*next* or *never*), and the artifact's ceremony tier. (A 1–100 criticality
+rating was agreed here too, for the gate deleted on 2026-08-20; the tier
+carries what it was for.)
 **That agreement is the loop's authority to run autonomously to
 convergence** — it replaces the retired per-round check-in (below) as
 David's control point at the front of the loop, paired with explicit plan
@@ -785,7 +792,7 @@ costs one round against a document a page long.
 ### The post-round judgement
 
 Every substantive round pauses before any fix is implemented: triage first
-(nature, affected area, verdict, and whether the finding sits in code an
+(nature, affected area, disposition, and whether the finding sits in code an
 earlier fix in this loop already changed), then the judgement is made per
 finding — on a code loop from two independent assessments the builder weighs but
 did not write. (A planning loop has no round to judge in this sense; *Who

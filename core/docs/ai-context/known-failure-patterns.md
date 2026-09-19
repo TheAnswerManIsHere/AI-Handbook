@@ -1621,10 +1621,12 @@ do with the product — the answer being "nothing," the fix was to **delete the
 findings' entire subject from the doc**, not repair it a fifth time. Where
 the first three instances were about *unachievable guarantees*, this one is
 about **criticality**: the loop's subject was achievable and simply not worth
-achieving. That question now has a formal gate — rate the artifact 1–100 on
-"what breaks in production if this is wrong" *before* requesting round 2, and
-single-digit artifacts never loop
-([`working-modes.md`](./working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)).
+achieving. That question used to have a formal gate — rate the artifact 1–100 on
+"what breaks in production if this is wrong" before requesting round 2, and
+single-digit artifacts never loop. **That gate was deleted on 2026-08-20** with
+the rest of the self-policed apparatus, at 0-for-15. What asks the question now
+is the Worth rule, per finding, before anything is written
+([`review-judgment.md`](review-judgment.md)).
 
 **A fifth instance belongs to a different pattern, and is filed separately
 (PR #404, 2026-08-11).** The admin-permissions plan loop shares this entry's
@@ -2622,18 +2624,22 @@ retry's pass lands — because nothing was written down to be wrong.
    system is authoritative for the event you are counting, you are writing a
    cache. Read it at decision time instead, and validate the read hard.
 2. **Persist decisions, not evidence.** PR #503 kept the *budget declaration*
-   and the *extension grants* committed — those are choices nobody else holds a
-   copy of, and which David gates have been passed, and what he granted at
-   each, has to survive the container or the second tripwire never fires. It
-   stopped committing the round count, which was evidence. The line between
+   and the *extension grants* committed — those were choices nobody else held a
+   copy of, and which David gates had been passed, and what he granted at each,
+   had to survive the container or the second tripwire never fired. It stopped
+   committing the round count, which was evidence. **Budgets, grants and
+   tripwires all went with the #89 cut**; the principle is what survives, and it
+   is about any decision, not about that machinery. The line between
    the two is the whole rule: evidence is session-local and re-derivable; a
    decision is not.
 3. **Treat "most of this round's findings are about the last round's fixes" as
    a design signal, not a diligence signal.** The self-policed oscillation
-   rule this used to cite was retired in 2026-08-20 at 0-for-15; what carries
-   the signal now is the external adjudicator, which sees the same shape in
-   the mechanical record and answers the sharper question — whether writing
-   more code for these findings is worth another round at all.
+   rule this used to cite was retired in 2026-08-20 at 0-for-15, and the external
+   adjudicator that replaced it went with the #89 cut. What carries the signal
+   now is the shared judgement — two assessments that read the round
+   independently and advise — asking the sharper question the self-policed rule
+   never could: whether writing more code for these findings is worth it at
+   all.
 
 **Related:** *A derived metric that silently undercounts because its collector
 only reads one delivery channel* above is the opposite failure — there the
@@ -2832,6 +2838,73 @@ after the builder recorded the class-not-example rule against himself.
 above is this same error in code rather than in prose, and *A decline scoped to
 the reviewer's example instead of the finding's class* below is its third face.
 The fact that it has three entries in this file is itself the finding.
+
+## A stopping condition used as a triage rubric
+
+**Looks like:** you pre-register a flip condition before a review round — an
+observable that says when the loop should stop. The round returns a finding.
+You check it against the condition, it does not trip, and you read that as
+*"below my bar for fixing."* The step between those two readings is the error:
+**the complement of a stopping condition is not a decline list.**
+
+**Why this is not the entry above.** *A pre-registered condition scoped to the
+mechanism you had in mind* is about a condition whose **words** named one shape
+and whose sibling arrived instead — it miscopes, and its first avoidance step
+(name one sibling) catches it. Here the condition evaluates **correctly**
+against the harm it names. The harm is simply not the question being asked of
+it, so there is no sibling to name and that step does not fire. One is a
+drafting failure; this is a category error about what the device is for.
+
+**It runs in both directions, and each has its own cost.** A stopping rule read
+as a triage rule **declines too much**: applied consistently it declines every
+finding in every round that does not happen to end the loop, which is a decline
+quota rebuilt out of a stopping rule — the exact shape AI-Handbook #96 retired.
+A triage rule read as a stopping rule **writes too much**: "this is worth
+fixing" authorises the *fix*, never the *round*, and treating it as though it
+settled the round's cost buys a full write-gate round for a change nobody
+needed.
+
+**The worked examples, both from AI-Handbook #124.**
+
+- **Round 7, declining too much.** A finding naming an incomplete oracle
+  requirement — a fleet-wide instruction still cancelling the delegation the
+  whole pull request existed to grant — was nearly declined on the grounds that
+  it did not trip the stopping rule pre-registered for that round. Both
+  assessors named it independently and from different directions. Fable: *"A
+  pre-registered flip condition is a device for stopping a loop. It was never a
+  triage rubric."* Astra, which is the sharper statement of why it cannot be
+  allowed to work that way: *"Pre-registering that narrower rule does not
+  authorise narrowing David's requirements."*
+- **Round 14, writing too much — seven rounds later, same pull request.** A
+  triage rule ("a false sentence is a write") was invoked as though it bound
+  like a stopping rule, and bought a full round for a two-sentence change. The
+  round translation caught it; the builder did not.
+
+That both faces appeared in one loop, after the first had already been named in
+its own thread, is the measure of how easily the two devices swap places in
+one's own favour.
+
+**Avoid:**
+
+1. **Keep the two apart by the question each answers.** A stopping rule answers
+   *"is this loop still worth running?"* A triage rule answers *"is this finding
+   worth writing code for?"* Neither answers the other's question, and a
+   stopping rule's complement answers nothing at all.
+2. **A finding that does not trip a stopping condition has received no
+   disposition.** It is still owed the Worth rule
+   ([`review-judgment.md`](review-judgment.md)), in full, on its own merits.
+3. **A triage rule that says "write" has not said "and a round for it is worth
+   paying".** That is the ship gate's question and the Worth rule's, asked about
+   the round rather than the fix.
+4. **Say which device you are invoking, by name, in the reply that invokes it.**
+   Both errors above were invisible while the reasoning stayed unnamed and
+   obvious the moment it was written down for someone else.
+
+**Related:** [`review-judgment.md`](review-judgment.md) is the only statement of
+the triage rule; *A pre-registered condition scoped to the mechanism you had in
+mind, not the harm you were watching for* above is the adjacent-but-distinct
+drafting failure, and folding the two together is how this one goes back to
+being invisible.
 
 ## Building a second validator beside an existing one re-derives its gaps, not its answers
 

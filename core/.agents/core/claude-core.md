@@ -248,7 +248,7 @@ patterns become CI guards* under *Standing rituals*: the rule adds a word
 where the honest answer is "I could not check" and a quotation where I did,
 and the review loop noticing is what enforces it. Where it bites: a review
 reply's prose (`pr-watch`), and every premise I supply in a brief to a
-dispatched judge (*Model, cost, and routing*).
+dispatched assessor (*Model, cost, and routing*).
 
 ## Two modes: feature-building (default) vs. bug-fixing
 
@@ -476,8 +476,8 @@ Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
 docs and harvests run the loop above with the **`internal` tier**:
 
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
-  finding nothing, it needs no adjudication and no receipt — nothing was
-  written, so the head is already reviewed.
+  finding nothing, there is nothing to assess and no receipt to write —
+  nothing was written, so the head is already reviewed.
 - **Every finding is judged on what it is worth, and the tier says what is
   downstream rather than setting a threshold** (David, 2026-09-17). The old
   rubric here reserved a write for "a very high chance of a critical flaw" and
@@ -974,8 +974,9 @@ shows the true delta.
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
-  - Adjudication dispatches run at the strongest available tier regardless —
-    that is a separate, deliberate routing (below), not this rule being
+  - The bounded-judgement dispatches — the plan reviewer, and the review
+    proxy's two assessors — run at the strongest available tier regardless.
+    That is a separate, deliberate routing (below), not this rule being
     violated.
 - **Verify the active tier before Opus-reserved execution** (migration, Tier B
   fix, security review, dev-infra) rather than inferring it. `.claude/settings.json`
@@ -1016,19 +1017,22 @@ shows the true delta.
   for David; that was the verdict-driven design the 2026-09-18 redesign
   replaced.)
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
-  the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
-  premise produces a confidently wrong verdict** — so pin the commit the
+  the stronger tier; an incomplete enumeration is invisible to the assessor; and a
+  **false premise produces a confidently wrong assessment** — so pin the commit the
   question is about, check my working tree matches it when the question is about
-  a tree, and tell the judge to verify load-bearing premises rather than taking
+  a tree, and tell the assessor to verify load-bearing premises rather than taking
   them from me. **Every factual premise I supply in a brief** — in the
   oracle, the lens, the priors, the pinned commit — **is itself written
   under *A load-bearing claim is quoted, or it is marked unverified***: a
-  quoted signature or output, or `unable to verify:`, so the judge can read
+  quoted signature or output, or `unable to verify:`, so the assessor can read
   which of its inputs was measured. A lens is a chosen emphasis, a
   judgement; only the facts it rests on are premises. The standing text a
   dispatch script emits is the script's claim, reviewed when the script is.
-  When a verdict rests on a false premise I supplied, I correct the *input*
-  and re-ask; I never overrule the *output*.
+  When an assessment rests on a false premise I supplied, the fix is the
+  *input*: I correct it and re-ask, rather than arguing with a conclusion built
+  on it. That is a rule about where the error is, never about authority — both
+  assessments advise, and a disagreement I hold on the merits is settled under
+  *Shared judgement on a review round*.
 - **An unclassified judgement does not dispatch.** It runs in my main loop, and
   encountering one is a signal to classify it in a PR — not to decide in the
   moment. Adding or removing a dispatch bar is a contract change, shipped

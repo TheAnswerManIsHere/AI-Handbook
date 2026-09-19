@@ -339,7 +339,8 @@ The review-loop contract is shared and enacted elsewhere — **the mechanics
 live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
-what the fix touches (a rubric selector, not a round budget), the **write-gate
+what the fix touches (a statement of what is downstream — not a rubric
+selector, and not a round budget), the **write-gate
 rule — every round that returns findings gets two independent assessments
 before anything is written for it, and any commit that does get written gets a
 mandatory review round; the in-loop continue/stop, criticality gate, count
