@@ -298,10 +298,21 @@ replaced them is step 5's proportionate-evidence rule.)
 
 6. **Re-request review on the actual head.**
 
-   - **No re-request without a behavioural change** since the last reviewed
-     commit. A skill file, `claude-core.md`, or a `docs/ai-context/` contract
-     counts as behavioural. A prose-only push does not buy a round and does not
-     escape review either — it waits and rides the next behavioural round.
+   - **Every changed head gets its review; an unchanged one never gets a
+     second.** A prose-only push is a changed head and is reviewed like any
+     other — the rule here used to say it "waits and rides the next behavioural
+     round", which under the write-gate meant a documentation correction with
+     nothing behavioural behind it could never merge at all (#125 waited a week
+     on that reading). What is refused is re-requesting on a head already
+     reviewed as it stands, to get a different answer. (Astra, 2026-09-19.)
+   - **Two reviews, then stop editing.** On internal tooling this is round 1,
+     one coherent batch of corrections, the review of that corrected head, and
+     no more — see the two-review limit in
+     [`working-modes.md`](../../../docs/ai-context/working-modes.md). If that
+     head still falls short of an agreed requirement, fails a required check,
+     or carries consequential harm David has not accepted, it goes to **him**
+     with the shortfall and a choice; it does not merge, and I do not grant
+     myself a third round.
    - **Pre-registered flip conditions, in the request itself.** Name, before
      the round runs, what would stop the loop. **Each names an OBSERVABLE,
      never a judgement** (#85, 2026-09-13) — something read off the round ("a

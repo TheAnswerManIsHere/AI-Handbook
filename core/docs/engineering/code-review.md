@@ -229,16 +229,24 @@ and was replaced by two advisory assessments per round (#96) — see
 internal-tier section. The retired fix-round merge-path workarounds no
 longer apply.
 
-**Internal tooling gets the light bar too, and loops only for its fixes
-(David, 2026-08-21).** Guards, `scripts/`, skills, agent contracts,
-process docs and documentation harvests are reviewed by the automatic pass
-when the PR opens; a clean pass ships, and findings get one triage with
-one-line declines. What changed from 2026-08-20: fixes that get pushed are
-re-requested under the internal tier rather than merged unreviewed. The
-reviewer should still raise genuine defects and skip prose, structure and
-completeness findings: the loops this repo measured on that class were 22
-rounds of correct findings against an artifact where none of them
-mattered. The full reasoning is in
+**Internal tooling: the depth is lighter, and how long it loops is not this
+file's to say (David, 2026-09-19).** Guards, `scripts/`, skills, agent
+contracts, process docs and documentation harvests are reviewed by the
+automatic pass when the PR opens, and a clean pass ships. Iteration beyond
+that is bounded by the **two-review limit** in
+[`working-modes.md`](../ai-context/working-modes.md) — review, one batch of
+corrections, review, stop — and every changed head still gets its review.
+This paragraph used to add "loops only for its fixes" and "findings get one
+triage with one-line declines": a round budget and a decline form, both
+retired, sitting where a depth rule belongs.
+
+On **depth**, for a documentation-only pull request, the reviewer should raise
+genuine defects and skip prose, structure and completeness findings: the loops
+this repo measured on that class were 22 rounds of correct findings against an
+artifact where none of them mattered. **Executable tooling is reviewed for
+meaningful defects** — a lighter bar for `scripts/` would be the tier setting a
+threshold, which it does not do; what is downstream informs the Worth rule
+instead. The full reasoning is in
 [`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target).
 
 ## Runtime correctness

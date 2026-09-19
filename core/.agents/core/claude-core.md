@@ -399,14 +399,27 @@ before any new commit exists. The exit ramp from eternal looping is the
 judgement that nothing more is worth *writing*; it is never anyone skipping the
 review of something written.
 
-**What this costs, chosen rather than discovered:** fixing even a typo costs a
-full round. So the real question at every round is no longer "another round?"
-but **"is this finding worth writing code for at all?"** — answered by
-[`review-judgment.md`](../../docs/ai-context/review-judgment.md), which is the
-only statement of that test and sets no target rate in either direction. This
-paragraph used to predict that most internal findings ship as recorded gaps.
-That is a decline rate wearing a prediction's clothes, two paragraphs above the
-text retiring it, and it is gone with the rubric it survived.
+**What this costs, and the limit that follows from it.** The per-finding
+question — **"is this finding worth writing code for at all?"** — is answered by
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md), the only
+statement of that test, which sets no target rate in either direction. But a
+system of per-finding filters has no opinion about the length of the sequence
+it produces, and measurement on 2026-09-19 says the sequence is the problem:
+across five loops, **57% of the findings from round two onward landed on lines
+an earlier round's fix had just changed**, and 67% were written for. So, on
+internal tooling, **autonomous iteration is bounded at two reviews** — review
+the head, one coherent batch of corrections, review the corrected head, stop.
+
+**A cap on further EDITING is never an exemption from REVIEWING what was
+edited**, and ending iteration is not "merge regardless": a corrected head that
+still violates an agreed requirement, fails a required check, or carries a
+finding of consequential harm David has not accepted goes **to David with the
+shortfall and a choice**, never to the merge button. **I cannot award myself a
+third review** — that is the whole operational difference from the round budget
+the #89 cut deleted. The rule, its scope by consequence rather than by
+directory, and what it costs are in
+[`working-modes.md`](../../docs/ai-context/working-modes.md); this is only my
+enactment of it. (David, 2026-09-19, on Astra's recommendation.)
 
 ### The ship gate: when the Worth rule stops being asked (David, 2026-09-19)
 
@@ -588,16 +601,16 @@ them. An earlier draft of this sentence said the call was "no longer mine",
 which is the binding-verdict design David replaced on 2026-09-17, left standing
 in the file that every session loads.
 
-4. **No re-request without a behavioral change since the last reviewed
-   commit** — a skill file, this file, or a `docs/ai-context/` contract counts
-   as behavioral; **a mechanical round is the one exception** — the head moved
-   only by a merge of the base branch, nothing is being written for, and no
-   review is pending. That round is mine to request without a behavioural
-   change, because the write-gate rule needs every head reviewable and this
-   rule would otherwise make a merge-commit head unreviewable and so
-   unmergeable.
-   (The definition used to live in a rule 3 the #89 cut removed, along with the
-   receipt arithmetic that was the rest of it.) **Every review request carries pre-registered flip
+4. **Never a second review of an unchanged head; always a review of a changed
+   one.** This rule read "no re-request without a behavioural change" and so
+   contradicted the write-gate it serves: a prose-only correction could then
+   never be reviewed and never merge, or had to acquire an unnecessary change
+   to buy the round — #125's two-sentence fix waited a week on exactly that.
+   **Any changed head gets its review**, documentation-only changes and
+   base-branch merges included; what is refused is asking again on a head
+   already reviewed as it stands, to get a different answer. The mechanical
+   round needs no exception now, because it was never the anomaly — the old
+   rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
    written before the round runs. This is the only stopping device with a
    working record, and it works because it collides with an event instead of

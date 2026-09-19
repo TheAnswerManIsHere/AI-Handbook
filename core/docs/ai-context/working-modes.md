@@ -57,16 +57,22 @@ David's product-testing catch it before it does damage?** Where the answer is
 every round of adversarial review on a low-risk artifact generates new surface
 to review.
 
-| Artifact class | Ceremony | Why |
+**What this table selects is planning ceremony and review depth. It does not
+select how long a review loop runs** — that is the two-review limit, below,
+which applies to internal tooling whatever its row.
+
+| Artifact class | Planning ceremony and review depth | Why |
 | --- | --- | --- |
-| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **Write it, ship it, never loop on it.** Codex's automatic first pass happens (it reviews every PR); its findings get one triage and the loop ends there — no re-request. The cap ends the *loop*, never a fix: the one triage still fixes anything safety-relevant (see the next column). | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and gets fixed in the single triage. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
-| **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **Write it, one review pass, ship.** No plan document, no convergence loop. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
+| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and gets fixed in the single triage. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
+| **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
 | **Product code** | Today's full feature ceremony — plan, review to convergence, approval. | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
-For the floor tier, say so in the PR body's *What & why* ("transient
-checklist, deleted after one run — findings triaged once, no re-review"),
-so the reviewer and any later reader can calibrate from the same line.
+For the floor tier, say so in the PR body's *What & why* ("transient checklist,
+deleted after one run"), so the reviewer and any later reader can calibrate from
+the same line. **It says what the artifact is, never how many reviews it
+gets** — that line used to promise "findings triaged once, no re-review", which
+is a commitment to the reviewer that a changed head would go unread.
 Review *depth* on any docs-only PR is governed by
 [`code-review.md`](../engineering/code-review.md#documentation-only-prs-get-a-light-review-david-2026-08-08):
 generally correct is good enough, glaring issues only — no grammar or
@@ -598,10 +604,86 @@ unreviewed head safe, and an unreviewed head is now never mergeable. The
 older "fix-round merge path" workarounds (David posting the trigger himself, <!-- retired-ok -->
 recutting the PR) stay retired for the same reason.
 
-**The cost, chosen rather than discovered:** fixing even a typo costs a full
-round. So the question is not "another round?" but **"is acting on this finding
-worthwhile?"** — answered by [`review-judgment.md`](review-judgment.md), which
-is the only statement of it and sets no target rate in either direction.
+**The cost, measured rather than assumed.** This paragraph used to say that
+fixing even a typo costs a full round, and that the only question left was
+whether acting on a finding was worthwhile — answered by
+[`review-judgment.md`](review-judgment.md), which is still the only statement of
+that test and still sets no target rate in either direction. The per-finding
+question stands. What was missing is the one below it: **a system of
+per-finding filters has no opinion about the length of the sequence it
+produces**, and the sequence is what David pays for.
+
+Measured across every review loop the shared-judgement design has run (2026-09-19,
+five pull requests, 31 rounds, 112 findings): **48 of the 84 findings from round
+two onward — 57% — landed on lines a fix from an earlier round in the same loop
+had just changed**, and 67% were written for, so each fix round produced the
+next. Codex alone took 6.5 to 11.4 minutes on every round that returned
+findings. #120 ran eight rounds over 22 hours; #124 ran fifteen over 19.
+**Script and prose findings behaved identically** (57% and 58% on an earlier
+fix), so the shape is a property of the loop, not of the artifact.
+
+#### The two-review limit on autonomous iteration (David, 2026-09-19)
+
+**For internal tooling, autonomous iteration is bounded at two reviews.** Not a
+round budget — a limit on how long the builder may keep *editing* without
+David. The sequence:
+
+1. **Review the head.** Meets the agreed requirements → ship it.
+2. **If corrections are warranted, make ONE coherent batch** — every finding
+   worth acting on, together, with targeted verification of the failure classes
+   involved rather than of the reviewer's examples.
+3. **Review the corrected head.** Acceptable imperfections become recorded
+   gaps; worthwhile deferred work becomes an issue.
+4. **Autonomous iteration ends there.**
+
+**A cap on further EDITING is not an exemption from REVIEWING what was edited**
+(Astra, 2026-09-19, and this is the sentence the whole rule turns on). Step 3
+is not optional and there is no second batch of fixes merged behind it. Both of
+the write-gate's invariants survive intact: no commit merges unreviewed, and
+the loop ends on a reviewed head.
+
+**What ending iteration does NOT mean is "merge regardless."** If the corrected
+head still violates an agreed requirement, a required check fails, or a finding
+establishes consequential harm David has not accepted, **it does not merge —
+it goes to David with the concrete shortfall and a choice**: continue, cut the
+scope, or stop the work. Ending the loop and declaring the work ready are two
+different things, and conflating them is how a cap turns into a hole.
+
+**The builder cannot award itself a third review.** That is the operational
+difference between this and the round budget the #89 cut deleted: "another
+correction seems worthwhile" is exactly the reasoning the limit exists to
+refuse. A third review requires David reopening the work deliberately.
+
+**Two is an explicit operating trade-off, not a measured optimum.** The
+retrospective establishes that the sequence is too long and too self-referential;
+it does not establish that two is the right number. It buys independent
+inspection of the implementation and of its first corrections, which is the
+least that is worth having.
+
+**Scope it by consequence and recoverability**, with "internal tooling" as the
+convenient default rather than a universal exemption. Machinery that governs
+approvals, publication, credentials or destructive operations is weighed on
+those consequences whatever directory it lives in. And **"this changes how
+future agents work" does not by itself disqualify anything here** — reach is
+not consequence, or every line in this repository would be exempt from every
+limit.
+
+**The failure signal, named in advance:** if this boundary routinely produces
+requests to reopen, it has not relieved the problem. The answer then is smaller
+increments or simpler machinery — never another layer of exceptions on top of
+the limit.
+
+**What capping costs, concretely, because it is not free.** At #124's round-two
+head the concern ledger accepted an entry carrying no original reasoning and
+rendered an empty box where the argument should have been; it was found at
+round 7. At that same head, the private-plan ignore file did not ship to
+consumers, so a plan could sit unignored and an intervening `git add -A` could
+publish it. Both are real defects that a two-review limit would not have
+surfaced inside that loop. Neither is an argument against the limit — the
+second is an argument for step 4's *shortfall* branch, which is what a
+disclosure failure is — but the trade is real and is recorded here rather than
+discovered later. (Astra reproduced both against the historical code,
+2026-09-19.)
 
 #### There is no budget any more (#89 cut, 2026-09-16)
 
@@ -652,8 +734,10 @@ reviewed at product rigor (PR #488 ran 22 rounds on a ~10-line guard change;
 then #503, #526, #531, #534, #539, and #91's ten), so the strictness lives in
 the write decision, sized to a class of artifact whose failure mode is
 wrongly-blocking and whose real protection is GitHub's server-side rulesets.
-Engagement stays one pass and a proportionate reply, never a form that makes
-declining harder to write than fixing.
+Engagement is a proportionate reply, never a form that makes declining harder
+to write than fixing. How long engagement *runs* is the two-review limit's, not
+this paragraph's — it used to open "engagement stays one pass", which is a
+round budget in a sentence about strictness.
 
 **Codex review of product code is unaffected and is not negotiable.** It is
 the safety net a non-code-reading product manager depends on.
@@ -663,9 +747,18 @@ the safety net a non-code-reading product manager depends on.
 - **A clean automatic pass on PR-open is the whole ceremony** for an internal
   PR. Finding nothing, it needs no judge: nothing was written, so the head is
   already reviewed.
-- **No re-request without a behavioral change since the last reviewed commit.**
-  A skill file, `CLAUDE.md`, or a context contract counts as behavioral,
-  because in this repo those change what agents do.
+- **Never a second review of an unchanged head; always a review of a changed
+  one.** The rule here used to read "no re-request without a behavioural
+  change", which contradicts the write-gate it sits under: a documentation pull
+  request whose review yields one worthwhile factual correction could then never
+  be reviewed and never merge, or had to acquire an unnecessary change to buy
+  the round. Measured: #125's two-sentence fix waited a week under exactly that
+  reading. **Any changed head gets review before merge** — documentation-only
+  changes and base-branch merges included. What is refused is a round requested
+  merely to get a different answer on a head already reviewed as it stands.
+  (Astra, 2026-09-19.)
+- **The two-review limit bounds how long iteration runs**, above. These bound
+  what a single round is for.
 - **Every review request carries pre-registered flip conditions** — what
   finding, what count, what change of shape would end the loop, written before
   the round runs, **each naming an observable read off the round rather than a

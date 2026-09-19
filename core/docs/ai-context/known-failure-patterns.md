@@ -1492,17 +1492,22 @@ the hard-coded fallback. Every writer records — except the one that reads its
 engine before its own `try`. The pull is structural, not careless, which is
 why instance-by-instance fixing never generalised across nine attempts.
 
-**A corollary worth knowing at the end of a loop, scoped to the artifacts it
-actually applies to:** for a PR whose class requires head-bound re-review, this
-repo's merge bar needs a completed reviewer pass on the **head** commit, so any
-further fix moves the head and costs another pass. That makes "just fix one
-more thing" mechanically expensive at loop end — a stopping force independent
-of anyone's judgment, worth counting when deciding whether a cheap fix is
-actually cheap. **It does not apply to the floor tier** — transient process
-docs and loop-ledger records keep their zero-re-request rule from
-[`working-modes.md`](working-modes.md)'s ceremony table, and a post-review fix
-there moves the head without owing a pass. Stating the corollary universally
-would have made those artifacts unmergeable in principle (Codex, #518).
+**A corollary worth knowing at the end of a loop, and it is now universal:**
+this repo's merge bar needs a completed reviewer pass on the **head** commit,
+so any further fix moves the head and costs another pass. That makes "just fix
+one more thing" mechanically expensive at loop end — a stopping force
+independent of anyone's judgment, worth counting when deciding whether a cheap
+fix is actually cheap. **The floor-tier exemption that stood here is gone**
+(David, 2026-09-19): transient process docs and ledger records were said to
+keep a "zero-re-request rule", so a post-review fix there moved the head
+without owing a pass — which is a commit merging unreviewed, the one thing the
+write-gate exists to refuse. What bounds those artifacts now is the
+**two-review limit** in [`working-modes.md`](working-modes.md), which caps how
+long iteration runs without ever exempting a changed head from being read. The
+worry that made the exemption (Codex, #518) — that stating the corollary
+universally leaves an artifact unmergeable in principle — was real under the
+old re-request rule and is answered by its replacement: every changed head gets
+its review, so nothing is unmergeable for want of one.
 
 **Avoid:** re-running the oracle that just passed and reading a clean result
 as convergence. Ask instead which of the three properties changed since it was

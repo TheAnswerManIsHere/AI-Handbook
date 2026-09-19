@@ -87,9 +87,11 @@ Decide by what "this" refers to (contract's trigger table):
   the merged diffs, contradiction or duplication with existing docs; out of
   scope — prose style, structure preferences, completeness beyond the
   session's actual learnings.* Out-of-scope findings are declined against
-  the stated oracle in one triage pass — a harvest is an internal artifact,
-  so the carve-out applies: the automatic pass, one triage, no re-requested
-  rounds — and once the ready bar is met I self-merge per CLAUDE.md's
+  the stated oracle in one triage pass — a harvest is an internal artifact, so
+  the **two-review limit** applies (`working-modes.md`): the automatic pass,
+  one coherent batch of corrections if any are warranted, **a review of that
+  corrected head**, then iteration stops. It never meant a pushed fix merges
+  unreviewed. Once the ready bar is met I self-merge per CLAUDE.md's
   close-out contract. I only
   commit to the feature's own branch instead when I have clear **session
   evidence** its PR is still open (e.g. `/document` invoked mid-build). **Never
