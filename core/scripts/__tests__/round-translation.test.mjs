@@ -401,14 +401,45 @@ test("the final-round sections are required on the final round and refused other
 test("an empty or blank could_not_assess is refused, not read as 'nothing to report'", () => {
   // The validator accepted "" and the reader read "" as not-unassessed: two
   // checks disagreeing about what empty means, with the favourable state as
-  // the result. (Codex, #109 round 2.) Then "   " passed `minLength` and was
-  // trimmed into the favourable state one character away. (Astra, 2026-09-16.)
+  // the result. (Codex, #109 round 2.) Then "   " passed the schema's
+  // `minLength` and was trimmed into the favourable state one character away
+  // (Astra, 2026-09-16) -- the schema now says `minTrimmedLength`, so the
+  // general rule refuses it too, and this check survives for its message.
   assert.notDeepEqual(validateAnswer(answer({ could_not_assess: "" }), { finalRound: false }), []);
   assert.match(validateAnswer(answer({ could_not_assess: "   " }), { finalRound: false }).join("; "), /is blank/);
   assert.deepEqual(validateAnswer(answer({ could_not_assess: null }), { finalRound: false }), []);
   assert.deepEqual(validateAnswer(answer({ could_not_assess: "The diff was cut." }), { finalRound: false }), []);
   // And the reader side does not trim either: only null is fully assessed.
   assert.equal(facts(round(1, answer({ could_not_assess: "   " }))).unassessed, true);
+});
+
+test("a required prose field cannot be whitespace and still validate", () => {
+  // Measured on this schema for #116: every required prose field set to three
+  // spaces returned `problems: []`, and the answer rendered under the
+  // favourable headline -- an empty account presented as agreement. The
+  // schema's keyword measured the RAW string, so "   " satisfied it.
+  const blank = {
+    recommendation: "   ",
+    about: "  ",
+    took_on_trust: "\n\t ",
+  };
+  const problems = validateAnswer(answer(blank), { finalRound: false });
+  for (const field of Object.keys(blank)) {
+    assert.ok(
+      problems.some((p) => p.includes(field)),
+      `"${field}" was whitespace and nothing complained: ${JSON.stringify(problems)}`,
+    );
+  }
+  // Nested prose too, which is where most of the fields are.
+  assert.notDeepEqual(
+    validateAnswer(answer({ disagreements: [{ what: "   ", why_it_matters: "   " }] }), { finalRound: false }),
+    [],
+  );
+  assert.notDeepEqual(
+    validateAnswer(answer({ ...finalSections, known_gaps: [{ what: " ", reasonable: true, why: " " }] }), { finalRound: true }),
+    [],
+  );
+  assert.deepEqual(validateAnswer(answer(finalSections), { finalRound: true }), [], "the filled final round still validates");
 });
 
 test("an undeterminable model is null, never prose", () => {

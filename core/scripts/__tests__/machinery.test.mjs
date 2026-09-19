@@ -241,6 +241,7 @@ test("validate enforces every keyword the schemas use", () => {
       count: { type: "number" },
       done: { type: "boolean" },
       tags: { type: "array", items: { type: "string" } },
+      bio: { type: "string", minTrimmedLength: 1 },
     },
   };
   assert.deepEqual(validate({ name: "a", tags: [], status: "ok", count: 1, done: true }, schema), []);
@@ -251,6 +252,17 @@ test("validate enforces every keyword the schemas use", () => {
   assert.ok(validate({ name: "a", tags: [1] }, schema).some((p) => p.includes("$.tags[0]")));
   assert.ok(validate({ name: 1, tags: [] }, schema).some((p) => p.includes("expected a string")));
   assert.ok(validate([], schema).some((p) => p.includes("expected an object")));
+  // `minTrimmedLength` measures the string a reader would actually get, which
+  // is the whole reason it is not `minLength`: a required prose field set to
+  // three spaces used to validate and render under a favourable headline.
+  // (#116, from #109 round 9.)
+  assert.deepEqual(validate({ name: "a", tags: [], bio: "x" }, schema), []);
+  for (const blank of ["", " ", "   ", "\n\t "]) {
+    assert.ok(
+      validate({ name: "a", tags: [], bio: blank }, schema).some((p) => p.includes("once trimmed")),
+      `bio ${JSON.stringify(blank)} should be refused as unfilled`,
+    );
+  }
 });
 
 test("assertSchemaSupported refuses a keyword the validator cannot enforce", () => {
@@ -262,11 +274,24 @@ test("assertSchemaSupported refuses a keyword the validator cannot enforce", () 
     /format/,
   );
   assert.throws(() => assertSchemaSupported({ type: "array", items: { type: "string", pattern: "x" } }), /pattern/);
-  // `minLength` moved from refused to enforced when the round-translation
-  // schema needed it. The pair below is the point: it is accepted HERE only
-  // because `validate` actually checks it, which the next test asserts.
+  // `minTrimmedLength` moved from refused to enforced when the
+  // round-translation schema needed it. The pair below is the point: it is
+  // accepted HERE only because `validate` actually checks it, which the
+  // keyword test above asserts.
   assert.doesNotThrow(() =>
-    assertSchemaSupported({ type: "object", properties: { a: { type: "string", minLength: 3 } } }),
+    assertSchemaSupported({ type: "object", properties: { a: { type: "string", minTrimmedLength: 3 } } }),
+  );
+  // And `minLength` is refused BY NAME rather than falling through to the
+  // generic message, which an author would read as "add support for it" --
+  // rebuilding the fail-open this keyword exists to close. (#116.)
+  assert.throws(
+    () => assertSchemaSupported({ type: "object", properties: { a: { type: "string", minLength: 1 } } }),
+    /minTrimmedLength/,
+  );
+  assert.throws(
+    () => assertSchemaSupported({ type: "array", items: { type: "string", minLength: 1 } }),
+    /minTrimmedLength/,
+    "the refusal reaches nested schemas, where most of the prose fields live",
   );
   assert.doesNotThrow(() =>
     assertSchemaSupported({ type: "object", required: ["a"], additionalProperties: false, properties: { a: { type: "string" } } }),

@@ -204,7 +204,20 @@ replaced them is step 5's proportionate-evidence rule.)
       base assessment looking like the follow-up. Name
       `round-<n>.fable.followup-<k>.md` explicitly. (Codex, #120 round 7. It did
       not bite on the one live run only because the subagent chose that path
-      itself.) That asymmetry is why the
+      itself.)
+
+      **`k` counts attempts, not questions, so it is never reused.** List the
+      round's directory first and take the next unused number: a second attempt
+      at follow-up 1 is `followup-2`. Nothing can clear the old file for me —
+      `prepareAssessmentPath` is reached only through the CLI, and a Fable
+      continuation invokes no CLI at all — and `readAssessment` accepts any
+      non-empty file as an answer. The case that matters is not a plain retry,
+      where a stale answer is at least an answer to the same question: it is a
+      **corrected question landing on the answer to the old one**, which reads
+      as a reply to what I just asked and is not. Counting up eliminates the
+      state instead of clearing it, and the file name then says which attempt
+      produced it. (Codex, #120 round 8, deferred to #122; Fable held the
+      tie-break between this and clearing the destination.) That asymmetry is why the
       Astra package took three rounds of guards to get right and the Fable side
       needed none — and why a package guard is worth writing on one side only.
 
