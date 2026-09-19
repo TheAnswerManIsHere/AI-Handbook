@@ -58,18 +58,19 @@ test("decisions.md may cite a retired path in backticks", () => {
   assert.doesNotMatch(out, /does not exist/);
 });
 
-test("known-failure-patterns.md may cite a retired path: the example says where it happened", () => {
+// known-failure-patterns.md was exempted from the path pass in an earlier
+// revision of this change and is NOT exempt now. Both halves are asserted,
+// because the reason is that the file is overwhelmingly live instruction: on
+// the cutover rehearsal it named 41 checkable paths, 37 of them live in the
+// consumer. Exempting it would have switched those 37 checks off to permit 4.
+test("known-failure-patterns.md is NOT exempt from the path check", () => {
   const { code, out } = runIn({
-    "docs/ai-context/known-failure-patterns.md": `# Known Failure Patterns\n\nOverhype ran ${RETIRED_PATH} and it broke.\n`,
+    "docs/ai-context/known-failure-patterns.md": `# Known Failure Patterns\n\nRun ${RETIRED_PATH} nightly.\n`,
   });
-  assert.equal(code, 0, out);
-  assert.doesNotMatch(out, /does not exist/);
+  assert.equal(code, 1, out);
+  assert.match(out, /known-failure-patterns\.md: cited path does not exist/);
 });
 
-// The exemptions are per pass, and this is the asymmetry that earns that: a
-// worked example's backticked path is a citation, but its Markdown links are
-// live routes an agent follows to another contract. Exempting the file from
-// both passes would have given up real coverage for nothing.
 test("known-failure-patterns.md is NOT exempt from the link check", () => {
   const { code, out } = runIn({
     "docs/ai-context/known-failure-patterns.md":
@@ -77,6 +78,16 @@ test("known-failure-patterns.md is NOT exempt from the link check", () => {
   });
   assert.equal(code, 1, out);
   assert.match(out, /known-failure-patterns\.md: broken link → \.\/gone\.md/);
+});
+
+// The convention that replaces the exemption: a retired path is written
+// without backticks, so it makes no claim for the checker to test.
+test("an un-backticked retired path in that file is not a path claim", () => {
+  const { code, out } = runIn({
+    "docs/ai-context/known-failure-patterns.md":
+      "# Known Failure Patterns\n\nRun scripts/review-budget.mjs nightly (since retired).\n",
+  });
+  assert.equal(code, 0, out);
 });
 
 test("a broken live link in an ordinary library doc still fails", () => {
@@ -97,7 +108,7 @@ test("a broken live path in an ordinary library doc still fails", () => {
 
 // The exemption names files, never directories: a directory exemption would
 // silently cover the next document added beside them.
-test("a neighbouring doc in the same directory is not exempt", () => {
+test("a neighbouring doc beside decisions.md is not exempt", () => {
   const { code, out } = runIn({
     "docs/ai-context/decisions-appendix.md": `# Appendix\n\n${RETIRED_PATH} and [gone](./gone.md).\n`,
   });

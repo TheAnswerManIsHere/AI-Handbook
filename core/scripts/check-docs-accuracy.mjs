@@ -39,40 +39,27 @@ const LINK_ONLY_EXTRA = ["CLAUDE.md"];
 const LINK_ONLY_DIRS = [".claude/skills"];
 
 // ── Historical records ────────────────────────────────────────────────────────
-// Two library docs are RECORDS of what happened, not descriptions of what is.
-// The checker's premise -- "the code is the source of truth, so fix the doc to
-// name the real path" -- does not hold for them: their citations are
-// timestamps, and the fix the error message asks for is impossible.
+// decisions.md is APPEND-ONLY by contract: an entry records what was decided
+// and why, at the time, and is never edited afterwards. When a decision retires
+// a document, every older entry that linked to it becomes a dead link BY
+// DESIGN -- there is nothing to repair without rewriting history. It is also
+// consumer-owned: it does not exist in this repository at all, so the handbook
+// cannot fix its citations even in principle. Both passes are exempt for it.
 //
-// They are exempted separately, per pass, because they need different things.
-// Exempting either from a check it does not need would give up real coverage.
-//
-//   decisions.md is APPEND-ONLY by contract: an entry records what was decided
-//   and why, at the time, and is never edited afterwards. When a decision
-//   retires a document, every older entry that linked to it becomes a dead
-//   link by design -- there is nothing to repair without rewriting history.
-//   So it is exempt from BOTH passes.
-//
-//   known-failure-patterns.md states each pattern generally and grounds it in
-//   a worked example from whichever product hit it. Its own header is explicit
-//   that "a file path in an example is a citation of where it happened, never
-//   a claim about the repo you are reading this in" -- so a BACKTICKED path
-//   naming a script that has since been deleted is the file working as
-//   designed. Its Markdown LINKS are different: they are live cross-references
-//   an agent follows to another contract, so the link check still applies.
-//
-// Measured, 2026-09-19, on a rehearsal of the first consumer cutover (the
-// payload synced into Overhype.me plus that cutover's deletions): decisions.md
-// produced 8 path errors and 3 broken links; known-failure-patterns.md
-// produced 4 path errors and zero broken links. The split below is that
-// measurement, not a precaution.
+// NOTHING ELSE IS EXEMPT, and one near-miss is worth recording. An earlier
+// revision of this change also exempted known-failure-patterns.md from the
+// path pass, on the grounds that its worked examples cite where an incident
+// happened rather than where a file is. Measured on a rehearsal of the first
+// consumer cutover, that file names 41 checkable paths: 37 are LIVE paths in
+// the consumer, which entries actively send an agent to go and read, and 4
+// were retired handbook scripts. The exemption would have switched off 37 real
+// checks to permit 4 -- in the consumer, which is the only repository where
+// this check runs against that file. The four are written without backticks
+// instead, per the convention now stated in that file's own header.
 //
 // Files, never directories: a directory exemption would silently cover the
-// next document added beside them.
-const PATH_CHECK_EXEMPT = new Set([
-  "docs/ai-context/decisions.md",
-  "docs/ai-context/known-failure-patterns.md",
-]);
+// next document added beside it.
+const PATH_CHECK_EXEMPT = new Set(["docs/ai-context/decisions.md"]);
 const LINK_CHECK_EXEMPT = new Set(["docs/ai-context/decisions.md"]);
 
 // Nested CLAUDE.md memory files (e.g. lib/api-zod/CLAUDE.md) load contextually

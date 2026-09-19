@@ -9,6 +9,13 @@
 > pattern below; this one has been missed more than once because it doesn't
 > "feel" like visual-pipeline/enrichment/moderation/migration work, but it is
 > exactly this class of gotcha). Anchored IDs are linked from other docs.
+>
+> **A backticked path here is a claim that the file is really there, and CI
+> checks it** (`scripts/check-docs-accuracy.mjs`). So a path that no longer
+> exists is written **without backticks**, and said to be retired. That keeps
+> the check switched on for the many live paths below — the ones an entry sends
+> you to go and read — rather than switching it off for the file to accommodate
+> the few historical ones.
 
 Format per pattern: **what it looks like → why it's dangerous → how to avoid →
 Overhype example.**
@@ -557,15 +564,16 @@ the one direction this module must never move in.
   being inspected is not there.
 
 **Avoid:** refuse the whole class instead of judging instances of it. #488's
-decision module (`scripts/guard-decision.mjs`) refuses `curl` and `wget` with
+decision module (scripts/guard-decision.mjs, since retired — #94) refused
+`curl` and `wget` with
 no argument-shape exception, because that is the only version that is complete
 by construction. Accept and **write down** the residual gaps rather than
 closing them one at a time.
 
 **Scoped to the module deliberately, and this sentence is itself an instance of
-the pattern below.** The refusal lives in `guard-decision.mjs`, which
-`.claude/guard.sh` runs *only when `node` is available*; the node-less fallback
-has no fetcher alternative and lets a `curl` payload through. An earlier
+the pattern below.** The refusal lived in that decision module, which
+.claude/guard.sh ran *only when `node` was available*; the node-less fallback
+had no fetcher alternative and let a `curl` payload through. An earlier
 version of this paragraph said the guard "refuses `curl` and `wget` outright"
 with no qualifier — a blanket claim about a wrapper that does no such thing,
 written in the entry warning against exactly that. It survived a repo-wide
@@ -1681,7 +1689,7 @@ rule, a protocol-level restriction — already covers the actual risk. Size
 the defense to the *realistic* threat model (an honest mistake) rather than
 a fully adversarial one, when the two genuinely differ, and say so out loud
 rather than quietly absorbing round after round. **Overhype:**
-`.claude/guard.sh` / `scripts/guard-decision.mjs` (PR #329) — Codex review
+.claude/guard.sh / scripts/guard-decision.mjs (both since retired — #94; PR #329) — Codex review
 rounds found 11, then 11, then 12, then 19 parser gaps (fixing 9, 11, 11, 0).
 The count of newly-found gaps never fell across four rounds, even as each
 round's fixes landed. David stopped the loop there
@@ -1691,8 +1699,8 @@ server-side ruleset on `main` (which needs no Bash parsing at all — it
 rejects the actual git protocol operation), not chased to full-coverage
 completeness. See the
 [2026-08-05 `decisions.md` entry](./decisions.md#2026-08-05--the-bash-guard-is-narrowed-to-make-the-lease-mandatory-then-review-loop-iteration-stops-after-round-4-widened-instead-of-narrowed)
-and `scripts/guard-decision.mjs`'s own `ROUND 4, AND THE DECISION TO STOP`
-docstring section.
+and scripts/guard-decision.mjs's own `ROUND 4, AND THE DECISION TO STOP`
+docstring section (the file was retired in #94; the reasoning survives here).
 
 ## A plan that grew during its own review
 
@@ -2833,8 +2841,8 @@ a neighbouring decision, so you write it — reusing the obviously-shared helper
 and writing fresh everything else. Review then finds, one at a time, the
 defects the first script had already found and fixed years or weeks ago.
 
-**The worked example.** `scripts/review-budget.mjs` (PR #503) and
-`scripts/pr-ready.mjs` (PR #490) were built within days of each other, both
+**The worked example.** scripts/review-budget.mjs (PR #503) and
+scripts/pr-ready.mjs (PR #490) — both since retired in the #89 cut — were built within days of each other, both
 gating an action on a captured `pull_request_read` snapshot. Review of the
 second independently re-found: **snapshots must be bound to the repository, not
 just the PR number** (every repo has a #503); **receipt freshness must measure
