@@ -52,11 +52,18 @@
  *   - as our role and source names (`fable-review-assessor`,
  *     `fable-round-translation`, `SOURCES`) -- the only ones a rename touches.
  *
- * And the third is not a text edit at all: those are agent TYPE names, which
- * must equal their filenames and their `.claude/agents/` symlinks, and the sync
- * only adds (#55, #104) -- so renaming a payload file leaves every consumer
- * holding the old definition, still dispatchable. A rename waits on the sync's
- * delete path.
+ * And the third is not a text edit at all. Those are agent TYPE names. The
+ * harness takes the type from the `name:` field and enforces no relationship
+ * to the filename -- measured on Claude Code 2.1.42, whose project agent
+ * loader drops a definition with no `name:` and whose only filename fallback
+ * is in the plugin loader, under a namespaced type no skill dispatches. Keeping
+ * name, filename and `.claude/agents/` symlink in step is THIS repository's
+ * wiring convention (`check-root-wiring.mjs` pairs the last two), not a rule
+ * the platform applies. An earlier version of this paragraph said the three
+ * "must" be equal, which asserted a platform rule that does not exist. What is
+ * real and does bite: the sync only adds (#55, #104), so renaming a payload
+ * file leaves every consumer holding the old definition, still dispatchable.
+ * A rename waits on the sync's delete path.
  *
  * WHICH ROLES ARE IN SCOPE: the ones whose `name` begins with `fable-`. The
  * convention is not decoration -- it is the claim being checked, since a role
@@ -320,8 +327,24 @@ export function fix(root = REPO_ROOT, io = nodeIo(root)) {
         touched = true;
       }
     }
-    if (touched) {
-      writeFileSync(read.file, `${JSON.stringify(read.seed, null, 2)}\n`);
+    // THE CLAIM IS COMPARED AGAINST THE BYTES, NOT AGAINST AN INTENTION.
+    // `main` prints "rewrote <file> from the pin" from this list. For a
+    // definition that is true by construction -- a write happens only where a
+    // value differed -- but for the seed `touched` was set on STRUCTURE, and a
+    // structure `JSON.stringify` drops takes the claim with it. Measured: a
+    // seed replaced with `[]` printed "rewrote core/.agents/machinery.template.json
+    // from the pin" two lines above the finding saying it declares no models
+    // block, with the file unchanged. Exit was still 1, so the verdict was
+    // never wrong -- one line of the log was. A control reporting success
+    // having done nothing is the shape this repository's archive names as the
+    // worst available, and a checker whose purpose is holding declarations
+    // true is the last place to keep a known false one. (Codex `4052025337`
+    // named the class; the Fable assessor found this instance, weighed it as
+    // leave, and changed to correct-the-log-line-only on follow-up, over
+    // Astra's separate proposal to narrow the advice text instead.)
+    const next = `${JSON.stringify(read.seed, null, 2)}\n`;
+    if (touched && next !== read.raw) {
+      writeFileSync(read.file, next);
       changed.push(SEED_FILE.split(/[\\/]/).join("/"));
     }
   }

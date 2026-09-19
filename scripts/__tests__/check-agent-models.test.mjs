@@ -276,3 +276,26 @@ test("a CRLF definition reads identically to an LF one, so a pinned role is neve
   fix(crlf, io(crlf));
   assert.deepEqual(findings(crlf, io(crlf)), []);
 });
+
+test("--fix never claims a rewrite it did not perform", () => {
+  // `main` prints "rewrote <file> from the pin" from what fix() returns. For a
+  // definition that is true by construction; for the seed it was not, because
+  // `touched` was set on structure that JSON.stringify then drops. Measured
+  // before the fix: a seed of `[]` printed the rewrite line two lines above
+  // the finding saying it declares no models block, with the file unchanged.
+  // The verdict was never wrong — exit 1, finding printed — but a checker
+  // whose purpose is holding declarations true is the last place to keep a
+  // known false one.
+  const root = fixtureRoot({ "fable-x.md": def("fable-x", "model: claude-fable-5-1\neffort: xhigh") });
+  const seedPath = path.join(root, SEED_FILE);
+  fs.writeFileSync(seedPath, "[]\n");
+
+  let logged = "";
+  const code = main(["--fix"], { root, io: io(root), log: (m) => (logged += `${m}\n`) });
+
+  assert.equal(code, 1, "the verdict must still be red");
+  assert.doesNotMatch(logged, /rewrote/, "claimed a rewrite it did not perform");
+  assert.match(logged, /declares no "models" block/, "the finding must still print");
+  assert.equal(fs.readFileSync(seedPath, "utf8"), "[]\n", "the file was touched after all");
+  assert.deepEqual(fix(root, io(root)), []);
+});

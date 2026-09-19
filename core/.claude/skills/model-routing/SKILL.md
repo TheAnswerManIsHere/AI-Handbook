@@ -325,24 +325,41 @@ a visible warning — David, 2026-09-18: *"any model call must report loudly if
 the requested model doesn't match the used model. Not a blocker; a highly
 visible warning."*
 
-**The two fields are not equally solid, and the header says which is which.**
-The model is genuinely *requested*: the argument is passed. Effort is not — a
-Claude subagent is handed none — so the header names the effort the **role
-definition** applies, which is the only route it has, and adds the pin's value
-only where the pin disagrees with it. Rendering the pin's effort under the word
-"requested" would state a request nobody made, and in a consumer pinning a
-different effort it would fire the warning on every round with nothing wrong.
-The reporting side has its own limit, measured on AI-Handbook #131 round 1: an
-assessor answered `at unable to name`, because its context shows reasoning
-effort as a number (`80`) rather than a named level. **An effort nobody can
-name is a limit to state once, not a mismatch to raise every round.**
+**Each fact carries the label of how it got there, and only Astra's says
+"requested".** Astra is handed a full id and an effort per call, so the word is
+literal there. A Claude subagent is handed the family **alias** and no effort
+at all, so its header reads `expected <pin id> · dispatched as <alias> ·
+definition effort <effort>`, with the declared model added where it disagrees
+with the pin:
+
+- **`expected`** — the pin, which is what the self-report is compared against.
+  Comparing against the family would conceal version drift.
+- **`dispatched as`** — the alias the call actually carried. Without it, a pin
+  that has fallen behind the alias reads as the platform substituting a model,
+  which points the diagnosis at the one cause nobody can fix instead of at a
+  one-line pin edit.
+- **`definition …`** — what the role's file *declares*, as read when the comment
+  is rendered. Never "applies": definitions are cached, so the file on disk may
+  not be the one that answered.
+
+*(This paragraph twice said something the code had stopped doing — first that
+the model is "genuinely requested", which stopped being true when the alias was
+named, and before that that the header "adds the pin's value where it
+disagrees", which round 2 removed. Each time the sentence survived the change it
+described. That is the defect this skill's own rule names: two live instructions
+that contradict each other mean either can fire.)*
+
+The reporting side has its own limit, measured on AI-Handbook #131 rounds 1–3:
+the assessor answered `at unable to name` every time, because its context shows
+reasoning effort as a number (`80`) rather than a named level. **An effort
+nobody can name is a limit to state once, not a mismatch to raise every round.**
 
 The used model is a self-report, deliberately. The harness does record the
 serving model per turn independently of the subagent, so reading it is
 possible; David ruled on 2026-09-19 that it is not worth building — small blast
 radius, easily recoverable, no meaningful harm, and the self-report gives
 essentially all of the tracking value. So **no line here claims a match it
-measured**: "requested X at Y" beside "running as Z", and never "ran on X".
+measured**: what was asked for beside "running as Z", and never "ran on X".
 
 Two limits that remain, stated rather than solved. A **content refusal** can
 fall Claude back to Opus mid-task, and a self-report is the only thing that
