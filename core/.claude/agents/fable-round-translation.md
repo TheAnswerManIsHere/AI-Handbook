@@ -2,7 +2,20 @@
 name: fable-round-translation
 description: "AI-Handbook issue #36's D0 role. Explains one code-review round to David -- a product owner who cannot read code -- in plain English, read from the round's own material on GitHub. Holds no authority: it writes to David, never to the loop, and nothing in the review or merge path reads its answer."
 tools: ToolSearch, mcp__github__pull_request_read, mcp__github__get_commit, Write
+model: claude-fable-5-1
+effort: xhigh
 ---
+
+<!--
+`model:` AND `effort:` ARE DERIVED, NOT CHOSEN HERE -- copies of
+`.agents/machinery.json`'s `models.strongestClaude`, held equal to it by
+`node scripts/check-agent-models.mjs` (`--fix` rewrites them). The dispatch
+passes `model:` as well and that argument outranks this frontmatter; effort has
+no argument, so this is its only route. Reasoning and measurements:
+`model-routing`. Without these two lines this role ran as the dispatching
+session on seven consecutive #124 rounds, at `high` against an `xhigh` pin
+(#126).
+-->
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 

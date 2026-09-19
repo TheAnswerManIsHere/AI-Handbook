@@ -80,14 +80,23 @@ replaced them is step 5's proportionate-evidence rule.)
       an assessor weigh them: mine and the reviewer's are claims to check,
       **David's are authority**.
    3. **Dispatch both, on the same package.** Astra through the script; the
-      Fable assessor as a subagent given the package `--prompt-only` emits with
-      `--source fable`, **dispatched with `model:` resolved from
-      `strongestClaude`** the way the round-translation step already does. An
-      agent definition carries no `model:` field, so an unbound subagent
-      inherits the parent session's model: on an ordinary Opus session the
-      second assessment would be Opus wearing the Fable label while holding the
-      tie-break, and the post would not say so. Stamp the resolved id into the
-      header when posting it. **One brief serves both** — it says "the other
+      Fable assessor as the **`fable-review-assessor`** subagent, given the
+      package `--prompt-only` emits with `--source fable`, and **dispatched
+      with `model: dispatchModel().agentModel`** the way the round-translation
+      step already does. The agent type is named here because it used to not
+      be: the step said "as a subagent" and nothing in the payload said which
+      one, so every dispatch of the second assessment was improvised (#126).
+
+      **Pass the argument even though the definition now declares the tier.**
+      `fable-review-assessor` carries `model:` and `effort:` in its frontmatter,
+      held equal to `strongestClaude` by `scripts/check-agent-models.mjs` — but
+      an argument outranks frontmatter, an edited definition can be served
+      stale, and a consumer's own pin reaches the dispatch only this way. The
+      two together are the belt and the braces; `model-routing` has the measured
+      resolution order and why neither alone is enough. What is at stake if both
+      are missed: on an ordinary Opus session the second assessment is Opus
+      wearing the Fable label while holding the tie-break, and the post does not
+      say so. **One brief serves both** — it says "the other
       assessor" throughout — and the only difference between the two packages
       is the identity block the script adds, which names who each reader is and
       which of them holds the tie-break. A brief that named a role would be
@@ -111,7 +120,23 @@ replaced them is step 5's proportionate-evidence rule.)
       permission to proceed.
    4. **Post both on the PR verbatim**, each under the header `prComment`
       renders. Never summarise one away, and never drop the one I disagree
-      with.
+      with. Astra's comment is printed by the dispatch itself; the Fable
+      assessment is written by a subagent this script does not run, so render
+      its comment rather than assembling one:
+
+      ```
+      node "$P" --render --source fable --pr <n> --round <n> [--follow-up <k>] \
+        --commit <reviewed sha> [--findings-file <path>]
+      ```
+
+      **The header says what was REQUESTED — model and effort — and the
+      assessment's own first line says what it is running as.** Nothing here
+      claims they match: this reads a file and cannot interrogate what wrote it,
+      and a control reporting success having evaluated nothing is the one shape
+      this repository's archive names as the worst available. When the two lines
+      disagree, that is an 👀 FYI to David naming both, not a blocker and not a
+      reason to discard the assessment (David, 2026-09-18: *"a highly visible
+      warning"*). A `running as` the assessor could not name is the same FYI.
    5. **Decide, and say what I decided.** Investigate disputed facts myself in
       the repository and the tests — an assessor should not be asked to settle
       what a few tool calls answer. Where a real question of reasoning remains,
@@ -404,10 +429,16 @@ replaced them is step 5's proportionate-evidence rule.)
      unanswered round with a concern of the translator's own is headed as
      exactly that — never as a disagreement *with the builder*, who has not
      spoken (Codex, #109 round 4).
-   - **The model is disclosed, not observed.** A subagent dispatch cannot prove
-     what answered it. The role reports its own model and `chatReport` mentions
-     it only on a mismatch against `dispatch.id` or when it could not be
-     determined.
+   - **The model is disclosed, not observed — by choice, not by necessity.**
+     The role reports its own model and `chatReport` mentions it only on a
+     mismatch against `dispatch.id` or when it could not be determined. This
+     bullet used to say a dispatch *cannot* prove what answered it; the harness
+     does record the serving model per turn, independently of the subagent
+     (measured 2026-09-18), so it could. David ruled on 2026-09-19 that reading
+     it is not worth building — small blast radius, easily recoverable, and the
+     self-report gives essentially all of the tracking value. Keep the
+     disclosure honest about being a self-report; do not upgrade its wording to
+     sound like an observation.
    - **A failed dispatch never blocks the loop.** D0 is off the critical path by
      design: say so in plain English and carry on.
 

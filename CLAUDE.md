@@ -79,6 +79,7 @@ node --test core/scripts/__tests__/*.test.mjs   # the payload's tests
 node scripts/sync.mjs --to <repo> --dry-run     # what a consumer would receive
 node scripts/check-root-wiring.mjs              # this repo actually reaches its payload
 node scripts/check-settings-fields.mjs          # no settings field Claude Code would refuse
+node scripts/check-agent-models.mjs             # every role named for a model declares it (--fix)
 ```
 
 Both jobs run in CI on every PR. There is no product build here and no

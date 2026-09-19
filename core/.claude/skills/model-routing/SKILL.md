@@ -252,23 +252,80 @@ one-value edit. A tier must resolve to a FULL model id, never an alias — a
 dispatch stamps the id it asked for against the id that answered, and an alias
 cannot be compared.
 
-**A Claude subagent is bound by resolving that tier and passing `model:` on the
-dispatch.** This paragraph used to say the opposite — that the tier is named in
-the role's own definition and "the dispatch passes no per-invocation `model`",
-because a per-invocation model would outrank the definition. That premise was
-false for every live role: **no agent definition in this payload carries a
-`model:` field**, so "unpinned" meant the subagent silently inherited whatever
-model the parent session was running. The round-translation dispatch has always
-resolved the tier and passed it; the review assessor did not, which meant an
-Opus session would have run an Opus assessor under the label "Fable" and
-recorded its tie-break as Fable's, with nothing on the page to say so (Codex,
-#120 round 4, and both assessors independently). Resolve the tier, pass the
-model, and stamp the id it asked for into whatever the dispatch posts.
+**A Claude subagent is bound in two places, and it needs both** (#126,
+2026-09-18): the role's own definition declares `model:` and `effort:`, and the
+dispatch still resolves the tier and passes `model:` on the call.
 
-Two limits worth stating rather than solving: `effortApplied` is false, so a
-tier's effort does not reach a subagent, and a subagent cannot prove which
-model answered it — the stamp is a disclosure of what was requested, which is
-the same standard the translation already accepts.
+The resolution order, measured rather than quoted — sixteen real dispatches,
+each row read from the harness's own per-turn record of the subagent and not
+from what the subagent said about itself:
+
+| Given | What answered |
+|---|---|
+| nothing | the session's model |
+| argument `fable` | `claude-fable-5-1` |
+| frontmatter `model: opus` | `claude-opus-5` |
+| frontmatter `model: opus`, argument `sonnet` | `claude-sonnet-5` |
+| frontmatter `model: claude-nonexistent-9` | hard failure, HTTP 404 |
+| frontmatter `effort: max` | ran at `max`; `low` on the same question spent 151 output tokens against 3,862 |
+
+So **the argument outranks the frontmatter, and the frontmatter outranks the
+session** — which is what makes two places safe rather than duplicative. Each
+covers the other's failure:
+
+- **The frontmatter covers a forgotten argument.** That is not hypothetical:
+  seven consecutive #124 rounds dispatched the translator without it and every
+  one ran as the session. An instruction that has to be recalled is one this
+  repository has now watched fail six times.
+- **The argument covers a stale definition.** Definitions are cached, and an
+  edit to a loaded one can be served in its old form (measured 2026-09-16), so
+  a dispatch relying on frontmatter alone has a window where it silently
+  inherits. It also carries a consumer's own pin, which a synced definition
+  cannot.
+- **Frontmatter is the ONLY route for effort.** The Agent tool takes no effort
+  argument. Before #126 the pin's `xhigh` reached nothing and every #124
+  translation ran at the session's `high`.
+
+**The declarations are derived from the pin, never typed.**
+`node scripts/check-agent-models.mjs` fails when a `fable-*` definition
+disagrees with `models.strongestClaude`, and `--fix` rewrites it from there, so
+David's one-line edit propagates. It runs in the handbook's CI and not in a
+consumer's: a consumer receives the definitions carrying THIS repository's pin
+and must not edit a synced file, so a check shipped to them would be
+permanently red with no fix available. What reaches a consumer's own tier is
+the dispatch argument.
+
+This paragraph used to say the opposite — that the tier is named in the role's
+own definition and "the dispatch passes no per-invocation `model`". Then it was
+corrected to the mirror image: pass the argument, and **no agent definition in
+this payload carries a `model:` field**. Both halves were right about the
+mechanism and wrong about the conclusion, because each read "the argument
+outranks the frontmatter" as a reason to have only one of them.
+
+**A stale id fails closed.** A retired model in the frontmatter is a 404 and a
+terminated agent, never a quiet substitution — which is the argument for the
+full id over the alias `fable`, since an alias keeps working while the pin
+rots.
+
+**What is disclosed and what is observed, said exactly.** The dispatch states
+what it *requested*, model and effort, in the header of whatever it posts. The
+role states what it is *running as*, in its own first line. They sit adjacent
+and a disagreement is a visible warning — David, 2026-09-18: *"any model call
+must report loudly if the requested model doesn't match the used model. Not a
+blocker; a highly visible warning."*
+
+The used model is a self-report, deliberately. The harness does record the
+serving model per turn independently of the subagent, so reading it is
+possible; David ruled on 2026-09-19 that it is not worth building — small blast
+radius, easily recoverable, no meaningful harm, and the self-report gives
+essentially all of the tracking value. So **no line here claims a match it
+measured**: "requested X at Y" beside "running as Z", and never "ran on X".
+
+Two limits that remain, stated rather than solved. A **content refusal** can
+fall Claude back to Opus mid-task, and a self-report is the only thing that
+would show it. And on the Codex side there is no such report at all: the CLI
+exposes the model only request-side, so Astra's header says what was asked for
+and claims nothing about what served it.
 
 **What made the old split wrong is not that Opus was too weak — it is that
 the split asked the wrong question.** It sorted triggers by how consequential

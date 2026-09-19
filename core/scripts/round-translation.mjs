@@ -186,10 +186,17 @@ export function prepareAnswerPath(root, pr, round) {
  * argument (`fable`) and every normal round reports a fallback that did not
  * happen. (Codex, #109 round 4.)
  *
- * `effort` is returned and deliberately NOT applied: the Agent tool takes a
- * model name and no reasoning-effort argument, so the configured value has no
- * route to this dispatch. Returning it lets a caller say so out loud rather
- * than leaving a dial in the config that turns nothing.
+ * `effort` HAS A ROUTE NOW, AND IT IS NOT THIS CALL. The Agent tool still takes
+ * a model name and no reasoning-effort argument; what changed on #126 is that
+ * the role definition's `effort:` frontmatter is honoured (measured
+ * 2026-09-18: the same role and question spent 151 output tokens at `low` and
+ * 3,862 at `max`), and `scripts/check-agent-models.mjs` holds that frontmatter
+ * equal to this pin. So `effortRoute` says where the value is applied rather
+ * than whether it reaches anything: a caller stating the dispatch's effort is
+ * quoting the definition, not this argument list. This comment used to say the
+ * configured value "has no route to this dispatch", which was true when it was
+ * written and was the reason every #124 translation ran at the session's `high`
+ * against an `xhigh` pin.
  */
 export function dispatchModel(io = undefined) {
   const entry = modelTier("strongestClaude", io);
@@ -202,7 +209,7 @@ export function dispatchModel(io = undefined) {
         `so it cannot be dispatched as a subagent. The Agent tool takes one of fable, opus, sonnet, haiku.`,
     );
   }
-  return { id, agentModel: m[1], effort, effortApplied: false };
+  return { id, agentModel: m[1], effort, effortRoute: "definition" };
 }
 
 /**

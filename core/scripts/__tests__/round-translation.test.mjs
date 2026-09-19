@@ -163,9 +163,12 @@ test("dispatchModel returns both the agent name and the full id, from one call",
   assert.equal(d.agentModel, "fable");
   assert.equal(d.id, "claude-fable-5-1");
   assert.equal(d.effort, "xhigh");
-  // A dial in the config that turns nothing is the same defect as a schema
-  // keyword nothing enforces. Say so rather than dropping it silently.
-  assert.equal(d.effortApplied, false);
+  // WHERE the effort is applied, not WHETHER it reaches anything. It reaches
+  // the subagent through the role definition's frontmatter, which
+  // `scripts/check-agent-models.mjs` holds equal to this pin (#126). This
+  // asserted `effortApplied: false` while the pin genuinely turned nothing.
+  assert.equal(d.effortRoute, "definition");
+  assert.equal(d.effortApplied, undefined);
 });
 
 test("a non-Claude dispatch model is refused, because the Agent tool cannot take it", () => {

@@ -263,6 +263,36 @@ export const identityBlock = (source) => {
   ].join("\n");
 };
 
+/**
+ * How the assessment actually reaches this script, said per assessor (#125).
+ *
+ * THE TWO ASSESSORS HAVE DIFFERENT TRANSPORTS AND ONE SENTENCE USED TO CLAIM
+ * BOTH. Astra runs in a `read-only` sandbox, which denies every write: its
+ * answer reaches the file through `--output-last-message` in the wrapper, not
+ * through anything Astra does. Telling it to "write your assessment to <path>"
+ * asks for the one thing the process cannot do and names the wrong channel.
+ * The Fable assessor is a subagent holding `Write`, and really does write the
+ * file, so the same sentence is correct for it.
+ *
+ * WHY IT IS WORTH A HELPER RATHER THAN TOLERATING THE DETOUR. Measured across
+ * fifteen #124 rounds, Astra tried the write, was refused, worked out the real
+ * transport and delivered anyway -- fifteen for fifteen. What the instruction
+ * risks is the reader that follows it literally and stops: its final message is
+ * then "I could not write the file", `readAssessment` accepts any non-empty
+ * file as substantive, and an apology gets posted under a header naming the
+ * pull request, the revision and the findings. That is this repository's
+ * recorded worst shape -- a control reporting success having evaluated nothing
+ * -- so the cheap correction rides along with the next change to this file,
+ * which is what its own re-grade asked for.
+ */
+export const deliveryLine = (source, file, noun = "assessment") =>
+  source === "astra"
+    ? `- **Return the complete ${noun} as your final message**, in Markdown. The CLI saves that final ` +
+      `message to \`${file}\`; you are in a read-only sandbox and cannot write it yourself, and you do not ` +
+      `need to. Do not replace it with a completion acknowledgement or a note about the sandbox -- the ` +
+      `saved message IS the deliverable.`
+    : `- **Write your ${noun} to:** \`${file}\``;
+
 const readBrief = () => `${fs.readFileSync(briefPath(), "utf8").trim()}
 
 ---
@@ -348,7 +378,7 @@ export function assessmentBrief({
     `- **Reviewed commit:** \`${reviewedCommit}\` — the revision you are assessing. The checkout you are reading ` +
       "is at this commit and is clean; the dispatch refuses otherwise.",
     `- **Repository root:** the working directory you were started in.`,
-    assessmentFile ? `- **Write your assessment to:** \`${assessmentFile}\`` : null,
+    assessmentFile ? deliveryLine(source, assessmentFile, "assessment") : null,
     "",
     "## [oracle] The outcome this work is meant to achieve",
     "",
@@ -482,7 +512,7 @@ export function followUpBrief({
     "",
     `- **Reviewed commit:** \`${reviewedCommit}\` — unchanged since your assessment; no new code has been written.`,
     `- **Findings in dispute:** ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`,
-    assessmentFile ? `- **Write your answer to:** \`${assessmentFile}\`` : null,
+    assessmentFile ? deliveryLine(source, assessmentFile, "answer") : null,
     "",
     ...TIER_LENSES[tier],
     "",
@@ -572,7 +602,7 @@ const SOURCE_NAMES = { astra: "Astra", fable: "Fable" };
  * assessment, which findings -- because asking a model to restate facts nobody
  * was missing spends the reader's attention for nothing.
  */
-export function prComment(result, { reviewedCommit = null, findingIds = [], model = null } = {}) {
+export function prComment(result, { reviewedCommit = null, findingIds = [], requested = null } = {}) {
   const who = SOURCE_NAMES[result.source] ?? result.source;
   const what = result.followUp ? `round ${result.round}, follow-up ${result.followUp}` : `round ${result.round}`;
   if (result.failed) {
@@ -597,7 +627,21 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], mode
   const facts = [];
   if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
   if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
-  if (model) facts.push(`${model}`);
+  // WHAT WAS ASKED FOR, MODEL AND EFFORT, NEVER "what answered" (David,
+  // 2026-09-18: *"any model call must report loudly if the requested model
+  // doesn't match the used model"*). This script requests a model and reads a
+  // file; it cannot interrogate the thing that wrote the file, so claiming a
+  // match it never measured would be the #16 shape -- a control reporting
+  // success having evaluated nothing. It states the request, the assessor
+  // states what it ran as in its own first line (see the role definitions),
+  // and the two sit adjacent so a disagreement is readable rather than
+  // asserted. Effort is here because it is half of "strongest": the pin
+  // carries both, and until #126 a subagent silently ran at the session's.
+  if (requested) {
+    const id = typeof requested === "string" ? requested : requested.id;
+    const effort = typeof requested === "string" ? null : requested.effort;
+    if (id) facts.push(effort ? `requested \`${id}\` at \`${effort}\`` : `requested \`${id}\``);
+  }
   if (facts.length) header.push(`*${facts.join(" · ")}*`, "");
   return [...header, result.markdown].join("\n");
 }
@@ -682,6 +726,9 @@ export const USAGE = [
   "  --note          the builder's 'where we are', capped at " + MAX_NOTE_CHARS + " characters.",
   `  --source        ${SOURCES.join(" | ")} (default astra). Selects the identity block and the output path.`,
   "  --prompt-only   print the package and run nothing — how the Fable subagent is given the same words.",
+  "  --render        print the PR comment for an assessment already on disk, with no dispatch. This is",
+  "                  how the Fable assessment gets posted: the header's requested model and effort are",
+  "                  resolved from the pin here rather than typed by whoever is posting.",
   "",
   `  Astra is pinned to the strongestCodex tier in the ${SANDBOX} sandbox, with no override, and the`,
   "  dispatch refuses unless the checkout is at --commit and clean. The Fable assessment is a subagent",
@@ -704,11 +751,12 @@ const FLAGS = {
   "prior-file": "priorFile",
   "fable-file": "fableFile",
   "prompt-only": "promptOnly",
+  render: "render",
   source: "source",
 };
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
-const BOOLEAN = new Set(["promptOnly"]);
+const BOOLEAN = new Set(["promptOnly", "render"]);
 
 export function parseArgs(argv) {
   const flags = {};
@@ -729,7 +777,10 @@ export function parseArgs(argv) {
   return flags;
 }
 
-export function main(argv = process.argv.slice(2), { root = process.cwd(), run = spawnSyncDefault, git = defaultGit, log = console.error } = {}) {
+export function main(
+  argv = process.argv.slice(2),
+  { root = process.cwd(), run = spawnSyncDefault, git = defaultGit, log = console.error, io = undefined } = {},
+) {
   let flags;
   try {
     flags = parseArgs(argv);
@@ -744,8 +795,53 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
   // fable --prompt-only` is meaningful, because this script runs the Codex CLI
   // and nothing else -- the subagent is dispatched by the harness.
   const source = flags.source ?? "astra";
+  // RENDERING IS NOT DISPATCHING, so it is answered before every guard that
+  // belongs to composing a package: it needs no oracle, no findings and no
+  // tier, because the assessment it renders already exists.
+  //
+  // IT EXISTS SO THE HEADER IS NOT TYPED BY HAND. The Fable assessment is
+  // written by a subagent this script does not run, so posting it used to mean
+  // an improvised node call -- and the one fact worth the most there, which
+  // model and effort were asked for, was the fact most easily left off. That is
+  // the same failure class as the dispatch argument this whole change is about:
+  // a step that has to be remembered is a step that gets skipped, measured
+  // seven rounds running on #124. Resolving the pin here makes the requested
+  // line arrive with the comment instead of with somebody's memory.
+  if (flags.render) {
+    if (flags.promptOnly) {
+      log(`review-proxy: --render prints a comment for an assessment on disk and --prompt-only prints a package to dispatch; they are different jobs\n\n${USAGE}`);
+      return 2;
+    }
+    let rendered;
+    let failed = false;
+    try {
+      const read = readAssessment(root, flags.pr, flags.round, { source, followUp });
+      failed = Boolean(read.failed);
+      // EACH ASSESSOR AGAINST ITS OWN TIER. Astra is `strongestCodex` and the
+      // Fable assessor is `strongestClaude`; rendering one against the other's
+      // pin would put a confident wrong model in the header.
+      const requested = modelTier(source === "astra" ? "strongestCodex" : "strongestClaude", io);
+      // The same shape check the dispatch path makes. A JSON object here has
+      // no `.map`, and "x.map is not a function" is not a sentence that tells
+      // an operator their findings file is the wrong shape.
+      const parsed = flags.findingsFile ? JSON.parse(fs.readFileSync(flags.findingsFile, "utf8")) : [];
+      if (!Array.isArray(parsed)) {
+        throw new Error(`--findings-file must hold a JSON array of { id, ... }, got ${typeof parsed === "object" ? "an object" : typeof parsed}`);
+      }
+      const ids = parsed.map((f) => f?.id).filter((id) => id != null);
+      rendered = prComment(read, { reviewedCommit: flags.commit ?? null, findingIds: ids, requested });
+    } catch (err) {
+      log(`review-proxy: ${err.message}`);
+      return 2;
+    }
+    process.stdout.write(`${rendered}\n`);
+    // A MISSING OR EMPTY ASSESSMENT EXITS NON-ZERO, the same as a failed
+    // dispatch does. The comment already says so in words, but a render whose
+    // process succeeds is the shape a script or a habit reads as "posted fine".
+    return failed ? 1 : 0;
+  }
   if (source !== "astra" && !flags.promptOnly) {
-    log(`review-proxy: --source ${source} composes a package for an assessor this script does not run; use --prompt-only\n\n${USAGE}`);
+    log(`review-proxy: --source ${source} composes a package for an assessor this script does not run; use --prompt-only to compose it or --render to post its answer\n\n${USAGE}`);
     return 2;
   }
   let prompt;
@@ -832,7 +928,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
   }
   let result;
   try {
-    result = dispatch({ root, pr: flags.pr, round: flags.round, prompt, reviewedCommit: flags.commit, followUp, run, git });
+    result = dispatch({ root, pr: flags.pr, round: flags.round, prompt, reviewedCommit: flags.commit, followUp, run, git, io });
   } catch (err) {
     log(`review-proxy: ${err.message}`);
     return 2;
@@ -864,7 +960,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
         reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };
   process.stdout.write(
-    `${prComment(read, { reviewedCommit: flags.commit, findingIds, model: result.reviewer.id })}\n`,
+    `${prComment(read, { reviewedCommit: flags.commit, findingIds, requested: result.reviewer })}\n`,
   );
   return read.failed ? 1 : 0;
 }
