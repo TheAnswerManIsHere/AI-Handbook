@@ -320,7 +320,9 @@ rots.
 
 **What is disclosed and what is observed, said exactly.** The dispatch states
 what it asked for in the header of whatever it posts; the role states what it
-is *running as*, in its own first line. They sit adjacent and a disagreement is
+is *running as*, on its own `_Running as:_` line — which on a review
+assessment sits under the ship gate, not above it, since line 1 is the gate.
+They sit adjacent and a disagreement is
 a visible warning — David, 2026-09-18: *"any model call must report loudly if
 the requested model doesn't match the used model. Not a blocker; a highly
 visible warning."*

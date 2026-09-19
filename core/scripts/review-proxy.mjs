@@ -640,8 +640,9 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   // EVERY FACT LABELLED BY WHAT IT IS, AND "REQUESTED" ONLY WHERE THIS SCRIPT
   // PASSED THE VALUE (David, 2026-09-18: *"any model call must report loudly if
   // the requested model doesn't match the used model"*). The header states what
-  // was asked for; the assessor states what it is running as in its own first
-  // line; nothing here claims they match, because this reads a file and cannot
+  // was asked for; the assessor states what it is running as on its own
+  // `_Running as:_` line, which sits under the ship gate rather than above it;
+  // nothing here claims they match, because this reads a file and cannot
   // interrogate what wrote it, and a control reporting success having evaluated
   // nothing is the worst shape this repository's archive records.
   //

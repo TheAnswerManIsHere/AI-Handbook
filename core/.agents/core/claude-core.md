@@ -420,6 +420,14 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
+**On a PR that changes the review loop itself, the gate cannot end the loop
+alone**, and that is a limit rather than a defect: the second exception
+— a finding whose blast radius reaches outside this pull request — is satisfied
+by *every* finding, because the artifact under review is the loop every future
+pull request runs. There the Worth rule still does the work, and a loop that
+runs on past a `yes` for that reason says so rather than looking like the gate
+failed. (Named on #134 round 1 by both assessors, from the inside.)
+
 **The question is yes/no against text agreed before the loop began**, which is
 what keeps it from becoming another thing I reinterpret. "Would this change
 what a reader does?" cannot do the job: every finding can be argued that way —
@@ -434,11 +442,16 @@ and it is the engine: each round justifies its marginal fix by the round
 already happening, and each fix causes the next round. Sunk cost is not a
 reason to write.
 
-**A round is the unit of spend and its cost does not vary with what it finds.**
-Two assessments that each re-read the repository, a translation when one is
-owed, and my own turns to package, post, reply and resolve — the same bill for
-a label's wording as for a role running as the wrong model, and the Worth rule
-is applied only after it has been paid. My main loop is the larger half and the
+**A round that returns findings is the unit of spend, and its cost does not
+vary with WHICH finding it returns.** Two assessments that each re-read the
+repository, a translation when one is owed, and my own turns to package, post,
+reply and resolve — the same bill for a label's wording as for a role running
+as the wrong model, and the Worth rule is applied only after it has been paid.
+**A clean round is not that bill**: neither assessor is dispatched when there
+is nothing to assess, so the cost is my turns plus the translation the last
+round before a merge always owes. Stating it otherwise overstates the
+commonest way a loop ends, which corrupts the very decision the disclosure
+exists to inform. My main loop is the larger half and the
 invisible one: every artifact I read into context is re-billed on every
 subsequent turn, so a loop's cost grows faster than its round count. So:
 **artifacts bound for GitHub are not read into my context when a hand-back

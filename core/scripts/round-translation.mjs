@@ -321,7 +321,7 @@ export function roundBrief({
   if (finalRound) {
     lines.push("", "## Earlier accounts of this pull request, for navigation only", "");
     lines.push(
-      "These are your own earlier rounds, quoted, one entry per round. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully. Each entry says whether the builder had replied when it was written (an account of an unanswered round is not settled), what it could not assess (restate that limitation), and where it disagreed with the builder (look there first). A round with no account here is a limitation you state in `could_not_assess`, and its threads are still yours to read for `known_gaps`.",
+      "These are your own earlier rounds, quoted, one entry per round. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully. Each entry says whether the builder had replied when it was written (an account of an unanswered round is not settled), what it could not assess (restate that limitation), and where it disagreed with the builder (look there first). A round whose translation FAILED is a limitation you state in `could_not_assess`; a round that was simply not translated is not one — the cadence does not owe a translation on every round. Either way its threads are yours to read for `known_gaps`.",
       "",
     );
     const byRound = new Map();
@@ -348,7 +348,17 @@ export function roundBrief({
       const a = byRound.get(k);
       lines.push(`### Round ${k}`, "");
       if (!a) {
-        lines.push("No account of this round exists in this session — it was never translated, or the session that translated it is gone. State this as a limitation.", "");
+        // AN ABSENT ACCOUNT IS THE CADENCE, NOT A LIMITATION (David,
+        // 2026-09-19). Under the every-round cadence this line was right:
+        // a missing account meant something had gone wrong. Since the
+        // translation is owed only on a decline round, a smell, or the last
+        // round before a merge, the ordinary multi-round loop leaves earlier
+        // rounds untranslated BY DESIGN -- and calling that a limitation put
+        // "partial -- something could not be assessed" on the headline of
+        // every final report, which is the diligence noise the cadence change
+        // exists to remove. A FAILED translation is still a limitation below:
+        // that one WAS owed and did not arrive.
+        lines.push("This round was not translated. The cadence owes a translation only on a round where something was declined, a round that smelled wrong, or the last round before the merge, so an untranslated round is the ordinary case and NOT a limitation — do not put it in `could_not_assess`. You have no account to navigate by, so read this round's threads directly.", "");
         continue;
       }
       if (a.failed) {

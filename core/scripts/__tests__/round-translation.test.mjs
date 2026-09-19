@@ -331,20 +331,32 @@ test("prior accounts are readAnswer results, quoted whole, on the final round on
   assert.doesNotMatch(ordinary, /navigation only|ABOUT-ONE/);
 });
 
-test("a missing or failed earlier account is named as such, never silently omitted", () => {
-  // A resumed session holds NO earlier answer files (the directory is
-  // ignored, the container is ephemeral), and the role is required to state a
-  // missing account as a limitation -- which it can only do if told. The old
-  // brief emitted no section at all, so the final round read as though there
-  // had been no earlier rounds. (Fable, 2026-09-16.)
+test("an untranslated round is the cadence, a failed translation is a limitation", () => {
+  // Both are still NAMED -- the old brief emitted no section at all, so the
+  // final round read as though there had been no earlier rounds (Fable,
+  // 2026-09-16). What changed on 2026-09-19 is what the translator is told to
+  // DO with each. Under the every-round cadence an absent account meant
+  // something had gone wrong, so it was a limitation. The cadence now owes a
+  // translation only on a decline round, a smell, or the last round before a
+  // merge, so an untranslated round is the ORDINARY case -- and calling it a
+  // limitation put "partial: something could not be assessed" on the headline
+  // of every final report, which is the noise the cadence change removes.
+  // A FAILED translation was owed and did not arrive, so it stays a
+  // limitation. (Codex #134 R1-F3; both assessments agreed on this shape.)
   const root = tmpRoot();
   const two = readAnswer(root, PR, 2, { finalRound: false }); // nothing written: a FAILED result
   assert.equal(two.failed, true);
   const fin = roundBrief({ root, pr: PR, round: 4, head: "h", finalRound: true, priorAccounts: [two] });
-  assert.match(fin, /### Round 1\n\nNo account of this round exists in this session/);
+  assert.match(fin, /### Round 1\n\nThis round was not translated\./);
+  assert.match(fin, /NOT a limitation — do not put it in `could_not_assess`/);
+  // And the two cases must not be collapsed. Scope to round 2's OWN section:
+  // splitting on the round-2 heading alone also captures round 3, which is
+  // untranslated and legitimately carries the cadence sentence.
+  const roundTwo = fin.split("### Round 2")[1].split("### Round 3")[0];
+  assert.match(roundTwo, /state this as a limitation/);
+  assert.doesNotMatch(roundTwo, /NOT a limitation/);
   assert.match(fin, /### Round 2\n\nThe translation of this round FAILED — the translator wrote no answer file/);
-  assert.match(fin, /### Round 3\n\nNo account of this round exists/);
-  assert.match(fin, /State this as a limitation/);
+  assert.match(fin, /### Round 3\n\nThis round was not translated\./);
   // Nothing is ever said about the current round or a later one.
   assert.doesNotMatch(fin, /### Round 4/);
   // And with no prior accounts passed at all, the section still names every round.

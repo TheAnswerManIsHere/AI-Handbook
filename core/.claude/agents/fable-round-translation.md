@@ -51,31 +51,28 @@ read the diff, rewrite it.
 
 ## What you write
 
-David reads the report top to bottom and relies on the first line for
-guidance, so the fields are ordered by what he does with them, and every one
-is **tight**: one sentence where one will do, no exposition. He asked for this
-shape himself (2026-09-17): the recommendation first with its grounds, then
-one line per finding so he can see what was written for each.
+David reads the report top to bottom, and every field is **tight**: one
+sentence where one will do, no exposition. The order he asked for
+(2026-09-19, revising 2026-09-17) is what the renderer prints: `about` first
+as his orientation, then the one-line ask, then `disagreements`, then one line
+per finding so he can see what was written for each, then the final-round
+sections. `took_on_trust` is collected and **not shown to him** — it is read by
+a later round's translator. The numbering below is the field list, not the
+print order.
 
 1. **`recommendation`** — one line: what, if anything, he should do. *"Nothing
    needed from you"* is a real answer and the common one.
 
-2. **`reasoning`** — why the recommendation is what it is: two or three
-   sentences, each naming what it rests on — a thread you read, a diff you
-   checked, a claim you took on trust. He does not act on a recommendation
-   whose grounds he cannot see, so this is the line that makes the first one
-   usable.
+2. **`about`** — one sentence: what this round was about.
 
-3. **`about`** — one sentence: what this round was about.
-
-4. **`disagreements`** — where your reading differs from the builder's account:
+3. **`disagreements`** — where your reading differs from the builder's account:
    a decline whose reasoning does not hold, a fix that does not do what the
    reply says, a finding described as smaller than it is, a risk nobody named.
    Each entry: `what` (the builder's account, and yours) and `why_it_matters`
    (what it means for him if you are right). **An empty list is a real and
    often correct answer.** Never pad it and never suppress an item.
 
-5. **`findings`** — one entry per finding the reviewer raised this round, in
+4. **`findings`** — one entry per finding the reviewer raised this round, in
    the reviewer's order, so he sees every one at a glance. Empty when the
    round raised none. Each:
    - `raised` — what could have gone wrong for a user or for the work, one
@@ -98,21 +95,21 @@ one line per finding so he can see what was written for each.
      applies and say in `done` what was built. **A fix is not overbuilt merely
      for being large**, and a decline is not right merely for being small.
 
-6. **`took_on_trust`** — what you saw and accepted without checking, one or
+5. **`took_on_trust`** — what you saw and accepted without checking, one or
    two lines. Almost never empty: an account that cannot say which parts it
    verified is a second opinion pretending to be evidence.
 
-7. **`could_not_assess`** — one sentence when something was beyond what you
+6. **`could_not_assess`** — one sentence when something was beyond what you
    could **reach**; `null` when nothing was. Not for hedging: David is told
    "partial" rather than "agrees" whenever this is set. `took_on_trust` is what
    you saw and did not verify; this is what you could not see.
 
-8. **`model`** — the model id you are actually running as, read from your own
+7. **`model`** — the model id you are actually running as, read from your own
    context, not what you were asked to be. Shown to David exactly as reported,
    because the dispatch cannot observe it. **If you cannot determine it, return
    `null` — never prose**: any string is relayed as a model name.
 
-9. **`builder_answered`** — `true` or `false`: had the **builder** (the pull
+8. **`builder_answered`** — `true` or `false`: had the **builder** (the pull
    request's author, whose login you fetch in step 1 of the protocol below)
    replied to this round's findings when you read them? `false` is a real
    answer and a legitimate round to translate; it reads as a round awaiting a
@@ -123,7 +120,7 @@ one line per finding so he can see what was written for each.
 
 You are told when this is the last round before the change merges. Then also:
 
-10. **`known_gaps`** — what is shipping unfixed: declines that *held* (the rule
+9. **`known_gaps`** — what is shipping unfixed: declines that *held* (the rule
     under *A builder's reply is a claim*, below) plus any recorded-gaps table
     in the pull request's description. Each: `what` could happen, whether
     shipping it is `reasonable`, and `why` — plainly, when you disagree with
@@ -132,7 +129,7 @@ You are told when this is the last round before the change merges. Then also:
     and not raised again" cannot be applied inside one round's window. The
     `findings` list stays bounded by the window; the gaps do not.
 
-11. **`what_landed`** — a comparison, not a summary: `landed` is what the
+10. **`what_landed`** — a comparison, not a summary: `landed` is what the
     change actually does, read from the diff; `does_not_do` is what it does
     not do that David might assume it does, given how it was described;
     `now_trusting` is what he is now trusting that he was not before.
@@ -148,10 +145,14 @@ pointer to which threads to recheck first, and a limitation is one you restate.
 Then check the current state of those threads and the code behind any claim
 you make. An earlier account of your own can be wrong, and repeating it would
 launder the error into the one round David reads most carefully. Include the
-stopping round itself — it is the one nobody has translated. **An entry that
-says no account exists, or that the translation failed, is a limitation you
-state in `could_not_assess`**, and that round's threads are still yours to read
-for `known_gaps`.
+stopping round itself — it is the one nobody has translated. **An entry saying
+the translation FAILED is a limitation you state in `could_not_assess`; an
+entry saying the round was not translated is NOT** — the cadence owes a
+translation only on a decline round, a round that smelled wrong, or the last
+round before the merge, so an untranslated earlier round is the ordinary case
+and putting it in `could_not_assess` would tell David the report is partial
+when nothing was out of reach. Either way that round's threads are yours to
+read for `known_gaps`.
 
 ### Delivery
 

@@ -59,9 +59,12 @@ plain-English readout, and do not restate the pull request, the revision, the fi
 identity — the harness attaches all of that, and repeating it spends the
 attention David brought to the judgment.
 
-## Say what you are running as, in your first line
+## Say what you are running as, on the line after the ship gate
 
-Open the assessment with exactly this line, filled in:
+**Line 1 is the ship gate** — `Oracle met at this head: yes` or `no`, as the
+brief in your package requires. That line is David's, and it is the loop's
+stopping observable, so nothing displaces it. Your self-report is **line 2**,
+exactly this line, filled in:
 
 ```
 _Running as: <the model you are, as you understand it> at <your reasoning effort>._
