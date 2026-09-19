@@ -140,8 +140,9 @@ replaced them is step 5's proportionate-evidence rule.)
       follow-up header naming no findings at all — the script refuses that now,
       but the recipe is what a reader copies (Codex `4051974432`, #131 round 2).
 
-      **The header says what was asked for and the assessment's own first line
-      says what it is running as.** Nothing here claims they match: this reads a
+      **The header says what was asked for and the assessment's own
+      `_Running as:_` line says what it is running as** — line 2, under the ship
+      gate, which is line 1 for both assessors. Nothing here claims they match: this reads a
       file and cannot interrogate what wrote it, and a control reporting success
       having evaluated nothing is the one shape this repository's archive names
       as the worst available. When the two lines disagree, that is an 👀 FYI to
@@ -298,6 +299,21 @@ replaced them is step 5's proportionate-evidence rule.)
      #85's observable pair fired twice and decided both times without my
      judgement entering it. **A condition I have to interpret is one I will
      reinterpret.**
+   - **One line naming what the round costs and what it protects**, in the same
+     comment, before it runs. The bill is **conditional and the condition is
+     the findings**: two assessments at roughly a hundred and fifty thousand
+     tokens each **only if the round returns findings**, since step 3
+     dispatches neither on a clean round; a translation when one is owed,
+     which the last round before a merge always is, so a clean terminal round
+     is not free; and my own turns either way. Then what is downstream if this
+     round finds nothing. When that reads "a sentence in a
+     comment two agents read", the disproportion is legible to both of us
+     *before* it is spent rather than after. The token counts are already
+     reported to me on every dispatch; this is putting them beside what they
+     bought, not building a ledger.
+   - **A round I would only run because the loop is already open is not run.**
+     Sunk cost is not a reason: the round already happening does not make the
+     next one free, it causes it.
    - **Name the branch head, never a specific SHA** (David, 2026-08-17). Codex
      reviews the head at the moment it runs, not the SHA it was told, and the
      `**Reviewed commit:**` line it emits is what binds.
@@ -313,9 +329,13 @@ replaced them is step 5's proportionate-evidence rule.)
      at. `get_check_runs` returning `total_count: 0` means checks have not
      reported yet, which is not green and must never be reported as green.
 
-7. **Translate the round for David (D0), after the trigger is posted.** Never
-   before: a translation I could act on is an in-loop advisor reading my own
-   prose.
+7. **Translate the round for David when I declined something in it, or when
+   something about it smells wrong — and always on the last round before a
+   merge** (David, 2026-09-19). Not every round: four translations on #131 were
+   the loop's single largest token line, and both of the translator's real
+   disagreements came on rounds carrying a decline. **After the trigger is
+   posted**, never before: a translation I could act on is an in-loop advisor
+   reading my own prose.
 
    **The deliverable is a message in chat. There is no page** (David,
    2026-09-16). There was one, and removing it is what #109 round 3 actually
@@ -365,9 +385,14 @@ replaced them is step 5's proportionate-evidence rule.)
       the next round's trigger has already been posted.
    5. **Keep `result`** for the final round's `priorAccounts`. It is the
       report-ready object, round number included, and a **failed** result is
-      passed too: a failed or missing earlier account is a limitation the
-      final round has to be told about, and `roundBrief` names every round
-      that has no account.
+      passed too: a translation that was owed and did not arrive is a
+      limitation the final round has to be told about. A round the cadence
+      never owed a translation is **not** — `roundBrief` names it as the
+      ordinary case and tells the translator to read its threads directly.
+      **Pass nothing for such a round.** A `{ skipped: true }` object is worse
+      than passing nothing: `roundBrief` does not understand the flag, so it
+      falls through and renders an empty account wearing a clean one's
+      clothes.
 
    - **The completion signal is the synchronisation. The flag is not.**
      `run_in_background: false` has been measured **both ways** — it did not
@@ -391,7 +416,7 @@ replaced them is step 5's proportionate-evidence rule.)
      `chatReport` composes it from the validated answer's own fields; the only
      text in it that is not the translator's is the labels — including the
      deterministic "none reported" labels for an empty `disagreements` or
-     `known_gaps`, which state the field's value and evaluate nothing. **D0
+     `known_gaps`, which state the field's value and evaluate nothing. **The translation
      is a second account, not a ban on mine** (David, 2026-09-16: *"There's
      no need to be so paranoid about the builder writing up an account and
      giving it to me. That's not an issue at all."*). My own account of a
@@ -465,14 +490,19 @@ replaced them is step 5's proportionate-evidence rule.)
      on trust and every disagreement, and names each round that has no
      account, so the final round can state the limitation the role requires
      of it.
-   - **The report's order is David's** (2026-09-17): the recommendation
-     leads with its reasoning under it, then disagreements, then one line per
-     finding tagged with its outcome and an **OVERBUILT** flag where the
-     builder wrote more than the finding was worth, then the final-round
-     sections, then the trust footer. He reads the recommendation and its
-     grounds and relies on the per-finding lines to catch over-building in
-     time to stop it; the headline carries the overbuilt count for the same
-     reason.
+   - **The report's order is David's** (2026-09-19, revising 2026-09-17):
+     `about` leads as his orientation, then the one-line ask, then
+     disagreements, then one line per finding tagged with its outcome and an
+     **OVERBUILT** flag where the builder wrote more than the finding was
+     worth, then the final-round sections. There is **no reasoning paragraph
+     and no trust footer** — he cut both (*"I don't care that you checked
+     everything. I assume you did"*, *"I trust you"*), the schema no longer
+     has `reasoning` and refuses an answer carrying it, and `took_on_trust` is
+     still collected for the next round's translator but never printed. He
+     relies on the per-finding lines to catch over-building in time to stop
+     it; the headline carries the overbuilt count for the same reason.
+     **Never reconstruct a field the schema dropped** — a round that tries
+     fails validation and he is told no account exists.
    - **`builder_answered` comes from the role, not from a receipt.** "Agrees
      with the builder's account" prints only when the translator says it saw a
      builder reply. That used to be read off a receipt field whose only writer
@@ -493,7 +523,7 @@ replaced them is step 5's proportionate-evidence rule.)
      self-report gives essentially all of the tracking value. Keep the
      disclosure honest about being a self-report; do not upgrade its wording to
      sound like an observation.
-   - **A failed dispatch never blocks the loop.** D0 is off the critical path by
+   - **A failed dispatch never blocks the loop.** The translation is off the critical path by
      design: say so in plain English and carry on.
 
    **A newly added agent type is not dispatchable immediately, and that is not

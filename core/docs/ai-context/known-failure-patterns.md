@@ -1838,7 +1838,7 @@ against loops that already happened before making it binding.
 shows the cure.** PR #28: two of round 2's findings were defects round 1's
 fixes introduced, and one slipped through a sweep whose exclusion pattern
 whitelisted its own target. PR #80: three rounds, each finding a defect on one
-failure path, two of them introduced by the previous round's fix. The D0 plan
+failure path, two of them introduced by the previous round's fix. The translation plan
 loop: rounds 2 and 3 each found a defect in text the previous round's fix had
 added. **PR #83 is the sharpest, and it is also the cure**: the loop-position
 round count took *five* attempts — a snapshot glob, a typed count, a named

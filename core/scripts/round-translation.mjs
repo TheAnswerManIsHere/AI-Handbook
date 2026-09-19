@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
- * David's reading surface for D0: a message in chat. That is the whole surface.
+ * David's reading surface for the round translation: a message in chat. That is the whole surface.
  *
  * THERE IS NO PAGE, AND REMOVING IT WAS THE POINT (David, 2026-09-16, on #109
  * round 3). This module used to render an HTML page, write it to a gitignored
@@ -321,7 +321,7 @@ export function roundBrief({
   if (finalRound) {
     lines.push("", "## Earlier accounts of this pull request, for navigation only", "");
     lines.push(
-      "These are your own earlier rounds, quoted, one entry per round. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully. Each entry says whether the builder had replied when it was written (an account of an unanswered round is not settled), what it could not assess (restate that limitation), and where it disagreed with the builder (look there first). A round with no account here is a limitation you state in `could_not_assess`, and its threads are still yours to read for `known_gaps`.",
+      "These are your own earlier rounds, quoted, one entry per round. They tell you where to look. Check the current threads and the code before repeating any of it — an earlier account can be wrong, and repeating it would launder the error into the round David reads most carefully. Each entry says whether the builder had replied when it was written (an account of an unanswered round is not settled), what it could not assess (restate that limitation), and where it disagreed with the builder (look there first). A round whose translation FAILED is a limitation you state in `could_not_assess`; a round that was simply not translated is not one — the cadence does not owe a translation on every round. Either way its threads are yours to read for `known_gaps`.",
       "",
     );
     const byRound = new Map();
@@ -348,7 +348,17 @@ export function roundBrief({
       const a = byRound.get(k);
       lines.push(`### Round ${k}`, "");
       if (!a) {
-        lines.push("No account of this round exists in this session — it was never translated, or the session that translated it is gone. State this as a limitation.", "");
+        // AN ABSENT ACCOUNT IS THE CADENCE, NOT A LIMITATION (David,
+        // 2026-09-19). Under the every-round cadence this line was right:
+        // a missing account meant something had gone wrong. Since the
+        // translation is owed only on a decline round, a smell, or the last
+        // round before a merge, the ordinary multi-round loop leaves earlier
+        // rounds untranslated BY DESIGN -- and calling that a limitation put
+        // "partial -- something could not be assessed" on the headline of
+        // every final report, which is the diligence noise the cadence change
+        // exists to remove. A FAILED translation is still a limitation below:
+        // that one WAS owed and did not arrive.
+        lines.push("This round was not translated. The cadence owes a translation only on a round where something was declined, a round that smelled wrong, or the last round before the merge, so an untranslated round is the ordinary case and NOT a limitation — do not put it in `could_not_assess`. You have no account to navigate by, so read this round's threads directly.", "");
         continue;
       }
       if (a.failed) {
@@ -422,7 +432,7 @@ const ordinal = (n) => {
  * from the case round 2 fixed. Only `null` means fully assessed. (Astra,
  * 2026-09-16.)
  *
- * Returns the problems rather than throwing. D0 is off the critical path and a
+ * Returns the problems rather than throwing. The translation is off the critical path and a
  * broken translation must never be able to stop a review loop.
  */
 export function validateAnswer(answer, { finalRound } = {}) {
@@ -679,14 +689,16 @@ function disagreementsWording(f) {
  * explain the round. The only text here that is not the translator's is the
  * labels.
  *
- * ORDERED BY WHAT DAVID DOES WITH IT (David, 2026-09-17). The recommendation
- * is what he relies on, so it leads, with its reasoning directly under it;
- * then the disagreements, the field the role calls its most valuable; then
- * one line per finding, which he asked for so he can see what was written
- * for each and stop over-building in time; then the final-round sections;
- * then the trust footer. The earlier shape put a finding-by-finding narrative
- * second and the recommendation last, so the longest section sat above the
- * line he reads for.
+ * ORDERED BY WHAT DAVID DOES WITH IT (David, 2026-09-17, revised 2026-09-19).
+ * One italic line saying which round this is, so he knows what he is looking
+ * at; then the ask, which is what he relies on; then the disagreements, the
+ * field the role calls its most valuable; then one line per finding, so he can
+ * see what was written for each and stop over-building in time; then the
+ * final-round sections. Two sections were cut on 2026-09-19: the paragraph
+ * under the ask explaining that the translator had checked things, and the
+ * trust footer -- "I don't care that you checked everything. I assume you did"
+ * and "I trust you". What survives of the second is the FIELD, which a later
+ * round's brief still renders; what he reads is shorter by two sections.
  *
  * `model` prints only when it is worth a reader's attention: a mismatch
  * against the model asked for, or an answer that could not name its own model.
@@ -695,7 +707,7 @@ function disagreementsWording(f) {
  */
 export function chatReport(round, { askedModel = null } = {}) {
   const f = facts(round);
-  const out = [`**D0 — ${chatLine(round)}**`, ""];
+  const out = [`**Translation — ${chatLine(round)}**`, ""];
 
   if (f.failed || f.skipped) {
     out.push(
@@ -707,7 +719,13 @@ export function chatReport(round, { askedModel = null } = {}) {
   }
 
   const a = round.answer ?? {};
-  out.push(`**Needs you:** ${a.recommendation ?? ""}`, "", a.reasoning ?? "");
+  // ABOUT LEADS, THEN THE ASK (David, 2026-09-19). He needs to know which round
+  // this is before he is told what to do about it. And `reasoning` is gone --
+  // it rendered a paragraph explaining that the translator had checked things,
+  // which he reads as noise: "I don't care that you checked everything. I
+  // assume you did."
+  if (a.about) out.push(`*${a.about}*`, "");
+  out.push(`**Needs you:** ${a.recommendation ?? ""}`);
 
   if (Array.isArray(a.disagreements)) {
     const w = disagreementsWording(f);
@@ -734,7 +752,7 @@ export function chatReport(round, { askedModel = null } = {}) {
     }
   }
 
-  if (a.about) out.push("", `*About:* ${a.about}`);
+
 
   if (Array.isArray(a.known_gaps)) {
     out.push("", "**Shipping unfixed**", "");
@@ -760,7 +778,12 @@ export function chatReport(round, { askedModel = null } = {}) {
     );
   }
 
-  if (a.took_on_trust) out.push("", `*Taken on trust, not checked:* ${a.took_on_trust}`);
+  // `took_on_trust` IS NOT PRINTED HERE, and is still collected (David,
+  // 2026-09-19: "The Taken on trust section should be removed. I trust you.").
+  // It has a second consumer he never sees: `roundBrief` renders it into a
+  // later round's prior-accounts block as the list worth rechecking, which
+  // Codex #109 round 8 established. Dropping the field would take that with
+  // it; dropping the line gives him what he asked for.
   if (f.unassessed) out.push("", `*Could not assess:* ${a.could_not_assess}`);
 
   // WHAT THE CALL CARRIED IS THE ALIAS, NOT THE PIN, and this line used to say

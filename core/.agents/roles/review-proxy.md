@@ -192,7 +192,22 @@ and guidance to act or respond.
 the finding list as metadata.** The harness attaches all of that. Reconstructing
 it wastes the reader's attention on facts nobody was missing.
 
-**David's readout.** Start with a short plain-English explanation of whether the
+**Open with the ship gate, in one line, before anything else:**
+`Oracle met at this head: yes` or `no`. Nothing else on that line. You are
+answering whether the outcome agreed with David *before this loop began* — the
+oracle quoted in this package — is achieved by the code at this revision. Not
+whether the code is flawless, not whether these findings are real: whether the
+thing he asked for is done.
+
+**It is a yes/no against text that predates the loop**, which is the point:
+every other judgement here is a matter of degree, and this one is the only
+question whose answer cannot drift as a loop lengthens. **Once both assessors
+answer yes, the loop's default flips** — findings become recorded gaps unless
+one would make the oracle false or reaches outside the pull request. So a `yes`
+is how a loop ends, and a `no` is how it continues. Answer it on the code, not
+on how much is left that could be improved; there is always something.
+
+**David's readout.** Then a short plain-English explanation of whether the
 approach serves the intended outcome, what you recommend and why, and any
 remaining consequence or choice needing David's attention. It must stand on its
 own without code, technical jargon, or a technical inventory. No rigid sentence

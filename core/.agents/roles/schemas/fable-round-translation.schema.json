@@ -4,21 +4,16 @@
     "recommendation": {
       "type": "string",
       "minLength": 1,
-      "description": "One line: what, if anything, David should do. \"Nothing needed from you\" is a real answer."
-    },
-    "reasoning": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Why the recommendation is what it is: two or three sentences, each naming what it rests on."
+      "description": "One line: what, if anything, David should do. \"Nothing needed from you\" is a real answer. Do not justify it -- he assumes you checked, and a paragraph saying so was cut for being useless (David, 2026-09-19)."
     },
     "about": {
       "type": "string",
       "minLength": 1,
-      "description": "One sentence: what this round was about."
+      "description": "One sentence: what this round was about. It leads the report, so it is the reader's orientation, not a summary of your work."
     },
     "disagreements": {
       "type": "array",
-      "description": "Where your reading differs from the builder's account. An empty array is a real answer.",
+      "description": "Where your reading differs from the builder's account. An empty array is a real answer. This is the section David values most per word, so when trimming for length, trim everything else first.",
       "items": {
         "type": "object",
         "properties": {
@@ -48,7 +43,7 @@
     "took_on_trust": {
       "type": "string",
       "minLength": 1,
-      "description": "What you saw and accepted without checking. Almost never empty."
+      "description": "What you saw and accepted without checking. Almost never empty. NOT shown to David -- it is read by a later round's translator as the list worth rechecking, so write it for that reader."
     },
     "could_not_assess": {
       "type": ["string", "null"],
@@ -92,7 +87,6 @@
   },
   "required": [
     "recommendation",
-    "reasoning",
     "about",
     "disagreements",
     "findings",

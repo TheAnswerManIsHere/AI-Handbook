@@ -640,8 +640,9 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   // EVERY FACT LABELLED BY WHAT IT IS, AND "REQUESTED" ONLY WHERE THIS SCRIPT
   // PASSED THE VALUE (David, 2026-09-18: *"any model call must report loudly if
   // the requested model doesn't match the used model"*). The header states what
-  // was asked for; the assessor states what it is running as in its own first
-  // line; nothing here claims they match, because this reads a file and cannot
+  // was asked for; the assessor states what it is running as on its own
+  // `_Running as:_` line, which sits under the ship gate rather than above it;
+  // nothing here claims they match, because this reads a file and cannot
   // interrogate what wrote it, and a control reporting success having evaluated
   // nothing is the worst shape this repository's archive records.
   //
@@ -668,7 +669,7 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   //     time. Never "applies": definitions are cached, so the file on disk may
   //     not be the one that ran, and the self-report is the only observation.
   //     (Astra raised that in round 1 and it went unanswered in the thread;
-  //     D0's translation to David flagged the same gap.)
+  //     the round translation to David flagged the same gap.)
   //
   // Round 1 fixed this class in the effort field and left the model field's
   // label alone, which is why the finding came back one field over. This is

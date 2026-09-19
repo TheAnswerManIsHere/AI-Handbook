@@ -187,18 +187,18 @@ stored records. From the merged-PR list for the window:
   incidents that needed David. Do not substitute a proxy for either; say the
   mechanism is gone if anyone asks for the trend.
 
-- **D0, two numbers and no more** (David, 2026-09-12). How many round
+- **The round translation, two numbers and no more** (David, 2026-09-12). How many round
   translations ran, and how many flagged a disagreement with the builder's
   account. **Read them from the close-out harvest comments**, the same source
-  plan-loop rounds come from: D0's receipts are gitignored evidence that dies
+  plan-loop rounds come from: its receipts are gitignored evidence that dies
   with its session, deliberately — making a gut-level count exact is the
   accounting-precision class the worth rule
   ([`review-judgment.md`](../../../docs/ai-context/review-judgment.md))
   declines. **Say so when a
-  merged loop's harvest comment carries no D0 line**, rather than reporting a
+  merged loop's harvest comment carries no translation line**, rather than reporting a
   figure that silently omits it.
 
-  The shape to watch is the same one B1 has: a run of loops where D0 never
+  The shape to watch is the same one B1 has: a run of loops where the translation never
   disagrees means it is agreeing with every account, which is what the
   zero-for-fifteen retirement rule catches. The opposite shape counts too — a
   translation disagreeing on every round is not obviously working either, and
