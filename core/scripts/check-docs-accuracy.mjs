@@ -38,6 +38,43 @@ const LIBRARY_EXTRA = ["AGENTS.md", ".agents/PLANS.md"];
 const LINK_ONLY_EXTRA = ["CLAUDE.md"];
 const LINK_ONLY_DIRS = [".claude/skills"];
 
+// ── Historical records ────────────────────────────────────────────────────────
+// Two library docs are RECORDS of what happened, not descriptions of what is.
+// The checker's premise -- "the code is the source of truth, so fix the doc to
+// name the real path" -- does not hold for them: their citations are
+// timestamps, and the fix the error message asks for is impossible.
+//
+// They are exempted separately, per pass, because they need different things.
+// Exempting either from a check it does not need would give up real coverage.
+//
+//   decisions.md is APPEND-ONLY by contract: an entry records what was decided
+//   and why, at the time, and is never edited afterwards. When a decision
+//   retires a document, every older entry that linked to it becomes a dead
+//   link by design -- there is nothing to repair without rewriting history.
+//   So it is exempt from BOTH passes.
+//
+//   known-failure-patterns.md states each pattern generally and grounds it in
+//   a worked example from whichever product hit it. Its own header is explicit
+//   that "a file path in an example is a citation of where it happened, never
+//   a claim about the repo you are reading this in" -- so a BACKTICKED path
+//   naming a script that has since been deleted is the file working as
+//   designed. Its Markdown LINKS are different: they are live cross-references
+//   an agent follows to another contract, so the link check still applies.
+//
+// Measured, 2026-09-19, on a rehearsal of the first consumer cutover (the
+// payload synced into Overhype.me plus that cutover's deletions): decisions.md
+// produced 8 path errors and 3 broken links; known-failure-patterns.md
+// produced 4 path errors and zero broken links. The split below is that
+// measurement, not a precaution.
+//
+// Files, never directories: a directory exemption would silently cover the
+// next document added beside them.
+const PATH_CHECK_EXEMPT = new Set([
+  "docs/ai-context/decisions.md",
+  "docs/ai-context/known-failure-patterns.md",
+]);
+const LINK_CHECK_EXEMPT = new Set(["docs/ai-context/decisions.md"]);
+
 // Nested CLAUDE.md memory files (e.g. lib/api-zod/CLAUDE.md) load contextually
 // when working under their directory and carry relative links that must
 // resolve from that directory — the root CLAUDE.md entry above does not reach
@@ -135,6 +172,7 @@ const errors = [];
 // authoring convention, substituted at runtime and never a literal repo path.
 const LINK_RE = /\]\((?!https?:\/\/|#|mailto:)([^)]+)\)/g;
 for (const file of linkFiles) {
+  if (LINK_CHECK_EXEMPT.has(file)) continue;
   const text = stripFencedBlocks(readFileSync(join(ROOT, file), "utf8"));
   const fileDir = dirname(join(ROOT, file));
   for (const m of text.matchAll(LINK_RE)) {
@@ -156,6 +194,7 @@ const TOP_LEVEL = /^(docs|lib|artifacts|scripts|cloudflare|\.agents|\.claude|\.g
 const SKIP_CHARS = /[*<>{}|()@=:\s…]/; // glob, placeholder, expression, or prose
 const BACKTICK_RE = /`([^`]+)`/g;
 for (const file of libraryFiles) {
+  if (PATH_CHECK_EXEMPT.has(file)) continue;
   const text = readFileSync(join(ROOT, file), "utf8");
   const seen = new Set();
   for (const m of text.matchAll(BACKTICK_RE)) {
