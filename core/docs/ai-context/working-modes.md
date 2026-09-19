@@ -242,7 +242,7 @@ leaving the class untouched. What each alternative gets wrong, stated as the
 | `grep -rn` from the root | **over**-counts — walks `.git`, `node_modules`, and generated output, so N includes non-source copies |
 | bare `rg -n` | **under**-counts — skips hidden directories, so a heading present only in `.agents/PLANS.md` is invisible to it, and `.agents/`/`.github/` are where this repo's process sources live |
 | `rg -n --hidden` | the `grep -rn` problem returns: `.git` is back in the corpus |
-| `rg -n --hidden --glob '!.git'` | **under**-counts — ripgrep honours VCS ignore rules, so it misses the tracked-but-gitignored `artifacts/overhype-me/.env.local` that `git grep -l` finds |
+| `rg -n --hidden --glob '!.git'` | **under**-counts — ripgrep honours VCS ignore rules, so it misses a tracked-but-gitignored path that `git grep -l` finds (**Overhype:** `artifacts/overhype-me/.env.local`) |
 | `git ls-files \| rg` | searches **filenames**, not contents — no hits for a pattern that exists only inside files |
 
 **No totals appear in that table, and that is the fix rather than a style
