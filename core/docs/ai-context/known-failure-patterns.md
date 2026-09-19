@@ -3,11 +3,18 @@
 # Known Failure Patterns
 
 > Mistakes AI agents have repeatedly made (or nearly made) while building under
-> this contract. Each pattern is stated generally, then grounded in a real
-> example from whichever product hit it — **the example is evidence, not
-> scope.** Most of them name Overhype.me, because that is where the fleet has
-> run longest; a file path in an example is a citation of where it happened,
-> never a claim about the repo you are reading this in.
+> this contract, each grounded in a real example from whichever product hit it
+> — **the example is evidence, not scope.** Most of them name Overhype.me,
+> because that is where the fleet has run longest; a file path in an example is
+> a citation of where it happened, never a claim about the repo you are reading
+> this in.
+>
+> **How to read an entry, whatever it says: the *shape* is what carries.**
+> Where an entry's remedy names particular files, commands or tooling, that
+> remedy is that product's — take the shape and look up your own repo's
+> equivalent rather than running theirs. This is a reading rule, not a claim
+> that every entry below has been checked against every repo; several were
+> written as one product's incident and still read that way.
 >
 > Read this before working in any area a pattern below covers, and before
 > **any** migration, auth, payment, or generated-code change. That trigger list
@@ -135,6 +142,13 @@ means Y" lines in `nanoBanana2.ts`; modifier directives are conservatively de-du
 against the assembled prompt.
 
 ## Manual `api-zod/src/index.ts` export silently reverted by codegen
+
+**The shape, which is what carries:** a file owned by a generator was
+hand-edited, the edit survived long enough to look correct, and the next
+codegen run silently reverted it. The durable fix always goes where the
+generator reads its inputs, never into the generated file. **Everything below
+is Overhype's instance of that shape** — its paths, its allowlist and its
+commands are Overhype's; find your own repo's generator and its input list.
 
 **Looks like:** you add a new module under `lib/api-zod/src/` and add
 `export * from "./yourModule"` to `lib/api-zod/src/index.ts`; typecheck and your
@@ -2031,10 +2045,16 @@ matched a row already there. Fixed by `git checkout origin/main -- <file>`
 adjacent `schema/*.ts` file instead — plain TypeScript, never hash-tracked,
 safe to edit freely.
 
-**The rule: a migration file that has already merged into `main` is
-byte-for-byte immutable, full stop — not "immutable except for comments" or
-"immutable except for whitespace."** There is no safe partial edit, because
-the hash function has no concept of "cosmetic." If a migration's comment is
+**The rule, under a hash-tracked runner: a migration file that has already
+merged into `main` is byte-for-byte immutable, full stop — not "immutable
+except for comments" or "immutable except for whitespace."** There is no safe
+partial edit, because the hash function has no concept of "cosmetic."
+**Check your runner before relying on this**, as
+[`migration-file-immutable-once-merged.md`](../../.agents/memory/migration-file-immutable-once-merged.md)
+says: a runner journalling by filename or revision alone does not replay on an
+edit, and Flyway repeatable migrations and Liquibase `runOnChange` changesets
+make editing the file the *supported* update mechanism — there the checksum
+change is the trigger, not the bug. If a migration's comment is
 wrong, wrong, or its behavior needs to change, the fix is always a **new**
 forward-only migration (or, for pure documentation, editing prose in a
 non-migrations file that references it) — never touching the original file's

@@ -218,7 +218,7 @@ to worry about strange links."*)
    | Which subsystems are **sensitive** (add the specialist review tier) | `working-modes.md`, `code-review.md`, `agent-working-rules.md`, `claude-core.md`, the `maintenance` skill's direct-push sweep | The universal entries still route; whatever else this repo treated as sensitive quietly stops getting the specialist review |
    | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
    | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
-   | Which **status transport** its async surfaces already use — a job-status-by-id endpoint, SSE, WebSockets, a task-specific API | `async-ui-status.md` | An agent invents a second status channel beside the one that already works |
+   | Which **status transport** each async surface already uses — a job-status-by-id endpoint, SSE, WebSockets, a task-specific API — **by surface, where a repo has more than one** | `async-ui-status.md` | An agent invents a second status channel beside the one that already works |
    | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
 
    One payload route is deliberately **not** in that table: `/next` and the
@@ -306,12 +306,22 @@ to worry about strange links."*)
    or `waiting:`; an **active workstream** carries `stage:` + `waiting:` +
    `mode:` and no `queue:`. Promoting a backlog item means dropping `queue:`
    and adding the `stage:`/`waiting:` pair in the same edit. Two labels sharing
-   one prefix is a data error the field sync refuses rather than guesses at.
+   a `stage:`, `waiting:` or `mode:` prefix is a data error the field sync
+   refuses rather than guesses at — those three are its whole `LABEL_FIELDS`
+   list. **`queue:` has no such guard**: the field sync never sees it, and
+   `/next` reads it directly and defines no duplicate case, so two `queue:`
+   labels produce an ambiguous rank with nothing to announce it.
 
    This is the same failure shape as the declarations in step 1 — a payload
-   rule deferring to something enrollment never lands — and it fails the same
-   way, quietly. Nothing throws on a missing label; the issue just never gets
-   one, and the fleet view goes blind to that workstream.
+   rule deferring to something enrollment never lands. What a *read* does is
+   established: `/status`, `/status-all` and `/next` match a taxonomy that is
+   not there, so the workstream is simply absent from the fleet view. What a
+   *write* does is **not** established — whether `issue_write` against a
+   missing label errors, drops the label silently, or has GitHub create it is
+   unverified here, and the 404 recorded in
+   `.agents/memory/github-mcp-no-label-creation-tool.md` is from `get_label`,
+   which does not settle it. Either way the fleet view goes blind to that
+   workstream; do not troubleshoot from an assumed failure shape.
 
    **The labels are necessary and not sufficient, and the gap is named rather
    than papered over.** They make `/status`, `/status-all` and `/next` work,

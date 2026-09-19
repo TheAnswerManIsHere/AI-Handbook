@@ -7,7 +7,9 @@
 > report status; other docs link here rather than restating it. Two things about
 > *this* repo are answered in its overlay declarations rather than assumed here:
 > which panel is the **reference implementation** (copying a working one beats
-> re-deriving this) and which **status transport** it already uses.
+> re-deriving this) and which **status transport** each async surface already
+> uses — per surface, since a repo may well poll for batch jobs and subscribe
+> for a live view.
 
 A durable job queue makes requests to external systems robust — but the human
 watching the screen still needs to know exactly what's happening, **visually and
@@ -53,11 +55,13 @@ must report status at **two altitudes**:
   loudly ("something went wrong"); neither silently gives up nor pretends success.
 - The backend's own retry limit is what fails a crash-looping job; the UI just
   reflects `done`/`failed`.
-- **Prefer this repo's existing status transport** — the one its overlay
-  declares, and whatever the frontend already uses — over inventing a second
-  status channel. Polling a job-status-by-id endpoint, a subscription over SSE
-  or WebSockets, and a task-specific API all satisfy this doc; the rule is to
-  reuse the transport this repo already has, not to add another.
+- **Prefer the transport the surface you are changing already uses** — what
+  its overlay declares for that surface, and whatever the frontend already
+  does there — over inventing a second status channel beside it. Polling a
+  job-status-by-id endpoint, a subscription over SSE or WebSockets, and a
+  task-specific API all satisfy this doc, and **a repo may use more than one**:
+  the rule is to reuse what this surface already has, never to unify a repo's
+  surfaces onto one channel.
 
 ## Enqueue is not completion
 
