@@ -426,11 +426,18 @@ const ordinal = (n) => {
  * enforces is the defect this machinery keeps paying for.
  *
  * A BLANK `could_not_assess` IS REFUSED, NOT READ AS "NOTHING TO REPORT". The
- * schema's `minLength` refuses "" but admits "   ", and `facts` used to trim
- * that into the fully-assessed state -- two checks disagreeing about what
- * empty means, with the favourable state as the result, one character away
- * from the case round 2 fixed. Only `null` means fully assessed. (Astra,
- * 2026-09-16.)
+ * schema used to say `minLength`, which refuses "" but admits "   ", and
+ * `facts` trimmed that into the fully-assessed state -- two checks disagreeing
+ * about what empty means, with the favourable state as the result, one
+ * character away from the case round 2 fixed. Only `null` means fully
+ * assessed. (Astra, 2026-09-16.)
+ *
+ * THE SCHEMA NOW SAYS `minTrimmedLength`, so the general rule refuses "   "
+ * too (#116), and this check is no longer the only thing standing between
+ * whitespace and the favourable state. It stays because its message is the one
+ * a reader needs: this is the single field where blank, null and a sentence
+ * mean three different things, and "at least 1 character once trimmed" does
+ * not say which of them was wanted.
  *
  * Returns the problems rather than throwing. The translation is off the critical path and a
  * broken translation must never be able to stop a review loop.

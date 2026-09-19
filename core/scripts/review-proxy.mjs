@@ -169,6 +169,18 @@ function assertCoordinates(pr, round) {
 const defaultGit = (args, cwd) => spawnSync("git", args, { cwd, encoding: "utf8" });
 
 /**
+ * The floor under the prefix comparison in `assertCheckout`.
+ *
+ * SEVEN IS GIT'S OWN ABBREVIATION MINIMUM, so nothing a caller could
+ * legitimately paste is refused by it -- not the marker's 10, not `rev-parse`'s
+ * 40. What it refuses is the input too short to identify anything: with the
+ * shorter side deciding and no floor, `--commit f` matched any HEAD beginning
+ * with `f`, and the guard approved a checkout it had not checked. (Codex, #120
+ * round 8, deferred to #122 under that round's pre-registered exit.)
+ */
+const MIN_REVIEWED_COMMIT_CHARS = 7;
+
+/**
  * REFUSE UNLESS THE CHECKOUT IS THE REVISION BEING ASSESSED.
  *
  * Both assessors read the live working tree. The prompt tells them which commit
@@ -190,8 +202,17 @@ export function assertCheckout(root, reviewedCommit, { git = defaultGit } = {}) 
   }
   const at = String(head.stdout ?? "").trim();
   const want = reviewedCommit.trim();
+  if (want.length < MIN_REVIEWED_COMMIT_CHARS) {
+    throw new Error(
+      `review-proxy: ${JSON.stringify(want)} is too short to identify a commit. The comparison below is a prefix ` +
+        `match, so a shorter reference would approve any checkout that happens to start with it. Pass at least ` +
+        `${MIN_REVIEWED_COMMIT_CHARS} characters -- the marker's 10, or the full sha.`,
+    );
+  }
   // The shorter of the two decides: a marker carries a 10-character prefix, a
-  // caller may pass 7, and `rev-parse` returns all 40.
+  // caller may pass 7, and `rev-parse` returns all 40. The floor above is
+  // one-sided on purpose -- an input LONGER than 40 is already safe, because
+  // `n` is then 40 and the whole of HEAD has to match.
   const n = Math.min(at.length, want.length);
   if (at.slice(0, n) !== want.slice(0, n)) {
     throw new Error(
@@ -410,6 +431,19 @@ export function assessmentBrief({
     for (const entry of history) {
       if (!entry || !LABELS.includes(entry.label)) {
         throw new Error(`review-proxy: every history entry carries a label from ${LABELS.join(", ")}, got ${JSON.stringify(entry?.label)}`);
+      }
+      // AND IT NEEDS TEXT, the same requirement `findings` gets a few lines up.
+      // `flatten` is `String(s)`, so an entry that is only a label renders
+      // `- **[David]** undefined` and both assessors are dispatched without the
+      // decision it was meant to carry -- a section neither can notice is
+      // missing, because neither ever saw it. The asymmetry was the same one
+      // round 7 fixed on the findings side: the check went on one path and not
+      // its twin. (Codex, #120 round 8, deferred to #122.)
+      if (typeof entry.text !== "string" || entry.text.trim() === "") {
+        throw new Error(
+          `review-proxy: history entry [${entry.label}] has no text; both assessors would be dispatched without the ` +
+            `decision it carries, got ${JSON.stringify(entry.text)}`,
+        );
       }
       lines.push(`- **[${entry.label}]** ${flatten(entry.text)}`);
     }

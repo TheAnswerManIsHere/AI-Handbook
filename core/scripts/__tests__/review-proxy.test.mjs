@@ -251,6 +251,28 @@ test("the dispatch refuses unless the checkout is at the reviewed commit and cle
   assert.throws(() => assertCheckout(root, COMMIT, { git: broken }), /cannot read HEAD/);
 });
 
+test("a reference too short to identify a commit is refused, not prefix-matched", () => {
+  // The shorter side decides, which is what lets a 7-character marker match a
+  // 40-character HEAD. With no floor under it, `--commit f` matched every HEAD
+  // beginning with `f` and the guard approved a checkout it had not checked.
+  // (Codex, #120 round 8, deferred to #122.)
+  const root = tmpRoot();
+  for (const tooShort of ["f", "f1", "f1c89d"]) {
+    assert.throws(() => assertCheckout(root, tooShort, { git: cleanGit() }), /too short to identify a commit/);
+  }
+  // The floor is git's own abbreviation minimum, so every length a caller
+  // legitimately has still passes: 7 here, the marker's 10, and the full sha.
+  assert.equal(assertCheckout(root, "f1c89d2", { git: cleanGit() }), FULL);
+  assert.equal(assertCheckout(root, "f1c89d2ba3", { git: cleanGit() }), FULL);
+  assert.equal(assertCheckout(root, FULL, { git: cleanGit() }), FULL);
+  // Longer than a sha needs no floor and does not get one: `n` is 40, so the
+  // whole of HEAD has to match, and a full sha with trailing garbage passes
+  // only when the checkout genuinely IS that commit. Both assessors probed
+  // this separately on #120 round 8 and agreed it is harmless.
+  assert.equal(assertCheckout(root, `${FULL}garbage`, { git: cleanGit() }), FULL);
+  assert.throws(() => assertCheckout(root, `${"0".repeat(40)}x`, { git: cleanGit() }), /this assessment is of/);
+});
+
 test("a refused checkout stops the dispatch before the reviewer is ever started", () => {
   const calls = [];
   const run = (bin, args) => {
@@ -797,6 +819,23 @@ test("history is refused in the wrong container, the way findings already are", 
   assert.throws(() => brief({ history: "David said so" }), /history must be an array/);
   assert.doesNotThrow(() => brief({ history: [] }));
   assert.match(brief({ history: [{ label: "David", text: "SAID THIS" }] }), /\*\*\[David\]\*\* SAID THIS/);
+});
+
+test("a history entry with a label and no text is refused, not rendered as undefined", () => {
+  // The label was checked and the text was not, so `- **[David]** undefined`
+  // composed cleanly and both assessors were dispatched without the decision
+  // the entry carried. The same check `findings` already gets, on the twin
+  // path that never had one. (Codex, #120 round 8, deferred to #122.)
+  for (const bad of [undefined, null, "", "   ", 7, ["a line"], { text: "x" }]) {
+    assert.throws(
+      () => brief({ history: [{ label: "David", text: bad }] }),
+      /has no text/,
+      `history text ${JSON.stringify(bad)} should be refused`,
+    );
+  }
+  assert.doesNotThrow(() => brief({ history: [{ label: "David", text: "0" }] }), "a short real string is text");
+  // And the label check still fires first, on an entry carrying neither.
+  assert.throws(() => brief({ history: [{}] }), /carries a label from/);
 });
 
 test("the CLI refuses an unknown flag or a flag with no value rather than guessing", () => {

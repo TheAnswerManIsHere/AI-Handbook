@@ -426,14 +426,26 @@ export function validate(value, schema, at = "$") {
         say(`expected a string, got ${describe(value)}`);
         return problems;
       }
-      // `minLength` exists in these schemas for exactly one reason: a field the
-      // model must actually fill. An empty string satisfies "type": "string"
-      // and satisfies nothing a reader wants, so the keyword is enforced here
-      // rather than being sent to the model and ignored -- which is the state
-      // `assertSchemaSupported` refuses, and which the round-translation schema
-      // was quietly in until this was added.
-      if (typeof schema.minLength === "number" && value.length < schema.minLength) {
-        say(`is ${value.length} character(s) long, and at least ${schema.minLength} is required`);
+      // THE KEYWORD IS `minTrimmedLength`, AND THE NAME IS THE FIX. It exists
+      // in these schemas for exactly one reason: a field the model must
+      // actually FILL. `minLength` cannot express that -- JSON Schema measures
+      // the raw string, so "   " satisfies `minLength: 1` and every required
+      // prose field in a schema could be whitespace while the answer validated
+      // and rendered under a favourable headline. Measured on the
+      // round-translation schema: every required field set to three spaces gave
+      // `problems: []`. (#116, from #109 round 9.)
+      //
+      // Enforcing a trim UNDER THE NAME `minLength` was the other available
+      // fix and is refused: `assertSchemaSupported` exists so that what the
+      // schema publishes and what this validator enforces are the same thing,
+      // and quietly redefining a published keyword is that guarantee failing in
+      // the other direction. `minLength` is now refused outright, with a
+      // message naming this keyword, so the next schema author cannot reach for
+      // the fail-open one by accident.
+      if (typeof schema.minTrimmedLength === "number" && value.trim().length < schema.minTrimmedLength) {
+        say(
+          `is ${value.trim().length} character(s) long once trimmed, and at least ${schema.minTrimmedLength} is required`,
+        );
       }
       return problems;
     case "number":
@@ -460,11 +472,22 @@ const SUPPORTED_KEYWORDS = new Set([
   "items",
   "enum",
   "description",
-  "minLength",
+  "minTrimmedLength",
 ]);
 
 export function assertSchemaSupported(schema, at = "$") {
   for (const key of Object.keys(schema)) {
+    // `minLength` gets its own message rather than the generic one, because the
+    // author reaching for it wants a field that is really filled and would read
+    // "this validator does not enforce it" as an invitation to add support --
+    // rebuilding the fail-open. Name the replacement instead. (#116.)
+    if (key === "minLength") {
+      throw new Error(
+        `${at} uses "minLength", which this repo's validator deliberately refuses. It measures the raw string, so ` +
+          `"   " satisfies "minLength": 1 and a required prose field validates while carrying nothing. Use ` +
+          `"minTrimmedLength", which measures the string with surrounding whitespace removed.`,
+      );
+    }
     if (!SUPPORTED_KEYWORDS.has(key)) {
       throw new Error(
         `${at} uses the JSON Schema keyword "${key}", which this repo's dependency-free validator does not enforce. ` +
