@@ -48,12 +48,21 @@ correcting its output or simplifying the interface eliminates the need for
 consumer-side protection. Each proposed change still needs to pass the Worth
 assessment: internal ownership does not guarantee correct output, and
 deterministic construction differs from model-generated content, manual choices
-and coordination between agents. Protection needs a credible remaining failure
-and a consequence that justifies its cost.
+and coordination between agents. Where a model's output feeds a script, the
+script extends no latitude, and exactness at that boundary is the standard.
+Protection needs a credible remaining failure and a consequence that justifies
+its cost.
 
 **4. Identify a credible failure path and its consequence.** What could happen,
 under what conditions, affecting whom. Weigh frequency, reach, detectability,
-recoverability and cumulative disruption. For an adversarial scenario, name an
+recoverability and cumulative disruption. Where the consumer is a model reading
+prose, recoverability is decided by whether the error survives an intelligent
+reader: a contradiction, a mislabel or an instruction the rest of the package
+makes impossible is one the reader reconciles from what it has, and is not a
+credible failure path however real the imperfection. What does not survive is
+information the reader cannot recover — absent from the package, wrong in a way
+it cannot check, or destroyed on disk. That is the real failure class, and
+neither half of this sets a rate. For an adversarial scenario, name an
 actual actor with the necessary access; a channel that could theoretically
 carry hostile content is not an actor. Do not invent probabilities. Missing
 evidence that could change the answer calls for a targeted investigation, not
