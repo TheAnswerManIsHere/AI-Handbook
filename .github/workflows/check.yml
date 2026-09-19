@@ -124,6 +124,23 @@ jobs:
       - name: Check settings fields
         run: node scripts/check-settings-fields.mjs
 
+      # Does every role named for a model actually declare it?
+      #
+      # The Agent tool resolves a subagent's model as argument, then the
+      # definition's frontmatter, then the session. Until #126 neither
+      # `fable-*` definition declared one, so a forgotten argument made a
+      # "Fable" role run as whatever session dispatched it -- measured on #124,
+      # where seven consecutive rounds did exactly that. The second assessment
+      # in the shared judgement exists to be a DIFFERENT model from the one
+      # that wrote the code, so that is the design failing while reporting
+      # success, not a wrong label.
+      #
+      # The declarations are derived from `.agents/machinery.json`, which is
+      # the one place David edits when the state of the art moves. This step is
+      # what holds the two identical; `--fix` rewrites them from the pin.
+      - name: Check agent model declarations
+        run: node scripts/check-agent-models.mjs
+
       # Does the sync actually run?
       #
       # Everything above imports the module; nothing exercised the CLI, so a

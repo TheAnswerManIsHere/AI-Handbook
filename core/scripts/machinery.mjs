@@ -225,6 +225,119 @@ export function repoSlug(io = nodeIo()) {
   return machineryConfig(io).repo;
 }
 
+// ---------------------------------------------------------------------------
+// Agent-definition frontmatter
+// ---------------------------------------------------------------------------
+
+/**
+ * The settings block at the top of an agent definition, read as flat pairs.
+ *
+ * ONE COPY, BECAUSE TWO CONSUMERS NEED IT AND THEY LIVE IN DIFFERENT TREES.
+ * `scripts/check-agent-models.mjs` holds a role's declared model and effort
+ * equal to the pin; `review-proxy.mjs` reads the declared effort to say, in an
+ * assessment's header, what the role actually runs at. Those are the two ends
+ * of one fact, and a second copy of the reader is a second thing to drift --
+ * the failure this whole area is about. The handbook-only checker can import
+ * payload code; payload code cannot import the checker, so the shared copy
+ * lives here. (Both assessors, #131 round 1.)
+ *
+ * DELIBERATELY NOT A YAML PARSER. The only shapes in these files are
+ * `key: value` on one line, and this repository's archive names a hand-rolled
+ * parser chasing a real language's syntax as a losing shape. What it must not
+ * do is quietly accept a file it did not understand: a missing opening or
+ * closing `---` returns null rather than an empty block, so a caller cannot
+ * mistake "could not read it" for "it declares nothing".
+ */
+export function splitFrontmatter(text) {
+  // `/\r?\n/`, NOT `"\n"`. A CRLF checkout leaves the closing delimiter as
+  // `"---\r"`, which an exact `indexOf("---", 1)` never finds, so every
+  // definition read as unreadable. Splitting on the pair fixes the delimiters
+  // and the field lines in one token, and is byte-identical on LF.
+  //
+  // THE HALF-FIX IS WORSE THAN THE DEFECT, which is why this is the whole
+  // change and not a trimmed delimiter comparison. Measured: with the close
+  // found by trimming but the fields still carrying `\r`, `name`, `model` and
+  // `effort` all read null -- and `check-agent-models` selects roles by
+  // `name.startsWith("fable-")`, so the role would be SKIPPED rather than
+  // reported. That turns a loud refusal into a check that passes having
+  // checked nothing. (Astra, #131 round 2, naming the insufficiency; the
+  // Fable assessor weighed the same finding as unreachable and said folding
+  // in a one-token fix costs nothing. `plan-provenance.mjs` already splits
+  // this way.)
+  //
+  // SCOPE IS THIS FUNCTION, DELIBERATELY. Four other readers still split on
+  // `"\n"` -- `check-docs-accuracy.mjs`, `check-uat-format.mjs`,
+  // `check-root-wiring.mjs` and `plan-review.mjs` -- and are left alone, so
+  // this batch is not read as having fixed a class it did not. They are
+  // outside this finding's consequence. If a CRLF environment ever enters the
+  // fleet, the source-level answer is a `.gitattributes` pinning LF, which
+  // makes every parser immune at once, rather than per-parser tolerance
+  // spread by hand.
+  const lines = String(text ?? "").split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") return null;
+  const end = lines.indexOf("---", 1);
+  if (end === -1) return null;
+  return { head: lines.slice(1, end), body: lines.slice(end + 1), endIndex: end };
+}
+
+/** `key: value` from a frontmatter block. Later wins, as YAML does. */
+export function frontmatterValue(head, key) {
+  let found = null;
+  for (const line of head ?? []) {
+    const m = new RegExp(`^${key}\\s*:\\s*(.*)$`).exec(line);
+    if (m) found = m[1].trim().replace(/^["']|["']$/g, "");
+  }
+  return found;
+}
+
+/**
+ * The family alias the Agent tool takes, from a full Claude model id.
+ *
+ * ONE COPY, BECAUSE THREE PLACES NEED THE SAME ANSWER. The dispatch passes it,
+ * an assessment header names it, and the translator's mismatch line explains
+ * it. A second derivation is a second thing to drift, and what drifts here is
+ * the difference between "the platform substituted a model" and "your pin is
+ * behind the alias" -- two diagnoses, one of which is a one-line edit David
+ * owns. (Astra and the Fable assessor, #131 round 2, independently.)
+ *
+ * THE ALIAS IS ALL THE ARGUMENT CAN CARRY. The Agent tool's per-invocation
+ * `model` parameter is an enum of `sonnet`, `opus`, `haiku`, `fable`; a full
+ * id is refused at input validation (David's 2026-09-18 probe of `best`
+ * returned exactly that value list, and this session's own tool schema
+ * declares the same four). A full id IS accepted in a definition's
+ * frontmatter -- which is why `model-routing` states the two layers
+ * separately, and why one sentence there conflating them was corrected in
+ * this same change.
+ *
+ * Null for anything that is not a Claude id, so a caller can say so rather
+ * than print a guess.
+ */
+export function claudeAlias(id) {
+  const m = typeof id === "string" ? /^claude-(fable|opus|sonnet|haiku)\b/.exec(id) : null;
+  return m ? m[1] : null;
+}
+
+/**
+ * One key from an agent definition, or null if anything at all is in the way.
+ *
+ * THE PATH IS THE SAME IN BOTH LAYOUTS. `.claude/agents/<name>.md` is a real
+ * file in a consumer and a per-file symlink into `core/` in the handbook, so
+ * one relative path resolves in both -- which is why this does not need the
+ * `core/scripts` vs `scripts` dance `INVOCATION` does.
+ *
+ * NULL IS A REAL ANSWER AND CALLERS MUST TREAT IT AS ONE. A caller that
+ * substituted a plausible default here would be inventing the very fact this
+ * exists to report honestly.
+ */
+export function agentFrontmatter(root, name, key) {
+  try {
+    const parts = splitFrontmatter(fs.readFileSync(path.join(root, ".claude", "agents", `${name}.md`), "utf8"));
+    return parts ? frontmatterValue(parts.head, key) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Test seam: forget any parsed configuration. Never called in production. */
 export function __resetRepoSlugCache() {
   CONFIG_CACHE.clear();

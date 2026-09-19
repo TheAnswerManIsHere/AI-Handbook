@@ -39,7 +39,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot } from "./machinery.mjs";
+import { modelTier, signInStatus, spawnSyncDefault, SIGN_IN_INSTRUCTIONS, runCodex, findRepoRoot, agentFrontmatter, claudeAlias } from "./machinery.mjs";
 import { REVIEWS_DIR, ensureReviewsIgnored } from "./round-translation.mjs";
 
 export const ROLE = "review-proxy";
@@ -128,6 +128,16 @@ export const TIER_LENSES = {
 export const ACTIONS = ["proceed", "investigate", "follow-up", "ask-david", "conclude"];
 
 export const SOURCES = ["astra", "fable"];
+
+/**
+ * The subagent type the Fable assessment is dispatched as.
+ *
+ * NAMED HERE BECAUSE IT WAS NAMED NOWHERE. Until #126 the skill said "as a
+ * subagent" and no file in the payload said which one, so every dispatch of
+ * the second assessment was improvised. It is also where its `effort:` is
+ * read from, which is the only place that value exists.
+ */
+export const ASSESSOR_AGENT = "fable-review-assessor";
 
 /** The assessment file, derived identically by the writer and the reader. */
 export const assessmentPath = (root, pr, round, { source, followUp = 0 } = {}) => {
@@ -263,6 +273,36 @@ export const identityBlock = (source) => {
   ].join("\n");
 };
 
+/**
+ * How the assessment actually reaches this script, said per assessor (#125).
+ *
+ * THE TWO ASSESSORS HAVE DIFFERENT TRANSPORTS AND ONE SENTENCE USED TO CLAIM
+ * BOTH. Astra runs in a `read-only` sandbox, which denies every write: its
+ * answer reaches the file through `--output-last-message` in the wrapper, not
+ * through anything Astra does. Telling it to "write your assessment to <path>"
+ * asks for the one thing the process cannot do and names the wrong channel.
+ * The Fable assessor is a subagent holding `Write`, and really does write the
+ * file, so the same sentence is correct for it.
+ *
+ * WHY IT IS WORTH A HELPER RATHER THAN TOLERATING THE DETOUR. Measured across
+ * fifteen #124 rounds, Astra tried the write, was refused, worked out the real
+ * transport and delivered anyway -- fifteen for fifteen. What the instruction
+ * risks is the reader that follows it literally and stops: its final message is
+ * then "I could not write the file", `readAssessment` accepts any non-empty
+ * file as substantive, and an apology gets posted under a header naming the
+ * pull request, the revision and the findings. That is this repository's
+ * recorded worst shape -- a control reporting success having evaluated nothing
+ * -- so the cheap correction rides along with the next change to this file,
+ * which is what its own re-grade asked for.
+ */
+export const deliveryLine = (source, file, noun = "assessment") =>
+  source === "astra"
+    ? `- **Return the complete ${noun} as your final message**, in Markdown. The CLI saves that final ` +
+      `message to \`${file}\`; you are in a read-only sandbox and cannot write it yourself, and you do not ` +
+      `need to. Do not replace it with a completion acknowledgement or a note about the sandbox -- the ` +
+      `saved message IS the deliverable.`
+    : `- **Write your ${noun} to:** \`${file}\``;
+
 const readBrief = () => `${fs.readFileSync(briefPath(), "utf8").trim()}
 
 ---
@@ -348,7 +388,7 @@ export function assessmentBrief({
     `- **Reviewed commit:** \`${reviewedCommit}\` — the revision you are assessing. The checkout you are reading ` +
       "is at this commit and is clean; the dispatch refuses otherwise.",
     `- **Repository root:** the working directory you were started in.`,
-    assessmentFile ? `- **Write your assessment to:** \`${assessmentFile}\`` : null,
+    assessmentFile ? deliveryLine(source, assessmentFile, "assessment") : null,
     "",
     "## [oracle] The outcome this work is meant to achieve",
     "",
@@ -482,7 +522,7 @@ export function followUpBrief({
     "",
     `- **Reviewed commit:** \`${reviewedCommit}\` — unchanged since your assessment; no new code has been written.`,
     `- **Findings in dispute:** ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`,
-    assessmentFile ? `- **Write your answer to:** \`${assessmentFile}\`` : null,
+    assessmentFile ? deliveryLine(source, assessmentFile, "answer") : null,
     "",
     ...TIER_LENSES[tier],
     "",
@@ -572,7 +612,7 @@ const SOURCE_NAMES = { astra: "Astra", fable: "Fable" };
  * assessment, which findings -- because asking a model to restate facts nobody
  * was missing spends the reader's attention for nothing.
  */
-export function prComment(result, { reviewedCommit = null, findingIds = [], model = null } = {}) {
+export function prComment(result, { reviewedCommit = null, findingIds = [], requested = null } = {}) {
   const who = SOURCE_NAMES[result.source] ?? result.source;
   const what = result.followUp ? `round ${result.round}, follow-up ${result.followUp}` : `round ${result.round}`;
   if (result.failed) {
@@ -597,7 +637,69 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], mode
   const facts = [];
   if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
   if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
-  if (model) facts.push(`${model}`);
+  // EVERY FACT LABELLED BY WHAT IT IS, AND "REQUESTED" ONLY WHERE THIS SCRIPT
+  // PASSED THE VALUE (David, 2026-09-18: *"any model call must report loudly if
+  // the requested model doesn't match the used model"*). The header states what
+  // was asked for; the assessor states what it is running as in its own first
+  // line; nothing here claims they match, because this reads a file and cannot
+  // interrogate what wrote it, and a control reporting success having evaluated
+  // nothing is the worst shape this repository's archive records.
+  //
+  // THE TWO ASSESSORS ARE REACHED DIFFERENTLY AND ONE WORD USED TO COVER BOTH.
+  // Astra is handed a full id and an effort per call (`--model`,
+  // `model_reasoning_effort`), so "requested X at Y" is literally true there.
+  // A Claude subagent is handed the family ALIAS and no effort at all: the
+  // Agent tool's `model` parameter is an enum of four aliases, and there is no
+  // effort parameter. So the Fable header carries three separate facts:
+  //
+  //   - `expected` -- the pin, which is what the self-report is compared
+  //     against. Comparing against the family instead would conceal version
+  //     drift (Astra).
+  //   - `instructed alias` -- the alias the RECIPE SENDS, derived from the pin
+  //     the same way `dispatchModel()` derives it. Without it a disagreement
+  //     reads as "the platform substituted a model" when a same-family drift
+  //     between the pin and the alias is an edit David owns. It is labelled as
+  //     an instruction and not as an act because this script never dispatches
+  //     the subagent and receives no record of the call: it cannot know
+  //     whether the argument was actually passed. It said "the alias the call
+  //     actually carried" until #131 round 4 -- the fourth and last label in
+  //     this header to name an act it had not performed.
+  //   - `definition …` -- what the role's file DECLARES, as read at render
+  //     time. Never "applies": definitions are cached, so the file on disk may
+  //     not be the one that ran, and the self-report is the only observation.
+  //     (Astra raised that in round 1 and it went unanswered in the thread;
+  //     D0's translation to David flagged the same gap.)
+  //
+  // Round 1 fixed this class in the effort field and left the model field's
+  // label alone, which is why the finding came back one field over. This is
+  // the class, not the instance: a fact appears here only when this process
+  // established it, and never under a verb describing a mechanism it did not
+  // perform. (Codex `4051974429`; both assessors, #131 round 2.)
+  if (requested) {
+    // NO BARE-STRING SHORTHAND. The two shapes mean different things now --
+    // one says this script passed the value, the other says it did not -- and a
+    // caller handing over a bare id would silently get whichever this function
+    // guessed. Say which.
+    const r = requested;
+    if (r.id) {
+      if (r.effort) {
+        facts.push(`requested \`${r.id}\` at \`${r.effort}\``);
+      } else {
+        const parts = [`expected \`${r.id}\``];
+        if (r.alias) parts.push(`instructed alias \`${r.alias}\``);
+        // The declared model is shown only when it disagrees with the pin: in
+        // the handbook the check holds them equal, and a line repeating itself
+        // trains a reader to skip the place the real notice appears.
+        if (r.definitionModel && r.definitionModel !== r.id) parts.push(`definition model \`${r.definitionModel}\``);
+        // Effort is always shown when it can be read, because the definition is
+        // its ONLY source -- there is nothing else to compare it against. An
+        // unreadable definition omits it rather than falling back to the pin,
+        // which would print a value nobody established.
+        if (r.definitionEffort) parts.push(`definition effort \`${r.definitionEffort}\``);
+        facts.push(parts.join(" · "));
+      }
+    }
+  }
   if (facts.length) header.push(`*${facts.join(" · ")}*`, "");
   return [...header, result.markdown].join("\n");
 }
@@ -682,6 +784,13 @@ export const USAGE = [
   "  --note          the builder's 'where we are', capped at " + MAX_NOTE_CHARS + " characters.",
   `  --source        ${SOURCES.join(" | ")} (default astra). Selects the identity block and the output path.`,
   "  --prompt-only   print the package and run nothing — how the Fable subagent is given the same words.",
+  "  --render        print the PR comment for an assessment already on disk, with no dispatch. This is",
+  "                  how the Fable assessment gets posted: the header is derived here rather than typed",
+  "                  by whoever is posting. --commit is required (it is the evidence boundary); a",
+  "                  follow-up names the findings in --findings, an ordinary round those in",
+  "                  --findings-file. Astra's effort is the pin's, because it is passed per call; the",
+  "                  Fable assessor's is read from its agent definition, the only route it has, and is",
+  "                  omitted rather than guessed if that cannot be read.",
   "",
   `  Astra is pinned to the strongestCodex tier in the ${SANDBOX} sandbox, with no override, and the`,
   "  dispatch refuses unless the checkout is at --commit and clean. The Fable assessment is a subagent",
@@ -704,11 +813,37 @@ const FLAGS = {
   "prior-file": "priorFile",
   "fable-file": "fableFile",
   "prompt-only": "promptOnly",
+  render: "render",
   source: "source",
 };
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
-const BOOLEAN = new Set(["promptOnly"]);
+const BOOLEAN = new Set(["promptOnly", "render"]);
+
+/**
+ * The finding ids the header names — derived the same way for both paths.
+ *
+ * THE TWO PATHS DISAGREED, AND THE RENDER PATH WAS THE WRONG ONE. A follow-up
+ * addresses the subset named by `--findings`; the dispatch path has always used
+ * that, and the render path took every id in `--findings-file` regardless. Given
+ * the documented posting command -- which passes the round's findings file --
+ * a follow-up's comment claimed to cover findings its assessor never received.
+ * The header is exactly the metadata the reader is told to trust, so it is the
+ * one place a scope must not be approximated. (Codex `4051922487`, #131 round
+ * 1; both assessors concurred and both said to share the derivation rather than
+ * patch the render branch.)
+ */
+export function headerFindingIds({ followUp = 0, findings = "", findingsFile = null, parsed = null }) {
+  if (followUp) return String(findings ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  const list = parsed ?? (findingsFile ? JSON.parse(fs.readFileSync(findingsFile, "utf8")) : []);
+  // The same shape check the package composition makes. A JSON object here has
+  // no `.map`, and "x.map is not a function" is not a sentence that tells an
+  // operator their findings file is the wrong shape.
+  if (!Array.isArray(list)) {
+    throw new Error(`--findings-file must hold a JSON array of { id, ... }, got ${typeof list === "object" ? "an object" : typeof list}`);
+  }
+  return list.map((f) => f?.id).filter((id) => id != null);
+}
 
 export function parseArgs(argv) {
   const flags = {};
@@ -729,7 +864,10 @@ export function parseArgs(argv) {
   return flags;
 }
 
-export function main(argv = process.argv.slice(2), { root = process.cwd(), run = spawnSyncDefault, git = defaultGit, log = console.error } = {}) {
+export function main(
+  argv = process.argv.slice(2),
+  { root = process.cwd(), run = spawnSyncDefault, git = defaultGit, log = console.error, io = undefined } = {},
+) {
   let flags;
   try {
     flags = parseArgs(argv);
@@ -738,14 +876,103 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
     return 2;
   }
   const followUp = flags.followUp ?? 0;
+  // A NON-EMPTY REVIEWED COMMIT, ONCE, BEFORE ANY PATH PRODUCES ANYTHING.
+  //
+  // Three things made this one check rather than two. The render path accepted
+  // its absence and emitted a plausible comment with no `Assessed at` line --
+  // losing the evidence boundary that says which revision the advice is about,
+  // on the durable record of a squash-merged pull request. The dispatch path
+  // "refused" a missing commit only by way of `reviewedCommit.trim()` throwing
+  // a TypeError inside `assertCheckout`, surfaced to an operator as a raw
+  // runtime message. And `--commit ""` parses as an empty string -- `parseArgs`
+  // only rejects a value that looks like another flag -- so presence was never
+  // the right test. (Codex `4051922490`; the empty-string and TypeError halves
+  // were named by both assessors reading past the finding, #131 round 1.)
+  //
+  // RENDER STILL DOES NOT CALL `assertCheckout`. An assessment may legitimately
+  // be rendered after the tree has moved on; what the header must carry is the
+  // revision the assessor READ, which is this flag, not HEAD.
+  if (typeof flags.commit !== "string" || flags.commit.trim() === "") {
+    log(`review-proxy: --commit <reviewed sha> is required — it is the revision the assessment is of, and the header carries it as the evidence boundary\n\n${USAGE}`);
+    return 2;
+  }
   // THE SOURCE PICKS BOTH THE IDENTITY BLOCK AND THE OUTPUT PATH, and it has to
   // pick both or neither: a Fable package naming Astra's file would have the
   // subagent overwrite the answer this script is about to read. Only `--source
   // fable --prompt-only` is meaningful, because this script runs the Codex CLI
   // and nothing else -- the subagent is dispatched by the harness.
   const source = flags.source ?? "astra";
+  // RENDERING IS NOT DISPATCHING, so it is answered before every guard that
+  // belongs to composing a package: it needs no oracle, no findings and no
+  // tier, because the assessment it renders already exists.
+  //
+  // IT EXISTS SO THE HEADER IS NOT TYPED BY HAND. The Fable assessment is
+  // written by a subagent this script does not run, so posting it used to mean
+  // an improvised node call -- and the facts worth the most there, which model
+  // was asked for and at what effort it actually ran, were the ones most easily
+  // left off. That is the same failure class as the dispatch argument this whole
+  // change is about: a step that has to be remembered is a step that gets
+  // skipped, measured seven rounds running on #124. Deriving them here makes
+  // them arrive with the comment instead of with somebody's memory.
+  if (flags.render) {
+    if (flags.promptOnly) {
+      log(`review-proxy: --render prints a comment for an assessment on disk and --prompt-only prints a package to dispatch; they are different jobs\n\n${USAGE}`);
+      return 2;
+    }
+    let rendered;
+    let failed = false;
+    try {
+      const read = readAssessment(root, flags.pr, flags.round, { source, followUp });
+      failed = Boolean(read.failed);
+      // EACH ASSESSOR AGAINST ITS OWN TIER. Astra is `strongestCodex` and the
+      // Fable assessor is `strongestClaude`; rendering one against the other's
+      // pin would put a confident wrong model in the header.
+      const pin = modelTier(source === "astra" ? "strongestCodex" : "strongestClaude", io);
+      // AND EACH AGAINST ITS OWN ROUTE FOR EFFORT. Astra is handed its effort
+      // per call, so the pin IS the request. A Claude subagent is handed none,
+      // so the value that applies is the role definition's -- read from
+      // `.claude/agents/<role>.md`, one path that resolves in both layouts
+      // because the handbook links that directory per file into `core/`. Null
+      // when it cannot be read, and never the pin instead: see `prComment`.
+      const requested =
+        source === "astra"
+          ? { id: pin.id, effort: pin.effort }
+          : {
+              id: pin.id,
+              alias: claudeAlias(pin.id),
+              definitionModel: agentFrontmatter(root, ASSESSOR_AGENT, "model"),
+              definitionEffort: agentFrontmatter(root, ASSESSOR_AGENT, "effort"),
+            };
+      const ids = headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
+      // AN EMPTY SCOPE IS REFUSED, NOT PRINTED. Round 1 gave both paths one
+      // derivation and stopped there; the input that derivation needs never
+      // reached the operator-facing recipe, so a follow-up posted exactly as
+      // documented produced a header naming no findings at all -- the same
+      // asymmetry as `--commit`, where the render path accepted less than the
+      // dispatch path requires. Every round dispatched here has at least one
+      // finding (`assessmentBrief` refuses otherwise), so an empty list is
+      // always a missing flag and never a quiet round. Uniform on the
+      // failed-dispatch shape too: the operator composed the package from the
+      // same file minutes earlier. (Codex `4051974432`; both assessors said to
+      // put the refusal in the script rather than only in the recipe.)
+      if (ids.length === 0) {
+        const flag = followUp ? "--findings <id,id>" : "--findings-file <path.json>";
+        log(`review-proxy: ${flag} is required to render ${followUp ? "a follow-up" : "a round"} — the header names the findings the assessment covers, and a comment claiming no scope is worse than one that was not posted\n\n${USAGE}`);
+        return 2;
+      }
+      rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested });
+    } catch (err) {
+      log(`review-proxy: ${err.message}`);
+      return 2;
+    }
+    process.stdout.write(`${rendered}\n`);
+    // A MISSING OR EMPTY ASSESSMENT EXITS NON-ZERO, the same as a failed
+    // dispatch does. The comment already says so in words, but a render whose
+    // process succeeds is the shape a script or a habit reads as "posted fine".
+    return failed ? 1 : 0;
+  }
   if (source !== "astra" && !flags.promptOnly) {
-    log(`review-proxy: --source ${source} composes a package for an assessor this script does not run; use --prompt-only\n\n${USAGE}`);
+    log(`review-proxy: --source ${source} composes a package for an assessor this script does not run; use --prompt-only to compose it or --render to post its answer\n\n${USAGE}`);
     return 2;
   }
   let prompt;
@@ -758,7 +985,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
   try {
     const file = assessmentPath(root, flags.pr, flags.round, { source, followUp });
     if (followUp) {
-      findingIds = String(flags.findings ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+      findingIds = headerFindingIds({ followUp, findings: flags.findings });
       prompt = followUpBrief({
         source,
         pr: flags.pr,
@@ -775,7 +1002,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
       });
     } else {
       const findings = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));
-      findingIds = Array.isArray(findings) ? findings.map((f) => f?.id).filter((id) => id != null) : [];
+      findingIds = headerFindingIds({ followUp, parsed: findings });
       prompt = assessmentBrief({
         source,
         pr: flags.pr,
@@ -832,7 +1059,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
   }
   let result;
   try {
-    result = dispatch({ root, pr: flags.pr, round: flags.round, prompt, reviewedCommit: flags.commit, followUp, run, git });
+    result = dispatch({ root, pr: flags.pr, round: flags.round, prompt, reviewedCommit: flags.commit, followUp, run, git, io });
   } catch (err) {
     log(`review-proxy: ${err.message}`);
     return 2;
@@ -864,7 +1091,7 @@ export function main(argv = process.argv.slice(2), { root = process.cwd(), run =
         reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };
   process.stdout.write(
-    `${prComment(read, { reviewedCommit: flags.commit, findingIds, model: result.reviewer.id })}\n`,
+    `${prComment(read, { reviewedCommit: flags.commit, findingIds, requested: result.reviewer })}\n`,
   );
   return read.failed ? 1 : 0;
 }

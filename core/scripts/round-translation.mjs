@@ -56,7 +56,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
+import { claudeAlias, modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
 
 export const REVIEWS_DIR = ".agents/reviews";
 
@@ -186,23 +186,30 @@ export function prepareAnswerPath(root, pr, round) {
  * argument (`fable`) and every normal round reports a fallback that did not
  * happen. (Codex, #109 round 4.)
  *
- * `effort` is returned and deliberately NOT applied: the Agent tool takes a
- * model name and no reasoning-effort argument, so the configured value has no
- * route to this dispatch. Returning it lets a caller say so out loud rather
- * than leaving a dial in the config that turns nothing.
+ * `effort` HAS A ROUTE NOW, AND IT IS NOT THIS CALL. The Agent tool still takes
+ * a model name and no reasoning-effort argument; what changed on #126 is that
+ * the role definition's `effort:` frontmatter is honoured (measured
+ * 2026-09-18: the same role and question spent 151 output tokens at `low` and
+ * 3,862 at `max`), and `scripts/check-agent-models.mjs` holds that frontmatter
+ * equal to this pin. So `effortRoute` says where the value is applied rather
+ * than whether it reaches anything: a caller stating the dispatch's effort is
+ * quoting the definition, not this argument list. This comment used to say the
+ * configured value "has no route to this dispatch", which was true when it was
+ * written and was the reason every #124 translation ran at the session's `high`
+ * against an `xhigh` pin.
  */
 export function dispatchModel(io = undefined) {
   const entry = modelTier("strongestClaude", io);
   const id = typeof entry === "string" ? entry : entry?.id;
   const effort = typeof entry === "object" ? (entry?.effort ?? null) : null;
-  const m = typeof id === "string" ? /^claude-(fable|opus|sonnet|haiku)\b/.exec(id) : null;
-  if (!m) {
+  const alias = claudeAlias(id);
+  if (!alias) {
     throw new Error(
       `.agents/machinery.json's models.strongestClaude.id is ${JSON.stringify(id)}, which is not a Claude model, ` +
         `so it cannot be dispatched as a subagent. The Agent tool takes one of fable, opus, sonnet, haiku.`,
     );
   }
-  return { id, agentModel: m[1], effort, effortApplied: false };
+  return { id, agentModel: alias, effort, effortRoute: "definition" };
 }
 
 /**
@@ -756,10 +763,41 @@ export function chatReport(round, { askedModel = null } = {}) {
   if (a.took_on_trust) out.push("", `*Taken on trust, not checked:* ${a.took_on_trust}`);
   if (f.unassessed) out.push("", `*Could not assess:* ${a.could_not_assess}`);
 
+  // WHAT THE CALL CARRIED IS THE ALIAS, NOT THE PIN, and this line used to say
+  // the pin was "asked for". It is not: the Agent tool takes `fable`, never a
+  // version, so a disagreement between the pin and what answered is most often
+  // the pin trailing the alias -- a one-line edit David owns -- and not the
+  // substitution the old wording implied. Naming the likelier cause first is
+  // the whole value of the notice; pointing at a platform fallback sends him
+  // to the one place he cannot fix. (Astra, #131 round 2, naming this line
+  // specifically as the same class as the header's label.)
   const got = a.model ?? null;
-  if (!got) out.push("", `*This round did not report which model wrote it${askedModel ? `; ${askedModel} was asked for` : ""}.*`);
+  const alias = askedModel ? claudeAlias(askedModel) : null;
+  if (!got) out.push("", `*This round did not report which model wrote it${askedModel ? `; this repository pins ${askedModel}` : ""}.*`);
   else if (askedModel && got.trim() !== askedModel.trim()) {
-    out.push("", `*Written by ${got}, not the ${askedModel} that was asked for — the dispatch cannot enforce the model, only report what answered.*`);
+    // THE DIAGNOSIS IS GATED ON THE ANSWER'S FAMILY, because the round-2
+    // wording gave one explanation for two opposite situations -- and got the
+    // more important one backwards. The alias `fable` cannot resolve to an
+    // Opus model, so when the families differ the pin CANNOT be the cause, and
+    // saying "rather than a substitution" ruled out the only remaining
+    // explanation by name. That is David's own content-refusal case, which is
+    // the fallback he named when he asked for this warning at all: the line
+    // was inverted on precisely the case it exists for. (Codex `4052093651`;
+    // both assessors agreed, and the Fable assessor noted that round 2 fixed
+    // Astra's same-family case by inverting this one.)
+    //
+    // SAME FAMILY IS STILL ONLY "ONE LIKELY EXPLANATION", not an established
+    // cause: matching families make pin drift possible, never certain
+    // (Astra). And the drift has no direction -- the pin can sit ahead of the
+    // alias as easily as behind it, and "trailing" was wrong for half of the
+    // cases it covered.
+    const sameFamily = alias !== null && claudeAlias(got) === alias;
+    const why = !alias
+      ? ""
+      : sameFamily
+        ? ` The dispatch sends the family alias \`${alias}\`, not a version, so one likely explanation is that the pin and the version that alias resolves to have drifted apart — an edit to the pin, not a substitution.`
+        : ` The alias \`${alias}\` cannot resolve to ${got}, so the pin does not explain this: a different model answered. The one cause on record is a content refusal, which falls Claude back to Opus.`;
+    out.push("", `*Written by ${got}; this repository pins ${askedModel}.${why} The dispatch cannot enforce the model, only report what answered.*`);
   }
 
   return out.join("\n");

@@ -441,12 +441,55 @@ test("the assessment reaches the pull request verbatim, under a header of facts 
   const markdown = "## David's readout\n\nThe correction is worth making, narrowly.\n\n### c1\n\nRecommend correcting it.";
   fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "astra" }), markdown);
   const result = readAssessment(root, PR, 1, { source: "astra" });
-  const text = prComment(result, { reviewedCommit: COMMIT, findingIds: [4033623440], model: "gpt-6-astra" });
+  const text = prComment(result, {
+    reviewedCommit: COMMIT,
+    findingIds: [4033623440],
+    requested: { id: "gpt-6-astra", effort: "xhigh" },
+  });
 
   assert.ok(text.includes(markdown), "the assessment was not passed through verbatim");
   assert.match(text, /## Astra — round 1/);
-  assert.match(text, /Assessed at `f1c89d2` · findings `4033623440` · gpt-6-astra/);
+  // REQUESTED, and both halves of it. The header says what was asked for and
+  // never what answered -- this script reads a file and cannot interrogate
+  // what wrote it, so a claimed match would be a control reporting success
+  // having evaluated nothing. Effort is half of "strongest" and until #126 a
+  // subagent silently ran at the session's. (#126, David 2026-09-18.)
+  assert.match(text, /Assessed at `f1c89d2` · findings `4033623440` · requested `gpt-6-astra` at `xhigh`/);
   assert.doesNotMatch(text, /undefined/);
+});
+
+test("the header never claims the requested model is the one that answered", () => {
+  const root = tmpRoot();
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "_Running as: claude-opus-5 at high._\n\nbody");
+  const text = prComment(readAssessment(root, PR, 1, { source: "fable" }), {
+    requested: { id: "claude-fable-5-1", effort: "xhigh" },
+  });
+  // The assessor's own line and the header's request disagree here, which is
+  // exactly the case the two lines exist to make readable. Nothing in the
+  // rendering resolves it, hides it, or calls it a match: the reader sees both.
+  assert.match(text, /requested `claude-fable-5-1` at `xhigh`/);
+  assert.match(text, /_Running as: claude-opus-5 at high\._/);
+  assert.doesNotMatch(text, /\bran on\b|\bconfirmed\b|\bmatch(es|ed)?\b/i);
+});
+
+test("no Fable header label names an act this script did not perform", () => {
+  // The constraint both assessors converged on in round 2: Astra is handed a
+  // full id and an effort per call, so "requested" is literal there; a Claude
+  // subagent is handed the family alias and no effort, so the same word on its
+  // header describes a mechanism that did not happen.
+  const root = tmpRoot();
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "body");
+  const text = prComment(readAssessment(root, PR, 1, { source: "fable" }), {
+    requested: { id: "claude-fable-5-1", alias: "fable", definitionModel: null, definitionEffort: null },
+  });
+  assert.match(text, /expected `claude-fable-5-1` · instructed alias `fable`/);
+  // The whole class, asserted as a class: after #131 round 4 the three labels
+  // are pin / recipe / declares, and none of them names something this script
+  // did. `requested` was the effort (round 1) and the model (round 2);
+  // `dispatched as` was the last one (round 4).
+  assert.doesNotMatch(text, /requested|dispatched|ran on|carried/);
+  // Nothing dangles when the definition cannot be read.
+  assert.doesNotMatch(text, /· *\*|`` |`undefined`/);
 });
 
 test("a stale assessment is cleared, so a re-dispatch can never be read as its predecessor", () => {
@@ -764,4 +807,335 @@ test("the CLI refuses an unknown flag or a flag with no value rather than guessi
   assert.deepEqual(parseArgs(["--pr", "120", "--round", "2", "--prompt-only"]), { pr: 120, round: 2, promptOnly: true });
   assert.deepEqual(SOURCES, ["astra", "fable"]);
   assert.equal(ROLE, "review-proxy");
+});
+
+// ---------------------------------------------------------------------------
+// The transport each assessor actually has (#125), and rendering (#126)
+// ---------------------------------------------------------------------------
+
+/** Plant the assessor definition a render reads its effort from. */
+const plantDefinition = (root, effort) => {
+  const dir = path.join(root, ".claude", "agents");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "fable-review-assessor.md"),
+    ["---", "name: fable-review-assessor", "tools: Read", "model: claude-fable-5-1", `effort: ${effort}`, "---", "", "Prose."].join("\n"),
+  );
+};
+
+/** A findings file for a render, which now requires its scope input. */
+const findingsFile = (root, ids = ["c1"]) => {
+  const file = path.join(root, `findings-${ids.join("-")}.json`);
+  fs.writeFileSync(file, JSON.stringify(ids.map((id) => ({ id, body: "x" }))));
+  return file;
+};
+
+const pinIo = (root) => ({
+  root,
+  read: () =>
+    JSON.stringify({
+      repo: "Owner/Name",
+      models: {
+        strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" },
+        strongestCodex: { id: "gpt-6-astra", effort: "xhigh" },
+      },
+    }),
+});
+
+test("each package names the delivery channel that assessor actually has", () => {
+  // Astra runs in a read-only sandbox and cannot write anything; its answer
+  // reaches the file through the wrapper's --output-last-message. Telling it
+  // to write the file asks for the one thing the process cannot do, and the
+  // reader that obeys literally returns "I could not write the file" as its
+  // final message -- which readAssessment accepts as a substantive assessment
+  // and posts under a header naming the pull request and the findings. (#125.)
+  const astra = brief({ source: "astra", assessmentFile: "/tmp/a.md" });
+  assert.match(astra, /Return the complete assessment as your final message/);
+  assert.match(astra, /read-only sandbox and cannot write it yourself/);
+  assert.doesNotMatch(astra, /\*\*Write your assessment to:\*\*/);
+
+  // The Fable assessor is a subagent holding Write and really does write it,
+  // so the original sentence is correct there and stays.
+  const fable = brief({ source: "fable", assessmentFile: "/tmp/f.md" });
+  assert.match(fable, /\*\*Write your assessment to:\*\* `\/tmp\/f\.md`/);
+  assert.doesNotMatch(fable, /as your final message/);
+});
+
+test("the follow-up package carries the same per-assessor transport, not the old shared sentence", () => {
+  // The asymmetry was the original defect's twin: a fix applied to the
+  // assessment path only leaves the follow-up telling a read-only process to
+  // write a file, on exactly the round where the disagreement is sharpest.
+  const common = {
+    pr: PR,
+    round: 2,
+    tier: "internal",
+    reviewedCommit: COMMIT,
+    oracle: "The agreed outcome.",
+    findings: [finding()],
+    findingIds: ["c1"],
+    question: "Does the class include the other caller?",
+    priorAssessment: "The earlier assessment.",
+    assessmentFile: "/tmp/f2.md",
+  };
+  assert.match(followUpBrief({ ...common, source: "astra" }), /Return the complete answer as your final message/);
+  assert.match(followUpBrief({ ...common, source: "fable" }), /\*\*Write your answer to:\*\* `\/tmp\/f2\.md`/);
+});
+
+test("--render prints the comment for an assessment already on disk, with the pin in its header", () => {
+  // WHY THIS IS A MODE AND NOT A NODE ONE-LINER. The Fable assessment is
+  // written by a subagent this script does not run, so posting it used to be
+  // improvised -- and the requested model and effort, the one fact worth the
+  // most in that header, was the part most easily left off. A step that has to
+  // be remembered is a step that gets skipped: measured seven rounds running
+  // on #124, which is the whole subject of #126.
+  const root = tmpRoot();
+  plantDefinition(root, "xhigh");
+  fs.writeFileSync(
+    prepareAssessmentPath(root, PR, 3, { source: "fable" }),
+    "_Running as: claude-fable-5-1 at xhigh._\n\nThe finding is real.",
+  );
+  let out = "";
+  const write = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk) => ((out += chunk), true);
+  let code;
+  try {
+    code = main(["--render", "--source", "fable", "--pr", String(PR), "--round", "3", "--commit", COMMIT, "--findings-file", findingsFile(root)], {
+      root,
+      io: pinIo(root),
+      run: () => assert.fail("--render must dispatch nothing"),
+      git: () => assert.fail("--render must not inspect the checkout"),
+      log: () => {},
+    });
+  } finally {
+    process.stdout.write = write;
+  }
+  assert.equal(code, 0, out);
+  assert.match(out, /## Fable — round 3/);
+  // The definition planted in this fixture is what supplies the effort: it is
+  // the only route a Claude subagent has, so it is what the header names.
+  assert.match(out, /expected `claude-fable-5-1` · instructed alias `fable` · definition effort `xhigh`/);
+  // The declared model repeats the pin here, so it is not printed: a line that
+  // says the same thing twice trains a reader to skip it.
+  assert.doesNotMatch(out, /definition model/);
+  assert.match(out, /_Running as: claude-fable-5-1 at xhigh\._/);
+  assert.ok(out.includes("The finding is real."), "the assessment was not passed through verbatim");
+});
+
+test("--render resolves each assessor against its own tier", () => {
+  // Rendering Astra's assessment against strongestClaude, or the subagent's
+  // against strongestCodex, would put a confident wrong model in the header --
+  // worse than no model, because it reads as an observation.
+  const root = tmpRoot();
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 4, { source: "astra" }), "body");
+  let out = "";
+  const write = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk) => ((out += chunk), true);
+  try {
+    main(["--render", "--pr", String(PR), "--round", "4", "--commit", COMMIT, "--findings-file", findingsFile(root)], { root, io: pinIo(root), log: () => {} });
+  } finally {
+    process.stdout.write = write;
+  }
+  // "at", not "· effort": Astra is handed its effort per call as
+  // `model_reasoning_effort`, so the pin genuinely IS the request there.
+  assert.match(out, /requested `gpt-6-astra` at `xhigh`/);
+  assert.doesNotMatch(out, /claude-fable/);
+});
+
+test("--render and --prompt-only are different jobs, and asking for both is refused", () => {
+  const root = tmpRoot();
+  let logged = "";
+  assert.equal(
+    main(["--render", "--prompt-only", "--pr", String(PR), "--round", "1", "--commit", COMMIT], {
+      root,
+      io: pinIo(root),
+      log: (m) => (logged += m),
+    }),
+    2,
+  );
+  assert.match(logged, /different jobs/);
+});
+
+test("--render reports a missing assessment as a failed dispatch, never as a quiet round", () => {
+  const root = tmpRoot();
+  let out = "";
+  const write = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk) => ((out += chunk), true);
+  let code;
+  try {
+    code = main(["--render", "--source", "fable", "--pr", String(PR), "--round", "9", "--commit", COMMIT, "--findings-file", findingsFile(root)], { root, io: pinIo(root), log: () => {} });
+  } finally {
+    process.stdout.write = write;
+  }
+  assert.equal(code, 1, "a render with nothing to render exited 0");
+  assert.match(out, /dispatch failed/);
+  assert.match(out, /not a report that the round was quiet/);
+});
+
+// ---------------------------------------------------------------------------
+// What the header establishes rather than approximates (#131 round 1)
+// ---------------------------------------------------------------------------
+
+const renderOut = (argv, opts) => {
+  let out = "";
+  const write = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk) => ((out += chunk), true);
+  let code;
+  try {
+    code = main(argv, { log: () => {}, ...opts });
+  } finally {
+    process.stdout.write = write;
+  }
+  return { out, code };
+};
+
+test("a consumer whose pin disagrees with the definition sees BOTH, each labelled for what it is", () => {
+  // The case Codex found and the two assessors split on. Astra: showing the
+  // pin's effort exposes a real divergence. Fable: calling it "requested" is a
+  // false claim, because a Claude subagent is handed no effort at all. Both
+  // are right about a different half, so the header carries the value that
+  // APPLIES and names the pin only where it differs.
+  const root = tmpRoot();
+  plantDefinition(root, "xhigh");
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "body");
+  const io = {
+    root,
+    read: () =>
+      JSON.stringify({
+        repo: "Owner/Name",
+        models: { strongestClaude: { id: "claude-fable-5-1", effort: "low" }, strongestCodex: { id: "gpt-6-astra", effort: "xhigh" } },
+      }),
+  };
+  const { out } = renderOut(["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--findings-file", findingsFile(root)], { root, io });
+
+  assert.match(out, /expected `claude-fable-5-1` · instructed alias `fable` · definition effort `xhigh`/);
+  // And never the shape that started this: the pin's effort under the word
+  // "requested", which would state a request nobody made and fire the
+  // mismatch warning on every round in a repository where nothing is wrong.
+  assert.doesNotMatch(out, /requested/);
+  assert.doesNotMatch(out, /`low`/, "the pin's effort was printed as though something had asked for it");
+});
+
+test("an unreadable definition omits the effort; it never falls back to the pin", () => {
+  // The Fable assessor's tie-break condition, stated as a test: an effort this
+  // process cannot establish is one it does not print. Printing a plausible
+  // value instead is the failure the whole header exists to avoid.
+  const root = tmpRoot(); // no .claude/agents here
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "body");
+  const { out } = renderOut(["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--findings-file", findingsFile(root)], {
+    root,
+    io: pinIo(root),
+  });
+
+  assert.match(out, /expected `claude-fable-5-1` · instructed alias `fable`/);
+  assert.doesNotMatch(out, /definition effort/);
+  assert.doesNotMatch(out, /xhigh/);
+});
+
+test("a rendered follow-up names the findings it addressed, not every finding in the round", () => {
+  const root = tmpRoot();
+  plantDefinition(root, "xhigh");
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable", followUp: 2 }), "body");
+  const file = path.join(root, "round-findings.json");
+  fs.writeFileSync(file, JSON.stringify([{ id: "a", body: "x" }, { id: "b", body: "y" }, { id: "c", body: "z" }]));
+
+  const { out } = renderOut(
+    ["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--follow-up", "2", "--findings", "a,c", "--commit", COMMIT, "--findings-file", file],
+    { root, io: pinIo(root) },
+  );
+
+  assert.match(out, /findings `a`, `c`/);
+  assert.doesNotMatch(out, /`b`/, "the follow-up claimed a finding its assessor never received");
+  assert.match(out, /follow-up 2/);
+});
+
+test("an ordinary round still names every finding in the file", () => {
+  const root = tmpRoot();
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "body");
+  const file = path.join(root, "round-findings.json");
+  fs.writeFileSync(file, JSON.stringify([{ id: "a", body: "x" }, { id: "b", body: "y" }]));
+  const { out } = renderOut(
+    ["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--findings-file", file],
+    { root, io: pinIo(root) },
+  );
+  assert.match(out, /findings `a`, `b`/);
+});
+
+test("a missing or blank reviewed commit is refused on every path, in a sentence", () => {
+  // It used to be refused on the dispatch path only, and only as a TypeError
+  // from `reviewedCommit.trim()` surfacing as a raw runtime message; the render
+  // path accepted it and emitted a comment with no revision at all. An empty
+  // string is the case presence-checking misses: `parseArgs` rejects only a
+  // value that looks like another flag.
+  const root = tmpRoot();
+  for (const argv of [
+    ["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--findings-file", findingsFile(root)],
+    ["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", "   ", "--findings-file", findingsFile(root)],
+    ["--pr", String(PR), "--round", "1", "--tier", "internal", "--oracle-file", "/nope", "--findings-file", "/nope"],
+  ]) {
+    let logged = "";
+    const code = main(argv, { root, io: pinIo(root), run: () => ({ status: 0 }), git: cleanGit(), log: (m) => (logged += m) });
+    assert.equal(code, 2, `accepted ${JSON.stringify(argv)}`);
+    assert.match(logged, /--commit <reviewed sha> is required/);
+    assert.doesNotMatch(logged, /TypeError|is not a function|Cannot read/);
+  }
+});
+
+test("a render with no scope input is refused, naming the flag that applies", () => {
+  // Round 1 gave both paths one derivation and stopped. The input that
+  // derivation needs never reached the operator-facing recipe, so a follow-up
+  // posted exactly as documented produced a header naming no findings — the
+  // same asymmetry as --commit, where the render path accepted less than the
+  // dispatch path requires. Every dispatched round has at least one finding, so
+  // an empty list is always a missing flag and never a quiet round.
+  const root = tmpRoot();
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "body");
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable", followUp: 2 }), "body");
+
+  for (const [argv, expected] of [
+    [["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", COMMIT], /--findings-file/],
+    [["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--follow-up", "2", "--commit", COMMIT], /--findings <id,id>/],
+  ]) {
+    let logged = "";
+    assert.equal(main(argv, { root, io: pinIo(root), log: (m) => (logged += m) }), 2, `accepted ${argv.join(" ")}`);
+    assert.match(logged, expected);
+  }
+});
+
+test("a pin behind the alias is legible as that, not as a substitution", () => {
+  // The diagnosis this header exists to steer. When the pin and what answered
+  // disagree, the reader must be able to tell "your pin trails the alias" —
+  // David's one-line edit — from "the platform served something else", which is
+  // the only other cause and the one he cannot fix. Naming the alias the call
+  // the recipe instructs is what separates them.
+  const root = tmpRoot();
+  plantDefinition(root, "xhigh");
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "_Running as: claude-fable-5-1 at xhigh._\n\nbody");
+  const io = {
+    root,
+    read: () =>
+      JSON.stringify({
+        repo: "Owner/Name",
+        models: { strongestClaude: { id: "claude-fable-5-0", effort: "xhigh" }, strongestCodex: { id: "gpt-6-astra", effort: "xhigh" } },
+      }),
+  };
+  const { out } = renderOut(
+    ["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--findings-file", findingsFile(root)],
+    { root, io },
+  );
+
+  assert.match(out, /expected `claude-fable-5-0`/);
+  assert.match(out, /instructed alias `fable`/);
+  assert.match(out, /definition model `claude-fable-5-1`/);
+  assert.doesNotMatch(out, /requested/);
+});
+
+test("Astra's header is unchanged, because Astra really is handed both values", () => {
+  const root = tmpRoot();
+  fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "astra" }), "body");
+  const { out } = renderOut(
+    ["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--findings-file", findingsFile(root)],
+    { root, io: pinIo(root) },
+  );
+  assert.match(out, /requested `gpt-6-astra` at `xhigh`/);
+  assert.doesNotMatch(out, /expected |instructed alias|definition /);
 });

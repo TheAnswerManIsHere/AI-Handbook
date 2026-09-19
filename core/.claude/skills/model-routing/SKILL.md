@@ -177,13 +177,24 @@ Fable 5 is enabled on David's account (confirmed 2026-07-24). It costs
 **$10/$50 per million tokens against Opus 5's $5/$25**, so it is always a
 deliberate escalation.
 
-- **Subagent routing is the mechanism I control.** Subagent `model` frontmatter
-  and the per-invocation `model` parameter both accept the `fable` alias (or a
-  full ID). So I can hand one genuinely hard piece of work — a migration design,
-  a root-cause hunt in the visual pipeline, an architecture call — to Fable while
-  the session stays where it is, with **no action from David**. Resolution order
-  is `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation parameter → frontmatter →
-  the main conversation's model.
+- **Subagent routing is the mechanism I control.** So I can hand one genuinely
+  hard piece of work — a migration design, a root-cause hunt in the visual
+  pipeline, an architecture call — to Fable while the session stays where it is,
+  with **no action from David**.
+  **The two layers take different values, and this bullet used to say they take
+  the same ones** (AI-Handbook #131 round 2, where the Fable assessor found the
+  sentence contradicting the measured table below it, in the same file):
+  the **per-invocation `model` parameter takes an alias only** — the Agent
+  tool declares it as an enum of `sonnet`, `opus`, `haiku`, `fable`, and
+  David's 2026-09-18 probe of `best` was refused at input validation with
+  exactly that value list — while a **definition's `model:` frontmatter also
+  takes a full id**, which is what makes a stale id fail closed with a 404.
+  Resolution order is **per-invocation parameter → frontmatter →
+  `CLAUDE_CODE_SUBAGENT_MODEL` → the main conversation's model**; this bullet
+  had the first three in the wrong order, which mattered because it put the
+  environment variable above the argument every dispatch actually passes.
+  **Two live instructions that contradict each other means either can fire**,
+  so an obsolete one is a defect rather than archaeology.
 - **I announce it, I don't sneak it.** Because a Fable subagent spends at double
   rate without David touching anything, I say when I'm dispatching one and why,
   in the same breath as dispatching it. Silent escalation is the failure mode to
@@ -252,23 +263,115 @@ one-value edit. A tier must resolve to a FULL model id, never an alias — a
 dispatch stamps the id it asked for against the id that answered, and an alias
 cannot be compared.
 
-**A Claude subagent is bound by resolving that tier and passing `model:` on the
-dispatch.** This paragraph used to say the opposite — that the tier is named in
-the role's own definition and "the dispatch passes no per-invocation `model`",
-because a per-invocation model would outrank the definition. That premise was
-false for every live role: **no agent definition in this payload carries a
-`model:` field**, so "unpinned" meant the subagent silently inherited whatever
-model the parent session was running. The round-translation dispatch has always
-resolved the tier and passed it; the review assessor did not, which meant an
-Opus session would have run an Opus assessor under the label "Fable" and
-recorded its tie-break as Fable's, with nothing on the page to say so (Codex,
-#120 round 4, and both assessors independently). Resolve the tier, pass the
-model, and stamp the id it asked for into whatever the dispatch posts.
+**A Claude subagent is bound in two places, and it needs both** (#126,
+2026-09-18): the role's own definition declares `model:` and `effort:`, and the
+dispatch still resolves the tier and passes `model:` on the call.
 
-Two limits worth stating rather than solving: `effortApplied` is false, so a
-tier's effort does not reach a subagent, and a subagent cannot prove which
-model answered it — the stamp is a disclosure of what was requested, which is
-the same standard the translation already accepts.
+The resolution order, measured rather than quoted — sixteen real dispatches,
+each row read from the harness's own per-turn record of the subagent and not
+from what the subagent said about itself:
+
+| Given | What answered |
+|---|---|
+| nothing | the session's model |
+| argument `fable` | `claude-fable-5-1` |
+| frontmatter `model: opus` | `claude-opus-5` |
+| frontmatter `model: opus`, argument `sonnet` | `claude-sonnet-5` |
+| frontmatter `model: claude-nonexistent-9` | hard failure, HTTP 404 |
+| frontmatter `effort: max` | ran at `max`; `low` on the same question spent 151 output tokens against 3,862 |
+
+So **the argument outranks the frontmatter, and the frontmatter outranks the
+session** — which is what makes two places safe rather than duplicative. Each
+covers the other's failure:
+
+- **The frontmatter covers a forgotten argument.** That is not hypothetical:
+  seven consecutive #124 rounds dispatched the translator without it and every
+  one ran as the session. An instruction that has to be recalled is one this
+  repository has now watched fail six times.
+- **The argument covers a stale definition.** Definitions are cached, and an
+  edit to a loaded one can be served in its old form (measured 2026-09-16), so
+  a dispatch relying on frontmatter alone has a window where it silently
+  inherits. It also carries a consumer's own pin, which a synced definition
+  cannot.
+- **Frontmatter is the ONLY route for effort.** The Agent tool takes no effort
+  argument. Before #126 the pin's `xhigh` reached nothing and every #124
+  translation ran at the session's `high`.
+
+**The declarations are derived from the pin, never typed.**
+`node scripts/check-agent-models.mjs` fails when a `fable-*` definition
+disagrees with `models.strongestClaude`, and `--fix` rewrites it from there, so
+David's one-line edit propagates. It runs in the handbook's CI and not in a
+consumer's: a consumer receives the definitions carrying THIS repository's pin
+and must not edit a synced file, so a check shipped to them would be
+permanently red with no fix available. What reaches a consumer's own tier is
+the dispatch argument.
+
+This paragraph used to say the opposite — that the tier is named in the role's
+own definition and "the dispatch passes no per-invocation `model`". Then it was
+corrected to the mirror image: pass the argument, and **no agent definition in
+this payload carries a `model:` field**. Both halves were right about the
+mechanism and wrong about the conclusion, because each read "the argument
+outranks the frontmatter" as a reason to have only one of them.
+
+**A stale id fails closed.** A retired model in the frontmatter is a 404 and a
+terminated agent, never a quiet substitution — which is the argument for the
+full id over the alias `fable`, since an alias keeps working while the pin
+rots.
+
+**What is disclosed and what is observed, said exactly.** The dispatch states
+what it asked for in the header of whatever it posts; the role states what it
+is *running as*, in its own first line. They sit adjacent and a disagreement is
+a visible warning — David, 2026-09-18: *"any model call must report loudly if
+the requested model doesn't match the used model. Not a blocker; a highly
+visible warning."*
+
+**Each fact carries the label of how it got there, and only Astra's says
+"requested".** Astra is handed a full id and an effort per call, so the word is
+literal there. A Claude subagent is handed the family **alias** and no effort
+at all, so its header reads `expected <pin id> · instructed alias <alias> ·
+definition effort <effort>`, with the declared model added where it disagrees
+with the pin:
+
+- **`expected`** — the pin, which is what the self-report is compared against.
+  Comparing against the family would conceal version drift.
+- **`instructed alias`** — the alias the recipe sends, derived from the pin.
+  An instruction, never an observation: the script that prints the header does
+  not make the call and receives no record of it, so it cannot know the
+  argument was passed. Without this fact at all, a pin that has drifted from
+  the alias reads as the platform substituting a model, which points the
+  diagnosis at the one cause nobody can fix instead of at a one-line pin edit.
+- **`definition …`** — what the role's file *declares*, as read when the comment
+  is rendered. Never "applies": definitions are cached, so the file on disk may
+  not be the one that answered.
+
+*(This paragraph twice said something the code had stopped doing — first that
+the model is "genuinely requested", which stopped being true when the alias was
+named, and before that that the header "adds the pin's value where it
+disagrees", which round 2 removed. Each time the sentence survived the change it
+described. That is the defect this skill's own rule names: two live instructions
+that contradict each other mean either can fire.)*
+
+The reporting side has its own limit, measured on AI-Handbook #131 rounds 1–3:
+the assessor answered `at unable to name` every time, because its context shows
+reasoning effort as a number (`80`) rather than a named level. **An effort
+nobody can name is a limit to state once, not a mismatch to raise every round.**
+
+The used model is a self-report, deliberately. The harness does record the
+serving model per turn independently of the subagent, so reading it is
+possible; David ruled on 2026-09-19 that it is not worth building — small blast
+radius, easily recoverable, no meaningful harm, and the self-report gives
+essentially all of the tracking value. So **no line here claims a match it
+measured**: what was asked for beside "running as Z", and never "ran on X".
+
+Two limits that remain, stated rather than solved. A **content refusal** can
+fall Claude back to Opus mid-task, and a self-report is the only thing that
+would show it — it is the one recorded cause of an answer from a *different*
+family, which is why `chatReport` names it there and names pin drift only when
+the families match. (A spent weekly allowance is not the same shape: measured
+2026-09-18, it returns HTTP 429 and terminates the agent rather than
+substituting anything, so it is loud already and never reaches that line.) And on the Codex side there is no such report at all: the CLI
+exposes the model only request-side, so Astra's header says what was asked for
+and claims nothing about what served it.
 
 **What made the old split wrong is not that Opus was too weak — it is that
 the split asked the wrong question.** It sorted triggers by how consequential

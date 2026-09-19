@@ -909,11 +909,20 @@ shows the true delta.
   judgment is mine, verification of my own work, a Tier B fix, or a `/document`
   harvest (its first source is *this session's* decisions, which a cold worker
   doesn't inherit).
-- **Bounded judgements dispatch at the strongest available tier, named once in
-  the role's own definition and resolved through `.agents/machinery.json`** —
-  the plan reviewer and the review proxy are the two live cases, both resolving
-  `strongestCodex`. (The `review-loop-adjudicator` agent that stood here was
-  removed by the #89 cut.)
+- **Bounded judgements dispatch at the strongest available tier, resolved
+  through `.agents/machinery.json`** — the plan reviewer and the review proxy
+  are the two live cases, both resolving `strongestCodex`. (The
+  `review-loop-adjudicator` agent that stood here was removed by the #89 cut.)
+  **A Claude role is bound twice, and needs both** (#126): its definition
+  declares `model:` and `effort:`, derived from the pin and held equal to it by
+  `scripts/check-agent-models.mjs`, and the dispatch also passes `model:` on
+  the call. The argument covers a definition served stale and carries a
+  consumer's own pin; the frontmatter covers a forgotten argument, and is the
+  only route there is for effort. This line used to say the tier was "named
+  once in the role's own definition", which no definition did — so two roles
+  named for Fable ran as whatever session dispatched them, at the session's
+  effort, for as long as they existed. Measured order and evidence:
+  `model-routing`.
   **Both loops' assessments advise; neither decides** (David, 2026-09-18 for
   planning, 2026-09-17 for code review). I weigh them, investigate disputed
   facts myself, and decide. On a planning exchange the next action is something
@@ -973,8 +982,14 @@ shows the true delta.
   the tools absent from the list and not the one present that contradicted the
   claim.
   **Two things that costs, named rather than buried:** the old dispatcher
-  *observed* the model and refused on a mismatch, and a subagent cannot, so the
-  model is **disclosed** and a mismatch prints in the chat report. And **agent
+  *observed* the model and refused on a mismatch, and what replaced it
+  **discloses** instead — the role reports what it is running as, the dispatch
+  reports what it requested, and a mismatch prints. That is a choice, not a
+  limit: the harness does record the serving model per turn independently of
+  the subagent (measured 2026-09-18), so a real observation is available, and
+  David ruled on 2026-09-19 that building one is not worth it — small blast
+  radius, easily recoverable, and the self-report tracks the issue. **So no
+  disclosure of mine is ever worded as an observation** (#126). And **agent
   definitions are cached, in two ways that both look like something else.** A
   newly added type is not dispatchable immediately — measured 2026-09-16, a
   dispatch minutes after the definition was written failed with `Agent type not
