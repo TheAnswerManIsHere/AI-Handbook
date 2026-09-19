@@ -442,6 +442,11 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
+**The two-review limit caps this carve-out**: reach across future pull
+requests can keep the gate from ending a loop early, and can never authorise a
+third review (both assessors, #140 round 1). Whether the carve-out should
+survive at all is David's, and open.
+
 **On a PR that changes the review loop itself, the gate cannot end the loop
 alone**, and that is a limit rather than a defect: the second exception
 — a finding whose blast radius reaches outside this pull request — is satisfied
@@ -590,10 +595,12 @@ the readiness receipt never ran at all, and the delivery gate's only firing was
 on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
-**What decides a loop's length now is rules 4 through 6 below** — a behavioural
-change before a re-request, pre-registered flip conditions, and the worth test
-at triage, which lives in
-[`review-judgment.md`](../../docs/ai-context/review-judgment.md). **What
+**What decides a loop's length is the two-review limit**, above. **Rules 4
+through 6 below bound what a single round is for** — which heads are reviewable,
+the pre-registered flip conditions carried with a request, and the worth test at
+triage, which lives in
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md). Neither they
+nor the Worth rule can authorise another batch after review two. **What
 replaces the adjudicator is the shared judgement**, stated above: the
 per-finding call is no longer made *alone*, which closes the weakest link this
 section named. It is still mine — two assessments advise and I decide from
@@ -612,9 +619,10 @@ in the file that every session loads.
    round needs no exception now, because it was never the anomaly — the old
    rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
-   written before the round runs. This is the only stopping device with a
+   written before the round runs. **Within a round** it is the device with a
    working record, and it works because it collides with an event instead of
-   waiting to be recalled.
+   waiting to be recalled — it was the only one until the two-review limit,
+   which bounds the sequence rather than the round.
    **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
    2026-09-13): something read off the round, not something I decide in the
    moment having just read the finding. **A condition I have to interpret is

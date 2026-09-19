@@ -709,10 +709,15 @@ replaced.
 committed receipts, extension grants and their arithmetic, a round-count
 cache, a merge-readiness receipt, a translation-delivery gate, and the
 adjudicator that ruled from round 3. Measured across PR #91's ten rounds, not
-one of them changed a decision. **Termination is a judgement rather than a
-count**, and a loop that can conclude on the evidence needs no counter; the thing
-budgets were compensating for was a builder writing code for every finding
-because the decline was a paragraph it had to compose.
+one of them changed a decision. What each *finding* is worth stays a
+judgement; what the *sequence* may cost is now a count, and the two-review limit
+is that count. This paragraph read "termination is a judgement rather than a
+count, and a loop that can conclude on the evidence needs no counter" — true of
+what the #89 cut removed, and false as a description of how a loop ends now. The
+thing budgets were compensating for was a builder writing code for every finding
+because the decline was a paragraph it had to compose; the limit compensates for
+something else, a sequence of individually-defensible fixes nothing was
+counting.
 
 **The tiers survive, and since 2026-09-17 they name what is downstream rather
 than how strictly to read a finding.** `product`, `sensitive`
@@ -762,9 +767,10 @@ the safety net a non-code-reading product manager depends on.
 - **Every review request carries pre-registered flip conditions** — what
   finding, what count, what change of shape would end the loop, written before
   the round runs, **each naming an observable read off the round rather than a
-  judgement made in the moment**. This is the only stopping device with a
+  judgement made in the moment**. **Within a round** it is the device with a
   working record (6-for-6), and it works because a condition written in
-  advance collides with an event instead of waiting to be recalled.
+  advance collides with an event instead of waiting to be recalled. It was the
+  only one until the two-review limit, which bounds the sequence instead.
 - **A product decision goes to David immediately**, at any round, and is never
   ground through mechanically.
 

@@ -66,8 +66,13 @@ Decide by what "this" refers to (contract's trigger table):
     PR** alongside that pass's other doc updates. No per-feature branch, no
     per-feature PR, no harvest sub-issue, no separate subscription: the
     tracking is the harvest-notes comments already on each feature's
-    workstream issue. Internal tier — automatic pass, one triage, merge.
-    Everything below this bullet describes the AD-HOC path only.
+    workstream issue. Internal tier, so the **two-review limit** governs this
+    path exactly as it governs the other (`working-modes.md`): automatic pass,
+    one coherent batch of corrections if any are warranted, **a review of that
+    corrected head**, then stop. It never meant a corrected head merges
+    unreviewed — this bullet read "automatic pass, one triage, merge", which
+    said it did. Everything below this bullet describes the AD-HOC path's
+    **delivery mechanics** only; the termination rule above is common to both.
   - **Ad-hoc standalone invocation** (David asks for one feature directly):
     **default to assuming the feature's PR is
   already merged** (David's stated workflow),

@@ -221,7 +221,10 @@ cost more than the defects they describe. This is the *depth* rule. The
 the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
 ceremony, but when the pass finds a real defect the pushed fixes are
 re-reviewed under the internal tier, which says what is downstream rather than
-setting a threshold — there is no round budget and no leash, the tier's old
+setting a threshold. **How long that re-reviewing runs is the two-review limit's**
+([`working-modes.md`](../ai-context/working-modes.md)) — this sentence used to
+add "there is no round budget and no leash", and while the limit is indeed not a
+round budget, "no leash" is exactly what it removed. The tier's old
 "only a critical flaw is written for" rubric is retired as a decline quota, and
 the external adjudicator that used to rule went with the #89 cut (2026-09-16)
 and was replaced by two advisory assessments per round (#96) — see
