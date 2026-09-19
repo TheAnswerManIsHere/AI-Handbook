@@ -9,7 +9,7 @@ import {
   DECLARATION_INFO,
   DECLARATION_KINDS,
   planProvenanceDeclaration,
-} from "../../core/scripts/review-loop-record.mjs";
+} from "../../core/scripts/plan-provenance.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -23,6 +23,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
  * side passes, and the first real PR refuses. #40 §2.2 requires a matcher's
  * fixture to come from the document that defines the format; this is the
  * check that the documents and the matcher have not parted.
+ *
+ * AFTER THE #89 CUT THIS IS THE PARSER'S ONLY CALLER. The runtime reader of a
+ * PR body's block went with `review-loop-record.mjs`; the format is still
+ * contract, so the drift check is still the thing keeping three documents
+ * agreeing. `core/scripts/plan-provenance.mjs` says the same in its own head,
+ * and the oddity is tracked rather than hidden.
  *
  * It reads the real files. A test that transcribed their templates would be a
  * third statement of the format and would drift from both.

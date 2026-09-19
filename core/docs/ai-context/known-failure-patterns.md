@@ -1727,9 +1727,11 @@ definition*: the document has no way to say "true, and next," only "true, so
 in." **Avoid:** separate **directions** (end states, reviewed once, never
 looped) from **plans** (one bounded increment, citing its direction), per
 [`working-modes.md`](./working-modes.md#directions-and-plans-are-different-artifacts-david-2026-08-11);
-apply the increment test *before* writing (universal quantifier ⇒ direction;
-a *Phases* section whose phases are independently shippable ⇒ each phase was
-a plan — an ordered migrate/rollout/verify sequence within one increment is
+apply the increment test *before* writing — which since 2026-09-18 asks what
+the increment makes true and what bounds it, rather than reading a verdict off
+the vocabulary. Universal wording and independently shippable phases are
+reasons to examine the boundary (an ordered migrate/rollout/verify sequence
+within one increment is
 not this signal); record the plan's line count
 at round 1 and state it every round; and frame mid-flight scope as **now vs.
 next**, defaulting to next.
@@ -1756,6 +1758,107 @@ whose criticality never justified the rounds. This one is about a loop whose
 subject is legitimate and whose *boundary* keeps moving. The distinction
 decides the fix: the other entry's is to cut the subject or stop the loop;
 this one's is to **split the artifact and keep going on the smaller half**.
+
+## Each round finds a defect in the previous round's fix
+
+**Looks like:** a code loop that never converges, where every finding is
+correct and every fix is sound, and the thing each new finding is about is the
+code the last round added. **Dangerous:** it reads as diligence from inside —
+the reviewer keeps finding real bugs, so stopping feels like shipping known
+defects — and the cost is invisible because no single round is wrong. The loop
+ends when someone runs out of patience rather than when the code is right.
+
+**The tell, recognised by hand:** a round has a finding whose lines sit inside
+the diff of the last commit pushed for a finding, and so did the round before
+it. The unit is the round, never the finding — a single round returning several
+such findings is one observation, not several.
+
+**That tell was written up as a mandatory stop rule and the attempt failed.
+Read the next section before reaching for it again.**
+
+**Root cause: a fix written to satisfy a finding is local by construction, and
+the code this happens in has no edge to be local to.** Guards, parsers,
+counters, checks — anything defending an input space that is not enumerable.
+Each patch closes the reported case and creates a new boundary; the next round
+finds *that* boundary, because it is the newest and least-considered code in
+the diff. Two rounds of this is not bad luck, it is the shape.
+
+**Avoid — the response is never a third patch.** This part holds, and it is
+guidance rather than a trigger. One of three, in order of preference:
+**remove the mechanism** (if what it guards is inconsequential,
+[`review-judgment.md`](review-judgment.md) already says delete it);
+**derive the value** rather than check it (its *understand the source* step — a
+check whose two sides the same code owns guards nothing); or **change the
+operation**, which
+is the move that actually ends these.
+
+### The stop rule written from this entry did not work (AI-Handbook #91)
+
+AI-Handbook #91 turned the tell above into review-loop rule 7 in
+`claude-core.md`: a mandatory stop, keyed to that observable. **David removed
+it on 2026-09-15, after seven rounds.** The attempt is recorded here rather
+than deleted, because the next person to have this idea should meet the
+evidence instead of repeating it.
+
+**Four correct reviewer findings against that one paragraph, in seven rounds**,
+each refining a boundary and exposing the next:
+
+1. The trigger fired on line overlap alone, forbidding an ordinary
+   second-round fix (round 1).
+2. A clause inferred unboundedness from untestability (round 3). **That
+   inference is simply wrong, and it is the most reusable thing here:
+   testability and unboundedness are different properties.** Correcting a
+   sentence of contract prose, or a behaviour only reachable through an
+   integration the test environment lacks, has no class-level failing test and
+   is perfectly well bounded. Stated unconditionally it condemned every fix in
+   the pull request that introduced it. Narrowing it to "mechanisms already
+   shown to be unbounded" was rejected too: that turns the trigger back into a
+   judgement.
+3. The headline counted findings while every other statement of the rule
+   counted rounds (round 4).
+4. The trigger compared against the **last** fix commit, but a round's fixes
+   can span several, so a finding landing in an earlier one recorded nothing
+   and the counter could stay at zero forever (round 7).
+
+**And the decisive fact, which no amount of rewording touched: the rule never
+once fired on that loop, by its own observable, while that loop exhibited this
+exact pattern throughout.** Checked at rounds 4, 5 and 7; negative every time.
+
+**The lesson is not "observables don't work."** AI-Handbook #85's finding
+stands — a condition you have to interpret is one you will reinterpret. The
+lesson is the question #85 did not ask and #91 paid seven rounds to learn:
+**an observable trigger also has to be REACHABLE on a real loop, and nothing
+in the process asks that.** A trigger can be perfectly unambiguous, perfectly
+read-off-the-record, and still never fire — because the state it names is
+narrower than the situation it was written for. Test a proposed trigger
+against loops that already happened before making it binding.
+
+**AI-Handbook, four instances inside one workstream (#36), plus the one that
+shows the cure.** PR #28: two of round 2's findings were defects round 1's
+fixes introduced, and one slipped through a sweep whose exclusion pattern
+whitelisted its own target. PR #80: three rounds, each finding a defect on one
+failure path, two of them introduced by the previous round's fix. The D0 plan
+loop: rounds 2 and 3 each found a defect in text the previous round's fix had
+added. **PR #83 is the sharpest, and it is also the cure**: the loop-position
+round count took *five* attempts — a snapshot glob, a typed count, a named
+file, a pass history, and a high-water floor that then trailed by one forever
+after the first loss — each a correct fix for the last one's defect. What ended
+it was not a sixth patch but the recognition that **counting was the wrong
+operation**; recording which passes have ever been seen per commit, and summing,
+converged in one round. Overhype PR #329's Bash guard is the same shape without
+the cure (9 → 11 → 12 → 19 findings against an unbounded parsing surface), and
+PR #293's 17 rounds refining one reachability model is its severe end.
+
+**Not the same as *a plan that grew during its own review*** (above). There the
+artifact's boundary moves and the fix is to split it. Here the boundary is
+fixed and the *approach* is wrong, so splitting changes nothing — the same
+patch-and-repatch runs on each half. **#36's B2 delta review was declined on this entry's strength**
+(David, 2026-09-14) — the argument being that a role reading the inter-round
+delta detects this only after it has recurred, while an observable read off
+the round would catch it the first time, for free. **That argument no longer
+stands as stated**: the free catch was rule 7, and rule 7 did not catch
+anything. Whether B2 earns building now is open, and belongs to the machinery
+audit (#89) rather than to this entry.
 
 ## PostgreSQL role/constraint verification traps that look safe and aren't
 
@@ -2669,6 +2772,66 @@ the sibling failure at the opposite end — there the check under-trusted the
 authoritative source and kept a redundant local copy; here it over-trusts a
 local proxy for a property only the outside world can confirm.
 
+## An observable scoped to the mechanism you had in mind, not the harm you were watching for
+
+**Looks like:** you do the disciplined thing. You write the stopping condition as
+an observable rather than a judgement, exactly as the rule demands. Or you scope
+a decline to a class rather than to the reviewer's example, exactly as the other
+rule demands. Then the thing you were guarding against happens in a form your
+words do not cover, and the guard sits there not firing while being, on its own
+terms, correctly evaluated.
+
+**These are one failure in two layers.** A fix scoped to the example and a flip
+condition scoped to the example are the same error — the words name the shape
+that was in your head, and the shape that arrives is a sibling of it. The
+observable rule and the class rule both survive intact; what neither of them
+supplies is the step where you ask *what is the harm, and what else produces it?*
+
+**The worked examples, all from AI-Handbook #124.** Three flip conditions in one
+pull request had their wording and their intent pull apart:
+
+- **Round 2.** *"Three or more findings landing on the corrections themselves"* —
+  counted two mechanically, and a defensible stricter reading counted three. Both
+  readings happened to agree the batch was sound, so nothing turned on it. Luck.
+- **Round 4.** *"Any finding that the new check can pass while the thing it checks
+  is broken"* — satisfied by **every check that has ever been written**, since a
+  stated-limits paragraph is a list of exactly that. A condition satisfied by
+  everything selects nothing, and it fired on a coverage gap it was not aimed at.
+- **Round 5.** *"Any finding that an **assessment** which should be allowed is now
+  refused"* — the thing refused was a *scope exchange*. The intent covered it
+  plainly; one noun kept it from tripping. Its instruction was "go to David",
+  which is where the question went anyway — again by luck, not by drafting.
+
+And the same error one layer down, in the same pull request: a fix that gave
+Claude's package record its own path stopped one role overwriting the other's,
+and left the *default* role overwriting it — because the fix was scoped to the
+role in the finding rather than to the mechanism. That was written one round
+after the builder recorded the class-not-example rule against himself.
+
+**Avoid:**
+
+1. **Write the observable, and write the harm beside it, in the same sentence.**
+   "Three or more findings on lines this batch wrote — the signal being that the
+   batch itself went wrong." The observable still decides; the harm is what tells
+   you, at evaluation time, whether you are looking at the thing you meant.
+2. **Before writing either kind of scope, name one sibling.** Not an exhaustive
+   enumeration — one. If the condition or the fix does not cover the sibling, the
+   wording is scoped to your example. The three cases above all had an obvious
+   sibling: findings on a correction's *missed twin*, a check that covers one
+   *layout*, an exchange that is not an *assessment*.
+3. **When the two disagree, that disagreement is the finding.** Record it, fix
+   the wording, and do not take whichever reading is more convenient. Three times
+   in one pull request the destination survived a bad reading by luck; that is
+   not a record to build on.
+4. **Have someone else evaluate it.** Every one of these was surfaced by an
+   independent assessor or a translator reading the same words, never by the
+   person who wrote them. The author of a condition is its worst reader.
+
+**Related:** *A guard that encodes the shape that occurred, and calls it a class*
+above is this same error in code rather than in prose, and *A decline scoped to
+the reviewer's example instead of the finding's class* below is its third face.
+The fact that it has three entries in this file is itself the finding.
+
 ## Building a second validator beside an existing one re-derives its gaps, not its answers
 
 **Looks like:** the repo already has a script that reads some external system,
@@ -2702,3 +2865,45 @@ it, or write down why it doesn't apply here. That is a ten-minute read against
 a review round per omission. If the two are close enough, extract the
 validation itself rather than the counting, which is the half that was actually
 hard-won.
+
+## A decline scoped to the reviewer's example instead of the finding's class
+
+**The pattern.** Triage weighs a finding's consequence and finds it small, so
+the finding ships as a recorded gap. But the consequence that was weighed is
+the one the *reviewer's example* reaches, not the one the *class* reaches — and
+a reviewer picks whichever instance it happened to see, not the worst one. The
+decline then reads as careful engineering while resting on a boundary nobody
+drew deliberately.
+
+This is the specific way a worth-based triage rule fails. The rule itself is
+sound and exists because, under a write-gate, every fix costs a full review
+round; what makes it dangerous is that mis-scoping the consequence is
+indistinguishable, in the moment and in the written reply, from applying it
+correctly.
+
+**The worked example (AI-Handbook #73).** Round 3 reported that
+`fable-dispatch.mjs` — since deleted, #95 — checked its `--out` path
+*lexically*, so a symlinked component could put the receipt outside the
+repository. The decline weighed
+that as *"what escapes is a single gitignored receipt JSON written to a
+directory I chose by hand"* — likelihood near zero, consequence trivial — and
+it shipped as a gap over an oracle that had genuinely been run.
+
+Round 4 returned the same class without the symlink: `--out .git/HEAD` is
+inside the repository, passes the containment check, and `writeFileSync`
+**truncates it**. Same code, same class, a destroyed checkout instead of a
+misplaced JSON. The question the triage answered was *where does the file
+land*; the question the class asked was *what does this write destroy*. Nothing
+about the reported instance hinted at the second one, which is the point.
+
+**Avoid:** state the class before the consequence, then answer the consequence
+*of that class at its worst*, not of the example in front of you. (This used to
+name the `Worth:` line of a fixed four-line reply form; the form was retired on
+2026-09-17 and the discipline was not.) The tell is a decline whose consequence clause quotes details
+specific to the reviewer's scenario — "gitignored", "one directory over", "a
+file I chose by hand". Those are properties of the example. Strip them and ask
+what remains reachable. And re-examine a class the reviewer raises a second
+time on its new evidence and scope, naming what the new instance shows that the
+first did not. **Repetition alone does not establish that the earlier judgement
+was wrong** (David, 2026-09-17): the rule used to say it did, which turned any
+persistent reviewer into an override.

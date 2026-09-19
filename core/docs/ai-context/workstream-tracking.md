@@ -37,8 +37,8 @@ CI is green, the reviewer has converged, and every thread is resolved — see
 CLAUDE.md's close-out contract), and the **scope-of-work gate** was added
 the same day at the front of Planning (see
 [`working-modes.md`](./working-modes.md#the-scope-of-work-gate-david-2026-08-15)).
-The one exception that still holds Merge as a David-gate: a PR that widens
-the agent's own guardrails or authority, which stays David-merge-only.
+The last exception — a PR that widens the agent's own guardrails or
+authority — was retired on 2026-09-14; nothing holds Merge as a David-gate.
 **Known interim mismatch:** the Project board's verbatim Status option is
 still named `🛑 Merge` (the sync script maps labels onto the board's exact
 option names, and renaming an option is a board-config edit only David can
@@ -46,7 +46,7 @@ make, paired with a `sync-project-fields.mjs` + fixture code change) — so
 until that follow-up lands, ordinary self-merged workstreams passing
 through `stage:merge` briefly display the stop glyph on the board without
 meaning "needs David." The label semantics in this doc are the truth;
-`waiting:david` is what actually marks the carve-out case.
+`waiting:david` no longer occurs at Merge at all.
 
 ## Phased features: a parent issue, one sub-issue per phase
 
@@ -343,7 +343,7 @@ work it's already doing — not as a separate reminder to go check the board:
 
 | Skill | Owns |
 | --- | --- |
-| `plan-review-loop` | `waiting` toggling `claude`/`codex` each review round; `stage:plan-approval` + `waiting:david` at convergence/close-out |
+| `plan-review-loop` | `waiting:claude` for the whole loop — a planning exchange is a local process the builder waits on, so there is no `waiting:codex` state; `stage:plan-approval` + `waiting:david` at the approval ask |
 | `bugfix` | Opening the workstream at `stage:coding` directly (no Planning stage), `mode:bugfix` |
 | `pr-watch` | `stage:code-review` onward — round-by-round `waiting` toggling, `waiting:david` on escalation, `stage:test-run`/`waiting:replit` at merge when the PR's Post-merge verification section has real content (the close-out sequence then drives the checks and moves the label to `stage:uat`/`stage:close-out` once the checks pass); with "none needed" verification, the transition to `stage:uat`/`stage:close-out` still waits for the close-out sync checks (SHA match + clean worktree) to pass — never at the merge click itself, either branch |
 | `pr-docs` | No stage transition of its own — confirms `mode:feature` is right on the PR this pairing rides on |

@@ -58,11 +58,31 @@ const WIRED = [
   },
 ];
 
-/** The `.gitignore` that cannot be a pointer: git does not follow a symlinked one. */
-const MIRRORED_GITIGNORE = {
-  payload: "core/.agents/receipts/.gitignore",
-  root: ".agents/receipts/.gitignore",
-};
+/**
+ * The `.gitignore` files that cannot be pointers: git does not follow a
+ * symlinked one, so its patterns would never apply.
+ *
+ * A list rather than one entry, because the second directory of ephemeral
+ * output arrived and the singular form would have silently left it unchecked.
+ * The #89 cut removed the third (`.agents/captures/`, whose writer went with
+ * the snapshot pair); the list stays plural because the next one will arrive
+ * the same way the second did. It did: `docs/plans/` is the third, added by
+ * #124.
+ *
+ * THE THIRD ENTRY IS HERE FOR A SECOND REASON, and it is the stronger one.
+ * `docs/plans/.gitignore` is not merely unfollowable as a symlink -- its
+ * payload copy SHIPS, so a consumer's protection against committing a draft
+ * plan is whatever `core/docs/plans/.gitignore` says. If the two copies drift,
+ * this repository can be protected by a pattern no consumer receives, which is
+ * exactly the shape #124 found: the root copy existed, the payload copy did
+ * not, and the root copy's own comment claimed the script covered consumers.
+ * Only the pattern lines are compared, so each copy keeps its own rationale.
+ */
+const MIRRORED_GITIGNORES = [
+  { payload: "core/.agents/receipts/.gitignore", root: ".agents/receipts/.gitignore", holds: "ephemeral dispatch receipt" },
+  { payload: "core/.agents/reviews/.gitignore", root: ".agents/reviews/.gitignore", holds: "per-plan review snapshot" },
+  { payload: "core/docs/plans/.gitignore", root: "docs/plans/.gitignore", holds: "plan under development" },
+];
 
 const patternLines = (text) =>
   text
@@ -134,8 +154,7 @@ function checkWiring(problems, ROOT) {
   }
 }
 
-function checkMirroredGitignore(problems, ROOT) {
-  const { payload, root } = MIRRORED_GITIGNORE;
+function checkMirroredGitignore(problems, ROOT, { payload, root, holds }) {
   const payloadAbs = join(ROOT, payload);
   const rootAbs = join(ROOT, root);
 
@@ -144,12 +163,13 @@ function checkMirroredGitignore(problems, ROOT) {
     return;
   }
   // A symlink here would be staged as an ordinary file and its patterns never
-  // applied, so every ephemeral receipt would be committed. Verified, not
-  // assumed -- which is why the mirror is checked instead of pointed at.
+  // applied, so every file it was meant to ignore would be committed.
+  // Verified, not assumed -- which is why the mirror is checked rather than
+  // pointed at.
   if (lstatSync(rootAbs).isSymbolicLink()) {
     problems.push(
       `${root} is a symlink. Git does not follow a symlinked .gitignore, so its patterns would ` +
-        `never apply and every ephemeral receipt would be committed. It must be a real file.`,
+        `never apply and every ${holds} would be committed. It must be a real file.`,
     );
     return;
   }
@@ -173,7 +193,7 @@ function checkMirroredGitignore(problems, ROOT) {
 export function run(root = ROOT) {
   const problems = [];
   checkWiring(problems, root);
-  checkMirroredGitignore(problems, root);
+  for (const mirrored of MIRRORED_GITIGNORES) checkMirroredGitignore(problems, root, mirrored);
   return problems;
 }
 
@@ -189,6 +209,6 @@ if (invokedDirectly) {
   const agents = readdirSync(join(ROOT, ".claude/agents")).length;
   console.log(
     `check-root-wiring: OK -- ${skills} skills and ${agents} agents reach the payload by link, ` +
-      `and the receipts .gitignore mirrors it`,
+      `and ${MIRRORED_GITIGNORES.length} mirrored .gitignore file(s) match the payload`,
   );
 }

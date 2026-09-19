@@ -1,6 +1,6 @@
 ---
 name: The machinery's threat model is my own mistakes, not an adversary — a local script is not a security boundary
-description: Ten review rounds on AI-Handbook PR #7 hardened repository identity against an attacker who can edit the working tree, commit to the branch, or substitute another repository's receipts. That attacker is me. The controls against deliberate action are David's merge and GitHub's server-side ruleset; the scripts exist to catch mistakes, and designing them to resist their own operator produced three trust anchors, eleven findings, and no additional safety.
+description: Ten review rounds on AI-Handbook PR #7 hardened repository identity against an attacker who can edit the working tree, commit to the branch, or substitute another repository's receipts. That attacker is me. The controls against deliberate action are GitHub's server-side ruleset and the human working alongside, who reads the one line every authority-widening PR carries naming what latitude it grants; the scripts exist to catch mistakes, and designing them to resist their own operator produced three trust anchors, eleven findings, and no additional safety.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -9,7 +9,7 @@ description: Ten review rounds on AI-Handbook PR #7 hardened repository identity
 
 ## What happened
 
-Making the review-budget guard and the readiness gate portable meant
+Making the review-budget guard and the readiness gate portable (both since removed, #89) meant
 replacing two hardcoded literals — the repository's `owner/name` and the
 list of required CI jobs — with configuration. That is a configuration
 problem. It was treated as a security problem, and it grew into one.
@@ -30,9 +30,13 @@ this environment there is exactly one actor: the agent that edits the
 working tree, commits to the branch, captures the snapshot, runs the gate
 and posts the review request. Whatever it can "attack" it can also simply
 not run. The controls that exist against deliberate action are outside the
-scripts entirely — a human's merge click, and the server-side ruleset on
-`main` — and no local hook can add to them, because the hook's operator is
-the party being controlled.
+scripts entirely — the server-side ruleset on `main`, and the human working
+alongside, who reads the one line every authority-widening PR carries naming
+what latitude it grants — and no local hook can add to them, because the
+hook's operator is the party being controlled. (That second control was a
+mandatory human merge until 2026-09-14; the click was never once withheld
+and cost a round trip every time, so it was replaced by the visibility rule.
+The argument here does not depend on which form it takes.)
 
 ## What worked instead
 
@@ -69,4 +73,5 @@ answer is "the person who runs it," stop: you are designing a lock whose key
 is on the same ring, and every layer you add is a place for two copies of
 the same value to disagree. Ask instead what mistake the check catches, make
 it catch that mistake in one obvious way, and put the real control — a
-human's approval, a server-side rule — where a local script cannot reach it.
+server-side rule, a human reading what the change grants — where a local
+script cannot reach it.

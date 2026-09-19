@@ -113,6 +113,47 @@ Prefer, in order:
 - **Runtime behavior must match admin preview and debug surfaces.**
 - **Avoid duplicate sources of truth.**
 - **Do not patch only the latest example — solve the general mechanism.**
+- **A check earns its place only when the value can differ from what you
+  intended — which requires something outside your control to have produced
+  it.** A harness report, a network response, a real user, another program's
+  output: observe those and refuse on disagreement. Everything a hand-run
+  script gets from its own operator's argv falls into one of two kinds, and
+  the rule differs:
+  - **Derivable** — the script already holds every input needed to compute
+    it (a receipt path from role and head). **Derive it; do not take it as
+    input at all.** A check whose two sides you both own carries no
+    independent information — it fails only when the code between them is
+    wrong, and that code is exactly as likely to be wrong as the check
+    (AI-Handbook #73: four review rounds on one flag, then the flag was
+    deleted).
+  - **A choice** — it encodes intent the script cannot know (`--role`,
+    `--timeout`, `sync --to <repo>`). Take it. A cheap check that it is
+    well-formed — non-empty, numeric where a number is expected, a path that
+    exists — is catching the operator's own mistake, which is exactly the
+    threat model, and stays. A defence against a *hostile* value of it — a
+    planted symlink, a traversal, a hard link the operator would have to
+    create on purpose — is not, and the response to such a finding is to
+    decline it, not to guard (AI-Handbook #7: eleven findings and no added
+    safety).
+  **Ask who produced the value, never which directory the file sits in.** A
+  script that parses a hook payload, a fetched document, a webhook body or
+  another program's output is reading something it does not control, however
+  local it looks — and where that script exists to *constrain* the producer,
+  its input is adversarial by construction and validating it is the entire
+  job. Getting this backwards disarms exactly the code that matters most.
+  **And a consequence nobody would feel is not a consequence** (David,
+  2026-09-11). Two classes follow, and findings in them are declined rather
+  than fixed: **accounting precision**, where a miscount changes no decision
+  — how many review rounds a loop ran is a gut-level trend, not an audit
+  history, so machinery making such a count exact is pure cost; and **an
+  agent's influence over its own tooling**, where the agent that runs a
+  script is the only actor who could subvert its inputs and could equally
+  just not run it. The controls against deliberate action are the
+  server-side ruleset and the human working alongside, who reads the one
+  line every authority-widening PR carries naming what latitude it grants
+  (2026-09-14, when the human-merge gate was retired). Neither class is
+  fixed because the diff would be small: each fix costs a review round, and the aggregate is never
+  weighed at the moment one is chosen.
 - **Prefer database-backed config for tunable operational settings.**
 - **Migrations must be idempotent and observable.**
 - **Async work must show status** at two altitudes (per-item + aggregate) — see
@@ -128,24 +169,20 @@ For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
 approves the plan.**
 
-**Reviewing a plan (not code).** When asked to review a pull request whose title
-is prefixed **`[PLAN REVIEW]`** (a plan document, not a code diff), apply the
-[plan-review contract](../../docs/ai-context/plan-review-contract.md): review the
-markdown as an implementation *specification* against the PR body's stated intent
-and the repo, return a **complete** assessment even when nothing is critical, and
-never implement anything on that PR. **Status labels are a full-document-surface
-concept only** (never approval language there either — only David approves); on
-your actual GitHub review transport you don't compute or post one — see the
-contract's *Output* section for what you do instead.
+**Planning (not code review).** A planning loop does not run on a pull request
+(2026-09-09), and since 2026-09-18 it is not a review: two parties develop the
+plan together, one of them holding it. The plan reaches you as a **file in the
+checkout you are running in**, named in the instructions you are given, with the
+agreed oracle alongside.
 
-**On a re-review, the diff is not the scope.** Round 2 onward you are shown a
-markdown diff of the plan — re-read the *whole* plan and re-verify it against the
-repo anyway, reconcile every finding you raised earlier (Resolved / Still open /
-Superseded, where "the wording changed" is never Resolved), attack from a lens
-you haven't used yet, and report what you actually inspected — including the
-searches you ran — plus what you could not verify and why. **On your actual
-GitHub review transport, most of this is carried inside individual findings,
-not a separate report** — the contract's *Re-reviews*, *Report what you
-verified*, and *Output* sections are the full, surface-scoped rules; this
-paragraph is a summary, not the authority.
+[`planning-contract.md`](../../docs/ai-context/planning-contract.md) is the whole
+authority. Both parties read it, and the facts that differ by role — who holds
+the plan, who may settle a purely technical tie — arrive in the **role block**
+the dispatch places above it. This paragraph deliberately does not summarise it:
+the summary that used to sit here outlived the rules it summarised by a full
+redesign, which is what a summary of a contract does.
+
+What is worth stating outside the contract, because it binds whoever reads this
+file: **no agent approves a plan, agreement between agents is not approval, and
+neither party implements the work.** Only David approves.
 

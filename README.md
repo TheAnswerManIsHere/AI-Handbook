@@ -89,9 +89,11 @@ its own. They and the rest of the consumer-owned set are listed in
 ## Working in this repo
 
 Changes here reach every product, so this repo runs the **internal** review
-tier: a clean automatic review pass is the whole ceremony, and findings ship as
-recorded gaps unless they are genuinely critical. Read `CLAUDE.md` before
-editing — it is short, and it imports the same core it ships.
+tier: a clean automatic review pass is the whole ceremony, and a round that
+returns findings gets two independent assessments before anything is written
+for it. Whether acting on a finding is worthwhile is judged case by case, with
+no target rate in either direction. Read `CLAUDE.md` before editing — it is
+short, and it imports the same core it ships.
 
 Verify locally with:
 

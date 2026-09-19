@@ -26,7 +26,7 @@ just never said the one useful thing it was written to say.
 Resolving the ref first splits the cases, and this is worth a test **against
 real git rather than a fake** — the defect lives in the adapter, so a fake that
 returns whatever the adapter expects cannot catch it going back. See
-`scripts/review-budget.mjs`'s `gitShow` (which returns
+the handbook's former `review-budget.mjs` `gitShow` (which returned
 present-with-contents / absent / unknown) and its real-git test.
 
 ## Related

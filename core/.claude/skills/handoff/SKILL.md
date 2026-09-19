@@ -30,13 +30,13 @@ reason a `/document` harvest isn't routable.
 **That makes this a standing dispatch BAR under `CLAUDE.md`'s
 *Whether a judgement dispatches is fixed in advance*** — pre-registered here,
 in writing, rather than claimed in the moment. It is deliberately **not**
-overridden by the 2026-08-17 always-Fable rule for adjudications, and the
-reason is functional rather than a plea about context: an adjudication
-packages a **drafted verdict plus its evidence** for challenge, while the
+overridden by the 2026-08-17 always-Fable rule for dispatched judgements, and
+the reason is functional rather than a plea about context: a dispatched
+judgement packages **material plus its evidence** for a verdict, while the
 Step 1 verdict below is **enumeration from memory** — you cannot package what
 you have not yet noticed, and noticing is the whole task. A stronger model
 does not fix absent evidence. **Removing this bar is a contract change that
-ships in a PR David merges, never a mid-task call.**
+ships through the ordinary PR path, never a mid-task call.**
 
 ## Step 1 — Is a handoff actually required?
 

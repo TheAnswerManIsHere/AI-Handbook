@@ -1,19 +1,13 @@
 {
   "repo": "TheAnswerManIsHere/AI-Handbook",
-  "requiredChecks": [
-    "Test",
-    "Manifest"
-  ],
-  "contractBudgets": [
-    {
-      "path": "CLAUDE.md",
-      "lines": 165,
-      "bytes": 9354
+  "models": {
+    "strongestClaude": {
+      "id": "claude-fable-5-1",
+      "effort": "xhigh"
     },
-    {
-      "path": "core/.agents/core/claude-core.md",
-      "lines": 806,
-      "bytes": 49955
+    "strongestCodex": {
+      "id": "gpt-6-astra",
+      "effort": "xhigh"
     }
-  ]
+  }
 }

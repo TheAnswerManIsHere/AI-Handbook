@@ -1,19 +1,8 @@
-# THIS REPO'S OWN receipts, not the payload copy next door in
-# core/.agents/receipts/.gitignore.
+# THIS REPO'S OWN dispatch receipts, mirroring the payload copy next door in
+# core/.agents/receipts/.gitignore. The reasoning -- what is ephemeral and why
+# nothing here is committed any more -- lives there.
 #
-# WHY THERE ARE TWO. Git does not follow a symlinked .gitignore -- verified,
-# not assumed: a symlink here is staged as an ordinary file and its patterns
-# are never applied, so every ephemeral receipt would be committed. A pointer
-# is therefore impossible and a real file is the only option.
-#
-# WHAT KEEPS THEM HONEST. scripts/check-root-wiring.mjs compares the pattern
-# lines below against the payload copy and fails when they diverge. That is
-# what makes this a mirror rather than a fork -- the duplication is enforced,
-# not merely intended. Edit the payload copy; this one follows.
-#
-# The reasoning for the patterns themselves -- why evidence is ignored and
-# decisions are committed, and why a directory exclusion plus negations cannot
-# work -- lives in core/.agents/receipts/.gitignore and README.md.
-pr-*.json
-loop-round-check-*.json
-loop-round-check-*.claim
+# scripts/check-root-wiring.mjs compares the pattern lines below against the
+# payload copy and fails when they diverge. Edit the payload copy; this one
+# follows.
+fable-*.json

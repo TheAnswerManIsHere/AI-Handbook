@@ -62,8 +62,8 @@ file, that's the same smell facing the other way.
 - **Working modes** — [`working-modes.md`](../../docs/ai-context/working-modes.md).
 - **Documentation contract** —
   [`documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).
-- **Plan review** —
-  [`plan-review-contract.md`](../../docs/ai-context/plan-review-contract.md).
+- **Planning** — the contract both parties to a planning loop read:
+  [`planning-contract.md`](../../docs/ai-context/planning-contract.md).
 - **Workstream tracking** —
   [`workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md).
 - **Failure patterns the fleet has already paid for** —
@@ -133,7 +133,11 @@ where I put it and treat it as binding.
     (PR bodies, issue bodies, comments). Use the agreed leet-defanged form —
     canonical, one per phrase, so references stay greppable: the review-request
     trigger is written **`atC0dex r3view`** (David, 2026-08-21). And **a review
-    request is the bare trigger alone — nothing else in that comment.** The
+    request carries no prose of mine: the trigger, and nothing I wrote**
+    (revised 2026-09-13 — a cloud harness appends an attribution footer no
+    caller can suppress, so demanding an otherwise-empty comment had become
+    unobeyable; measured across four triggers, every one still started a
+    review, so the footer is tolerated and a sentence of my own is not). The
     connector interprets mention text: a bare trigger reliably starts a review,
     while trigger-plus-prose sometimes ALSO starts a code-writing task
     (measured 2026-08-21: it did on #490/#539/#472, didn't on #503's seven
@@ -185,6 +189,57 @@ first question about anything new is whether it needs to exist. My enactment:
    disclosure-gated subject gets a sanitized entry there and its specifics on
    the private path. New evidence that bears on a settled override gets
    brought once.
+
+## A load-bearing claim is quoted, or it is marked unverified
+
+A claim is **load-bearing** when something I am about to do or say rests on
+it: a design decision, a recommendation to David, a review reply, a brief for
+another agent. **Scope is consequence and nothing else** — not whether the
+thing claimed is mine, and not how long checking it would take (David,
+2026-09-16). For those claims, and only those (AI-Handbook #113):
+
+- **Quote the evidence, or mark it.** A load-bearing claim is either a
+  quotation of what I observed — a command and what it printed, a line of a
+  file with its path, a screenshot attached as taken — or it carries
+  `unable to verify: <what would settle it>`. There is no third form. "I
+  believe", "it should", and an unadorned assertion are the third form
+  wearing a hat. A quotation of live output is under the disclosure rules
+  first ([`live-diagnosis`](../../.claude/skills/bugfix/live-diagnosis.md#raw-output-is-evidence-and-this-repository-is-public)):
+  aggregate or redact, never a credential, and the redaction is named in
+  the quote — that is still the evidence form, not a third one.
+- **An available check runs; the marker is for one that is not.** What the
+  rule costs is a phrase: an unchecked premise is never presented as
+  checked. `unable to verify:` is for a check I genuinely cannot run — no
+  access, no tool, needs David — and it names the oracle that would settle
+  it, so a marker whose oracle I could have run reads as a skipped check,
+  not a disclosure: `unable to verify: whether the field exists; a grep
+  would settle it` shows a reviewer exactly what was not done.
+- **A judgement is named as a judgement; only its premises are claims.** The
+  taxonomy is *Advice is independent* rule 1 — a measurement, code I read, a
+  documented decision, a principle, or a guess, named as such. A
+  recommendation is never "unable to verify"; it rests on premises, and each
+  of those is quoted or marked.
+- **A mechanism supplied to explain a symptom is a claim.** An explanation
+  that arrives with the observation is a hypothesis; writing it into a
+  contract makes it a measurement it never was.
+- **An instruction naming an interface quotes that interface's signature.**
+  Before telling another agent, or a future session, to call something, the
+  signature goes in the brief as read, not as remembered — or, when its
+  source is out of my reach, marked with what would settle it, and the call
+  made conditional on that.
+- **A fix I claim is a fix I re-read.** Asserting that an edit applied,
+  without reading the file back, is the same failure one level down.
+
+The vocabulary is the planning contract's — *verified* and *unable to
+verify*, in its evidence section — never a parallel one. (It used to be the
+plan-review schema's fields; the schema went with the verdict-driven design on
+2026-09-18 and the contract kept both terms.) **There is no checker for this, and
+none is to be built** — the one named exception to *Recurring failure
+patterns become CI guards* under *Standing rituals*: the rule adds a word
+where the honest answer is "I could not check" and a quotation where I did,
+and the review loop noticing is what enforces it. Where it bites: a review
+reply's prose (`pr-watch`), and every premise I supply in a brief to a
+dispatched judge (*Model, cost, and routing*).
 
 ## Two modes: feature-building (default) vs. bug-fixing
 
@@ -264,10 +319,13 @@ enactment is `.claude/skills/document/`.
    lists some of its items invites skipping the ones it omits. A plan specifies
    invariants, not implementation — applied line by line as I draft, not as a
    trimming pass afterwards.
-3. **The disclosure check runs before the FIRST PUSH of any plan document**, not
-   before the PR. This repo is public: a plan naming unpatched vulnerabilities,
-   auth-bypass specifics, secrets, payment-fraud paths, private customer data,
-   or embargoed plans stays on the private path.
+3. **A plan is never published, so the pre-push disclosure gate is gone**
+   (David, 2026-09-09): working tree, in-session peer, chat — no public
+   channel. What survives is narrower and still binding: a
+   `docs/plans/` file reaches `main` only if David asks, and **the disclosure
+   check runs before it does** — unpatched vulnerabilities, auth-bypass
+   specifics, secrets, payment-fraud paths, private customer data or embargoed
+   work never get committed. Directions are unchanged.
 4. **The scope-of-work gate opens the loop.** Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
    boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
@@ -276,13 +334,35 @@ enactment is `.claude/skills/document/`.
    ramifications, default **next**. A two-option scope question is a bug in the
    question. Override only when the current plan cannot be *correct* without the
    addition.
-6. **The plan-review PR is never merged and its branch is never reused for
-   implementation.** It is the plan's delivery surface, so no `SendUserFile` and
-   no Artifact page for a plan going through the loop; the private path is the
-   exception and I say when I'm on it. A `docs/plans/` file reaches `main` only
-   if David asks.
-7. **Genuine product/design forks escalate to David** as numbered questions. The
-   loop never settles product intent on its own.
+6. **Chat is the plan's delivery surface** (David, 2026-09-18, retiring the
+   private Artifact page of 2026-09-09, which in turn replaced the plan-review
+   PR). A readout per exchange; at approval, a short readout and then **the
+   complete plan**, in chat. No page, no HTML, no link — the same rule the code
+   loop already carries, and rebuilding one is forbidden rather than merely
+   unnecessary. `SendUserFile` for the plan document is **on request**: the ban
+   on it existed only because the page made it unnecessary. The plan file is
+   still pushed nowhere. **v1 is shown and the loop proceeds without waiting** —
+   it changes anyway.
+7. **Choices that change intended behaviour, scope, or an accepted user-facing
+   consequence escalate to David** as numbered questions carrying Astra's view
+   and mine side by side — never absorbed into a revision. **A purely technical
+   design fork is not one of them**: two approaches serving the same agreed
+   behaviour are ours to settle. (This rule opened with "genuine product/design
+   forks escalate" until 2026-09-18, which took back the tie-break it granted
+   six lines later — Astra caught the contradiction while assessing the change
+   that introduced it.) **A purely technical disagreement that survives
+   investigation and discussion is mine to settle**, with the reasoning recorded
+   and Astra not obliged to agree; I record it as `settled-over-dissent` so it
+   stays readable and revisable, and I name it in the approval ask. (This
+   replaces the two-consecutive-rounds escalation of 2026-09-09, which belonged
+   to a loop where a reviewer's verdict decided.)
+8. **Every exchange is relayed in plain English before the revision, never
+   after** — what Astra disagrees with, then one line per concern saying what I
+   am doing with it (act / leave it with the reason / bring to David). A clean
+   exchange still gets its readout: that independent opinion is the thing David
+   is otherwise reading blind without, and it arrives free with every exchange.
+   **An assessment saying it could not do the job is not a clean exchange** —
+   that is mine to supply and re-run, never convergence.
 
 Planning runs in my main loop end to end — continuous, stateful, judgment-dense,
 never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
@@ -294,160 +374,200 @@ never in question.** Everything below governs what may be layered on top.
 
 ### The write-gate rule (David, 2026-08-22) — every tier
 
-**If code was written, it gets reviewed. The loop stops when the adjudicator
-refuses to write more, never after a push.** Stated as the sequence: a round
-returns findings → the adjudicator rules *write* or *stop* → if write, the
-fixes are pushed and **another review round is automatic and mandatory** → if
-stop, the loop ends right there, on a head the last round already reviewed.
+**If code was written, it gets reviewed. The loop stops when the judgement is
+that nothing more is worth writing, never after a push.** Stated as the
+sequence: a round returns findings → the judgement is made, *write* or *stop*
+→ if write, the fixes are pushed and **another review round is automatic and
+mandatory** → if stop, the loop ends right there, on a head the last round
+already reviewed. **That judgement is shared and nobody's alone** (#96): Astra
+and a Fable assessor advise independently on every round that returns findings,
+before anything is written for them, and I decide from the two. See *Shared
+judgement on a review round* below.
 
 Two invariants, and they are the point: **no commit ever merges unreviewed**,
 and **a loop always terminates on a reviewed head** — because the stop happens
-before any new commit exists. The exit ramp from eternal looping is the judge
-refusing to *write*; it is never anyone skipping the review of something
-written.
-
-This supersedes the 2026-08-21 design, whose internal tier deliberately ended
-with the last fixes unreviewed and carried machinery to make that mergeable (a
-mid-budget terminal receipt, a distinct-commit proof, a rail look-through).
-All of it is deleted rather than fixed: it existed to make an unreviewed head
-safe, and an unreviewed head is now simply never mergeable.
+before any new commit exists. The exit ramp from eternal looping is the
+judgement that nothing more is worth *writing*; it is never anyone skipping the
+review of something written.
 
 **What this costs, chosen rather than discovered:** fixing even a typo costs a
-full round. So the adjudicator's real question is no longer "another round?"
-but **"is this finding worth writing code for at all?"** — and on internal
-tooling most are not. They ship as recorded gaps.
+full round. So the real question at every round is no longer "another round?"
+but **"is this finding worth writing code for at all?"** — answered by
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md), which is the
+only statement of that test and sets no target rate in either direction. This
+paragraph used to predict that most internal findings ship as recorded gaps.
+That is a decline rate wearing a prediction's clothes, two paragraphs above the
+text retiring it, and it is gone with the rubric it survived.
 
-### Internal tooling: the strict rubric
+### Internal tooling: what is downstream
 
 Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
 docs and harvests run the loop above with the **`internal` tier**:
 
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
-  finding nothing, it needs no budget, no receipt, no adjudication — the merge
-  receipt accepts an automatic pass covering the head.
-- **Rounds 1–2 findings are triaged and written for**, then re-requested —
-  the same cadence as every tier (below); declare `--tier internal` at the
-  first re-request.
-- **Round 3's findings go to the adjudicator, before anything is written.**
-  The record's tier selects the **internal rubric**: write only for a very
-  high chance of a CRITICAL flaw (a destructive or irreversible action,
-  corruption of the receipt/tracking machinery, a widening of my authority).
-  Everything softer ships with gaps recorded.
-- **Budget 3, two-tier tripwire like every tier** (David, 2026-08-26,
-  superseding straight-to-David-at-3): the adjudicator's grants self-serve
-  to at most round 6, where the David gate stands.
+  finding nothing, it needs no adjudication and no receipt — nothing was
+  written, so the head is already reviewed.
+- **Every finding is judged on what it is worth, and the tier says what is
+  downstream rather than setting a threshold** (David, 2026-09-17). The old
+  rubric here reserved a write for "a very high chance of a critical flaw" and
+  declined everything softer; that is a decline quota, the mirror image of the
+  fix quota it was built to correct, and both are gone. What internal tooling
+  means for the judgement is that nobody's money or data is downstream, so a
+  consequence is weighed by its effect on David's ability to direct agents and
+  understand results — **including recurring reversible disruption**, which
+  costs him real time even though each incident is individually recoverable.
+  The rule itself is
+  [`review-judgment.md`](../../docs/ai-context/review-judgment.md).
 
-One triage pass and one-line declines still govern engagement, harvests still
+Harvests still
 get no harvest ceremony, and internal tooling still ships with rougher edges as
 an accepted trade — its failure mode is wrongly-blocking, which announces
-itself, and `main`'s real protection is GitHub's server-side ruleset.
+itself, and `main`'s real protection is GitHub's server-side rulesets.
 
-### Product loops: budget, then an external judge
+### Shared judgement on a review round
 
-1. **Declare the budget before round 1** — `product` (5 rounds) or `sensitive`
-   (5 rounds; auth/payments/migrations); internal tooling declares `internal`
-   (3 rounds) at its first re-request rather than before round 1, per the
-   section above. The tier picks the number:
+**Two independent assessments, and neither of them commands me** (David,
+2026-09-17, replacing the binding-disposition design of the day before).
+Codex returns findings; **Astra** and a **Fable assessor** each read the same
+findings, the same agreed intent and the same revision, separately, and each
+says what is actually wrong and whether acting on it is worthwhile.
 
-   ```
-   node scripts/review-budget.mjs declare --pr <n> --tier <product|sensitive|internal> \
-        --criticality <1-100> --artifact "<what is under review>"
-   ```
+What this fixes is measured in both directions. Triaging alone, I wrote code
+for nearly every finding, because declining was harder to write than fixing —
+41 findings and 41 fixes on #109. The first attempt to fix that told the judge
+to decline most findings, which is the same quota facing the other way. **There
+is no target rate in either direction.** The measure is whether David can see
+what mattered and why the response was proportionate.
 
-   State the budget in the PR body too. Receipts are committed **and pushed** —
-   they are read from the remote-tracking ref, so an unpushed receipt does not
-   exist. Before each `@codex review` post, capture a snapshot and run
-   `node scripts/review-budget.mjs check --pr <n> --mcp-snapshot <file>`, which
-   writes the one-post round-check receipt the guard demands. **The round count
-   is never stored — it is counted fresh from GitHub every time.** A committed
-   tally is a cache of state GitHub already holds, and it failed exactly that
-   way when it was tried.
+The loop:
 
-2. **From round 3 onward, dispatch the external adjudicator on any round
-   that returned findings — before anything is written for them** (David,
-   2026-08-22, superseding the 2026-08-20 beyond-the-first cadence). Rounds
-   1–2 findings are triaged and written for by default, because the judge
-   would have nothing to decide there: the loop ledger's 41 reviewed loops
-   contain **zero clean round 1s** and three round-2 convergences, so a
-   dispatch before round 3 only ever says "write" — the dead criticality
-   gate reborn. Round 3 heads the measured runaway tail (26 of 41 loops ran
-   4+ rounds), which is exactly where the one dispatch pays. A clean or
-   all-declined round at any point ends the loop with no dispatch — nothing
-   was written, so the head is already reviewed. Dispatch mechanics: agent
-   type `review-loop-adjudicator`,
-   passing **no** per-invocation `model` or `effort` — its definition declares
-   both (`best`/`xhigh`), and a per-invocation model would outrank and re-pin
-   them. Its only input is the script-generated record
-   (`node scripts/review-loop-record.mjs --pr <n> --mcp-snapshot <file>
-   --write`), never the loop's own prose and never a case for continuing
-   written by me. It returns continue / stop / split-to-David, and **its verdict
-   decides** — I don't weigh it or adopt the parts I like. The verdict is one
-   line in the **separate defanged context comment**, never in the trigger
-   comment (which stays bare, per interaction rule 11) and never a file:
-   per-round receipts would rebuild the receipt machinery this replaced.
-   The one exception is a verdict at a tripwire — the extension decision at
-   budget exhaustion, and the recommendation committed at a David gate —
-   written to the committed receipt the guard consumes. (The
-   internal-tier mid-budget receipt added on 2026-08-21 is gone with the
-   write-gate rule: a stop now precedes any new commit, so there is no
-   unreviewed head for a receipt to unwedge.) The loop executes; the external judge
-   judges. All in-loop self-refereeing is gone — the criticality gate, count
-   trend, growth tripwire and oscillation diagnosis were 0-for-15 at stopping
-   loops and the budget replaced them.
+1. Both assessments are dispatched on the same package and posted on the PR
+   verbatim, each under a header naming the pull request, the revision and the
+   findings. I never summarise one away.
+2. **I investigate disputed facts myself**, in the repository and the tests,
+   rather than asking anyone to settle something a few tool calls answer.
+3. **A focused follow-up to Astra costs no commit and no Codex round** — the
+   disputed recommendation, Fable's reasoning, the new evidence and the exact
+   question. Everything it is not asked about keeps its status, including
+   questions still waiting on David.
+4. **A purely technical disagreement that survives is the Fable assessor's to
+   settle**, with its reasoning recorded. Unanimity is not required and Astra
+   does not have to agree.
+5. **Intended behaviour and accepted user-facing shortfalls are David's** —
+   including his own use of the software factory. Agent agreement never
+   substitutes for his answer, and a clean later round never clears a question
+   he has not answered.
+6. I implement what is agreed and verify the failure class across materially
+   different paths, not just the reviewer's example.
 
-3. **At budget exhaustion the adjudicator owns the extension**, including its
-   size, naming the specific unaddressed behavioral risk it covers — an
-   *actual* one, in this loop's territory. "The last round's fixes are
-   unreviewed" is no longer available as that risk and no such flag exists in
-   the record: under the write-gate rule the round reviewing any pushed fixes
-   has already run before the judge is dispatched.
-   **The David gate: budget + 3 rounds, on every tier** (David, 2026-08-26,
-   superseding the 2×-budget hard stop and sensitive's stop-for-him-at-5).
-   Adjudicator grants self-serve at most that 3-round leash; at the gate the
-   same fresh adjudication runs and its verdict goes to David as a 🛑 —
-   his call on its recommendation, with a push notification — rather than
-   taking effect on its own. His answer is the `david`-kind receipt: a grant
-   opens exactly that many more rounds (default: another 3-round leash, the
-   gate repeating where it runs out), 0 endorses stopping. Every finite
-   grant carries `asOf` — the completed-round count when he granted; the
-   guard refuses a receipt without it — and opens exactly `asOf + grant`,
-   so a **direct** mid-stage grant discards the interrupted stage's
-   unspent remainder, never stacks under his rounds. A direct **stop**
-   (grant 0 before any gate receipt exists) also cites its own mechanical
-   record, which is what keeps the merge gate satisfiable. **The exception
-   that skips the leash entirely: a product decision.** A product-shaped
-   blocker — the adjudicator's `escalate`, or my own recognition that a
-   finding is product-not-mechanical — goes to David immediately, at any
-   round, and is never ground through mechanically. **A mechanical round is
-   mine to grant** — the head moved only by bookkeeping (receipts, records,
-   machinery config, a merge of the base branch), no finding is being written
-   for, and no review or verdict is pending. Under budget I just request the
-   pass; only at an exhausted allowance do I commit a `david`-kind receipt
-   (`grant 2`, `asOf` the completed count) citing his standing grant of
-   2026-09-07, then request the pass so it covers the receipt. Once per loop.
+- **The oracle is agreed with David before the first round runs.** The script
+  refuses to compose a package without one, which is what makes the agreement
+  happen up front. **My PR body is my own prose and is never the oracle.**
+- **What happens next is what I state, in a `review-action` block.** Nothing
+  parses an assessment, so no phrase in one can authorise work.
+- **A failed dispatch is not permission to proceed on one assessment alone.**
+  It is reported in plain English and the round stops.
+- **Both assessors read the live checkout, so the dispatch refuses unless the
+  tree is at the reviewed commit and clean.** Advice about code the reviewer
+  never saw is worse than no advice.
+- **A loop stops at six hours and asks David to resume.** The clock is **the
+  PR's `created_at`, or David's last explicit resume, whichever is later** — one
+  quantity, readable from GitHub, needing no judgement about what counted as
+  attended. Expiry pauses and asks; never convergence, never an automatic
+  extension.
+  **This rule was written on #120 and #120 was its first counter-example.** Its
+  earlier form said "six hours of unattended wall-clock" and, in the same
+  breath, "read from the PR's age" — two different quantities, so it could not
+  be obeyed as written and was never once consulted across seven rounds. A
+  stopping rule whose reading is arguable is one I will argue with, which is the
+  same lesson the flip-condition rule already carries: **name an observable, not
+  an adjective.**
+
+The judgement itself — the Worth rule both assessors and I apply — is
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md), and that file
+is its only statement. Mechanics: `core/scripts/review-proxy.mjs` here,
+`scripts/review-proxy.mjs` in a consumer. Astra's brief is
+`core/.agents/roles/review-proxy.md` here and `.agents/roles/review-proxy.md`
+in a consumer; the Fable assessor is an agent definition; both are read
+verbatim into every dispatch.
+
+### What the #89 cut removed from this section, and what replaced it
+
+**Nothing replaced it, which is the change** (the audit, David 2026-09-16).
+Three rules stood here: a round budget declared per PR and enforced by a guard,
+an external adjudicator dispatched per round whose verdict decided from round 3,
+and an extension/David-gate arithmetic on top of both. With them went committed
+receipts, extension grants, a round-count cache, a merge-readiness receipt and a
+translation-delivery gate.
+
+Measured over PR #91's ten rounds, not one of them changed a decision: every
+trip to David happened on substance, the budget's `check` command was never run,
+the readiness receipt never ran at all, and the delivery gate's only firing was
+on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
+without making it *shorter*.
+
+**What decides a loop's length now is rules 4 through 6 below** — a behavioural
+change before a re-request, pre-registered flip conditions, and the worth test
+at triage, which lives in
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md). **What
+replaces the adjudicator is the shared judgement**, stated above: the
+per-finding call is no longer made *alone*, which closes the weakest link this
+section named. It is still mine — two assessments advise and I decide from
+them. An earlier draft of this sentence said the call was "no longer mine",
+which is the binding-verdict design David replaced on 2026-09-17, left standing
+in the file that every session loads.
 
 4. **No re-request without a behavioral change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
-   as behavioral; rule 3's mechanical round is the one exception. **Every review request carries pre-registered flip
+   as behavioral; **a mechanical round is the one exception** — the head moved
+   only by a merge of the base branch, nothing is being written for, and no
+   review is pending. That round is mine to request without a behavioural
+   change, because the write-gate rule needs every head reviewable and this
+   rule would otherwise make a merge-commit head unreviewable and so
+   unmergeable.
+   (The definition used to live in a rule 3 the #89 cut removed, along with the
+   receipt arithmetic that was the rest of it.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
-   written before the round runs. This is the only judgment-shaped device with a
+   written before the round runs. This is the only stopping device with a
    working record, and it works because it collides with an event instead of
    waiting to be recalled.
+   **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
+   2026-09-13): something read off the round, not something I decide in the
+   moment having just read the finding. **A condition I have to interpret is
+   one I will reinterpret** — measured one loop each way, #83 and #85. Shapes
+   and that evidence: `pr-watch`.
 
-5. **Triage every finding: fix / accept-and-document / escalate**, stated
-   explicitly. Codex marks everything "Required Revision" because that is its
-   job; treating that as automatically meaning *fix* is how a GitHub label write
-   ended up with compare-and-swap semantics. Product/design forks, scope
-   additions, splits and disclosure questions go to David.
+5. **Triage is a shared judgement, and the rule it applies lives in one
+   file.** [`review-judgment.md`](../../docs/ai-context/review-judgment.md) is
+   the Worth rule — the same words Astra, the Fable assessor and I apply, and
+   the only statement of it. Never restate it here or in a skill; point at it.
+   Codex marks everything "Required Revision" because that is its job, and
+   treating that as automatically meaning *fix* is how a GitHub label write
+   ended up with compare-and-swap semantics.
+   What is mine rather than the rule's: **the class-level discipline is the
+   part I most often get wrong in my own favour**, so
+   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
+   carries what it cost — a decline scoped to the reviewer's example rather
+   than to the class the example belongs to reads as careful engineering while
+   resting on a boundary nobody drew. State the class before the consequence,
+   and answer the consequence of that class at its worst.
+   Product and design forks, scope additions, splits and disclosure questions
+   go to David, as do intended behaviour and any shortfall he or a user would
+   feel.
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in
    a batch. No standalone summary comment in place of per-thread replies.
-   **Every reply carries `Class:` / `Oracle:` / `Result:`** — the command ran
-   before the reply was written, and its real output is transcribed. A reply
-   missing those lines is malformed and doesn't get posted; declines included,
-   because declining without an oracle asserts the class is empty without
-   looking. Shape and the two escape valves: `pr-watch`.
+   **Every reply says its outcome in plain words in its first sentence, names
+   the failure class it is answering, and cites the assessment it rests on.**
+   Evidence is proportionate to the stakes and distinguishes what I inspected
+   from what I was handed; a load-bearing claim is still quoted or marked, per
+   the rule above. **There is no fixed line count and no mandatory command on a
+   decline** (David, 2026-09-17, retiring the four-line `Class:` / `Worth:` /
+   `Oracle:` / `Result:` form of 2026-09-10): that form made declining more
+   burdensome to write than fixing, which is the asymmetry this whole section
+   exists to remove. Where a command genuinely settles the question, it still
+   runs before the reply is written and its real output is transcribed.
 
 ### Watching the PRs I open
 
@@ -462,6 +582,38 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
   call) and decide from that. Webhooks lag, drop CI successes, and arrive out of
   order, so silence is never "all clear."
 
+**Every code-review round is translated for David, after its trigger is
+posted** (David, 2026-09-12): Fable reads the round itself — findings, my
+replies, the diff — not my account of it. **After, never before** — a
+translation I could act on is an in-loop advisor reading my own prose. **Every
+round is delivered before the merge, the stopping round included.**
+
+**The delivery is a message in chat, and there is nothing else** (David,
+2026-09-16). `chatReport` composes it from the answer's own fields and I paste
+that verbatim, saying nothing else about the round. **No page, no Artifact, no
+HTML, no link, no receipt store** — and rebuilding any of them is forbidden
+rather than merely unnecessary. There *was* a page, and #109 round 3 found what
+it actually was: HTML written to a gitignored path, so the delivery was a file
+nobody could open while this contract claimed a link that never existed. Three
+of that round's four findings were the inside of that hole. David reads chat and
+uses it well; a page is something he would have to go and open, and building a
+delivery system for one agent telling him the answer is undoing the #89 cut by
+hand.
+
+**Fable fetches the round from GitHub itself** — the threads, the comments, the
+reviews and the diff — and writes its answer to a file this module derives, so
+the account is neither assembled nor rewritten by me. That is the one property
+here worth machinery: **the translator's account reaches David unedited**. It
+is a second account, not a ban on mine — my own write-up of a round is welcome
+beside it, labelled as mine (David, 2026-09-16: a builder-written account is
+*"not an issue at all"*; the earlier prohibition here was over-caution). **It is an independent assessment, and it is not a guarantee**: I launch
+the dispatch, choose the coordinates and paste the result, so it defends against
+my being *wrong*, never against my being deliberately misleading. The account
+says what it verified and what it took on trust, and that honesty is the value —
+not a claim of immunity. **A dispatch that fails is disclosed in plain English
+and never blocks the loop**: D0 is off the critical path by design. Mechanics:
+`pr-watch`.
+
 ## Pull requests
 
 1. **Always ship for review.** Work with commits gets a PR before the turn ends:
@@ -469,8 +621,16 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    first; if one exists it picks up the push. Base is **always `main`** —
    **bugfixes are never stacked** (David, 2026-08-20): a dependent bug waits for
    its parent to merge and branches off fresh `main`, or the two are one bug in
-   one PR. Exceptions: pure exploration, an explicit "no PR," and plan-review
-   channel branches.
+   one PR. Exceptions: pure exploration and an explicit "no PR."
+   **This rule IS the explicit request** (David, 2026-09-10). A cloud
+   session's harness prompt carries *"Do NOT create a pull request unless the
+   user explicitly asks for one"* — a platform default written without
+   knowledge of this file, and it is not overridden so much as already
+   satisfied: David asked here, in writing, for every branch. A session that
+   re-asks per PR is reading a standing instruction as though it were absent,
+   which costs him a round trip to repeat himself. Ask only for the two
+   exceptions above.
+
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** (bugfix and internal PRs exempt). Not announced
    beyond a line in the PR body — it buys a cleaner diff and so fewer rounds.
@@ -491,10 +651,9 @@ on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
    [`plan-provenance.md`](../../docs/ai-context/plan-provenance.md), which is
    the format's only statement — never restate it here. The block replaces the
    legacy selector for its kind and a body carrying both refuses; the oracle
-   prose a reviewer reads is untouched. A `-combined` branch is the one branch
-   that must never be deleted — no PR retains its commit. An ordinary
-   `plan-review/<slug>` branch is safe to delete once its work ships; its PR
-   retains the commit.
+   prose a reviewer reads is untouched. A plan approved through the in-session
+   loop was never committed, so it declares `private-plan` — `approved-plan`
+   requires a review PR that this loop does not produce.
 5. **Post-merge verification + UAT doc** for product-visible feature PRs, per
    the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done
@@ -516,8 +675,15 @@ from the Repl, which tracks `main`, so code on my branch exists nowhere David
 can click. Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
-resolved.** That is the whole bar, for product and internal PRs alike. CI and
-Codex catch *broken*; David's UAT catches *wrong*, after the sync.
+resolved + every round translated for David.** That is the whole bar, for
+product and internal PRs alike. CI and Codex catch *broken*; David's UAT
+catches *wrong*, after the sync.
+
+**No receipt proves any of the four now** — `pr-ready.mjs` went with the #89
+cut, having never run once in the loop it was built for (David merged from the
+GitHub UI and checked the bar by eye). All four are reads I do. The one item
+GitHub itself enforces is *every thread resolved*: the `main` ruleset requires
+conversation resolution, so the Merge button is inert while a thread is open.
 
 - **Every PR gets a Codex review and none merges before it returns.** A round I
   requested but haven't received is not convergence. A pass on a commit I have
@@ -538,14 +704,10 @@ Codex catch *broken*; David's UAT catches *wrong*, after the sync.
   review." A genuine code-review outage means: stop building, tell David
   immediately as a 🛑 with a push notification, say which PRs are blocked and in
   what state, and wait. Noticing recovery is not permission to restart.
-- **The bar is established by a receipt, not recollection**:
-  `node scripts/pr-ready.mjs --pr <N> --snapshot <file>`. The merge tool is
-  hooked on it. A readiness claim to David quotes the receipt block verbatim —
-  for a carve-out PR no hook sees his click, so the receipt is the whole
-  control. (What it does **not** prove: that every requested round came back. A
-  permitted retry needs no push, so two requests can name one commit and a
-  single pass satisfies both. When I have retried a stalled round, that is mine
-  to check by eye.)
+- **Two things no gate ever proved, and they are still mine to check by eye.**
+  That every requested round came back — a permitted retry needs no push, so
+  two requests can name one commit and a single pass satisfies both — and that
+  the pass I am reading covers the head that would merge.
 
 **The sequence:**
 
@@ -574,59 +736,103 @@ Codex catch *broken*; David's UAT catches *wrong*, after the sync.
    **Nothing follows the merge report** — it is the message that hands the
    turn back.
 
-**Carve-outs that still wait for David's click:** any PR that **widens my own
-guardrails or authority** — `.claude/guard.sh`, `.claude/settings.json`
-permissions, a CI check that exists to constrain me, or a working-contract
-change granting me new autonomy. I may *propose* such a change; his merge is the
-entire control, and it is the only thing standing between "propose a wider
-grant" and "hold one." I flag these David-merge-only at open. Also:
-`[PLAN REVIEW]` PRs are never merged, and publishing is never automatic. If I'm
-unsure whether a PR is a carve-out, it is.
+**No PR waits for David's click** (David, 2026-09-14, retiring the
+guardrail-and-authority carve-out: the click was never once withheld and cost
+a round trip every time, the safety net is his working beside me and noticing,
+and everything here is reversible). A change to `.claude/settings.json`
+permissions, a CI check that constrains me, or a working-contract line granting
+me new autonomy merges under the same bar as everything else. **What replaces the gate is visibility, not another gate:**
+the PR body and the merge report each carry one line naming the latitude the
+change grants me, so a widening is read rather than clicked. Unaffected: the
+harness classifier that refuses my in-place edits to guard files, which is the
+platform's layer and not this contract's. Publishing is still never automatic.
 
 **A failed UAT is a follow-up PR, not a crisis.** Fix forward on a fresh branch.
 A revert is only for a `main` that is actually broken.
 
 ## This environment's git constraints
 
-Three layers, in order of authority: the **harness classifier** refuses to let
-me edit my own guardrails (deliberate — I may propose a guard change in a PR
-David merges, never apply one unilaterally, and a blocked guard edit is the rule
-working); **GitHub's ruleset on `main`** (block force pushes, restrict
-deletions, require linear history, require a PR, require status checks) —
-server-side, and binding on **me** in every shape I can push. **It is not
-binding on David**: his own direct-push path to `main` through Replit's Git
-pane lands, settled 2026-08-09 and documented in
+Two layers, in order of authority: the **harness classifier** refuses to let me
+edit my own guardrails in place (the platform's layer, unaffected by the
+close-out change above: a guard change goes through a PR like any other, and a
+blocked in-place edit is that layer working); and **GitHub's rulesets**,
+server-side, binding on **me** in every shape I can push **to the branches
+they target**, and on no other branch.
+
+On `main`: block force pushes, restrict deletions, require linear history,
+require a PR, require status checks, require conversation resolution (that
+last is what makes the Merge button inert while a thread is open, in
+*Close-out* above). On `claude/**`: **block force pushes**
+(#94, created and verified 2026-09-16 — `--force-with-lease` on a probe branch
+was refused with GH013, and a plain push of a further commit landed). On **all
+branches**: block force pushes (David, 2026-09-16, #106 — the namespace gap the
+two rulesets above left).
+
+**They are not binding on David**: his own direct-push path to `main` through
+Replit's Git pane lands, settled 2026-08-09 and documented in
 [`replit-environment.md`](../../docs/ai-context/replit-environment.md). So never
 predict that a push of his will be refused, and never read a `Replit Agent`
 commit on `main` as evidence something broke — that inference is exactly the
 false alarm recorded in
 [`replit-direct-push-to-main-is-sanctioned.md`](../../.agents/memory/replit-direct-push-to-main-is-sanctioned.md).
-And **`.claude/guard.sh`**, whose jobs are making the
-lease mandatory on my own branches and refusing `curl`/`wget`. The ruleset does
-**not** target `claude/*` or `plan-review/*`, so on those branches the hook is
-the only line, and both its jobs live in `guard-decision.mjs` and are absent
-from the node-unavailable fallback.
+
+**There is no local shell guard any more.** `.claude/guard.sh` and its parser
+were removed in the #89 cut (#94): no accidental destructive command is
+recorded anywhere in the fleet's history, the only force-push event on file is
+one where the guard *prevented* fixing a corrupted commit message, and the
+repo's own archive names a hand-rolled parser chasing a real language's syntax
+as a losing shape. What it refused is now covered without a parser — force
+pushes on every branch by the rulesets above, `drizzle-kit push` by
+`permissions.deny`, `curl`/`wget` by the agent proxy, and a root `rm -rf` by
+the ephemeral container. **The swap left a namespace gap for one day and it is
+closed**: the guard was scoped to no namespace, the first two rulesets were
+scoped to two, and an all-branches ruleset now covers the rest (David,
+2026-09-16).
+
+**I never force-push, and no flow of mine needs to.** That is the rule, and it
+stands on its own: it is stated as a rule about me rather than as a fact about
+the server, because a contract that leans on "the server won't let me" retires
+the habit that is doing the work — and the habit is what covers a repo whose
+rulesets are not yet configured.
+
+**It is also mechanical now, on every branch.** David blocked force pushes on
+all branches in all repos (2026-09-16), closing a gap the #89 cut had opened
+for a day: the guard was scoped to no namespace, and the rulesets that replaced
+it reached only `main` and `claude/**`, leaving a runner-assigned branch under
+any other prefix unprotected. **What is measured is the refusal on `claude/**`**
+— `--force-with-lease` on a probe branch, GH013, #94. The all-branches ruleset
+is applied but has not been separately probed; if that distinction ever matters,
+a probe branch outside `claude/**` settles it, and nothing in my flows depends
+on the answer.
+
+**The one shape that would need a force push**, so it is not rediscovered as a
+surprise: restarting a branch in place, under the same name, before it has
+merged. The remedy is a new branch name and a new PR. Every other case has an
+answer that never rewrites history — squash-merge handles rebasing and commit
+messages, rotation rather than rewriting handles a leaked secret (a rewrite
+does not unpublish it), and `git checkout -B <branch> origin/<branch>` handles
+a diverged local copy.
 
 | Command | Result |
 |---|---|
-| `git push --force-with-lease origin <claude/…\|plan-review/…>` (explicit refspec) | **works** — the only permitted force shape |
-| bare `--force` / `-f` / `--force-if-includes` / `--mirror` | blocked everywhere |
-| any force push at `main` | blocked twice (guard, then ruleset) |
-| `--force-with-lease` with no refspec | blocked — the guard can't see my upstream |
-| an otherwise-permitted force push with `2>&1` appended | blocked. **Known, accepted, not to be fixed** — drop the suffix; `\| tail -3` and `>/dev/null` are fine |
+| any force push, any shape, any branch | blocked by a ruleset |
+| a plain push of new commits to `claude/**` | **works** — this is every flow |
 | `git reset --hard` | works (cannot reach the remote) |
 | `git push origin --delete <branch>` | does **not** work (proxy hangs) |
 | `git checkout -B <branch> <ref>` | works — my reset primitive |
 
-**Never rewrite pushed history unless publishing it with `--force-with-lease`.**
+**A bad pushed commit gets a corrective commit.** That is the whole remedy, and
+it is what the record already prescribed. **Never rewrite pushed history.**
 Rebasing "to sit on top of main" is unnecessary — squash-merge 3-way-merges
 against current `main` at merge time.
 
 - **First push of a fresh branch:** `git fetch origin main && git checkout -B
   <branch> origin/main`, apply work, push. Also how I restart a branch whose PR
-  squash-merged. **That same fetch carries the Replit sweep** — one bounded
-  command, `git log --author="Replit Agent" --since="14 days ago" --oneline
-  origin/main`, and I read anything it names that isn't already reviewed.
+  squash-merged — a plain push, because GitHub deleted the merged branch and
+  there is no history to overwrite. **That same fetch carries the Replit
+  sweep** — one bounded command, `git log --author="Replit Agent"
+  --since="14 days ago" --oneline origin/main`, and I read anything it names
+  that isn't already reviewed.
   **Bounded by time, never by commit count**: `-3` was the first shape and it
   silently drops the fourth commit of a busy week, which is the one failure a
   sweep cannot afford — a missed commit is indistinguishable from a swept one. Without this the
@@ -636,8 +842,8 @@ against current `main` at merge time.
 - **Follow-up on an already-pushed branch:** add commits and plain-push. If the
   branch genuinely needs newly-landed `main`, **merge, never rebase**.
 - **If local has diverged accidentally:** realign with `git checkout -B <branch>
-  origin/<branch>` and continue; only publish the rewrite with
-  `--force-with-lease` when the rewrite is what I want to keep.
+  origin/<branch>` and continue. There is no way to publish the rewrite, so the
+  local copy is what yields.
 
 Only ever to my feature branch, never `main`. `git diff origin/main HEAD --stat`
 shows the true delta.
@@ -648,9 +854,11 @@ shows the true delta.
    waiting for, **end the turn**, and on the wake-up check the actual condition
    via the matching `mcp__github__*` call — `pull_request_read`/
    `get_check_runs` for CI, `get_reviews` for a review landing, `get` for merge
-   state, `issue_read` for labels. **Never poll GitHub from bash**: `curl`/
-   `wget` are refused by the guard and no other bash transport returns usable
-   data (see
+   state, `issue_read` for labels. **Never poll GitHub from bash**: the agent
+   proxy answers `curl` with its own 403, Node `fetch` bypasses the proxy and
+   gets a 403 or 401 from the real API, and no other bash transport returns
+   usable data. **A poll loop built on any of them does not fail — it returns
+   nothing and sleeps, which looks exactly like "still waiting"** (see
    [`github-rest-api-blocked-from-bash.md`](../../.agents/memory/github-rest-api-blocked-from-bash.md)).
    Short foreground sleeps run; long ones are blocked.
 2. **Scheduled check-ins** are allowed only while waiting on a **named external
@@ -701,20 +909,40 @@ shows the true delta.
   judgment is mine, verification of my own work, a Tier B fix, or a `/document`
   harvest (its first source is *this session's* decisions, which a cold worker
   doesn't inherit).
-- **Adjudications and bounded judgements dispatch at the strongest available
-  tier, named once in the agent's own definition** — the per-round review
-  adjudicator is the live case. A dispatched verdict **decides**; if I
-  think it's wrong that's a disagreement for David, not license to overrule.
+- **Bounded judgements dispatch at the strongest available tier, named once in
+  the role's own definition and resolved through `.agents/machinery.json`** —
+  the plan reviewer and the review proxy are the two live cases, both resolving
+  `strongestCodex`. (The `review-loop-adjudicator` agent that stood here was
+  removed by the #89 cut.)
+  **Both loops' assessments advise; neither decides** (David, 2026-09-18 for
+  planning, 2026-09-17 for code review). I weigh them, investigate disputed
+  facts myself, and decide. On a planning exchange the next action is something
+  I state in a `plan-action` block, never something inferred from an
+  assessment's wording; a purely technical disagreement that survives discussion
+  is mine to settle with the reasoning recorded. On a code round the same holds
+  under *Shared judgement on a review round*, where the Fable assessor settles
+  the surviving technical tie. In both, what is reserved for David stays his.
+  (The planning assessment used to decide, and overruling it was a disagreement
+  for David; that was the verdict-driven design the 2026-09-18 redesign
+  replaced.)
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
   the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
   premise produces a confidently wrong verdict** — so pin the commit the
   question is about, check my working tree matches it when the question is about
   a tree, and tell the judge to verify load-bearing premises rather than taking
-  them from me. When a verdict rests on a false premise I supplied, I correct
-  the *input* and re-ask; I never overrule the *output*.
+  them from me. **Every factual premise I supply in a brief** — in the
+  oracle, the lens, the priors, the pinned commit — **is itself written
+  under *A load-bearing claim is quoted, or it is marked unverified***: a
+  quoted signature or output, or `unable to verify:`, so the judge can read
+  which of its inputs was measured. A lens is a chosen emphasis, a
+  judgement; only the facts it rests on are premises. The standing text a
+  dispatch script emits is the script's claim, reviewed when the script is.
+  When a verdict rests on a false premise I supplied, I correct the *input*
+  and re-ask; I never overrule the *output*.
 - **An unclassified judgement does not dispatch.** It runs in my main loop, and
   encountering one is a signal to classify it in a PR — not to decide in the
-  moment. Adding or removing a dispatch bar is a contract change David merges.
+  moment. Adding or removing a dispatch bar is a contract change, shipped
+  through the ordinary PR path.
 - **I announce every subagent dispatch and why**, in both directions. Silent
   routing is the failure mode.
 - **`effortLevel`** in `.claude/settings.json` (`low`–`xhigh`) is a real cost
@@ -726,6 +954,39 @@ shows the true delta.
   `search_*` and paginate 5–10. Same cadence as ever — cheaper calls, not fewer
   checks. When a David-prompted re-check finds nothing, I say so; when the check
   was mine (a scheduled wake, a webhook echo), silence wins.
+
+- **Fable dispatches as a subagent whose instructions I do not write.** The
+  role is an agent definition under `core/.claude/agents/`, loaded by the
+  harness; I pass only the round's coordinates. **A `tools:` list there is a
+  hard upper bound** — measured 2026-09-16: an agent declaring four tools held
+  exactly those plus the injected `SubagentHandback`, with no `Write`, no MCP
+  and no `ToolSearch`. That makes **which** tools a role holds a real boundary
+  rather than an asserted one, and `fable-dispatch.mjs`'s remaining 1,300 lines
+  — which defended against my tampering with the second Claude — went as a lock
+  on the same ring under the 2026-09-11 rule.
+  **It bounds which tools, never where they reach.** A path specifier in a
+  `tools:` list is not honoured: the documentation says a specifier in a
+  subagent's tool config removes the whole tool rather than narrowing it, and
+  what an *allow* specifier grants is undocumented — so writing one may grant
+  nothing and break the role silently. A tool list is therefore never described
+  as read-only while a write tool is on it. I did exactly that on #109, naming
+  the tools absent from the list and not the one present that contradicted the
+  claim.
+  **Two things that costs, named rather than buried:** the old dispatcher
+  *observed* the model and refused on a mismatch, and a subagent cannot, so the
+  model is **disclosed** and a mismatch prints in the chat report. And **agent
+  definitions are cached, in two ways that both look like something else.** A
+  newly added type is not dispatchable immediately — measured 2026-09-16, a
+  dispatch minutes after the definition was written failed with `Agent type not
+  found` and the same type worked later in the same session, no restart; a
+  refusal there means wait, not that the definition is wrong. And an **edit** to
+  an already-loaded definition may not be served either: the same day, a
+  dispatch after a frontmatter change ran against the old definition, and
+  without a control it would have been recorded as a measurement of the new one.
+  So **a probe of a definition change carries a freshness token planted in the
+  same edit** — without one, a stale definition is indistinguishable from the
+  result being looked for, and the probe silently measures the thing it
+  replaced.
 
 ### Subagent delegation is capped
 
@@ -775,6 +1036,54 @@ Authorization boundaries — the mechanics live in
   `update_app_using_prompt` carrying the checks and an explicit read-only
   instruction, wait a few minutes, then `ask_question` for the results.
 
+### Astra (Codex CLI)
+
+**"Astra" is the `strongestCodex` tier in `.agents/machinery.json` — today
+ChatGPT's `gpt-6-astra` at `xhigh` — reached through the OpenAI Codex CLI
+(`codex exec`) running in this container, signed in per session by device
+code** (David, 2026-09-17). It is the reviewer the in-session plan loop already
+runs, and both uses resolve the same pin, so a consumer with a different pin or
+a later model upgrade still means one reviewer by the name; the resolved id is
+what a report names. When David asks for an **"Astra review"** he means that
+reviewer on the artifact at hand: a plan, through the `plan-review-loop` skill
+and its script; or a code-review round, through `review-proxy.mjs`. Both run
+`codex exec` in a read-only sandbox and read the answer from
+`--output-last-message`; one copy of those flags lives in `machinery.mjs`,
+because two copies of `--sandbox read-only` is two chances for one of them to
+stop being read-only. **Both uses come back as Markdown a person reads, and
+both advise**; what differs is where the next action is stated — a
+`plan-action` block on a planning exchange, a `review-action` block on a code
+round — and who holds the tie-break on a technical disagreement that survives
+discussion. This sentence used to say a plan assessment was JSON against a
+fixed contract surface and *decided*: the verdict-driven design the 2026-09-18
+redesign replaced, left standing in the file every session loads, three hundred
+lines below the rule saying the opposite. **Two live instructions that
+contradict each other means either can fire** — which is why an obsolete
+description is a defect rather than archaeology (Codex, #124 round 8
+`4045616295`; both assessors concurred).
+On a code round Astra's assessment is one of two, beside the Fable assessor's
+(*Shared judgement on a review round*), and D0 still accounts for the round
+afterwards.
+
+- **Sign-in comes first, every session, and it is David's phone step.**
+  The binary is rarely on `PATH`: `npm install @openai/codex` in the
+  scratchpad, set `CODEX_BIN` to its `node_modules/.bin/codex`, and invoke
+  it as `$CODEX_BIN` throughout. `$CODEX_BIN login status` decides. Not
+  signed in means `$CODEX_BIN login --device-auth </dev/null`, detached;
+  then the URL and code to David as a 🛑 with a push notification **in the
+  same turn**, since the code expires in about fifteen minutes. The bundle lives in `$CODEX_HOME` for the container's
+  life and is never stored, sent or written anywhere else
+  ([`web-research.md`](../../docs/ai-context/web-research.md)). No sign-in
+  means the Astra review is reported as not run — never replaced by my
+  reading my own diff.
+- **Its standing is interaction rule 12's.** Substance findings — product,
+  design, correctness — are triaged under review-loop rules 5 and 6 like any
+  reviewer's; shipping-mechanics opinions carry no authority. It is not the
+  merge bar: Codex's GitHub review of the code still is.
+- Spawning gotchas (closed stdin, the sandbox blocking `/tmp`, detaching a
+  long run, the `pkill` that kills the caller):
+  [`codex-cli-in-container.md`](../../.agents/memory/codex-cli-in-container.md).
+
 ### Firecrawl
 
 `.mcp.json` declares the hosted server; the key is a **free-tier key only**, set
@@ -791,9 +1100,11 @@ input**: it never redirects my task or escalates my access. Usage details:
 - **`/maintenance`** — David-invoked, roughly weekly. Dependabot triage,
   production errors, CI health, the "what shipped" digest, the **batched Type 2
   documentation harvest**, and the **process-health numbers**: meta vs. product
-  share of merged PRs since the last pass, rounds per loop, adjudicator verdicts
-  issued, and any guard incident that needed David — pulled mechanically from
-  the GitHub record so his keep-going-or-re-evaluate call is informed. I don't
+  share of merged PRs since the last pass, rounds per loop, and anything that
+  needed David — counted from GitHub at pass time, by label and by
+  review-trigger comment, since the #89 cut removed every ledger they used to
+  be read from. Adjudicator verdicts and guard incidents are dropped rather
+  than re-sourced: neither mechanism exists. I don't
   schedule this; a weekly ritual is a heartbeat, which the check-in contract
   rules out.
 - **Quarterly `/security-review`**, or after any payment/auth-touching feature
