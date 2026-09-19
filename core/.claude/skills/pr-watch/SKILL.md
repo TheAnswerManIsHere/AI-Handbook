@@ -150,17 +150,25 @@ replaced them is step 5's proportionate-evidence rule.)
 
       **The Fable header carries three facts and labels each one**, because the
       assessor is reached by an alias and not by a version: `expected` is the
-      pin, which is what the self-report is compared against; `dispatched as` is
-      the family alias the call actually carried; `definition …` is what the
+      pin, which is what the self-report is compared against; `instructed alias` is
+      the family alias the recipe sends, derived from the pin — an instruction,
+      not an observation, since this script never makes the call; `definition …`
+      is what the
       role's file declares, as read at render time. Only Astra's header says
       `requested`, because only Astra is handed a full id and an effort per
       call.
 
-      **So a model disagreement has two candidate causes, and the cheaper one is
-      checked first**: the pin has fallen behind the alias — David's one-line
-      edit — or the platform served something else, which `model-routing` records
-      as a content refusal falling back to Opus. Name the first in the FYI unless
-      something rules it out. And `definition …` never means "what ran":
+      **Which of the two causes a model disagreement has is decided by the
+      answer's family, not by judgement.** Same family as the pin — the alias
+      resolves to a different version — is a drift between the pin and the
+      alias, which is David's one-line edit. A **different** family rules that
+      out entirely: `fable` cannot resolve to an Opus model, so the platform
+      served something else, which `model-routing` records as a content refusal.
+      `chatReport` applies exactly this test, so the FYI follows the line rather
+      than second-guessing it. (Before #131 round 4 this said to name the pin
+      first "unless something rules it out" without saying what does — a
+      judgement where an observable was available, which is the flip-condition
+      lesson one level down.) And `definition …` never means "what ran":
       definitions are cached, so the file on disk may not be the one that
       answered, and the assessor's own line is the only observation there is.
 

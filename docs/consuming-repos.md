@@ -349,26 +349,34 @@ to worry about strange links."*)
      alias cannot be compared, so `fable` against `claude-fable-5-1` would
      establish nothing. An alias-shaped id is refused by name.
 
-   **One thing `models` does NOT reach, stated so it is not discovered as a
-   surprise.** The `fable-*` agent definitions you were synced carry the
-   handbook's own tier in their `model:` and `effort:` frontmatter, because a
-   role that declares no model runs as whatever session dispatched it — which
-   is the defect #126 was filed for. They are synced files, so editing them
-   here is overwritten by the next sync, and the check that holds them equal to
-   a pin runs in the handbook rather than here for exactly that reason. **Your
-   pin reaches a dispatch through the `model:` argument the skills pass**,
-   which outranks the frontmatter; the frontmatter is the floor for the case
-   where that argument is forgotten. Where this bites: if your
-   `strongestClaude` is a different model family from the handbook's, a
-   forgotten argument runs the handbook's, and the posted header's requested
-   line is what makes that visible. Effort has no argument at all, so a
-   dispatched Claude role runs at the handbook's pinned effort regardless of
-   yours — and the header says so rather than quietly implying otherwise: it
-   names the effort the definition applies, and adds `(pin says <yours>)` where
-   your pin disagrees with it. `scripts/check-agent-models.mjs` keeps **this**
-   file's seeded `models` block equal to the handbook's pin, so a repository
-   enrolled today starts current; after that the file is yours and no later
-   handbook bump reaches it.
+   **How the Claude tier actually reaches this repository**, since the two
+   halves of it arrive by different routes.
+
+   The `fable-*` agent definitions are payload: the sync copies them here
+   carrying the handbook's `model:` and `effort:` in their frontmatter. That is
+   the mechanism, and it works — this repository runs those roles at the same
+   tier the handbook does, because it is the same file. (A role declaring no
+   model runs as whatever session dispatched it, which is the defect #126 was
+   filed for.)
+
+   On top of that, **the dispatch passes `model:` resolved from the pin in
+   THIS file**, and a per-invocation argument outranks the frontmatter. So if
+   you pin a different Claude family here, your dispatches get it; the
+   frontmatter is the floor for the case where that argument is forgotten.
+
+   **`models.strongestClaude.effort` is the exception, and it is not a
+   shortfall so much as a field with nothing to do here.** The Agent tool takes
+   no effort argument at all — frontmatter is the only route — so a Claude
+   role's effort is whatever its synced definition declares, which is the
+   handbook's pinned value. Nothing reads this file's copy of it for a Claude
+   dispatch. It is not inert everywhere: `strongestCodex.effort` IS passed per
+   call, and `modelTier` validates both. The value here is the handbook's pin at
+   the time you were seeded (`scripts/check-agent-models.mjs` keeps the seed
+   equal to it there), so it starts correct; editing it later changes nothing
+   for Claude, and editing a synced definition instead is overwritten by the
+   next sync. If you ever genuinely need a different reasoning depth from the
+   handbook's, that is a change to what the sync writes, not a value you can set
+   here.
 
    **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
    a real slug, so every structural check passed it and an unedited template

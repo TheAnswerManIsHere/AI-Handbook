@@ -472,7 +472,7 @@ test("the header never claims the requested model is the one that answered", () 
   assert.doesNotMatch(text, /\bran on\b|\bconfirmed\b|\bmatch(es|ed)?\b/i);
 });
 
-test("a header never says 'requested' for a value this script did not pass", () => {
+test("no Fable header label names an act this script did not perform", () => {
   // The constraint both assessors converged on in round 2: Astra is handed a
   // full id and an effort per call, so "requested" is literal there; a Claude
   // subagent is handed the family alias and no effort, so the same word on its
@@ -482,8 +482,12 @@ test("a header never says 'requested' for a value this script did not pass", () 
   const text = prComment(readAssessment(root, PR, 1, { source: "fable" }), {
     requested: { id: "claude-fable-5-1", alias: "fable", definitionModel: null, definitionEffort: null },
   });
-  assert.match(text, /expected `claude-fable-5-1` · dispatched as `fable`/);
-  assert.doesNotMatch(text, /requested/);
+  assert.match(text, /expected `claude-fable-5-1` · instructed alias `fable`/);
+  // The whole class, asserted as a class: after #131 round 4 the three labels
+  // are pin / recipe / declares, and none of them names something this script
+  // did. `requested` was the effort (round 1) and the model (round 2);
+  // `dispatched as` was the last one (round 4).
+  assert.doesNotMatch(text, /requested|dispatched|ran on|carried/);
   // Nothing dangles when the definition cannot be read.
   assert.doesNotMatch(text, /· *\*|`` |`undefined`/);
 });
@@ -909,7 +913,7 @@ test("--render prints the comment for an assessment already on disk, with the pi
   assert.match(out, /## Fable — round 3/);
   // The definition planted in this fixture is what supplies the effort: it is
   // the only route a Claude subagent has, so it is what the header names.
-  assert.match(out, /expected `claude-fable-5-1` · dispatched as `fable` · definition effort `xhigh`/);
+  assert.match(out, /expected `claude-fable-5-1` · instructed alias `fable` · definition effort `xhigh`/);
   // The declared model repeats the pin here, so it is not printed: a line that
   // says the same thing twice trains a reader to skip it.
   assert.doesNotMatch(out, /definition model/);
@@ -1003,7 +1007,7 @@ test("a consumer whose pin disagrees with the definition sees BOTH, each labelle
   };
   const { out } = renderOut(["--render", "--source", "fable", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--findings-file", findingsFile(root)], { root, io });
 
-  assert.match(out, /expected `claude-fable-5-1` · dispatched as `fable` · definition effort `xhigh`/);
+  assert.match(out, /expected `claude-fable-5-1` · instructed alias `fable` · definition effort `xhigh`/);
   // And never the shape that started this: the pin's effort under the word
   // "requested", which would state a request nobody made and fire the
   // mismatch warning on every round in a repository where nothing is wrong.
@@ -1022,7 +1026,7 @@ test("an unreadable definition omits the effort; it never falls back to the pin"
     io: pinIo(root),
   });
 
-  assert.match(out, /expected `claude-fable-5-1` · dispatched as `fable`/);
+  assert.match(out, /expected `claude-fable-5-1` · instructed alias `fable`/);
   assert.doesNotMatch(out, /definition effort/);
   assert.doesNotMatch(out, /xhigh/);
 });
@@ -1102,7 +1106,7 @@ test("a pin behind the alias is legible as that, not as a substitution", () => {
   // disagree, the reader must be able to tell "your pin trails the alias" —
   // David's one-line edit — from "the platform served something else", which is
   // the only other cause and the one he cannot fix. Naming the alias the call
-  // actually carried is what separates them.
+  // the recipe instructs is what separates them.
   const root = tmpRoot();
   plantDefinition(root, "xhigh");
   fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "fable" }), "_Running as: claude-fable-5-1 at xhigh._\n\nbody");
@@ -1120,7 +1124,7 @@ test("a pin behind the alias is legible as that, not as a substitution", () => {
   );
 
   assert.match(out, /expected `claude-fable-5-0`/);
-  assert.match(out, /dispatched as `fable`/);
+  assert.match(out, /instructed alias `fable`/);
   assert.match(out, /definition model `claude-fable-5-1`/);
   assert.doesNotMatch(out, /requested/);
 });
@@ -1133,5 +1137,5 @@ test("Astra's header is unchanged, because Astra really is handed both values", 
     { root, io: pinIo(root) },
   );
   assert.match(out, /requested `gpt-6-astra` at `xhigh`/);
-  assert.doesNotMatch(out, /expected |dispatched as|definition /);
+  assert.doesNotMatch(out, /expected |instructed alias|definition /);
 });

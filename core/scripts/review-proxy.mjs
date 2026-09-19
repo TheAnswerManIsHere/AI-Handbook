@@ -655,10 +655,15 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   //   - `expected` -- the pin, which is what the self-report is compared
   //     against. Comparing against the family instead would conceal version
   //     drift (Astra).
-  //   - `dispatched as` -- the alias the call actually carried. Without it a
-  //     disagreement reads as "the platform substituted a model" when the
-  //     likelier cause is a pin trailing the alias, which is David's one-line
-  //     edit. That wrong lead on an FYI is the whole defect.
+  //   - `instructed alias` -- the alias the RECIPE SENDS, derived from the pin
+  //     the same way `dispatchModel()` derives it. Without it a disagreement
+  //     reads as "the platform substituted a model" when a same-family drift
+  //     between the pin and the alias is an edit David owns. It is labelled as
+  //     an instruction and not as an act because this script never dispatches
+  //     the subagent and receives no record of the call: it cannot know
+  //     whether the argument was actually passed. It said "the alias the call
+  //     actually carried" until #131 round 4 -- the fourth and last label in
+  //     this header to name an act it had not performed.
   //   - `definition …` -- what the role's file DECLARES, as read at render
   //     time. Never "applies": definitions are cached, so the file on disk may
   //     not be the one that ran, and the self-report is the only observation.
@@ -681,7 +686,7 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
         facts.push(`requested \`${r.id}\` at \`${r.effort}\``);
       } else {
         const parts = [`expected \`${r.id}\``];
-        if (r.alias) parts.push(`dispatched as \`${r.alias}\``);
+        if (r.alias) parts.push(`instructed alias \`${r.alias}\``);
         // The declared model is shown only when it disagrees with the pin: in
         // the handbook the check holds them equal, and a line repeating itself
         // trains a reader to skip the place the real notice appears.

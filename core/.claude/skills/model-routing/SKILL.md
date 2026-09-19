@@ -328,16 +328,18 @@ visible warning."*
 **Each fact carries the label of how it got there, and only Astra's says
 "requested".** Astra is handed a full id and an effort per call, so the word is
 literal there. A Claude subagent is handed the family **alias** and no effort
-at all, so its header reads `expected <pin id> · dispatched as <alias> ·
+at all, so its header reads `expected <pin id> · instructed alias <alias> ·
 definition effort <effort>`, with the declared model added where it disagrees
 with the pin:
 
 - **`expected`** — the pin, which is what the self-report is compared against.
   Comparing against the family would conceal version drift.
-- **`dispatched as`** — the alias the call actually carried. Without it, a pin
-  that has fallen behind the alias reads as the platform substituting a model,
-  which points the diagnosis at the one cause nobody can fix instead of at a
-  one-line pin edit.
+- **`instructed alias`** — the alias the recipe sends, derived from the pin.
+  An instruction, never an observation: the script that prints the header does
+  not make the call and receives no record of it, so it cannot know the
+  argument was passed. Without this fact at all, a pin that has drifted from
+  the alias reads as the platform substituting a model, which points the
+  diagnosis at the one cause nobody can fix instead of at a one-line pin edit.
 - **`definition …`** — what the role's file *declares*, as read when the comment
   is rendered. Never "applies": definitions are cached, so the file on disk may
   not be the one that answered.
@@ -363,7 +365,11 @@ measured**: what was asked for beside "running as Z", and never "ran on X".
 
 Two limits that remain, stated rather than solved. A **content refusal** can
 fall Claude back to Opus mid-task, and a self-report is the only thing that
-would show it. And on the Codex side there is no such report at all: the CLI
+would show it — it is the one recorded cause of an answer from a *different*
+family, which is why `chatReport` names it there and names pin drift only when
+the families match. (A spent weekly allowance is not the same shape: measured
+2026-09-18, it returns HTTP 429 and terminates the agent rather than
+substituting anything, so it is loud already and never reaches that line.) And on the Codex side there is no such report at all: the CLI
 exposes the model only request-side, so Astra's header says what was asked for
 and claims nothing about what served it.
 

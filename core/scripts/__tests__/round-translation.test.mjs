@@ -661,11 +661,25 @@ test("the model is mentioned only when it is worth a reader's attention", () => 
   // -- David's one-line edit -- rather than a substitution he cannot fix.
   // Naming the likelier cause first is the whole value of the notice.
   // (Astra, #131 round 2.)
-  const mismatch = chatReport(round(1, answer({ model: "claude-sonnet-5" })), { askedModel: "claude-fable-5-1" });
-  assert.match(mismatch, /Written by claude-sonnet-5; this repository pins claude-fable-5-1/);
-  assert.match(mismatch, /sends the family alias `fable`, not a version/);
-  assert.match(mismatch, /likeliest cause is the pin trailing the alias/);
-  assert.doesNotMatch(mismatch, /asked for/);
+  // BOTH FAMILIES, because round 2 wrote one explanation for two opposite
+  // situations and got the more important one backwards. The alias `fable`
+  // cannot resolve to an Opus or Sonnet model, so when the families differ the
+  // pin CANNOT be the cause -- and the round-2 wording ruled out the only
+  // remaining explanation by name, on David's own content-refusal case.
+  const crossFamily = chatReport(round(1, answer({ model: "claude-sonnet-5" })), { askedModel: "claude-fable-5-1" });
+  assert.match(crossFamily, /Written by claude-sonnet-5; this repository pins claude-fable-5-1/);
+  assert.match(crossFamily, /cannot resolve to claude-sonnet-5, so the pin does not explain this/);
+  assert.match(crossFamily, /content refusal/);
+  assert.doesNotMatch(crossFamily, /pin trailing|drifted apart/, "the pin was blamed for a cross-family answer");
+
+  const sameFamily = chatReport(round(1, answer({ model: "claude-fable-5-0" })), { askedModel: "claude-fable-5-1" });
+  assert.match(sameFamily, /sends the family alias `fable`, not a version/);
+  assert.match(sameFamily, /one likely explanation/, "a possible cause was stated as the established one");
+  assert.match(sameFamily, /drifted apart/);
+  // Direction-neutral: the pin can sit ahead of the alias as easily as behind,
+  // and this same sentence covers both, so "trailing" was wrong for half of them.
+  assert.doesNotMatch(sameFamily, /trailing|behind/);
+  assert.doesNotMatch(sameFamily, /asked for/);
 
   // A pin that is not a Claude id has no alias to name, and the line says the
   // rest rather than printing an empty one.

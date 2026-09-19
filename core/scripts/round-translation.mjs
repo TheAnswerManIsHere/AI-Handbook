@@ -775,12 +775,29 @@ export function chatReport(round, { askedModel = null } = {}) {
   const alias = askedModel ? claudeAlias(askedModel) : null;
   if (!got) out.push("", `*This round did not report which model wrote it${askedModel ? `; this repository pins ${askedModel}` : ""}.*`);
   else if (askedModel && got.trim() !== askedModel.trim()) {
-    out.push(
-      "",
-      `*Written by ${got}; this repository pins ${askedModel}.` +
-        (alias ? ` The dispatch sends the family alias \`${alias}\`, not a version, so the likeliest cause is the pin trailing the alias rather than a substitution.` : "") +
-        ` The dispatch cannot enforce the model, only report what answered.*`,
-    );
+    // THE DIAGNOSIS IS GATED ON THE ANSWER'S FAMILY, because the round-2
+    // wording gave one explanation for two opposite situations -- and got the
+    // more important one backwards. The alias `fable` cannot resolve to an
+    // Opus model, so when the families differ the pin CANNOT be the cause, and
+    // saying "rather than a substitution" ruled out the only remaining
+    // explanation by name. That is David's own content-refusal case, which is
+    // the fallback he named when he asked for this warning at all: the line
+    // was inverted on precisely the case it exists for. (Codex `4052093651`;
+    // both assessors agreed, and the Fable assessor noted that round 2 fixed
+    // Astra's same-family case by inverting this one.)
+    //
+    // SAME FAMILY IS STILL ONLY "ONE LIKELY EXPLANATION", not an established
+    // cause: matching families make pin drift possible, never certain
+    // (Astra). And the drift has no direction -- the pin can sit ahead of the
+    // alias as easily as behind it, and "trailing" was wrong for half of the
+    // cases it covered.
+    const sameFamily = alias !== null && claudeAlias(got) === alias;
+    const why = !alias
+      ? ""
+      : sameFamily
+        ? ` The dispatch sends the family alias \`${alias}\`, not a version, so one likely explanation is that the pin and the version that alias resolves to have drifted apart — an edit to the pin, not a substitution.`
+        : ` The alias \`${alias}\` cannot resolve to ${got}, so the pin does not explain this: a different model answered. The one cause on record is a content refusal, which falls Claude back to Opus.`;
+    out.push("", `*Written by ${got}; this repository pins ${askedModel}.${why} The dispatch cannot enforce the model, only report what answered.*`);
   }
 
   return out.join("\n");
