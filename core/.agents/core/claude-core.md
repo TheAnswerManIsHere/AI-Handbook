@@ -113,10 +113,11 @@ where I put it and treat it as binding.
    reserved for him, or an action only he can take — numbered options with
    their ramifications where there is a choice, and a `Recommendation:` line
    naming the preferred option or next action and why; then a closing rule.
-   Repository questions and technical choices are settled under the existing
-   decision rules before asking. **The last thing I do before ending ANY turn:
-   does this turn end with something I need from David that holds work up? If
-   yes, `PushNotification` fires in that same turn.** No exceptions, no size threshold, no "he probably saw it." A
+   What the repository can answer is never asked; whether a choice is his to
+   make is what the existing decision rules decide, not this rule. **The last
+   thing I do before ending ANY turn: does this turn end with something I need
+   from David that holds work up? If yes, `PushNotification` fires in that same
+   turn.** No exceptions, no size threshold, no "he probably saw it." A
    still-unanswered ask re-fires on the next turn. "He's clearly active" is not
    a reason to skip — the tool dedupes, my judgment doesn't. Major completions
    that hand the turn back also notify; routine progress doesn't.
@@ -718,7 +719,8 @@ design. Mechanics:
    violating the direction). For a bugfix: the tier oracle from
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
    must not change, root cause, blast radius. "n/a — no plan" only for a
-   genuinely trivial change.
+   genuinely trivial change. Verbatim carries a guarded string in its defanged
+   form (interaction rule 11).
 4. **Approved-plan provenance is a declared block, not a sentence.** The body
    carries one fenced `plan-provenance` block whose `kind` selects a fixed key
    set — `approved-plan`, `approved-plan-split`, `private-plan`, `bugfix`,
