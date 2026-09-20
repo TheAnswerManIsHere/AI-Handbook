@@ -2669,8 +2669,8 @@ retry's pass lands — because nothing was written down to be wrong.
    rule this used to cite was retired in 2026-08-20 at 0-for-15. What carries
    the signal now is the shared judgement on a review round — two independent
    assessments and the builder's reading of them — answering the sharper
-   question the Worth rule asks: whether writing more code for these findings
-   is worth another round at all.
+   question the Worth rule asks under the write-gate rule ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)): whether
+   writing more code for these findings is worth another round at all.
 
 **Related:** *A derived metric that silently undercounts because its collector
 only reads one delivery channel* above is the opposite failure — there the
@@ -2775,7 +2775,8 @@ pre-registered flip condition from round 2's request said exactly this in
 advance: *"if round 3 finds a third variant of the same question, that is a
 signal the predicate is the wrong shape rather than incomplete."* Round 3
 supplied three, and the request for round 4 was never sent — the loop's own
-declared round budget was spent, so continuing would have meant a self-serve
+declared round budget (since gone in the #89 cut) was spent, so continuing
+would have meant a self-serve
 extension to patch a predicate already shown to be open-ended, which is a
 worse trade than shipping the known gaps (the code being replaced was *more*
 easily fooled than any of these three cases, by a plain uncommitted `HEAD`

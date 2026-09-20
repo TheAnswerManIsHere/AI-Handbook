@@ -205,8 +205,9 @@ question whose answer cannot drift as a loop lengthens. **Once both assessors
 answer yes, the loop's default flips** — findings become recorded gaps unless
 one would make the oracle false or reaches outside the pull request. A `yes`
 changes what a finding is worth by default; it is not what ends a loop — the
-write-gate rule is, when nothing more is worth writing on a head already
-reviewed — and a `no` means that question is not yet the one to ask. Answer it
+write-gate rule in `docs/ai-context/working-modes.md` is, when nothing more is
+worth writing on a head already reviewed — and a `no` means that question is
+not yet the one to ask. Answer it
 on the code, not on how much is left that could be improved; there is always
 something.
 

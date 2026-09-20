@@ -416,7 +416,7 @@ text retiring it, and it is gone with the rubric it survived.
 head, yes or no. Once both say yes, the default flips** — findings become
 recorded gaps unless one of two things is true: it would make the oracle
 *false* (a regression), or its blast radius reaches outside this pull request.
-I execute that stop; I do not judge it alone.
+I execute that flip; I do not judge it alone.
 
 **Why this exists, and why nothing already in this file does its job.** Every
 other gate here filters a *finding*: the Worth rule per finding, the shared
@@ -431,8 +431,9 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
-**On a PR that changes the review loop itself, the gate cannot end the loop
-alone**, and that is a limit rather than a defect: the second exception
+**On a PR that changes the review loop itself, the gate's flip cannot carry
+the loop to its write-gate stop alone**, and that is a limit rather than a
+defect: the second exception
 — a finding whose blast radius reaches outside this pull request — is satisfied
 by *every* finding, because the artifact under review is the loop every future
 pull request runs. There the Worth rule still does the work, and a loop that
@@ -580,9 +581,9 @@ the readiness receipt never ran at all, and the delivery gate's only firing was
 on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
-**What decides a loop's length now is rules 4 through 6 below** — a behavioural
-change before a re-request, pre-registered flip conditions, and the worth test
-at triage, which lives in
+**What decides a loop's length now is the write-gate rule above, bounded by
+rules 4 through 6 below** — a behavioural change before a re-request,
+pre-registered flip conditions, and the worth test at triage, which lives in
 [`review-judgment.md`](../../docs/ai-context/review-judgment.md). **What
 replaces the adjudicator is the shared judgement**, stated above: the
 per-finding call is no longer made *alone*, which closes the weakest link this

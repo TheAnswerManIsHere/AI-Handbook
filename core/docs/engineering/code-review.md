@@ -220,28 +220,26 @@ cost more than the defects they describe. **This rule survived #96 and is not
 residue of the retired rubric**: it governs what a reviewer *raises*, where a
 finding never raised costs nothing, while #96 retired the rules about what is
 *written for* once a finding is in hand, where a round is the unit of spend.
-This is the *depth* rule. The
-*continuation* rule is the internal tier (David, 2026-08-21, superseding
-the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
-ceremony, but when the pass finds a real defect the pushed fixes are
-re-reviewed under the internal tier, which says what is downstream rather than
-setting a threshold — there is no round budget and no leash, the tier's old
-"only a critical flaw is written for" rubric is retired as a decline quota, and
-the external adjudicator that used to rule went with the #89 cut (2026-09-16)
-and was replaced by two advisory assessments per round (#96) — see
-[`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)'s
-internal-tier section. The retired fix-round merge-path workarounds no
-longer apply.
+This is the *depth* rule. The *continuation* rule is the write-gate rule
+(David, 2026-08-22, every tier — [`working-modes.md`](../ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)), which superseded the internal tier's
+2026-08-21 ending and the 2026-08-20 no-rounds carve-out before it: a clean
+automatic pass is the whole ceremony, and anything written for a finding gets
+another round. What the tier adds is only what is downstream — no threshold,
+no budget, no leash. The tier's old "only a critical flaw is written for"
+rubric is retired as a decline quota, and the external adjudicator that used
+to rule went with the #89 cut (2026-09-16), replaced by two advisory
+assessments on each round that returns findings (#96). The retired fix-round
+merge-path workarounds no longer apply.
 
-**Internal tooling loops for its fixes (David, 2026-08-21).** Guards,
+**Internal tooling loops for its fixes like every tier.** Guards,
 `scripts/`, skills, agent contracts, process docs and documentation harvests
 are reviewed by the automatic pass when the PR opens; a clean pass ships, and
 every finding is judged on what it is worth by
 [`review-judgment.md`](../ai-context/review-judgment.md) — the tier says what
 is downstream, not how strict the review is, and a decline has no required
-form or length. Fixes that get pushed are re-reviewed rather than merged
-unreviewed. What a reviewer *raises* on these artifacts is the docs-only
-depth rule above, unchanged — grammar, style and completeness-beyond-purpose
+form or length. Fixes that get pushed are re-reviewed under the write-gate
+rule above, never merged unreviewed. What a reviewer *raises* on these
+artifacts is the docs-only depth rule above, unchanged — grammar, style and completeness-beyond-purpose
 are still not findings. What went with the decline quota (#96, 2026-09-17) is
 the other half: the light *bar on what is written for* once a finding is in
 hand, and the one-line decline. (The 22-round loop that motivated the bar —

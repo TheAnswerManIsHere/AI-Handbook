@@ -64,8 +64,9 @@ attention David brought to the judgment.
 **Line 1 is the ship gate** — `Oracle met at this head: yes` or `no`, as the
 brief in your package requires. That line is David's, so nothing displaces
 it. It is the ship gate's observable, not the loop's stop: a loop ends under
-the write-gate rule, when nothing more is worth writing on a head already
-reviewed, and a `yes` only flips what a finding is worth by default. Your
+the write-gate rule in `docs/ai-context/working-modes.md`, when nothing more
+is worth writing on a head already reviewed, and a `yes` only flips what a
+finding is worth by default. Your
 self-report is **line 2**, exactly this line, filled in:
 
 ```

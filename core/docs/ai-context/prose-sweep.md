@@ -162,6 +162,22 @@ depth rule, which governs what a reviewer *raises* and survived #96.
 **The control.** Three instances were known before the run and withheld from
 the readers. All three came back, from three different readers.
 
+### When a review loop stops (2026-09-20, PR #141 round 2 — the tool's first run)
+
+Spec: the write-gate rule as home; four sub-shapes (a cap; a write with no
+review after it; a class selecting loop length; unbounded); six exclusions.
+`sweep-scope.mjs` put 156 files in scope, 18 read in full, four workers.
+Readers returned 33 candidates (5 high/medium-high, 14 medium, 14 low) and 90
+declined with their exclusion; 20 were fixed, 13 declined. Three readers
+independently named the same shape not on the list: **the rule stated
+correctly but homed on a superseded authority** — `code-review.md` hung the
+write-gate on "the internal tier (2026-08-21)", the ending the rule replaced;
+the skill that runs the loop named no home at all. Two hits were sentences
+written in this PR's previous batch. Declined as a class: the retired
+vocabulary used in the negative ("is not convergence"), which asserts nothing
+about the stop; and vendored in-session review templates, which are not the
+PR loop.
+
 **What the first run got wrong, and the second constraint set fixed.** Its
 file set was the issue's, not the payload's, so the two assessor briefs, the
 `document` skill and `documentation-workflow.md` were never opened and all

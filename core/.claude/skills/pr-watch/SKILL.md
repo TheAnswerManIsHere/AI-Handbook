@@ -52,7 +52,9 @@ replaced them is step 5's proportionate-evidence rule.)
 3. **Get two independent assessments, then decide.** Every round that returns
    findings, before anything is written for them, on every tier. The rule is
    `claude-core.md`'s *Shared judgement on a review round*; what is here is how
-   it runs.
+   it runs. What ends the loop is not here at all: it is the write-gate rule
+   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)) — anything written gets another round, nothing written ends the loop
+   on a head already reviewed — and every step below is that rule running.
 
    **The oracle comes first, and it is agreed with David before round 1.** It
    is the outcome he agreed the work should achieve — an approved plan, an
@@ -300,8 +302,10 @@ replaced them is step 5's proportionate-evidence rule.)
 
    - **No re-request without a behavioural change** since the last reviewed
      commit. A skill file, `claude-core.md`, or a `docs/ai-context/` contract
-     counts as behavioural. A prose-only push does not buy a round and does not
-     escape review either — it waits and rides the next behavioural round.
+     counts as behavioural. A prose-only push does not buy a round on its own
+     and does not escape review either — it rides the next behavioural round,
+     and if none comes it gets the mechanical round `claude-core.md` rule 4
+     names, because no head merges unreviewed.
    - **Pre-registered flip conditions, in the request itself.** Name, before
      the round runs, what would stop the loop. **Each names an OBSERVABLE,
      never a judgement** (#85, 2026-09-13) — something read off the round ("a
@@ -324,9 +328,9 @@ replaced them is step 5's proportionate-evidence rule.)
      *before* it is spent rather than after. The token counts are already
      reported to me on every dispatch; this is putting them beside what they
      bought, not building a ledger.
-   - **A round I would only run because the loop is already open is not run.**
-     Sunk cost is not a reason: the round already happening does not make the
-     next one free, it causes it.
+   - **A fix I would only write because a round is already being written is
+     not written.** Sunk cost is not a reason: the round already happening does
+     not make the next one free, it causes it — and a fix written owes a round.
    - **Name the branch head, never a specific SHA** (David, 2026-08-17). Codex
      reviews the head at the moment it runs, not the SHA it was told, and the
      `**Reviewed commit:**` line it emits is what binds.

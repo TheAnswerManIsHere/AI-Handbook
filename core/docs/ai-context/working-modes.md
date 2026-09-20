@@ -548,8 +548,8 @@ and cheapest:
   a stack trace and a line number, which is more than any review round
   produces.
 
-**So a loop's real exit condition is "the design claims are right," not "the
-reviewer stopped finding things."** PR #422 reached that point at round 2,
+**So a plan loop's real exit condition is "the design claims are right," not
+"the reviewer stopped finding things."** PR #422 reached that point at round 2,
 when the false claim at the centre of the plan — that triggers enforce
 anything before an ownership transfer the owner can undo — was found and
 corrected. Everything the round found after that was PostgreSQL mechanics,
@@ -827,11 +827,11 @@ precisely the trade the loop must not settle for itself — in either direction,
 since the same arithmetic that forbids skipping the judgement is what makes an
 unworthy fix expensive.
 
-**Scope: every review loop** — plan review and code review, feature and bugfix,
-whichever agent is driving it. Plan-review loops take the tier of what they are
-planning: a plan for product code is a product loop, because a wrong plan
-becomes wrong code. The tier names what is downstream; it is neither a
-threshold nor a number of rounds.
+**Scope: every code-review loop** — feature and bugfix, whichever agent is
+driving it. A planning loop is not a review loop and is judged under *Who
+judges* above; it takes the tier of what it is planning, because a wrong plan
+for product code becomes wrong code. The tier names what is downstream; it is
+neither a threshold nor a number of rounds.
 
 **Plan approval is David's alone**, whatever a code loop does.
 

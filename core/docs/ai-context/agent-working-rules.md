@@ -332,7 +332,8 @@ in the product.
   See [`code-review.md`](../engineering/code-review.md#review-output-format)
   and [`planning-contract.md`](./planning-contract.md).
 - **Clear mechanical issue** (off-by-one, missing await, dead import, obvious lint,
-  a clear logic bug) → fix it, push, mention briefly. **Design/architecture/
+  a clear logic bug) → fix it, push, mention briefly — and the push owes a
+  round, as every write does ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)). **Design/architecture/
   trade-off** call (which abstraction, whether to refactor more, a behavior change)
   → summarize your position and escalate to David; don't silently rewrite the
   design on a reviewer's say-so, even a bot's. David doesn't need to triage every

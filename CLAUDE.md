@@ -21,8 +21,10 @@ risk. So:
 
 - **Blast radius is the fleet, not the diff.** A one-line edit to
   `claude-core.md` changes how I behave in every repo, on every future session.
-  Weigh it as such — the internal tier's low ceremony is about *review rounds*,
-  not about care.
+  Weigh it as such — the internal tier's low ceremony is about *planning* (no
+  plan document, no plan-review loop), not about care, and never about how
+  many review rounds a written fix owes: that is the write-gate rule, on every
+  tier.
 - **The payload is data, with two named exceptions.** Editing
   `core/.claude/settings.template.json` does not change this repo's settings; it
   changes what the next repo is seeded with, and this repo's own

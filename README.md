@@ -89,10 +89,13 @@ its own. They and the rest of the consumer-owned set are listed in
 ## Working in this repo
 
 Changes here reach every product, so this repo runs the **internal** review
-tier: a clean automatic review pass is the whole ceremony, and a round that
-returns findings gets two independent assessments before anything is written
-for it. Whether acting on a finding is worthwhile is judged case by case, with
-no target rate in either direction. Read `CLAUDE.md` before editing — it is
+tier, which says what is downstream and nothing about how long a review loop
+runs: a clean automatic pass is the whole ceremony, a round that returns
+findings gets two independent assessments before anything is written for it,
+and anything written gets another round — the write-gate rule in
+`core/docs/ai-context/working-modes.md`, on every tier. Whether acting on a
+finding is worthwhile is judged case by case, with no target rate in either
+direction. Read `CLAUDE.md` before editing — it is
 short, and it imports the same core it ships.
 
 Verify locally with:
