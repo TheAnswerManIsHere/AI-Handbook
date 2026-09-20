@@ -625,9 +625,10 @@ in the file that every session loads.
    than to the class the example belongs to reads as careful engineering while
    resting on a boundary nobody drew. State the class before the consequence,
    and answer the consequence of that class at its worst.
-   Product and design forks, scope additions, splits and disclosure questions
-   go to David, as do intended behaviour and any shortfall he or a user would
-   feel.
+   Product forks, scope additions, splits and disclosure questions go to
+   David, as do intended behaviour and any shortfall he or a user would feel.
+   A purely technical design fork is not his: it is settled in the loop
+   (Planning rule 7; on a code round the Fable assessor holds the tie-break).
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in

@@ -66,7 +66,8 @@ Decide by what "this" refers to (contract's trigger table):
     PR** alongside that pass's other doc updates. No per-feature branch, no
     per-feature PR, no harvest sub-issue, no separate subscription: the
     tracking is the harvest-notes comments already on each feature's
-    workstream issue. Internal tier — automatic pass, one triage, merge.
+    workstream issue. Internal tier, under the review loop `working-modes.md`
+    states — write-gate and all.
     Everything below this bullet describes the AD-HOC path only.
   - **Ad-hoc standalone invocation** (David asks for one feature directly):
     **default to assuming the feature's PR is
@@ -87,10 +88,11 @@ Decide by what "this" refers to (contract's trigger table):
   the merged diffs, contradiction or duplication with existing docs; out of
   scope — prose style, structure preferences, completeness beyond the
   session's actual learnings.* Out-of-scope findings are declined against
-  the stated oracle in one triage pass — a harvest is an internal artifact,
-  so the carve-out applies: the automatic pass, one triage, no re-requested
-  rounds — and once the ready bar is met I self-merge per CLAUDE.md's
-  close-out contract. I only
+  the stated oracle — a harvest is an internal artifact, reviewed under the
+  loop `working-modes.md` states: the automatic pass, the shared judgement on
+  any round that returns findings, and another round for anything written
+  — and once the ready bar is met I self-merge per CLAUDE.md's close-out
+  contract. I only
   commit to the feature's own branch instead when I have clear **session
   evidence** its PR is still open (e.g. `/document` invoked mid-build). **Never
   force-push** (a ruleset on `claude/**` refuses it); if a stale remote ref of my old

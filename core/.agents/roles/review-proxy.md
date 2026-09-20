@@ -203,9 +203,12 @@ thing he asked for is done.
 every other judgement here is a matter of degree, and this one is the only
 question whose answer cannot drift as a loop lengthens. **Once both assessors
 answer yes, the loop's default flips** — findings become recorded gaps unless
-one would make the oracle false or reaches outside the pull request. So a `yes`
-is how a loop ends, and a `no` is how it continues. Answer it on the code, not
-on how much is left that could be improved; there is always something.
+one would make the oracle false or reaches outside the pull request. A `yes`
+changes what a finding is worth by default; it is not what ends a loop — the
+write-gate rule is, when nothing more is worth writing on a head already
+reviewed — and a `no` means that question is not yet the one to ask. Answer it
+on the code, not on how much is left that could be improved; there is always
+something.
 
 **David's readout.** Then a short plain-English explanation of whether the
 approach serves the intended outcome, what you recommend and why, and any

@@ -1533,15 +1533,12 @@ had*; an outside reviewer is what corrects the method").
 
 **The second half is that a retirement is never one proposition.** #96's was at
 least four, and each sweep hunted only the facet the last reviewer had named.
-When the method in [`prose-sweep.md`](prose-sweep.md) was finally run, cold
-readers added two more — one of them proposed independently by three of the
-six.
+When a cold read was finally run, the readers added two more — one of them
+proposed independently by three of the six.
 
 **Avoid:** patching the instances a reviewer named. Sweep instead, by the
-method in [`prose-sweep.md`](prose-sweep.md), which is its only statement:
-enumerate the retired propositions as a closed list, bound the file set and
-write it down, and have a reader who did not write the new model read each file
-once against the whole list. Grep is the cross-check, never the method.
+method in [`prose-sweep.md`](prose-sweep.md), which is its only statement and
+is not restated here.
 
 ## Satisfying a lexical guard by changing a value's form, not its meaning
 

@@ -686,7 +686,9 @@ one of three responses, stated explicitly:
 1. **Fix it** — the defect matters for this artifact.
 2. **Accept and document it** — the finding is correct, and the cost of fixing
    exceeds the risk *for this artifact*. Say so, in the thread and in the file.
-3. **Escalate it** — it's a genuine product or design decision. That's David's.
+3. **Escalate it** — it changes intended behaviour or accepts a user-facing
+   shortfall. That's David's. A purely technical fork is not, and is settled in
+   the loop.
 
 Response 2 is legitimate, and the loop's measured failure was reaching for
 response 1 by default. Specifying compare-and-swap semantics for a GitHub label

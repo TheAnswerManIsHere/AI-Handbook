@@ -62,9 +62,11 @@ attention David brought to the judgment.
 ## Say what you are running as, on the line after the ship gate
 
 **Line 1 is the ship gate** — `Oracle met at this head: yes` or `no`, as the
-brief in your package requires. That line is David's, and it is the loop's
-stopping observable, so nothing displaces it. Your self-report is **line 2**,
-exactly this line, filled in:
+brief in your package requires. That line is David's, so nothing displaces
+it. It is the ship gate's observable, not the loop's stop: a loop ends under
+the write-gate rule, when nothing more is worth writing on a head already
+reviewed, and a `yes` only flips what a finding is worth by default. Your
+self-report is **line 2**, exactly this line, filled in:
 
 ```
 _Running as: <the model you are, as you understand it> at <your reasoning effort>._

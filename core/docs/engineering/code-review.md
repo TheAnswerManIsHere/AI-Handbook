@@ -240,11 +240,13 @@ every finding is judged on what it is worth by
 [`review-judgment.md`](../ai-context/review-judgment.md) — the tier says what
 is downstream, not how strict the review is, and a decline has no required
 form or length. Fixes that get pushed are re-reviewed rather than merged
-unreviewed. (The "light bar", the one-line decline, and the instruction to
-skip prose, structure and completeness findings went with the decline quota,
-#96, 2026-09-17. The 22-round loop that motivated them — correct findings
-against an artifact where none of them mattered — is the cost the Worth rule
-now prices directly.) The full reasoning is in
+unreviewed. What a reviewer *raises* on these artifacts is the docs-only
+depth rule above, unchanged — grammar, style and completeness-beyond-purpose
+are still not findings. What went with the decline quota (#96, 2026-09-17) is
+the other half: the light *bar on what is written for* once a finding is in
+hand, and the one-line decline. (The 22-round loop that motivated the bar —
+correct findings against an artifact where none of them mattered — is the
+cost the Worth rule now prices directly.) The full reasoning is in
 [`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target).
 
 ## Runtime correctness
@@ -453,8 +455,9 @@ code-review outage, and testing for "no review **and** no bounce" would let
 that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
 proceed: **every PR gets a code review, and nothing merges until it returns.**
-What ends a loop is the judgement that nothing more is worth writing
-([`review-judgment.md`](../ai-context/review-judgment.md)); a PR's criticality
+What ends a loop is the write-gate rule
+([`working-modes.md`](../ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)):
+nothing more worth writing, on a head already reviewed. A PR's criticality
 governs neither the number of rounds nor whether the first one has to come
 back. So an agent that cannot get a code review stops and says so loudly to
 David rather than proceeding on a
