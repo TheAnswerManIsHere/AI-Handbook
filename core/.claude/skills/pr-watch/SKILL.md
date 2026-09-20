@@ -259,10 +259,22 @@ replaced them is step 5's proportionate-evidence rule.)
    never convergence. **Check it at the top of every round**, because #120 wrote
    this rule and then ran seven rounds without once reading it.
 
-4. **Batch the fixes.** Everything being written for goes in one push, with the
-   repo's own fast checks run first — lint, format, typecheck, the changed
-   suites. One validated push beats three speculative ones, because each push
-   costs a full round.
+4. **Check the limit BEFORE writing anything, then batch the fixes.** This
+   gate is first in this step because its whole job is to prevent a commit
+   that cannot then be reviewed.
+
+   - **On internal tooling, was this the second review?** If yes, **write
+     nothing.** Iteration is over: take the shortfall to David with a choice —
+     continue, cut the scope, or stop — per the two-review limit in
+     [`working-modes.md`](../../../docs/ai-context/working-modes.md). A batch
+     written here would be a changed head I am forbidden to request a review
+     for, which is a pull request that can neither merge nor move. (Codex,
+     #140 round 2 — the ordering bug was mine: this check sat in step 6,
+     *after* the batching it exists to prevent.)
+   - **Otherwise**, everything being written for goes in one push, with the
+     repo's own fast checks run first — lint, format, typecheck, the changed
+     suites. One validated push beats three speculative ones, because each
+     push costs a full round.
 
 5. **Reply to every finding and resolve its thread**, right after posting that
    reply, never in a batch, and never as a standalone summary comment in place
@@ -298,10 +310,18 @@ replaced them is step 5's proportionate-evidence rule.)
 
 6. **Re-request review on the actual head.**
 
-   - **No re-request without a behavioural change** since the last reviewed
-     commit. A skill file, `claude-core.md`, or a `docs/ai-context/` contract
-     counts as behavioural. A prose-only push does not buy a round and does not
-     escape review either — it waits and rides the next behavioural round.
+   - **Every changed head gets its review; an unchanged one never gets a
+     second.** A prose-only push is a changed head and is reviewed like any
+     other — the rule here used to say it "waits and rides the next behavioural
+     round", which under the write-gate meant a documentation correction with
+     nothing behavioural behind it could never merge at all (#125 waited a week
+     on that reading). What is refused is re-requesting on a head already
+     reviewed as it stands, to get a different answer. (Astra, 2026-09-19.)
+   - **The second review is the last one I request.** Step 4's gate is what
+     enforces that, before anything is written; by the time a head exists here
+     it is always reviewable. So this bullet has no decision left to make — it
+     records the shape: round 1, one coherent batch, the review of that
+     corrected head, and no more. Only David reopens a loop beyond it.
    - **Pre-registered flip conditions, in the request itself.** Name, before
      the round runs, what would stop the loop. **Each names an OBSERVABLE,
      never a judgement** (#85, 2026-09-13) — something read off the round ("a

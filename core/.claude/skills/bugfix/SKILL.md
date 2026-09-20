@@ -339,7 +339,8 @@ The review-loop contract is shared and enacted elsewhere — **the mechanics
 live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
-what the fix touches (a rubric selector, not a round budget), the **write-gate
+what the fix touches (a statement of what is downstream — not a rubric
+selector, and not a round budget), the **write-gate
 rule — every round that returns findings gets two independent assessments
 before anything is written for it, and any commit that does get written gets a
 mandatory review round; the in-loop continue/stop, criticality gate, count
@@ -374,8 +375,10 @@ What is *bugfix-specific* about the loop:
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or
   process tooling, the internal tier governs (David, 2026-08-21) — the
-  automatic pass, one triage, fix rounds re-reviewed under the internal tier,
-  which says nobody's money or data is downstream and leaves the judgement to
+  automatic pass, one coherent batch of corrections if any are warranted, and
+  a review of that corrected head — the two-review limit, the same as
+  everywhere. The tier itself only says nobody's money or data is downstream,
+  and leaves the judgement to
   [`review-judgment.md`](../../../docs/ai-context/review-judgment.md) — exactly
   as if the same change had arrived through feature mode. **This bullet used to
   say "where only a critical flaw is written for"**, which was the tier's
