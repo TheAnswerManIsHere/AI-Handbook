@@ -63,9 +63,9 @@ which applies to internal tooling whatever its row.
 
 | Artifact class | Planning ceremony and review depth | Why |
 | --- | --- | --- |
-| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and gets fixed in the single triage. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
+| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** | Today's full feature ceremony — plan, review to convergence, approval. | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit by consequence; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient checklist,
@@ -579,9 +579,14 @@ will keep finding things, and each fix adds surface for the next round.
 trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
-it is two mechanical things — the write-gate rule below and pre-registered flip
-conditions — and, since #96, a judgement made from two independent assessments
-rather than alone. (An external adjudicator whose verdict decided stood here
+it, on internal tooling, is **the two-review limit below** — the one rule here
+that bounds the *sequence*. Around it sit three that bound something else and
+are not stops: the write-gate rule below (which heads must be reviewed),
+pre-registered flip conditions (a bound within a round) and, since #96, a
+judgement made from two independent assessments rather than alone (what is
+written for). This paragraph listed only those three until 2026-09-20, which
+is how a section headed *what stops a loop* came to answer with three rules
+that do not stop one. (An external adjudicator whose verdict decided stood here
 until the #89 cut removed it; nothing dispatched now decides anything.)
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)

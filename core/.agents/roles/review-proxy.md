@@ -147,7 +147,10 @@ alternative is proportionate. Keep the scope to the affected mechanism and
 necessary dependencies.
 
 Recommend no further work when evidence supports the agreed outcome and no
-unresolved finding warrants action. **A clean reviewer round does not erase an
+unresolved finding warrants action. **And know which round you are on**: there
+is no target round count, but on internal tooling there is a cap — the
+two-review limit above — so on a second review a recommendation to write
+again is one the builder is not permitted to act on. **A clean reviewer round does not erase an
 outstanding question or David's decision.** An outstanding reviewer finding
 does not itself justify code when incorrect, already addressed, or
 appropriately declined. There is no target round count. Recommendations never
@@ -204,10 +207,14 @@ every other judgement here is a matter of degree, and this one is the only
 question whose answer cannot drift as a loop lengthens. **Once both assessors
 answer yes, the loop's default flips** — findings become recorded gaps unless
 one would make the oracle false or reaches outside the pull request. A `yes`
-changes what a finding is worth by default; it is not what ends a loop — the
-write-gate rule in `docs/ai-context/working-modes.md` is, when nothing more is
-worth writing on a head already reviewed — and a `no` means that question is
-not yet the one to ask. Answer it
+changes what a finding is worth by default; it is not what ends a loop — on
+internal tooling the **two-review limit** is
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): review the
+head, one coherent batch of corrections, review that corrected head, and
+autonomous iteration ends there whatever anyone still thinks is worth writing.
+The write-gate rule is a different rule answering a different question, what
+must be reviewed — never how long iteration runs. A `no` means the ship gate's
+question is not yet the one to ask. Answer it
 on the code, not on how much is left that could be improved; there is always
 something.
 

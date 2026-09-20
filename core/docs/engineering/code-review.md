@@ -217,11 +217,14 @@ Explicitly **not** findings on a docs-only PR, even when technically true:
 
 Docs are self-catching and fixed in one commit; pedantic findings on them
 cost more than the defects they describe. This is the *depth* rule. The
-*continuation* rule is the internal tier (David, 2026-08-21, superseding
-the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
-ceremony, but when the pass finds a real defect the pushed fixes are
-re-reviewed under the internal tier, which says what is downstream rather than
-setting a threshold. **How long that re-reviewing runs is the two-review limit's**
+*continuation* rule is the **two-review limit** (David, 2026-09-19 —
+[`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): a clean
+automatic pass is the whole ceremony, and when the pass finds a real defect the
+pushed fixes are re-reviewed, once. The internal tier (David, 2026-08-21,
+superseding the 2026-08-20 no-rounds carve-out) says what is downstream rather
+than setting a threshold, and is not the continuation rule — this paragraph
+named it as such while handing length to the limit four lines later, so a
+reader who stopped at the bolded clause got the superseded answer. **How long that re-reviewing runs is the two-review limit's**
 ([`working-modes.md`](../ai-context/working-modes.md)) — this sentence used to
 add "there is no round budget and no leash", and while the limit is indeed not a
 round budget, "no leash" is exactly what it removed. The tier's old
@@ -458,9 +461,12 @@ code-review outage, and testing for "no review **and** no bounce" would let
 that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
 proceed: **every PR gets a code review, and nothing merges until it returns.**
-What is worth writing for decides how many rounds follow — the Worth rule per
-finding, and the ship gate once the oracle is met; nothing governs whether the
-first one has to come back. So an agent that cannot get a
+How many rounds follow is the **two-review limit**'s
+([`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) on internal
+tooling; nothing governs whether the first one has to come back. The Worth rule
+per finding and the ship gate shape what is written *within* that bound — this
+sentence used to hand them the length question itself, which is a different
+question than either answers. So an agent that cannot get a
 code review stops and says so loudly to David rather than proceeding on a
 docs-only or low-criticality exemption — that exemption is retired. The retry
 limit in the implementing agent's ceremony (for Claude Code,

@@ -52,9 +52,12 @@ replaced them is step 5's proportionate-evidence rule.)
 3. **Get two independent assessments, then decide.** Every round that returns
    findings, before anything is written for them, on every tier. The rule is
    `claude-core.md`'s *Shared judgement on a review round*; what is here is how
-   it runs. What ends the loop is not here at all: it is the write-gate rule
-   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)) — anything written gets another round, nothing written ends the loop
-   on a head already reviewed — and every step below is that rule running.
+   it runs. What ends the loop is not here at all: on internal tooling it is
+   the **two-review limit** ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+   and step 4 below is where this skill enacts it. The write-gate rule
+   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22))
+   answers the other question — which heads must be reviewed, so that no
+   commit merges unreviewed — and every step below serves both.
 
    **The oracle comes first, and it is agreed with David before round 1.** It
    is the outcome he agreed the work should achieve — an approved plan, an

@@ -498,7 +498,10 @@ default, and the default is not the answer**. Before the first round, I ask
 what is downstream of *this* change: **machinery that governs approvals,
 publication, credentials or destructive operations is classified on that
 consequence**, whatever directory it lives in, which puts it outside the
-two-review limit and under the ordinary convergence the tier it earns carries.
+two-review limit and under the ordinary loop the tier it earns carries. (That
+used to read "under the ordinary convergence", naming as a stop the one word
+this repo retired as an exit condition — written into #140 itself, one
+paragraph below the rule #140 added.)
 A consumer overlay marking a subsystem sensitive is one route to that; it is
 not the only one, and its silence is not a classification. (Codex, #140 round
 2: the limit said it was scoped by consequence while the tier was still

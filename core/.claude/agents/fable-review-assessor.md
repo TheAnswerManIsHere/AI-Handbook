@@ -63,10 +63,13 @@ attention David brought to the judgment.
 
 **Line 1 is the ship gate** — `Oracle met at this head: yes` or `no`, as the
 brief in your package requires. That line is David's, so nothing displaces
-it. It is the ship gate's observable, not the loop's stop: a loop ends under
-the write-gate rule in `docs/ai-context/working-modes.md`, when nothing more
-is worth writing on a head already reviewed, and a `yes` only flips what a
-finding is worth by default. Your
+it. It is the ship gate's observable, not the loop's stop: on internal
+tooling autonomous iteration ends at the **two-review limit**
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — the head,
+one coherent batch of corrections, a review of that corrected head, and no
+more — and a `yes` only flips what a finding is worth by default. The
+write-gate rule answers a different question, what must be reviewed, so do not
+read it as the stop. Your
 self-report is **line 2**, exactly this line, filled in:
 
 ```

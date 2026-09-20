@@ -90,10 +90,14 @@ its own. They and the rest of the consumer-owned set are listed in
 
 Changes here reach every product, so this repo runs the **internal** review
 tier, which says what is downstream and nothing about how long a review loop
-runs: a clean automatic pass is the whole ceremony, a round that returns
-findings gets two independent assessments before anything is written for it,
-and anything written gets another round — the write-gate rule in
-`core/docs/ai-context/working-modes.md`, on every tier. Whether acting on a
+runs. How long it runs is the **two-review limit** in
+`core/docs/ai-context/working-modes.md`: the automatic pass, one coherent batch
+of corrections if any are warranted, a review of that corrected head, and
+autonomous iteration ends there. A clean automatic pass is the whole ceremony;
+a round that returns findings gets two independent assessments before anything
+is written for it; and anything written gets reviewed before it merges — that
+last is the write-gate rule, which answers what must be reviewed rather than
+how long. Whether acting on a
 finding is worthwhile is judged case by case, with no target rate in either
 direction. Read `CLAUDE.md` before editing — it is
 short, and it imports the same core it ships.

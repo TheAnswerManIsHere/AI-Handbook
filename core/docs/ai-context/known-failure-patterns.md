@@ -1608,7 +1608,12 @@ at intake, not to how the request was phrased
 ([`working-modes.md`](./working-modes.md#feature-mode-ceremony-scales-to-blast-radius-not-to-phrasing-david-2026-08-05));
 carry pre-registered flip conditions naming an observable read off the round; and
 triage every finding into **fix / accept-and-document / escalate** rather than
-reading "Required Revision" as automatically meaning fix. **Overhype:** twice
+reading "Required Revision" as automatically meaning fix. **And on internal
+tooling the sequence is bounded outright** by the two-review limit
+([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — this entry's remedies
+were ceremony-sizing, an in-round bound and a per-finding test until
+2026-09-20, none of which answers "there is no natural stopping point", which
+is the entry's own diagnosis. **Overhype:** twice
 in one day, 2026-08-05 — PR #329's Bash guard (9 → 11 → 12 → 19 findings, an
 unbounded parsing surface; see the sub-pattern below) and PR #333's `/status`
 plan (12 → 1 → 4 → 6 → 12 findings, **six review rounds and a 660-line plan for
@@ -1804,8 +1809,11 @@ this one's is to **split the artifact and keep going on the smaller half**.
 correct and every fix is sound, and the thing each new finding is about is the
 code the last round added. **Dangerous:** it reads as diligence from inside —
 the reviewer keeps finding real bugs, so stopping feels like shipping known
-defects — and the cost is invisible because no single round is wrong. The loop
-ends when someone runs out of patience rather than when the code is right.
+defects — and the cost is invisible because no single round is wrong. Before 2026-09-19 the
+loop ended when someone ran out of patience rather than when the code was
+right; what ends it now, on internal tooling, is the two-review limit
+([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), which was built from
+this entry's measurement.
 
 **The tell, recognised by hand:** a round has a finding whose lines sit inside
 the diff of the last commit pushed for a finding, and so did the round before

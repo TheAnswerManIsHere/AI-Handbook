@@ -21,8 +21,8 @@ One JSON file in the scratchpad, four required inputs:
 
 ```json
 {
-  "rule": "when a review loop stops",
-  "home": "docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22",
+  "rule": "how long a review loop runs, and what ends it",
+  "home": "docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19",
   "subShapes": [
     { "id": "a", "name": "a cap", "example": "one triage" },
     { "id": "b", "name": "a write with no review after it", "example": "fix, apply, continue" },
@@ -46,9 +46,15 @@ the first four, and a `readInFull` glob that matches nothing.
 ## 2. Fix the scope with the script, never by hand
 
 ```
-node scripts/sweep-scope.mjs --spec <spec.json> --print-scope        # look
-node scripts/sweep-scope.mjs --spec <spec.json> --workers 4 --out <dir>
+P=core/scripts/sweep-scope.mjs; [ -f "$P" ] || P=scripts/sweep-scope.mjs
+node $P --spec <spec.json> --print-scope        # look
+node $P --spec <spec.json> --workers 4 --out <dir>
 ```
+
+The script sits at `core/scripts/` in the handbook and `scripts/` in a
+consumer, so the first line picks the one that exists — the same shape
+`plan-review-loop` and `pr-watch` already use. Spelling it `scripts/…` alone
+fails in the handbook, where this skill is live by symlink.
 
 It enumerates every tracked `.md` in the payload plus the root `CLAUDE.md`,
 `AGENTS.md` and `README.md` — `.agents/roles/`, `.claude/agents/` and

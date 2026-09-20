@@ -58,12 +58,30 @@ missing any of them.
   Everything else may only *cite* it.
 - **Sub-shapes, as a closed list** — the distinct forms an assertion of the
   retired rule takes, enumerated by *shape*, never by wording, with one
-  example each. Expect three to six; one is always an undercount. A reader
+  example each. Expect three to six; one is always an undercount. **Two of
+  them are structural rather than lexical and are the ones a first list
+  omits**: the rule stated correctly but homed on a *superseded* authority,
+  and the rule homed on a *live* authority that answers a different question.
+  The second is the harder one — nothing in the sentence is stale, so no
+  vocabulary reaches it — and a not-in-class list naming that live rule as
+  out of class will clear every instance of it mechanically. A reader
   may add a shape mid-sweep, and a shape added by a reader is worth more than
   the instance that prompted it — **and it reopens the sweep**: every file
   cleared before the shape existed was cleared against the old list, so the
   spec is amended and the whole scope re-dispatched against it before the
   sweep can be called complete.
+  **What reopens the sweep is a shape, not a sharper way of describing one**,
+  and the test is mechanical: could a file already cleared be hiding this? A
+  shape whose every instance is already in hand under the existing list
+  refines a *detector* and is written into the method; a shape that makes a
+  previously-cleared file newly readable reopens. Measured both ways on
+  2026-09-20 — sub-shape *g* reopened the sweep, and the second pass found a
+  hit inside a file the first pass had read in full and cleared, while "the
+  half-fixed paragraph" produced nothing the existing list had not already
+  returned and became a detector instead. Without this test the rule recurses
+  forever, which is this repository's own
+  [`known-failure-patterns.md`](known-failure-patterns.md) entry about a loop
+  where each round finds a defect in the previous round's fix.
 - **Not-in-class, as an explicit list** — what a reader must *not* return.
   Without it, readers return the repository's entire history section. This
   list is as load-bearing as the class: it is the only part of the output that
@@ -80,6 +98,22 @@ that does — and no grep finds that, because there is no wrong phrase. The
 briefs the review loop's own advisors read every round were exactly that
 case. So a reader's question per file is *does this statement cite the home
 and agree with it?* Residue is a statement that is **uncited or disagrees**.
+
+**The citation must be to the home's SECTION, not merely to its file**, and
+that is not pedantry — it is where the 2026-09-20 run's two
+highest-consequence hits lived. Both cited the right file, one with a deep
+anchor link, and both named the wrong rule inside it. Any cross-check built on
+grep or on link-validity passes them, which is the whole reason this is a
+reader's job. Two detectors follow from it, each measured:
+
+- **Loop-length homed on a live rule that answers something else** (sub-shape
+  *g* below). The distinguishing question is never *is the cited rule live?*
+  but *does the cited rule answer the question this sentence is asking?*
+- **The half-fixed paragraph.** The home's correct citation has been added
+  *beside* the old homing rather than replacing it, so both are live in one
+  breath and a reader who stops at the bolded or parenthesised clause gets the
+  superseded answer. The home *is* cited, so an author checking "did I cite
+  it?" clears it.
 A restatement that cites the home and agrees is a citation with context and
 stays — the oracle's own words are "agrees or points at it". The fix for
 residue is a citation of the home, never an *uncited* better restatement: that
@@ -176,8 +210,10 @@ the readers. All three came back, from three different readers.
 
 ### When a review loop stops (2026-09-20, PR #141 round 2 — the tool's first run)
 
-Spec: the write-gate rule as home; four sub-shapes (a cap; a write with no
-review after it; a class selecting loop length; unbounded); six exclusions.
+Spec: the write-gate rule as home — **superseded on 2026-09-19 by the
+two-review limit, and that supersession is itself the next instance below**;
+four sub-shapes (a cap; a write with no review after it; a class selecting
+loop length; unbounded); six exclusions.
 `sweep-scope.mjs` put 156 files in scope, 18 read in full, four workers.
 Readers returned 33 candidates (5 high/medium-high, 14 medium, 14 low) and 90
 declined with their exclusion; 20 were fixed, 13 declined. Three readers
@@ -189,6 +225,37 @@ written in this PR's previous batch. Declined as a class: the retired
 vocabulary used in the negative ("is not convergence"), which asserts nothing
 about the stop; and vendored in-session review templates, which are not the
 PR loop.
+
+### The two-review limit (2026-09-20, PR #141 rounds 5-6 — the method reopening itself)
+
+`main` acquired the two-review limit mid-loop, which moved this class's home:
+what ends a loop is no longer the write-gate rule but a count. So the same
+class was swept again against the new home, over the merged tree, 157 files,
+four readers. **#142's 27 previously-catalogued instances were withheld from
+every reader** as a control, and came back independently.
+
+The run's own findings, which is why this section exists:
+
+- **All three of the loop's advisory documents named the wrong rule.** The
+  review proxy's brief, the Fable assessor's definition and `pr-watch` each
+  told their reader a loop ends under the write-gate rule, and none of the
+  three named the limit anywhere. These are read verbatim into every dispatch,
+  so the advisers on every round held a stopping rule the contract had
+  replaced. All three sentences were written by the *previous* pass of this
+  same sweep, which had homed them on the write-gate — the clearest measurement
+  yet that a sweep is one batch behind by construction.
+- **The change that retired convergence reintroduced it.** #140 added the
+  limit and, one paragraph below its own rule, sent excluded machinery "under
+  the ordinary convergence the tier it earns carries".
+- **A reader added sub-shape *g*** — loop length homed on a *live* rule that
+  answers something else — **and the sweep reopened.** The second pass then
+  found a hit the first had cleared in a full read: the home's own section
+  headed *Review loops need a stopping rule* enumerated what replaced the
+  deleted apparatus and named three live rules, none of which stops a loop,
+  omitting its own child subsection. That is the measurement behind the
+  reopening test above.
+- **A second proposed shape did not reopen it.** "The half-fixed paragraph"
+  returned only instances already in hand, so it became a detector.
 
 **What the first run got wrong, and the second constraint set fixed.** Its
 file set was the issue's, not the payload's, so the two assessor briefs, the
