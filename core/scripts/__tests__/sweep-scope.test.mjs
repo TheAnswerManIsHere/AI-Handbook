@@ -117,6 +117,21 @@ test("heading slugs follow GitHub's algorithm on the payload's headings, in docu
   assert.deepEqual(headingSlugs("# Foo\n# Foo\n# Foo-1\n"), ["foo", "foo-1", "foo-1-1"], "github-slugger's dedupe: a generated slug is reserved, an explicit collision is bumped again");
 });
 
+test("Setext headings slug like ATX ones, and the shapes that merely look like underlines do not", () => {
+  // A consumer home may use Setext; reading only ATX refused its real anchor.
+  assert.deepEqual(headingSlugs("Title\n=====\n\nSub Head\n---\n"), ["title", "sub-head"], "both underline characters");
+  assert.deepEqual(headingSlugs("Mixed\n===\n\n## Atx Two\n"), ["mixed", "atx-two"], "the two forms coexist in one file");
+  assert.deepEqual(headingSlugs("Foo\n===\nFoo\n===\n# Foo-1\n"), ["foo", "foo-1", "foo-1-1"], "dedupe is shared across both forms");
+
+  // Each of these contains a line of dashes or equals that is NOT a heading.
+  assert.deepEqual(headingSlugs("---\nname: skill\n---\n\n# Real\n"), ["real"], "YAML front matter's closing --- is not an underline");
+  assert.deepEqual(headingSlugs("para\n\n---\n\n# Real\n"), ["real"], "a thematic break after a blank line is not an underline");
+  assert.deepEqual(headingSlugs("| a | b |\n|---|---|\n"), [], "a table delimiter row is not an underline");
+  assert.deepEqual(headingSlugs("- item\n---\n"), [], "a list item is not Setext heading text");
+  assert.deepEqual(headingSlugs("> quoted\n---\n"), [], "a block quote is not Setext heading text");
+  assert.deepEqual(headingSlugs("```\nFake\n===\n```\n# Real\n"), ["real"], "a fenced block carries no headings of either form");
+});
+
 test("a readInFull glob may name an --include'd file outside the payload, as written", () => {
   const root = fixture();
   const spec = { ...SPEC, readInFull: [...SPEC.readInFull, "docs/not-payload.md"] };

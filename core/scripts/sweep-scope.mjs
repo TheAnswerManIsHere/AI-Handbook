@@ -156,17 +156,22 @@ export function assertWorkers(value) {
  * duplicate anchor. (A by-base counter gave `foo-1` twice; Codex, #141 round
  * 3.) A miss refuses; it never guesses a nearby heading. The payload is
  * dependency-free by rule, which is why this is not the package.
+ *
+ * BOTH Markdown heading forms are recognised, because a consumer's docs need
+ * not use this payload's convention: ATX (`## Title`) and Setext (`Title`
+ * over `===` or `---`). Reading only ATX made `plan()` refuse the real
+ * GitHub anchor of a correctly-written consumer home (Codex, #141 round 5).
+ * The Setext underline is matched conservatively -- the line above must be
+ * ordinary paragraph text, so a `---` that is really front matter, a
+ * thematic break, or a table delimiter never invents a heading.
  */
 export function headingSlugs(markdown) {
   const occurrences = new Map();
   const out = [];
-  let inFence = false;
-  for (const line of markdown.split("\n")) {
-    if (/^\s*```/.test(line)) inFence = !inFence;
-    if (inFence) continue;
-    const m = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-    if (!m) continue;
-    const original = m[1].toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
+  const lines = markdown.split("\n");
+
+  const emit = (text) => {
+    const original = text.toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
     let result = original;
     while (occurrences.has(result)) {
       occurrences.set(original, (occurrences.get(original) ?? 0) + 1);
@@ -174,6 +179,43 @@ export function headingSlugs(markdown) {
     }
     occurrences.set(result, 0);
     out.push(result);
+  };
+
+  // A Setext underline only ever follows ordinary paragraph text. Excluding
+  // these shapes is what keeps a table delimiter row, a list, a quote or a
+  // thematic break after a blank line from inventing a heading.
+  const isParagraphText = (line) =>
+    line !== undefined &&
+    line.trim() !== "" &&
+    !/^\s*(#|>|\||```|~~~)/.test(line) &&
+    !/^\s*([-*+]\s|\d+[.)]\s)/.test(line) &&
+    !/^ {0,3}(=+|-+)\s*$/.test(line);
+
+  let inFence = false;
+  let start = 0;
+  // YAML front matter is not content; its closing `---` is not an underline.
+  if (lines[0] !== undefined && /^---\s*$/.test(lines[0])) {
+    const close = lines.findIndex((l, i) => i > 0 && /^---\s*$/.test(l));
+    if (close > 0) start = close + 1;
+  }
+
+  for (let i = start; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const atx = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
+    if (atx) {
+      emit(atx[1]);
+      continue;
+    }
+    // Setext: this line is the underline, the one above is the heading text.
+    if (/^ {0,3}(=+|-+)\s*$/.test(line) && isParagraphText(lines[i - 1])) {
+      emit(lines[i - 1].trim());
+    }
   }
   return out;
 }
