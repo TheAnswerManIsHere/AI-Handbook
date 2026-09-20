@@ -138,16 +138,21 @@ export function assertWorkers(value) {
 
 /**
  * GitHub's heading anchors, for validating a spec's `#fragment` against the
- * home file. Lowercase; drop everything but letters, numbers, marks, `_`, `-`
- * and spaces; spaces to hyphens; repeated headings get `-1`, `-2`, ... in
- * document order. That is github-slugger's algorithm on every heading this
- * payload has -- the divergence `.agents/memory/github-slugger-is-the-anchor-
- * algorithm.md` measures is ~61 connector-punctuation characters no heading
- * here contains, and the classic error it warns of (stripping `_`) is avoided.
- * A miss refuses; it never guesses a nearby heading.
+ * home file. Two halves. The character half -- lowercase; keep letters,
+ * numbers, marks, `_`, `-` and spaces; spaces to hyphens -- is github-slugger's
+ * on every heading this payload has; the divergence
+ * `.agents/memory/github-slugger-is-the-anchor-algorithm.md` measures is ~61
+ * connector-punctuation characters no heading here contains, and the classic
+ * error it warns of (stripping `_`) is avoided. The dedupe half is
+ * github-slugger's loop verbatim: occurrences are keyed by the slug actually
+ * EMITTED, and a collision bumps the original's counter until the result is
+ * unused -- so `Foo`, `Foo`, `Foo-1` give `foo`, `foo-1`, `foo-1-1`, never a
+ * duplicate anchor. (A by-base counter gave `foo-1` twice; Codex, #141 round
+ * 3.) A miss refuses; it never guesses a nearby heading. The payload is
+ * dependency-free by rule, which is why this is not the package.
  */
 export function headingSlugs(markdown) {
-  const seen = new Map();
+  const occurrences = new Map();
   const out = [];
   let inFence = false;
   for (const line of markdown.split("\n")) {
@@ -155,10 +160,14 @@ export function headingSlugs(markdown) {
     if (inFence) continue;
     const m = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
     if (!m) continue;
-    const base = m[1].toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
-    const n = seen.get(base) ?? 0;
-    seen.set(base, n + 1);
-    out.push(n === 0 ? base : `${base}-${n}`);
+    const original = m[1].toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
+    let result = original;
+    while (occurrences.has(result)) {
+      occurrences.set(original, (occurrences.get(original) ?? 0) + 1);
+      result = `${original}-${occurrences.get(original)}`;
+    }
+    occurrences.set(result, 0);
+    out.push(result);
   }
   return out;
 }
@@ -301,8 +310,12 @@ export function plan({ root, spec, workers = DEFAULT_WORKERS, include = [] }) {
 
   const fullSet = new Set();
   for (const g of spec.readInFull ?? []) {
-    const re = globToRegExp(toRepoPath(prefix, g));
-    const hits = files.filter((f) => re.test(f));
+    // A glob is payload-relative like `home`, but an `--include`d file is
+    // repo-relative and outside the payload; match both spellings so the
+    // handbook can name a non-payload document for a full read.
+    const asPayload = globToRegExp(toRepoPath(prefix, g));
+    const asRepo = globToRegExp(g.replace(/^\.\//, ""));
+    const hits = files.filter((f) => asPayload.test(f) || asRepo.test(f));
     if (hits.length === 0) throw new Error(`sweep-scope: readInFull glob "${g}" matches no file in scope`);
     hits.forEach((f) => fullSet.add(f));
   }
@@ -323,15 +336,32 @@ export function clearBriefs(dir) {
   for (const f of readdirSync(dir)) if (/^worker-\d+\.md$/.test(f)) unlinkSync(join(dir, f));
 }
 
-function parseArgs(argv) {
+const VALUE_FLAGS = new Set(["spec", "workers", "out", "include"]);
+const BOOL_FLAGS = new Set(["print-scope"]);
+
+/**
+ * The documented flags and nothing else. A mistyped `--incldue` used to be
+ * stored and ignored, and a trailing `--workers` read as absent -- both
+ * produced an inventory that looked complete. An operator's own typo is the
+ * threat model here, and refusing it by name is the whole defence.
+ */
+export function parseArgs(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith("--")) throw new Error(`unexpected argument ${a}`);
     const key = a.slice(2);
-    if (key === "print-scope") flags.printScope = true;
-    else if (key === "include") (flags.include ??= []).push(argv[++i]);
-    else flags[key] = argv[++i];
+    if (BOOL_FLAGS.has(key)) {
+      flags.printScope = true;
+      continue;
+    }
+    if (!VALUE_FLAGS.has(key)) throw new Error(`unknown flag --${key}`);
+    const value = argv[i + 1];
+    if (value === undefined || value.startsWith("--")) throw new Error(`--${key} needs a value`);
+    i++;
+    if (key === "include") (flags.include ??= []).push(value);
+    else if (key in flags) throw new Error(`--${key} given twice`);
+    else flags[key] = value;
   }
   return flags;
 }

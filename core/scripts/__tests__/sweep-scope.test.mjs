@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { validateSpec, globToRegExp, payloadPrefix, scopeFiles, toRepoPath, partition, plan, assertWorkers, headingSlugs, clearBriefs, ROOT_FILES, ALWAYS_IN_SCOPE } from "../sweep-scope.mjs";
+import { validateSpec, globToRegExp, payloadPrefix, scopeFiles, toRepoPath, partition, plan, assertWorkers, headingSlugs, clearBriefs, parseArgs, ROOT_FILES, ALWAYS_IN_SCOPE } from "../sweep-scope.mjs";
 
 const SPEC = {
   rule: "when a review loop stops",
@@ -112,6 +112,25 @@ test("heading slugs follow GitHub's algorithm on the payload's headings, in docu
     "dup",
     "dup-1",
   ]);
+  assert.deepEqual(headingSlugs("# Foo\n# Foo\n# Foo-1\n"), ["foo", "foo-1", "foo-1-1"], "github-slugger's dedupe: a generated slug is reserved, an explicit collision is bumped again");
+});
+
+test("a readInFull glob may name an --include'd file outside the payload, as written", () => {
+  const root = fixture();
+  const spec = { ...SPEC, readInFull: [...SPEC.readInFull, "docs/not-payload.md"] };
+  assert.throws(() => plan({ root, spec }), /matches no file/, "not in scope without --include");
+  const r = plan({ root, spec, include: ["docs/*.md"] });
+  assert.ok(r.fullSet.includes("docs/not-payload.md"), "matched repo-relative, not prefixed to core/");
+  assert.ok(r.fullSet.includes("core/docs/ai-context/working-modes.md"), "payload-relative globs still prefix");
+});
+
+test("the CLI refuses an unknown flag, a valueless flag and a repeated flag, naming each", () => {
+  assert.throws(() => parseArgs(["--spec", "s.json", "--incldue", "docs/**"]), /unknown flag --incldue/);
+  assert.throws(() => parseArgs(["--spec", "s.json", "--workers"]), /--workers needs a value/);
+  assert.throws(() => parseArgs(["--spec", "s.json", "--workers", "--out", "d"]), /--workers needs a value/);
+  assert.throws(() => parseArgs(["--spec", "a", "--spec", "b"]), /--spec given twice/);
+  assert.throws(() => parseArgs(["s.json"]), /unexpected argument/);
+  assert.deepEqual(parseArgs(["--spec", "s.json", "--include", "a/*.md", "--include", "b/*.md", "--workers", "3", "--print-scope"]), { spec: "s.json", include: ["a/*.md", "b/*.md"], workers: "3", printScope: true });
 });
 
 test("a mistyped or empty home anchor refuses; a real one is accepted", () => {
