@@ -93,7 +93,13 @@ export function scopeFiles(root, { include = [] } = {}) {
   const all = trackedMarkdown(root);
   const inPayload = (f) => (prefix ? f.startsWith(prefix) : true);
   const isRoot = (f) => ROOT_FILES.includes(f);
-  const extra = include.map(globToRegExp);
+  const extra = include.map((g) => {
+    const re = globToRegExp(g.replace(/^\.\//, ""));
+    // The same refusal readInFull has: a mistyped include must not quietly
+    // become "the default scope, reported as complete".
+    if (!all.some((f) => re.test(f))) throw new Error(`sweep-scope: --include "${g}" matches no tracked file`);
+    return re;
+  });
   const files = all.filter((f) => inPayload(f) || isRoot(f) || extra.some((re) => re.test(f)));
   return { prefix, files };
 }
@@ -235,12 +241,14 @@ root: \`${root}\`. Do not edit any file. Report only.
 
 **${spec.rule.trim()}**
 
-**Its home — the one authoritative statement:** \`${home}\`. Read it first. Every
-other file may only *cite* it. Your question for every other file is
-structural: **does this file make a statement ABOUT the rule, rather than
-pointing AT it?** A file can be wrong by omission — state a version of the
-rule correctly in its own words and never name the home — and that is a hit
-with no wrong phrase in it. Grep cannot find it; you can.
+**Its home — the one authoritative statement:** \`${home}\`. Read it first. Your
+question for every statement about the rule in any other file is structural:
+**does it cite the home and agree with it?** A statement that is **uncited or
+disagrees** is a hit. A restatement that cites the home and agrees is a
+citation with context and is NOT a hit — do not return it. A file can be wrong
+by omission — state a version of the rule correctly in its own words and never
+name the home — and that is a hit with no wrong phrase in it. Grep cannot find
+it; you can.
 
 ## Sub-shapes — hunt for ALL of them in EVERY file
 

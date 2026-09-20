@@ -102,9 +102,12 @@ per worker); what was fixed with `path:line`; what was declined and under
 which exclusion; and any shape a reader added. That record is what the next
 sweep re-runs instead of re-inventing.
 
-Then run steps 2–4 again over the fixes, with the same spec. The second run
-is cheap and it is the point: every batch seeds instances of the class it
-patched, and a sweep that runs once is one batch behind by construction.
+Then run steps 2–4 again over the fixes, with the spec **as amended** — a
+shape a reader added goes into `subShapes` first, because every file cleared
+before it existed was cleared against the old list and the whole scope owes a
+pass against the new one. The second run is cheap and it is the point: every
+batch seeds instances of the class it patched, and a sweep that runs once is
+one batch behind by construction.
 
 ## What this skill is not
 

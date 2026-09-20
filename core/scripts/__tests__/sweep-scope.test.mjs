@@ -77,6 +77,8 @@ test("scope is git's tracked payload markdown plus the root files, and the direc
   assert.ok(!files.includes("docs/not-payload.md"), "handbook-root docs outside the payload are not scope by default");
   assert.ok(!files.some((f) => f.endsWith(".mjs")), "prose only");
   assert.ok(scopeFiles(root, { include: ["docs/*.md"] }).files.includes("docs/not-payload.md"), "--include widens it");
+  assert.throws(() => scopeFiles(root, { include: ["docs/proces/**"] }), /--include "docs\/proces\/\*\*" matches no tracked file/, "a mistyped include refuses");
+  assert.throws(() => plan({ root, spec: SPEC, include: ["nope/*.md"] }), /matches no tracked file/);
 });
 
 test("a consumer has the payload at the root and needs no prefix", () => {
@@ -179,7 +181,9 @@ test("plan reads the home in full, maps payload-relative globs, and writes one b
     assert.ok(brief.includes("`core/docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22`"), "home is named, repo-relative, anchor kept");
     for (const s of SPEC.subShapes) assert.ok(brief.includes(`| **${s.id}** | ${s.name} | \`${s.example}\` |`), s.id);
     for (const x of SPEC.notInClass) assert.ok(brief.includes(x));
-    assert.match(brief, /statement ABOUT the rule, rather than\s+pointing AT it/, "the structural test");
+    assert.match(brief, /does it cite the home and agree with it\?/, "the structural test, as the doc states it");
+    assert.match(brief, /uncited or\s+disagrees/, "residue is uncited or disagreeing, never a cited agreeing gloss");
+    assert.match(brief, /cites the home and agrees is a\s+citation with context and is NOT a hit/, "cited restatements are not returned");
     assert.ok(brief.includes("OPENED: n / READ IN FULL: n / SWEPT: n"), "the inventory declaration");
     assert.ok(brief.includes("Declined candidates"), "declined list is mandatory");
     assert.ok(/`high` \| `medium` \| `low`/.test(brief), "confidence survives to the report");

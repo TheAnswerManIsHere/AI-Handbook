@@ -667,7 +667,10 @@ the safety net a non-code-reading product manager depends on.
   already reviewed.
 - **No re-request without a behavioral change since the last reviewed commit.**
   A skill file, `CLAUDE.md`, or a context contract counts as behavioral,
-  because in this repo those change what agents do.
+  because in this repo those change what agents do. The one exception is the
+  mechanical round `claude-core.md` rule 4 defines — a head moved without a
+  behavioural change (a base merge, or a final prose-only push), so that no
+  head is left unreviewable.
 - **Every review request carries pre-registered flip conditions** — what
   finding, what count, what change of shape would end the loop, written before
   the round runs, **each naming an observable read off the round rather than a

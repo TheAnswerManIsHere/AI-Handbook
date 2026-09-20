@@ -60,7 +60,10 @@ missing any of them.
   retired rule takes, enumerated by *shape*, never by wording, with one
   example each. Expect three to six; one is always an undercount. A reader
   may add a shape mid-sweep, and a shape added by a reader is worth more than
-  the instance that prompted it.
+  the instance that prompted it — **and it reopens the sweep**: every file
+  cleared before the shape existed was cleared against the old list, so the
+  spec is amended and the whole scope re-dispatched against it before the
+  sweep can be called complete.
 - **Not-in-class, as an explicit list** — what a reader must *not* return.
   Without it, readers return the repository's entire history section. This
   list is as load-bearing as the class: it is the only part of the output that
@@ -138,7 +141,7 @@ home. History — a sentence naming the retired thing *as* retired, with its
 replacement — stays. The record goes in the PR body: the spec as swept, the
 inventory, what was fixed, and what was declined with its exclusion, so the
 next sweep is re-run rather than re-invented. Then the sweep runs again over
-the batch.
+the batch, with the spec as amended by any shape a reader added.
 
 **Anti-goal: this is not a phrase checker.** The class was un-greppable in 12
 of 27 cases, including all three of the highest-consequence ones. Grep is a
