@@ -887,8 +887,10 @@ redesign grants and send David a question the loop was built to keep off his
 desk. **What does not become negotiable is a constraint David required
 explicitly**: a requirement does not stop being his because it happens to be
 about technology. (The code review loop's own escalation list, under *The
-post-round judgement* below, still names a product or design fork and is correct
-as written. **It is not that the code loop lacks a technical tie-break** — *Who
+post-round judgement* below, carried the same "product or design fork" wording
+until 2026-09-20 and is now narrowed the same way. This parenthesis used to
+call it "correct as written", which is how the defect survived a round that
+was looking straight at it — vouching for a sentence is not reading it. **It is not that the code loop lacks a technical tie-break** — *Who
 judges* above gives a surviving purely technical disagreement to the Fable
 assessor there, and `claude-core.md` rule 4 says so on `main`. This parenthesis
 claimed the opposite for one round, which is this very paragraph's warning
@@ -916,8 +918,14 @@ self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 
 What still stops the loop for David, whatever the assessors say: a genuine
-product or design fork, a scope addition, a split, a disclosure question, and
-any change to intended behaviour or knowingly accepted user-facing shortfall.
+product or behaviour fork, a scope addition, a split, a disclosure question,
+and any change to intended behaviour or knowingly accepted user-facing
+shortfall. **A purely technical design fork is not among them** — it is
+settled in the loop, with the Fable assessor holding the tie-break on a code
+round. This list read "a product or design fork" until 2026-09-20, which a
+technical fork also satisfies: the same defect, and the same sentence, that
+the paragraph fifty lines above had already diagnosed and fixed in the
+planning list.
 
 A round with **no findings** needs no dispatch: there is nothing to assess,
 and the loop ends on the head that round reviewed.
