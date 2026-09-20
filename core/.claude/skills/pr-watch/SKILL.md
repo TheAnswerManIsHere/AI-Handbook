@@ -264,17 +264,33 @@ replaced them is step 5's proportionate-evidence rule.)
    that cannot then be reviewed.
 
    - **On internal tooling, was this the second review?** If yes, **write
-     nothing.** Iteration is over: take the shortfall to David with a choice —
-     continue, cut the scope, or stop — per the two-review limit in
-     [`working-modes.md`](../../../docs/ai-context/working-modes.md). A batch
-     written here would be a changed head I am forbidden to request a review
-     for, which is a pull request that can neither merge nor move. (Codex,
-     #140 round 2 — the ordering bug was mine: this check sat in step 6,
-     *after* the batching it exists to prevent.)
-   - **Otherwise**, everything being written for goes in one push, with the
-     repo's own fast checks run first — lint, format, typecheck, the changed
-     suites. One validated push beats three speculative ones, because each
-     push costs a full round.
+     nothing** — iteration is over. A batch written here would be a changed
+     head I am forbidden to request a review for, which is a pull request that
+     can neither merge nor move. (Codex, #140 round 2 — the ordering bug was
+     mine: this check sat in step 6, *after* the batching it exists to
+     prevent.)
+
+   - **Ending iteration is not stopping, and only three things stop.** The
+     limit's step 3 in
+     [`working-modes.md`](../../../docs/ai-context/working-modes.md) is the
+     authority and the only statement of these; they are enumerated here
+     because this is the moment of action. Of the corrected head, ask: does it
+     violate an agreed requirement, does a required check fail, or does a
+     finding establish consequential harm David has not accepted? **Any one of
+     those and it does not merge** — the concrete shortfall goes to him with a
+     choice: continue, cut the scope, or stop. **None of them and the round's
+     remaining findings are recorded gaps and follow-up issues**, and the pull
+     request goes to close-out like any other.
+     (Codex, #140 round 3 — this bullet escalated *every* second-review
+     finding, so a routine round-two nit would have turned each internal pull
+     request into a David-gated stop. An enactment that interrupts him more
+     often than the design it replaced is a worse answer than doing nothing,
+     and this whole limit exists because he said the looping overhead was
+     slowing him down.)
+   - **If this was NOT the second review**, everything being written for goes
+     in one push, with the repo's own fast checks run first — lint, format,
+     typecheck, the changed suites. One validated push beats three speculative
+     ones, because each push costs a full round.
 
 5. **Reply to every finding and resolve its thread**, right after posting that
    reply, never in a batch, and never as a standalone summary comment in place
