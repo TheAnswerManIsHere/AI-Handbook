@@ -401,14 +401,27 @@ before any new commit exists. The exit ramp from eternal looping is the
 judgement that nothing more is worth *writing*; it is never anyone skipping the
 review of something written.
 
-**What this costs, chosen rather than discovered:** fixing even a typo costs a
-full round. So the real question at every round is no longer "another round?"
-but **"is this finding worth writing code for at all?"** — answered by
-[`review-judgment.md`](../../docs/ai-context/review-judgment.md), which is the
-only statement of that test and sets no target rate in either direction. This
-paragraph used to predict that most internal findings ship as recorded gaps.
-That is a decline rate wearing a prediction's clothes, two paragraphs above the
-text retiring it, and it is gone with the rubric it survived.
+**What this costs, and the limit that follows from it.** The per-finding
+question — **"is this finding worth writing code for at all?"** — is answered by
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md), the only
+statement of that test, which sets no target rate in either direction. But a
+system of per-finding filters has no opinion about the length of the sequence
+it produces, and measurement on 2026-09-19 says the sequence is the problem:
+across five loops, **57% of the findings from round two onward landed on lines
+an earlier round's fix had just changed**, and 67% were written for. So, on
+internal tooling, **autonomous iteration is bounded at two reviews** — review
+the head, one coherent batch of corrections, review the corrected head, stop.
+
+**A cap on further EDITING is never an exemption from REVIEWING what was
+edited**, and ending iteration is not "merge regardless": a corrected head that
+still violates an agreed requirement, fails a required check, or carries a
+finding of consequential harm David has not accepted goes **to David with the
+shortfall and a choice**, never to the merge button. **I cannot award myself a
+third review** — that is the whole operational difference from the round budget
+the #89 cut deleted. The rule, its scope by consequence rather than by
+directory, and what it costs are in
+[`working-modes.md`](../../docs/ai-context/working-modes.md); this is only my
+enactment of it. (David, 2026-09-19, on Astra's recommendation.)
 
 ### The ship gate: when the Worth rule stops being asked (David, 2026-09-19)
 
@@ -431,9 +444,13 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
-**On a PR that changes the review loop itself, the gate's flip cannot carry
-the loop to its write-gate stop alone**, and that is a limit rather than a
-defect: the second exception
+**The two-review limit caps this carve-out**: reach across future pull
+requests can keep the gate from ending a loop early, and can never authorise a
+third review (both assessors, #140 round 1). Whether the carve-out should
+survive at all is David's, and open.
+
+**On a PR that changes the review loop itself, the gate cannot end the loop
+alone**, and that is a limit rather than a defect: the second exception
 — a finding whose blast radius reaches outside this pull request — is satisfied
 by *every* finding, because the artifact under review is the loop every future
 pull request runs. There the Worth rule still does the work, and a loop that
@@ -476,11 +493,23 @@ accounting.
 ### Internal tooling: what is downstream
 
 Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
-docs and harvests run the loop above with the **`internal` tier**:
+docs and harvests run the loop above with the **`internal` tier** — **by
+default, and the default is not the answer**. Before the first round, I ask
+what is downstream of *this* change: **machinery that governs approvals,
+publication, credentials or destructive operations is classified on that
+consequence**, whatever directory it lives in, which puts it outside the
+two-review limit and under the ordinary convergence the tier it earns carries.
+A consumer overlay marking a subsystem sensitive is one route to that; it is
+not the only one, and its silence is not a classification. (Codex, #140 round
+2: the limit said it was scoped by consequence while the tier was still
+assigned by directory, so a credential-rotation script no overlay had named
+would have been capped at two reviews by the exception written to prevent
+exactly that.) Everything that is genuinely routine and recoverable — which is
+nearly all of it — stays internal:
 
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
-  finding nothing, there is nothing further to do — nothing was written, so
-  the head is already reviewed.
+  finding nothing, there is nothing to assess and no receipt to write —
+  nothing was written, so the head is already reviewed.
 - **Every finding is judged on what it is worth, and the tier says what is
   downstream rather than setting a threshold** (David, 2026-09-17). The old
   rubric here reserved a write for "a very high chance of a critical flaw" and
@@ -581,10 +610,12 @@ the readiness receipt never ran at all, and the delivery gate's only firing was
 on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
-**What decides a loop's length now is the write-gate rule above, bounded by
-rules 4 through 6 below** — a behavioural change before a re-request,
-pre-registered flip conditions, and the worth test at triage, which lives in
-[`review-judgment.md`](../../docs/ai-context/review-judgment.md). **What
+**What decides a loop's length is the two-review limit**, above. **Rules 4
+through 6 below bound what a single round is for** — which heads are reviewable,
+the pre-registered flip conditions carried with a request, and the worth test at
+triage, which lives in
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md). Neither they
+nor the Worth rule can authorise another batch after review two. **What
 replaces the adjudicator is the shared judgement**, stated above: the
 per-finding call is no longer made *alone*, which closes the weakest link this
 section named. It is still mine — two assessments advise and I decide from
@@ -592,23 +623,21 @@ them. An earlier draft of this sentence said the call was "no longer mine",
 which is the binding-verdict design David replaced on 2026-09-17, left standing
 in the file that every session loads.
 
-4. **No re-request without a behavioral change since the last reviewed
-   commit** — a skill file, this file, or a `docs/ai-context/` contract counts
-   as behavioral; **a mechanical round is the one exception** — the head moved
-   without a behavioural change (a merge of the base branch, or a prose-only
-   push such as a README or UAT doc), nothing is being written for, and no
-   review is pending. That round is mine to request without a behavioural
-   change, because the write-gate rule needs every head reviewable and this
-   rule would otherwise make a merge-commit or prose-only head unreviewable
-   and so unmergeable. A prose-only push buys no round of its own mid-loop; it
-   rides the next behavioural round, and gets the mechanical one only when it
-   is the last push.
-   (The definition used to live in a rule 3 the #89 cut removed, along with the
-   receipt arithmetic that was the rest of it.) **Every review request carries pre-registered flip
+4. **Never a second review of an unchanged head; always a review of a changed
+   one.** This rule read "no re-request without a behavioural change" and so
+   contradicted the write-gate it serves: a prose-only correction could then
+   never be reviewed and never merge, or had to acquire an unnecessary change
+   to buy the round — #125's two-sentence fix waited a week on exactly that.
+   **Any changed head gets its review**, documentation-only changes and
+   base-branch merges included; what is refused is asking again on a head
+   already reviewed as it stands, to get a different answer. The mechanical
+   round needs no exception now, because it was never the anomaly — the old
+   rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
-   written before the round runs. This is the only stopping device with a
+   written before the round runs. **Within a round** it is the device with a
    working record, and it works because it collides with an event instead of
-   waiting to be recalled.
+   waiting to be recalled — it was the only one until the two-review limit,
+   which bounds the sequence rather than the round.
    **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
    2026-09-13): something read off the round, not something I decide in the
    moment having just read the finding. **A condition I have to interpret is
@@ -982,9 +1011,10 @@ shows the true delta.
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
-  - Bounded-judgement dispatches — the plan reviewer, the review proxy, the
-    Fable assessor — run at the strongest available tier regardless; that is a
-    separate, deliberate routing (below), not this rule being violated.
+  - The bounded-judgement dispatches — the plan reviewer, and the review
+    proxy's two assessors — run at the strongest available tier regardless.
+    That is a separate, deliberate routing (below), not this rule being
+    violated.
 - **Verify the active tier before Opus-reserved execution** (migration, Tier B
   fix, security review, dev-infra) rather than inferring it. `.claude/settings.json`
   pins `opus` but is **not proof of the running tier** — measured 2026-08-28,
@@ -1024,20 +1054,22 @@ shows the true delta.
   for David; that was the verdict-driven design the 2026-09-18 redesign
   replaced.)
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
-  the stronger tier; an incomplete enumeration is invisible to the assessor;
-  and a **false premise produces a confidently wrong assessment** — so pin the
-  commit the question is about, check my working tree matches it when the
-  question is about a tree, and tell the assessor to verify load-bearing
-  premises rather than taking them from me. **Every factual premise I supply
-  in a brief** — in the oracle, the lens, the priors, the pinned commit —
-  **is itself written
+  the stronger tier; an incomplete enumeration is invisible to the assessor; and a
+  **false premise produces a confidently wrong assessment** — so pin the commit the
+  question is about, check my working tree matches it when the question is about
+  a tree, and tell the assessor to verify load-bearing premises rather than taking
+  them from me. **Every factual premise I supply in a brief** — in the
+  oracle, the lens, the priors, the pinned commit — **is itself written
   under *A load-bearing claim is quoted, or it is marked unverified***: a
   quoted signature or output, or `unable to verify:`, so the assessor can read
   which of its inputs was measured. A lens is a chosen emphasis, a
   judgement; only the facts it rests on are premises. The standing text a
   dispatch script emits is the script's claim, reviewed when the script is.
-  When an assessment rests on a false premise I supplied, I correct the
-  *input* and re-ask rather than arguing with the answer that premise produced.
+  When an assessment rests on a false premise I supplied, the fix is the
+  *input*: I correct it and re-ask, rather than arguing with a conclusion built
+  on it. That is a rule about where the error is, never about authority — both
+  assessments advise, and a disagreement I hold on the merits is settled under
+  *Shared judgement on a review round*.
 - **An unclassified judgement does not dispatch.** It runs in my main loop, and
   encountering one is a signal to classify it in a PR — not to decide in the
   moment. Adding or removing a dispatch bar is a contract change, shipped

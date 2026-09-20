@@ -66,9 +66,13 @@ Decide by what "this" refers to (contract's trigger table):
     PR** alongside that pass's other doc updates. No per-feature branch, no
     per-feature PR, no harvest sub-issue, no separate subscription: the
     tracking is the harvest-notes comments already on each feature's
-    workstream issue. Internal tier, under the review loop `working-modes.md`
-    states — write-gate and all.
-    Everything below this bullet describes the AD-HOC path only.
+    workstream issue. Internal tier, so the **two-review limit** governs this
+    path exactly as it governs the other (`working-modes.md`): automatic pass,
+    one coherent batch of corrections if any are warranted, **a review of that
+    corrected head**, then stop. It never meant a corrected head merges
+    unreviewed — this bullet read "automatic pass, one triage, merge", which
+    said it did. Everything below this bullet describes the AD-HOC path's
+    **delivery mechanics** only; the termination rule above is common to both.
   - **Ad-hoc standalone invocation** (David asks for one feature directly):
     **default to assuming the feature's PR is
   already merged** (David's stated workflow),
@@ -88,11 +92,13 @@ Decide by what "this" refers to (contract's trigger table):
   the merged diffs, contradiction or duplication with existing docs; out of
   scope — prose style, structure preferences, completeness beyond the
   session's actual learnings.* Out-of-scope findings are declined against
-  the stated oracle — a harvest is an internal artifact, reviewed under the
-  loop `working-modes.md` states: the automatic pass, the shared judgement on
-  any round that returns findings, and another round for anything written
-  — and once the ready bar is met I self-merge per CLAUDE.md's close-out
-  contract. I only
+  the stated oracle — a harvest is an internal artifact, so the **two-review
+  limit** applies (`working-modes.md`) and nothing here is a separate cap: the
+  automatic pass,
+  one coherent batch of corrections if any are warranted, **a review of that
+  corrected head**, then iteration stops. It never meant a pushed fix merges
+  unreviewed. Once the ready bar is met I self-merge per CLAUDE.md's
+  close-out contract. I only
   commit to the feature's own branch instead when I have clear **session
   evidence** its PR is still open (e.g. `/document` invoked mid-build). **Never
   force-push** (a ruleset on `claude/**` refuses it); if a stale remote ref of my old

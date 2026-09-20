@@ -444,9 +444,10 @@ maintenance reports. This is now a standalone maintenance-skill rule.)
   (step 4) — recording a newly-parked item or updating an entry's status —
   and the batched documentation harvest (step 6a). Both are
   docs-only and zero behavior/dependency change, and both ship together in
-  **one maintenance docs PR per pass** (internal tier, under the review loop
-  `working-modes.md` states — write-gate and all) — one PR for the whole pass,
-  never one per harvested feature, per `documentation-workflow.md`'s batched delivery path. Neither is license to fix, refactor, or bump
+  **one maintenance docs PR per pass** (internal tier, so the two-review limit
+  in `working-modes.md` bounds it: the automatic pass, one batch of corrections
+  if any are warranted, a review of that head, then stop) — one PR for the whole pass, never one per
+  harvested feature, per `documentation-workflow.md`'s batched delivery path. Neither is license to fix, refactor, or bump
   anything the backlog pass turns up — a fired trigger for a *major* bump
   (dependency or Action) still only ever becomes a reported decision item,
   never a direct action, per step 4 above. **Step 9's backlog hygiene is

@@ -10,7 +10,7 @@ product is not re-learned on the next.
 
 Two products (Overhype.me, DojoOS) run the same development process with the
 same agents: Claude Code builds, Codex reviews, Replit hosts, David decides.
-That process is substantial — the review loop, planning ceremony, PR
+That process is substantial — review-loop stopping rules, planning ceremony, PR
 discipline, close-out bars, environment gotchas the fleet has already paid to
 discover. Before this repo it lived in one product's repository, which meant
 the second product either started from nothing or started from a copy that

@@ -261,10 +261,48 @@ replaced them is step 5's proportionate-evidence rule.)
    never convergence. **Check it at the top of every round**, because #120 wrote
    this rule and then ran seven rounds without once reading it.
 
-4. **Batch the fixes.** Everything being written for goes in one push, with the
-   repo's own fast checks run first — lint, format, typecheck, the changed
-   suites. One validated push beats three speculative ones, because each push
-   costs a full round.
+4. **Check the limit BEFORE writing anything, then batch the fixes.** This
+   gate is first in this step because its whole job is to prevent a commit
+   that cannot then be reviewed. It has **exactly two branches, and the
+   predicate is stated once** — an earlier shape split it across three
+   sibling bullets and restated the complement as the negation of one
+   conjunct, which silently dropped product code at its second review. With
+   one predicate and one `Otherwise` there is nothing left to restate, so
+   nothing to restate wrong. (Codex, #143 round 1; both assessors, who also
+   caught that the disposition paragraph below had escaped the predicate
+   entirely and so applied to every round.)
+
+   - **Is this internal tooling AND its second review?** If yes, **write
+     nothing** — iteration is over. A batch written here would be a changed
+     head I am forbidden to request a review for, which is a pull request that
+     can neither merge nor move. (Codex, #140 round 2 — the ordering bug was
+     mine: this check sat in step 6, *after* the batching it exists to
+     prevent.)
+
+     **Then, of that corrected head, ask the three questions that decide
+     whether it stops.** Ending iteration and declaring the work not ready are
+     two different things. The limit's step 3 in
+     [`working-modes.md`](../../../docs/ai-context/working-modes.md) is the
+     authority and the only statement of these three; they are enumerated here
+     because this is the moment of action. Does it violate an agreed
+     requirement, does a required check fail, or does a finding establish
+     consequential harm David has not accepted? **Any one of those and it does
+     not merge** — the concrete shortfall goes to him with a choice: continue,
+     cut the scope, or stop. **None of them and the round's remaining findings
+     are recorded gaps and follow-up issues**, and the pull request goes to
+     close-out like any other.
+     (Codex, #140 round 3 — this branch escalated *every* second-review
+     finding, so a routine round-two nit would have turned each internal pull
+     request into a David-gated stop. An enactment that interrupts him more
+     often than the design it replaced is a worse answer than doing nothing,
+     and this whole limit exists because he said the looping overhead was
+     slowing him down.)
+
+   - **Otherwise** — a product-code pull request at any round, or an internal
+     one's first review — everything being written for goes in one push, with
+     the repo's own fast checks run first: lint, format, typecheck, the
+     changed suites. One validated push beats three speculative ones, because
+     each push costs a full round.
 
 5. **Reply to every finding and resolve its thread**, right after posting that
    reply, never in a batch, and never as a standalone summary comment in place
@@ -300,12 +338,19 @@ replaced them is step 5's proportionate-evidence rule.)
 
 6. **Re-request review on the actual head.**
 
-   - **No re-request without a behavioural change** since the last reviewed
-     commit. A skill file, `claude-core.md`, or a `docs/ai-context/` contract
-     counts as behavioural. A prose-only push does not buy a round on its own
-     and does not escape review either — it rides the next behavioural round,
-     and if it is the last push it gets the mechanical round `claude-core.md`
-     rule 4 names for exactly that case, because no head merges unreviewed.
+   - **Every changed head gets its review; an unchanged one never gets a
+     second.** A prose-only push is a changed head and is reviewed like any
+     other — the rule here used to say it "waits and rides the next behavioural
+     round", which under the write-gate meant a documentation correction with
+     nothing behavioural behind it could never merge at all (#125 waited a week
+     on that reading). What is refused is re-requesting on a head already
+     reviewed as it stands, to get a different answer. (Astra, 2026-09-19.)
+   - **On internal tooling, the second review is the last one I request.**
+     Step 4's gate is what enforces that, before anything is written; by the
+     time a head exists here it is always reviewable. So this bullet has no
+     decision left to make — it records the shape: round 1, one coherent
+     batch, the review of that corrected head, and no more. Only David
+     reopens a loop beyond it.
    - **Pre-registered flip conditions, in the request itself.** Name, before
      the round runs, what would stop the loop. **Each names an OBSERVABLE,
      never a judgement** (#85, 2026-09-13) — something read off the round ("a

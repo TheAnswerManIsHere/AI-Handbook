@@ -237,10 +237,11 @@ separation aids review). Placement:
   maintenance pass, not one per feature** (David, 2026-08-20 — this is what
   ends the harvest-PR churn the batching exists to remove). The pass's harvest
   commit rides the maintenance docs PR alongside that week's
-  `deferred-work.md` updates; it is an internal artifact, which says what is
-  downstream and nothing about the loop's length — it is reviewed under the
-  write-gate rule like every tier ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22), David 2026-08-22; the judgement
-  reshaped 2026-09-17), never an unreviewed merge. **No
+  `deferred-work.md` updates; it is an internal artifact, so the **two-review
+  limit** governs it ([`working-modes.md`](working-modes.md)): the automatic
+  Codex pass, one coherent batch of corrections if any are warranted, a review
+  of that corrected head, then iteration stops — never an unreviewed merge, and
+  never a third round the builder grants itself. **No
   per-feature harvest sub-issues**: the tracking is the harvest-notes comments
   already sitting on each feature's workstream issue, plus the maintenance
   report naming what was harvested. (The per-harvest sub-issue machinery below
