@@ -620,10 +620,12 @@ silently leaving the workstream unlabeled):
 - **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
 - **Codex posts findings, I start responding** → `waiting:claude`.
 - **I post the next round's `@codex review` trigger** → `waiting:codex`.
-- **A genuine design/architecture decision goes to David** (the escalate
-  rule above) → `waiting:david`; `stage:code-review` stays put — the stage
+- **Intended behaviour or an accepted user-facing shortfall goes to David**
+  (step 3.5 above — a purely technical fork is settled in the loop, never
+  escalated) → `waiting:david`; `stage:code-review` stays put — the stage
   hasn't moved, but the turn has.
-- **CI is green and Codex has converged, and every thread is resolved** →
+- **CI is green, Codex's review has returned for the head commit, every
+  thread is resolved, and the owed translations are delivered** →
   the ready bar is met and **I merge it myself per CLAUDE.md's close-out
   contract (David, 2026-08-15)** — re-verify live state, squash-merge, sync,
   verify, report — so `stage:merge` is normally a moment, not a resting
@@ -755,5 +757,6 @@ its own — only real state (a new commit, a new finding, an actual merge)
 moves a label.
 
 Codex (and other AI reviewers) remain the independent reviewers; my job while
-watching is to *respond* — fix the mechanical, escalate the substantive.
+watching is to *respond* — judge every finding under the Worth rule with both
+assessments in hand, and take to David only what is his.
 

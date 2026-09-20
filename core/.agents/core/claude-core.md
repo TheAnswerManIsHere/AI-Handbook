@@ -68,6 +68,8 @@ file, that's the same smell facing the other way.
   [`planning-contract.md`](../../docs/ai-context/planning-contract.md).
 - **Workstream tracking** —
   [`workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md).
+- **Reconciling prose after a design change** — sweep, never patch:
+  [`prose-sweep.md`](../../docs/ai-context/prose-sweep.md).
 - **Failure patterns the fleet has already paid for** —
   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md).
   Each pattern is stated generally, then grounded in a concrete example from
@@ -248,7 +250,7 @@ patterns become CI guards* under *Standing rituals*: the rule adds a word
 where the honest answer is "I could not check" and a quotation where I did,
 and the review loop noticing is what enforces it. Where it bites: a review
 reply's prose (`pr-watch`), and every premise I supply in a brief to a
-dispatched judge (*Model, cost, and routing*).
+dispatched assessor (*Model, cost, and routing*).
 
 ## Two modes: feature-building (default) vs. bug-fixing
 
@@ -418,8 +420,8 @@ I execute that stop; I do not judge it alone.
 
 **Why this exists, and why nothing already in this file does its job.** Every
 other gate here filters a *finding*: the Worth rule per finding, the shared
-judgement per finding twice, the intelligent-reader lens per finding. A chain
-of individually-defensible small fixes is exactly what a system of per-item
+judgement per finding twice. A chain of individually-defensible small fixes is
+exactly what a system of per-item
 filters produces, and nothing was watching the sequence. Measured on #131: five
 rounds, twelve findings. Rounds 1–3 fixed real defects. Rounds 4–5 were about
 the wording of a label in a PR comment, cost roughly a quarter of the loop's
@@ -476,8 +478,8 @@ Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
 docs and harvests run the loop above with the **`internal` tier**:
 
 - **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
-  finding nothing, it needs no adjudication and no receipt — nothing was
-  written, so the head is already reviewed.
+  finding nothing, there is nothing further to do — nothing was written, so
+  the head is already reviewed.
 - **Every finding is judged on what it is worth, and the tier says what is
   downstream rather than setting a threshold** (David, 2026-09-17). The old
   rubric here reserved a write for "a very high chance of a critical flaw" and
@@ -491,9 +493,10 @@ docs and harvests run the loop above with the **`internal` tier**:
   [`review-judgment.md`](../../docs/ai-context/review-judgment.md).
 
 Harvests still
-get no harvest ceremony, and internal tooling still ships with rougher edges as
-an accepted trade — its failure mode is wrongly-blocking, which announces
-itself, and `main`'s real protection is GitHub's server-side rulesets.
+get no harvest ceremony. What the tier supplies to the judgement is the
+consequence side, never the answer: internal tooling's failure mode is
+wrongly-blocking, which announces itself, and `main`'s real protection is
+GitHub's server-side rulesets.
 
 ### Shared judgement on a review round
 
@@ -974,9 +977,9 @@ shows the true delta.
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
-  - Adjudication dispatches run at the strongest available tier regardless —
-    that is a separate, deliberate routing (below), not this rule being
-    violated.
+  - Bounded-judgement dispatches — the plan reviewer, the review proxy, the
+    Fable assessor — run at the strongest available tier regardless; that is a
+    separate, deliberate routing (below), not this rule being violated.
 - **Verify the active tier before Opus-reserved execution** (migration, Tier B
   fix, security review, dev-infra) rather than inferring it. `.claude/settings.json`
   pins `opus` but is **not proof of the running tier** — measured 2026-08-28,
@@ -1016,19 +1019,20 @@ shows the true delta.
   for David; that was the verdict-driven design the 2026-09-18 redesign
   replaced.)
   Three package limits: a dispatch that reuses my own reasoning isn't rescued by
-  the stronger tier; an incomplete enumeration is invisible to the judge; and a **false
-  premise produces a confidently wrong verdict** — so pin the commit the
-  question is about, check my working tree matches it when the question is about
-  a tree, and tell the judge to verify load-bearing premises rather than taking
-  them from me. **Every factual premise I supply in a brief** — in the
-  oracle, the lens, the priors, the pinned commit — **is itself written
+  the stronger tier; an incomplete enumeration is invisible to the assessor;
+  and a **false premise produces a confidently wrong assessment** — so pin the
+  commit the question is about, check my working tree matches it when the
+  question is about a tree, and tell the assessor to verify load-bearing
+  premises rather than taking them from me. **Every factual premise I supply
+  in a brief** — in the oracle, the lens, the priors, the pinned commit —
+  **is itself written
   under *A load-bearing claim is quoted, or it is marked unverified***: a
-  quoted signature or output, or `unable to verify:`, so the judge can read
+  quoted signature or output, or `unable to verify:`, so the assessor can read
   which of its inputs was measured. A lens is a chosen emphasis, a
   judgement; only the facts it rests on are premises. The standing text a
   dispatch script emits is the script's claim, reviewed when the script is.
-  When a verdict rests on a false premise I supplied, I correct the *input*
-  and re-ask; I never overrule the *output*.
+  When an assessment rests on a false premise I supplied, I correct the
+  *input* and re-ask rather than arguing with the answer that premise produced.
 - **An unclassified judgement does not dispatch.** It runs in my main loop, and
   encountering one is a signal to classify it in a PR — not to decide in the
   moment. Adding or removing a dispatch bar is a contract change, shipped

@@ -1,6 +1,6 @@
 ---
 name: bugfix
-description: Bug-fixing workflow — fix a bug without the planning ceremony. Use when David says /bugfix (the explicit override), or whenever a request is bugfix-shaped — a report that already-agreed behavior is broken, "just fix this", a defect with an observable symptom. Announce the classification in one line on entry; ask when it could really be a behavior change. One bug per branch per PR, opened as soon as the fix is verified. Drops the plan file and the plan-review loop; keeps (and tiers) verification — a Tier A/B fix carries a regression test, a blast-radius note, and a bugfix oracle in the PR body, while a trivial Tier C schema fix uses its own dedicated oracle block instead — and Codex still reviews the diff to convergence. Opposite of the default feature-building flow in CLAUDE.md.
+description: Bug-fixing workflow — fix a bug without the planning ceremony. Use when David says /bugfix (the explicit override), or whenever a request is bugfix-shaped — a report that already-agreed behavior is broken, "just fix this", a defect with an observable symptom. Announce the classification in one line on entry; ask when it could really be a behavior change. One bug per branch per PR, opened as soon as the fix is verified. Drops the plan file and the plan-review loop; keeps (and tiers) verification — a Tier A/B fix carries a regression test, a blast-radius note, and a bugfix oracle in the PR body, while a trivial Tier C schema fix uses its own dedicated oracle block instead — and Codex still reviews the diff under the write-gate rule. Opposite of the default feature-building flow in CLAUDE.md.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -301,8 +301,7 @@ the PR back only delays the review that catches things.
    **draft-first (David, 2026-08-09 — replacing the docs-pending +
    explicit-re-review dance, which bought a guaranteed second round for
    file-naming reasons):** open the PR **as a draft** (the number now
-   exists, and a draft doesn't trigger the Codex connector — the same
-   property the plan-review loop relies on), commit
+   exists, and a draft doesn't trigger the Codex connector), commit
    `docs/tests/UAT/PR<N>_<FEATURE>_UAT.md` with the PR body linking it, then
    **mark the PR ready for review** — round 1 fires once, on the complete
    diff, UAT included. **The connector documents this trigger itself:** its
@@ -333,14 +332,15 @@ the PR back only delays the review that catches things.
    **There is no model gate** (David, 2026-08-15 — the Sonnet gate this step
    used to carry is retired, along with the switch-ask it forced).
 
-## 4. Drive the review to convergence
+## 4. Drive the review under the write-gate rule
 
 The review-loop contract is shared and enacted elsewhere — **the mechanics
 live in the `pr-watch` skill** (which loads for any watched PR, bugfix or
 feature) **and in
 [`working-modes.md`](../../../docs/ai-context/working-modes.md)**: the tier of
-what the fix touches (a rubric selector, not a round budget), the **write-gate
-rule — every round that returns findings gets two independent assessments
+what the fix touches (what is downstream, not how strictly a finding is read),
+the **write-gate rule — every round that returns findings gets two independent
+assessments
 before anything is written for it, and any commit that does get written gets a
 mandatory review round; the in-loop continue/stop, criticality gate, count
 trend and oscillation diagnosis are all retired, and the external adjudicator
@@ -368,13 +368,12 @@ What is *bugfix-specific* about the loop:
 - **Round 1 is automatic.** The Codex connector reviews on non-draft PR
   open — or on marking a draft ready, in the Tier B draft-first flow
   (step 3, with its first-use caveat) — so no `@codex review` on open.
-  (The plan-review loop needs an explicit trigger only because its PR
-  *stays* a draft.)
 - **The artifact the fix touches picks the tier — never the fact that it's
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or
   process tooling, the internal tier governs (David, 2026-08-21) — the
-  automatic pass, one triage, fix rounds re-reviewed under the internal tier,
+  automatic pass, the shared judgement on any round that returns findings, fix
+  rounds re-reviewed under the internal tier,
   which says nobody's money or data is downstream and leaves the judgement to
   [`review-judgment.md`](../../../docs/ai-context/review-judgment.md) — exactly
   as if the same change had arrived through feature mode. **This bullet used to

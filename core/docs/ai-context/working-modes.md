@@ -59,18 +59,21 @@ to review.
 
 | Artifact class | Ceremony | Why |
 | --- | --- | --- |
-| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **Write it, ship it, never loop on it.** Codex's automatic first pass happens (it reviews every PR); its findings get one triage and the loop ends there — no re-request. The cap ends the *loop*, never a fix: the one triage still fixes anything safety-relevant (see the next column). | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and gets fixed in the single triage. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
-| **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **Write it, one review pass, ship.** No plan document, no convergence loop. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** | Today's full feature ceremony — plan, review to convergence, approval. | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **Write it, ship it, don't manufacture rounds.** Codex's automatic first pass happens (it reviews every PR); finding nothing, that is the whole ceremony. The write-gate rule below applies here as on every tier — anything written for a finding gets another round. What the class buys is the worth judgement being made against a blast radius of one confused run, not a lighter bar. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is what this class's blast radius actually is, and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
+| **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **Write it, review it, ship.** No plan document, no plan-review loop. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
+| **Product code** | Today's full feature ceremony — plan, review under the write-gate rule, approval. | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient
-checklist, deleted after one run — findings triaged once, no re-review"),
-so the reviewer and any later reader can calibrate from the same line.
+checklist, deleted after one run — a finding is worth writing for only if it
+could touch live state"), so the reviewer and any later reader can calibrate
+from the same line.
 Review *depth* on any docs-only PR is governed by
-[`code-review.md`](../engineering/code-review.md#documentation-only-prs-get-a-light-review-david-2026-08-08):
-generally correct is good enough, glaring issues only — no grammar or
-minor-count findings — and the review request states that bar explicitly.
+[`code-review.md`](../engineering/code-review.md#documentation-only-prs-get-a-light-review-david-2026-08-08),
+which is that rule's only statement, and the review request states its bar
+explicitly. Depth is what a reviewer *raises*; what is worth writing for once
+raised is the Worth rule ([`review-judgment.md`](review-judgment.md)), and no
+tier or artifact class predetermines that answer.
 
 **A plan document is for work whose *approach* could be wrong in a way David
 can't see from the result.** A skill file's approach is legible from the file
@@ -565,7 +568,9 @@ will keep finding things, and each fix adds surface for the next round.
 trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
-it is two mechanical things and one external judge.
+it is the write-gate rule below, the flip conditions every request carries, and
+a judgement nobody makes alone — two independent assessments the builder weighs
+and decides from.
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
@@ -649,8 +654,8 @@ reviewed at product rigor (PR #488 ran 22 rounds on a ~10-line guard change;
 then #503, #526, #531, #534, #539, and #91's ten), so the strictness lives in
 the write decision, sized to a class of artifact whose failure mode is
 wrongly-blocking and whose real protection is GitHub's server-side rulesets.
-Engagement stays one pass and a proportionate reply, never a form that makes
-declining harder to write than fixing.
+A clean pass is the whole engagement, and a reply is proportionate — never a
+form that makes declining harder to write than fixing.
 
 **Codex review of product code is unaffected and is not negotiable.** It is
 the safety net a non-code-reading product manager depends on.
@@ -683,9 +688,10 @@ one of three responses, stated explicitly:
    exceeds the risk *for this artifact*. Say so, in the thread and in the file.
 3. **Escalate it** — it's a genuine product or design decision. That's David's.
 
-Response 2 is legitimate and under-used. Specifying compare-and-swap semantics
-for a GitHub label write, in a solo-operator repo, because a reviewer correctly
-noted a race, is response 1 applied where response 2 was right.
+Response 2 is legitimate, and the loop's measured failure was reaching for
+response 1 by default. Specifying compare-and-swap semantics for a GitHub label
+write, in a solo-operator repo, because a reviewer correctly noted a race, is
+response 1 applied where response 2 was right.
 
 ### A finding names an instance; the fix owes the class (David, 2026-08-08)
 
@@ -1099,7 +1105,7 @@ oracle and the Tier A/B bugfix oracle below.
    bug and the fix.
 8. **Open the PR** with the applicable oracle — the Tier A/B oracle below for a
    Tier A/B fix, or the dedicated Tier C block described above for a trivial
-   schema fix — and engage the review to convergence.
+   schema fix — and engage the review under the write-gate rule.
 9. **At close, harvest what generalizes (David, 2026-08-09).** A root cause
    that reaches past this one bug is captured before the workstream closes:
    a [`known-failure-patterns.md`](./known-failure-patterns.md) entry, a
@@ -1174,8 +1180,8 @@ this miss a caller?*
   create a duplicate source of truth) — see
   [`known-failure-patterns.md`](./known-failure-patterns.md).
 - **Squash-merge / never-force-push discipline.**
-- **Bot-review engagement to convergence** once a PR is open — including
-  re-review of every fix round, since a push does not reliably re-trigger a
+- **Bot-review engagement under the write-gate rule** once a PR is open —
+  including re-review of every fix round, since a push does not reliably re-trigger a
   reviewer and reactive fix code is where subtle mistakes hide. Code review is
   the highest-yield net this repo has: several entries in
   [`known-failure-patterns.md`](./known-failure-patterns.md) were caught by

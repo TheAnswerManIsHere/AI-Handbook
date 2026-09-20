@@ -10,7 +10,7 @@ product is not re-learned on the next.
 
 Two products (Overhype.me, DojoOS) run the same development process with the
 same agents: Claude Code builds, Codex reviews, Replit hosts, David decides.
-That process is substantial — review-loop budgets, planning ceremony, PR
+That process is substantial — the review loop, planning ceremony, PR
 discipline, close-out bars, environment gotchas the fleet has already paid to
 discover. Before this repo it lived in one product's repository, which meant
 the second product either started from nothing or started from a copy that
@@ -71,12 +71,12 @@ needed, the thing to build is the smallest mechanism that delivers it.
 | Group | What |
 |---|---|
 | `.agents/core/` | The portable halves of `CLAUDE.md` and `AGENTS.md` |
-| `docs/ai-context/` | Cross-agent contracts: working rules, modes, planning, plan review, documentation, workstream tracking, failure patterns |
+| `docs/ai-context/` | Cross-agent contracts: working rules, modes, planning, review judgment, prose sweeps, documentation, workstream tracking, failure patterns |
 | `docs/engineering/` | Code review and migration practice |
 | `.agents/memory/` | Environment and tooling gotchas — the harness, GitHub, the proxy, the toolchain |
 | `.claude/skills/` | Process and practice skills |
 | `.claude/agents/` | Subagent definitions |
-| `scripts/` | Review-loop and readiness machinery |
+| `scripts/` | Review-loop, plan-review and project-sync machinery |
 
 Product truth is deliberately absent. If something here only makes sense for
 one product, it is in the wrong repo. The agent-environment docs

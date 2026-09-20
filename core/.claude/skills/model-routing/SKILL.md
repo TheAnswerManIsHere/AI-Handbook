@@ -110,9 +110,11 @@ is **state**, not difficulty:
   dispatched is the per-round judgement itself** — one `review-loop-adjudicator`
   reading a script-generated record rather than this session's context, which
   was the whole point: the value is a reader that did not produce the
-  conclusions, not the presence of a worker. The #89 cut removed that agent and
-  #96 rebuilds it; the reasoning is recorded here so the *watching* half isn't
-  re-proposed as an obvious optimization meanwhile.
+  conclusions, not the presence of a worker. The #89 cut removed that agent,
+  and #96 replaced it with two independent assessments per round that advise
+  rather than decide (the RETIRED section below); the reasoning is recorded
+  here so the *watching* half isn't re-proposed as an obvious optimization
+  meanwhile.
 - **Announce every dispatch, in both directions.** The announce-don't-sneak
   rule was written for expensive escalations; it applies just as much to a
   Sonnet dispatch, because "which tier did that work actually run on" is
@@ -411,5 +413,5 @@ covered by the two assessments, not by more dispatches.
 What survives from those sections, because it is about dispatch hygiene rather
 than dispatch law: announce every dispatch out loud (the assessors' tier
 spends well above Opus); a dispatch that reuses my own reasoning is not rescued
-by the tier; and the assessments run after triage but before fixes are
-implemented, so a decline can still prevent unnecessary fix work.
+by the tier; and the assessments run on the round's findings before anything is
+written for them, so a decline can still prevent unnecessary fix work.

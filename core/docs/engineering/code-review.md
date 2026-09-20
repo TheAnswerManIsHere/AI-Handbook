@@ -216,7 +216,11 @@ Explicitly **not** findings on a docs-only PR, even when technically true:
   not need to enumerate every edge case to be good enough.
 
 Docs are self-catching and fixed in one commit; pedantic findings on them
-cost more than the defects they describe. This is the *depth* rule. The
+cost more than the defects they describe. **This rule survived #96 and is not
+residue of the retired rubric**: it governs what a reviewer *raises*, where a
+finding never raised costs nothing, while #96 retired the rules about what is
+*written for* once a finding is in hand, where a round is the unit of spend.
+This is the *depth* rule. The
 *continuation* rule is the internal tier (David, 2026-08-21, superseding
 the 2026-08-20 no-rounds carve-out): a clean automatic pass is the whole
 ceremony, but when the pass finds a real defect the pushed fixes are
@@ -229,16 +233,18 @@ and was replaced by two advisory assessments per round (#96) — see
 internal-tier section. The retired fix-round merge-path workarounds no
 longer apply.
 
-**Internal tooling gets the light bar too, and loops only for its fixes
-(David, 2026-08-21).** Guards, `scripts/`, skills, agent contracts,
-process docs and documentation harvests are reviewed by the automatic pass
-when the PR opens; a clean pass ships, and findings get one triage with
-one-line declines. What changed from 2026-08-20: fixes that get pushed are
-re-requested under the internal tier rather than merged unreviewed. The
-reviewer should still raise genuine defects and skip prose, structure and
-completeness findings: the loops this repo measured on that class were 22
-rounds of correct findings against an artifact where none of them
-mattered. The full reasoning is in
+**Internal tooling loops for its fixes (David, 2026-08-21).** Guards,
+`scripts/`, skills, agent contracts, process docs and documentation harvests
+are reviewed by the automatic pass when the PR opens; a clean pass ships, and
+every finding is judged on what it is worth by
+[`review-judgment.md`](../ai-context/review-judgment.md) — the tier says what
+is downstream, not how strict the review is, and a decline has no required
+form or length. Fixes that get pushed are re-reviewed rather than merged
+unreviewed. (The "light bar", the one-line decline, and the instruction to
+skip prose, structure and completeness findings went with the decline quota,
+#96, 2026-09-17. The 22-round loop that motivated them — correct findings
+against an artifact where none of them mattered — is the cost the Worth rule
+now prices directly.) The full reasoning is in
 [`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target).
 
 ## Runtime correctness
@@ -447,9 +453,11 @@ code-review outage, and testing for "no review **and** no bounce" would let
 that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
 proceed: **every PR gets a code review, and nothing merges until it returns.**
-A PR's criticality governs how many rounds are worth requesting; it never
-governs whether the first one has to come back. So an agent that cannot get a
-code review stops and says so loudly to David rather than proceeding on a
+What ends a loop is the judgement that nothing more is worth writing
+([`review-judgment.md`](../ai-context/review-judgment.md)); a PR's criticality
+governs neither the number of rounds nor whether the first one has to come
+back. So an agent that cannot get a code review stops and says so loudly to
+David rather than proceeding on a
 docs-only or low-criticality exemption — that exemption is retired. The retry
 limit in the implementing agent's ceremony (for Claude Code,
 `.claude/skills/pr-watch/SKILL.md`) governs how many times to re-ask before
@@ -597,7 +605,7 @@ instance belongs to that contract and only the generalization belongs in shared
 review practice.
 
 **What actually ended it was two things arriving together, and neither was a
-better sentence:** an owner resolving what a dispatched verdict is *worth*,
+better sentence:** an owner resolving what a dispatched assessment is *worth*,
 and that same owner separately instructing that the boundary stop being
 defined at all. The first fact alone didn't stop the drafting — it was
 immediately spent deriving a sixth attempt, in the same breath as recording
@@ -642,8 +650,9 @@ language) — e.g. *No major technical disagreement · Directionally good, revis
 needed · Substantive technical concerns · Strong disagreement on direction · Human
 clarification required · Repo context required.* For each finding: what, why (tied
 to a priority above), and a concrete suggestion. Separate **must-fix** from
-**nice-to-have**. Escalate design/architecture/trade-off calls to David rather than
-deciding them.
+**nice-to-have**. Escalate product and behaviour calls — anything that would
+change intended behaviour or accept a user-facing shortfall — to David rather
+than deciding them; a purely technical design fork is settled inside the loop.
 
 ### Structured defect pass — GitHub structured review (the `@codex review` transport)
 

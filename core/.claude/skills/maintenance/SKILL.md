@@ -294,11 +294,11 @@ it doesn't cover: **closed-but-unmerged** PR branches, and branches with
 **no PR at all**.
 
 1. `mcp__github__list_branches`, paginated. Skip `main` and any branch
-   matching `plan-review/<slug>-combined` outright — that shape
-   deliberately has no PR (per the plan-review-loop skill's split-loop
-   close-out), so it's the one branch whose commit only the branch itself
-   retains (see CLAUDE.md's *Approved-plan source* note). Never a deletion
-   candidate, full stop, regardless of age.
+   matching `plan-review/<slug>-combined` outright. Plan review has opened no
+   branch and no PR at all since 2026-09-09, so no new branch of that shape is
+   produced; any survivor predates that change and is the one branch whose
+   commit only the branch itself retains. Never a deletion candidate, full
+   stop, regardless of age.
 2. For everything else, check PR state
    (`mcp__github__list_pull_requests` with `head:owner:branch`,
    `state: all`) rather than trusting the branch-list page's own PR-status
@@ -445,8 +445,9 @@ maintenance reports. This is now a standalone maintenance-skill rule.)
   and the batched documentation harvest (step 6a). Both are
   docs-only and zero behavior/dependency change, and both ship together in
   **one maintenance docs PR per pass** (internal tier: the automatic Codex
-  pass, one triage, merge) — one PR for the whole pass, never one per
-  harvested feature, per `documentation-workflow.md`'s batched delivery path. Neither is license to fix, refactor, or bump
+  pass; a round that returns findings gets the shared judgement, and anything
+  written for one gets another round) — one PR for the whole pass, never one
+  per harvested feature, per `documentation-workflow.md`'s batched delivery path. Neither is license to fix, refactor, or bump
   anything the backlog pass turns up — a fired trigger for a *major* bump
   (dependency or Action) still only ever becomes a reported decision item,
   never a direct action, per step 4 above. **Step 9's backlog hygiene is
