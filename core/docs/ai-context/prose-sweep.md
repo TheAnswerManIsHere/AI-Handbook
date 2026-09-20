@@ -75,10 +75,13 @@ statement *about* the rule, rather than pointing *at* it?** A file can be
 wrong by omission — state correctly what ends a loop and never name the rule
 that does — and no grep finds that, because there is no wrong phrase. The
 briefs the review loop's own advisors read every round were exactly that
-case. So a reader's question per file is *asserts or cites*, and the fix for
-an assertion is a citation of the home, never a better restatement: a correct
-restatement is a fresh copy that will drift, and two of the 2026-09-20 hits
-were correct restatements written in the preceding batch.
+case. So a reader's question per file is *does this statement cite the home
+and agree with it?* Residue is a statement that is **uncited or disagrees**.
+A restatement that cites the home and agrees is a citation with context and
+stays — the oracle's own words are "agrees or points at it". The fix for
+residue is a citation of the home, never an *uncited* better restatement: that
+is a fresh copy that will drift, and two of the 2026-09-20 hits were correct,
+uncited restatements written in the preceding batch.
 
 ## Scope is the whole payload, never the files under edit
 
@@ -99,9 +102,15 @@ the shape its section is about. Readers are fanned out by directory, each
 holding no author context. A full read of everything is unaffordable, so two
 modes exist and **each reader declares which it used per file**:
 
-- **Read in full** — the rule's neighbourhood, named in the spec.
-- **Swept** — opened by heading and front-matter, searched by the class's
-  vocabulary *in context*, escalated to a full read on any hit.
+- **Read in full** — the rule's neighbourhood, named in the spec: every file
+  where a vocabulary-free sub-shape could plausibly live, because only a full
+  read can find one.
+- **Swept** — opened by heading and front-matter, searched for the vocabulary
+  of **every sub-shape's example** (not the class's name — at least one shape
+  carries none of it) with each hit read in context, escalated to a full read
+  on any hit. A swept clearance is weaker than a full read: it can miss a
+  vocabulary-free shape in a file nobody expected to carry one, and the
+  inventory line is what makes that weakness visible rather than silent.
 
 The declaration (`OPENED n / READ IN FULL n / SWEPT n`, then the per-file
 mode) is what lets a human distinguish a clean file from an unread one.

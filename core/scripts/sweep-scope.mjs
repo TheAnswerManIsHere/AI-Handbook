@@ -28,7 +28,7 @@
 // Run:  node scripts/sweep-scope.mjs --spec <path.json> [--workers 4] --out <dir>
 //       node scripts/sweep-scope.mjs --spec <path.json> --print-scope
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve, dirname, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -127,6 +127,42 @@ export function lineCount(root, file) {
   return text.length === 0 ? 0 : text.split("\n").length;
 }
 
+/** An operator-typed count: an integer of at least two, or refuse naming it. One reader is not a sweep. */
+export function assertWorkers(value) {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 2) {
+    throw new Error(`sweep-scope: --workers must be an integer of at least 2 (got ${JSON.stringify(value)}); a sweep needs more than one cold reader`);
+  }
+  return n;
+}
+
+/**
+ * GitHub's heading anchors, for validating a spec's `#fragment` against the
+ * home file. Lowercase; drop everything but letters, numbers, marks, `_`, `-`
+ * and spaces; spaces to hyphens; repeated headings get `-1`, `-2`, ... in
+ * document order. That is github-slugger's algorithm on every heading this
+ * payload has -- the divergence `.agents/memory/github-slugger-is-the-anchor-
+ * algorithm.md` measures is ~61 connector-punctuation characters no heading
+ * here contains, and the classic error it warns of (stripping `_`) is avoided.
+ * A miss refuses; it never guesses a nearby heading.
+ */
+export function headingSlugs(markdown) {
+  const seen = new Map();
+  const out = [];
+  let inFence = false;
+  for (const line of markdown.split("\n")) {
+    if (/^\s*```/.test(line)) inFence = !inFence;
+    if (inFence) continue;
+    const m = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
+    if (!m) continue;
+    const base = m[1].toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    out.push(n === 0 ? base : `${base}-${n}`);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Partition
 // ---------------------------------------------------------------------------
@@ -217,10 +253,12 @@ is history this repository keeps on purpose. It stays.
 ## Your files, and the mode for each
 
 Two modes. **Read in full** means every line, once, end to end. **Swept** means
-open it, read its headings and front-matter, search it for the class's
-vocabulary *in context*, and escalate to a full read on any hit. Declare which
-you used per file in your report; a silent file and an unread file must not
-look the same.
+open it, read its headings and front-matter, search it for the vocabulary of
+**every sub-shape's example above** — not the class's name, since at least one
+shape carries none of it — read each hit in context, and escalate to a full
+read on any hit. A swept clearance is weaker than a full read and is reported
+as such. Declare which you used per file; a silent file and an unread file
+must not look the same.
 
 ${fullList}
 ${sweptList}
@@ -248,9 +286,18 @@ export function plan({ root, spec, workers = DEFAULT_WORKERS, include = [] }) {
   const problems = validateSpec(spec);
   if (problems.length) throw new Error(`sweep-scope: spec refused:\n  - ${problems.join("\n  - ")}`);
 
+  const n = assertWorkers(workers);
   const { prefix, files } = scopeFiles(root, { include });
-  const homeFile = toRepoPath(prefix, spec.home.split("#")[0]);
+  const [homePath, ...rest] = spec.home.split("#");
+  const homeFile = toRepoPath(prefix, homePath);
   if (!files.includes(homeFile)) throw new Error(`sweep-scope: home ${homeFile} is not a tracked .md in scope`);
+  if (rest.length) {
+    const anchor = rest.join("#");
+    const slugs = headingSlugs(readFileSync(join(root, homeFile), "utf8"));
+    if (!anchor || !slugs.includes(anchor)) {
+      throw new Error(`sweep-scope: home anchor "#${anchor}" names no heading in ${homeFile}; every brief would point readers at a section that does not exist`);
+    }
+  }
 
   const fullSet = new Set();
   for (const g of spec.readInFull ?? []) {
@@ -262,9 +309,18 @@ export function plan({ root, spec, workers = DEFAULT_WORKERS, include = [] }) {
   fullSet.add(homeFile);
 
   const lines = Object.fromEntries(files.map((f) => [f, lineCount(root, f)]));
-  const buckets = partition({ files, fullSet, lines }, workers);
+  const buckets = partition({ files, fullSet, lines }, n);
   const briefs = buckets.map((bucket, i) => composeBrief({ spec, prefix, worker: i + 1, workers: buckets.length, bucket, lines, root }));
   return { prefix, files, homeFile, fullSet: [...fullSet].sort(), lines, buckets, briefs };
+}
+
+/**
+ * The out dir's `worker-N.md` files are this script's, and a rerun with fewer
+ * workers must not leave the old tail behind: the skill dispatches one reader
+ * per brief present, so a stale brief is a stale reader on a previous spec.
+ */
+export function clearBriefs(dir) {
+  for (const f of readdirSync(dir)) if (/^worker-\d+\.md$/.test(f)) unlinkSync(join(dir, f));
 }
 
 function parseArgs(argv) {
@@ -312,7 +368,7 @@ function main() {
   }
   let result;
   try {
-    result = plan({ root, spec, workers: flags.workers ? Number(flags.workers) : DEFAULT_WORKERS, include: flags.include ?? [] });
+    result = plan({ root, spec, workers: flags.workers === undefined ? DEFAULT_WORKERS : flags.workers, include: flags.include ?? [] });
   } catch (e) {
     console.error(e.message);
     process.exitCode = 1;
@@ -325,6 +381,7 @@ function main() {
   }
   const out = resolve(flags.out);
   mkdirSync(out, { recursive: true });
+  clearBriefs(out);
   result.briefs.forEach((b, i) => writeFileSync(join(out, `worker-${i + 1}.md`), b));
   writeFileSync(
     join(out, "inventory.json"),

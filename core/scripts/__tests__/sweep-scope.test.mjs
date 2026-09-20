@@ -1,16 +1,16 @@
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { validateSpec, globToRegExp, payloadPrefix, scopeFiles, toRepoPath, partition, plan, ROOT_FILES, ALWAYS_IN_SCOPE } from "../sweep-scope.mjs";
+import { validateSpec, globToRegExp, payloadPrefix, scopeFiles, toRepoPath, partition, plan, assertWorkers, headingSlugs, clearBriefs, ROOT_FILES, ALWAYS_IN_SCOPE } from "../sweep-scope.mjs";
 
 const SPEC = {
   rule: "when a review loop stops",
-  home: "docs/ai-context/working-modes.md#the-write-gate-rule",
+  home: "docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22",
   subShapes: [
     { id: "a", name: "a cap", example: "one triage" },
     { id: "b", name: "a write with no review after it", example: "fix, apply, continue" },
@@ -28,7 +28,7 @@ function fixture({ consumer = false } = {}) {
     [`${p}.agents/roles/review-proxy.md`]: "x\ny\n",
     [`${p}.claude/agents/fable-review-assessor.md`]: "one\n",
     [`${p}.agents/memory/note.md`]: "m\n",
-    [`${p}docs/ai-context/working-modes.md`]: "w\n".repeat(50),
+    [`${p}docs/ai-context/working-modes.md`]: "# Modes\n\n#### The write-gate rule: code written is code reviewed (David, 2026-08-22)\n\n" + "w\n".repeat(46),
     [`${p}docs/ai-context/other.md`]: "o\n".repeat(10),
     [`${p}.claude/skills/bugfix/SKILL.md`]: "s\n".repeat(20),
     [`${p}scripts/tool.mjs`]: "// not markdown\n",
@@ -103,6 +103,42 @@ test("partition covers every file exactly once and keeps swept directories whole
   assert.deepEqual(partition({ files, fullSet: new Set(), lines }, 2), partition({ files, fullSet: new Set(), lines }, 2), "deterministic");
 });
 
+test("heading slugs follow GitHub's algorithm on the payload's headings, in document order", () => {
+  const md = "# A Title\n\n#### The write-gate rule: code written is code reviewed (David, 2026-08-22)\n\n## parent_id and created_at\n\n## Dup\n\n```\n# not a heading\n```\n\n## Dup\n";
+  assert.deepEqual(headingSlugs(md), [
+    "a-title",
+    "the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22",
+    "parent_id-and-created_at",
+    "dup",
+    "dup-1",
+  ]);
+});
+
+test("a mistyped or empty home anchor refuses; a real one is accepted", () => {
+  const root = fixture();
+  assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#the-write-gate-rul" } }), /names no heading/);
+  assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#" } }), /names no heading/);
+  assert.doesNotThrow(() => plan({ root, spec: SPEC }));
+  assert.doesNotThrow(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md" } }), "no anchor is allowed");
+});
+
+test("a worker count below two, non-integer or non-numeric refuses, naming the value", () => {
+  for (const bad of [1, 0, -3, 2.5, "abc", "", NaN]) {
+    assert.throws(() => assertWorkers(bad), /at least 2/, String(bad));
+    assert.throws(() => plan({ root: fixture(), spec: SPEC, workers: bad }), /at least 2/, String(bad));
+  }
+  assert.equal(assertWorkers("4"), 4, "a numeric string from argv is fine");
+});
+
+test("a rerun with fewer workers leaves no stale brief behind", () => {
+  const dir = mkdtempSync(join(tmpdir(), "sweep-out-"));
+  for (const n of [1, 2, 3, 4]) writeFileSync(join(dir, `worker-${n}.md`), "old");
+  writeFileSync(join(dir, "inventory.json"), "{}");
+  writeFileSync(join(dir, "notes.md"), "mine");
+  clearBriefs(dir);
+  assert.deepEqual(readdirSync(dir).sort(), ["inventory.json", "notes.md"], "only the script's own worker-N.md files are removed");
+});
+
 test("plan refuses a home outside scope and a readInFull glob that matches nothing", () => {
   const root = fixture();
   assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/missing.md" } }), /home .*not a tracked/);
@@ -121,7 +157,7 @@ test("plan reads the home in full, maps payload-relative globs, and writes one b
   assert.deepEqual(all, [...r.files].sort(), "every in-scope file is assigned to exactly one worker");
   for (const brief of r.briefs) {
     assert.ok(brief.includes(SPEC.rule));
-    assert.ok(brief.includes("`core/docs/ai-context/working-modes.md#the-write-gate-rule`"), "home is named, repo-relative, anchor kept");
+    assert.ok(brief.includes("`core/docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22`"), "home is named, repo-relative, anchor kept");
     for (const s of SPEC.subShapes) assert.ok(brief.includes(`| **${s.id}** | ${s.name} | \`${s.example}\` |`), s.id);
     for (const x of SPEC.notInClass) assert.ok(brief.includes(x));
     assert.match(brief, /statement ABOUT the rule, rather than\s+pointing AT it/, "the structural test");

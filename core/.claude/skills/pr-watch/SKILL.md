@@ -304,8 +304,8 @@ replaced them is step 5's proportionate-evidence rule.)
      commit. A skill file, `claude-core.md`, or a `docs/ai-context/` contract
      counts as behavioural. A prose-only push does not buy a round on its own
      and does not escape review either — it rides the next behavioural round,
-     and if none comes it gets the mechanical round `claude-core.md` rule 4
-     names, because no head merges unreviewed.
+     and if it is the last push it gets the mechanical round `claude-core.md`
+     rule 4 names for exactly that case, because no head merges unreviewed.
    - **Pre-registered flip conditions, in the request itself.** Name, before
      the round runs, what would stop the loop. **Each names an OBSERVABLE,
      never a judgement** (#85, 2026-09-13) — something read off the round ("a

@@ -595,11 +595,14 @@ in the file that every session loads.
 4. **No re-request without a behavioral change since the last reviewed
    commit** — a skill file, this file, or a `docs/ai-context/` contract counts
    as behavioral; **a mechanical round is the one exception** — the head moved
-   only by a merge of the base branch, nothing is being written for, and no
+   without a behavioural change (a merge of the base branch, or a prose-only
+   push such as a README or UAT doc), nothing is being written for, and no
    review is pending. That round is mine to request without a behavioural
    change, because the write-gate rule needs every head reviewable and this
-   rule would otherwise make a merge-commit head unreviewable and so
-   unmergeable.
+   rule would otherwise make a merge-commit or prose-only head unreviewable
+   and so unmergeable. A prose-only push buys no round of its own mid-loop; it
+   rides the next behavioural round, and gets the mechanical one only when it
+   is the last push.
    (The definition used to live in a rule 3 the #89 cut removed, along with the
    receipt arithmetic that was the rest of it.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
