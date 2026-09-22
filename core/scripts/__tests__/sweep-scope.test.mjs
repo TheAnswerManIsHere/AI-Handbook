@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { validateSpec, globToRegExp, payloadPrefix, scopeFiles, toRepoPath, partition, plan, assertWorkers, headingSlugs, clearBriefs, parseArgs, ROOT_FILES, ALWAYS_IN_SCOPE } from "../sweep-scope.mjs";
+import { validateSpec, globToRegExp, payloadPrefix, scopeFiles, toRepoPath, partition, plan, assertWorkers, clearBriefs, parseArgs, ROOT_FILES, ALWAYS_IN_SCOPE } from "../sweep-scope.mjs";
 
 const SPEC = {
   rule: "when a review loop stops",
@@ -88,7 +88,14 @@ test("a consumer has the payload at the root and needs no prefix", () => {
   assert.equal(toRepoPath("core/", "docs/ai-context/working-modes.md"), "core/docs/ai-context/working-modes.md");
   assert.equal(toRepoPath("core/", "core/docs/x.md"), "core/docs/x.md", "already-prefixed stays");
   assert.equal(toRepoPath("core/", "CLAUDE.md"), "CLAUDE.md", "root files are never prefixed");
-  assert.ok(scopeFiles(root).files.includes(".agents/roles/review-proxy.md"));
+  const files = scopeFiles(root).files;
+  assert.ok(files.includes(".agents/roles/review-proxy.md"));
+  // The boundary is the payload's roots, never the prefix. A prefix test is
+  // vacuously true at the root, so a consumer's whole product corpus came into
+  // scope and fanned cold readers across it -- invisible here, because this
+  // repository is almost entirely payload.
+  assert.ok(!files.includes("docs/not-payload.md"), "a consumer's own docs stay out by default");
+  assert.ok(scopeFiles(root, { include: ["docs/not-payload.md"] }).files.includes("docs/not-payload.md"), "--include still reaches them");
 });
 
 test("partition covers every file exactly once and keeps swept directories whole", () => {
@@ -103,33 +110,6 @@ test("partition covers every file exactly once and keeps swept directories whole
     assert.ok(!buckets.some((o) => o !== b && o.swept.some((f) => dirOf(f) === d)), `directory ${d} split across workers`);
   }
   assert.deepEqual(partition({ files, fullSet: new Set(), lines }, 2), partition({ files, fullSet: new Set(), lines }, 2), "deterministic");
-});
-
-test("heading slugs follow GitHub's algorithm on the payload's headings, in document order", () => {
-  const md = "# A Title\n\n#### The write-gate rule: code written is code reviewed (David, 2026-08-22)\n\n## parent_id and created_at\n\n## Dup\n\n```\n# not a heading\n```\n\n## Dup\n";
-  assert.deepEqual(headingSlugs(md), [
-    "a-title",
-    "the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22",
-    "parent_id-and-created_at",
-    "dup",
-    "dup-1",
-  ]);
-  assert.deepEqual(headingSlugs("# Foo\n# Foo\n# Foo-1\n"), ["foo", "foo-1", "foo-1-1"], "github-slugger's dedupe: a generated slug is reserved, an explicit collision is bumped again");
-});
-
-test("Setext headings slug like ATX ones, and the shapes that merely look like underlines do not", () => {
-  // A consumer home may use Setext; reading only ATX refused its real anchor.
-  assert.deepEqual(headingSlugs("Title\n=====\n\nSub Head\n---\n"), ["title", "sub-head"], "both underline characters");
-  assert.deepEqual(headingSlugs("Mixed\n===\n\n## Atx Two\n"), ["mixed", "atx-two"], "the two forms coexist in one file");
-  assert.deepEqual(headingSlugs("Foo\n===\nFoo\n===\n# Foo-1\n"), ["foo", "foo-1", "foo-1-1"], "dedupe is shared across both forms");
-
-  // Each of these contains a line of dashes or equals that is NOT a heading.
-  assert.deepEqual(headingSlugs("---\nname: skill\n---\n\n# Real\n"), ["real"], "YAML front matter's closing --- is not an underline");
-  assert.deepEqual(headingSlugs("para\n\n---\n\n# Real\n"), ["real"], "a thematic break after a blank line is not an underline");
-  assert.deepEqual(headingSlugs("| a | b |\n|---|---|\n"), [], "a table delimiter row is not an underline");
-  assert.deepEqual(headingSlugs("- item\n---\n"), [], "a list item is not Setext heading text");
-  assert.deepEqual(headingSlugs("> quoted\n---\n"), [], "a block quote is not Setext heading text");
-  assert.deepEqual(headingSlugs("```\nFake\n===\n```\n# Real\n"), ["real"], "a fenced block carries no headings of either form");
 });
 
 test("a readInFull glob may name an --include'd file outside the payload, as written", () => {
@@ -150,22 +130,6 @@ test("the CLI refuses an unknown flag, a valueless flag and a repeated flag, nam
   assert.deepEqual(parseArgs(["--spec", "s.json", "--include", "a/*.md", "--include", "b/*.md", "--workers", "3", "--print-scope"]), { spec: "s.json", include: ["a/*.md", "b/*.md"], workers: "3", printScope: true });
 });
 
-test("heading slugs come from the RENDERED heading text, not its Markdown source", () => {
-  // GitHub renders the heading, then slugs it: `## [API](guide.md)` anchors at
-  // `#api`. Slugging the source gave `apiguidemd` and refused the real one.
-  assert.deepEqual(headingSlugs("## [API](guide.md)\n"), ["api"], "link reduces to its text");
-  assert.deepEqual(headingSlugs("## ![logo](a.png) Title\n"), ["logo-title"], "image reduces to its alt text");
-  assert.deepEqual(headingSlugs("## Using `parent_id`\n"), ["using-parent_id"], "code span keeps its contents, underscore survives");
-  assert.deepEqual(headingSlugs("## **Bold** and *em* and ~~gone~~\n"), ["bold-and-em-and-gone"], "emphasis and strikethrough");
-  assert.deepEqual(headingSlugs("## A <b>tag</b> here\n"), ["a-tag-here"], "raw HTML tags are dropped, their text kept");
-  assert.deepEqual(headingSlugs("Setext [API](g.md)\n===\n"), ["setext-api"], "Setext headings render too");
-  // The real home anchor this payload uses must still resolve unchanged.
-  assert.deepEqual(
-    headingSlugs("#### The two-review limit on autonomous iteration (David, 2026-09-19)\n"),
-    ["the-two-review-limit-on-autonomous-iteration-david-2026-09-19"],
-  );
-});
-
 test("--include reaches the whole tracked set, so the Markdown filter is a default and not a ceiling", () => {
   const root = fixture();
   // Agent-facing prose is not always in a .md -- a script can compose an
@@ -178,14 +142,22 @@ test("--include reaches the whole tracked set, so the Markdown filter is a defau
   assert.throws(() => scopeFiles(root, { include: ["core/scripts/nope.mjs"] }), /matches no tracked file/, "a zero-match include still refuses");
 });
 
-test("a home names a file AND a section: anchorless, empty or mistyped all refuse", () => {
+test("a home names a file AND a section; whether that section exists is the readers' job", () => {
   const root = fixture();
-  assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#the-write-gate-rul" } }), /names no heading/);
-  // An anchorless home would hand readers a file that may carry several live
-  // rules -- the condition the sweep exists to detect, as its starting point.
+  // An anchorless home hands readers a file that may carry several live rules
+  // -- the condition the sweep exists to detect, as its starting point.
   assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#" } }), /names no #section/);
   assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md" } }), /names no #section/);
   assert.doesNotThrow(() => plan({ root, spec: SPEC }));
+  // A WRONG anchor is deliberately accepted here. Verifying it needed GitHub's
+  // slug algorithm, Setext headings, inline rendering and fence tracking --
+  // a third of the script, five of six review rounds on #141, two regressions
+  // of its own -- to re-check something step 1 of the skill already does:
+  // read the home section first. Four cold readers open it within minutes.
+  assert.doesNotThrow(
+    () => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#no-such-section" } }),
+    "a nonexistent section is the readers' finding, not the script's",
+  );
 });
 
 test("a worker count below two, non-integer or non-numeric refuses, naming the value", () => {

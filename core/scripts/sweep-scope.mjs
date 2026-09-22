@@ -33,6 +33,21 @@ import { execFileSync } from "node:child_process";
 import { join, resolve, dirname, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+/**
+ * The payload's own Markdown roots, payload-relative. This is what the sync
+ * carries, and it is the scope -- NOT "everything under the payload prefix",
+ * which is the same thing only in the handbook. In a consumer the payload
+ * sits at the repo root beside the product's own documentation, so a prefix
+ * test there matched every tracked file and fanned cold readers across the
+ * whole product corpus. That attacks the method's own justification (a sweep
+ * must be cheap enough to re-run after every batch) rather than merely
+ * costing tokens, and it was invisible in every run to date because this
+ * repository is almost entirely payload. (Codex, #141 round 7.)
+ *
+ * `docs/` is deliberately not a root: a consumer's `docs/` holds its manual,
+ * its plans and its subsystem docs, none of which the payload owns.
+ */
+export const PAYLOAD_ROOTS = [".agents/", ".claude/", "docs/ai-context/", "docs/engineering/"];
 /** Directories a docs-shaped scope misses and this one must not (prose-sweep.md, *Scope*). */
 export const ALWAYS_IN_SCOPE = [".agents/roles/", ".claude/agents/", ".agents/memory/"];
 /** Repo-root files that describe the payload and carry its claims. */
@@ -107,7 +122,7 @@ export function scopeFiles(root, { include = [] } = {}) {
   const prefix = payloadPrefix(root);
   const markdown = trackedMarkdown(root);
   const everything = include.length ? trackedAll(root) : markdown;
-  const inPayload = (f) => (prefix ? f.startsWith(prefix) : true);
+  const inPayload = (f) => PAYLOAD_ROOTS.some((r) => f.startsWith(prefix + r));
   const isRoot = (f) => ROOT_FILES.includes(f);
   const extra = include.map((g) => {
     const re = globToRegExp(g.replace(/^\.\//, ""));
@@ -159,110 +174,6 @@ export function assertWorkers(value) {
   return n;
 }
 
-/**
- * GitHub's heading anchors, for validating a spec's `#fragment` against the
- * home file. Two halves. The character half -- lowercase; keep letters,
- * numbers, marks, `_`, `-` and spaces; spaces to hyphens -- is github-slugger's
- * on every heading this payload has; the divergence
- * `.agents/memory/github-slugger-is-the-anchor-algorithm.md` measures is ~61
- * connector-punctuation characters no heading here contains, and the classic
- * error it warns of (stripping `_`) is avoided. The dedupe half is
- * github-slugger's loop verbatim: occurrences are keyed by the slug actually
- * EMITTED, and a collision bumps the original's counter until the result is
- * unused -- so `Foo`, `Foo`, `Foo-1` give `foo`, `foo-1`, `foo-1-1`, never a
- * duplicate anchor. (A by-base counter gave `foo-1` twice; Codex, #141 round
- * 3.) A miss refuses; it never guesses a nearby heading. The payload is
- * dependency-free by rule, which is why this is not the package.
- *
- * BOTH Markdown heading forms are recognised, because a consumer's docs need
- * not use this payload's convention: ATX (`## Title`) and Setext (`Title`
- * over `===` or `---`). Reading only ATX made `plan()` refuse the real
- * GitHub anchor of a correctly-written consumer home (Codex, #141 round 5).
- * The Setext underline is matched conservatively -- the line above must be
- * ordinary paragraph text, so a `---` that is really front matter, a
- * thematic break, or a table delimiter never invents a heading.
- */
-/**
- * Reduce a heading's Markdown source to the text GitHub renders, because that
- * is what GitHub slugs. `## [API](guide.md)` anchors at `#api`, not
- * `#apiguidemd` -- slugging the source refused a consumer's correct fragment
- * (Codex, #141 round 6). This covers the inline constructs a heading actually
- * uses: images, links, code spans, emphasis, strikethrough, autolinks and raw
- * HTML tags. It is an approximation of a renderer, like the character class
- * above, and it fails in the safe direction: an unreduced construct leaves
- * punctuation that the class strips, so the anchor is refused rather than
- * silently resolved to the wrong section. The payload is dependency-free by
- * rule, which is why this is not a Markdown library.
- */
-export function renderInline(text) {
-  let s = text;
-  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1");        // image -> alt
-  s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");         // link -> text
-  s = s.replace(/\[([^\]]*)\]\[[^\]]*\]/g, "$1");        // reference link -> text
-  s = s.replace(/<(https?:[^>\s]+)>/g, "$1");             // autolink -> url
-  s = s.replace(/<[^>]+>/g, "");                          // raw HTML tags
-  s = s.replace(/`+([^`]*)`+/g, "$1");                    // code span -> contents
-  s = s.replace(/~~([^~]*)~~/g, "$1");                    // strikethrough
-  s = s.replace(/\*\*\*([^*]+)\*\*\*/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1");
-  s = s.replace(/___([^_]+)___/g, "$1").replace(/__([^_]+)__/g, "$1");
-  s = s.replace(/\\([\\`*_{}\[\]()#+\-.!])/g, "$1");     // backslash escapes
-  return s.trim();
-}
-
-export function headingSlugs(markdown) {
-  const occurrences = new Map();
-  const out = [];
-  const lines = markdown.split("\n");
-
-  const emit = (raw) => {
-    const original = renderInline(raw).toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
-    let result = original;
-    while (occurrences.has(result)) {
-      occurrences.set(original, (occurrences.get(original) ?? 0) + 1);
-      result = `${original}-${occurrences.get(original)}`;
-    }
-    occurrences.set(result, 0);
-    out.push(result);
-  };
-
-  // A Setext underline only ever follows ordinary paragraph text. Excluding
-  // these shapes is what keeps a table delimiter row, a list, a quote or a
-  // thematic break after a blank line from inventing a heading.
-  const isParagraphText = (line) =>
-    line !== undefined &&
-    line.trim() !== "" &&
-    !/^\s*(#|>|\||```|~~~)/.test(line) &&
-    !/^\s*([-*+]\s|\d+[.)]\s)/.test(line) &&
-    !/^ {0,3}(=+|-+)\s*$/.test(line);
-
-  let inFence = false;
-  let start = 0;
-  // YAML front matter is not content; its closing `---` is not an underline.
-  if (lines[0] !== undefined && /^---\s*$/.test(lines[0])) {
-    const close = lines.findIndex((l, i) => i > 0 && /^---\s*$/.test(l));
-    if (close > 0) start = close + 1;
-  }
-
-  for (let i = start; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (/^\s*(```|~~~)/.test(line)) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue;
-
-    const atx = /^#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-    if (atx) {
-      emit(atx[1]);
-      continue;
-    }
-    // Setext: this line is the underline, the one above is the heading text.
-    if (/^ {0,3}(=+|-+)\s*$/.test(line) && isParagraphText(lines[i - 1])) {
-      emit(lines[i - 1].trim());
-    }
-  }
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 // Partition
@@ -403,19 +314,21 @@ export function plan({ root, spec, workers = DEFAULT_WORKERS, include = [] }) {
   const [homePath, ...rest] = spec.home.split("#");
   const homeFile = toRepoPath(prefix, homePath);
   if (!files.includes(homeFile)) throw new Error(`sweep-scope: home ${homeFile} is not a tracked .md in scope`);
-  // The method requires one authoritative file AND section, and the structural
-  // test readers apply is section-level: a statement can cite the right file
-  // and name the wrong rule inside it, which is where this run's two worst
-  // hits lived. A home without an anchor hands the readers a whole file that
-  // may carry several live rules -- the condition the sweep exists to detect,
-  // installed as its starting point (Codex, #141 round 6).
+  // The method requires one authoritative file AND section, because the
+  // readers' structural test is section-level: a statement can cite the right
+  // file and name the wrong rule inside it. So a home must carry a `#section`.
+  //
+  // That the named section EXISTS is deliberately not checked here. A checker
+  // for it grew to a third of this script -- GitHub's slug algorithm, Setext
+  // headings, inline-Markdown rendering, fence tracking -- and absorbed five
+  // of six review rounds on #141, including two regressions it caused. What it
+  // defends against is already caught, faster and for free: step 1 of the
+  // skill is read the home section first, and four cold readers open it
+  // immediately. A wrong anchor announces itself in minutes. (David,
+  // 2026-09-22, on the question of whether this script needs to exist.)
   const anchor = rest.join("#");
   if (!rest.length || !anchor) {
     throw new Error(`sweep-scope: home ${homeFile} names no #section; the authoritative statement is a file AND a section, and the readers' test is section-level`);
-  }
-  const slugs = headingSlugs(readFileSync(join(root, homeFile), "utf8"));
-  if (!slugs.includes(anchor)) {
-    throw new Error(`sweep-scope: home anchor "#${anchor}" names no heading in ${homeFile}; every brief would point readers at a section that does not exist`);
   }
 
   const fullSet = new Set();

@@ -58,7 +58,9 @@ missing any of them.
   authoritative. Everything else may only *cite* it. The script refuses a home
   with no `#section`: an anchorless home hands the readers a whole file that
   may carry several live rules, which is the exact condition the sweep exists
-  to detect, installed as its starting point.
+  to detect, installed as its starting point. **It does not check that the
+  named section exists**, and that is deliberate — step 1 below is read the
+  home first, and a wrong anchor is a finding every reader makes in minutes.
 - **Sub-shapes, as a closed list** — the distinct forms an assertion of the
   retired rule takes, enumerated by *shape*, never by wording, with one
   example each. Expect three to six; one is always an undercount. **Two of
@@ -195,6 +197,21 @@ the batch, with the spec as amended by any shape a reader added.
 **Anti-goal: this is not a phrase checker.** The class was un-greppable in 12
 of 27 cases, including all three of the highest-consequence ones. Grep is a
 cross-check for a reader, never the method.
+
+**Second anti-goal, and it cost more to learn: the script does not re-check
+what a reader checks anyway** (David, 2026-09-22). The tool exists for one
+reason — to make a sweep one command, so it is cheap enough to re-run after
+every batch. Anything beyond that competes with the readers rather than
+serving them. A validator confirming the home's `#section` really existed grew
+to a third of the script (GitHub's slug algorithm, Setext headings,
+inline-Markdown rendering, fence tracking), absorbed five of six review rounds
+on the pull request that built it, and caused two regressions of its own —
+to guard against a mistake the first minute of every run already surfaces. The
+payload contains no heading with a link, no `~~~` fence and no Setext heading;
+every one of those cases was hypothetical, and every finding about them was
+correct, which is what makes the trap hard to see from inside. **The test is
+not "could this input break it?" but "what happens if it is wrong, and who
+notices first?"**
 
 ---
 
