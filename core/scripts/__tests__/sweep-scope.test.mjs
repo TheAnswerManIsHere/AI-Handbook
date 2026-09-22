@@ -150,12 +150,42 @@ test("the CLI refuses an unknown flag, a valueless flag and a repeated flag, nam
   assert.deepEqual(parseArgs(["--spec", "s.json", "--include", "a/*.md", "--include", "b/*.md", "--workers", "3", "--print-scope"]), { spec: "s.json", include: ["a/*.md", "b/*.md"], workers: "3", printScope: true });
 });
 
-test("a mistyped or empty home anchor refuses; a real one is accepted", () => {
+test("heading slugs come from the RENDERED heading text, not its Markdown source", () => {
+  // GitHub renders the heading, then slugs it: `## [API](guide.md)` anchors at
+  // `#api`. Slugging the source gave `apiguidemd` and refused the real one.
+  assert.deepEqual(headingSlugs("## [API](guide.md)\n"), ["api"], "link reduces to its text");
+  assert.deepEqual(headingSlugs("## ![logo](a.png) Title\n"), ["logo-title"], "image reduces to its alt text");
+  assert.deepEqual(headingSlugs("## Using `parent_id`\n"), ["using-parent_id"], "code span keeps its contents, underscore survives");
+  assert.deepEqual(headingSlugs("## **Bold** and *em* and ~~gone~~\n"), ["bold-and-em-and-gone"], "emphasis and strikethrough");
+  assert.deepEqual(headingSlugs("## A <b>tag</b> here\n"), ["a-tag-here"], "raw HTML tags are dropped, their text kept");
+  assert.deepEqual(headingSlugs("Setext [API](g.md)\n===\n"), ["setext-api"], "Setext headings render too");
+  // The real home anchor this payload uses must still resolve unchanged.
+  assert.deepEqual(
+    headingSlugs("#### The two-review limit on autonomous iteration (David, 2026-09-19)\n"),
+    ["the-two-review-limit-on-autonomous-iteration-david-2026-09-19"],
+  );
+});
+
+test("--include reaches the whole tracked set, so the Markdown filter is a default and not a ceiling", () => {
+  const root = fixture();
+  // Agent-facing prose is not always in a .md -- a script can compose an
+  // instruction in a string literal, and a sweep that cannot be pointed at it
+  // would report the payload clean while that instruction sat outside it.
+  const wide = scopeFiles(root, { include: ["core/scripts/*.mjs"] });
+  assert.ok(wide.files.some((f) => f.endsWith(".mjs")), "an included non-Markdown file lands in scope");
+  const plain = scopeFiles(root);
+  assert.ok(!plain.files.some((f) => f.endsWith(".mjs")), "and never by default");
+  assert.throws(() => scopeFiles(root, { include: ["core/scripts/nope.mjs"] }), /matches no tracked file/, "a zero-match include still refuses");
+});
+
+test("a home names a file AND a section: anchorless, empty or mistyped all refuse", () => {
   const root = fixture();
   assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#the-write-gate-rul" } }), /names no heading/);
-  assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#" } }), /names no heading/);
+  // An anchorless home would hand readers a file that may carry several live
+  // rules -- the condition the sweep exists to detect, as its starting point.
+  assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md#" } }), /names no #section/);
+  assert.throws(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md" } }), /names no #section/);
   assert.doesNotThrow(() => plan({ root, spec: SPEC }));
-  assert.doesNotThrow(() => plan({ root, spec: { ...SPEC, home: "docs/ai-context/working-modes.md" } }), "no anchor is allowed");
 });
 
 test("a worker count below two, non-integer or non-numeric refuses, naming the value", () => {
@@ -196,9 +226,13 @@ test("plan reads the home in full, maps payload-relative globs, and writes one b
     assert.ok(brief.includes("`core/docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22`"), "home is named, repo-relative, anchor kept");
     for (const s of SPEC.subShapes) assert.ok(brief.includes(`| **${s.id}** | ${s.name} | \`${s.example}\` |`), s.id);
     for (const x of SPEC.notInClass) assert.ok(brief.includes(x));
-    assert.match(brief, /does it cite the home and agree with it\?/, "the structural test, as the doc states it");
+    assert.match(brief, /does\s+it cite the home section and agree with it\?/, "the structural test, as the doc states it");
     assert.match(brief, /uncited or\s+disagrees/, "residue is uncited or disagreeing, never a cited agreeing gloss");
     assert.match(brief, /cites the home and agrees is a\s+citation with context and is NOT a hit/, "cited restatements are not returned");
+    // The two worst hits of the 2026-09-20 run cited the right FILE and named
+    // the wrong rule inside it; a file-level test exempts exactly those.
+    assert.match(brief, /including elsewhere in the home's own file/, "the test reaches other sections of the home file");
+    assert.match(brief, /Citing the right file is not enough/, "section-level, not file-level");
     assert.ok(brief.includes("OPENED: n / READ IN FULL: n / SWEPT: n"), "the inventory declaration");
     assert.ok(brief.includes("Declined candidates"), "declined list is mandatory");
     assert.ok(/`high` \| `medium` \| `low`/.test(brief), "confidence survives to the report");

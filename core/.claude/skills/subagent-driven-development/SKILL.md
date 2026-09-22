@@ -226,13 +226,22 @@ final whole-branch review. When you fill a reviewer template:
   subagent with the complete findings list — not one fixer per finding.
   Per-finding fixers each rebuild context and re-run suites; a real
   session's final-review fix wave cost more than all its tasks combined.
-- **Then review that corrected head, once, before finishing the branch.**
-  The flow above used to run the final review straight into
-  `finishing-a-development-branch`, so a branch finished on code written
-  after its only broad review. One batch, then one review of it, then stop:
-  the two-review limit's shape
-  ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
-  and the reason "repeat until approved" above is not how a fleet loop ends.
+- **Then review that corrected head before finishing the branch — on every
+  kind of work.** The flow above used to run the final review straight into
+  `finishing-a-development-branch`, so a branch finished on code written after
+  its only broad review. Nothing written merges unreviewed; that invariant has
+  no tier.
+- **Where iteration STOPS depends on what the plan is building.** On internal
+  tooling it stops there — one batch, one review of it, and only David reopens
+  it, per the two-review limit
+  ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
+  **Product code is outside that limit by consequence**, so a corrected head
+  that still has a real defect gets another pass; "repeat until approved" above
+  is still not the rule, but the bound is the Worth rule per finding rather
+  than a count. This skill executes plans of both kinds, and the stop sentence
+  here carried no qualifier until 2026-09-22 — applying the internal cap to
+  product code, which is the one class the cap deliberately leaves out
+  (Codex, #141 round 6).
 
 ## File Handoffs
 

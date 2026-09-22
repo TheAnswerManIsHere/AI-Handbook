@@ -54,8 +54,11 @@ Four inputs, written before any file is opened. The script refuses a spec
 missing any of them.
 
 - **The rule** — one sentence naming what is being swept for, by meaning.
-- **Its home** — the one file (and section) whose statement is authoritative.
-  Everything else may only *cite* it.
+- **Its home** — the one file **and section** whose statement is
+  authoritative. Everything else may only *cite* it. The script refuses a home
+  with no `#section`: an anchorless home hands the readers a whole file that
+  may carry several live rules, which is the exact condition the sweep exists
+  to detect, installed as its starting point.
 - **Sub-shapes, as a closed list** — the distinct forms an assertion of the
   retired rule takes, enumerated by *shape*, never by wording, with one
   example each. Expect three to six; one is always an undercount. **Two of
@@ -131,6 +134,18 @@ Two of the highest-consequence instances were in the role brief and the agent
 definition the two assessors read verbatim on every round. The scope is
 enumerated by `scripts/sweep-scope.mjs` from the tracked set, so it cannot be
 narrowed by hand or by ignore rules.
+
+**Its one boundary, stated because "the whole payload" would otherwise mislead:
+the default scope is Markdown.** Agent-facing prose is not always in a `.md` —
+a script can compose an instruction in a string literal — and a sweep that
+reported the payload clean while such an instruction sat outside what it read
+would be this repository's worst failure shape, a control that reports success
+having evaluated nothing. So `--include` is matched against **everything git
+tracks**, not against the Markdown filter: the filter is the default, never a
+ceiling. Sweeping every script by default is the wrong default in the other
+direction, since it puts comments and identifiers in front of readers hunting
+prose, so reaching one is a decision the operator makes and records in the
+spec. (Codex, #141 round 6.)
 
 ## Cold readers, two reading modes, each declared
 

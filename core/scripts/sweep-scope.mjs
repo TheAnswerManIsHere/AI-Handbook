@@ -87,20 +87,37 @@ export function trackedMarkdown(root) {
   return out.split("\0").filter(Boolean).sort();
 }
 
+/**
+ * Everything git tracks. `--include` is matched against THIS, not against the
+ * Markdown filter, so the filter is the default scope rather than a ceiling.
+ * It matters because agent-facing prose is not always in a `.md`: a script can
+ * compose an instruction in a string literal, and a sweep that cannot be
+ * pointed at it would report the whole payload clean while that instruction
+ * sits outside what it looked at (Codex, #141 round 6). Reaching it is
+ * deliberate -- sweeping every script by default would put comments and
+ * identifiers in front of readers hunting prose.
+ */
+export function trackedAll(root) {
+  const out = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" });
+  return out.split("\0").filter(Boolean).sort();
+}
+
 /** The sweep's scope: every tracked .md in the payload, plus the root files. */
 export function scopeFiles(root, { include = [] } = {}) {
   const prefix = payloadPrefix(root);
-  const all = trackedMarkdown(root);
+  const markdown = trackedMarkdown(root);
+  const everything = include.length ? trackedAll(root) : markdown;
   const inPayload = (f) => (prefix ? f.startsWith(prefix) : true);
   const isRoot = (f) => ROOT_FILES.includes(f);
   const extra = include.map((g) => {
     const re = globToRegExp(g.replace(/^\.\//, ""));
     // The same refusal readInFull has: a mistyped include must not quietly
     // become "the default scope, reported as complete".
-    if (!all.some((f) => re.test(f))) throw new Error(`sweep-scope: --include "${g}" matches no tracked file`);
+    if (!everything.some((f) => re.test(f))) throw new Error(`sweep-scope: --include "${g}" matches no tracked file`);
     return re;
   });
-  const files = all.filter((f) => inPayload(f) || isRoot(f) || extra.some((re) => re.test(f)));
+  const included = everything.filter((f) => extra.some((re) => re.test(f)));
+  const files = [...new Set([...markdown.filter((f) => inPayload(f) || isRoot(f)), ...included])].sort();
   return { prefix, files };
 }
 
@@ -165,13 +182,40 @@ export function assertWorkers(value) {
  * ordinary paragraph text, so a `---` that is really front matter, a
  * thematic break, or a table delimiter never invents a heading.
  */
+/**
+ * Reduce a heading's Markdown source to the text GitHub renders, because that
+ * is what GitHub slugs. `## [API](guide.md)` anchors at `#api`, not
+ * `#apiguidemd` -- slugging the source refused a consumer's correct fragment
+ * (Codex, #141 round 6). This covers the inline constructs a heading actually
+ * uses: images, links, code spans, emphasis, strikethrough, autolinks and raw
+ * HTML tags. It is an approximation of a renderer, like the character class
+ * above, and it fails in the safe direction: an unreduced construct leaves
+ * punctuation that the class strips, so the anchor is refused rather than
+ * silently resolved to the wrong section. The payload is dependency-free by
+ * rule, which is why this is not a Markdown library.
+ */
+export function renderInline(text) {
+  let s = text;
+  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1");        // image -> alt
+  s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");         // link -> text
+  s = s.replace(/\[([^\]]*)\]\[[^\]]*\]/g, "$1");        // reference link -> text
+  s = s.replace(/<(https?:[^>\s]+)>/g, "$1");             // autolink -> url
+  s = s.replace(/<[^>]+>/g, "");                          // raw HTML tags
+  s = s.replace(/`+([^`]*)`+/g, "$1");                    // code span -> contents
+  s = s.replace(/~~([^~]*)~~/g, "$1");                    // strikethrough
+  s = s.replace(/\*\*\*([^*]+)\*\*\*/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1");
+  s = s.replace(/___([^_]+)___/g, "$1").replace(/__([^_]+)__/g, "$1");
+  s = s.replace(/\\([\\`*_{}\[\]()#+\-.!])/g, "$1");     // backslash escapes
+  return s.trim();
+}
+
 export function headingSlugs(markdown) {
   const occurrences = new Map();
   const out = [];
   const lines = markdown.split("\n");
 
-  const emit = (text) => {
-    const original = text.toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
+  const emit = (raw) => {
+    const original = renderInline(raw).toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "").replace(/ /g, "-");
     let result = original;
     while (occurrences.has(result)) {
       occurrences.set(original, (occurrences.get(original) ?? 0) + 1);
@@ -283,14 +327,23 @@ root: \`${root}\`. Do not edit any file. Report only.
 
 **${spec.rule.trim()}**
 
-**Its home — the one authoritative statement:** \`${home}\`. Read it first. Your
-question for every statement about the rule in any other file is structural:
-**does it cite the home and agree with it?** A statement that is **uncited or
+**Its home — the one authoritative statement:** \`${home}\`. That is a file AND
+a section, and both halves matter. Read it first.
+
+Your question for every statement about the rule **anywhere outside that
+section — including elsewhere in the home's own file** — is structural: **does
+it cite the home section and agree with it?** A statement that is **uncited or
 disagrees** is a hit. A restatement that cites the home and agrees is a
-citation with context and is NOT a hit — do not return it. A file can be wrong
-by omission — state a version of the rule correctly in its own words and never
-name the home — and that is a hit with no wrong phrase in it. Grep cannot find
-it; you can.
+citation with context and is NOT a hit — do not return it.
+
+**Citing the right file is not enough.** A statement that links the home's file
+but names a different rule inside it is a hit: the citation looks valid to any
+grep or link checker, and the reader still lands on the wrong authority. Ask
+what question the cited rule answers, not whether it is live.
+
+A file can be wrong by omission — state a version of the rule correctly in its
+own words and never name the home — and that is a hit with no wrong phrase in
+it. Grep cannot find it; you can.
 
 ## Sub-shapes — hunt for ALL of them in EVERY file
 
@@ -350,12 +403,19 @@ export function plan({ root, spec, workers = DEFAULT_WORKERS, include = [] }) {
   const [homePath, ...rest] = spec.home.split("#");
   const homeFile = toRepoPath(prefix, homePath);
   if (!files.includes(homeFile)) throw new Error(`sweep-scope: home ${homeFile} is not a tracked .md in scope`);
-  if (rest.length) {
-    const anchor = rest.join("#");
-    const slugs = headingSlugs(readFileSync(join(root, homeFile), "utf8"));
-    if (!anchor || !slugs.includes(anchor)) {
-      throw new Error(`sweep-scope: home anchor "#${anchor}" names no heading in ${homeFile}; every brief would point readers at a section that does not exist`);
-    }
+  // The method requires one authoritative file AND section, and the structural
+  // test readers apply is section-level: a statement can cite the right file
+  // and name the wrong rule inside it, which is where this run's two worst
+  // hits lived. A home without an anchor hands the readers a whole file that
+  // may carry several live rules -- the condition the sweep exists to detect,
+  // installed as its starting point (Codex, #141 round 6).
+  const anchor = rest.join("#");
+  if (!rest.length || !anchor) {
+    throw new Error(`sweep-scope: home ${homeFile} names no #section; the authoritative statement is a file AND a section, and the readers' test is section-level`);
+  }
+  const slugs = headingSlugs(readFileSync(join(root, homeFile), "utf8"));
+  if (!slugs.includes(anchor)) {
+    throw new Error(`sweep-scope: home anchor "#${anchor}" names no heading in ${homeFile}; every brief would point readers at a section that does not exist`);
   }
 
   const fullSet = new Set();
