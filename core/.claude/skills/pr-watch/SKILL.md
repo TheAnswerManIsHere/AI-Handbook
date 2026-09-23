@@ -52,7 +52,12 @@ replaced them is step 5's proportionate-evidence rule.)
 3. **Get two independent assessments, then decide.** Every round that returns
    findings, before anything is written for them, on every tier. The rule is
    `claude-core.md`'s *Shared judgement on a review round*; what is here is how
-   it runs.
+   it runs. What ends the loop is not here at all: on internal tooling it is
+   the **two-review limit** ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+   and step 4 below is where this skill enacts it. The write-gate rule
+   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22))
+   answers the other question — which heads must be reviewed, so that no
+   commit merges unreviewed — and every step below serves both.
 
    **The oracle comes first, and it is agreed with David before round 1.** It
    is the outcome he agreed the work should achieve — an approved plan, an
@@ -371,9 +376,9 @@ replaced them is step 5's proportionate-evidence rule.)
      *before* it is spent rather than after. The token counts are already
      reported to me on every dispatch; this is putting them beside what they
      bought, not building a ledger.
-   - **A round I would only run because the loop is already open is not run.**
-     Sunk cost is not a reason: the round already happening does not make the
-     next one free, it causes it.
+   - **A fix I would only write because a round is already being written is
+     not written.** Sunk cost is not a reason: the round already happening does
+     not make the next one free, it causes it — and a fix written owes a round.
    - **Name the branch head, never a specific SHA** (David, 2026-08-17). Codex
      reviews the head at the moment it runs, not the SHA it was told, and the
      `**Reviewed commit:**` line it emits is what binds.
@@ -667,10 +672,11 @@ silently leaving the workstream unlabeled):
 - **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
 - **Codex posts findings, I start responding** → `waiting:claude`.
 - **I post the next round's `@codex review` trigger** → `waiting:codex`.
-- **A genuine design/architecture decision goes to David** (the escalate
-  rule above) → `waiting:david`; `stage:code-review` stays put — the stage
+- **Intended behaviour or an accepted user-facing shortfall goes to David**
+  (step 3.5 above — a purely technical fork is settled in the loop, never
+  escalated) → `waiting:david`; `stage:code-review` stays put — the stage
   hasn't moved, but the turn has.
-- **CI is green and Codex has converged, and every thread is resolved** →
+- **The close-out bar is met** (CLAUDE.md's *Close-out*, all four items) →
   the ready bar is met and **I merge it myself per CLAUDE.md's close-out
   contract (David, 2026-08-15)** — re-verify live state, squash-merge, sync,
   verify, report — so `stage:merge` is normally a moment, not a resting
@@ -802,5 +808,6 @@ its own — only real state (a new commit, a new finding, an actual merge)
 moves a label.
 
 Codex (and other AI reviewers) remain the independent reviewers; my job while
-watching is to *respond* — fix the mechanical, escalate the substantive.
+watching is to *respond* — judge every finding under the Worth rule with both
+assessments in hand, and take to David only what is his.
 

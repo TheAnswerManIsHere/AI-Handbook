@@ -68,6 +68,8 @@ file, that's the same smell facing the other way.
   [`planning-contract.md`](../../docs/ai-context/planning-contract.md).
 - **Workstream tracking** —
   [`workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md).
+- **Reconciling prose after a design change** — sweep, never patch:
+  [`prose-sweep.md`](../../docs/ai-context/prose-sweep.md).
 - **Failure patterns the fleet has already paid for** —
   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md).
   Each pattern is stated generally, then grounded in a concrete example from
@@ -427,12 +429,12 @@ enactment of it. (David, 2026-09-19, on Astra's recommendation.)
 head, yes or no. Once both say yes, the default flips** — findings become
 recorded gaps unless one of two things is true: it would make the oracle
 *false* (a regression), or its blast radius reaches outside this pull request.
-I execute that stop; I do not judge it alone.
+I execute that flip; I do not judge it alone.
 
 **Why this exists, and why nothing already in this file does its job.** Every
 other gate here filters a *finding*: the Worth rule per finding, the shared
-judgement per finding twice, the intelligent-reader lens per finding. A chain
-of individually-defensible small fixes is exactly what a system of per-item
+judgement per finding twice. A chain of individually-defensible small fixes is
+exactly what a system of per-item
 filters produces, and nothing was watching the sequence. Measured on #131: five
 rounds, twelve findings. Rounds 1–3 fixed real defects. Rounds 4–5 were about
 the wording of a label in a PR comment, cost roughly a quarter of the loop's
@@ -496,7 +498,10 @@ default, and the default is not the answer**. Before the first round, I ask
 what is downstream of *this* change: **machinery that governs approvals,
 publication, credentials or destructive operations is classified on that
 consequence**, whatever directory it lives in, which puts it outside the
-two-review limit and under the ordinary convergence the tier it earns carries.
+two-review limit and under the ordinary loop the tier it earns carries. (That
+used to read "under the ordinary convergence", naming as a stop the one word
+this repo retired as an exit condition — written into #140 itself, one
+paragraph below the rule #140 added.)
 A consumer overlay marking a subsystem sensitive is one route to that; it is
 not the only one, and its silence is not a classification. (Codex, #140 round
 2: the limit said it was scoped by consequence while the tier was still
@@ -521,9 +526,10 @@ nearly all of it — stays internal:
   [`review-judgment.md`](../../docs/ai-context/review-judgment.md).
 
 Harvests still
-get no harvest ceremony, and internal tooling still ships with rougher edges as
-an accepted trade — its failure mode is wrongly-blocking, which announces
-itself, and `main`'s real protection is GitHub's server-side rulesets.
+get no harvest ceremony. What the tier supplies to the judgement is the
+consequence side, never the answer: internal tooling's failure mode is
+wrongly-blocking, which announces itself, and `main`'s real protection is
+GitHub's server-side rulesets.
 
 ### Shared judgement on a review round
 
@@ -655,9 +661,10 @@ in the file that every session loads.
    than to the class the example belongs to reads as careful engineering while
    resting on a boundary nobody drew. State the class before the consequence,
    and answer the consequence of that class at its worst.
-   Product and design forks, scope additions, splits and disclosure questions
-   go to David, as do intended behaviour and any shortfall he or a user would
-   feel.
+   Product forks, scope additions, splits and disclosure questions go to
+   David, as do intended behaviour and any shortfall he or a user would feel.
+   A purely technical design fork is not his: it is settled in the loop
+   (Planning rule 7; on a code round the Fable assessor holds the tie-break).
 
 6. **I resolve each review thread myself once addressed** — a pushed fix with
    the commit, or a reasoned decline — right after posting that reply, never in

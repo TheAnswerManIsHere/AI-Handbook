@@ -63,9 +63,9 @@ which applies to internal tooling whatever its row.
 
 | Artifact class | Planning ceremony and review depth | Why |
 | --- | --- | --- |
-| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and gets fixed in the single triage. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
+| **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** | Today's full feature ceremony — plan, review to convergence, approval. | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit by consequence; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient checklist,
@@ -74,9 +74,11 @@ the same line. **It says what the artifact is, never how many reviews it
 gets** — that line used to promise "findings triaged once, no re-review", which
 is a commitment to the reviewer that a changed head would go unread.
 Review *depth* on any docs-only PR is governed by
-[`code-review.md`](../engineering/code-review.md#documentation-only-prs-get-a-light-review-david-2026-08-08):
-generally correct is good enough, glaring issues only — no grammar or
-minor-count findings — and the review request states that bar explicitly.
+[`code-review.md`](../engineering/code-review.md#documentation-only-prs-get-a-light-review-david-2026-08-08),
+which is that rule's only statement, and the review request states its bar
+explicitly. Depth is what a reviewer *raises*; what is worth writing for once
+raised is the Worth rule ([`review-judgment.md`](review-judgment.md)), and no
+tier or artifact class predetermines that answer.
 
 **A plan document is for work whose *approach* could be wrong in a way David
 can't see from the result.** A skill file's approach is legible from the file
@@ -557,8 +559,8 @@ and cheapest:
   a stack trace and a line number, which is more than any review round
   produces.
 
-**So a loop's real exit condition is "the design claims are right," not "the
-reviewer stopped finding things."** PR #422 reached that point at round 2,
+**So a plan loop's real exit condition is "the design claims are right," not
+"the reviewer stopped finding things."** PR #422 reached that point at round 2,
 when the false claim at the centre of the plan — that triggers enforce
 anything before an ownership transfer the owner can undo — was found and
 corrected. Everything the round found after that was PostgreSQL mechanics,
@@ -577,9 +579,14 @@ will keep finding things, and each fix adds surface for the next round.
 trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
-it is two mechanical things — the write-gate rule below and pre-registered flip
-conditions — and, since #96, a judgement made from two independent assessments
-rather than alone. (An external adjudicator whose verdict decided stood here
+it, on internal tooling, is **the two-review limit below** — the one rule here
+that bounds the *sequence*. Around it sit three that bound something else and
+are not stops: the write-gate rule below (which heads must be reviewed),
+pre-registered flip conditions (a bound within a round) and, since #96, a
+judgement made from two independent assessments rather than alone (what is
+written for). This paragraph listed only those three until 2026-09-20, which
+is how a section headed *what stops a loop* came to answer with three rules
+that do not stop one. (An external adjudicator whose verdict decided stood here
 until the #89 cut removed it; nothing dispatched now decides anything.)
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
@@ -789,7 +796,9 @@ one of three responses, stated explicitly:
 1. **Fix it** — the defect matters for this artifact.
 2. **Accept and document it** — the finding is correct, and the cost of fixing
    exceeds the risk *for this artifact*. Say so, in the thread and in the file.
-3. **Escalate it** — it's a genuine product or design decision. That's David's.
+3. **Escalate it** — it changes intended behaviour or accepts a user-facing
+   shortfall. That's David's. A purely technical fork is not, and is settled in
+   the loop.
 
 Response 2 is legitimate, and nothing here sets a rate for it in either
 direction — the Worth rule decides per finding
@@ -878,8 +887,10 @@ redesign grants and send David a question the loop was built to keep off his
 desk. **What does not become negotiable is a constraint David required
 explicitly**: a requirement does not stop being his because it happens to be
 about technology. (The code review loop's own escalation list, under *The
-post-round judgement* below, still names a product or design fork and is correct
-as written. **It is not that the code loop lacks a technical tie-break** — *Who
+post-round judgement* below, carried the same "product or design fork" wording
+until 2026-09-20 and is now narrowed the same way. This parenthesis used to
+call it "correct as written", which is how the defect survived a round that
+was looking straight at it — vouching for a sentence is not reading it. **It is not that the code loop lacks a technical tie-break** — *Who
 judges* above gives a surviving purely technical disagreement to the Fable
 assessor there, and `claude-core.md` rule 4 says so on `main`. This parenthesis
 claimed the opposite for one round, which is this very paragraph's warning
@@ -907,8 +918,14 @@ self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 
 What still stops the loop for David, whatever the assessors say: a genuine
-product or design fork, a scope addition, a split, a disclosure question, and
-any change to intended behaviour or knowingly accepted user-facing shortfall.
+product or behaviour fork, a scope addition, a split, a disclosure question,
+and any change to intended behaviour or knowingly accepted user-facing
+shortfall. **A purely technical design fork is not among them** — it is
+settled in the loop, with the Fable assessor holding the tie-break on a code
+round. This list read "a product or design fork" until 2026-09-20, which a
+technical fork also satisfies: the same defect, and the same sentence, that
+the paragraph fifty lines above had already diagnosed and fixed in the
+planning list.
 
 A round with **no findings** needs no dispatch: there is nothing to assess,
 and the loop ends on the head that round reviewed.
@@ -931,11 +948,11 @@ precisely the trade the loop must not settle for itself — in either direction,
 since the same arithmetic that forbids skipping the judgement is what makes an
 unworthy fix expensive.
 
-**Scope: every review loop** — plan review and code review, feature and bugfix,
-whichever agent is driving it. Plan-review loops take the tier of what they are
-planning: a plan for product code is a product loop, because a wrong plan
-becomes wrong code. The tier names what is downstream; it is neither a
-threshold nor a number of rounds.
+**Scope: every code-review loop** — feature and bugfix, whichever agent is
+driving it. A planning loop is not a review loop and is judged under *Who
+judges* above; it takes the tier of what it is planning, because a wrong plan
+for product code becomes wrong code. The tier names what is downstream; it is
+neither a threshold nor a number of rounds.
 
 **Plan approval is David's alone**, whatever a code loop does.
 
@@ -1211,7 +1228,7 @@ oracle and the Tier A/B bugfix oracle below.
    bug and the fix.
 8. **Open the PR** with the applicable oracle — the Tier A/B oracle below for a
    Tier A/B fix, or the dedicated Tier C block described above for a trivial
-   schema fix — and engage the review to convergence.
+   schema fix — and engage the review under the write-gate rule.
 9. **At close, harvest what generalizes (David, 2026-08-09).** A root cause
    that reaches past this one bug is captured before the workstream closes:
    a [`known-failure-patterns.md`](./known-failure-patterns.md) entry, a
@@ -1286,8 +1303,8 @@ this miss a caller?*
   create a duplicate source of truth) — see
   [`known-failure-patterns.md`](./known-failure-patterns.md).
 - **Squash-merge / never-force-push discipline.**
-- **Bot-review engagement to convergence** once a PR is open — including
-  re-review of every fix round, since a push does not reliably re-trigger a
+- **Bot-review engagement under the write-gate rule** once a PR is open —
+  including re-review of every fix round, since a push does not reliably re-trigger a
   reviewer and reactive fix code is where subtle mistakes hide. Code review is
   the highest-yield net this repo has: several entries in
   [`known-failure-patterns.md`](./known-failure-patterns.md) were caught by

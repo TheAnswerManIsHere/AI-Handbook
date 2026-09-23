@@ -106,7 +106,9 @@ Subagent (general-purpose):
 
     ### Assessment
 
-    **Ready to merge?** [Yes | No | With fixes]
+    **Ready to merge?** [Yes | No | With fixes — and "with fixes" never means
+merge once they are applied: the corrected head gets its own review, per the
+two-review limit in `docs/ai-context/working-modes.md`]
 
     **Reasoning:** [1-2 sentence technical assessment]
 

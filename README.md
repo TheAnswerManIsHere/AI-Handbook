@@ -71,12 +71,12 @@ needed, the thing to build is the smallest mechanism that delivers it.
 | Group | What |
 |---|---|
 | `.agents/core/` | The portable halves of `CLAUDE.md` and `AGENTS.md` |
-| `docs/ai-context/` | Cross-agent contracts: working rules, modes, planning, plan review, documentation, workstream tracking, failure patterns |
+| `docs/ai-context/` | Cross-agent contracts: working rules, modes, planning, review judgment, prose sweeps, documentation, workstream tracking, failure patterns |
 | `docs/engineering/` | Code review and migration practice |
 | `.agents/memory/` | Environment and tooling gotchas — the harness, GitHub, the proxy, the toolchain |
 | `.claude/skills/` | Process and practice skills |
 | `.claude/agents/` | Subagent definitions |
-| `scripts/` | Review-loop and readiness machinery |
+| `scripts/` | Review-loop, plan-review and project-sync machinery |
 
 Product truth is deliberately absent. If something here only makes sense for
 one product, it is in the wrong repo. The agent-environment docs
@@ -89,10 +89,17 @@ its own. They and the rest of the consumer-owned set are listed in
 ## Working in this repo
 
 Changes here reach every product, so this repo runs the **internal** review
-tier: a clean automatic review pass is the whole ceremony, and a round that
-returns findings gets two independent assessments before anything is written
-for it. Whether acting on a finding is worthwhile is judged case by case, with
-no target rate in either direction. Read `CLAUDE.md` before editing — it is
+tier, which says what is downstream and nothing about how long a review loop
+runs. How long it runs is the **two-review limit** in
+`core/docs/ai-context/working-modes.md`: the automatic pass, one coherent batch
+of corrections if any are warranted, a review of that corrected head, and
+autonomous iteration ends there. A clean automatic pass is the whole ceremony;
+a round that returns findings gets two independent assessments before anything
+is written for it; and anything written gets reviewed before it merges — that
+last is the write-gate rule, which answers what must be reviewed rather than
+how long. Whether acting on a
+finding is worthwhile is judged case by case, with no target rate in either
+direction. Read `CLAUDE.md` before editing — it is
 short, and it imports the same core it ships.
 
 Verify locally with:

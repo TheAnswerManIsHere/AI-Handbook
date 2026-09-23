@@ -338,7 +338,8 @@ was right: the distinction has no operational content on the reader's side.
    one example, deliberately.
 2. **"It's only an example" is a rationalisation, not a defence**, and it is
    most tempting exactly when a stopping rule or a decline turns on it. Treat
-   reaching for it as the signal to route the call somewhere that isn't you.
+   reaching for it as the signal to put the question to an independent
+   assessment rather than settling it in your own head.
 
 **Avoid:** shipping an example you have not verified, in any document an agent
 will act on. The check is that an example offered to illustrate a property must
@@ -1220,9 +1221,9 @@ right in an earlier round but not the lock-ordering. Both fixed by exporting
 lock+count) and moving each handler's read + decision inside the
 transaction, after acquiring it, before the guard's count. The second
 recurrence — same root cause, sibling code path, found one round later — is
-also a worked example of *class recurrence* under this repo's own
-review-loop bucket rubric
-([`working-modes.md`](./working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)):
+also a worked example of the rule that a finding names an instance and the
+fix owes the class
+([`working-modes.md`](./working-modes.md#a-finding-names-an-instance-the-fix-owes-the-class-david-2026-08-08)):
 porting a fix to one of several similarly-shaped call sites and missing a
 sibling is common enough to specifically check for once a first instance of
 a shape like this is found, not just fixed in place.
@@ -1515,6 +1516,36 @@ written — scope, invocation, or the class's surface form. The instance history
 for this one lives in **#516**, which carries the extended oracle rather than
 restating it here.
 
+### Sub-pattern: the author of the new rule cannot sweep for the old one
+
+The three sub-patterns above all assume the same reader can derive a better
+method next round. AI-Handbook #96 is the case where that failed four times.
+Its design change landed in the mechanism; the prose did not follow; and three
+successive reconciliations — grep for the retired phrases, then read the
+sections end to end by decision path, then both plus an acceptance check — each
+missed instances the next review round found. Not one of the misses was
+somewhere unexpected. **All three of the last round's were within a screen of
+an edit that round's author had just made, and one was a context line inside
+the previous sweep's own diff hunk.**
+
+**Why, and it is not carelessness:** the author of the new model reads a stray
+clause of the old one as consistent, *because they know what was meant*. The
+sentence parses correctly against the intent in their head and never against
+the words on the page. That is a property of the reader, not of the method, so
+a fourth method run by the same reader has a poor prior whatever its shape —
+which is the honest generalisation the #458/#459 entry above already reached
+from the other direction ("self-review converges on *the method you already
+had*; an outside reviewer is what corrects the method").
+
+**The second half is that a retirement is never one proposition.** #96's was at
+least four, and each sweep hunted only the facet the last reviewer had named.
+When a cold read was finally run, the readers added two more — one of them
+proposed independently by three of the six.
+
+**Avoid:** patching the instances a reviewer named. Sweep instead, by the
+method in [`prose-sweep.md`](prose-sweep.md), which is its only statement and
+is not restated here.
+
 ## Satisfying a lexical guard by changing a value's form, not its meaning
 
 **Looks like:** a CI text guard flags a stated value in prose. The fix changes
@@ -1575,9 +1606,14 @@ tell is never a single finding — they're usually right — it is the **trend**
 plus the shape of the late-round fixes. **Avoid:** size ceremony to blast radius
 at intake, not to how the request was phrased
 ([`working-modes.md`](./working-modes.md#feature-mode-ceremony-scales-to-blast-radius-not-to-phrasing-david-2026-08-05));
-require findings to fall round over round or stop and reassess with David; and
+carry pre-registered flip conditions naming an observable read off the round; and
 triage every finding into **fix / accept-and-document / escalate** rather than
-reading "Required Revision" as automatically meaning fix. **Overhype:** twice
+reading "Required Revision" as automatically meaning fix. **And on internal
+tooling the sequence is bounded outright** by the two-review limit
+([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — this entry's remedies
+were ceremony-sizing, an in-round bound and a per-finding test until
+2026-09-20, none of which answers "there is no natural stopping point", which
+is the entry's own diagnosis. **Overhype:** twice
 in one day, 2026-08-05 — PR #329's Bash guard (9 → 11 → 12 → 19 findings, an
 unbounded parsing surface; see the sub-pattern below) and PR #333's `/status`
 plan (12 → 1 → 4 → 6 → 12 findings, **six review rounds and a 660-line plan for
@@ -1717,8 +1753,8 @@ round's fixes are correct. Each fix adds a mechanism (an endpoint, a
 reservation system, a lock, a column, a role). The next round then finds
 problems in the *previous round's solutions* rather than in the original
 design, and the loop silently converts itself from reviewing a document into
-writing one. **Dangerous:** every existing tripwire can read green. The
-finding-count rule only fires on a *rise*, and growth routinely happens while
+writing one. **Dangerous:** the tripwires that existed at the time all read
+green. The finding-count rule fired only on a *rise*, and growth routinely happens while
 counts fall — so the loop looks like convergence right up until the round
 where all the newly-added surface comes due at once.
 
@@ -1741,9 +1777,8 @@ the increment makes true and what bounds it, rather than reading a verdict off
 the vocabulary. Universal wording and independently shippable phases are
 reasons to examine the boundary (an ordered migrate/rollout/verify sequence
 within one increment is
-not this signal); record the plan's line count
-at round 1 and state it every round; and frame mid-flight scope as **now vs.
-next**, defaulting to next.
+not this signal); and frame mid-flight scope as **now vs. next**, defaulting
+to next.
 
 **Overhype:** PR #404 (workstream #405), 2026-08-10/11 — the admin-permissions
 plan ran three rounds at **24 → 14 → 21** findings while growing **877 →
@@ -1774,8 +1809,11 @@ this one's is to **split the artifact and keep going on the smaller half**.
 correct and every fix is sound, and the thing each new finding is about is the
 code the last round added. **Dangerous:** it reads as diligence from inside —
 the reviewer keeps finding real bugs, so stopping feels like shipping known
-defects — and the cost is invisible because no single round is wrong. The loop
-ends when someone runs out of patience rather than when the code is right.
+defects — and the cost is invisible because no single round is wrong. Before 2026-09-19 the
+loop ended when someone ran out of patience rather than when the code was
+right; what ends it now, on internal tooling, is the two-review limit
+([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), which was built from
+this entry's measurement.
 
 **The tell, recognised by hand:** a round has a finding whose lines sit inside
 the diff of the last commit pushed for a finding, and so did the round before
@@ -2617,10 +2655,12 @@ reviewer passes a PR has had; the tally was a second copy of it.
 
 **The fix is deletion, not another layer.** The tally, `reconcile`, the
 durability check, and the commit-before-next-round rule were all removed in one
-commit (`0cd6f3c`). Rounds are now counted fresh from a validated GitHub
+commit (`0cd6f3c`). Rounds were then counted fresh from a validated GitHub
 snapshot at the moment of the decision, using the same `reviewerPasses()`
-function the loop ledger uses. Five of round 3's findings dissolved with the
-code they were about; nothing was left to keep coherent. A stalled round and
+function the loop ledger used — both of which went in the #89 cut
+(2026-09-16), so what stands here is the pattern, not a live pointer. Five of
+round 3's findings dissolved with the code they were about; nothing was left
+to keep coherent. A stalled round and
 its retry are now one round automatically, and the count self-corrects when the
 retry's pass lands — because nothing was written down to be wrong.
 
@@ -2692,10 +2732,12 @@ the check still worked by reading the working tree and then reconciling it
 against git, which is the identical cache-coherence structure as *A persistent
 counter of state the source of truth already holds* above, one layer down —
 "the working tree" being a cache of "the commit." The fix was the same fix:
-deletion. `readDurableJson`/`listDurable` now read the budget and extensions
-**only** from `git show`/`git ls-tree` against the branch's remote-tracking
-ref; there is no working-tree read to reconcile because there is no second
-copy. Pinned by a test that disables both filesystem readers entirely and
+deletion. `readDurableJson`/`listDurable` were changed to read the budget and
+extensions **only** from `git show`/`git ls-tree` against the branch's
+remote-tracking ref — all of it since removed in the #89 cut (2026-09-16), so
+the lesson is what stands here, not the code; there was no working-tree read
+to reconcile because there was no second copy. Pinned by a test that disables
+both filesystem readers entirely and
 asserts the loop still loads. Same lesson, restated because it recurred one
 layer inward: a "durable" check built on comparing a local copy to the source
 of truth should usually just read the source of truth.
@@ -2748,7 +2790,8 @@ pre-registered flip condition from round 2's request said exactly this in
 advance: *"if round 3 finds a third variant of the same question, that is a
 signal the predicate is the wrong shape rather than incomplete."* Round 3
 supplied three, and the request for round 4 was never sent — the loop's own
-declared round budget was spent, so continuing would have meant a self-serve
+declared round budget (since gone in the #89 cut) was spent, so continuing
+would have meant a self-serve
 extension to patch a predicate already shown to be open-ended, which is a
 worse trade than shipping the known gaps (the code being replaced was *more*
 easily fooled than any of these three cases, by a plain uncommitted `HEAD`

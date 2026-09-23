@@ -53,7 +53,11 @@ risk. So:
 
 **Internal tier**, per the core's review-loop rules: a clean automatic review
 pass is the whole ceremony, and a round that returns findings gets two
-independent assessments before anything is written for it. What each finding is
+independent assessments before anything is written for it. How long iteration
+runs is not the tier's to say — it is the **two-review limit**
+([`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+which this section stated nowhere until 2026-09-20 while being the section a
+reader consults to learn how much loop a PR here gets. What each finding is
 worth is decided by
 [`review-judgment.md`](core/docs/ai-context/review-judgment.md), which sets no
 target rate in either direction; the tier says only that nobody's money or data
