@@ -59,11 +59,12 @@ runs is not the tier's to say — it is the **two-review limit**
 which this section stated nowhere until 2026-09-20 while being the section a
 reader consults to learn how much loop a PR here gets. **Nor is "internal"
 settled once for this repository.** The limit is scoped by consequence and
-asked per change, and this repository's payload contains the machinery that
+recoverability and asked per change, and this repository's payload contains the machinery that
 publishes to every consumer and the settings template carrying
 `permissions.deny`. A change to either is weighed on what it actually does:
-changing what gets published, or what is denied, is outside the limit; fixing
-a message it prints is not. What each finding is
+changing what gets published, or what is denied, in a way that could not be
+trivially undone is outside the limit; fixing a message it prints, or the
+formatting of what it publishes, is not. What each finding is
 worth is decided by
 [`review-judgment.md`](core/docs/ai-context/review-judgment.md), which sets no
 target rate in either direction; the tier says only that nobody's money or data

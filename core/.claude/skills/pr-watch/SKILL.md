@@ -283,8 +283,9 @@ replaced them is step 5's proportionate-evidence rule.)
      operations is weighed on those consequences whatever folder it sits in,
      and that weighing can put it outside the limit. **It is the change, not
      the file**: editing `sync.mjs`, which publishes the payload to every
-     consumer, is outside when it changes what gets published and inside when
-     it changes a dry-run message, because the second is trivially
+     consumer, is outside when it changes what gets published in a way that could
+     not be trivially undone, and inside when it changes a dry-run message
+     or the formatting of what it publishes, because those are trivially
      recoverable. A consumer overlay marking a subsystem sensitive is one
      route to the classification and not the only one, and its silence is not
      a classification. Reach is not consequence: "this changes how future

@@ -418,9 +418,9 @@ still violates an agreed requirement, fails a required check, or carries a
 finding of consequential harm David has not accepted goes **to David with the
 shortfall and a choice**, never to the merge button. **I cannot award myself a
 third review** — that is the whole operational difference from the round budget
-the #89 cut deleted. The rule, its scope by consequence rather than by
-directory, and what it costs are in
-[`working-modes.md`](../../docs/ai-context/working-modes.md); this is only my
+the #89 cut deleted. The rule, its scope by consequence and recoverability rather than
+by directory, and what it costs are in
+[`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19); this is only my
 enactment of it. (David, 2026-09-19, on Astra's recommendation.)
 
 ### The ship gate: when the Worth rule stops being asked (David, 2026-09-19)
@@ -444,7 +444,7 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
-**The two-review limit caps this carve-out**: reach across future pull
+**Where the two-review limit applies, it caps this carve-out**: reach across future pull
 requests can keep the gate from ending a loop early, and can never authorise a
 third review (both assessors, #140 round 1). Whether the carve-out should
 survive at all is David's, and open.
@@ -620,12 +620,13 @@ the readiness receipt never ran at all, and the delivery gate's only firing was
 on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
-**What decides a loop's length is the two-review limit**, above. **Rules 4
+**What decides a loop's length, on work it bounds, is the two-review limit**, above. **Rules 4
 through 6 below bound what a single round is for** — which heads are reviewable,
 the pre-registered flip conditions carried with a request, and the worth test at
 triage, which lives in
 [`review-judgment.md`](../../docs/ai-context/review-judgment.md). Neither they
-nor the Worth rule can authorise another batch after review two. **What
+nor the Worth rule can authorise another batch after review two where the
+limit applies. **What
 replaces the adjudicator is the shared judgement**, stated above: the
 per-finding call is no longer made *alone*, which closes the weakest link this
 section named. It is still mine — two assessments advise and I decide from
