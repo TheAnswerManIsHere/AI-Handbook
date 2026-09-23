@@ -1608,8 +1608,9 @@ at intake, not to how the request was phrased
 ([`working-modes.md`](./working-modes.md#feature-mode-ceremony-scales-to-blast-radius-not-to-phrasing-david-2026-08-05));
 carry pre-registered flip conditions naming an observable read off the round; and
 triage every finding into **fix / accept-and-document / escalate** rather than
-reading "Required Revision" as automatically meaning fix. **And on internal
-tooling the sequence is bounded outright** by the two-review limit
+reading "Required Revision" as automatically meaning fix. **And where a change is
+internal by its consequence and recoverability, the sequence is bounded** by
+the two-review limit
 ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — this entry's remedies
 were ceremony-sizing, an in-round bound and a per-finding test until
 2026-09-20, none of which answers "there is no natural stopping point", which
@@ -1811,7 +1812,8 @@ code the last round added. **Dangerous:** it reads as diligence from inside —
 the reviewer keeps finding real bugs, so stopping feels like shipping known
 defects — and the cost is invisible because no single round is wrong. Before 2026-09-19 the
 loop ended when someone ran out of patience rather than when the code was
-right; what ends it now, on internal tooling, is the two-review limit
+right; what ends it now, where a change is internal by its consequence and
+recoverability, is the two-review limit
 ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), which was built from
 this entry's measurement.
 
@@ -2685,8 +2687,8 @@ retry's pass lands — because nothing was written down to be wrong.
    now is the shared judgement — two assessments that read the round
    independently and advise — asking the sharper question the self-policed rule
    never could: whether writing more code for these findings is worth it at
-   all. **And on internal tooling the sequence itself is bounded** by the
-   two-review limit ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+   all. **And where a change is internal by its consequence and
+   recoverability, the sequence itself is bounded** by the two-review limit ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
    which is what actually stops the pattern this item describes; the shared
    judgement answers what is written *for*, one finding at a time. This item's
    two sibling entries were given that pairing on 2026-09-20 and this one was
