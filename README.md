@@ -96,8 +96,8 @@ the automatic pass, one coherent batch of corrections if any are warranted, a
 review of that corrected head, and autonomous iteration ends there. **That is
 not a property of this repository, and it is asked per change**: the limit is
 scoped by consequence and recoverability, so a change that alters what the
-sync publishes to every consumer, or that touches credentials or destructive
-operations, is weighed on that and can sit outside the limit — while a
+sync publishes to every consumer, or that touches approvals, credentials or
+destructive operations, is weighed on that and can sit outside the limit — while a
 recoverable tweak to the same file does not. A clean automatic pass is the whole ceremony;
 a round that returns findings gets two independent assessments before anything
 is written for it; and anything written gets reviewed before it merges — that

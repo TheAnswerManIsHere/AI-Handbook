@@ -331,8 +331,10 @@ The run's own findings, which is why this section exists:
 ### What scopes the two-review limit (2026-09-23, issue #145 — the tool's first run as merged payload)
 
 The class #141 produced and could not see. `main` scopes the limit by
-consequence, with "internal tooling" as a convenient default; restatements
-across the payload had turned the default into the scope. Two passes, four
+consequence and recoverability
+([`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), with "internal tooling" as a
+convenient default; restatements across the payload had turned the default
+into the scope. Two passes, four
 cold readers each, 157 files. **#145's own catalogue was withheld from every
 reader** and came back independently, which is the control holding a third
 time.

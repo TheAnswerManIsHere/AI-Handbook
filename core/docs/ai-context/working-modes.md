@@ -110,8 +110,8 @@ three rounds that ran 24 → 14 → 21 findings.
   finds a soundness defect and the direction is changed, the changed head is
   reviewed like any other — the write-gate's no-unreviewed-commit invariant
   applies here as everywhere, and the two-review limit applies here on its
-  own terms ([below](#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): it bounds internal tooling, so not product code,
-  and it asks "internal" of the change by its consequence and recoverability,
+  own terms ([below](#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)):
+  it asks "internal" of the change by its consequence and recoverability,
   weighing a change to machinery governing approvals, publication, credentials
   or destructive operations on what that change does. (This read "the two-review limit … applies here as
   everywhere" until 2026-09-23 — the limit called universal, forty lines below
@@ -591,8 +591,9 @@ trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
 it is **the two-review limit below** — the one rule here that bounds the
-*sequence*, on the work its own consequence-and-recoverability test reaches. Around it sit three that bound something else and
-are not stops: the write-gate rule below (which heads must be reviewed),
+*sequence*, on the work its own consequence-and-recoverability test reaches.
+Around it sit three that bound something else and are not stops: the
+write-gate rule below (which heads must be reviewed),
 pre-registered flip conditions (a bound within a round) and, since #96, a
 judgement made from two independent assessments rather than alone (what is
 written for). This paragraph listed only those three until 2026-09-20, which
@@ -747,13 +748,14 @@ counting.
 than how strictly to read a finding.** `product`, `sensitive`
 (auth/payments/migrations) and `internal` (guards, `scripts/`, skills, agent
 contracts, process documentation, documentation harvests) each say who or what
-bears the consequence, and nothing more. **Those parentheses are where such
-work usually lives, never a test** — the two-review limit above asks
-"internal?" of the change by its consequence and recoverability, whatever
-directory it sits in, so a credential-rotation script under `scripts/` is not
-internal because of its path. They set no threshold and select no
+bears the consequence, and nothing more. They set no threshold and select no
 rubric — that sentence said both things at once until round 4 of #120 caught
-it. The `internal` tier's old rubric
+it. **And those parentheses are where such work usually lives, never a test**:
+the two-review limit above asks "internal?" of the change by its consequence
+and recoverability, whatever directory it sits in, so a credential-rotation
+script under `scripts/` is not internal because of its path.
+
+The `internal` tier's old rubric
 wrote only for "a very high chance of a critical flaw" and declined everything
 else; that is a decline quota and it is retired with the fix quota it was built
 to correct. What the tier still supplies is the thing no rule can derive: with

@@ -231,20 +231,24 @@ final whole-branch review. When you fill a reviewer template:
   `finishing-a-development-branch`, so a branch finished on code written after
   its only broad review. Nothing written merges unreviewed; that invariant has
   no tier.
-- **Where iteration STOPS depends on what the plan is building.** On internal
-  tooling it stops there — one batch, one review of it, and only David reopens
+- **Where iteration STOPS depends on what the change does, not on what the
+  plan is building.** Where the change is internal by its consequence and
+  recoverability it stops there — one batch, one review of it, and only David reopens
   it, per the two-review limit
   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
-  **Product code is outside that limit by consequence — and so is any other
-  change whose consequences and recoverability put it there**, including a
+  **A change sits outside that limit when its own consequences and
+  recoverability put it there** — which product code usually does, though the
+  class is where such work lives and never what decides it, and which equally
+  reaches a
   change to internal machinery that governs approvals, publication,
   credentials or destructive operations. The test is what this change does,
   never the directory or the file's job, so a plan altering such machinery can
   be outside the limit even though it is internal by class, while a
   recoverable change to the same file is not. A corrected head outside the
   limit that still has a real defect gets another pass; "Repeat until
-  approved" below, in *If reviewer finds issues*, is still not the rule, but the bound is the Worth rule per finding rather
-  than a count. This skill executes plans of both kinds, and the stop sentence
+  approved" below, in *If reviewer finds issues*, is still not the rule, but
+  the bound is the Worth rule per finding rather than a count. This skill
+  executes plans of both kinds, and the stop sentence
   here carried no qualifier until 2026-09-22 — applying the internal cap to
   product code, which is the one class the cap deliberately leaves out
   (Codex, #141 round 6).
@@ -431,8 +435,9 @@ Done!
 - Reviewer reviews again
 - Repeat until approved — *bounded as the calibration block above bounds it:
   where the change is internal by its consequence and recoverability,
-  iteration ends at the two-review limit; elsewhere the Worth rule per finding
-  decides*
+  iteration ends at the two-review limit
+  ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19));
+  elsewhere the Worth rule per finding decides*
 - Don't skip the re-review
 
 **If subagent fails task:**

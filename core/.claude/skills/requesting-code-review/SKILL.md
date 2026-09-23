@@ -96,6 +96,9 @@ You: [Fix progress indicators]
 
 ## Integration with Workflows
 
+*(Both flows below describe per-task QA inside a session. Once the work
+reaches a pull request, the Local calibration block above bounds it.)*
+
 **Subagent-Driven Development:**
 - Review after EACH task
 - Catch issues before they compound

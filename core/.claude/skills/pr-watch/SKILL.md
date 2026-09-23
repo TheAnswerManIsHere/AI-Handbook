@@ -320,9 +320,10 @@ replaced them is step 5's proportionate-evidence rule.)
      and this whole limit exists because he said the looping overhead was
      slowing him down.)
 
-   - **Otherwise** — a product-code pull request at any round, an internal
-     one's first review, or machinery the consequence test above puts outside
-     the limit at any round — everything being written for goes in one push, with
+   - **Otherwise** — anything the predicate above does not catch: a pull
+     request the consequence test puts outside the limit at any round (product
+     code usually, though the class is never what decides it), or an internal
+     one's first review — everything being written for goes in one push, with
      the repo's own fast checks run first: lint, format, typecheck, the
      changed suites. One validated push beats three speculative ones, because
      each push costs a full round.
