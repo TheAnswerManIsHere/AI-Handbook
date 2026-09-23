@@ -215,8 +215,10 @@ every other judgement here is a matter of degree, and this one is the only
 question whose answer cannot drift as a loop lengthens. **Once both assessors
 answer yes, the loop's default flips** — findings become recorded gaps unless
 one would make the oracle false or reaches outside the pull request. A `yes`
-changes what a finding is worth by default; it is not what ends a loop — on
-internal tooling the **two-review limit** is
+changes what a finding is worth by default; it is not what ends a loop —
+where a change is internal by its consequence and recoverability (never by its directory or its
+tier name, per the test stated earlier in this brief) the
+**two-review limit** is
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): review the
 head, one coherent batch of corrections, review that corrected head, and
 autonomous iteration ends there whatever anyone still thinks is worth writing.

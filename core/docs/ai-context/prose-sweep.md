@@ -158,7 +158,21 @@ reader's job. Two detectors follow from it, each measured:
   home, the link resolves — and the reader executing the gate still answers
   from the directory. **A test belongs inside the branch that asks it, not
   upstream of it.**
-A restatement that cites the home and agrees is a citation with context and
+**A correct citation does not clear a flat scope statement at a decision
+point**, and that is the one place the "cites the home and agrees" clearance
+has to be read narrowly. A sentence that fixes the scope by tier name — "on
+internal tooling the limit is …" — states the default *as* the scope, and the
+anchor beside it only helps a reader who stops to follow it. The reader this
+class is about does not: the #145 run's worst instance cited the home
+correctly two hundred lines earlier and the gate still answered from the
+directory. So the test is where the sentence sits. An overview that routes
+onward ("step 4 below is where this skill enacts it") is a citation with
+context; the same words at the moment the question is answered are residue,
+however good the link. Measured 2026-09-23: three such sentences, each
+anchored, each in a file stating the test correctly elsewhere, all three
+predating two remediation sweeps that had read past them.
+
+Otherwise, a restatement that cites the home and agrees is a citation with context and
 stays — the oracle's own words are "agrees or points at it". The fix for
 residue is a citation of the home, never an *uncited* better restatement: that
 is a fresh copy that will drift, and two of the 2026-09-20 hits were correct,
@@ -222,6 +236,22 @@ the rule. A tool that returns only `high` returns 5 of 27.
 candidate with the exclusion that resolved it**. Declined candidates are
 mandatory, not a courtesy: they are how the author audits whether the
 not-in-class list is swallowing real hits.
+
+## A decline is only good while the passage's siblings are unchanged
+
+**A batch that fixes one position of a claim invalidates the declines on the
+others**, and this is the sharpest reason the re-run is not optional. Measured
+three times on 2026-09-23, in one afternoon: three passages declined in run 1
+as consistent with their neighbours came back in run 2 — one at *high* — for
+no reason other than that the batch had corrected the sibling sentence. A
+paragraph that was one of several saying the same loose thing becomes, after
+the batch, **the only one that still says it**, which is a different and worse
+defect than the one declined: the file now contradicts itself, and a reader
+meeting the unfixed half has the fixed half to argue against.
+
+So a decline is scoped to a tree, not to a sentence. Re-reading the declined
+list after a batch costs nothing — the candidates are already written down —
+and it is where the batch's own damage shows up first.
 
 ## After the run
 
@@ -364,3 +394,41 @@ four carried the class. Its brief enumerated propositions, not sub-shapes,
 so "a write with no review after it" was never hunted. Its readers had a
 binary `BORDERLINE` where a confidence band belonged. Every one of those is
 now a rule above.
+
+### Residue from the #147/#148 test sweep (2026-09-23, issue #149)
+
+The same class as #145, run against the payload the two prior sweeps left.
+Thirteen sub-shapes: a–j reconstructed from #149's own usage, since **no run
+had committed its spec** — #146's body said the spec was "in the scratchpad
+and reproduced in the commit message" and neither carries it, and #150
+replaced the skill's worked example with placeholders. Reconstructing a
+closed list from how its letters were *used* is how a shape's boundary moves
+without anyone deciding to move it, so **the spec ships with the pull request
+that runs it** from here on.
+
+Three runs, four readers each, 158 files, 21 read in full, plus
+`scripts/review-proxy.mjs` via `--include` — the first sweep to reach a script,
+because it composes the brief both assessors read in string literals, which is
+the hazard the Markdown boundary above names. #149's catalogue was withheld
+and came back independently, the control holding a fourth time.
+
+- **Run 1: 20 fixes.** The same omission in all three docs-harvest files —
+  *publication* dropped from the four-category list, each under a correct
+  anchor. `code-review.md` keyed the continuation rule to a list of document
+  kinds. `working-modes.md` defined `internal` by directory a hundred lines
+  below its own home section, scoping the limit transitively where no sentence
+  about it carries directory vocabulary.
+- **Run 2: 8 fixes, 3 of them run 1's own residue**, including a direct
+  self-contradiction inside one file. This is the measurement behind *A
+  decline is only good while the passage's siblings are unchanged*.
+- **Run 3: 8 fixes, none seeded by run 2.** Its value was the spec question it
+  forced: three flat tier-scope statements, each carrying a correct anchor,
+  which sub-shape *b* as written excluded by requiring "no citation of the
+  home". Settled in class, and the reasoning is now the detector above.
+- **Two reader-proposed shapes did not reopen the sweep**, on the test above:
+  widening *c2* from "the category list" to "the category list *or* the
+  consequence-**and**-recoverability formula" returned nothing the existing
+  list had not, and became a detector. The shape that *did* reopen it — an
+  anchorless home citation, proposed by one reader and instanced independently
+  by another — was already recorded in this file's own detectors and missing
+  from the spec, which is the argument for committing specs in one line.

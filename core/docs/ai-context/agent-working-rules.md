@@ -246,6 +246,14 @@ wrong for internal tooling,
 and applying it uniformly is a bug in judgment, not diligence. **Before
 designing, state what tier the thing is and let that set the bar:**
 
+**These tiers set engineering depth and nothing else.** They are not the
+review loop's scope: how long a loop runs is the two-review limit's, which
+asks "internal?" of the change by its consequence and recoverability rather
+than of the class it belongs to
+([`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
+A dev script that rotates a credential is internal tooling by this list and
+is not internal by that test.
+
 - **Mission-critical** (payments, auth, data migrations, moderation): go as
   deep as the risk warrants. Nothing changes here.
 - **Internal tooling** (metrics, tracking, dev scripts, reporting): build the

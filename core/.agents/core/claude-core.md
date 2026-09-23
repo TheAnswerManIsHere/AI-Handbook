@@ -669,7 +669,9 @@ in the file that every session loads.
    written before the round runs. **Within a round** it is the device with a
    working record, and it works because it collides with an event instead of
    waiting to be recalled — it was the only one until the two-review limit,
-   which bounds the sequence rather than the round.
+   which bounds the sequence rather than the round, on the work that limit's
+   own consequence-and-recoverability test reaches
+   ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
    **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
    2026-09-13): something read off the round, not something I decide in the
    moment having just read the finding. **A condition I have to interpret is

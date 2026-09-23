@@ -473,8 +473,9 @@ that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
 proceed: **every PR gets a code review, and nothing merges until it returns.**
 How many rounds follow is the **two-review limit**'s
-([`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) on internal
-tooling; nothing governs whether the first one has to come back. The Worth rule
+([`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+on the work that limit's own test reaches — internal by its consequence and recoverability,
+never by tier name; nothing governs whether the first one has to come back. The Worth rule
 per finding and the ship gate shape what is written *within* that bound — this
 sentence used to hand them the length question itself, which is a different
 question than either answers. So an agent that cannot get a
