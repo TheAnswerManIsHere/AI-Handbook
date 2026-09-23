@@ -26,7 +26,7 @@ One JSON file in the scratchpad, four required inputs:
   "subShapes": [
     { "id": "a", "name": "a cap", "example": "one triage" },
     { "id": "b", "name": "a write with no review after it", "example": "fix, apply, continue" },
-    { "id": "c", "name": "an artifact or consequence class selecting loop LENGTH", "example": "internal tier: one pass" },
+    { "id": "c", "name": "a tier or artifact class selecting loop LENGTH, not the consequence of the change", "example": "internal tier: one pass" },
     { "id": "d", "name": "unbounded", "example": "to convergence" }
   ],
   "notInClass": [
@@ -115,7 +115,8 @@ pass against the new one. The second run is cheap and it is the point: every
 batch seeds instances of the class it patched, and a sweep that runs once is
 one batch behind by construction.
 
-**The two-review limit counts reviews, not sweep runs.** A re-run after a
+**The [two-review limit](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+counts reviews, not sweep runs.** A re-run after a
 batch is part of composing the batch, before it is pushed, and is never
 skipped to save a review — it costs none. A shape a *review round* reveals
 goes into `subShapes` before that re-run, exactly as a reader's does. (#146

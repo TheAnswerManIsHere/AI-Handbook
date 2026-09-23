@@ -495,11 +495,16 @@ accounting.
 Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
 docs and harvests run the loop above with the **`internal` tier** — **by
 default, and the default is not the answer**. Before the first round, I ask
-what is downstream of *this* change: **machinery that governs approvals,
-publication, credentials or destructive operations is classified on that
-consequence**, whatever directory it lives in, which puts it outside the
-two-review limit and under the ordinary loop the tier it earns carries. (That
-used to read "under the ordinary convergence", naming as a stop the one word
+what is downstream of *this* change: **a change to machinery that governs
+approvals, publication, credentials or destructive operations is weighed on
+what it does to them**, whatever directory it lives in. One that alters what
+that machinery approves, publishes, grants or destroys falls outside the
+two-review limit and under the ordinary loop the tier it earns carries; a
+trivially recoverable edit to the same file — a printed message — does not
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)). (Until
+2026-09-23 this said the machinery "is classified on that consequence … which
+puts it outside" — the category settling what the home only weighs, #148. It
+also used to read "under the ordinary convergence", naming as a stop the one word
 this repo retired as an exit condition — written into #140 itself, one
 paragraph below the rule #140 added.)
 A consumer overlay marking a subsystem sensitive is one route to that; it is
