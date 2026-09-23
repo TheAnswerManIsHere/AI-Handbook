@@ -69,7 +69,9 @@ labelled so a future re-vendor can spot and re-apply it:
 **Further local modifications (2026-09-20), from the cold-reader sweep for the
 two-review limit.** Upstream's review guidance is unbounded by design — review
 early and often, fix and carry on — which contradicts a fleet rule that ends
-autonomous iteration at two reviews on work that is internal by consequence.
+autonomous iteration at two reviews on work that is internal by its
+consequence and recoverability
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
 (Not on everything: the limit is scoped, and this sentence stated it unscoped
 until 2026-09-23.) Each is a clearly-marked block, same
 convention as above:
@@ -85,7 +87,10 @@ convention as above:
   review before the branch is finished; the flow previously ran it straight
   into `finishing-a-development-branch`.
 
-Rationale and the full policy live in `CLAUDE.md` → *Model, cost, and routing*.
+Rationale for the delegation blocks lives in `CLAUDE.md` → *Model, cost, and
+routing*; the two-review limit's own policy and scope are the home's
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), which
+that section does not carry.
 MIT permits modification; attribution above is unchanged.
 
 Not vendored: the plugin's `hooks/` (a SessionStart hook that auto-loads

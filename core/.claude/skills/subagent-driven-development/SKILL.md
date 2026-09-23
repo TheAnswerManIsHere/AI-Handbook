@@ -242,8 +242,8 @@ final whole-branch review. When you fill a reviewer template:
   never the directory or the file's job, so a plan altering such machinery can
   be outside the limit even though it is internal by class, while a
   recoverable change to the same file is not. A corrected head outside the
-  limit that still has a real defect gets another pass; "repeat until approved" above
-  is still not the rule, but the bound is the Worth rule per finding rather
+  limit that still has a real defect gets another pass; "Repeat until
+  approved" below, in *If reviewer finds issues*, is still not the rule, but the bound is the Worth rule per finding rather
   than a count. This skill executes plans of both kinds, and the stop sentence
   here carried no qualifier until 2026-09-22 — applying the internal cap to
   product code, which is the one class the cap deliberately leaves out
@@ -429,7 +429,10 @@ Done!
 **If reviewer finds issues:**
 - Implementer (same subagent) fixes them
 - Reviewer reviews again
-- Repeat until approved
+- Repeat until approved — *bounded as the calibration block above bounds it:
+  where the change is internal by its consequence and recoverability,
+  iteration ends at the two-review limit; elsewhere the Worth rule per finding
+  decides*
 - Don't skip the re-review
 
 **If subagent fails task:**

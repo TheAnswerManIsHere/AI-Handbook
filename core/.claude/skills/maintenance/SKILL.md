@@ -445,7 +445,7 @@ maintenance reports. This is now a standalone maintenance-skill rule.)
   and the batched documentation harvest (step 6a). Both are
   docs-only and zero behavior/dependency change, and both ship together in
   **one maintenance docs PR per pass** (internal by consequence — a docs pass
-  touching no approvals, credentials or destructive machinery — so the
+  touching no approvals, publication, credentials or destructive machinery — so the
   two-review limit in
   [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
   bounds it: the automatic pass, one batch of corrections

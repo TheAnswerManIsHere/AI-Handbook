@@ -408,9 +408,12 @@ statement of that test, which sets no target rate in either direction. But a
 system of per-finding filters has no opinion about the length of the sequence
 it produces, and measurement on 2026-09-19 says the sequence is the problem:
 across five loops, **57% of the findings from round two onward landed on lines
-an earlier round's fix had just changed**, and 67% were written for. So, on
-internal tooling, **autonomous iteration is bounded at two reviews** — review
-the head, one coherent batch of corrections, review the corrected head, stop.
+an earlier round's fix had just changed**, and 67% were written for. So, where a
+change is internal **by its consequence and recoverability** — never by its
+directory — **autonomous iteration is bounded at two reviews**: review the
+head, one coherent batch of corrections, review the corrected head, stop. The
+test, and the machinery it weighs, are the home's
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
 
 **A cap on further EDITING is never an exemption from REVIEWING what was
 edited**, and ending iteration is not "merge regardless": a corrected head that
@@ -418,10 +421,10 @@ still violates an agreed requirement, fails a required check, or carries a
 finding of consequential harm David has not accepted goes **to David with the
 shortfall and a choice**, never to the merge button. **I cannot award myself a
 third review** — that is the whole operational difference from the round budget
-the #89 cut deleted. The rule, its scope by consequence rather than by
-directory, and what it costs are in
-[`working-modes.md`](../../docs/ai-context/working-modes.md); this is only my
-enactment of it. (David, 2026-09-19, on Astra's recommendation.)
+the #89 cut deleted. The rule, its scope, and what it costs are the
+home's
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19));
+this is only my enactment of it. (David, 2026-09-19, on Astra's recommendation.)
 
 ### The ship gate: when the Worth rule stops being asked (David, 2026-09-19)
 
@@ -444,11 +447,11 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
-**The two-review limit caps this carve-out**: reach across future pull
-requests can keep the gate from ending a loop early, and can never authorise a
-third review (both assessors, #140 round 1). **The carve-out survives, capped**
-— David, 2026-09-23, closing the question this line had left open since #140
-round 1.
+**The two-review limit caps this carve-out wherever it reaches**: reach across
+future pull requests can keep the gate from ending a loop early, and can never
+authorise a third review (both assessors, #140 round 1). **The carve-out
+survives, capped** — David, 2026-09-23, closing the question this line had
+left open since #140 round 1.
 
 **On a PR that changes the review loop itself, the gate cannot end the loop
 alone**, and that is a limit rather than a defect: the second exception
@@ -459,9 +462,14 @@ runs on past a `yes` for that reason says so rather than looking like the gate
 failed. (Named on #134 round 1 by both assessors, from the inside.)
 
 **And such a pull request comes to David rather than to the merge button**
-(David, 2026-09-23). The two reviews run as usual; the result — findings,
-declines and all — goes to him to triage by hand, instead of my judging the
-stop alone on the one artifact whose blast radius is every future loop. His
+(David, 2026-09-23). **This is his ruling for this class, not a reading of the
+consequence test** — the review loop is machinery governing approvals, so the
+home's test
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19))
+could well put a change to it outside the limit and buy it further rounds. He
+capped it at two anyway and takes the result himself: the reviews run, and the
+findings, declines and all go to him to triage by hand, rather than my judging
+the stop alone on the one artifact whose blast radius is every future loop. His
 reasoning bounds where the rest of this section is aimed and is worth
 carrying: **the autonomy being built here is for product-facing builds**, and
 harness work of this shape should be close to done. It is cheap because it
@@ -631,12 +639,15 @@ the readiness receipt never ran at all, and the delivery gate's only firing was
 on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
-**What decides a loop's length is the two-review limit**, above. **Rules 4
+**What decides a loop's length is the two-review limit**, on the work its own
+consequence test reaches
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)). **Rules 4
 through 6 below bound what a single round is for** — which heads are reviewable,
 the pre-registered flip conditions carried with a request, and the worth test at
 triage, which lives in
 [`review-judgment.md`](../../docs/ai-context/review-judgment.md). Neither they
-nor the Worth rule can authorise another batch after review two. **What
+nor the Worth rule can authorise another batch after review two on a change
+the limit reaches. **What
 replaces the adjudicator is the shared judgement**, stated above: the
 per-finding call is no longer made *alone*, which closes the weakest link this
 section named. It is still mine — two assessments advise and I decide from

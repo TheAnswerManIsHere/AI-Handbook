@@ -67,7 +67,8 @@ Decide by what "this" refers to (contract's trigger table):
     per-feature PR, no harvest sub-issue, no separate subscription: the
     tracking is the harvest-notes comments already on each feature's
     workstream issue. Internal **by consequence** — a docs harvest that
-    touches no approvals, credentials or destructive machinery — so the
+    touches no approvals, publication, credentials or destructive machinery —
+    so the
     **two-review limit** governs this path exactly as it governs the other
     ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): automatic pass,
     one coherent batch of corrections if any are warranted, **a review of that

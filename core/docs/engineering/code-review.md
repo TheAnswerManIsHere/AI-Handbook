@@ -218,21 +218,26 @@ Explicitly **not** findings on a docs-only PR, even when technically true:
 Docs are self-catching and fixed in one commit; pedantic findings on them
 cost more than the defects they describe. This is the *depth* rule. The
 *continuation* rule is the **two-review limit** (David, 2026-09-19 —
-[`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): a clean
-automatic pass is the whole ceremony, and when the pass finds a real defect the
-pushed fixes are re-reviewed, once. The internal tier (David, 2026-08-21,
+[`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+**and it is not keyed to this section's list of document kinds**: it asks
+"internal?" of the change by its consequence and recoverability, so a
+documentation-only pull request that edits a contract governing approvals,
+publication, credentials or destructive operations is weighed on that and may
+sit outside the limit entirely. Where it does reach, a clean automatic pass is
+the whole ceremony, and a real defect buys one batch and one review of that
+corrected head. The internal tier (David, 2026-08-21,
 superseding the 2026-08-20 no-rounds carve-out) says what is downstream rather
 than setting a threshold, and is not the continuation rule — this paragraph
 named it as such while handing length to the limit four lines later, so a
 reader who stopped at the bolded clause got the superseded answer. **How long that re-reviewing runs is the two-review limit's**
-([`working-modes.md`](../ai-context/working-modes.md)) — this sentence used to
+([`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — this sentence used to
 add "there is no round budget and no leash", and while the limit is indeed not a
 round budget, "no leash" is exactly what it removed. The tier's old
 "only a critical flaw is written for" rubric is retired as a decline quota, and
 the external adjudicator that used to rule went with the #89 cut (2026-09-16)
 and was replaced by two advisory assessments per round (#96) — see
-[`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target)'s
-internal-tier section. The retired fix-round merge-path workarounds no
+[`working-modes.md`](../ai-context/working-modes.md#review-loops-need-a-stopping-rule-not-just-a-convergence-target),
+whose subsections are the write-gate rule and the two-review limit. The retired fix-round merge-path workarounds no
 longer apply.
 
 **Internal tooling: the depth is lighter, and how long it loops is not this

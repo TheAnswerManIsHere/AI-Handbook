@@ -69,7 +69,7 @@ that wherever it appears in this table.
 | --- | --- | --- |
 | **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row — and that limit asks its question of the change, by consequence and recoverability, so a change to a contract or prompt in this class that governs approvals, publication, credentials or destructive operations is weighed on that. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit by consequence; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Product code** | Today's full feature ceremony — plan, review, approval. (Where the two-review limit lands is decided by the change's consequence and recoverability, below — not by this row, and not by the class; that a change is product code is where such work usually sits, never what decides it. And nothing here makes "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient checklist,
@@ -590,8 +590,8 @@ will keep finding things, and each fix adds surface for the next round.
 trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
-it, on internal tooling, is **the two-review limit below** — the one rule here
-that bounds the *sequence*. Around it sit three that bound something else and
+it is **the two-review limit below** — the one rule here that bounds the
+*sequence*, on the work its own consequence-and-recoverability test reaches. Around it sit three that bound something else and
 are not stops: the write-gate rule below (which heads must be reviewed),
 pre-registered flip conditions (a bound within a round) and, since #96, a
 judgement made from two independent assessments rather than alone (what is
@@ -747,7 +747,11 @@ counting.
 than how strictly to read a finding.** `product`, `sensitive`
 (auth/payments/migrations) and `internal` (guards, `scripts/`, skills, agent
 contracts, process documentation, documentation harvests) each say who or what
-bears the consequence, and nothing more. They set no threshold and select no
+bears the consequence, and nothing more. **Those parentheses are where such
+work usually lives, never a test** — the two-review limit above asks
+"internal?" of the change by its consequence and recoverability, whatever
+directory it sits in, so a credential-rotation script under `scripts/` is not
+internal because of its path. They set no threshold and select no
 rubric — that sentence said both things at once until round 4 of #120 caught
 it. The `internal` tier's old rubric
 wrote only for "a very high chance of a critical flaw" and declined everything

@@ -238,7 +238,9 @@ separation aids review). Placement:
   ends the harvest-PR churn the batching exists to remove). The pass's harvest
   commit rides the maintenance docs PR alongside that week's
   `deferred-work.md` updates; it is internal **by consequence** — a docs pass
-  touching no approvals, credentials or destructive machinery — so the
+  touching no approvals, publication, credentials or destructive machinery
+  (it changes what gets published, which is not the same as governing how
+  anything is published) — so the
   **two-review limit** governs it
   ([`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): the automatic
   Codex pass, one coherent batch of corrections if any are warranted, a review

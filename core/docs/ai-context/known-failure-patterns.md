@@ -1502,9 +1502,11 @@ fix is actually cheap. **The floor-tier exemption that stood here is gone**
 (David, 2026-09-19): transient process docs and ledger records were said to
 keep a "zero-re-request rule", so a post-review fix there moved the head
 without owing a pass — which is a commit merging unreviewed, the one thing the
-write-gate exists to refuse. What bounds those artifacts now is the
-**two-review limit** in [`working-modes.md`](working-modes.md), which caps how
-long iteration runs without ever exempting a changed head from being read. The
+write-gate exists to refuse. What bounds them now is the
+**two-review limit** ([`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), which
+asks "internal?" of the change by its consequence and recoverability rather
+than of the artifact's kind, and which caps how long iteration runs without
+ever exempting a changed head from being read. The
 worry that made the exemption (Codex, #518) — that stating the corollary
 universally leaves an artifact unmergeable in principle — was real under the
 old re-request rule and is answered by its replacement: every changed head gets
@@ -2691,8 +2693,8 @@ retry's pass lands — because nothing was written down to be wrong.
    recoverability, the sequence itself is bounded** by the two-review limit ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
    which is what actually stops the pattern this item describes; the shared
    judgement answers what is written *for*, one finding at a time. This item's
-   two sibling entries were given that pairing on 2026-09-20 and this one was
-   not.
+   two sibling entries were given that pairing on 2026-09-20; this one caught
+   up on 2026-09-23.
 
 **Related:** *A derived metric that silently undercounts because its collector
 only reads one delivery channel* above is the opposite failure — there the

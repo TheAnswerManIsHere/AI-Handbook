@@ -60,7 +60,8 @@ Dispatch a `general-purpose` subagent, filling the template at [code-reviewer.md
 - `{BASE_SHA}` - Starting commit
 - `{HEAD_SHA}` - Ending commit
 
-**3. Act on feedback:**
+**3. Act on feedback** (as the Local calibration block above bounds it — one
+batch, not one finding at a time, and the corrected head gets its review)**:**
 - Fix Critical issues immediately
 - Fix Important issues before proceeding
 - Note Minor issues for later
@@ -113,7 +114,9 @@ You: [Fix progress indicators]
 **Never:**
 - Skip review because "it's simple"
 - Ignore Critical issues
-- Proceed with unfixed Important issues
+- Proceed with unfixed Important issues — *except where the Local calibration
+  block above has ended iteration, in which case what is left is a recorded
+  gap and not a proceed-anyway*
 - Argue with valid technical feedback
 
 **If reviewer wrong:**
