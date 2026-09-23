@@ -275,6 +275,16 @@ replaced them is step 5's proportionate-evidence rule.)
    caught that the disposition paragraph below had escaped the predicate
    entirely and so applied to every round.)
 
+   - **First, before either branch: does this pull request's diff change the
+     review loop itself?** If yes, **it comes to David rather than to the
+     merge button**, whichever way the consequence test would fall
+     ([`claude-core.md`](../../../.agents/core/claude-core.md), the ship
+     gate). Two reviews run as usual; the findings, declines and all go to him
+     to triage by hand. This question is first because the answer does not
+     depend on the two below, and because a change the consequence test puts
+     *outside* the limit would otherwise reach the `Otherwise` branch and
+     write another batch (Codex, #153 round 1).
+
    - **Is this internal tooling AND its second review?** **Answer the first
      half by asking what THIS CHANGE does and how recoverable it is** —
      neither its directory nor the file's job title

@@ -60,7 +60,10 @@ Dispatch a `general-purpose` subagent, filling the template at [code-reviewer.md
 - `{BASE_SHA}` - Starting commit
 - `{HEAD_SHA}` - Ending commit
 
-**3. Act on feedback:**
+**3. Act on feedback** — *on a pull-request review, as the Local calibration
+block above bounds it: one coherent batch rather than one finding at a time,
+and the corrected head gets its own review. Per-task reviews inside a session
+keep their own flow below.*
 - Fix Critical issues immediately
 - Fix Important issues before proceeding
 - Note Minor issues for later
@@ -95,6 +98,10 @@ You: [Fix progress indicators]
 
 ## Integration with Workflows
 
+*These two flows are per-task QA inside a session, not the pull-request loop.
+The Local calibration block above bounds the loop that runs once the work
+reaches a pull request; it does not cap the per-task reviews here.*
+
 **Subagent-Driven Development:**
 - Review after EACH task
 - Catch issues before they compound
@@ -113,7 +120,11 @@ You: [Fix progress indicators]
 **Never:**
 - Skip review because "it's simple"
 - Ignore Critical issues
-- Proceed with unfixed Important issues
+- Proceed with unfixed Important issues — *except an **acceptable
+  imperfection** left after the pull-request loop's cap, which is a recorded
+  gap. A head that still violates an agreed requirement, fails a required
+  check, or carries consequential harm David has not accepted does not merge:
+  it goes to him with the shortfall and a choice*
 - Argue with valid technical feedback
 
 **If reviewer wrong:**

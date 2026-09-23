@@ -158,8 +158,22 @@ reader's job. Two detectors follow from it, each measured:
   home, the link resolves — and the reader executing the gate still answers
   from the directory. **A test belongs inside the branch that asks it, not
   upstream of it.**
-A restatement that cites the home and agrees is a citation with context and
-stays — the oracle's own words are "agrees or points at it". The fix for
+**A correct citation does not clear a flat scope statement at a decision
+point**, and that is the one place the "cites the home and agrees" clearance
+has to be read narrowly. A sentence that fixes the scope by tier name — "on
+internal tooling the limit is …" — states the default *as* the scope, and the
+anchor beside it only helps a reader who stops to follow it. The reader this
+class is about does not: the #145 run's worst instance cited the home
+correctly two hundred lines earlier and the gate still answered from the
+directory. So the test is where the sentence sits. An overview that routes
+onward ("step 4 below is where this skill enacts it") is a citation with
+context; the same words at the moment the question is answered are residue.
+Measured 2026-09-23: three such sentences, each anchored, each in a file
+stating the test correctly elsewhere, all three surviving two remediation
+sweeps that had read past them.
+
+Otherwise, a restatement that cites the home and agrees is a citation with
+context and stays — the oracle's own words are "agrees or points at it". The fix for
 residue is a citation of the home, never an *uncited* better restatement: that
 is a fresh copy that will drift, and two of the 2026-09-20 hits were correct,
 uncited restatements written in the preceding batch.
@@ -222,6 +236,23 @@ the rule. A tool that returns only `high` returns 5 of 27.
 candidate with the exclusion that resolved it**. Declined candidates are
 mandatory, not a courtesy: they are how the author audits whether the
 not-in-class list is swallowing real hits.
+
+## A decline is only good while the passage's siblings are unchanged
+
+**A batch that fixes one position of a claim invalidates the declines on the
+others**, and this is the sharpest reason the re-run is not optional. Measured
+three times on 2026-09-23, in one afternoon: three passages declined in a
+first run as consistent with their neighbours came back in the re-run — one at
+*high* — for no reason other than that the batch had corrected the sibling
+sentence. A paragraph that was one of several saying the same loose thing
+becomes, after the batch, **the only one that still says it**, which is a
+different and worse defect than the one declined: the file now contradicts
+itself, and a reader meeting the unfixed half has the fixed half to argue
+against.
+
+So a decline is scoped to a tree, not to a sentence. Re-reading the declined
+list after a batch costs nothing — the candidates are already written down —
+and it is where the batch's own damage shows up first.
 
 ## After the run
 
