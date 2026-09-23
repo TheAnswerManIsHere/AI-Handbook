@@ -1812,7 +1812,8 @@ code the last round added. **Dangerous:** it reads as diligence from inside —
 the reviewer keeps finding real bugs, so stopping feels like shipping known
 defects — and the cost is invisible because no single round is wrong. Before 2026-09-19 the
 loop ended when someone ran out of patience rather than when the code was
-right; what ends it now, on internal tooling, is the two-review limit
+right; what ends it now, where a change is internal by its consequence and
+recoverability, is the two-review limit
 ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)), which was built from
 this entry's measurement.
 

@@ -17,7 +17,11 @@ Paths below are a consumer's. In the handbook the payload sits under
 
 ## 1. Write the spec, before opening a file
 
-One JSON file in the scratchpad, four required inputs:
+One JSON file in the scratchpad, four required inputs. The example is
+abridged from the spec #141 swept with, written before #146 scoped the limit
+by consequence — so its shape `c` still treats a consequence class selecting
+loop length as residue, which is now the rule. **Copy its shape, never its
+content.**
 
 ```json
 {
@@ -26,7 +30,7 @@ One JSON file in the scratchpad, four required inputs:
   "subShapes": [
     { "id": "a", "name": "a cap", "example": "one triage" },
     { "id": "b", "name": "a write with no review after it", "example": "fix, apply, continue" },
-    { "id": "c", "name": "a tier or artifact class selecting loop LENGTH, not the consequence of the change", "example": "internal tier: one pass" },
+    { "id": "c", "name": "an artifact or consequence class selecting loop LENGTH", "example": "internal tier: one pass" },
     { "id": "d", "name": "unbounded", "example": "to convergence" }
   ],
   "notInClass": [

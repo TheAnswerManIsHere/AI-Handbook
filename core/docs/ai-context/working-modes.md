@@ -110,10 +110,10 @@ three rounds that ran 24 → 14 → 21 findings.
   finds a soundness defect and the direction is changed, the changed head is
   reviewed like any other — the write-gate's no-unreviewed-commit invariant
   applies here as everywhere, and the two-review limit applies here on its
-  own terms ([below](#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): the consequence and recoverability of the change,
-  which puts product code outside it and weighs a change to machinery
-  governing approvals, publication, credentials or destructive operations on
-  what that change does. (This read "the two-review limit … applies here as
+  own terms ([below](#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): it bounds internal tooling, so not product code,
+  and it asks "internal" of the change by its consequence and recoverability,
+  weighing a change to machinery governing approvals, publication, credentials
+  or destructive operations on what that change does. (This read "the two-review limit … applies here as
   everywhere" until 2026-09-23 — the limit called universal, forty lines below
   the table row that puts product code outside it — and its first replacement
   then exempted that machinery as a category, #148.) (Codex, #140 round 2,
