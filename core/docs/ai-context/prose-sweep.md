@@ -87,12 +87,32 @@ missing any of them.
   forever, which is this repository's own
   [`known-failure-patterns.md`](known-failure-patterns.md) entry about a loop
   where each round finds a defect in the previous round's fix.
+  **A shape of a different class does not reopen this one either**, and that
+  is the harder call, because such a shape is usually real. On 2026-09-23 a
+  reader named a live defect — a remedy list answering the sequence problem
+  with a per-finding rule, the sequence bound unnamed — and argued it should
+  reopen. It was declined for this run: the class being swept was *what scopes
+  a rule*, and this is *a rule missing from a list that needed it*. Nothing
+  about the passage states the scope wrongly, so no amount of sweeping for
+  wrong scope statements would have been clearing it. It is a class of its
+  own, with its own spec, and it was filed as one. **The test to apply is not
+  "is this shape real?" but "is it a form of the thing this run is hunting?"**
 - **Not-in-class, as an explicit list** — what a reader must *not* return.
   Without it, readers return the repository's entire history section. This
   list is as load-bearing as the class: it is the only part of the output that
   can detect a bad class definition, so the readers' declined candidates are
   audited against it (below), and a live mechanism the class's wording would
   catch is named here rather than left to a reader's charity.
+  **An exclusion excuses an APPLICATION, never a DERIVATION**, and getting
+  that backwards is how a not-in-class list swallows real hits. Measured
+  2026-09-23: an exclusion read "a file applying the rule to one plainly
+  qualifying artifact of its own", which is sound — but the passages it
+  cleared all reasoned *"internal tier, **so** the limit bounds it"*, and
+  deriving the rule from the class is precisely what the rule forbids. Two
+  readers declined those passages under the exclusion as written and both
+  said in their declined lists that the reasoning was the defect. That is the
+  audit working, and it only works because declining is mandatory and reasoned
+  rather than silent.
 
 ## The checkable property is structural, not lexical
 
@@ -119,6 +139,25 @@ reader's job. Two detectors follow from it, each measured:
   breath and a reader who stops at the bolded or parenthesised clause gets the
   superseded answer. The home *is* cited, so an author checking "did I cite
   it?" clears it.
+- **The citation whose referent does not exist** — "the rule above", "as
+  stated earlier" — pointing at a statement that is not there. Measured
+  2026-09-23: a role brief read verbatim into every dispatch said "the
+  two-review limit above", and the file's only other statement of it was
+  fifty-nine lines *below*; the dispatch package never placed it ahead of the
+  brief either. It reads as cited, so it suppresses the instinct to go
+  looking, and it defeats a link checker completely because there is no link.
+- **The citation that reaches the right section and names the wrong sub-rule
+  inside it.** Same run: an enactment cited "the limit's step 3" as the
+  authority for three questions step 3 does not contain. A reader who follows
+  it to check finds a step saying something else, and concludes the enactment
+  invented them.
+- **The scope posed as a question the step gives no method for answering.**
+  The gate that actually runs a rule asks "is this internal tooling?" as a
+  yes/no with no test beside it, having cited the home two hundred lines
+  earlier under a different rule. Every check passes — the file cites the
+  home, the link resolves — and the reader executing the gate still answers
+  from the directory. **A test belongs inside the branch that asks it, not
+  upstream of it.**
 A restatement that cites the home and agrees is a citation with context and
 stays — the oracle's own words are "agrees or points at it". The fix for
 residue is a citation of the home, never an *uncited* better restatement: that
@@ -288,6 +327,33 @@ The run's own findings, which is why this section exists:
   reopening test above.
 - **A second proposed shape did not reopen it.** "The half-fixed paragraph"
   returned only instances already in hand, so it became a detector.
+
+### What scopes the two-review limit (2026-09-23, issue #145 — the tool's first run as merged payload)
+
+The class #141 produced and could not see. `main` scopes the limit by
+consequence, with "internal tooling" as a convenient default; restatements
+across the payload had turned the default into the scope. Two passes, four
+cold readers each, 157 files. **#145's own catalogue was withheld from every
+reader** and came back independently, which is the control holding a third
+time.
+
+- **The worst instance was the enactment, not a description.** The gate that
+  actually runs the limit asked "is this internal tooling?" as a bare yes/no
+  with no test beside it. A credential-rotation script answers yes from its
+  directory and iteration stops on machinery the rule exempts. The file cites
+  the home correctly two hundred lines earlier, under a different rule — so
+  every check a tool can run passes.
+- **A reader added the inverse shape and it reopened the sweep**: the limit
+  stated as *universal*. Every other shape narrows it wrongly; this one widens
+  it, carries none of the class's narrowing vocabulary, and was therefore
+  invisible to all three vocabulary passes the first four readers ran. Its
+  clearest instance was in the home file itself, forty lines from the row that
+  contradicts it.
+- **Two further proposed shapes did not reopen it**, on the two tests above:
+  one was already caught by an existing shape, and one belonged to a different
+  class and was filed as its own.
+- **The exclusion list was too broad**, found by two readers independently in
+  their declined lists rather than their candidates.
 
 **What the first run got wrong, and the second constraint set fixed.** Its
 file set was the issue's, not the payload's, so the two assessor briefs, the

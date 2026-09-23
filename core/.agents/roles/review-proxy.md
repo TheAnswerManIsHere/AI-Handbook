@@ -148,9 +148,16 @@ necessary dependencies.
 
 Recommend no further work when evidence supports the agreed outcome and no
 unresolved finding warrants action. **And know which round you are on**: there
-is no target round count, but on internal tooling there is a cap — the
-two-review limit above — so on a second review a recommendation to write
-again is one the builder is not permitted to act on. **A clean reviewer round does not erase an
+is no target round count, but on work that is internal **by consequence**
+there is a cap — the two-review limit
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) —
+so on a second review a recommendation to write again is one the builder is
+not permitted to act on. Machinery governing approvals, publication,
+credentials or destructive operations is outside that cap whatever directory
+it sits in, and there a recommendation to write again is actionable. (This
+said "the two-review limit above" until 2026-09-23. It pointed at nothing:
+this file's other statement of the limit is below, not above, and the
+dispatch package never places the limit ahead of this brief either.) **A clean reviewer round does not erase an
 outstanding question or David's decision.** An outstanding reviewer finding
 does not itself justify code when incorrect, already addressed, or
 appropriately declined. There is no target round count. Recommendations never

@@ -2685,7 +2685,12 @@ retry's pass lands — because nothing was written down to be wrong.
    now is the shared judgement — two assessments that read the round
    independently and advise — asking the sharper question the self-policed rule
    never could: whether writing more code for these findings is worth it at
-   all.
+   all. **And on internal tooling the sequence itself is bounded** by the
+   two-review limit ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
+   which is what actually stops the pattern this item describes; the shared
+   judgement answers what is written *for*, one finding at a time. This item's
+   two sibling entries were given that pairing on 2026-09-20 and this one was
+   not.
 
 **Related:** *A derived metric that silently undercounts because its collector
 only reads one delivery channel* above is the opposite failure — there the

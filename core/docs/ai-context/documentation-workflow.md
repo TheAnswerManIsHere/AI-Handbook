@@ -237,8 +237,10 @@ separation aids review). Placement:
   maintenance pass, not one per feature** (David, 2026-08-20 — this is what
   ends the harvest-PR churn the batching exists to remove). The pass's harvest
   commit rides the maintenance docs PR alongside that week's
-  `deferred-work.md` updates; it is an internal artifact, so the **two-review
-  limit** governs it ([`working-modes.md`](working-modes.md)): the automatic
+  `deferred-work.md` updates; it is internal **by consequence** — a docs pass
+  touching no approvals, credentials or destructive machinery — so the
+  **two-review limit** governs it
+  ([`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): the automatic
   Codex pass, one coherent batch of corrections if any are warranted, a review
   of that corrected head, then iteration stops — never an unreviewed merge, and
   never a third round the builder grants itself. **No

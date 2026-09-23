@@ -13,10 +13,16 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 
 **Local calibration (fleet, 2026-09-20): this skill sets no bound, and the
 fleet does.** Upstream says review early and often, fix and continue. On
-internal tooling here, autonomous iteration is bounded at two reviews by the
+work that is internal **by consequence** — not by directory — autonomous
+iteration here is bounded at two reviews by the
 **two-review limit** ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)):
 review the head, make **one coherent batch** of corrections, review that
-corrected head, and stop — only David reopens a loop beyond it. Two upstream
+corrected head, and stop — only David reopens a loop beyond it. **Machinery
+that governs approvals, publication, credentials or destructive operations is
+outside the limit whatever directory it sits in**, and there the loop is
+bounded by the Worth rule per finding instead. This block said "on internal
+tooling" flat until 2026-09-23, which is the limit's convenient default read
+as its scope. Two upstream
 habits are therefore wrong here: fixing findings one at a time as they arrive
 rather than batching them, and applying fixes without a review of what was
 written. A cap on further editing is never an exemption from reviewing what

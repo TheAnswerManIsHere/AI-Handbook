@@ -275,8 +275,20 @@ replaced them is step 5's proportionate-evidence rule.)
    caught that the disposition paragraph below had escaped the predicate
    entirely and so applied to every round.)
 
-   - **Is this internal tooling AND its second review?** If yes, **write
-     nothing** — iteration is over. A batch written here would be a changed
+   - **Is this internal tooling AND its second review?** **Answer the first
+     half by consequence, not by directory.** Machinery that governs
+     approvals, publication, credentials or destructive operations is outside
+     the limit whatever folder it sits in
+     ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — `sync.mjs`, which publishes
+     the payload to every consumer, and anything touching credentials are the
+     live examples here. A consumer overlay marking a subsystem sensitive is
+     one route to that classification and not the only one, and its silence is
+     not a classification. Reach is not consequence: "this changes how future
+     agents work" disqualifies nothing, or every line in this repository would
+     be exempt. If it is outside, this gate does not apply and the loop
+     continues under the Worth rule.
+     If yes — internal by consequence, and its second review — **write
+     nothing**; iteration is over. A batch written here would be a changed
      head I am forbidden to request a review for, which is a pull request that
      can neither merge nor move. (Codex, #140 round 2 — the ordering bug was
      mine: this check sat in step 6, *after* the batching it exists to
@@ -284,10 +296,13 @@ replaced them is step 5's proportionate-evidence rule.)
 
      **Then, of that corrected head, ask the three questions that decide
      whether it stops.** Ending iteration and declaring the work not ready are
-     two different things. The limit's step 3 in
-     [`working-modes.md`](../../../docs/ai-context/working-modes.md) is the
-     authority and the only statement of these three; they are enumerated here
-     because this is the moment of action. Does it violate an agreed
+     two different things. The limit's **"what ending iteration does NOT mean"**
+     paragraph in [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) is the authority and
+     the only statement of these three; they are enumerated here because this
+     is the moment of action. (It is not step 3, which this cited until
+     2026-09-23: step 3 says to review the corrected head and turn acceptable
+     imperfections into recorded gaps. A reader who followed the citation to
+     check found a step that says something else.) Does it violate an agreed
      requirement, does a required check fail, or does a finding establish
      consequential harm David has not accepted? **Any one of those and it does
      not merge** — the concrete shortfall goes to him with a choice: continue,
@@ -301,8 +316,9 @@ replaced them is step 5's proportionate-evidence rule.)
      and this whole limit exists because he said the looping overhead was
      slowing him down.)
 
-   - **Otherwise** — a product-code pull request at any round, or an internal
-     one's first review — everything being written for goes in one push, with
+   - **Otherwise** — a product-code pull request at any round, an internal
+     one's first review, or machinery the consequence test above puts outside
+     the limit at any round — everything being written for goes in one push, with
      the repo's own fast checks run first: lint, format, typecheck, the
      changed suites. One validated push beats three speculative ones, because
      each push costs a full round.
@@ -348,7 +364,9 @@ replaced them is step 5's proportionate-evidence rule.)
      nothing behavioural behind it could never merge at all (#125 waited a week
      on that reading). What is refused is re-requesting on a head already
      reviewed as it stands, to get a different answer. (Astra, 2026-09-19.)
-   - **On internal tooling, the second review is the last one I request.**
+   - **On internal tooling — judged by consequence, per step 4's gate and
+     [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) — the second review is the last
+     one I request.**
      Step 4's gate is what enforces that, before anything is written; by the
      time a head exists here it is always reviewable. So this bullet has no
      decision left to make — it records the shape: round 1, one coherent

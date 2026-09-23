@@ -371,10 +371,15 @@ What is *bugfix-specific* about the loop:
 - **The artifact the fix touches picks the tier — never the fact that it's
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or
-  process tooling, the internal tier governs (David, 2026-08-21) — the
-  automatic pass, one coherent batch of corrections if any are warranted, and
-  a review of that corrected head — the two-review limit, the same as
-  everywhere. The tier itself only says nobody's money or data is downstream,
+  process tooling **that is internal by consequence** — the
+  [two-review limit](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+  is scoped that way and not by the tier, so process tooling governing
+  approvals, publication, credentials or destructive operations is outside it
+  — the automatic pass, one coherent batch of corrections if any are
+  warranted, and a review of that corrected head. This read "the internal tier
+  governs (David, 2026-08-21) … the two-review limit, the same as everywhere"
+  until 2026-09-23: the tier named as the classifier, and the limit named as
+  universal, in one sentence that cited neither. The tier itself only says nobody's money or data is downstream,
   and leaves the judgement to
   [`review-judgment.md`](../../../docs/ai-context/review-judgment.md) — exactly
   as if the same change had arrived through feature mode. **This bullet used to

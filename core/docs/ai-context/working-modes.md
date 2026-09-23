@@ -59,12 +59,15 @@ to review.
 
 **What this table selects is planning ceremony and review depth. It does not
 select how long a review loop runs** — that is the two-review limit, below,
-which applies to internal tooling whatever its row.
+which applies to internal tooling whatever its row — **and which asks
+"internal" by consequence rather than by row or directory**, so a skill,
+contract or script governing approvals, publication, credentials or
+destructive operations is outside it wherever it appears in this table.
 
 | Artifact class | Planning ceremony and review depth | Why |
 | --- | --- | --- |
 | **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
-| **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
+| **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row — and that limit asks its question by consequence, so a contract or prompt in this class that governs approvals, publication, credentials or destructive operations is outside it. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
 | **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit by consequence; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
@@ -104,8 +107,13 @@ three rounds that ran 24 → 14 → 21 findings.
   as later discoveries land. **"Reviewed once" meant not looping on an end
   state; it never meant a corrected direction escapes review.** If that review
   finds a soundness defect and the direction is changed, the changed head is
-  reviewed like any other — the two-review limit and the write-gate's
-  no-unreviewed-commit invariant apply here as everywhere. (Codex, #140 round
+  reviewed like any other — the write-gate's no-unreviewed-commit invariant
+  applies here as everywhere, and the two-review limit applies here on the
+  same terms as anywhere else, which are its own: by consequence, and not to
+  product code or to machinery governing approvals, publication, credentials
+  or destructive operations. (This read "the two-review limit … applies here
+  as everywhere" until 2026-09-23 — the limit called universal, forty lines
+  above the table row that puts product code outside it.) (Codex, #140 round
   2, finding the third one-pass path.)
 - A **plan** builds **one bounded increment** toward a direction and **cites
   the direction it serves**. Its intent sentence says what *this increment*
