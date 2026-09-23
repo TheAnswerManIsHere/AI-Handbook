@@ -235,8 +235,14 @@ final whole-branch review. When you fill a reviewer template:
   tooling it stops there — one batch, one review of it, and only David reopens
   it, per the two-review limit
   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
-  **Product code is outside that limit by consequence**, so a corrected head
-  that still has a real defect gets another pass; "repeat until approved" above
+  **Product code is outside that limit by consequence — and so is any other
+  change whose consequences and recoverability put it there**, including a
+  change to internal machinery that governs approvals, publication,
+  credentials or destructive operations. The test is what this change does,
+  never the directory or the file's job, so a plan altering such machinery can
+  be outside the limit even though it is internal by class, while a
+  recoverable change to the same file is not. A corrected head outside the
+  limit that still has a real defect gets another pass; "repeat until approved" above
   is still not the rule, but the bound is the Worth rule per finding rather
   than a count. This skill executes plans of both kinds, and the stop sentence
   here carried no qualifier until 2026-09-22 — applying the internal cap to

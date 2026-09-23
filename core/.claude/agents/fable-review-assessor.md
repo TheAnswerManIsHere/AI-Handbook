@@ -63,8 +63,11 @@ attention David brought to the judgment.
 
 **Line 1 is the ship gate** — `Oracle met at this head: yes` or `no`, as the
 brief in your package requires. That line is David's, so nothing displaces
-it. It is the ship gate's observable, not the loop's stop: on internal
-tooling autonomous iteration ends at the **two-review limit**
+it. It is the ship gate's observable, not the loop's stop: on work that is
+internal **by the consequences and recoverability of this change** — never by
+its directory, and weighing a change that governs approvals, publication,
+credentials or destructive operations on those consequences instead —
+autonomous iteration ends at the **two-review limit**
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — the head,
 one coherent batch of corrections, a review of that corrected head, and no
 more — and a `yes` only flips what a finding is worth by default. The

@@ -57,7 +57,13 @@ independent assessments before anything is written for it. How long iteration
 runs is not the tier's to say — it is the **two-review limit**
 ([`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
 which this section stated nowhere until 2026-09-20 while being the section a
-reader consults to learn how much loop a PR here gets. What each finding is
+reader consults to learn how much loop a PR here gets. **Nor is "internal"
+settled once for this repository.** The limit is scoped by consequence and
+asked per change, and this repository's payload contains the machinery that
+publishes to every consumer and the settings template carrying
+`permissions.deny`. A change to either is weighed on what it actually does:
+changing what gets published, or what is denied, is outside the limit; fixing
+a message it prints is not. What each finding is
 worth is decided by
 [`review-judgment.md`](core/docs/ai-context/review-judgment.md), which sets no
 target rate in either direction; the tier says only that nobody's money or data

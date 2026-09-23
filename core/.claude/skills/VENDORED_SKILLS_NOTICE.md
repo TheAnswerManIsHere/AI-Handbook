@@ -69,7 +69,9 @@ labelled so a future re-vendor can spot and re-apply it:
 **Further local modifications (2026-09-20), from the cold-reader sweep for the
 two-review limit.** Upstream's review guidance is unbounded by design — review
 early and often, fix and carry on — which contradicts a fleet rule that ends
-autonomous iteration at two reviews. Each is a clearly-marked block, same
+autonomous iteration at two reviews on work that is internal by consequence.
+(Not on everything: the limit is scoped, and this sentence stated it unscoped
+until 2026-09-23.) Each is a clearly-marked block, same
 convention as above:
 
 - `requesting-code-review` and `receiving-code-review` — added a **Local

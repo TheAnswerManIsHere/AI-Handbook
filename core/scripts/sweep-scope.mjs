@@ -162,7 +162,13 @@ export function globToRegExp(glob) {
 
 export function lineCount(root, file) {
   const text = readFileSync(join(root, file), "utf8");
-  return text.length === 0 ? 0 : text.split("\n").length;
+  if (text.length === 0) return 0;
+  // Every file here ends with a newline, and splitting on it yields a trailing
+  // empty segment -- so this counted one phantom line per file and every brief
+  // overstated by one. A reader checking a quoted line number against `wc -l`
+  // finds the brief wrong about the only thing it states as fact about a file
+  // it has not read yet. (A cold reader, second pass of the #145 sweep.)
+  return text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
 }
 
 /** An operator-typed count: an integer of at least two, or refuse naming it. One reader is not a sweep. */
