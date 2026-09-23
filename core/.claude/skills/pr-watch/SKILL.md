@@ -276,17 +276,21 @@ replaced them is step 5's proportionate-evidence rule.)
    entirely and so applied to every round.)
 
    - **Is this internal tooling AND its second review?** **Answer the first
-     half by consequence, not by directory.** Machinery that governs
-     approvals, publication, credentials or destructive operations is outside
-     the limit whatever folder it sits in
-     ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — `sync.mjs`, which publishes
-     the payload to every consumer, and anything touching credentials are the
-     live examples here. A consumer overlay marking a subsystem sensitive is
-     one route to that classification and not the only one, and its silence is
-     not a classification. Reach is not consequence: "this changes how future
+     half by asking what THIS CHANGE does and how recoverable it is** —
+     neither its directory nor the file's job title
+     ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
+     A change that governs approvals, publication, credentials or destructive
+     operations is weighed on those consequences whatever folder it sits in,
+     and that weighing can put it outside the limit. **It is the change, not
+     the file**: editing `sync.mjs`, which publishes the payload to every
+     consumer, is outside when it changes what gets published and inside when
+     it changes a dry-run message, because the second is trivially
+     recoverable. A consumer overlay marking a subsystem sensitive is one
+     route to the classification and not the only one, and its silence is not
+     a classification. Reach is not consequence: "this changes how future
      agents work" disqualifies nothing, or every line in this repository would
-     be exempt. If it is outside, this gate does not apply and the loop
-     continues under the Worth rule.
+     be exempt. If this change is outside, the gate does not apply and the
+     loop continues under the Worth rule.
      If yes — internal by consequence, and its second review — **write
      nothing**; iteration is over. A batch written here would be a changed
      head I am forbidden to request a review for, which is a pull request that

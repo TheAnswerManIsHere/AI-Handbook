@@ -96,7 +96,7 @@ Decide by what "this" refers to (contract's trigger table):
   session's actual learnings.* Out-of-scope findings are declined against
   the stated oracle — a harvest is internal by consequence when it touches no
   approvals, publication, credentials or destructive machinery, and a Type 1
-  harvest that edits a contract governing those is outside the limit like any
+  harvest that edits a contract governing those is weighed on that like any
   other such change, so the **two-review
   limit** applies ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) and nothing here is a separate cap: the
   automatic pass,

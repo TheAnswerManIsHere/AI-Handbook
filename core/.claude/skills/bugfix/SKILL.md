@@ -373,8 +373,9 @@ What is *bugfix-specific* about the loop:
   bug can be *in the docs*: when the whole diff is agent-facing markdown or
   process tooling **that is internal by consequence** — the
   [two-review limit](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
-  is scoped that way and not by the tier, so process tooling governing
-  approvals, publication, credentials or destructive operations is outside it
+  is scoped that way and not by the tier, so a fix to process tooling
+  governing approvals, publication, credentials or destructive operations is
+  weighed on those consequences and its recoverability
   — the automatic pass, one coherent batch of corrections if any are
   warranted, and a review of that corrected head. This read "the internal tier
   governs (David, 2026-08-21) … the two-review limit, the same as everywhere"

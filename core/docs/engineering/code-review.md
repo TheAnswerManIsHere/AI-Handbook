@@ -243,10 +243,11 @@ that is bounded by the **two-review limit** in
 [`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) — review, one
 batch of corrections, review, stop — and every changed head still gets its
 review. **That list is where such work usually lives, not what decides it:**
-the limit is scoped by consequence, so anything in it governing approvals,
-publication, credentials or destructive operations is outside the limit
-whatever directory it sits in. A `scripts/` entry is not internal by being in
-`scripts/`.
+the limit is scoped by consequence and recoverability, asked of the change, so
+a change in it governing approvals, publication, credentials or destructive
+operations is weighed on that whatever directory it sits in. A `scripts/`
+entry is not internal by being in `scripts/`, and it is not exempt by being
+`sync.mjs` either — the question is what the change does.
 This paragraph used to add "loops only for its fixes" and "findings get one
 triage with one-line declines": a round budget and a decline form, both
 retired, sitting where a depth rule belongs.
