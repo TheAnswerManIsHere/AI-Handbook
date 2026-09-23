@@ -66,7 +66,7 @@ brief in your package requires. That line is David's, so nothing displaces
 it. It is the ship gate's observable, not the loop's stop: on work that is
 internal **by the consequences and recoverability of this change** — never by
 its directory, and weighing a change that governs approvals, publication,
-credentials or destructive operations on those consequences instead —
+credentials or destructive operations on its consequence and recoverability —
 autonomous iteration ends at the **two-review limit**
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) — the head,
 one coherent batch of corrections, a review of that corrected head, and no

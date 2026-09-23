@@ -1503,7 +1503,7 @@ fix is actually cheap. **The floor-tier exemption that stood here is gone**
 keep a "zero-re-request rule", so a post-review fix there moved the head
 without owing a pass — which is a commit merging unreviewed, the one thing the
 write-gate exists to refuse. What bounds those artifacts now is the
-**two-review limit** in [`working-modes.md`](working-modes.md), which caps how
+**two-review limit** in [`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19), which caps how
 long iteration runs without ever exempting a changed head from being read. The
 worry that made the exemption (Codex, #518) — that stating the corollary
 universally leaves an artifact unmergeable in principle — was real under the

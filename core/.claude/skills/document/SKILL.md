@@ -66,8 +66,9 @@ Decide by what "this" refers to (contract's trigger table):
     PR** alongside that pass's other doc updates. No per-feature branch, no
     per-feature PR, no harvest sub-issue, no separate subscription: the
     tracking is the harvest-notes comments already on each feature's
-    workstream issue. Internal **by consequence** — a docs harvest that
-    touches no approvals, credentials or destructive machinery — so the
+    workstream issue. Internal **by consequence and recoverability** — a docs
+    harvest that touches no approvals, publication, credentials or
+    destructive machinery — so the
     **two-review limit** governs this path exactly as it governs the other
     ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)): automatic pass,
     one coherent batch of corrections if any are warranted, **a review of that
@@ -96,8 +97,8 @@ Decide by what "this" refers to (contract's trigger table):
   session's actual learnings.* Out-of-scope findings are declined against
   the stated oracle — a harvest is internal by consequence when it touches no
   approvals, publication, credentials or destructive machinery, and a Type 1
-  harvest that edits a contract governing those is weighed on that like any
-  other such change, so the **two-review
+  harvest that edits a contract governing those is weighed on its consequence
+  and recoverability like any other such change, so the **two-review
   limit** applies ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) and nothing here is a separate cap: the
   automatic pass,
   one coherent batch of corrections if any are warranted, **a review of that

@@ -69,7 +69,7 @@ that wherever it appears in this table.
 | --- | --- | --- |
 | **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. Iteration is bounded by the two-review limit below, not by this row — and that limit asks its question of the change, by consequence and recoverability, so a change to a contract or prompt in this class that governs approvals, publication, credentials or destructive operations is weighed on that. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit by consequence; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit, which bounds internal tooling; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient checklist,
@@ -687,7 +687,11 @@ least that is worth having.
 **Scope it by consequence and recoverability**, with "internal tooling" as the
 convenient default rather than a universal exemption. Machinery that governs
 approvals, publication, credentials or destructive operations is weighed on
-those consequences whatever directory it lives in. And **"this changes how
+both whatever directory it lives in: a change whose effect on what it
+approves, publishes, grants or destroys could not be trivially undone is
+outside the limit, and one that could — a printed message, a formatting change
+to what gets published — is not. Product code is outside because the limit
+bounds internal tooling, not because of that weighing. And **"this changes how
 future agents work" does not by itself disqualify anything here** — reach is
 not consequence, or every line in this repository would be exempt from every
 limit.
@@ -734,8 +738,8 @@ committed receipts, extension grants and their arithmetic, a round-count
 cache, a merge-readiness receipt, a translation-delivery gate, and the
 adjudicator that ruled from round 3. Measured across PR #91's ten rounds, not
 one of them changed a decision. What each *finding* is worth stays a
-judgement; what the *sequence* may cost is now a count, and the two-review limit
-is that count. This paragraph read "termination is a judgement rather than a
+judgement; what the *sequence* may cost is now a count, and on work the two-review
+limit bounds, it is that count. This paragraph read "termination is a judgement rather than a
 count, and a loop that can conclude on the evidence needs no counter" — true of
 what the #89 cut removed, and false as a description of how a loop ends now. The
 thing budgets were compensating for was a builder writing code for every finding
@@ -747,7 +751,9 @@ counting.
 than how strictly to read a finding.** `product`, `sensitive`
 (auth/payments/migrations) and `internal` (guards, `scripts/`, skills, agent
 contracts, process documentation, documentation harvests) each say who or what
-bears the consequence, and nothing more. They set no threshold and select no
+bears the consequence, and nothing more — whether a change is internal *for
+the two-review limit* is asked of that change, not read off this list
+([above](#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)). They set no threshold and select no
 rubric — that sentence said both things at once until round 4 of #120 caught
 it. The `internal` tier's old rubric
 wrote only for "a very high chance of a critical flaw" and declined everything
