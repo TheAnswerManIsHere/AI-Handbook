@@ -17,27 +17,21 @@ Paths below are a consumer's. In the handbook the payload sits under
 
 ## 1. Write the spec, before opening a file
 
-One JSON file in the scratchpad, four required inputs. The example is
-abridged from the spec #141 swept with, written before #146 scoped the limit
-by consequence — so its shape `c` still treats a consequence class selecting
-loop length as residue, which is now the rule. **Copy its shape, never its
-content.**
+One JSON file in the scratchpad, four required inputs. Placeholders, on
+purpose: a worked example here went stale the first time its rule changed and
+was then read as a template for the retired reading (#150). The real specs
+are in the sweep PRs' bodies.
 
 ```json
 {
-  "rule": "how long a review loop runs, and what ends it",
-  "home": "docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19",
+  "rule": "<the retired reading in one sentence, and what replaced it>",
+  "home": "<payload-relative path>#<section anchor>",
   "subShapes": [
-    { "id": "a", "name": "a cap", "example": "one triage" },
-    { "id": "b", "name": "a write with no review after it", "example": "fix, apply, continue" },
-    { "id": "c", "name": "an artifact or consequence class selecting loop LENGTH", "example": "internal tier: one pass" },
-    { "id": "d", "name": "unbounded", "example": "to convergence" }
+    { "id": "a", "name": "<a SHAPE of the retired reading, never a phrase>", "example": "<a sentence a reader might meet>" },
+    { "id": "b", "name": "<one carrying none of the class's vocabulary>", "example": "<…>" }
   ],
-  "notInClass": [
-    "Past-tense history naming the retired rule as retired, with its replacement",
-    "A live mechanical bound stated in claude-core.md: the six-hour stop, flip conditions, the ship gate"
-  ],
-  "readInFull": ["docs/ai-context/working-modes.md", ".agents/core/*.md", ".agents/roles/*.md", ".claude/agents/*.md"]
+  "notInClass": ["<a live thing the class's wording would otherwise catch>"],
+  "readInFull": ["<the rule's neighbourhood, as globs>"]
 }
 ```
 
@@ -126,6 +120,10 @@ skipped to save a review — it costs none. A shape a *review round* reveals
 goes into `subShapes` before that re-run, exactly as a reader's does. (#146
 skipped both: two batches, no re-run after either, and the two gaps it shipped
 were a sentence the batch itself added and a shape round 1 had just revealed.)
+**A re-run re-dispatches only the briefs that own the files the batch
+touched** — a batch can seed an instance only where it wrote — unless the spec
+gained a shape, in which case the whole scope owes the pass, as above. So a
+one-line fix costs one reader, not four.
 
 ## What this skill is not
 
