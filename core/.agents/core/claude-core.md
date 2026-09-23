@@ -446,8 +446,9 @@ consumed it. David stopped that loop by hand.
 
 **The two-review limit caps this carve-out**: reach across future pull
 requests can keep the gate from ending a loop early, and can never authorise a
-third review (both assessors, #140 round 1). Whether the carve-out should
-survive at all is David's, and open.
+third review (both assessors, #140 round 1). **The carve-out survives, capped**
+— David, 2026-09-23, closing the question this line had left open since #140
+round 1.
 
 **On a PR that changes the review loop itself, the gate cannot end the loop
 alone**, and that is a limit rather than a defect: the second exception
@@ -456,6 +457,16 @@ by *every* finding, because the artifact under review is the loop every future
 pull request runs. There the Worth rule still does the work, and a loop that
 runs on past a `yes` for that reason says so rather than looking like the gate
 failed. (Named on #134 round 1 by both assessors, from the inside.)
+
+**And such a pull request comes to David rather than to the merge button**
+(David, 2026-09-23). The two reviews run as usual; the result — findings,
+declines and all — goes to him to triage by hand, instead of my judging the
+stop alone on the one artifact whose blast radius is every future loop. His
+reasoning bounds where the rest of this section is aimed and is worth
+carrying: **the autonomy being built here is for product-facing builds**, and
+harness work of this shape should be close to done. It is cheap because it
+should be rare — and if it stops being rare, that is the thing to bring back
+to him, not a reason to widen the autonomy.
 
 **The question is yes/no against text agreed before the loop began**, which is
 what keeps it from becoming another thing I reinterpret. "Would this change
