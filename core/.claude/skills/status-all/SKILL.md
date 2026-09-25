@@ -1,16 +1,18 @@
 ---
 name: status-all
-description: Give David a cold-open summary of EVERY open workstream across all sessions — where each stands in the lifecycle, who's holding it, and which ones are stalled or need his input. Use when David says /status-all, "what's the state of everything", "what needs me across the board", or is picking work back up after time away and doesn't remember where he left off. This is the FLEET view; for "what is THIS session working on", use /status instead. Best run from a fresh, cheap session rather than an existing long thread.
+description: Give David a cold-open summary of EVERY open workstream across all sessions in the active repository (never other repositories) — where each stands in the lifecycle, who's holding it, and which ones are stalled or need his input. Use when David says /status-all, "what's the state of everything", "what needs me across the board", or is picking work back up after time away and doesn't remember where he left off. This is the ALL-SESSIONS view of this repository; for "what is THIS session working on", use /status instead. Best run from a fresh, cheap session rather than an existing long thread.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
 # /status-all — the workstream board, read cold
 
-**Fleet view.** For one session's own state — "what am I working on right now
+**All-sessions view, one repository.** For one session's own state — "what am I working on right now
 and how does it fit" — that's [`/status`](../status/SKILL.md), which is a
 different job: cheaper, scoped to one workstream, and able to offer to fix
-stale tracking. This skill answers "across everything, what needs me?"
+stale tracking. This skill answers "across everything, what needs me?" —
+where "everything" is every session working in **this** repository, never
+the other repositories in the fleet.
 
 David runs ~10 concurrent sessions across Discovery → Planning →
 🛑 Plan approval → Coding → Code review → 🛑 Merge → Test run →
@@ -27,6 +29,30 @@ exception, the `test-run-completion.yml` Action, is retired with the
 TEST_RUN file pattern, 2026-08-15 — the `stage:test-run` →
 `stage:uat`/`stage:close-out` transition is `pr-watch`'s close-out
 sequence now.)
+
+## Scope — the active repository, and nothing else
+
+**`/status-all` reports on one repository: the one this session is working
+in.** Every row comes from that repository's issues and PRs. Workstreams in
+other repositories — the handbook, a sibling product, anything remembered
+from another session — are out of scope: never listed, never counted, never
+mentioned as "also needs you."
+
+- **The active repository is `repo` in `.agents/machinery.json`** at the
+  working tree's root — the one declared identity every repo in the fleet
+  carries. Cross-check it against `git remote get-url origin`: they agree
+  when the URL's path ends in that same `owner/name`, compared
+  case-insensitively and ignoring a trailing `.git`.
+- **If they disagree, the file is missing, or it still holds the template
+  placeholder, stop and ask** which repository David means. A board that
+  guesses its repository reports confidently on the wrong product.
+- **David naming a repository overrides the default** ("status-all for
+  AI-Handbook"). If this session has several repositories attached and he
+  didn't name one, the working tree's repository is the answer — never a
+  merge of all of them.
+- **Every GitHub call passes that `owner`/`repo` explicitly.** Never
+  `search_issues`/`search_pull_requests` without a `repo:<owner>/<name>`
+  qualifier — the search tools reach every repository the account can see.
 
 ## Why this reads issues + labels, not the Project board
 
@@ -406,9 +432,11 @@ through the connector — a session needs to finish close-out."
 
 Sparse, scannable, grouped by urgency — David is triaging across ten
 things, not reading a document. Rough shape (adapt to what's actually
-found; don't pad empty sections):
+found; don't pad empty sections). The first line names the repository, so
+a wrong scope is visible at a glance:
 
 ```
+owner/repo
 🛑 NEEDS YOU (n)
 #311 — CodeQL rate-limiter: merged, UAT doc ready at docs/tests/UAT/PR308_..._UAT.md, not yet run
 #281 — Evidence retention plan: [specific restated question from the thread]
