@@ -745,8 +745,7 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
  * NOTHING PARSES AN ASSESSMENT TO GET HERE. The oracle is explicit that the
  * harness acts on my explicit selection and never on a phrase inferred from an
  * assessment, and that agent agreement does not substitute for David's
- * approval. This renders that selection as a block a reader can find, in the
- * shape `plan-provenance` already uses in a PR body.
+ * approval. This renders that selection as a fenced block a reader can find.
  */
 export function actionBlock({ action, findingIds = [], note = "" }) {
   if (!ACTIONS.includes(action)) {

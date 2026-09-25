@@ -173,9 +173,4 @@ jobs:
       # meaningful while groups could ship separately. The payload now ships
       # whole, so the parser and its producer documents always arrive in the
       # same copy and the ordering hazard cannot occur.
-      #
-      # The invariant that DOES survive -- that the producer documents and the
-      # parser agree about the declaration format -- was never this gate's job.
-      # It is scripts/__tests__/plan-provenance-producers.test.mjs, which still
-      # runs in the Test job against core/scripts/plan-provenance.mjs, where
-      # the #89 cut rehoused the parser.
+      # The parser and the block it read were retired in turn (#103).
