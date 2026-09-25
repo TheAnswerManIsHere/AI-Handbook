@@ -365,7 +365,10 @@ Then, in one edit:
   there.** An accepted UAT is the last David-gate; what remains of close-out
   is mine (the harvest-notes comment for a product feature, any outstanding
   item the State of Play lists). Do what remains, and when nothing is left,
-  set `stage:done` and close the issue. Only when a real close-out item
+  set `stage:done` and close the issue as completed, with a comment naming
+  the PR(s) — the shared rule is
+  [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md#closing-an-issue)'s
+  *Closing an issue*. Only when a real close-out item
   genuinely can't be finished now does the workstream sit at
   `stage:close-out`, with that item named in the State of Play.
 - **If this workstream is a phase sub-issue and the verdict reached

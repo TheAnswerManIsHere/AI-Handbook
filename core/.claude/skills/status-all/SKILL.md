@@ -141,9 +141,9 @@ removal, but every other nested case does.)
 
 ## Step 3 — Find each workstream's PR(s) and its full activity
 
-There is no GitHub-native issue↔PR link here, because PR bodies say
-`Workstream: #N`, never `Closes #N` (deliberately — the latter would
-auto-close the issue at merge and skip UAT). So:
+There is no GitHub-native issue↔PR link here, because a PR names its own
+workstream as `Workstream: #N`, never `Closes #N` (deliberately — the latter
+would auto-close the issue at merge and skip UAT). So:
 
 ```
 list_pull_requests(owner, repo, state: all, sort: updated, direction: desc,
