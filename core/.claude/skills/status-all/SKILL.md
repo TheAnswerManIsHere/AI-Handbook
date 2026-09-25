@@ -128,7 +128,7 @@ than as an unrelated top-level workstream.
 
 **Remove every issue returned by `get_sub_issues` (open or closed), and
 every issue nested under a closed parent via `has_parent`/`parent`, from
-the Step 1 set** before rendering the top-level fleet view. Step 1 fetches
+the Step 1 set** before rendering the top-level all-sessions view. Step 1 fetches
 *every* open issue with a `stage:` label, which already includes labeled
 sub-issues — without this removal, a nested-either-way open child appears
 twice (once nested, once again as its own top-level row) and the section
@@ -465,7 +465,7 @@ something doesn't fit a bucket cleanly, say so rather than omitting it.
 
 ## Drill-down: `/status-all <issue-number>`
 
-Skip the fleet view. Fetch that one issue's full body (its State of Play
+Skip the all-sessions view. Fetch that one issue's full body (its State of Play
 block), its linked PR's live CI + all open threads, and its sub-issues if
 any. Report in full — this is the "come back to one session cold" case,
 so completeness matters more than brevity here.
