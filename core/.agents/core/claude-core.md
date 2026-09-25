@@ -793,19 +793,17 @@ design. Mechanics:
    must not change, root cause, blast radius. "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
    form (interaction rule 11).
-4. **Approved-plan provenance is a declared block, not a sentence.** The body
-   carries one fenced `plan-provenance` block whose `kind` selects a fixed key
-   set — `approved-plan`, `approved-plan-split`, `private-plan`, `bugfix`,
-   `trivial` or `plan-review`. No optional keys: an unknown, repeated,
-   missing, forbidden or malformed one refuses naming it, and two blocks
-   refuse as a contradiction. The keys, the grammars, and what the block does
-   *not* replace are in
-   [`plan-provenance.md`](../../docs/ai-context/plan-provenance.md), which is
-   the format's only statement — never restate it here. The block replaces the
-   legacy selector for its kind and a body carrying both refuses; the oracle
-   prose a reviewer reads is untouched. A plan approved through the in-session
-   loop was never committed, so it declares `private-plan` — `approved-plan`
-   requires a review PR that this loop does not produce.
+4. **The body says in one plain line what the code is judged against.**
+   `Oracle source:` then one of: the approved plan's filename and full sha256
+   digest (an in-session plan is never committed, so the digest is what pins
+   the text David approved); the issue where the scope was agreed in
+   conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
+   or `trivial`, for the "n/a — no plan" change rule 3 allows. Nothing parses it — it points
+   a reviewer at the oracle, and rule 3 is what carries it. (David,
+   2026-09-25, #103: the fenced `plan-provenance` block, its parser and its
+   format document are retired. Nothing had read the block at runtime since
+   the #89 cut, and its fixed grammar forced a false declaration on work
+   agreed in conversation with no plan file, #110.)
 5. **Post-merge verification + UAT doc** for product-visible feature PRs, per
    the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done

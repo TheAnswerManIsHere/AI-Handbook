@@ -909,7 +909,8 @@ until 2026-09-20 and is now narrowed the same way. This parenthesis used to
 call it "correct as written", which is how the defect survived a round that
 was looking straight at it — vouching for a sentence is not reading it. **It is not that the code loop lacks a technical tie-break** — *Who
 judges* above gives a surviving purely technical disagreement to the Fable
-assessor there, and `claude-core.md` rule 4 says so on `main`. This parenthesis
+assessor there, and `claude-core.md` (*Shared judgement on a review round*, rule
+4) says so on `main`. This parenthesis
 claimed the opposite for one round, which is this very paragraph's warning
 happening to the paragraph itself: added at #124 round 7 to stop an escalation
 rule negating the planning tie-break, it negated the code loop's in the same
@@ -1245,7 +1246,9 @@ oracle and the Tier A/B bugfix oracle below.
    bug and the fix.
 8. **Open the PR** with the applicable oracle — the Tier A/B oracle below for a
    Tier A/B fix, or the dedicated Tier C block described above for a trivial
-   schema fix — and engage the review under the write-gate rule.
+   schema fix — plus the `Oracle source:` line naming the tier
+   ([`claude-core.md` Pull requests rule 4](../../.agents/core/claude-core.md#pull-requests)),
+   and engage the review under the write-gate rule.
 9. **At close, harvest what generalizes (David, 2026-08-09).** A root cause
    that reaches past this one bug is captured before the workstream closes:
    a [`known-failure-patterns.md`](./known-failure-patterns.md) entry, a
@@ -1283,13 +1286,12 @@ The feature oracle's fields map onto a Tier A/B fix directly:
 | Must not change | **Must not change** — the adjacent behaviors sharing this path |
 | Settled decisions | **Root cause** — the mechanism, in one or two lines |
 
-Plus **Blast radius** (from step 5), and the fix tier — which is now two
-things in two places. The **letter** is `fix_tier` in the body's declared
-`plan-provenance` block ([`plan-provenance.md`](plan-provenance.md)); the
-**reason** is `**Tier rationale:**`, a required prose field. The split is
-deliberate: a letter is what a machine selects on, a reason is what a reviewer
-argues with, and folding the second into the first is how the reason nearly
-disappeared when the letter moved. It is **required for Tier A as much as Tier
+Plus **Blast radius** (from step 5), and the fix tier. The **letter** goes on
+the body's `Oracle source:` line
+([`claude-core.md` Pull requests rule 4](../../.agents/core/claude-core.md#pull-requests));
+the **reason** is `**Tier rationale:**`, a required prose field, because a
+reviewer challenges a mis-tiering by arguing with the reason and a bare letter
+gives them nothing to argue with. It is **required for Tier A as much as Tier
 B.** A is the classification reviewers most need to be able to challenge, so
 "A (contained)" alone is not enough: name the Q1/Q2 items you checked and
 ruled out, not just the ones that would have fired. A bare tier letter with no

@@ -262,8 +262,7 @@ export function splitFrontmatter(text) {
   // reported. That turns a loud refusal into a check that passes having
   // checked nothing. (Astra, #131 round 2, naming the insufficiency; the
   // Fable assessor weighed the same finding as unreachable and said folding
-  // in a one-token fix costs nothing. `plan-provenance.mjs` already splits
-  // this way.)
+  // in a one-token fix costs nothing.)
   //
   // SCOPE IS THIS FUNCTION, DELIBERATELY. Four other readers still split on
   // `"\n"` -- `check-docs-accuracy.mjs`, `check-uat-format.mjs`,
