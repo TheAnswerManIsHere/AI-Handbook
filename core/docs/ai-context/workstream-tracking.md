@@ -134,7 +134,7 @@ whole state machine:
 
 - **`queue:`, no `stage:`** — decided, not started. Invisible to
   `/status-all` by construction (its Step 1 filters to issues carrying a
-  `stage:` label), which is correct: the fleet view is about active work,
+  `stage:` label), which is correct: the all-sessions view is about active work,
   and padding it with the backlog would bury the things that actually need
   someone. Don't "fix" that filter.
 - **The moment work starts** — the item gains `stage:`/`waiting:` and
@@ -405,10 +405,13 @@ restatement.
 ## `/status`, `/status-all`, and `/next`
 
 Three skills, three questions (`/status` split from `/status-all`
-2026-08-05; `/next` added 2026-08-15):
+2026-08-05; `/next` added 2026-08-15). `/status-all` and `/next` answer only
+for the repository the session is working in — each skill's *Scope* section
+says how that is resolved:
 
-- **`/status-all`** (`.claude/skills/status-all/SKILL.md`) — the **fleet**
-  view, and the original skill unchanged: every open workstream, grouped
+- **`/status-all`** (`.claude/skills/status-all/SKILL.md`) — the
+  **all-sessions** view of **the active repository only**, never other
+  repositories (2026-09-25): every open workstream, grouped
   🛑 NEEDS YOU / ⚠️ STALLED / IN PROGRESS, recomputed directly from issues +
   labels + PR state (it can't read the Project board either, per the tooling
   gap above). **Read-only.** Works from any session, including a fresh
@@ -419,7 +422,7 @@ Three skills, three questions (`/status` split from `/status-all`
   (`WORKING` / `WAITING ON YOU` / `WATCHING` / `STALLED` / `DONE`), what's
   next, and how it fits the roadmap.
 - **`/next`** (`.claude/skills/next/SKILL.md`) — **what should we pick up
-  now**, ranked. The only one of the three that takes a position rather
+  now** in the active repository, ranked. The only one of the three that takes a position rather
   than reporting state. It reads everything above plus the backlog,
   `Blocked by:` chains, and Phases checklists, ranks by **closest to done
   wins** with rank inheriting down each blocked chain, and names which
