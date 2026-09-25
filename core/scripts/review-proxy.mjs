@@ -351,10 +351,11 @@ export function assessmentBrief({
   tier,
   reviewedCommit,
   oracle,
-  findings,
+  findings = [],
   history = [],
   builderNote = "",
   assessmentFile,
+  documentationBase = null,
 }) {
   assertCoordinates(pr, round);
   if (!TIER_LENSES[tier]) {
@@ -374,11 +375,29 @@ export function assessmentBrief({
         "recorded where it can be quoted. The PR body is the builder's own prose and is not an oracle.",
     );
   }
-  if (!Array.isArray(findings) || findings.length === 0) {
+  // A DOCUMENTATION PASS HAS NO REVIEWER FINDINGS, BY DESIGN (David,
+  // 2026-09-25). Codex reviews prose adversarially, marks a word choice P1, and
+  // the loop then builds fixes and guards for it; Astra and Fable read prose
+  // better. So in this class the assessors read the change itself against its
+  // intent, and Codex's output is not part of the package at all -- refused
+  // here rather than silently dropped, so a caller who passes it learns the
+  // class does not use it.
+  const documentation = documentationBase !== null;
+  if (documentation) {
+    if (typeof documentationBase !== "string" || documentationBase.trim() === "") {
+      throw new Error("review-proxy: a documentation pass needs the base the change is measured from (--base <sha>)");
+    }
+    if (Array.isArray(findings) && findings.length) {
+      throw new Error(
+        "review-proxy: a documentation pass reads the change itself, not reviewer findings -- Codex's output is not " +
+          "part of this class (David, 2026-09-25); drop --findings-file",
+      );
+    }
+  } else if (!Array.isArray(findings) || findings.length === 0) {
     throw new Error("review-proxy: the assessors are dispatched on a round that RETURNED findings; there are none here");
   }
   const seen = new Set();
-  for (const f of findings) {
+  for (const f of documentation ? [] : findings) {
     // GitHub's review-comment ids are integers and JSON keeps them integers, so
     // the id is coerced rather than demanded as a string. (Codex, #120 round 1.)
     const id = f == null || f.id == null ? "" : String(f.id).trim();
@@ -450,11 +469,26 @@ export function assessmentBrief({
     lines.push("");
   }
 
-  lines.push("## [reviewer] This round's findings", "", "Cover every one, using these IDs exactly.", "");
-  for (const f of findings) {
-    lines.push(`### Finding \`${String(f.id).trim()}\``, "");
-    if (f.path) lines.push(`- Location: \`${f.path}\`${f.line ? `:${f.line}` : ""}`);
-    lines.push("", String(f.body ?? "").trim(), "");
+  if (documentation) {
+    lines.push(
+      "## [change] A documentation pass: read the change itself",
+      "",
+      "There are no reviewer findings in this round, deliberately: this is the **Documentation** review class",
+      "(David, 2026-09-25), and Codex's output is not part of it. Read the change in the checkout --",
+      `\`git diff ${documentationBase.trim()}..${reviewedCommit}\` -- against the oracle, applying the brief's section`,
+      "*When the change is documentation*. This is the only review pass the change gets: Claude writes one batch",
+      "from it and the change merges, so an empty list of concerns is a valid and useful answer.",
+      "",
+      "Label each concern you raise `D1`, `D2`, ... so Claude can answer each by name.",
+      "",
+    );
+  } else {
+    lines.push("## [reviewer] This round's findings", "", "Cover every one, using these IDs exactly.", "");
+    for (const f of findings) {
+      lines.push(`### Finding \`${String(f.id).trim()}\``, "");
+      if (f.path) lines.push(`- Location: \`${f.path}\`${f.line ? `:${f.line}` : ""}`);
+      lines.push("", String(f.body ?? "").trim(), "");
+    }
   }
 
   lines.push(
@@ -646,7 +680,7 @@ const SOURCE_NAMES = { astra: "Astra", fable: "Fable" };
  * assessment, which findings -- because asking a model to restate facts nobody
  * was missing spends the reader's attention for nothing.
  */
-export function prComment(result, { reviewedCommit = null, findingIds = [], requested = null } = {}) {
+export function prComment(result, { reviewedCommit = null, findingIds = [], requested = null, documentationBase = null } = {}) {
   const who = SOURCE_NAMES[result.source] ?? result.source;
   const what = result.followUp ? `round ${result.round}, follow-up ${result.followUp}` : `round ${result.round}`;
   if (result.failed) {
@@ -671,6 +705,7 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   const facts = [];
   if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
   if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
+  if (documentationBase) facts.push(`documentation pass over \`${documentationBase}..${reviewedCommit ?? "?"}\``);
   // EVERY FACT LABELLED BY WHAT IT IS, AND "REQUESTED" ONLY WHERE THIS SCRIPT
   // PASSED THE VALUE (David, 2026-09-18: *"any model call must report loudly if
   // the requested model doesn't match the used model"*). The header states what
@@ -801,6 +836,12 @@ export const USAGE = [
   `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> \\`,
   "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   "",
+  "  Documentation pass (the Documentation review class: no reviewer findings, one pass):",
+  `    node ${INVOCATION} --pr <n> --round 1 --commit <sha> --tier internal --documentation --base <sha> \\`,
+  "        --oracle-file <path> [--history-file <path.json>] [--note <text>]",
+  "                  Both assessors read the diff --base..--commit against the oracle. There is no",
+  "                  follow-up in this class and no --findings-file: Codex's output is not part of it.",
+  "",
   "  Focused follow-up (same revision, no new commit, no new Codex round):",
   `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\`,
   "        --question <text> --findings <id,id> --prior-file <path> --oracle-file <path> \\",
@@ -849,10 +890,12 @@ const FLAGS = {
   "prompt-only": "promptOnly",
   render: "render",
   source: "source",
+  documentation: "documentation",
+  base: "base",
 };
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
-const BOOLEAN = new Set(["promptOnly", "render"]);
+const BOOLEAN = new Set(["promptOnly", "render", "documentation"]);
 
 /**
  * The finding ids the header names — derived the same way for both paths.
@@ -936,6 +979,24 @@ export function main(
   // fable --prompt-only` is meaningful, because this script runs the Codex CLI
   // and nothing else -- the subagent is dispatched by the harness.
   const source = flags.source ?? "astra";
+  // THE DOCUMENTATION CLASS, CHECKED ONCE FOR EVERY PATH. `--base` means
+  // nothing without it, and it has no follow-up: the class is one pass and one
+  // batch (David, 2026-09-25), so a follow-up flag here is a caller running the
+  // code-review loop by mistake.
+  const documentation = Boolean(flags.documentation);
+  if (documentation && (typeof flags.base !== "string" || flags.base.trim() === "")) {
+    log(`review-proxy: --documentation needs --base <sha>, the commit the change is measured from\n\n${USAGE}`);
+    return 2;
+  }
+  if (!documentation && flags.base != null) {
+    log(`review-proxy: --base belongs to --documentation\n\n${USAGE}`);
+    return 2;
+  }
+  if (documentation && followUp) {
+    log(`review-proxy: the Documentation class is one pass and one batch; it has no follow-up\n\n${USAGE}`);
+    return 2;
+  }
+  const documentationBase = documentation ? flags.base.trim() : null;
   // RENDERING IS NOT DISPATCHING, so it is answered before every guard that
   // belongs to composing a package: it needs no oracle, no findings and no
   // tier, because the assessment it renders already exists.
@@ -977,7 +1038,7 @@ export function main(
               definitionModel: agentFrontmatter(root, ASSESSOR_AGENT, "model"),
               definitionEffort: agentFrontmatter(root, ASSESSOR_AGENT, "effort"),
             };
-      const ids = headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
+      const ids = documentation ? [] : headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
       // AN EMPTY SCOPE IS REFUSED, NOT PRINTED. Round 1 gave both paths one
       // derivation and stopped there; the input that derivation needs never
       // reached the operator-facing recipe, so a follow-up posted exactly as
@@ -989,12 +1050,12 @@ export function main(
       // failed-dispatch shape too: the operator composed the package from the
       // same file minutes earlier. (Codex `4051974432`; both assessors said to
       // put the refusal in the script rather than only in the recipe.)
-      if (ids.length === 0) {
+      if (ids.length === 0 && !documentation) {
         const flag = followUp ? "--findings <id,id>" : "--findings-file <path.json>";
         log(`review-proxy: ${flag} is required to render ${followUp ? "a follow-up" : "a round"} — the header names the findings the assessment covers, and a comment claiming no scope is worse than one that was not posted\n\n${USAGE}`);
         return 2;
       }
-      rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested });
+      rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested, documentationBase });
     } catch (err) {
       log(`review-proxy: ${err.message}`);
       return 2;
@@ -1033,6 +1094,22 @@ export function main(
         fableReasoning: flags.fableFile ? fs.readFileSync(flags.fableFile, "utf8") : "",
         priorAssessment: fs.readFileSync(flags.priorFile, "utf8"),
         assessmentFile: file,
+      });
+    } else if (documentation) {
+      if (flags.findingsFile) {
+        throw new Error("review-proxy: a documentation pass reads the change itself; Codex's output is not part of this class -- drop --findings-file");
+      }
+      prompt = assessmentBrief({
+        source,
+        pr: flags.pr,
+        round: flags.round,
+        tier: flags.tier,
+        reviewedCommit: flags.commit,
+        oracle: fs.readFileSync(flags.oracleFile, "utf8"),
+        history: flags.historyFile ? JSON.parse(fs.readFileSync(flags.historyFile, "utf8")) : [],
+        builderNote: flags.note ?? "",
+        assessmentFile: file,
+        documentationBase,
       });
     } else {
       const findings = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));
@@ -1125,7 +1202,7 @@ export function main(
         reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };
   process.stdout.write(
-    `${prComment(read, { reviewedCommit: flags.commit, findingIds, requested: result.reviewer })}\n`,
+    `${prComment(read, { reviewedCommit: flags.commit, findingIds, requested: result.reviewer, documentationBase })}\n`,
   );
   return read.failed ? 1 : 0;
 }

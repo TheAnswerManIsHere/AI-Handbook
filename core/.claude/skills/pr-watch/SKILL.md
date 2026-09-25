@@ -29,6 +29,23 @@ step 5, stated once, with the duplicated material left out. (The two escape
 valves this sentence also named belonged to the four-line `Class:` / `Worth:` /
 `Oracle:` / `Result:` reply form, which rule 6 retired on 2026-09-17; what
 replaced them is step 5's proportionate-evidence rule.)
+
+**Two classes do not run this loop** (David, 2026-09-25; the rule is in
+`claude-core.md`, *Two classes that leave the loop*). I still subscribe to
+them (step 1), and every Codex thread is still resolved, because the ruleset
+requires it.
+
+- **Trivial**, declared by David alone: no review requested of anyone. Read
+  Codex's automatic pass for a P1 only; a P1 holds the merge and goes to
+  David. Resolve each thread with one line citing his ruling, then merge on
+  green CI.
+- **Documentation**: one pass, `review-proxy.mjs --documentation --base
+  <merge-base> --round 1`, with the Fable assessor dispatched on the same
+  package (`--prompt-only --source fable`). Both are posted verbatim (step 3's
+  mechanics). I write one batch, resolve each Codex thread with one line saying
+  the class does not read it, and merge on green CI. No translation, no second
+  pass. The merge report says what the batch changed, in my words.
+
 ## The loop
 
 1. **Subscribe, immediately, on whatever tier the session is on** (David,
