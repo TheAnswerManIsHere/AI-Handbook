@@ -273,10 +273,27 @@ replaced them is step 5's proportionate-evidence rule.)
    one predicate and one `Otherwise` there is nothing left to restate, so
    nothing to restate wrong. (Codex, #143 round 1; both assessors, who also
    caught that the disposition paragraph below had escaped the predicate
-   entirely and so applied to every round.)
+   entirely and so applied to every round.) **A predicate may carry a
+   disjunct; what it may not do is grow a third bullet.** The review-loop
+   class is a disjunct *inside* the one predicate, asked first, and its
+   destination sits in the disposition where a destination is actually
+   decided. Written instead as a sibling bullet ahead of the two, it named no
+   round and changed no branch beneath it, so the reader either stopped at
+   round 1 with nothing corrected or read on and reached `Otherwise` and
+   close-out — neither of which is the ruling it was enacting. (Both
+   assessors, #154 round 1: three generations of this paragraph's bugs all
+   came of adding a predicate as new sibling text instead of into the one
+   stated predicate.)
 
-   - **Is this internal tooling AND its second review?** **Answer the first
-     half by asking what THIS CHANGE does and how recoverable it is** —
+   - **Is this its SECOND review, AND is it either a change to the review loop
+     itself OR internal tooling by consequence?** **Ask the review-loop half
+     first**: its answer does not depend on the other, and asking it first is
+     what keeps the consequence test from being consulted for that class at
+     all — a review-loop change the test would put *outside* the limit
+     otherwise falls through to `Otherwise` and writes another batch (Codex,
+     #153 round 1; both assessors, #154 round 1).
+     **Answer the internal half by asking what THIS CHANGE does and how
+     recoverable it is** —
      neither its directory nor the file's job title
      ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)).
      A change that governs approvals, publication, credentials or destructive
@@ -290,17 +307,26 @@ replaced them is step 5's proportionate-evidence rule.)
      route to the classification and not the only one, and its silence is not
      a classification. Reach is not consequence: "this changes how future
      agents work" disqualifies nothing, or every line in this repository would
-     be exempt. If this change is outside, the gate does not apply and the
-     loop continues under the Worth rule.
-     If yes — internal by consequence, and its second review — **write
-     nothing**; iteration is over. A batch written here would be a changed
-     head I am forbidden to request a review for, which is a pull request that
-     can neither merge nor move. (Codex, #140 round 2 — the ordering bug was
+     be exempt. If this change is outside **and** it does not change the
+     review loop, the gate does not apply and the loop continues under the
+     Worth rule.
+     If yes — its second review, and either a review-loop change or internal
+     by consequence — **write nothing**; iteration is over. A batch written
+     here would be a changed head I am forbidden to request a review for,
+     which is a pull request that can neither merge nor move. (Codex, #140 round 2 — the ordering bug was
      mine: this check sat in step 6, *after* the batching it exists to
      prevent.)
 
-     **Then, of that corrected head, ask the three questions that decide
-     whether it stops.** Ending iteration and declaring the work not ready are
+     **Then, of that corrected head, decide where it goes. If the diff
+     changes the review loop, it goes to David** — the findings, the declines
+     and all — for him to triage by hand. That is his ruling for the class
+     (2026-09-23) and it holds whichever way the consequence test fell, so
+     the three questions below are not asked of it: they choose between the
+     merge button and David, and for this class the answer is already David
+     ([`claude-core.md`](../../../.agents/core/claude-core.md#the-ship-gate-when-the-worth-rule-stops-being-asked-david-2026-09-19)).
+
+     **For every other change, ask the three questions that decide whether it
+     stops.** Ending iteration and declaring the work not ready are
      two different things. The limit's **"what ending iteration does NOT mean"**
      paragraph in [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) is the authority and
      the only statement of these three; they are enumerated here because this
@@ -321,9 +347,10 @@ replaced them is step 5's proportionate-evidence rule.)
      and this whole limit exists because he said the looping overhead was
      slowing him down.)
 
-   - **Otherwise** — a product-code pull request at any round, an internal
-     one's first review, or machinery the consequence test above puts outside
-     the limit at any round — everything being written for goes in one push, with
+   - **Otherwise** — any pull request's first review; and at any later round,
+     product code, or machinery the consequence test above puts outside the
+     limit, **the review loop excepted** — everything being written for goes
+     in one push, with
      the repo's own fast checks run first: lint, format, typecheck, the
      changed suites. One validated push beats three speculative ones, because
      each push costs a full round.
@@ -370,8 +397,8 @@ replaced them is step 5's proportionate-evidence rule.)
      on that reading). What is refused is re-requesting on a head already
      reviewed as it stands, to get a different answer. (Astra, 2026-09-19.)
    - **On internal tooling — judged by consequence, per step 4's gate and
-     [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) — the second review is the last
-     one I request.**
+     [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) — or on a pull request that
+     changes the review loop, the second review is the last one I request.**
      Step 4's gate is what enforces that, before anything is written; by the
      time a head exists here it is always reviewable. So this bullet has no
      decision left to make — it records the shape: round 1, one coherent
@@ -705,7 +732,9 @@ silently leaving the workstream unlabeled):
   verify, report — so `stage:merge` is normally a moment, not a resting
   state. There is no carve-out exception any more (David, 2026-09-14): a
   guardrail- or authority-widening PR merges the same way, with the latitude
-  it grants named in the report.
+  it grants named in the report. The one PR that does not is a change to the
+  review loop still carrying findings after its second review, which step 4
+  sends to David.
 - **The PR merges with a Post-merge verification section that has real
   content** → `stage:test-run`, `waiting:replit` — the lifecycle's own
   Test-run stage, between Merge and UAT, not a step to skip past. Per the
