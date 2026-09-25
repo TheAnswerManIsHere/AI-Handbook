@@ -1247,7 +1247,10 @@ afterwards.
   it as `$CODEX_BIN` throughout. `$CODEX_BIN login status` decides. Not
   signed in means `$CODEX_BIN login --device-auth </dev/null`, detached;
   then the URL and code to David as a 🛑 with a push notification **in the
-  same turn**, since the code expires in about fifteen minutes. The bundle lives in `$CODEX_HOME` for the container's
+  same turn**, since the code expires in about fifteen minutes. **The code
+  goes in a fenced code block of its own**, nothing else inside it, so he can
+  copy it with one tap; highlighting it in chat is hard on a phone (David,
+  2026-09-25). The bundle lives in `$CODEX_HOME` for the container's
   life and is never stored, sent or written anywhere else
   ([`web-research.md`](../../docs/ai-context/web-research.md)). No sign-in
   means the Astra review is reported as not run — never replaced by my
