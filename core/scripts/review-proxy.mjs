@@ -397,13 +397,14 @@ export function assessmentBrief({
   }
   // THE ORACLE IS REQUIRED (David, 2026-09-17): "we should officially agree on
   // an oracle before any round starts". Refusing here is what makes the
-  // agreement happen before the loop rather than being noticed after it. The PR
-  // body is my own prose and is never the oracle.
+  // agreement happen before the loop rather than being noticed after it. It is
+  // taken from where it was agreed, never from the PR body, whose verbatim copy
+  // for Codex is still the builder's prose.
   if (typeof oracle !== "string" || oracle.trim() === "") {
     throw new Error(
       "review-proxy: an oracle is required and must be agreed with David before the first round. It is the outcome " +
         "he agreed the work should achieve -- an approved plan, an issue discussion, or an explicit request -- " +
-        "recorded where it can be quoted. The PR body is the builder's own prose and is not an oracle.",
+        "recorded where it can be quoted. Pass it from there, not from the PR body: the body's copy is the builder's prose.",
     );
   }
   // A DOCUMENTATION PASS HAS NO REVIEWER FINDINGS, BY DESIGN (David,
