@@ -27,10 +27,10 @@
  * says so. Both directions fail: an unlinked payload entry, and a root link
  * that dangles or points outside the payload.
  *
- * NOT IN SCOPE: `.claude/settings.json`. Whether this repo installs the guard
- * hooks is an enrolment step and a change to the agent's own guardrails, which
- * is David's to merge rather than a check's to enforce -- and a check that
- * failed until it existed could not be merged to begin with.
+ * NOT IN SCOPE: `.claude/settings.json`. It is this repo's own file, adapted
+ * from the template rather than linked to it, so there is no wiring to check;
+ * whether its fields are ones Claude Code accepts is
+ * `check-settings-fields.mjs`'s job.
  *
  * Run:  node scripts/check-root-wiring.mjs
  */
