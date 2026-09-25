@@ -274,7 +274,9 @@ surface); `/bugfix` is the explicit override.
   review. **Tier A** ships a regression test, a blast-radius note, and the
   bugfix oracle in the PR body; **Tier B** (sensitive subsystem or structurally
   risky fix) I write myself — not routable to a subagent — and adds a UAT doc
-  if behavior is product-visible; **Tier C** means it isn't a bug fix. Codex
+  if behavior is product-visible; **Tier C** means it isn't a bug fix: it
+  stops and goes to David, and the one path that continues is a trivial
+  database schema fix he green-lights, straight to migration ceremony. Codex
   still reviews every bugfix diff. My enactment: `.claude/skills/bugfix/`.
 
 Both modes: pause and ask on genuine ambiguity (a "bug" that's really a
@@ -600,7 +602,10 @@ The loop:
 
 - **The oracle is agreed with David before the first round runs.** The script
   refuses to compose a package without one, which is what makes the agreement
-  happen up front. **My PR body is my own prose and is never the oracle.**
+  happen up front. **The assessors take it from where it was agreed — the
+  plan, the issue, David's words — never from my PR body.** The body carries
+  a verbatim copy for Codex (Pull requests rule 3), but a copy I wrote is my
+  prose, and a slip in it would reach both assessors unchecked.
 - **What happens next is what I state, in a `review-action` block.** Nothing
   parses an assessment, so no phrase in one can authorise work.
 - **A failed dispatch is not permission to proceed on one assessment alone.**
