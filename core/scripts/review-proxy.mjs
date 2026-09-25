@@ -195,6 +195,37 @@ const MIN_REVIEWED_COMMIT_CHARS = 7;
  * dispatch for the new head, and both are cheaper than advice about the wrong
  * code.
  */
+/**
+ * The commit a documentation pass is measured from: where the reviewed commit
+ * left `main`.
+ *
+ * DERIVED, NEVER TYPED (Codex `4101276882`, #161 round 1; both assessors). The
+ * repository and the reviewed commit already determine it, since every PR's
+ * base is `main`, and a typed value had two credible wrong forms that produce
+ * no error: `HEAD~1` on a multi-commit PR, and `origin/main` after `main` has
+ * moved, which a two-dot diff turns into the reverse of everything merged
+ * since. Either narrows the only review the class gets while the header
+ * records it as complete. It is computed from the COMMIT, not from HEAD, so
+ * the render path names the same range after the checkout has moved on.
+ *
+ * A base that cannot be computed is refused, never guessed: a control that
+ * cannot evaluate must refuse.
+ */
+export const DOCUMENTATION_BASE_REF = "origin/main";
+
+export function documentationBaseFor(root, reviewedCommit, { git = defaultGit } = {}) {
+  const r = git(["merge-base", DOCUMENTATION_BASE_REF, reviewedCommit.trim()], root);
+  const base = String(r?.stdout ?? "").trim();
+  if (r?.status !== 0 || !/^[0-9a-f]{7,40}$/.test(base)) {
+    throw new Error(
+      `review-proxy: cannot compute where ${reviewedCommit.trim()} left ${DOCUMENTATION_BASE_REF} ` +
+        `(git merge-base: ${String(r?.stderr ?? "").trim() || `exit ${r?.status}`}). Fetch main ` +
+        "(`git fetch origin main`) and try again; a documentation pass is never run on a guessed range.",
+    );
+  }
+  return base;
+}
+
 export function assertCheckout(root, reviewedCommit, { git = defaultGit } = {}) {
   const head = git(["rev-parse", "HEAD"], root);
   if (head.status !== 0) {
@@ -385,7 +416,7 @@ export function assessmentBrief({
   const documentation = documentationBase !== null;
   if (documentation) {
     if (typeof documentationBase !== "string" || documentationBase.trim() === "") {
-      throw new Error("review-proxy: a documentation pass needs the base the change is measured from (--base <sha>)");
+      throw new Error("review-proxy: a documentation pass needs the commit the change is measured from (documentationBaseFor derives it)");
     }
     if (Array.isArray(findings) && findings.length) {
       throw new Error(
@@ -837,10 +868,11 @@ export const USAGE = [
   "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   "",
   "  Documentation pass (the Documentation review class: no reviewer findings, one pass):",
-  `    node ${INVOCATION} --pr <n> --round 1 --commit <sha> --tier internal --documentation --base <sha> \\`,
+  `    node ${INVOCATION} --pr <n> --round 1 --commit <sha> --tier internal --documentation \\`,
   "        --oracle-file <path> [--history-file <path.json>] [--note <text>]",
-  "                  Both assessors read the diff --base..--commit against the oracle. There is no",
-  "                  follow-up in this class and no --findings-file: Codex's output is not part of it.",
+  `                  Both assessors read the diff from where --commit left ${DOCUMENTATION_BASE_REF} (derived,`,
+  "                  never typed) against the oracle. There is no follow-up in this class and no",
+  "                  --findings-file: Codex's output is not part of it.",
   "",
   "  Focused follow-up (same revision, no new commit, no new Codex round):",
   `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\`,
@@ -891,7 +923,6 @@ const FLAGS = {
   render: "render",
   source: "source",
   documentation: "documentation",
-  base: "base",
 };
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
@@ -979,24 +1010,24 @@ export function main(
   // fable --prompt-only` is meaningful, because this script runs the Codex CLI
   // and nothing else -- the subagent is dispatched by the harness.
   const source = flags.source ?? "astra";
-  // THE DOCUMENTATION CLASS, CHECKED ONCE FOR EVERY PATH. `--base` means
-  // nothing without it, and it has no follow-up: the class is one pass and one
-  // batch (David, 2026-09-25), so a follow-up flag here is a caller running the
-  // code-review loop by mistake.
+  // THE DOCUMENTATION CLASS, CHECKED ONCE FOR EVERY PATH. It has no
+  // follow-up: the class is one pass and one batch (David, 2026-09-25), so a
+  // follow-up flag here is a caller running the code-review loop by mistake.
+  // Its base is derived here, once, for compose and render alike.
   const documentation = Boolean(flags.documentation);
-  if (documentation && (typeof flags.base !== "string" || flags.base.trim() === "")) {
-    log(`review-proxy: --documentation needs --base <sha>, the commit the change is measured from\n\n${USAGE}`);
-    return 2;
-  }
-  if (!documentation && flags.base != null) {
-    log(`review-proxy: --base belongs to --documentation\n\n${USAGE}`);
-    return 2;
-  }
   if (documentation && followUp) {
     log(`review-proxy: the Documentation class is one pass and one batch; it has no follow-up\n\n${USAGE}`);
     return 2;
   }
-  const documentationBase = documentation ? flags.base.trim() : null;
+  let documentationBase = null;
+  if (documentation) {
+    try {
+      documentationBase = documentationBaseFor(root, flags.commit, { git });
+    } catch (err) {
+      log(err.message);
+      return 2;
+    }
+  }
   // RENDERING IS NOT DISPATCHING, so it is answered before every guard that
   // belongs to composing a package: it needs no oracle, no findings and no
   // tier, because the assessment it renders already exists.

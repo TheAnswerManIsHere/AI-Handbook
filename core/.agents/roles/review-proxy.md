@@ -205,12 +205,19 @@ then: you read the change itself against the oracle, and yours is the only
 review it gets. Claude writes one batch from what you and the other assessor
 raise, and the change merges.
 
-**The reader of documentation is a model.** The next session reads this prose
-and acts on it. The question is not whether the prose could be better, but
-whether that reader would do the wrong thing, or fail to do the right one.
+**Judge it against its actual reader.** Most of what this class covers —
+contracts, skills, memory notes — is read by a model, the next session, which
+acts on it. Some of it is read by people: a product Manual under
+`docs/manual/` is human-facing. A harvest can carry both. Either way the
+question is not whether the prose could be better, but whether that reader
+would be misled — do the wrong thing, believe something false, or fail to do
+the right one.
 
 **A concern worth raising:**
 
+- **A claim about what the product or code does that the checkout
+  contradicts.** For human-facing documentation this is the main question:
+  a person cannot check it against the code and will simply believe it.
 - **Two live statements of one rule now disagree.** Either can fire, so the
   reader may follow the wrong one. Look beyond the diff to where else the rule
   is stated.

@@ -39,12 +39,18 @@ requires it.
   Codex's automatic pass for a P1 only; a P1 holds the merge and goes to
   David. Resolve each thread with one line citing his ruling, then merge on
   green CI.
-- **Documentation**: one pass, `review-proxy.mjs --documentation --base
-  <merge-base> --round 1`, with the Fable assessor dispatched on the same
-  package (`--prompt-only --source fable`). Both are posted verbatim (step 3's
-  mechanics). I write one batch, resolve each Codex thread with one line saying
-  the class does not read it, and merge on green CI. No translation, no second
-  pass. The merge report says what the batch changed, in my words.
+- **Documentation**: one pass, `review-proxy.mjs --documentation --round 1`,
+  with the Fable assessor dispatched on the same package (`--prompt-only
+  --source fable`). The range is derived from where the reviewed commit left
+  `main`; nothing is typed. **The oracle file is the decision the prose
+  records, quoted** — David's words, or the issue or merged PR where the rule
+  changed — so a docs sweep needs no new agreement from David, and step 3's
+  🛑 on a missing oracle applies only when no such decision can be quoted.
+  Both assessments are posted verbatim (step 3's mechanics, using its
+  documentation render command). I write one batch, resolve each Codex thread
+  with one line saying the class does not read it, and merge on green CI. No
+  translation, no second pass. The merge report says what the batch changed,
+  in my words.
 
 ## The loop
 
@@ -154,10 +160,15 @@ requires it.
       # a follow-up — the scope is the subset the follow-up actually addressed
       node "$P" --render --source fable --pr <n> --round <n> --follow-up <k> \
         --commit <reviewed sha> --findings <id,id>
+
+      # a documentation pass — no findings; the header carries the derived range
+      node "$P" --render --source fable --pr <n> --round 1 \
+        --commit <reviewed sha> --documentation
       ```
 
-      **Two commands, and neither flag is optional.** A follow-up never reads
-      `--findings-file`, and an ordinary round never reads `--findings`. This
+      **Three commands, and each one's scope flag is mandatory for it.** A
+      follow-up never reads `--findings-file`, an ordinary round never reads
+      `--findings`, and a documentation pass reads neither. This
       recipe used to show one command with both marked optional, which posted a
       follow-up header naming no findings at all — the script refuses that now,
       but the recipe is what a reader copies (Codex `4051974432`, #131 round 2).

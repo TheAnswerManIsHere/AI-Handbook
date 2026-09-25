@@ -46,6 +46,7 @@ import {
   parseArgs,
   main,
   USAGE,
+  documentationBaseFor,
 } from "../review-proxy.mjs";
 
 const PR = 120;
@@ -1198,7 +1199,7 @@ test("a documentation pass sends the change itself to both assessors, and no rev
 
 test("a documentation pass refuses reviewer findings rather than silently dropping them", () => {
   assert.throws(() => brief({ documentationBase: BASE }), /not part of this class/);
-  assert.throws(() => brief({ findings: [], documentationBase: "  " }), /needs the base/);
+  assert.throws(() => brief({ findings: [], documentationBase: "  " }), /needs the commit the change is measured from/);
 });
 
 test("the brief carries the documentation rules both assessors apply", () => {
@@ -1206,31 +1207,46 @@ test("the brief carries the documentation rules both assessors apply", () => {
   assert.match(text, /^## When the change is documentation$/m);
 });
 
-test("the CLI's documentation flags travel together, and the class has no follow-up", () => {
+/** A git that also answers merge-base, for the documentation class. */
+const docGit = (base = BASE) => (args) =>
+  args[0] === "merge-base" ? { status: 0, stdout: `${base}\n`, stderr: "" } : cleanGit()(args);
+
+test("the documentation base is derived from the reviewed commit, and refused when it cannot be", () => {
+  const seen = [];
+  const git = (args) => (seen.push(args), { status: 0, stdout: `${FULL}\n`, stderr: "" });
+  assert.equal(documentationBaseFor("/r", COMMIT, { git }), FULL);
+  assert.deepEqual(seen, [["merge-base", "origin/main", COMMIT]], "derived from the commit, not HEAD");
+  assert.throws(
+    () => documentationBaseFor("/r", COMMIT, { git: () => ({ status: 128, stdout: "", stderr: "fatal: Not a valid object name origin/main" }) }),
+    /never run on a guessed range/,
+  );
+  assert.throws(() => documentationBaseFor("/r", COMMIT, { git: () => ({ status: 0, stdout: "\n", stderr: "" }) }), /cannot compute/);
+});
+
+test("the CLI takes no base, and the class has no follow-up", () => {
   const root = tmpRoot();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-doc-"));
   const oracle = path.join(dir, "o.md");
   fs.writeFileSync(oracle, "ORACLE");
   const findingsFile = path.join(dir, "f.json");
   fs.writeFileSync(findingsFile, JSON.stringify([{ id: "c1", body: "b" }]));
-  const base = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle];
-  const opts = { root, run: () => assert.fail("nothing may run"), git: cleanGit(), log: () => {} };
-  assert.equal(main([...base, "--documentation"], opts), 2, "--documentation without --base");
-  assert.equal(main([...base, "--base", BASE], opts), 2, "--base without --documentation");
-  assert.equal(main([...base, "--documentation", "--base", BASE, "--follow-up", "1"], opts), 2, "follow-up");
-  assert.equal(main([...base, "--documentation", "--base", BASE, "--findings-file", findingsFile, "--prompt-only"], opts), 2, "findings");
+  const argv = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle];
+  const opts = { root, run: () => assert.fail("nothing may run"), git: docGit(), log: () => {} };
+  assert.equal(main([...argv, "--documentation", "--base", BASE, "--prompt-only"], opts), 2, "--base is not a flag");
+  assert.equal(main([...argv, "--documentation", "--follow-up", "1"], opts), 2, "follow-up");
+  assert.equal(main([...argv, "--documentation", "--findings-file", findingsFile, "--prompt-only"], opts), 2, "findings");
   let printed = "";
   const stdout = process.stdout.write;
   process.stdout.write = (chunk) => ((printed += chunk), true);
   try {
-    assert.equal(main([...base, "--documentation", "--base", BASE, "--prompt-only", "--source", "fable"], opts), 0);
+    assert.equal(main([...argv, "--documentation", "--prompt-only", "--source", "fable"], opts), 0);
   } finally {
     process.stdout.write = stdout;
   }
-  assert.match(printed, /A documentation pass/);
+  assert.ok(printed.includes(`git diff ${BASE}..${COMMIT}`), "the derived range is not the one the assessors are told to read");
 });
 
-test("a documentation assessment renders with its range in the header and no findings flag", () => {
+test("a documentation assessment renders with its derived range in the header and no findings flag", () => {
   const root = tmpRoot();
   fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "astra" }), "Oracle met at this head: yes\n\nNo concerns.");
   let out = "";
@@ -1238,9 +1254,10 @@ test("a documentation assessment renders with its range in the header and no fin
   process.stdout.write = (chunk) => ((out += chunk), true);
   let code;
   try {
-    code = main(["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--documentation", "--base", BASE], {
+    code = main(["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--documentation"], {
       root,
       io: pinIo(root),
+      git: docGit(),
       log: () => {},
     });
   } finally {

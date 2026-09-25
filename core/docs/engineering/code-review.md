@@ -164,6 +164,12 @@ style nit.
 
 ### Documentation-only PRs get a light review (David, 2026-08-08)
 
+**Most documentation PRs no longer get a Codex review at all.** Since
+2026-09-25 they are the **Documentation class**: one Astra and Fable pass over
+the change, Codex's output not read, one batch, merge ([`working-modes.md`](../ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25), the rule's
+home). What follows is the bar for a docs-only PR that stays in the standard
+loop — one that changes the review loop or an agent's latitude.
+
 When a PR changes only documentation — UAT docs, `docs/ai-context/`,
 `docs/engineering/`, skills, READMEs, the manual — the review bar drops to:
 **is it generally correct, with no glaring issues?** A glaring issue means an
@@ -204,7 +210,9 @@ longer apply.
 **Internal tooling: the depth is lighter, and how long it loops is not this
 file's to say (David, 2026-09-19).** Guards, `scripts/`, skills, agent
 contracts, process docs and documentation harvests are reviewed by the
-automatic pass when the PR opens, and a clean pass ships. Iteration beyond
+automatic pass when the PR opens, and a clean pass ships — except the prose
+among them that is the Documentation class, and anything David declares
+Trivial, which leave this loop ([`working-modes.md`](../ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)). Iteration beyond
 that is bounded by the **two-review limit** in
 [`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19) — review, one
 batch of corrections, review, stop — and every changed head still gets its

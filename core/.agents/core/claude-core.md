@@ -385,43 +385,28 @@ never in question.** Everything below governs what may be layered on top.
 
 ### Two classes that leave the loop: Trivial and Documentation (David, 2026-09-25)
 
-Everything else in this section is the **standard** loop. Two classes step
-outside it, and each is an exception to the rules below by name — the
-write-gate, shared judgement, translation and the close-out bar — rather than
-a reading of them.
+The rule and David's reasons live in
+[`working-modes.md`](../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25);
+this is my enactment. Everything else in this section is the **standard**
+loop, and each of its rules below — the write-gate, shared judgement, review
+rule 4's "any changed head gets its review", translation and the close-out bar
+— applies to the standard loop only.
 
-**Trivial: "just do it."** **Only David declares it**, in words, for a
-specific change; I never assign it, and the PR body quotes his words. I make
-the change, request no review of any kind — no Astra, no Fable, no
-translation, no Codex round — and merge when CI is green. Codex's automatic
-pass on PR-open still runs, and I read it for one thing only: **a P1 holds the
-merge and goes to David** with what it says, and I do nothing further until he
-answers. Anything below P1 is not acted on. Each Codex thread is resolved with
-one line saying the change is Trivial by David's ruling, because the `main`
-ruleset will not merge with a thread open. David's reason: *"I might be wrong
-but I need that lever to pull when I want quick changes."*
-
-**Documentation: one Astra and Fable pass, and no Codex.** For a change whose
-substance is prose that agents read — contracts, skills, memory notes, docs
-sweeps, harvests. Both assessors read the change itself against its intent
-(`review-proxy.mjs --documentation`), under the brief's own section on
-documentation; I write one batch from what they raise and merge on green CI.
-**Codex's output is not read and not fed to them**: its threads are resolved
-with one line saying so. The batch is not reviewed again, and the merge report
-carries my own plain-English account of what it changed. David's reason: Codex
-reviews prose adversarially, marks a word choice P1, and the loop then builds
-fixes and guards for it, while Astra and Fable judge prose better. **It is a
-trial**: after five Documentation PRs, David and I look at whether the pass
-caught the class that matters most in prose — two live statements of one rule
-that disagree — without Codex. If it did, Codex was pure cost here; if not,
-the cheap repair is to hand its output to the assessors as one input, not to
-put it back in charge.
-
-**Neither class covers** a change to a script, a check, CI, a setting, a
-permission or an agent role's definition, or one granting me latitude, unless
-David has declared that specific change Trivial. Those stay in the standard
-loop, and so does any PR that changes the review loop itself — including the
-one that wrote this section.
+- **Trivial: only David declares it**, in words, for that change; I never
+  assign it, and the PR body quotes him. I request no review of any kind and
+  merge on green CI. Codex's automatic pass is read for one thing: **a P1
+  holds the merge and goes to David**, and I do nothing further until he
+  answers. Each Codex thread is resolved with one line citing his ruling.
+- **Documentation: one Astra and Fable pass, and no Codex.** For prose:
+  contracts, skills, memory notes, docs sweeps, harvests, Manual chapters.
+  `review-proxy.mjs --documentation`, with the oracle being **the decision the
+  prose records, quoted**. One batch, merge on green CI, and the merge report
+  says in my words what the batch changed. Codex's threads are resolved with
+  one line saying the class does not read them. **A trial of five PRs**, then
+  David and I look at whether it caught contradictions without Codex.
+- **Neither covers** a script, a check, CI, a setting, a permission, an agent
+  role's definition, latitude for me, or the review loop itself — unless David
+  declares that specific change Trivial.
 
 ### The write-gate rule (David, 2026-08-22) — every tier
 
@@ -582,7 +567,8 @@ would have been capped at two reviews by the exception written to prevent
 exactly that.) Everything that is genuinely routine and recoverable — which is
 nearly all of it — stays internal:
 
-- **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
+- **A clean automatic pass is the whole ceremony** (standard loop; Trivial and
+  Documentation are outside it, above). Round 1 fires on PR-open;
   finding nothing, there is nothing to assess and no receipt to write —
   nothing was written, so the head is already reviewed.
 - **Every finding is judged on what it is worth, and the tier says what is
@@ -705,7 +691,9 @@ in the file that every session loads.
    never be reviewed and never merge, or had to acquire an unnecessary change
    to buy the round — #125's two-sentence fix waited a week on exactly that.
    **Any changed head gets its review**, documentation-only changes and
-   base-branch merges included; what is refused is asking again on a head
+   base-branch merges included — in the standard loop; a Trivial change gets
+   none and a Documentation batch merges unreviewed, by design (*Two classes
+   that leave the loop*, above). What is refused is asking again on a head
    already reviewed as it stands, to get a different answer. The mechanical
    round needs no exception now, because it was never the anomaly — the old
    rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
