@@ -309,7 +309,7 @@ to worry about strange links."*)
    | `model` | The template pins `opus`. Keep it for a repo whose sessions mostly write payload or product code; a repo that is mostly prose or ops should set its own default rather than inherit this one. |
    | `env.DATABASE_URL` | Point it at the repo's own test database, or drop the key entirely until the repo has one. |
    | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. The dotenv read-deny applies everywhere; keep it. **This block is why the unrecognised-field check still exists**: a refused settings file applies none of its contents, so a stray key here silently un-denies the command that can rewrite a live schema. |
-   | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The three spellings of the remote server are listed **on purpose**: the id varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. |
+   | `permissions.allow` | The MCP server id in the first block is per-environment and will differ. The remote server's name varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. The template seeds the **two** stable spellings (`mcp__Claude_Code_Remote__` and `mcp__claude-code-remote__`); a third, the per-environment server id, differs per environment and is the one a repo adds for itself. |
 
    **There is no `hooks` block to adapt.** The template carried three
    `PreToolUse` guard hooks until the #89 cut; they are gone, and `hooks` is no
