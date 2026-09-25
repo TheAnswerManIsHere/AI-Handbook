@@ -383,9 +383,35 @@ never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
 **Codex review of PRODUCT code is David's safety net. That is the one thing
 never in question.** Everything below governs what may be layered on top.
 
+### Two classes that leave the loop: Trivial and Documentation (David, 2026-09-25)
+
+The rule and David's reasons live in
+[`working-modes.md`](../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25);
+this is my enactment. Everything else in this section is the **standard**
+loop, and each of its rules below — the write-gate, shared judgement, review
+rule 4's "any changed head gets its review", translation and the close-out bar
+— applies to the standard loop only.
+
+- **Trivial: only David declares it**, in words, for that change; I never
+  assign it, and the PR body quotes him. I request no review of any kind and
+  merge on green CI. Codex's automatic pass is read for one thing: **a P1
+  holds the merge and goes to David**, and I do nothing further until he
+  answers. Each Codex thread is resolved with one line citing his ruling.
+- **Documentation: one Astra and Fable pass, and no Codex.** For prose:
+  contracts, skills, memory notes, docs sweeps, harvests, Manual chapters.
+  `review-proxy.mjs --documentation`, with the oracle being **the decision the
+  prose records, quoted**. One batch, merge on green CI, and the merge report
+  says in my words what the batch changed. Codex's threads are resolved with
+  one line saying the class does not read them. **A trial of five PRs**, then
+  David and I look at whether it caught contradictions without Codex.
+- **Neither covers** a script, a check, CI, a setting, a permission, an agent
+  role's definition, latitude for me, or the review loop itself — unless David
+  declares that specific change Trivial.
+
 ### The write-gate rule (David, 2026-08-22) — every tier
 
-**If code was written, it gets reviewed. The loop stops when the judgement is
+(Trivial and Documentation are outside it, above.) **If code was written, it
+gets reviewed. The loop stops when the judgement is
 that nothing more is worth writing, never after a push.** Stated as the
 sequence: a round returns findings → the judgement is made, *write* or *stop*
 → if write, the fixes are pushed and **another review round is automatic and
@@ -541,7 +567,8 @@ would have been capped at two reviews by the exception written to prevent
 exactly that.) Everything that is genuinely routine and recoverable — which is
 nearly all of it — stays internal:
 
-- **A clean automatic pass is the whole ceremony.** Round 1 fires on PR-open;
+- **A clean automatic pass is the whole ceremony** (standard loop; Trivial and
+  Documentation are outside it, above). Round 1 fires on PR-open;
   finding nothing, there is nothing to assess and no receipt to write —
   nothing was written, so the head is already reviewed.
 - **Every finding is judged on what it is worth, and the tier says what is
@@ -664,7 +691,9 @@ in the file that every session loads.
    never be reviewed and never merge, or had to acquire an unnecessary change
    to buy the round — #125's two-sentence fix waited a week on exactly that.
    **Any changed head gets its review**, documentation-only changes and
-   base-branch merges included; what is refused is asking again on a head
+   base-branch merges included — in the standard loop; a Trivial change gets
+   none and a Documentation batch merges unreviewed, by design (*Two classes
+   that leave the loop*, above). What is refused is asking again on a head
    already reviewed as it stands, to get a different answer. The mechanical
    round needs no exception now, because it was never the anomaly — the old
    rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
@@ -732,7 +761,7 @@ reading has caught things — on #131 both of the translator's real
 disagreements came on rounds carrying a decline, and one was a defect no
 assessor had found. A round where I wrote for every finding has less to catch
 and costs the same, and four translations on #131 were the single largest
-token line in the loop. **The last round before a merge is always translated**,
+token line in the loop. **In the standard loop, the last round before a merge is always translated**,
 whatever its shape, so nothing merges unaccounted. The translation reads the
 round itself — findings, my replies, the diff — not my account of it, and
 comes **after** the trigger is posted, never before: a translation I could act
@@ -798,7 +827,10 @@ design. Mechanics:
    digest (an in-session plan is never committed, so the digest is what pins
    the text David approved); the issue where the scope was agreed in
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
-   or `trivial`, for the "n/a — no plan" change rule 3 allows. Nothing parses it — it points
+   or `no plan`, for the "n/a — no plan" change rule 3 allows. (It read
+   `trivial` until 2026-09-25, when Trivial became a review class David alone
+   declares; one word meaning two things is how a label starts granting what it
+   only described.) Nothing parses it — it points
    a reviewer at the oracle, and rule 3 is what carries it. (David,
    2026-09-25, #103: the fenced `plan-provenance` block, its parser and its
    format document are retired. Nothing had read the block at runtime since
@@ -827,7 +859,11 @@ can click. Production is a separate, explicitly-asked `publish_app`.
 **The bar: CI green + Codex review returned for the head commit + every thread
 resolved + the translations that were owed delivered** (every decline round,
 plus the last round before the merge). That is the whole bar, for
-product and internal PRs alike. CI and Codex catch *broken*; David's UAT
+product and internal PRs alike — except the two classes that leave the loop
+(*Review loops*, above): a **Trivial** PR merges on green CI and resolved
+threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
+on green CI, resolved threads and its one assessed batch, with no Codex review
+and no translation owed. CI and Codex catch *broken*; David's UAT
 catches *wrong*, after the sync.
 
 **No receipt proves any of the four now** — `pr-ready.mjs` went with the #89
@@ -836,7 +872,9 @@ GitHub UI and checked the bar by eye). All four are reads I do. The one item
 GitHub itself enforces is *every thread resolved*: the `main` ruleset requires
 conversation resolution, so the Merge button is inert while a thread is open.
 
-- **Every PR gets a Codex review and none merges before it returns.** A round I
+- **Every PR in the standard loop gets a Codex review and none merges before
+  it returns** (Trivial waits only for the automatic pass, to catch a P1;
+  Documentation waits for none). A round I
   requested but haven't received is not convergence. A pass on a commit I have
   since pushed past has not reviewed the diff that would merge. What counts as
   the review returning is the `**Reviewed commit:**` announcement — or, on a
