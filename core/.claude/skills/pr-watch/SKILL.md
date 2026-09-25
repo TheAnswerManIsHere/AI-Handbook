@@ -732,7 +732,9 @@ silently leaving the workstream unlabeled):
   verify, report — so `stage:merge` is normally a moment, not a resting
   state. There is no carve-out exception any more (David, 2026-09-14): a
   guardrail- or authority-widening PR merges the same way, with the latitude
-  it grants named in the report.
+  it grants named in the report. The one PR that does not is a change to the
+  review loop still carrying findings after its second review, which step 4
+  sends to David.
 - **The PR merges with a Post-merge verification section that has real
   content** → `stage:test-run`, `waiting:replit` — the lifecycle's own
   Test-run stage, between Merge and UAT, not a step to skip past. Per the

@@ -158,9 +158,9 @@ recoverability, whatever directory it sits in, and that can put it outside the
 cap — where a recommendation to write again is actionable. **A pull request
 that changes the review loop itself is the one exception in the other
 direction**: it is capped at two reviews whichever way the consequence test
-falls, and its result goes to David to triage by hand rather than to the merge
-button (his ruling, 2026-09-23), so a recommendation to write again is not
-actionable there either. (This
+falls, and when its second review returns findings the result goes to David
+to triage by hand rather than to the merge button (his ruling, 2026-09-23), so
+a recommendation to write again is not actionable there either. (This
 said "the two-review limit above" until 2026-09-23. It pointed at nothing:
 this file's other statement of the limit is below, not above, and the
 dispatch package never places the limit ahead of this brief either.) **A clean reviewer round does not erase an

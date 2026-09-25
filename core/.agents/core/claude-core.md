@@ -458,15 +458,19 @@ pull request runs. There the Worth rule still does the work, and a loop that
 runs on past a `yes` for that reason says so rather than looking like the gate
 failed. (Named on #134 round 1 by both assessors, from the inside.)
 
-**And such a pull request comes to David rather than to the merge button**
-(David, 2026-09-23). **This is his ruling for that class, not a reading of the
-consequence test** — the review loop is machinery governing approvals, so the
-home's test
+**And such a pull request, once its second review returns findings, comes to
+David rather than to the merge button** (David, 2026-09-23). **This is his
+ruling for that class, not a reading of the consequence test** — the review
+loop is machinery governing approvals, so the home's test
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) could
 well put a change to it outside the limit and buy it further rounds. He capped
-it at two anyway and takes the result himself: the reviews run, and the
-findings, declines and all go to him to triage by hand, rather than my judging
-the stop alone on the one artifact whose blast radius is every future loop.
+it at two anyway and takes the result himself: the findings, declines and all
+go to him to triage by hand, rather than my judging the stop alone on the one
+artifact whose blast radius is every future loop. **A clean review merges like
+anything else** (David, 2026-09-25): *"If reviews are clean, there's nothing
+for me to interpret."* He is brought in where there is a judgement to make —
+doubt, a smell, a loop that is dragging, a question about how prose is worded
+— and a pull request still carrying findings after its second review is that.
 **This binds whether or not the consequence test would have exempted the
 change** — the enactment asks it before the ordinary gate, not after (Codex,
 #153 round 1: the `Otherwise` branch sent an outside-the-limit change to the
@@ -890,7 +894,10 @@ guardrail-and-authority carve-out: the click was never once withheld and cost
 a round trip every time, the safety net is his working beside me and noticing,
 and everything here is reversible). A change to `.claude/settings.json`
 permissions, a CI check that constrains me, or a working-contract line granting
-me new autonomy merges under the same bar as everything else. **What replaces the gate is visibility, not another gate:**
+me new autonomy merges under the same bar as everything else. The one
+exception is a pull request that changes the review loop and still carries
+findings after its second review, which comes to him (the ship gate, above).
+**What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
 change grants me, so a widening is read rather than clicked. Unaffected: the
 harness classifier that refuses my in-place edits to guard files, which is the
