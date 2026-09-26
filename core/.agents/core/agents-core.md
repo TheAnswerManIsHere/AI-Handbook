@@ -50,7 +50,12 @@ signal you are in feature mode. (Claude routes by request shape with an
 announced, vetoable classification — see the mode-entry section of
 working-modes.md.) Read
 [`docs/ai-context/working-modes.md`](../../docs/ai-context/working-modes.md) for the full
-contract of each and how to switch between them.
+contract of each and how to switch between them. **A feature also has a
+phase, prototype or production, declared per feature in this repo's
+`docs/ai-context/overlay-declarations.md`** (David, 2026-09-26): a change
+touching only prototype-phase features is outside every review loop, and a
+change touching any production-phase feature is in the standard loop for the
+whole PR. The rule is working-modes.md, *The prototype phase, per feature*.
 
 **End-of-feature documentation.** Follow
 [`docs/ai-context/documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).

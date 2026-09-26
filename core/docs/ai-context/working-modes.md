@@ -642,6 +642,68 @@ permission or an agent role's definition, or one granting an agent latitude,
 unless David has declared that specific change Trivial. Those stay in the
 standard loop, and so does any change to the review loop itself.
 
+#### The prototype phase, per feature (David, 2026-09-26)
+
+**The feature is the primitive, not the repository.** Every product feature
+is in one of two phases, **prototype** or **production**, and the phase
+decides how much of this contract applies to a change to it. A new product
+starts with every feature in prototype phase: *"everything is technically a
+prototype until we've locked in some decisions."* A repository never flips as
+a whole; features flip one at a time, and a repo carrying both phases is the
+normal case, not a transition.
+
+**Where the phase is recorded.** The consumer repo's
+`docs/ai-context/overlay-declarations.md` carries a *Feature phases* section:
+one entry per feature, its phase, the date it last changed, and — while it is
+in prototype phase — a running one-line-per-item **ledger of the shortcuts
+taken** (state held in memory, no auth on a route, a secret in an environment
+variable, an input never validated). A feature not listed is in
+**production** phase: the safe failure is more ceremony, never less.
+
+**What prototype phase removes.** For a PR that touches only prototype-phase
+features: no plan document, no plan-review loop, no scope-of-work gate, no
+review loop of any kind (no requested Codex round, no shared judgement, no
+translation), no tests, no `/simplify`, and none of security, performance,
+observability or documentation as a bar — *"We must not care about security,
+performance, observability, documentation, etc. until we've locked a design
+and the feature spec."* The PR is opened and merged by the same agent in the
+same turn, on green CI. Codex's automatic pass on PR-open still runs and is
+**read for nothing**: each of its threads is resolved with one line naming
+this phase, and no finding on a prototype-phase feature starts a fix. **The
+only feedback that changes a prototype is the product owner's**, about how it
+feels to use, gathered the way the `prototype` skill describes. **Publishing
+is never part of this**: the agent merges to `main` and stops; David decides
+every publish (*"I'm the one who will decide when we publish"*), tests in the
+development environment himself, and hands the link to the user when he is
+ready.
+
+**What it does not remove.** The phase is a property of product features. The
+repository's machinery — CI, settings, permissions, the vendored handbook
+payload, an agent role's definition — has no phase and stays in the standard
+loop or the two classes above. A PR that touches **any** production-phase
+feature is in the standard loop for the **whole** PR: the stricter rule wins,
+because a mixed PR is exactly where a prototype shortcut reaches production
+code unread.
+
+**The flip is David's, per feature, in words.** No trigger fires it and no
+agent infers it: *"I know when we've gotten to a place where the prototype
+switches to a real product. You and I will be talking about this
+constantly."* When he declares a feature production, its ledger becomes the
+scope of the first production PR — the hardening increment — and that PR runs
+in the standard loop with the ledger as its oracle. The ledger exists so that
+this increment is a list to work through rather than an archaeology of the
+code; it costs a sentence at the moment a shortcut is taken. (An observable
+trigger — the first time the user's real work exists only in the product —
+was proposed and declined; the dissent is recorded so the next session does
+not re-raise it.)
+
+**Why this is a phase and not a place.** The earlier design put prototypes in
+a separate repository and Repl so that unreviewed code never sat beside
+reviewed `main`. That protects something only when `main` has users, data or
+money behind it, and a new product has none; it would also have built the
+product's own infrastructure twice. Isolation returns as the right answer for
+a product with live users, which is not designed here and is not needed yet.
+
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
 **Every tier**, in the standard loop (not the two classes above). The judgement happens *before* code is written, not after it is

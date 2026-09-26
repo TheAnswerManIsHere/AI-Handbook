@@ -413,6 +413,14 @@ rule 4's "any changed head gets its review", translation and the close-out bar
 - **Neither covers** a script, a check, CI, a setting, a permission, an agent
   role's definition, latitude for me, or the review loop itself — unless David
   declares that specific change Trivial.
+- **A third exemption is a phase, not a class** (David, 2026-09-26): a product
+  feature in **prototype phase**, declared per feature in the consumer's
+  `overlay-declarations.md`, gets no plan, no loop, no tests and no hardening
+  bar until David declares it production, and Codex's automatic pass on it is
+  read for nothing. Any production-phase feature in the same PR puts the whole
+  PR in the standard loop. The rule is
+  [`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26);
+  my enactment is the `prototype` skill. Publishing stays David's, every time.
 
 ### The write-gate rule (David, 2026-08-22) — every tier
 

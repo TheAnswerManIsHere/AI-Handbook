@@ -209,7 +209,7 @@ to worry about strange links."*)
    **Write `docs/ai-context/overlay-declarations.md` as part of this step.** It
    is the one consumer document the payload *dereferences* rather than merely
    links to, and it is the easiest to skip because **nothing complains when it
-   is missing.** The shared rules ask this repo four questions — in
+   is missing.** The shared rules ask this repo five questions — in
    `agents-core.md` as well as `claude-core.md`, so this binds Codex too — and
    each replaced a hardcoded answer naming one product's modules:
 
