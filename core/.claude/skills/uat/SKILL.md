@@ -373,8 +373,10 @@ Then, in one edit:
   `stage:close-out`, with that item named in the State of Play.
 - **If this workstream is a phase sub-issue and the verdict reached
   close-out, do the parent edits too** — tick this phase's line in the
-  parent's Phases checklist, re-point the parent's `waiting:`, and move the
-  parent to `stage:close-out` if this was the last phase. `pr-watch`
+  parent's Phases checklist, re-point the parent's `waiting:`, and if this
+  was the last phase, move the parent to `stage:close-out` and close it out
+  in the same pass under the same shared rule (its own State of Play items,
+  `stage:done`, closed naming the phase PRs, or held with a named item). `pr-watch`
   normally owns those edits at the moment a phase reaches `stage:close-out`,
   but it finished when the PR merged and nothing wakes it again — so if I
   skip them, nothing performs them and `/next` keeps treating a finished

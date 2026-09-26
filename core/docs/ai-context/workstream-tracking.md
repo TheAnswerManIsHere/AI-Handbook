@@ -112,7 +112,8 @@ toggle on the active phase's PR, not just at that phase's close-out, so the
 parent never displays a stale holder mid-review. When no phase is active
 but phases remain, the parent is `waiting:claude` — that's an unstarted
 next phase, which is work, not a resting state. Once every phase is
-checked off, the parent moves straight to `stage:close-out` — there is no
+checked off, the parent moves straight to `stage:close-out` and is closed
+out in the same pass (*Closing an issue*, below) — there is no
 separate whole-feature UAT stage to pass through first, since per-phase UAT
 already verified the feature as it shipped.
 
@@ -359,8 +360,8 @@ work it's already doing — not as a separate reminder to go check the board:
 | A phase starts (every phase, including the first) | the product implementation skill | Opens that phase's sub-issue with its own full label set, links it under the parent, updates the checklist line from `not yet opened` to the issue number — this is the one place phase-opening lives, so phase 1 and phase 8 work the same way |
 | A phase's PR is under active review (each `waiting:` toggle) | `pr-watch` | Mirrors the same toggle onto the **parent's** `waiting:`, in the same edit — a phased parent's `waiting:` tracks whoever holds the *active* phase at every step, not just at close-out |
 | A phase's PR closes out | `pr-watch` | Ticks that phase's checkbox in the parent, and re-points the parent's `waiting:` at the next phase (`waiting:claude` if the next phase hasn't opened) |
-| The last phase closes out | `pr-watch` | Moves the **parent** straight to `stage:close-out` — per-phase UAT already covered verification, so there is no separate whole-feature UAT gate to enter |
-| **A phase that held at `stage:uat` is accepted** | **`/uat`** | The same two rows above, performed by `/uat` instead — tick the phase's checkbox, re-point the parent's `waiting:`, and move the parent to `stage:close-out` if this was the last phase. `pr-watch` cannot: it finished when the PR merged, and a UAT acceptance is not a PR event, so nothing wakes it again. Without this the parent keeps a finished phase marked active and `/next` recommends it |
+| The last phase closes out | `pr-watch` | Moves the **parent** straight to `stage:close-out` and closes it out in the same pass (*Closing an issue*) — per-phase UAT already covered verification, so there is no separate whole-feature UAT gate to enter |
+| **A phase that held at `stage:uat` is accepted** | **`/uat`** | The same two rows above, performed by `/uat` instead — tick the phase's checkbox, re-point the parent's `waiting:`, and, if this was the last phase, move the parent to `stage:close-out` and close it out in the same pass. `pr-watch` cannot: it finished when the PR merged, and a UAT acceptance is not a PR event, so nothing wakes it again. Without this the parent keeps a finished phase marked active and `/next` recommends it |
 
 A phase sub-issue is a workstream issue like any other — it carries the
 same three label prefixes and its own State of Play block, because a phase

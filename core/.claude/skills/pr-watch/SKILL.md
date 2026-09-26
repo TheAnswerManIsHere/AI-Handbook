@@ -848,7 +848,11 @@ checklist**, in the same edit as the phase's own transition:
   `waiting:claude` when the next phase hasn't been opened yet, since an
   unstarted next phase is work owed, not a resting state.
 - **If this was the last phase**, move the parent straight to
-  `stage:close-out`. There is no separate whole-feature UAT gate — every
+  `stage:close-out` and close it out in the same pass, per
+  `workstream-tracking.md`'s *Closing an issue*: finish what its State of
+  Play lists, set `stage:done`, and close it as completed with a comment
+  naming the phase PRs. It holds at close-out only with a named remaining
+  item. There is no separate whole-feature UAT gate — every
   phase already ran its own UAT wherever it was product-visible, per
   `workstream-tracking.md`'s *Phased features* section, so a UAT stage here
   would be a gate with nothing left to run against it.
