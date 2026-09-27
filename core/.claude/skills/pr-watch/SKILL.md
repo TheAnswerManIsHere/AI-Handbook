@@ -367,7 +367,13 @@ requires it.
      not merge** — the concrete shortfall goes to him with a choice: continue,
      cut the scope, or stop. **None of them and the round's remaining findings
      are recorded gaps and follow-up issues**, and the pull request goes to
-     close-out like any other.
+     close-out like any other. **A follow-up issue is filed with its labels**:
+     `gap`, the workstream's `mode:`, and a `queue:` label — `queue:later`
+     unless the finding's consequence argues for sooner, with the reason in
+     the body. An issue with no `queue:` and no `stage:` label is invisible
+     to `/next` and `/status-all` until `/maintenance` finds it (its step 9,
+     item 2), and ten such issues accumulated in eight days before that step
+     existed (#98).
      (Codex, #140 round 3 — this branch escalated *every* second-review
      finding, so a routine round-two nit would have turned each internal pull
      request into a David-gated stop. An enactment that interrupts him more
