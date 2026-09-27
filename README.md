@@ -55,7 +55,16 @@ path in the consumer, minus the `core/` prefix. The only exception is a
 one** — those two files are consumer-owned once they land, and overwriting them
 would clobber a repo's own permissions and identity.
 
-**Run it with `node scripts/sync.mjs --to <consumer-repo> [--dry-run]`.** There
+**What the payload stops shipping, the sync takes back.** A file a consumer's
+git index tracks, whose own text carries the `SYNCED FROM AI-Handbook` header,
+and that nothing in the payload routes to any more, is deleted — before any
+copy, and never when it has uncommitted edits. There is no record of past
+syncs to go wrong: the header is the record, which is why every non-seed
+payload file carries one (#55).
+
+**Run it with `node scripts/sync.mjs --to <consumer-repo> [--dry-run]`**, where
+the destination is the root of the consumer's git checkout — the sync refuses
+anything else, since it finds what it manages through that repository. There
 is no scheduled workflow yet: a sync is run deliberately and its output is
 reviewed as an ordinary pull request in the consumer, so nothing reaches a
 product repo without the review that repo's own code gets.

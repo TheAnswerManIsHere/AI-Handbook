@@ -11,10 +11,35 @@
  * There is no staging. `status: staged|ready`, the `requires` graph, cohorts
  * and `flipsWith` sequenced a rollout to consumers that do not exist yet.
  *
- * THIS SYNC ONLY ADDS. It never deletes, so a file removed from the payload
- * stays in a consumer that already has it. That gap is #55, deliberately not
- * fixed here: a removing sync was written and reverted after one review round
- * found four ways it deleted the wrong thing.
+ * IT DELETES WHAT THE PAYLOAD NO LONGER SHIPS, AND KEEPS NO RECORD TO DO IT
+ * (#55). A file removed or renamed in the handbook used to stay in every
+ * consumer that had received it -- still present, still loaded, still
+ * obeyed, which is a second source of truth. A removing sync was written once
+ * before and reverted after one review round found four ways it deleted the
+ * wrong thing, every one of them rooted in a LEDGER of what an earlier run had
+ * delivered: a stored `..` path resolved outside the consumer; a file that
+ * became a seed fell off the delivered list and its consumer-owned copy was
+ * deleted; a ledger written with `/` read on Windows as every entry removed;
+ * and a file-to-directory transition aborted mid-copy.
+ *
+ * So there is no ledger. A payload file says in its own text that it is
+ * managed -- the `SYNCED FROM AI-Handbook` header, which every non-seed
+ * payload file carries and `check-payload-banners.mjs` refuses to let one
+ * ship without -- and a file is stale exactly when:
+ *
+ *   - the consumer's git index tracks it (`git ls-files -z`, never a walk: an
+ *     untracked file is the consumer's work in progress and is never read),
+ *   - its own text carries the header, and
+ *   - no payload file routes to its path in THIS run.
+ *
+ * Every input is read in the same run on the same machine, so nothing stored
+ * can be stale, escape the consumer, or disagree about separators. A routed
+ * destination is never stale whatever it contains, which is what keeps a
+ * consumer's seed copy safe. Deletions happen before any copy, so a path that
+ * changes between file and directory is cleared before it is needed, and
+ * the whole plan -- including the refusal of a stale file with uncommitted
+ * edits -- is settled before anything is written. A deleted file was tracked,
+ * so the consumer's history still holds it.
  *
  * ─────────────────────────────────────────────────────────────────────────
  * WHY THE WRITE PATH LOOKS LIKE THIS, AND WHY IT IS NOT A PILE OF GUARDS
@@ -60,8 +85,8 @@
  */
 import { execFileSync } from "node:child_process";
 import {
-  lstatSync, mkdirSync, mkdtempSync, copyFileSync, renameSync, rmSync,
-  existsSync, realpathSync, readdirSync, readFileSync, writeFileSync,
+  lstatSync, mkdirSync, mkdtempSync, copyFileSync, renameSync, rmSync, rmdirSync,
+  existsSync, realpathSync, readdirSync, readFileSync, writeFileSync, openSync, readSync, closeSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve, relative, sep } from "node:path";
@@ -255,14 +280,162 @@ function placeAtomically(src, target) {
   }
 }
 
+// ── deletion ────────────────────────────────────────────────────────────────
+
+/**
+ * The header's first words, as every payload format spells a comment line.
+ *
+ * A WHOLE LINE, not a substring: this repository's own tests write the phrase
+ * inside string literals, and a consumer may quote it in prose. Neither is a
+ * claim to be managed, and a substring match would delete them. JSON has no
+ * comment syntax, so its form is the schema's `$comment` key.
+ */
+const BANNER_LINE = /^[ \t]*(?:<!--|\/\/|#|"\$comment":[ \t]*")[ \t]*SYNCED FROM AI-Handbook\b/;
+
+/**
+ * How far into a file the header may sit. It follows a shebang or YAML front
+ * matter, which puts it at line 26 at the deepest today; the window is the
+ * same for the check that requires it and the sync that reads it, so the two
+ * cannot disagree about which files are managed.
+ */
+export const BANNER_WINDOW = 40;
+
+/** Does this text carry the sync header within the window? */
+export function carriesBanner(text) {
+  return text.split("\n", BANNER_WINDOW).some((line) => BANNER_LINE.test(line));
+}
+
+/** The head of a file, enough to cover the window without reading a large file whole. */
+function headOf(abs) {
+  const fd = openSync(abs, "r");
+  try {
+    const buf = Buffer.alloc(64 * 1024);
+    return buf.toString("utf8", 0, readSync(fd, buf, 0, buf.length, 0));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+const git = (cwd, args) =>
+  execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+
+/**
+ * Refuse a destination that is not the ROOT of a git checkout.
+ *
+ * Stale files are found through the consumer's index, so a directory with no
+ * repository -- or a subdirectory of one, whose paths would not line up with
+ * the routes -- is a sync that cannot evaluate what to delete. A control that
+ * cannot evaluate must refuse; reporting "0 deleted" having looked at nothing
+ * is the failure this repository has three instances of on file.
+ */
+export function assertCheckoutRoot(destReal) {
+  let top;
+  try {
+    top = git(destReal, ["rev-parse", "--show-toplevel"]).trim();
+  } catch {
+    throw new Error(
+      `refusing to sync: ${destReal} is not a git checkout, so the sync cannot tell which files it manages ` +
+        `and would report nothing to delete having checked nothing. Sync into the consumer's repository root`,
+    );
+  }
+  if (realpathSync(top) !== destReal) {
+    throw new Error(
+      `refusing to sync: ${destReal} is inside the checkout at ${top} but is not its root. The payload's ` +
+        `paths are relative to a repository root; pass that root`,
+    );
+  }
+}
+
+/** Paths git reports as differing from HEAD, in the index or the working tree. */
+export function uncommittedPaths(destReal) {
+  const entries = git(destReal, ["status", "--porcelain=v1", "-z", "--untracked-files=no"]).split("\0");
+  const out = new Set();
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (!e) continue;
+    out.add(e.slice(3));
+    // A rename or copy is followed by its ORIGINAL path as a separate entry.
+    if (e[0] === "R" || e[0] === "C") out.add(entries[++i]);
+  }
+  return out;
+}
+
+/**
+ * Tracked files carrying the header that nothing in this payload routes to.
+ *
+ * Only regular files are read: a tracked symlink is not a file that says it
+ * is managed, and reading one would follow it. A symlinked PARENT would put
+ * the read and the delete outside the consumer, so it is refused exactly as a
+ * write through one is.
+ */
+export function staleFiles(destReal, routed) {
+  const stale = [];
+  for (const rel of git(destReal, ["ls-files", "-z"]).split("\0")) {
+    if (!rel || routed.has(rel)) continue;
+    assertNoSymlinkOnPath(destReal, rel);
+    const abs = join(destReal, rel);
+    let st;
+    try {
+      st = lstatSync(abs);
+    } catch {
+      continue; // tracked but already gone from the working tree
+    }
+    if (!st.isFile()) continue;
+    if (!isInside(destReal, realpathSync(dirname(abs)))) {
+      throw new Error(`refusing to read outside the consumer: ${abs} does not resolve inside ${destReal}`);
+    }
+    if (carriesBanner(headOf(abs))) stale.push(rel);
+  }
+  return stale.sort();
+}
+
+/** Remove now-empty directories from `rel`'s parent upward, stopping at the root. */
+function pruneEmptyParents(destReal, rel) {
+  let dir = dirname(join(destReal, rel));
+  while (dir !== destReal && isInside(destReal, dir)) {
+    try {
+      if (readdirSync(dir).length) return;
+      rmdirSync(dir);
+    } catch {
+      return;
+    }
+    dir = dirname(dir);
+  }
+}
+
 export function sync(dest, { dryRun = false, log = console.log, payloadRoot = null } = {}) {
   const owned = payloadRoot === null;
   const root = owned ? materializePayload() : payloadRoot;
   const destReal = realpathSync(dest);
-  const counts = { copied: 0, seeded: 0, seedKept: 0, toppedUp: 0 };
+  const counts = { copied: 0, seeded: 0, seedKept: 0, toppedUp: 0, deleted: 0 };
 
   try {
-    for (const rel of payloadFiles(root)) {
+    const files = payloadFiles(root);
+
+    // THE WHOLE DELETION PLAN IS SETTLED BEFORE ANYTHING IS WRITTEN, so a
+    // refusal leaves the consumer exactly as it was.
+    assertCheckoutRoot(destReal);
+    const stale = staleFiles(destReal, new Set(files.map((f) => routeOf(f).to)));
+    const dirty = uncommittedPaths(destReal);
+    const held = stale.filter((rel) => dirty.has(rel));
+    if (held.length) {
+      throw new Error(
+        `refusing to sync: the payload no longer ships ${held.length === 1 ? "this file" : "these files"}, and ` +
+          `deleting ${held.length === 1 ? "it" : "them"} would lose uncommitted edits:\n  ${held.join("\n  ")}\n` +
+          `Commit or discard those edits first; a committed file stays recoverable from the consumer's history`,
+      );
+    }
+
+    for (const rel of stale) {
+      if (!dryRun) {
+        rmSync(join(destReal, rel));
+        pruneEmptyParents(destReal, rel);
+      }
+      counts.deleted += 1;
+      log(`  delete ${rel}  (carries the sync header; the payload no longer ships it)`);
+    }
+
+    for (const rel of files) {
       const { to, seed, topUp } = routeOf(rel);
       assertNoSymlinkOnPath(destReal, to);
       const target = join(destReal, to);
@@ -330,7 +503,7 @@ function main(argv) {
   console.log(`sync: ${REPO_ROOT}/core (committed) -> ${dest}${flags.dryRun ? "  (dry run)" : ""}`);
   const c = sync(dest, { dryRun: flags.dryRun });
   console.log(
-    `sync: ${c.copied} file(s) copied, ${c.seeded} seeded, ${c.seedKept} seed(s) left alone` +
+    `sync: ${c.deleted} file(s) deleted, ${c.copied} copied, ${c.seeded} seeded, ${c.seedKept} seed(s) left alone` +
       (c.toppedUp ? `, ${c.toppedUp} seed(s) topped up with new keys` : "") +
       `${flags.dryRun ? " -- nothing written" : ""}`,
   );

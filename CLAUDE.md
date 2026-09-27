@@ -8,7 +8,8 @@ The shared working contract for every product David builds with AI agents. It
 ships no product. Its payload — `core/` — is vendored into each consumer repo
 by the sync described in [`docs/consuming-repos.md`](docs/consuming-repos.md),
 and `scripts/sync.mjs` copies `core/**` into place, one rule with one
-exception for seeded files.
+exception for seeded files, and deletes a consumer's copy of anything the
+payload has stopped shipping.
 
 This repo governs itself with the same file it ships: the import above is the
 handbook's own core, read from the payload. If a rule is uncomfortable to work
@@ -43,6 +44,12 @@ risk. So:
   left to hide behind: a payload file that merges here reaches every consumer
   on the next sync, so "not ready to ship" and "not ready to merge" are the
   same judgement.
+- **Removing a file from `core/` takes it back.** The sync deletes a
+  consumer's copy once nothing routes to its path, recognising the copy by the
+  `SYNCED FROM AI-Handbook` header in its own text rather than by any record
+  of past syncs (#55). So every non-seed payload file carries that header, and
+  `node scripts/check-payload-banners.mjs` refuses one that does not — a file
+  without it could be delivered and never taken back.
 - **Where a rule lives is a decision, not a formality.** Fleet rule → the core
   here. Product rule → that product's overlay. Rationale and history → the
   product's `decisions.md`. The test is in
@@ -91,6 +98,7 @@ node --test core/scripts/__tests__/*.test.mjs   # the payload's tests
 node scripts/sync.mjs --to <repo> --dry-run     # what a consumer would receive
 node scripts/check-root-wiring.mjs              # this repo actually reaches its payload
 node scripts/check-settings-fields.mjs          # no settings field Claude Code would refuse
+node scripts/check-payload-banners.mjs          # every payload file the sync can take back says so
 node scripts/check-agent-models.mjs             # every role named for a model declares it (--fix)
 ```
 

@@ -61,9 +61,10 @@
  * wiring convention (`check-root-wiring.mjs` pairs the last two), not a rule
  * the platform applies. An earlier version of this paragraph said the three
  * "must" be equal, which asserted a platform rule that does not exist. What is
- * real and does bite: the sync only adds (#55, #104), so renaming a payload
- * file leaves every consumer holding the old definition, still dispatchable.
- * A rename waits on the sync's delete path.
+ * real and did bite: until #55 the sync only added, so renaming a payload
+ * file left every consumer holding the old definition, still dispatchable.
+ * The sync now deletes a consumer's copy that nothing routes to, so a rename
+ * lands as one removal and one addition.
  *
  * WHICH ROLES ARE IN SCOPE: the ones whose `name` begins with `fable-`. The
  * convention is not decoration -- it is the claim being checked, since a role
