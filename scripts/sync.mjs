@@ -36,10 +36,22 @@
  * can be stale, escape the consumer, or disagree about separators. A routed
  * destination is never stale whatever it contains, which is what keeps a
  * consumer's seed copy safe. Deletions happen before any copy, so a path that
- * changes between file and directory is cleared before it is needed, and
- * the whole plan -- including the refusal of a stale file with uncommitted
- * edits -- is settled before anything is written. A deleted file was tracked,
- * so the consumer's history still holds it.
+ * changes between file and directory is cleared before it is needed.
+ *
+ * EVERY REFUSAL THE SYNC MAKES COMES BEFORE ITS FIRST WRITE. That covers a
+ * stale file with uncommitted edits, and every destination the copy phase
+ * could not place -- a consumer's own file where the payload needs a
+ * directory, a directory holding the consumer's files where it needs a file,
+ * a symlinked directory on the way -- judged against the tree as it will
+ * stand after the deletions, so a dry run refuses exactly what a real run
+ * would. The copy phase keeps its own checks as a second line; on a tree that
+ * passed the first they fire only if the tree changes while the sync runs.
+ * What no check can precede is the filesystem failing mid-run (disk full,
+ * permissions): that can leave deletions and earlier copies applied.
+ * Every deleted file was tracked, so `git checkout -- <path>` restores it,
+ * and a re-run completes once the cause is fixed. (Codex, #169 round 1: the
+ * first version said the whole plan was settled before any write, while the
+ * copy phase's own refusals fired after the deletions.)
  *
  * ─────────────────────────────────────────────────────────────────────────
  * WHY THE WRITE PATH LOOKS LIKE THIS, AND WHY IT IS NOT A PILE OF GUARDS
@@ -394,6 +406,66 @@ export function staleFiles(destReal, routed) {
   return stale.sort();
 }
 
+/**
+ * Refuse, before anything is written, any destination the copy phase could
+ * not place once the stale files are gone.
+ *
+ * Judged against the tree AFTER deletion and pruning, not the current one:
+ * a stale file where the payload now needs a directory, or a directory of
+ * nothing but stale files where it needs a file, is a transition the sync
+ * supports and must not be refused. What it refuses is the consumer's own
+ * material in the way -- which the copy phase would otherwise discover only
+ * after the deletions had happened (Codex, #169 round 1).
+ *
+ * `routes` is exactly the set the copy phase writes: a seed the consumer
+ * already has is excluded there and must be excluded here, or the two
+ * disagree about what is being placed.
+ */
+export function assertPlaceable(destReal, routes, stale) {
+  const gone = new Set(stale);
+  // A directory the deletions will empty entirely, and pruning will remove:
+  // non-empty, and nothing in it but stale files and such directories.
+  const clears = (rel) => {
+    const entries = readdirSync(join(destReal, rel));
+    return entries.length > 0 && entries.every((e) => {
+      const child = `${rel}/${e}`;
+      const st = lstatSync(join(destReal, child));
+      return st.isDirectory() ? clears(child) : gone.has(child);
+    });
+  };
+  for (const to of routes) {
+    assertNoSymlinkOnPath(destReal, to);
+    const parts = to.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const ancestor = parts.slice(0, i).join("/");
+      let st;
+      try {
+        st = lstatSync(join(destReal, ancestor));
+      } catch {
+        break; // absent here, so absent below: mkdir creates the rest
+      }
+      if (st.isDirectory()) continue;
+      if (gone.has(ancestor)) break; // a stale file, deleted before the copy
+      throw new Error(
+        `refusing to sync: the payload needs ${ancestor}/ as a directory for ${to}, and the consumer has its own ` +
+          `file there. Nothing has been changed; move that file and run the sync again`,
+      );
+    }
+    let st;
+    try {
+      st = lstatSync(join(destReal, to));
+    } catch {
+      continue;
+    }
+    if (st.isDirectory() && !clears(to)) {
+      throw new Error(
+        `refusing to sync: the payload needs ${to} as a file, and the consumer has a directory there that the ` +
+          `deletions would not clear. Nothing has been changed; move that directory and run the sync again`,
+      );
+    }
+  }
+}
+
 /** Remove now-empty directories from `rel`'s parent upward, stopping at the root. */
 function pruneEmptyParents(destReal, rel) {
   let dir = dirname(join(destReal, rel));
@@ -413,12 +485,13 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
   const root = owned ? materializePayload() : payloadRoot;
   const destReal = realpathSync(dest);
   const counts = { copied: 0, seeded: 0, seedKept: 0, toppedUp: 0, deleted: 0 };
+  let writing = false;
 
   try {
     const files = payloadFiles(root);
 
-    // THE WHOLE DELETION PLAN IS SETTLED BEFORE ANYTHING IS WRITTEN, so a
-    // refusal leaves the consumer exactly as it was.
+    // EVERY REFUSAL IS MADE HERE, BEFORE THE FIRST WRITE, and a dry run
+    // makes the same ones -- see the header for the one failure that cannot be.
     assertCheckoutRoot(destReal);
     const stale = staleFiles(destReal, new Set(files.map((f) => routeOf(f).to)));
     const dirty = uncommittedPaths(destReal);
@@ -430,7 +503,16 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
           `Commit or discard those edits first; a committed file stays recoverable from the consumer's history`,
       );
     }
+    const present = (to) => {
+      try { lstatSync(join(destReal, to)); return true; } catch { return false; }
+    };
+    assertPlaceable(
+      destReal,
+      files.map((f) => routeOf(f)).filter(({ to, seed }) => !(seed && present(to))).map(({ to }) => to),
+      stale,
+    );
 
+    writing = !dryRun;
     for (const rel of stale) {
       if (!dryRun) {
         rmSync(join(destReal, rel));
@@ -481,6 +563,17 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
         log(`  copy   ${to}`);
       }
     }
+  } catch (e) {
+    // Past the refusals, so the filesystem itself failed. Say what state that
+    // left, since the one thing a reader cannot tell from the error is how
+    // far the run got.
+    if (writing && counts.deleted + counts.copied + counts.seeded + counts.toppedUp > 0) {
+      e.message +=
+        `\n(The sync had already deleted ${counts.deleted} and written ${counts.copied + counts.seeded + counts.toppedUp} ` +
+        `file(s) when this failed. Deleted files were tracked: \`git checkout -- <path>\` restores one, and running ` +
+        `the sync again once the cause is fixed completes it.)`;
+    }
+    throw e;
   } finally {
     if (owned) rmSync(root, { recursive: true, force: true });
   }

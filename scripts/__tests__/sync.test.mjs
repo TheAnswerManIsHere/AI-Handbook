@@ -369,6 +369,70 @@ test("reverted case 4, the other way: stale files where the payload needs a file
   }
 });
 
+// Codex, #169 round 1: the copy phase's refusals used to fire AFTER the
+// deletions, leaving a consumer half-synced -- and a dry run reported success
+// on the tree the real run failed on. Each shape below is a different way the
+// consumer's own material can be in the way; each must refuse by name, with
+// the stale file still there, nothing changed, and the dry run agreeing.
+
+/** A synced, committed consumer with one stale file, then `obstruct` applied and committed. */
+function blockedConsumer(obstruct) {
+  const dest = fresh();
+  run(dest);
+  mkdirSync(join(dest, "docs/ai-context"), { recursive: true });
+  writeFileSync(join(dest, "docs/ai-context/retired.md"), `${BANNER}\n`);
+  obstruct(dest);
+  commitAll(dest);
+  return dest;
+}
+
+const BLOCKED = [
+  ["a consumer's own file where the payload needs a directory", (dest) => {
+    rmSync(join(dest, "docs/engineering"), { recursive: true });
+    writeFileSync(join(dest, "docs/engineering"), "the consumer's own notes\n");
+  }, /needs docs\/engineering\/ as a directory/],
+  ["a directory of the consumer's own files where the payload needs a file", (dest) => {
+    rmSync(join(dest, "docs/engineering/code-review.md"));
+    mkdirSync(join(dest, "docs/engineering/code-review.md"));
+    writeFileSync(join(dest, "docs/engineering/code-review.md/notes.md"), "the consumer's own notes\n");
+  }, /needs docs\/engineering\/code-review\.md as a file/],
+  ["a symlinked directory on the way to a destination", (dest) => {
+    rmSync(join(dest, "docs/engineering"), { recursive: true });
+    symlinkSync(tmpdir(), join(dest, "docs/engineering"));
+  }, /refusing to write through a symlink/],
+];
+
+for (const [shape, obstruct, refusal] of BLOCKED) {
+  for (const dryRun of [false, true]) {
+    test(`${shape} is refused before anything is deleted${dryRun ? " (dry run)" : ""}`, () => {
+      const dest = blockedConsumer(obstruct);
+      try {
+        assert.throws(() => run(dest, { dryRun }), refusal);
+        assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")), "the stale file is still there");
+        assert.equal(git(dest, "status", "--porcelain"), "", "nothing in the consumer changed");
+      } finally {
+        rmSync(dest, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+test("a consumer's seed that is present is not judged for placement, as it is not placed", () => {
+  // The preflight covers exactly what the copy phase writes; a present seed is
+  // left alone there, so a directory standing where one lands is not refused.
+  const dest = fresh();
+  try {
+    run(dest);
+    rmSync(join(dest, ".claude/settings.json"));
+    mkdirSync(join(dest, ".claude/settings.json"));
+    writeFileSync(join(dest, ".claude/settings.json/odd.txt"), "x\n");
+    commitAll(dest);
+    assert.doesNotThrow(() => run(dest));
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
 test("a stale file with uncommitted edits refuses the whole sync, before anything is written", () => {
   const dest = consumerWith("docs/ai-context/retired.md", `${BANNER}\n# Retired\n`);
   try {
