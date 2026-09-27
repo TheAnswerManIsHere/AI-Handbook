@@ -387,7 +387,10 @@ never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
 ## Review loops
 
 **Codex review of PRODUCT code is David's safety net. That is the one thing
-never in question.** Everything below governs what may be layered on top.
+never in question** — for product code in production phase; a feature he has
+declared prototype phase is the one class he has put outside it, in words
+(*Two classes that leave the loop*, below). Everything below governs what may
+be layered on top.
 
 ### Two classes that leave the loop: Trivial and Documentation (David, 2026-09-25)
 

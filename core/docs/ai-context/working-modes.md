@@ -689,10 +689,14 @@ code unread.
 agent infers it: *"I know when we've gotten to a place where the prototype
 switches to a real product. You and I will be talking about this
 constantly."* When he declares a feature production, its ledger becomes the
-scope of the first production PR — the hardening increment — and that PR runs
-in the standard loop with the ledger as its oracle. The ledger exists so that
-this increment is a list to work through rather than an archaeology of the
-code; it costs a sentence at the moment a shortcut is taken. (An observable
+**scope** of the first production PR — the hardening increment — and that PR
+runs in the standard loop. **Its oracle is the feature's agreed outcome, never
+the ledger**: the owner's answers to the prototype's questions, carried into
+the plan as Product Intent and Settled Decisions the way any feature's are,
+so a hardening PR that clears every shortcut while regressing what the owner
+approved fails review. The ledger exists so that this increment is a list to
+work through rather than an archaeology of the code; it costs a sentence at
+the moment a shortcut is taken. (An observable
 trigger — the first time the user's real work exists only in the product —
 was proposed and declined; the dissent is recorded so the next session does
 not re-raise it.)
@@ -701,8 +705,14 @@ not re-raise it.)
 a separate repository and Repl so that unreviewed code never sat beside
 reviewed `main`. That protects something only when `main` has users, data or
 money behind it, and a new product has none; it would also have built the
-product's own infrastructure twice. Isolation returns as the right answer for
-a product with live users, which is not designed here and is not needed yet.
+product's own infrastructure twice. **In a product with live users, the
+isolation is a tier, not a place** (David, 2026-09-27): the overlay names a
+**tester tier** — a user tier beside the admin one, enabled by a
+configuration setting — and a prototype-phase feature's surfaces and its
+feedback rail render only for users in that tier. Live users never see a
+prototype, and the product's own review discipline is untouched for
+everything outside it. The tier is a product feature, built through that
+product's normal pipeline before its first prototype-phase feature ships.
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
@@ -878,8 +888,11 @@ to write than fixing. How long engagement *runs* is the two-review limit's, not
 this paragraph's — it used to open "engagement stays one pass", which is a
 round budget in a sentence about strictness.
 
-**Codex review of product code is unaffected and is not negotiable.** It is
-the safety net a non-code-reading product manager depends on.
+**Codex review of product code is unaffected and is not negotiable** — for
+product code in **production phase**. It is the safety net a non-code-reading
+product manager depends on, and a feature he has declared prototype phase is
+the one class he has put outside it, in words, until he flips it (*The
+prototype phase, per feature*, above).
 
 #### What still bounds a loop
 
