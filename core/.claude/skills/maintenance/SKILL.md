@@ -352,26 +352,32 @@ approve or amend, never an open-ended "is the backlog still right?"
    check the cheap staleness signals: has it been superseded by something
    merged since it was filed? Has its rationale been overtaken? Is it a
    duplicate of another backlog item?
-2. **Triage the third set — every open issue with no `queue:` and no
-   `stage:` label, the `gap`-labelled ones included — now, next or never**
-   (David, 2026-09-16, #98). These are the recorded gaps and follow-ups a
-   review round or a session filed and nobody ranked; `/next` and
-   `/status-all` treat an issue with neither prefix as *not part of this
-   system*, so until it is labelled it is invisible to every tool that
-   decides what gets worked on. Measured on 2026-09-25: ten issues filed over
-   the preceding eight days carried no labels at all. For each, read the
-   body and check the checkout for whether it is already addressed, then
-   propose one of: **now** (`queue:now`), **next** (`queue:next`), **later**
-   (`queue:later`), or **never** (close as *not planned*, with the reason and
-   what would reopen it); a `mode:` label rides along, and a gap already done
-   is closed as *completed* naming the PR. A recorded gap is a thing to
-   *revisit*, never a promise of future work — the triage is where that
-   decision gets made, and this step is the only place it recurs. The
-   evidence-gathering (read, grep, quote) is subagent-eligible; the
-   now/next/never call is not, and it reaches David through step 6's
-   proposed diff like every other line here. The disclosure exception holds:
-   a gap on a disclosure-gated workstream lives on the private path, and the
-   public issue says only that a gap exists and where its details are.
+2. **Triage the third set, plus every open `gap`-labelled issue whatever
+   `queue:` it carries — now, next or never** (David, 2026-09-16, #98). The
+   third set is the follow-ups a review round or a session filed and nobody
+   ranked; `/next` and `/status-all` treat an issue with neither prefix as
+   *not part of this system*, so until it is labelled it is invisible to
+   every tool that decides what gets worked on. Measured on 2026-09-25: ten
+   issues filed over the preceding eight days carried no labels at all. The
+   `gap` issues are in the set **by label, not by lack of one**: `pr-watch`
+   files every gap already carrying `queue:later`, so a set defined as
+   "unlabelled" would hold no gaps, and the revisit David asked for would
+   never be asked by name. For each, read the body and check the checkout
+   for whether it is already addressed, then propose one of: **now**
+   (`queue:now`), **next** (`queue:next`), **later** (`queue:later`), or
+   **never** (close as *not planned*, with the reason and what would reopen
+   it); a `mode:` label rides along, and a gap already done is closed as
+   *completed* naming the PR. The proposed diff carries a line only where
+   the call would change — a gap that stays `queue:later` costs a read, not
+   a line — and a gap whose body argues for a bump is where that argument
+   is finally weighed. A recorded gap is a thing to *revisit*, never a
+   promise of future work — the triage is where that decision gets made,
+   and this step is the only place it recurs. The evidence-gathering (read,
+   grep, quote) is subagent-eligible; the now/next/never call is not, and
+   it reaches David through step 6's proposed diff like every other line
+   here. The disclosure exception holds: a gap on a disclosure-gated
+   workstream lives on the private path, and the public record says only
+   that a gap exists and where its details are.
 3. **Re-check `queue:` priorities against the roadmap.** Anything labeled
    `queue:now` that hasn't been started in weeks is either mislabeled or
    genuinely blocked — say which. Anything in
@@ -400,7 +406,7 @@ approve or amend, never an open-ended "is the backlog still right?"
    posture as `/status`: proposed, confirmed, then written, never
    unattended.
 7. If nothing's drifted, one line: "backlog hygiene: N queued items, M
-   blocked, 0 unlabelled, no drift."
+   blocked, 0 unlabelled, G gaps revisited, no drift."
 
 ## 10. Contract diet — one rule out, every pass (David, 2026-08-17)
 
