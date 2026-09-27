@@ -466,6 +466,18 @@ test("check-payload-banners refuses a tree with no payload, rather than passing 
   }
 });
 
+test("a header past the first 64 KiB is invisible to the check, as it is to the sync", () => {
+  const repo = fresh();
+  try {
+    mkdirSync(join(repo, "core"), { recursive: true });
+    writeFileSync(join(repo, "core/late.md"), `${"x".repeat(70 * 1024)}\n${BANNER}\n`);
+    commitAll(repo);
+    assert.deepEqual(missingBanners(repo), ["core/late.md"]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("the header is read only within the window, as a whole comment line", () => {
   assert.equal(carriesBanner(`#!/usr/bin/env bash\n# SYNCED FROM AI-Handbook — x\n`), true);
   assert.equal(carriesBanner(`{\n  "$comment": "SYNCED FROM AI-Handbook — x",\n}`), true);

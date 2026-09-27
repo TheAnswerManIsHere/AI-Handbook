@@ -16,19 +16,20 @@
  * rather than something to remember.
  *
  * Seeds are exempt, and must be: a seed lands as a consumer-owned file
- * (`settings.json`, `machinery.json`) that the sync never overwrites and never
- * deletes, and `settings.json` cannot carry a header at all -- Claude Code
+ * (`settings.json`, `machinery.json`) that the sync never replaces and never
+ * deletes -- `machinery.json` only gains keys it lacks -- and `settings.json`
+ * cannot carry a header at all -- Claude Code
  * refuses a settings file over any unrecognised key.
  *
- * The predicate is `carriesBanner` from `sync.mjs` itself, so the file this
- * check accepts is exactly the file the sync will recognise.
+ * The predicate and the reader are `sync.mjs`'s own (`carriesBanner`,
+ * `headOf`), so the file this check accepts is exactly the file the sync will
+ * recognise.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { carriesBanner, routeOf, BANNER_WINDOW } from "./sync.mjs";
+import { carriesBanner, headOf, routeOf, BANNER_WINDOW } from "./sync.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -43,7 +44,7 @@ export function missingBanners(repoRoot = REPO_ROOT) {
   }
   return tracked.filter((rel) => {
     if (routeOf(rel.slice("core/".length)).seed) return false;
-    return !carriesBanner(readFileSync(join(repoRoot, rel), "utf8"));
+    return !carriesBanner(headOf(join(repoRoot, rel)));
   });
 }
 

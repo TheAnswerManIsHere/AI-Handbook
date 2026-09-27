@@ -305,8 +305,13 @@ export function carriesBanner(text) {
   return text.split("\n", BANNER_WINDOW).some((line) => BANNER_LINE.test(line));
 }
 
-/** The head of a file, enough to cover the window without reading a large file whole. */
-function headOf(abs) {
+/**
+ * The head of a file, enough to cover the window without reading a large file
+ * whole. Exported so `check-payload-banners.mjs` reads exactly what the sync
+ * reads: a header past the first 64 KiB would pass a whole-file check and be
+ * invisible here, delivered and never taken back.
+ */
+export function headOf(abs) {
   const fd = openSync(abs, "r");
   try {
     const buf = Buffer.alloc(64 * 1024);
