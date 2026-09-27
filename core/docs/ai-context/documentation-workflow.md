@@ -18,7 +18,9 @@ at a time. A repo without one skips the Manual step; the harvest into
 
 **When it runs (David, 2026-08-20 — superseding the per-merge trigger):**
 **batched at `/maintenance`**, one pass covering every product feature merged
-since the last maintenance run. David can also invoke it directly whenever he
+since the last maintenance run — a feature still in prototype phase is not
+harvested until it flips, since what it records is by design not yet how the
+system works. David can also invoke it directly whenever he
 wants. It no longer fires per merge, and there is no run/don't-run judgement:
 the per-merge ceremony was producing roughly a quarter of all merged PRs,
 several of them harvests of harvests.

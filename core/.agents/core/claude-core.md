@@ -264,7 +264,9 @@ request shape and announced in one line (the announcement is David's veto
 surface); `/bugfix` is the explicit override.
 
 - **Feature-building is the default** — pre-plan conversation, plan, plan
-  review, build, post-merge verification, UAT doc, ship-the-UI-surface gate.
+  review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
+  for a feature in **production phase**; one David has declared prototype
+  phase gets none of that list (*Two classes that leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
   loop** — I write the real file and ship it. Product code gets the full
@@ -388,7 +390,7 @@ never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
 
 **Codex review of PRODUCT code is David's safety net. That is the one thing
 never in question** — for product code in production phase; a feature he has
-declared prototype phase is the one class he has put outside it, in words
+declared prototype phase is the one exemption he has put outside it, in words
 (*Two classes that leave the loop*, below). Everything below governs what may
 be layered on top.
 
@@ -418,10 +420,13 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   declares that specific change Trivial.
 - **A third exemption is a phase, not a class** (David, 2026-09-26): a product
   feature in **prototype phase**, declared per feature in the consumer's
-  `overlay-declarations.md`, gets no plan, no loop, no tests and no hardening
-  bar until David declares it production, and Codex's automatic pass on it is
-  read for nothing. Any production-phase feature in the same PR puts the whole
-  PR in the standard loop. The rule is
+  `overlay-declarations.md`, gets no plan, no loop, no tests, no UAT doc and no
+  hardening bar until David declares it production. Where nothing is
+  downstream of `main` it lives on `main` and its PR merges in the same turn,
+  Codex's automatic pass read for nothing; where users are, it lives on a
+  `prototype/<feature>` branch with its own environment and database, and
+  opens no PR at all. Any production-phase feature in the same PR puts the
+  whole PR in the standard loop. The rule is
   [`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26);
   my enactment is the `prototype` skill. Publishing stays David's, every time.
 
@@ -438,7 +443,8 @@ and a Fable assessor advise independently on every round that returns findings,
 before anything is written for them, and I decide from the two. See *Shared
 judgement on a review round* below.
 
-Two invariants, and they are the point: **no commit ever merges unreviewed**,
+Two invariants, and they are the point: **no commit in the standard loop ever
+merges unreviewed**,
 and **a loop always terminates on a reviewed head** — because the stop happens
 before any new commit exists. The exit ramp from eternal looping is the
 judgement that nothing more is worth *writing*; it is never anyone skipping the
@@ -764,7 +770,10 @@ in the file that every session loads.
 ### Watching the PRs I open
 
 I subscribe to every PR I create, immediately, on whatever tier the session is
-on. Mechanics: `pr-watch` skill. Two things that gate whether it fires at all:
+on. Mechanics: `pr-watch` skill. A prototype-phase PR is the exception that
+needs no gate: it merges in the same turn it opens, so there is nothing to
+watch, and a prototype branch opens no PR. Two things that gate whether it
+fires at all:
 
 - **A `/document` harvest PR is subscribed only at step 5 of
   `documentation-workflow.md`**, after the workstream issue exists and the PR
@@ -829,7 +838,10 @@ design. Mechanics:
    satisfied: David asked here, in writing, for every branch. A session that
    re-asks per PR is reading a standing instruction as though it were absent,
    which costs him a round trip to repeat himself. Ask only for the two
-   exceptions above.
+   exceptions above. **A `prototype/<feature>` branch in a product with users
+   downstream of `main` is the second exception already granted**: David's
+   declaration of the phase is the "no PR", and the branch is named in the
+   feature-phase registry instead.
 
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** (bugfix and internal PRs exempt). Not announced
@@ -847,7 +859,10 @@ design. Mechanics:
    digest (an in-session plan is never committed, so the digest is what pins
    the text David approved); the issue where the scope was agreed in
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
-   or `no plan`, for the "n/a — no plan" change rule 3 allows. (It read
+   or `no plan`, for the "n/a — no plan" change rule 3 allows; or, for a
+   prototype-phase feature on `main`, `prototype phase — <feature>`, with the
+   questions file the increment answers named beside it, since such a PR has
+   no plan and is judged by nobody but its owner. (It read
    `trivial` until 2026-09-25, when Trivial became a review class David alone
    declares; one word meaning two things is how a label starts granting what it
    only described.) Nothing parses it — it points
@@ -856,8 +871,9 @@ design. Mechanics:
    format document are retired. Nothing had read the block at runtime since
    the #89 cut, and its fixed grammar forced a false declaration on work
    agreed in conversation with no plan file, #110.)
-5. **Post-merge verification + UAT doc** for product-visible feature PRs, per
-   the `pr-docs` skill and
+5. **Post-merge verification + UAT doc** for product-visible feature PRs in
+   production phase — a prototype-phase PR ships neither, its feedback rail is
+   its verification — per the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done
    until the verification section has real content (or an explicit "none
    needed") and `docs/tests/UAT/PR<N>_<FEATURE>_UAT.md` exists and is linked —
@@ -883,8 +899,10 @@ product and internal PRs alike — except the two classes that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
 threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch, with no Codex review
-and no translation owed. CI and Codex catch *broken*; David's UAT
-catches *wrong*, after the sync.
+and no translation owed — and a **prototype-phase** PR, on `main` only where
+nothing is downstream of it, waits for nothing but green CI, with Codex's
+automatic pass read for nothing and no translation owed. CI and Codex catch
+*broken*; David's UAT catches *wrong*, after the sync.
 
 **No receipt proves any of the four now** — `pr-ready.mjs` went with the #89
 cut, having never run once in the loop it was built for (David merged from the

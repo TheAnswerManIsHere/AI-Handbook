@@ -440,7 +440,9 @@ two limits are independent, so a security bounce can fire *during* a real
 code-review outage, and testing for "no review **and** no bounce" would let
 that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
-proceed: **every PR gets a code review, and nothing merges until it returns.**
+proceed: **every PR in the standard loop gets a code review, and nothing
+merges until it returns** (a prototype-phase change never enters the loop —
+working-modes.md, *The prototype phase, per feature*).
 How many rounds follow is the **two-review limit**'s
 ([`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) on work it
 bounds; nothing governs whether the first one has to come back. The Worth rule

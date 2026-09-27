@@ -39,7 +39,9 @@
 
 David is the product owner. **Do not implement major changes from a non-trivial
 plan until David has explicitly approved that plan.** An ambiguous nudge or another
-agent's approval is not David's approval. Full working rules:
+agent's approval is not David's approval. The one work that has no plan to
+approve is a feature David has declared **prototype phase** (below, and
+working-modes.md *The prototype phase, per feature*). Full working rules:
 [`docs/ai-context/agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md).
 
 **Two working modes — the ceremony in force is always visible, never silent.**
@@ -172,7 +174,9 @@ Prefer, in order:
 
 For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
-approves the plan.**
+approves the plan.** A feature in **prototype phase** is outside this
+standard by David's declaration: it has no plan, and its only reviewer is
+the product owner using it.
 
 **Planning (not code review).** A planning loop does not run on a pull request
 (2026-09-09), and since 2026-09-18 it is not a review: two parties develop the

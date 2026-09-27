@@ -126,17 +126,24 @@ CLI-installed `grill-me`). PR #545, workstream #544. Upstream locations:
 Modification status:
 
 - `grilling/SKILL.md` — upstream body verbatim, plus a clearly-marked
-  "Overhype.me adaptations" section (interviewee, terse question bodies,
-  notification rule, delegation caps, ceremony boundary).
+  "Local adaptations" section (interviewee, terse question bodies,
+  notification rule, delegation caps, ceremony boundary, and since #166 one
+  question per turn in place of upstream's whole-frontier rounds).
 - `domain-modeling/SKILL.md` — **adapted, not verbatim**: upstream's session
   behaviors and three-gate offer heuristic kept; file targets rewritten from
   `CONTEXT.md`/`docs/adr/` to `docs/ai-context/glossary.md` and
   `docs/ai-context/decisions.md`; upstream's `CONTEXT-FORMAT.md` and
   `ADR-FORMAT.md` not vendored (the target files carry their own formats).
-- `prototype/SKILL.md` — upstream body verbatim plus an "Overhype.me
-  adaptations" section (Artifact delivery, capture-through-draft-PR,
-  selection stays David's). `LOGIC.md` and `UI.md` are byte-for-byte
-  upstream copies.
+- `prototype/SKILL.md` — upstream body verbatim plus a "Local adaptations"
+  section that **replaces upstream's delivery and capture mechanics** (as of
+  #168): a prototype is a feature in prototype phase inside the product,
+  delivered as the published product or a prototype environment, with a
+  questions file, a feedback rail stored in the product's database, a tester
+  tier, and a per-feature phase registry; upstream's Artifact/double-click
+  delivery, `?variant=` on production pages, hide-in-production switcher and
+  draft-PR capture are named as not applying. `LOGIC.md` and `UI.md` are
+  byte-for-byte upstream copies; the switcher rule in `UI.md` is overridden
+  by `SKILL.md`, not edited.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was

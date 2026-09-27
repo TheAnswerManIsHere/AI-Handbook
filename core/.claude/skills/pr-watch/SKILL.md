@@ -7,6 +7,11 @@ description: Use after opening or being re-engaged on any PR, and whenever a git
 
 # Watching the PRs I open
 
+**Not a prototype-phase PR.** It merges in the same turn it opens (or, on a
+`prototype/<feature>` branch, there is no PR), so nothing here fires for it:
+no subscription, no labels, no rounds. The rule is working-modes.md, *The
+prototype phase, per feature*.
+
 **This file was 1,182 lines before the #89 cut, and most of that was mechanics
 for machinery that no longer exists**: budget cadence, receipt shapes, snapshot
 recipes, round-count recovery and adjudicator dispatch. All of it is gone,

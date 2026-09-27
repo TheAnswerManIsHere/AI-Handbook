@@ -144,8 +144,17 @@ whole state machine:
 **Promotion is a real operation, not an implicit side effect of "work
 starts."** Whichever skill is the one that first opens or reuses a
 workstream issue for a given piece of work — `plan-review-loop` for a
-phased or unphased feature plan, `bugfix` for a fix — owns performing it,
-and does so **before** creating a fresh issue:
+phased or unphased feature plan, `bugfix` for a fix, `prototype` for a
+feature David has declared prototype phase — owns performing it,
+and does so **before** creating a fresh issue. **A prototype-phase feature
+enters at `stage:coding` / `waiting:david`** (there is no planning stage to
+enter at, and the owner's feedback is what it waits on), its issue names the
+questions file and, in the branch regime, the `prototype/<feature>` branch;
+its PR, where one exists, carries `Workstream: #N` like any other; no
+`stage:code-review` ever follows, because no loop runs. At the flip, the
+hardening PR moves the same issue through the ordinary stages, so the
+feature has one issue across both phases. The rule is working-modes.md,
+*The prototype phase, per feature*:
 
 1. **Search first**: does an open issue already carry `queue:` and
    describe this work (`search_issues`, title/body match, or David names

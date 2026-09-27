@@ -219,7 +219,7 @@ to worry about strange links."*)
    | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
    | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
    | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
-   | Which **features are in prototype phase**, each with its ledger of shortcuts taken, and which **user tier is the tester tier** in a product with live users (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — the one answer here that fails toward *more* ceremony |
+   | Which **features are in prototype phase**, each with its regime (`main`, or a `prototype/<feature>` branch once users are downstream), its questions file and its ledger of shortcuts taken; and which **user tier is the tester tier** (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — the one answer here that fails toward *more* ceremony |
 
    One payload route is deliberately **not** in that table: `/next` and the
    tracking skills ask the overlay for the repo's **product direction and

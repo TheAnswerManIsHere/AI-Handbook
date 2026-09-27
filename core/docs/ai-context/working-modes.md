@@ -25,7 +25,9 @@ The full workflow for building or changing product functionality. In this mode:
    build — see the plan-before-implementation rule in
    [`agent-working-rules.md`](./agent-working-rules.md) and the template in
    [`../../.agents/PLANS.md`](../../.agents/PLANS.md). Do not start the build on an
-   unapproved non-trivial plan.
+   unapproved non-trivial plan. **The one exception is a feature David has
+   declared in prototype phase** (*The prototype phase, per feature*, below),
+   which has no plan by design.
 3. **Build it fully, end to end** (backend + the UI surface to exercise it + tests
    + any doc updates).
 4. **Tests prove the general invariant**, not just the reported example.
@@ -701,18 +703,47 @@ trigger — the first time the user's real work exists only in the product —
 was proposed and declined; the dissent is recorded so the next session does
 not re-raise it.)
 
-**Why this is a phase and not a place.** The earlier design put prototypes in
-a separate repository and Repl so that unreviewed code never sat beside
-reviewed `main`. That protects something only when `main` has users, data or
-money behind it, and a new product has none; it would also have built the
-product's own infrastructure twice. **In a product with live users, the
-isolation is a tier, not a place** (David, 2026-09-27): the overlay names a
-**tester tier** — a user tier beside the admin one, enabled by a
-configuration setting — and a prototype-phase feature's surfaces and its
-feedback rail render only for users in that tier. Live users never see a
-prototype, and the product's own review discipline is untouched for
-everything outside it. The tier is a product feature, built through that
-product's normal pipeline before its first prototype-phase feature ships.
+**Where a prototype lives is decided by who is downstream of `main`** (David,
+2026-09-27). Unchecked code is dangerous to a live product through three
+couplings a user tier cannot gate: a shared process (an import that throws
+takes the app down for everyone), shared data (a migration or a write to a
+production table), and shared code (an edit to a module production already
+uses). So there are two regimes, and the registry entry says which one a
+feature is in:
+
+- **Nothing downstream of `main`** — a product with no users yet: a
+  prototype-phase feature lives on `main`, its PR merges in the same turn,
+  and David publishes when he chooses.
+- **Users downstream of `main`** — a product with live users, and every
+  product from the day its first user arrives: a prototype-phase feature
+  lives on a **`prototype/<feature>` branch of the same repository** and
+  never on `main` while in that phase. A second deployment, the **prototype
+  environment**, tracks the branch and has **its own database**, seeded from
+  fixtures or a sanitized copy, never production's. **No PR is opened while
+  the feature is in prototype phase** — nothing merges, so there is nothing
+  to review, and David's declaration of the phase is the explicit "no PR"
+  the pull-request rule allows; the branch name in the registry is the
+  visibility. The branch takes `main` in by merge whenever it needs newer
+  product code, never by rebase. At the flip, the hardening PR onto `main`
+  is a port through the standard loop with the branch as its reference,
+  which is what "a prototype is never promoted" already meant. CI still
+  runs on the branch so the environment builds; it blocks nothing.
+
+**The tester tier exists in every product** (David, 2026-09-27), named in
+the overlay: a user tier beside the admin one, switched on by a configuration
+setting. It gates two things — the **feedback rail** renders only for its
+members, and only its members can sign in to a prototype environment. In a
+product with no users yet, David and the product owner are simply its
+members. It is a product feature, built through the normal pipeline before
+the product's first prototype-phase feature ships. What the tier does **not**
+do is isolate: hiding a screen never hides a migration, and that is why the
+second regime is a branch and a deployment rather than a flag.
+
+The earlier design put every prototype in a separate repository and Repl.
+That was declined for a new product because it protects nothing there and
+builds the product's infrastructure twice; the second regime keeps what was
+right about it — a separate process and separate data — inside the one
+codebase.
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
@@ -891,7 +922,7 @@ round budget in a sentence about strictness.
 **Codex review of product code is unaffected and is not negotiable** — for
 product code in **production phase**. It is the safety net a non-code-reading
 product manager depends on, and a feature he has declared prototype phase is
-the one class he has put outside it, in words, until he flips it (*The
+the one exemption he has put outside it, in words, until he flips it (*The
 prototype phase, per feature*, above).
 
 #### What still bounds a loop
