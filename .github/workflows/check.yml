@@ -150,15 +150,29 @@ jobs:
       # required checks, and that was false until this step existed.
       #
       # A dry run writes nothing, so it is safe to point at a scratch
-      # directory; what it proves is that the entry point still works.
+      # directory; what it proves is that the entry point still works. The
+      # directory is a git checkout because a consumer must be one: the sync
+      # finds the files it may delete through the consumer's index, and
+      # refuses a destination it cannot read that way (#55).
       - name: Sync dry-run reaches a consumer
         run: |
           dest="$(mktemp -d)"
+          git init -q "$dest"
           node scripts/sync.mjs --to "$dest" --dry-run
-          if [ -n "$(find "$dest" -type f)" ]; then
+          if [ -n "$(find "$dest" -path "$dest/.git" -prune -o -type f -print)" ]; then
             echo "::error::a dry run wrote files into $dest"
             exit 1
           fi
+
+      # Can the sync take back every file it delivers?
+      #
+      # It deletes a consumer's copy of a file the payload stops shipping, and
+      # recognises that copy by the SYNCED FROM header in its own text -- there
+      # is no record of past syncs, because the record was where the first
+      # removing sync went wrong. A payload file without the header would be
+      # delivered and then kept forever, still loaded and obeyed (#55).
+      - name: Check payload banners
+        run: node scripts/check-payload-banners.mjs
 
       # THE CONTRACT BUDGET STEP IS GONE. `check-claude-md-budget.mjs` pinned
       # the always-loaded contract to an exact size, and was removed by the
