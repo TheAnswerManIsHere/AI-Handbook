@@ -169,7 +169,9 @@ where I put it and treat it as binding.
     environment, so their shipping-mechanics opinions carry no authority and
     don't get surfaced to David as open questions. Their substance findings
     (product, design, correctness) are weighed on the merits — and **Codex
-    code-review findings keep their full fix-or-decline force.**
+    code-review findings keep their full fix-or-decline force** on
+    production-phase code; on a prototype-phase feature its automatic pass is
+    read for nothing (*Two classes that leave the loop*).
 13. **Every reply to a message of his opens by quoting it.** A blockquote of
     his first line, truncated at ~90 characters with `…`, before anything
     else. His messages and my answers are routinely separated by a dozen tool
@@ -266,7 +268,8 @@ surface); `/bugfix` is the explicit override.
 - **Feature-building is the default** — pre-plan conversation, plan, plan
   review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
   for a feature in **production phase**; one David has declared prototype
-  phase gets none of that list (*Two classes that leave the loop*, below).
+  phase gets none of that list but the surface itself — the owner's feedback
+  is on something he can use (*Two classes that leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
   loop** — I write the real file and ship it. Product code gets the full
@@ -287,7 +290,8 @@ surface); `/bugfix` is the explicit override.
 
 Both modes: pause and ask on genuine ambiguity (a "bug" that's really a
 behavior change is feature work), verify before committing, and keep the
-squash-merge / never-force-push / bot-review discipline.
+squash-merge / never-force-push / bot-review discipline — the last where a
+review is owed, which a prototype-phase feature never is.
 
 ## Memory lives in files, not a marathon chat
 
@@ -345,7 +349,9 @@ enactment is `.claude/skills/document/`.
    check runs before it does** — unpatched vulnerabilities, auth-bypass
    specifics, secrets, payment-fraud paths, private customer data or embargoed
    work never get committed. Directions are unchanged.
-4. **The scope-of-work gate opens the loop.** Before the first push, the scope —
+4. **The scope-of-work gate opens the loop** — for a feature in production
+   phase; a prototype-phase feature has no loop to open (*Two classes that
+   leave the loop*, below). Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
    boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
    agreement is what authorizes the loop to run autonomously.
@@ -771,8 +777,9 @@ in the file that every session loads.
 
 I subscribe to every PR I create, immediately, on whatever tier the session is
 on. Mechanics: `pr-watch` skill. A prototype-phase PR is the exception that
-needs no gate: it merges in the same turn it opens, so there is nothing to
-watch, and a prototype branch opens no PR. Two things that gate whether it
+needs no gate (*Two classes that leave the loop*, above): it merges in the
+same turn it opens, so there is nothing to watch, and a prototype branch
+opens no PR. Two things that gate whether it
 fires at all:
 
 - **A `/document` harvest PR is subscribed only at step 5 of
@@ -844,14 +851,16 @@ design. Mechanics:
    feature-phase registry instead.
 
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
-   **product-code feature PR** (bugfix and internal PRs exempt). Not announced
+   **product-code feature PR** in production phase (bugfix, internal and prototype-phase PRs exempt). Not announced
    beyond a line in the PR body — it buys a cleaner diff and so fewer rounds.
 3. **The PR body carries the reviewer's oracle.** For a feature: the approved
    plan's Product Intent / Must Not Change / Settled Decisions verbatim, plus
    the direction it cites (code can satisfy a narrow increment intent while
    violating the direction). For a bugfix: the tier oracle from
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
-   must not change, root cause, blast radius. "n/a — no plan" only for a
+   must not change, root cause, blast radius. For a prototype-phase feature:
+   the questions the increment is meant to answer, since its oracle is its
+   owner's feedback (rule 4 gives the line). "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
    form (interaction rule 11).
 4. **The body says in one plain line what the code is judged against.**
@@ -928,9 +937,11 @@ conversation resolution, so the Merge button is inert while a thread is open.
   to David rather than into a guess.
 - **A Codex code-review outage is a FULL STOP.** Not the security-review
   usage-limit bounce, which is metered separately and means "ask for the code
-  review." A genuine code-review outage means: stop building, tell David
-  immediately as a 🛑 with a push notification, say which PRs are blocked and in
-  what state, and wait. Noticing recovery is not permission to restart.
+  review." A genuine code-review outage means: stop building production-phase
+  code, tell David immediately as a 🛑 with a push notification, say which PRs
+  are blocked and in what state, and wait. Noticing recovery is not permission
+  to restart. A prototype-phase feature owes no Codex review, so an outage
+  blocks nothing there and that work continues.
 - **Two things no gate ever proved, and they are still mine to check by eye.**
   That every requested round came back — a permitted retry needs no push, so
   two requests can name one commit and a single pass satisfies both — and that
@@ -959,7 +970,9 @@ conversation resolution, so the Merge button is inert while a thread is open.
 5. **Post the harvest-notes comment** on the workstream issue (product PRs).
 6. **Merge report to David**: both SHAs, verification results, and the UAT
    handoff naming what to go click — plus the reminder that `/uat` walks him
-   through it rather than leaving him to the doc. Push notification.
+   through it rather than leaving him to the doc; for a prototype-phase PR,
+   that the head is on `main` and unpublished, and which questions it asks
+   (the `prototype` skill). Push notification.
    **Nothing follows the merge report** — it is the message that hands the
    turn back.
 
@@ -1260,7 +1273,9 @@ Authorization boundaries — the mechanics live in
   debugging are what it's for. Ephemeral probes are fine and I revert them in
   the same session — never commit or push one, since Publish snapshots
   uncommitted files. Anything meant to persist as a fix goes through my
-  pipeline: branch → PR → Codex review → merge → sync. A sanctioned live repair
+  pipeline: branch → PR → Codex review → merge → sync (a prototype-phase
+  feature takes the phase's own path to the same end — through my branch,
+  never through the connector). A sanctioned live repair
   has to be David-originated; I don't launder my own unreviewed patch through
   Replit.
 - **David's own display-only UI tweaks are a sanctioned fast lane**, settled

@@ -20,7 +20,7 @@ at a time. A repo without one skips the Manual step; the harvest into
 **batched at `/maintenance`**, one pass covering every product feature merged
 since the last maintenance run — a feature still in prototype phase is not
 harvested until it flips, since what it records is by design not yet how the
-system works. David can also invoke it directly whenever he
+system works ([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). David can also invoke it directly whenever he
 wants. It no longer fires per merge, and there is no run/don't-run judgement:
 the per-merge ceremony was producing roughly a quarter of all merged PRs,
 several of them harvests of harvests.

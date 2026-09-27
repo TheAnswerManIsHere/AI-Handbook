@@ -272,9 +272,11 @@ next**, and this is a real recommendation, not a menu:
    names them — for near-term slices, pre-launch hardening, and open product
    questions. **If it has none, say so and stop there**; never borrow
    another repository's roadmap to fill the gap.
-2. **Weight pre-launch hardening heavily.** The roadmap's own framing is
-   that we're moving from prototype to production-ready; an item marked
-   must-do-before-go-live outranks a new capability by default.
+2. **Weight pre-launch hardening heavily.** An item marked
+   must-do-before-go-live outranks a new capability by default, and a
+   feature's flip out of prototype phase is the per-feature form of the same
+   weight — the repository never flips as a whole
+   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 3. **Make an argued recommendation on Fable**: what to build, why now, what
    it unblocks, what it costs, and the strongest case against it.
 4. **Surface the "Needs David confirmation" items** — a roadmap line

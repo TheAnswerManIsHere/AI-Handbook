@@ -26,7 +26,9 @@ P=core/scripts/plan-review.mjs; [ -f "$P" ] || P=scripts/plan-review.mjs
 Every command below uses `$P`. Run it from the repository root.
 
 **This is the planning loop only. The Codex GitHub review of CODE is untouched
-and remains David's safety net** — every implementation PR still gets it.
+and remains David's safety net** — every implementation PR in production phase
+still gets it; a prototype-phase feature has no plan and enters no loop
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 ## One contract, two roles
 

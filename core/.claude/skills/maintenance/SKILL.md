@@ -149,7 +149,9 @@ nothing to harvest and nothing deferred still ships a one-line
 If no marker exists at all (first pass under this contract), fall back to
 the last 7 days and say so in the report rather than presenting the
 fallback as the real boundary. Run `/document` once, covering every product
-feature merged in that window — its sources are the **harvest-notes comments on each
+feature in production phase merged in that window — a prototype-phase
+feature has no close-out and is harvested when it flips
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)) — its sources are the **harvest-notes comments on each
 feature's workstream issue** (posted at close-out) plus the merged diffs.
 Process PRs get no harvest. Type 1 learnings — anything that changes how we
 work — were already persisted the moment they were learned and are not
@@ -293,8 +295,13 @@ PR's branch cleans up on its own — this section exists for the two shapes
 it doesn't cover: **closed-but-unmerged** PR branches, and branches with
 **no PR at all**.
 
-1. `mcp__github__list_branches`, paginated. Skip `main` and any branch
-   matching `plan-review/<slug>-combined` outright. Plan review has opened no
+1. `mcp__github__list_branches`, paginated. Skip `main`, any branch
+   matching `plan-review/<slug>-combined`, and any `prototype/<feature>`
+   branch the consumer's *Feature phases* registry names outright — the
+   last is a feature in prototype phase under the branch regime, which by
+   design carries unique commits, opens no PR and lives for as long as the
+   phase does ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)); one the
+   registry does not name is reported as *needs a look* like any other. Plan review has opened no
    branch and no PR at all since 2026-09-09, so no new branch of that shape is
    produced; any survivor predates that change and is the one branch whose
    commit only the branch itself retains. Never a deletion candidate, full

@@ -57,7 +57,10 @@ standing guidance (2026-07-21): **be brave.** Concretely, this lowers the bar on
   real to lose.
 - **This is NOT license to skip correctness.** The thing being built must
   actually work and be tested — David's UAT still checks real behavior, and the
-  bot reviewers still check the diff. Boldness applies to *migration/compat
+  bot reviewers still check the diff — for a feature in production phase; one
+  David has declared prototype phase has none of those by his declaration
+  ([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)),
+  and a new product starts with every feature there. Boldness applies to *migration/compat
   paranoia*, not to test coverage, the budget/limits math, security, or getting
   the feature right.
 - **Still distinguish legacy-data compat (drop it) from in-flight/runtime
@@ -238,7 +241,11 @@ manual rollout flag (an `admin_config` toggle David must flip, an `enable_*` env
 var, etc.) — those just trip up acceptance testing. If a change feels too risky to
 ship un-flagged, make it smaller and more confidently correct instead. The only
 exception is a true kill-switch for something externally destructive (e.g.
-disabling outbound sends during an incident). Post-launch we'll reintroduce staged
+disabling outbound sends during an incident). A user tier switched on by
+configuration — the tester tier of
+[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)
+— is not a rollout flag: it decides who sees the feedback rail and a
+prototype environment, not whether a feature ships. Post-launch we'll reintroduce staged
 rollouts deliberately. Also pre-launch: **no new external vendors** without David's
 sign-off.
 
@@ -353,7 +360,7 @@ in the product.
   and [`planning-contract.md`](./planning-contract.md).
 - **Clear mechanical issue** (off-by-one, missing await, dead import, obvious lint,
   a clear logic bug) → fix it, push, mention briefly — and the push owes a
-  round, as every write does ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)). **Design/architecture/
+  round, as every write in the standard loop does ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)). **Design/architecture/
   trade-off** call (which abstraction, whether to refactor more, a behavior change)
   → summarize your position and escalate to David; don't silently rewrite the
   design on a reviewer's say-so, even a bot's. David doesn't need to triage every

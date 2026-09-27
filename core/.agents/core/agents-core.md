@@ -176,7 +176,8 @@ For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
 approves the plan.** A feature in **prototype phase** is outside this
 standard by David's declaration: it has no plan, and its only reviewer is
-the product owner using it.
+the product owner using it
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 **Planning (not code review).** A planning loop does not run on a pull request
 (2026-09-09), and since 2026-09-18 it is not a review: two parties develop the

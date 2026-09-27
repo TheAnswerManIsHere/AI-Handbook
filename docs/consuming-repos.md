@@ -74,6 +74,7 @@ repository exists to remove.>
 ## Environment
 
 <What is specific to this product's environment: its Repl, its database, its
+prototype environment and its database where the branch regime applies, its
 external services, its network allowlist.>
 ```
 

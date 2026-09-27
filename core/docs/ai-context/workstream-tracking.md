@@ -6,8 +6,9 @@
 > and `stage:`/`waiting:`/`mode:` labels during code review and should never
 > remove or contradict them without understanding why they're there. Claude's
 > enactment is spread across the skills that already have a natural trigger
-> point for updating a label — `plan-review-loop`, `bugfix`, `pr-watch`,
-> `pr-docs` — each of which points back here rather than restating this.
+> point for updating a label — `plan-review-loop`, `bugfix`, `prototype`,
+> `pr-watch`, `pr-docs` — each of which points back here rather than
+> restating this.
 
 ## Why this exists
 
@@ -27,7 +28,11 @@ Code review → Merge → Test run → 🛑 UAT → Close-out → Done
 
 Bug-fixing mode (`/bugfix`) branches straight from Discovery to Coding,
 skipping Planning and Plan approval — it still lands in Code review, Merge,
-Test run, and UAT like everything else.
+Test run, and UAT like everything else. A feature David has declared
+prototype phase enters at Coding and stays there, alternating between
+his feedback and the next version, with no Code review, Test run or UAT
+until it flips (*Promotion is a real operation*, below; the rule is
+[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 🛑 marks a **David-gate** — a stage only he can move past. It's the same
 glyph used for the mid-task interruption banner in chat, deliberately: one
@@ -298,9 +303,9 @@ of the workstream issue's body, with these fields:
 in the same edit** — the two must never drift apart, since a label with a
 stale narrative behind it is worse than an honest gap. That means the same
 skills that own label transitions
-(`plan-review-loop`, `bugfix`, `pr-watch`, `pr-docs`, `/uat`) own keeping
-this block current at those same trigger points. There is no separate
-maintainer beyond those five **for label-driven updates**.
+(`plan-review-loop`, `bugfix`, `prototype`, `pr-watch`, `pr-docs`, `/uat`)
+own keeping this block current at those same trigger points. There is no
+separate maintainer beyond those six **for label-driven updates**.
 
 **Exactly two writers update this block without any label change:
 `/handoff` and `/uat`.** `/handoff`
@@ -363,6 +368,7 @@ work it's already doing — not as a separate reminder to go check the board:
 | --- | --- |
 | `plan-review-loop` | `waiting:claude` for the whole loop — a planning exchange is a local process the builder waits on, so there is no `waiting:codex` state; `stage:plan-approval` + `waiting:david` at the approval ask |
 | `bugfix` | Opening the workstream at `stage:coding` directly (no Planning stage), `mode:bugfix` |
+| `prototype` | Opening or promoting the workstream at `stage:coding` / `waiting:claude` for a feature David has declared prototype phase, `mode:feature`; `waiting:david` when a usable version is delivered and back when his feedback starts a revision; the relabel to `stage:planning` / `waiting:david` at the flip, before `plan-review-loop` starts (*Promotion is a real operation*, above) |
 | `pr-watch` | `stage:code-review` onward — round-by-round `waiting` toggling, `waiting:david` on escalation, `stage:test-run`/`waiting:replit` at merge when the PR's Post-merge verification section has real content (the close-out sequence then drives the checks and moves the label to `stage:uat`/`stage:close-out` once the checks pass); with "none needed" verification, the transition to `stage:uat`/`stage:close-out` still waits for the close-out sync checks (SHA match + clean worktree) to pass — never at the merge click itself, either branch |
 | `pr-docs` | No stage transition of its own — confirms `mode:feature` is right on the PR this pairing rides on |
 | `/uat` | The exit from `stage:uat` — the one stage no agent could previously move, since only David could run it. `Accepted` and `Accepted with issues` both reach `stage:close-out` (his acceptance is what converts that run's bugs from blockers into independently-tracked work); a `Blocked` run holds at `stage:uat`. `waiting:claude` either way — the next real action is a fix or a close-out, not something David can click. Also owns the `Blocked by:` + failed-step record at the moment a run finds a bug, executing `bugfix`'s intake contract earlier, while the context is still in front of it — but **not** the `waiting:` flip, which waits until the run actually stops, since a run David chooses to continue is still David-held |
@@ -390,7 +396,8 @@ restatement.
 ## What must never happen
 
 - **`Pull request merged → Done`, the Project's built-in workflow, stays
-  off.** A merge is followed by Test run and UAT — the board must never
+  off.** A merge is followed by Test run and UAT — or, for a prototype-phase
+  PR, by his feedback at `stage:coding` — and the board must never
   claim work is verified before David has actually verified it. (Confirmed
   correct in practice: PR #311 merged and correctly stayed at `🛑 UAT`, not
   `Done`.)

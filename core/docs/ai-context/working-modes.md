@@ -27,7 +27,8 @@ The full workflow for building or changing product functionality. In this mode:
    [`../../.agents/PLANS.md`](../../.agents/PLANS.md). Do not start the build on an
    unapproved non-trivial plan. **The one exception is a feature David has
    declared in prototype phase** (*The prototype phase, per feature*, below),
-   which has no plan by design.
+   which has no plan by design — and none of steps 3 to 5 either: no tests,
+   no doc updates as a bar, and a PR only in the regime that opens one.
 3. **Build it fully, end to end** (backend + the UI surface to exercise it + tests
    + any doc updates).
 4. **Tests prove the general invariant**, not just the reported example.
@@ -71,8 +72,8 @@ that wherever it appears in this table.
 | --- | --- | --- |
 | **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. **Its review is the Documentation class** (below, *Two classes outside the review loop*) unless it changes the review loop or an agent's latitude. Iteration is bounded by the two-review limit below, not by this row — and that limit asks its question of the change, by consequence and recoverability, so a change to a contract or prompt in this class that governs approvals, publication, credentials or destructive operations is weighed on that. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit, which bounds internal tooling; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
-| **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
+| **Product code** in **production phase** — a feature David has declared prototype phase gets none of this row (*The prototype phase, per feature*, below) | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit, which bounds internal tooling; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review — in production phase; a prototype-phase feature that touches one of these is still in prototype phase, and the second regime (*The prototype phase, per feature*, below) is what keeps it off production's process and data. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 For the floor tier, say so in the PR body's *What & why* ("transient checklist,
 deleted after one run"), so the reviewer and any later reader can calibrate from
@@ -764,7 +765,7 @@ codebase.
 
 #### The write-gate rule: code written is code reviewed (David, 2026-08-22)
 
-**Every tier**, in the standard loop (not the two classes above). The judgement happens *before* code is written, not after it is
+**Every tier**, in the standard loop (not the two classes above, nor a prototype-phase feature, above). The judgement happens *before* code is written, not after it is
 pushed:
 
 1. A round returns findings.
@@ -955,8 +956,9 @@ prototype phase, per feature*, above).
   the round. Measured: #125's two-sentence fix waited a week under exactly that
   reading. **Any changed head gets review before merge** — documentation-only
   changes and base-branch merges included — in the standard loop; a Trivial
-  change gets none and a Documentation batch merges unreviewed, by design
-  (above). What is refused is a round requested
+  change gets none, a Documentation batch merges unreviewed, and a
+  prototype-phase PR merges on green CI with the automatic pass read for
+  nothing, by design (above). What is refused is a round requested
   merely to get a different answer on a head already reviewed as it stands.
   (Astra, 2026-09-19.)
 - **The two-review limit bounds how long iteration runs**, above. These bound
@@ -1521,7 +1523,10 @@ was entered. Rationale in [`decisions.md`](./decisions.md).)
   workflow, plan first). Codex reads *this doc* via `AGENTS.md` and applies
   the matching workflow. Absent an explicit signal, Codex is in **feature
   mode** (the default) and follows the plan-before-implementation rule; a
-  declared mode governs its thread until David changes it.
+  declared mode governs its thread until David changes it. In feature mode
+  the consumer's *Feature phases* registry is read first: a feature David has
+  declared prototype phase has no plan (*The prototype phase, per feature*,
+  above), whatever the prompt's prefix.
   - *Optional:* if a given Codex setup supports custom prompt files (e.g. a
     `/bugfix` prompt), point that prompt at this doc — it doesn't change the
     contract, just the trigger.

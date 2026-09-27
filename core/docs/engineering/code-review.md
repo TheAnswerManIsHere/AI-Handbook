@@ -44,7 +44,10 @@ whose plan cited one is itself a finding.
 
 **The body names the oracle's source on one plain line**, `Oracle source:` —
 the approved plan's filename and full sha256 digest, the issue where the scope
-was agreed, the bugfix tier, or `no plan`
+was agreed, the bugfix tier, `no plan`, or `prototype phase — <feature>` with
+the questions file named beside it — the one form with no plan and no bug
+behind it that is not trivial, since a prototype-phase PR is judged by its
+owner alone ([`working-modes.md`](../ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
 ([`claude-core.md` Pull requests rule 4](../../.agents/core/claude-core.md#pull-requests)).
 Nothing parses it. In a multi-round plan review, an oracle pasted from an
 earlier revision is a plausible failure and an invisible one: the PR looks

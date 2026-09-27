@@ -1493,7 +1493,9 @@ the hard-coded fallback. Every writer records — except the one that reads its
 engine before its own `try`. The pull is structural, not careless, which is
 why instance-by-instance fixing never generalised across nine attempts.
 
-**A corollary worth knowing at the end of a loop, and it is now universal:**
+**A corollary worth knowing at the end of a loop, and it is now universal in
+the standard loop** (not the classes and the phase outside it, per
+[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)):
 this repo's merge bar needs a completed reviewer pass on the **head** commit,
 so any further fix moves the head and costs another pass. That makes "just fix
 one more thing" mechanically expensive at loop end — a stopping force

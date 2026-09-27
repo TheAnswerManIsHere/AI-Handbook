@@ -96,7 +96,7 @@ phase, per feature*).
 A product-visible PR is **not** complete — and I don't present it to David
 as done — until the verification section has real content (or an explicit
 "none needed") and the UAT doc exists and is linked, unless the
-ship-the-UI-surface exception applies. For the UAT's structure, follow
+ship-the-UI-surface exception applies or the PR is in prototype phase (above). For the UAT's structure, follow
 [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md) — **not** the
 nearest surviving doc, which is how six competing conventions accumulated in
 the first place. (Pure infra/refactor with zero

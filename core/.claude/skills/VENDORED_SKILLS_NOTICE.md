@@ -142,8 +142,11 @@ Modification status:
   tier, and a per-feature phase registry; upstream's Artifact/double-click
   delivery, `?variant=` on production pages, hide-in-production switcher and
   draft-PR capture are named as not applying. `LOGIC.md` and `UI.md` are
-  byte-for-byte upstream copies; the switcher rule in `UI.md` is overridden
-  by `SKILL.md`, not edited.
+  upstream copies plus one local note under each title (#168 round 4's
+  sweep: a reader of either file alone was still told to gate the switcher
+  on `NODE_ENV` and capture the prototype on a throwaway branch) saying
+  which of their mechanics `SKILL.md` replaces; their upstream text is not
+  otherwise edited.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was
