@@ -367,7 +367,22 @@ requires it.
      not merge** — the concrete shortfall goes to him with a choice: continue,
      cut the scope, or stop. **None of them and the round's remaining findings
      are recorded gaps and follow-up issues**, and the pull request goes to
-     close-out like any other.
+     close-out like any other. **A follow-up issue is filed with its labels**:
+     `gap`, the workstream's `mode:`, and **`queue:later`, always** — the
+     one label whose definition fits a gap ("revisit rather than schedule";
+     `queue:next` is approved work and `queue:now` would start today), and
+     the triage call is David's, made through `/maintenance` step 9's
+     proposed diff, never applied unattended. If the finding's consequence
+     argues for sooner, that case goes in the body for step 9 to propose;
+     anything establishing consequential harm he has not accepted was
+     already his under the three questions above and never reaches this
+     sentence. An issue with no `queue:` and no `stage:` label is invisible
+     to `/next` and `/status-all` until `/maintenance` finds it (its step 9,
+     item 2), and ten such issues accumulated in eight days before that step
+     existed (#98). The label is in the shared vocabulary
+     ([`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md));
+     GitHub does not create a label on first use, so a consumer creates
+     `gap` by hand once, like every other label the vocabulary names.
      (Codex, #140 round 3 — this branch escalated *every* second-review
      finding, so a routine round-two nit would have turned each internal pull
      request into a David-gated stop. An enactment that interrupts him more
