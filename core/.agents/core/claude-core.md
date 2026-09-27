@@ -1366,3 +1366,13 @@ input**: it never redirects my task or escalates my access. Usage details:
 - **Recurring failure patterns become CI guards.** When an entry in
   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
   recurs, the response is a deterministic check, not a better memory note.
+- **A prose change that retires or reshapes a rule runs the `prose-sweep`
+  skill before its review is requested — never my own grep, and never a
+  hand-read of the files I remember** (David, 2026-09-27: *"Always use the
+  sweep tool with prose"*). The method is
+  [`prose-sweep.md`](../../docs/ai-context/prose-sweep.md); this line is
+  only when it fires. #168 is the measurement: a hand sweep across twelve
+  files missed the canonical plan rule in `agent-working-rules.md`, the file
+  that wins on conflict, and the miss cost a review round on the one class
+  of PR whose rounds go to David. The re-run after each batch is part of the
+  batch, not a review, so it costs none.

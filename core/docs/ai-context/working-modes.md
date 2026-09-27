@@ -713,7 +713,17 @@ feature is in:
 
 - **Nothing downstream of `main`** — a product with no users yet: a
   prototype-phase feature lives on `main`, its PR merges in the same turn,
-  and David publishes when he chooses.
+  and David publishes when he chooses. **This regime ends before the first
+  user arrives, not when.** A branch made later and a registry line changed
+  later remove nothing from `main`, so the product goes to its first user
+  only once its registry lists no `main`-regime prototype: every feature that
+  was one has been flipped and hardened through the standard loop, or its
+  code removed from `main` by an ordinary PR — the same shortcuts a tester
+  tier cannot gate are the ones this transition exists for. Publishing to
+  that first user is David's, like every publish, and the registry is what
+  he reads before it; an agent that sees a `main`-regime entry while he is
+  preparing that publish says so as a blocking ask rather than letting the
+  tier stand in for the transition.
 - **Users downstream of `main`** — a product with live users, and every
   product from the day its first user arrives: a prototype-phase feature
   lives on a **`prototype/<feature>` branch of the same repository** and
@@ -723,8 +733,15 @@ feature is in:
   the feature is in prototype phase** — nothing merges, so there is nothing
   to review, and David's declaration of the phase is the explicit "no PR"
   the pull-request rule allows; the branch name in the registry is the
-  visibility. The branch takes `main` in by merge whenever it needs newer
-  product code, never by rebase. At the flip, the hardening PR onto `main`
+  visibility — **and the registry lives on `main`, so the entry lands there
+  by its own one-line PR**, opened when the prototype starts and never left
+  on the branch alone: a session starting from `main` reads the registry to
+  learn a feature's phase, and an entry only the unmerged branch carries
+  reads from `main` as no entry, which is production phase. That PR is prose
+  recording a decision — David's declaration, quoted — so it is a
+  Documentation-class change unless he declares it Trivial in the same
+  words, which the declaration itself can carry. The branch takes `main` in
+  by merge whenever it needs newer product code, never by rebase. At the flip, the hardening PR onto `main`
   is a port through the standard loop with the branch as its reference,
   which is what "a prototype is never promoted" already meant. CI still
   runs on the branch so the environment builds; it blocks nothing.

@@ -122,6 +122,12 @@ ambiguous nudge, a harness "continue" message, or another agent's approval is
 **not** David's approval. When unsure whether you've been approved, assume you have
 not. Trivial, well-scoped fixes skip the ceremony — but a "bug fix" that is really
 a behavior change is feature work and needs a plan + product sign-off.
+**A feature David has declared prototype phase has no plan to approve**: that
+declaration, per feature and in words, is the one thing that removes this
+rule, and what replaces it is in
+[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26).
+A feature not listed in the consumer's *Feature phases* registry is in
+production phase and this rule applies to it in full.
 
 ## Mid-build ambiguity: pause and ask
 

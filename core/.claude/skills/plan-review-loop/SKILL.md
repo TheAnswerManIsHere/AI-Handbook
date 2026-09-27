@@ -466,7 +466,11 @@ this at the scope gate, before the first label below is touched:
    bad bookkeeping, so when it is unclear, treat it as sensitive and ask David.
    An unnecessary draft item costs nothing; a public issue cannot be
    unpublished.
-1. **The issue may already exist** at `stage:planning`. Nothing to do.
+1. **The issue may already exist** at `stage:planning`. Nothing to do. A
+   feature just flipped from prototype phase arrives here this way: the
+   `prototype` skill relabels its existing issue to `stage:planning` before
+   this loop starts ([`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
+   *Promotion is a real operation*), so a flip never reaches step 3.
 2. **Otherwise check the backlog first**, per
    [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md).
    This may be exactly a `queue:`-labeled item David is now starting. If a

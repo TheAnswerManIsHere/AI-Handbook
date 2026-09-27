@@ -147,12 +147,20 @@ workstream issue for a given piece of work — `plan-review-loop` for a
 phased or unphased feature plan, `bugfix` for a fix, `prototype` for a
 feature David has declared prototype phase — owns performing it,
 and does so **before** creating a fresh issue. **A prototype-phase feature
-enters at `stage:coding` / `waiting:david`** (there is no planning stage to
-enter at, and the owner's feedback is what it waits on), its issue names the
-questions file and, in the branch regime, the `prototype/<feature>` branch;
-its PR, where one exists, carries `Workstream: #N` like any other; no
-`stage:code-review` ever follows, because no loop runs. At the flip, the
-hardening PR moves the same issue through the ordinary stages, so the
+enters at `stage:coding` / `waiting:claude`** — there is no planning stage
+to enter at, and until a version David can use exists, the agent is the
+holder. It moves to `waiting:david` when a usable version is delivered (on
+`main`, or on the prototype environment) and back to `waiting:claude` when
+his feedback starts another revision, so the board asks him to act only
+while there is something to act on. Its issue names the questions file and,
+in the branch regime, the `prototype/<feature>` branch; its PR, where one
+exists, carries `Workstream: #N` like any other; no `stage:code-review` ever
+follows, because no loop runs. **The flip is a relabel of the same issue,
+performed by the `prototype` skill before `plan-review-loop` starts**: it
+locates the feature's issue by its `Workstream:` line or title, moves it to
+`stage:planning` / `waiting:david`, and records the declaration in the
+State of Play — so the planning loop finds an issue already at
+`stage:planning` and reuses it rather than opening a second one, and the
 feature has one issue across both phases. The rule is working-modes.md,
 *The prototype phase, per feature*:
 
