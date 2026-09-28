@@ -7,8 +7,11 @@
 > see [`../docs/ai-context/agent-working-rules.md`](../docs/ai-context/agent-working-rules.md)).
 > Trivial, well-scoped fixes don't need the full template; a "bug fix" that is
 > really a behavior change does. A feature David has declared **prototype
-> phase** has no plan at all (working-modes.md, *The prototype phase, per
-> feature*).
+> phase** gets a short plan for its **first version** only — the design
+> question it exists to answer, the hypothesis it tries, the surface it shows,
+> what it leaves out — reviewed by Astra and approved by David like any other;
+> later versions get none unless he asks (working-modes.md, *The prototype
+> phase, per feature*).
 >
 > *(Path note: this lives under the repo's existing `.agents/` agent-facing
 > directory, alongside `.agents/memory/`.)*

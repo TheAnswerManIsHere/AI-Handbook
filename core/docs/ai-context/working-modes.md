@@ -15,7 +15,8 @@ loop, **not** the verification, and it tiers its remaining ceremony to what
 the fix actually turns out to touch. How a request enters it — routed by
 shape (Claude) or declared in the prompt (Codex) — is *How each agent
 enters / exits a mode* below. A feature David has declared prototype phase
-enters neither mode: it goes to the `prototype` skill
+enters neither mode: it goes to the `prototype` skill, whose first version
+still runs feature mode's planning step (step 2, below)
 ([*The prototype phase, per feature*](#the-prototype-phase-per-feature-david-2026-09-26)).
 
 ## Feature mode (default)
@@ -44,9 +45,9 @@ non-trivial database schema change of any kind (see *Tier C* below) needs a
 plan and David's approval before anything runs. A database schema change is
 feature mode by default; it stays out of the full plan only if it's genuinely
 trivial, in which case it runs migration ceremony directly per Tier C — or if
-it belongs to a prototype-phase feature, which has no plan and whose
-database is its own under the branch regime (*The prototype phase, per
-feature*, below). (This
+it belongs to a prototype-phase feature, whose first version's short plan
+covers it and whose later versions have none, and whose database is its own
+under the branch regime (*The prototype phase, per feature*, below). (This
 is the *database* schema — migrations and table structure — not **generated
 API-validation schemas**, which have their own explicit Tier B routing; see
 *Tier C* below. A repo that generates such schemas names them in its overlay.)
@@ -79,7 +80,7 @@ that wherever it appears in this table.
 | --- | --- | --- |
 | **Transient, single-use process docs** — handoff docs, one-off run notes, legacy TEST_RUN checklists (the TEST_RUN file itself is retired as of 2026-08-15 — new PRs carry a *Post-merge verification* PR-body section reviewed with the diff, per [`test-run-contract.md`](../tests/test-run-contract.md); this row still governs the legacy files while they run out), anything deleted after one execution | **No plan document. No plan-review loop.** Review *depth* is the docs-only light bar in [`code-review.md`](../engineering/code-review.md). How long iteration runs is **not** this row's to say — that is the two-review limit below, and this column used to claim "one triage and the loop ends there — no re-request", which let a commit merge that no review had read. | Criticality ≈ 1 on a 1–100 scale (David, 2026-08-08) — **conditional on the TEST_RUN read-only contract** ([`test-run-contract.md`](../tests/test-run-contract.md)): these docs may not instruct suite re-runs or live-state mutations, which is exactly what keeps their worst case at "one confused run by one person, immediately self-catching." A finding that a doc *breaks* that contract — an instruction that could touch live state — is a glaring issue and is worth writing for. A P1 badge on anything else describes the finding's internal severity, not this artifact's blast radius. |
 | **Agent-facing markdown** — skills, `docs/ai-context/`, `docs/engineering/`, contracts, prompts | **No plan document, no plan-review loop** — write the real file and ship it. **Its review is the Documentation class** (below, *Two classes outside the review loop*) unless it changes the review loop or an agent's latitude. Iteration is bounded by the two-review limit below, not by this row — and that limit asks its question of the change, by consequence and recoverability, so a change to a contract or prompt in this class that governs approvals, publication, credentials or destructive operations is weighed on that. | Self-catching: it's wrong the first time someone runs it, and a fix is one commit. Nothing is irreversible. |
-| **Product code** in **production phase** — a feature David has declared prototype phase gets none of this row (*The prototype phase, per feature*, below) | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit, which bounds internal tooling; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
+| **Product code** in **production phase** — a feature David has declared prototype phase gets this row's plan, review and approval for its first version only, and none of the row's bars after it (*The prototype phase, per feature*, below) | Today's full feature ceremony — plan, review, approval. (Outside the two-review limit, which bounds internal tooling; that does not make "to convergence" its stop, which is a name this repo retired.) | Codex's review is a real net, but a subtly wrong behavior can reach users. |
 | **Migrations, backfills, auth, payments, and any subsystem the overlay marks sensitive** | Full ceremony **plus** the relevant specialist review — in production phase; a prototype-phase feature that touches one of these is still in prototype phase, and the second regime (*The prototype phase, per feature*, below) is what keeps it off production's process and data. | Often irreversible, and a subtly-wrong result isn't visible until the damage is done. |
 
 **The specialist-review row names migrations, backfills, auth and payments,
@@ -1187,8 +1188,9 @@ candidate at loop close, per the standing recurring-failure-patterns rule.
 
 ### The scope-of-work gate (David, 2026-08-15)
 
-Before any plan-review loop opens (for a feature in production phase; a
-prototype-phase feature opens no loop and passes no scope gate —
+Before any plan-review loop opens (for a feature in production phase and
+for a prototype's first version; a later prototype version opens no loop and
+passes no scope gate unless David asks for the loop in words —
 [*The prototype phase, per feature*](#the-prototype-phase-per-feature-david-2026-09-26)),
 the pre-plan conversation's outcome is
 compressed into a **scope of work David explicitly agrees to**: the direction
@@ -1678,8 +1680,9 @@ was entered. Rationale in [`decisions.md`](./decisions.md).)
   declared mode governs its thread until David changes it. Before any mode,
   whatever the prompt's prefix, the consumer's *Feature phases* registry is
   read: a request about a feature David has declared prototype phase goes to
-  its next version through the `prototype` skill, with no plan and no bugfix
-  (*The prototype phase, per feature*, above).
+  the `prototype` skill — a first version through the planning loop, a later
+  one as its next version with no plan and no bugfix unless David asks for
+  the loop (*The prototype phase, per feature*, above).
   - *Optional:* if a given Codex setup supports custom prompt files (e.g. a
     `/bugfix` prompt), point that prompt at this doc — it doesn't change the
     contract, just the trigger.
@@ -1693,8 +1696,8 @@ not generated API-validation schemas, which stay Q1 Tier B — see *Tier C*
 above), **do not silently treat it as a fix** — **ask** whether it should
 take the feature workflow, or (for a genuinely trivial database schema fix)
 proceed straight to migration ceremony per Tier C — or, when the registry
-says the feature is in prototype phase, go to the `prototype` skill and no
-mode at all. Guessing wrong is
+says the feature is in prototype phase, go to the `prototype` skill: its
+first version plans there, and after that no mode at all. Guessing wrong is
 expensive in both directions (skipping a plan a feature or a non-trivial
 schema change needed, or piling ceremony onto a one-line fix), and the
 confirm costs one question.

@@ -363,7 +363,8 @@ enactment is `.claude/skills/document/`.
    specifics, secrets, payment-fraud paths, private customer data or embargoed
    work never get committed. Directions are unchanged.
 4. **The scope-of-work gate opens the loop** — for a feature in production
-   phase; a prototype-phase feature has no loop to open (*Two classes and a
+   phase and for a prototype's first version; a later prototype version has
+   no loop to open unless David asks for one in words (*Two classes and a
    phase that leave the loop*, below). Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
    boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
@@ -882,7 +883,8 @@ design. Mechanics:
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
    must not change, root cause, blast radius. For a prototype-phase feature
    on `main` (the branch regime opens no PR): the questions the increment is
-   meant to answer, since its oracle is its
+   meant to answer, and for a first version the approved plan's Product
+   Intent, since after that its oracle is its
    owner's feedback (rule 4 gives the line). "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
    form (interaction rule 11).
@@ -893,7 +895,8 @@ design. Mechanics:
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
    or `no plan`, for the "n/a — no plan" change rule 3 allows; or, for a
    prototype-phase feature on `main`, `prototype phase — <feature>`, with the
-   questions file the increment answers named beside it, since such a PR has
+   questions file the increment answers named beside it and, for a first
+   version, the approved plan's digest, since after that such a PR has
    no plan and is judged by nobody but its owner. (It read
    `trivial` until 2026-09-25, when Trivial became a review class David alone
    declares; one word meaning two things is how a label starts granting what it

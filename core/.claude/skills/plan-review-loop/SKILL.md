@@ -27,7 +27,9 @@ Every command below uses `$P`. Run it from the repository root.
 
 **This is the planning loop only. The Codex GitHub review of CODE is untouched
 and remains David's safety net** — every implementation PR in production phase
-still gets it; a prototype-phase feature has no plan and enters no loop
+still gets it; a prototype-phase feature enters **this** loop for its first
+version, and for a later one only when David asks in words, and gets no code
+review at any version
 ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 ## One contract, two roles
@@ -472,7 +474,10 @@ this at the scope gate, before the first label below is touched:
    feature just flipped from prototype phase arrives here this way: the
    `prototype` skill relabels its existing issue to `stage:planning` before
    this loop starts ([`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
-   *Promotion is a real operation*), so a flip never reaches step 3.
+   *Promotion is a real operation*), so a flip never reaches step 3. A
+   prototype's **first version** arrives here too: the `prototype` skill opens
+   or promotes its issue at `stage:planning` for the short plan this loop
+   reviews, and moves it to `stage:coding` on David's approval.
 2. **Otherwise check the backlog first**, per
    [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md).
    This may be exactly a `queue:`-labeled item David is now starting. If a

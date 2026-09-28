@@ -133,9 +133,10 @@ ambiguous nudge, a harness "continue" message, or another agent's approval is
 **not** David's approval. When unsure whether you've been approved, assume you have
 not. Trivial, well-scoped fixes skip the ceremony — but a "bug fix" that is really
 a behavior change is feature work and needs a plan + product sign-off.
-**A feature David has declared prototype phase has no plan to approve**: that
-declaration, per feature and in words, is the one thing that removes this
-rule, and what replaces it is in
+**A feature David has declared prototype phase has a short plan to approve
+for its first version, and none for later versions unless he asks**: that
+declaration, per feature and in words, is the one thing that narrows this
+rule, and what it keeps and removes is in
 [`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26).
 A feature not listed in the consumer's *Feature phases* registry is in
 production phase and this rule applies to it in full.
@@ -152,9 +153,9 @@ whether the feature does what David wants does.)
 ## Pre-plan intent is the source of truth
 
 The intent agreed *before the plan* is what the work is verified against — not the
-plan, the PR title, or the code. (For a feature that has a plan; a
-prototype-phase feature has none, and its oracle is its questions file and
-the owner's feedback —
+plan, the PR title, or the code. (A prototype-phase feature's first version
+has a plan and this applies to it; its later versions have none, and their
+oracle is the questions file and the owner's feedback —
 [`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26).) If the conversation said "users should be able to
 A and B" and the plan only covers A **with no trace of B anywhere**, the plan is
 wrong — revise it. If you notice during implementation that the intent implied a

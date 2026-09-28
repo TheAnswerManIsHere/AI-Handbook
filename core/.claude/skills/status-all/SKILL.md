@@ -17,7 +17,8 @@ the other repositories in the fleet.
 David runs ~10 concurrent sessions across Discovery → Planning →
 🛑 Plan approval → Coding → Code review → 🛑 Merge → Test run →
 🛑 UAT → Close-out — or, for a feature he has declared prototype phase,
-Coding → 🛑 his feedback → Coding, with no review and no UAT
+Discovery → Planning → 🛑 Plan approval for its first version, then Coding →
+🛑 his feedback → Coding, with no code review and no UAT
 ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). He can't tell which sessions need him without opening
 each one. This skill answers that from **outside** any of them, using
 GitHub as the shared substrate — no session memory required, which is why
@@ -221,7 +222,8 @@ Reading a healthy planning workstream as stalled is the specific
 misclassification this paragraph exists to prevent (Codex, #69 round 1).
 
 **A prototype-phase feature under the branch regime has no PR by design
-either**, at `stage:coding` for as long as the phase lasts: the consumer's
+either**, at `stage:coding` from its first version's approval for as long as
+the phase lasts: the consumer's
 *Feature phases* registry names its `prototype/<feature>` branch, and that
 branch, not a PR, is where its activity is. Check the registry before the
 targeted PR lookup below, read activity from the branch's commits, and

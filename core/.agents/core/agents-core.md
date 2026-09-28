@@ -39,9 +39,10 @@
 
 David is the product owner. **Do not implement major changes from a non-trivial
 plan until David has explicitly approved that plan.** An ambiguous nudge or another
-agent's approval is not David's approval. The one work that has no plan to
-approve is a feature David has declared **prototype phase** (below, and
-working-modes.md *The prototype phase, per feature*). Full working rules:
+agent's approval is not David's approval. A feature David has declared
+**prototype phase** has a short plan to approve for its **first version**
+only; later versions have none unless he asks (below, and working-modes.md
+*The prototype phase, per feature*). Full working rules:
 [`docs/ai-context/agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md).
 
 **Two working modes — the ceremony in force is always visible, never silent.**
@@ -55,9 +56,9 @@ working-modes.md.) Read
 contract of each and how to switch between them. **A feature also has a
 phase, prototype or production, declared per feature in this repo's
 `docs/ai-context/overlay-declarations.md`** (David, 2026-09-26): a change
-touching only prototype-phase features is outside every review loop, and a
-change touching any production-phase feature is in the standard loop for the
-whole PR. The rule is working-modes.md, *The prototype phase, per feature*.
+touching only prototype-phase features is outside the code-review loop
+(its first version still runs the planning loop), and a change touching any
+production-phase feature is in the standard loop for the whole PR. The rule is working-modes.md, *The prototype phase, per feature*.
 
 **End-of-feature documentation.** Follow
 [`docs/ai-context/documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).
@@ -177,9 +178,11 @@ Prefer, in order:
 
 For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
-approves the plan.** A feature in **prototype phase** is outside this
-standard by David's declaration: it has no plan, and its only reviewer is
-the product owner using it
+approves the plan.** A feature in **prototype phase** meets this standard
+once, for its first version — a short plan, Astra's review, David's
+approval — and is outside it for later versions unless he asks; no version
+gets a code review, and after the first the only reviewer is the product
+owner using it
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 **Planning (not code review).** A planning loop does not run on a pull request

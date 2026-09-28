@@ -170,8 +170,9 @@ close-out > uat > test-run > merge > code-review > coding
   > queue:now > queue:next > queue:later
 ```
 
-A feature David has declared prototype phase ranks at `coding` for as long as
-the phase lasts, and under the branch regime its activity is on the
+A feature David has declared prototype phase ranks at `planning` or
+`plan-approval` while its first version's plan is in the loop, then at
+`coding` for as long as the phase lasts, and under the branch regime its activity is on the
 `prototype/<feature>` branch the consumer's *Feature phases* registry names,
 not on a PR — read the registry before calling it idle
 ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).

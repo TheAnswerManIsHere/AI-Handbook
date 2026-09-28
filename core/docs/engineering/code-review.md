@@ -45,9 +45,9 @@ whose plan cited one is itself a finding.
 **The body names the oracle's source on one plain line**, `Oracle source:` —
 the approved plan's filename and full sha256 digest, the issue where the scope
 was agreed, the bugfix tier, `no plan`, or `prototype phase — <feature>` with
-the questions file named beside it — the one form with no plan and no bug
-behind it that is not trivial, since a prototype-phase PR is judged by its
-owner alone ([`working-modes.md`](../ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
+the questions file named beside it and, for a first version, the approved
+plan's digest — after its first version a prototype-phase PR has no plan and
+no bug behind it and is judged by its owner alone ([`working-modes.md`](../ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
 ([`claude-core.md` Pull requests rule 4](../../.agents/core/claude-core.md#pull-requests)).
 Nothing parses it. In a multi-round plan review, an oracle pasted from an
 earlier revision is a plausible failure and an invisible one: the PR looks
@@ -127,7 +127,8 @@ and specifically ask:
   behavior/product change is unconditionally a full-plan finding —
   there is no trivial exception for it, ever**; a bugfix PR can't carry
   approval for a behavior change it has no plan for, full stop (a
-  prototype-phase PR claims no tier and is oracled by its owner, above). The
+  prototype-phase PR claims no tier and, after its first version, is oracled
+  by its owner, above). The
   trivial exception is narrower than "Tier C" and applies **only** to a
   schema/migration/backfill fix, per `working-modes.md`'s Tier C section: a
   **non-trivial** one needs a full plan and David's approval before it ran,

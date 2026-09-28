@@ -19,8 +19,9 @@ tasks are genuinely substantial and independent — a plan of small, sequential
 edits should be executed directly, not fanned out one subagent per task. Collapse
 the per-task reviewer into your own review when the task is small; the
 whole-branch review at the end plus Codex on the PR is the real safety net
-(this flow executes a plan, so it is production phase by construction; a
-prototype-phase feature has neither —
+(this flow executes a production-phase plan; a prototype's first version
+has a plan too, but it is built without Codex or any code review, so this
+flow is never used for it —
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)), and a reviewer subagent per trivial task
 is pure overhead. Full rules: CLAUDE.md →
 *Subagent delegation is capped*.
