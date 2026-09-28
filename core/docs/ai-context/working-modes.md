@@ -14,7 +14,9 @@ bug without the planning ceremony — it drops the plan and the plan-review
 loop, **not** the verification, and it tiers its remaining ceremony to what
 the fix actually turns out to touch. How a request enters it — routed by
 shape (Claude) or declared in the prompt (Codex) — is *How each agent
-enters / exits a mode* below.
+enters / exits a mode* below. A feature David has declared prototype phase
+enters neither mode: it goes to the `prototype` skill
+([*The prototype phase, per feature*](#the-prototype-phase-per-feature-david-2026-09-26)).
 
 ## Feature mode (default)
 
@@ -845,7 +847,11 @@ feature is in:
   by merge whenever it needs newer product code, never by rebase. At the flip, the hardening PR onto `main`
   is a port through the standard loop with the branch as its reference,
   which is what "a prototype is never promoted" already meant. CI still
-  runs on the branch so the environment builds; it blocks nothing.
+  runs on the branch so the environment builds; it blocks nothing — and a
+  branch that opens no PR fires no pull-request run, so the consumer's
+  workflow needs a push trigger on `prototype/**`, added when the tester
+  tier is declared (a worker on #168 run 10 read the memory note on stacked
+  PRs and saw the gap).
 
 **The tester tier exists in every product** (David, 2026-09-27), named in
 the overlay: a user tier beside the admin one, switched on by a configuration

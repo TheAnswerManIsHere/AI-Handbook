@@ -247,8 +247,8 @@ exists to survive: he starts UAT on a merged feature, hits an error, and
 the error turns out to be a real bug — sometimes a small one, sometimes an
 entire subsystem rebuild. (PR #213's private-meme UAT is the worked
 example: it surfaced what became the whole admin-permission rebuild, #405
-and #422.) Pre-launch, chasing those is deliberate — we're moving from
-prototype to production-ready — so the risk isn't chasing them, it's
+and #422.) Pre-launch, chasing those is deliberate — we're moving the product to
+launch-ready — so the risk isn't chasing them, it's
 **losing the way back to the interrupted UAT**.
 
 The `Blocked by:` chain *is* the record of the way back — a call stack made
