@@ -175,6 +175,11 @@ the phase lasts, and under the branch regime its activity is on the
 `prototype/<feature>` branch the consumer's *Feature phases* registry names,
 not on a PR — read the registry before calling it idle
 ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+Under that regime a product has **one** prototype environment, and the
+registry names the branch it tracks: a second branch-regime prototype whose
+branch is not that one is **Blocked** on the environment — until it frees
+at the first's flip or abandonment, or David declares a second — never
+Actionable and never a parallel lane (Codex, #168 round 7).
 
 Why this rule and not a hand-maintained list of special cases: a workstream
 parked mid-lifecycle is **decaying context** — every day it sits, resuming
@@ -258,6 +263,10 @@ sessions**. Two candidates are independent only if **all** hold:
    judgment component — route it to Fable when it isn't obvious).
 4. **Neither is a migration.** Migrations serialize against everything —
    the sharpest edge in the tier table, and not worth the concurrency.
+5. **They are not two branch-regime prototypes of one product.** One
+   prototype environment per product, the registry naming the branch it
+   tracks; the second waits for it (the ladder paragraph above, and the
+   rule's home).
 
 Say plainly when nothing is safely parallel. A wrong independence call
 costs a merge conflict and a wasted session, so the honest answer beats

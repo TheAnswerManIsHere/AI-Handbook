@@ -329,7 +329,8 @@ enactment is `.claude/skills/document/`.
 - **Type 2 — how the system works: batched.** Subsystem docs and Manual
   chapters are harvested in **one pass at `/maintenance`**, covering every
   production-phase feature merged since the last one; a prototype-phase
-  feature waits for its flip. Process PRs get no Type 2 harvest at all.
+  feature waits for the close-out of the hardening PR that follows its
+  flip. Process PRs get no Type 2 harvest at all.
 - **The bridge:** at close-out of a production-phase product feature I post
   a **harvest-notes comment on the workstream issue** — decisions made and
   why, alternatives rejected, gotcha candidates. Cheap, always there, no PR;

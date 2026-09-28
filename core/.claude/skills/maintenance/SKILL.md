@@ -150,7 +150,8 @@ If no marker exists at all (first pass under this contract), fall back to
 the last 7 days and say so in the report rather than presenting the
 fallback as the real boundary. Run `/document` once, covering every product
 feature in production phase merged in that window — a prototype-phase
-feature has no close-out and is harvested when it flips
+feature has no close-out and is harvested once the hardening PR that follows
+its flip has closed out, never at the registry flip itself
 ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)) — its sources are the **harvest-notes comments on each
 feature's workstream issue** (posted at close-out) plus the merged diffs.
 Process PRs get no harvest. Type 1 learnings — anything that changes how we

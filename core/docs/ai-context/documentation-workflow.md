@@ -19,8 +19,12 @@ at a time. A repo without one skips the Manual step; the harvest into
 **When it runs (David, 2026-08-20 — superseding the per-merge trigger):**
 **batched at `/maintenance`**, one pass covering every product feature merged
 since the last maintenance run — a feature still in prototype phase is not
-harvested until it flips, since what it records is by design not yet how the
-system works ([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). David can also invoke it directly whenever he
+harvested until the hardening PR that follows its flip has closed out, since
+what it records is by design not yet how the system works, and the flip is
+persisted before planning starts while the implementation still changes
+through the standard loop; the close-out, which posts the harvest-notes
+comment, is the eligibility point, never the registry flip (Codex, #168
+round 7; [`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). David can also invoke it directly whenever he
 wants. It no longer fires per merge, and there is no run/don't-run judgement:
 the per-merge ceremony was producing roughly a quarter of all merged PRs,
 several of them harvests of harvests.

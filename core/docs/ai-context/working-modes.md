@@ -761,7 +761,9 @@ uses — at the start under the branch regime, at the flip, at abandonment —
 is Trivial by David's phase declaration** (David, 2026-09-28: *"Yes,
 trivial"*): the declaration is the one the Trivial class requires, in his
 words, for that change, so the PR quotes it and merges on green CI with no
-review of any kind. At the flip under the branch regime the hardening PR's
+review of any kind — and `pr-watch` never subscribes to it: it carries
+`Refs #N`, owns no lifecycle and moves no label (Codex, #168 round 7). At the
+flip under the branch regime the hardening PR's
 close-out also **retires the prototype environment**: the deployment is
 stopped and its database dropped once the owner's answers and the port are
 captured, owned by the `prototype` skill, and where only David can delete

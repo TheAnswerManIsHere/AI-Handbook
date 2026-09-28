@@ -24,7 +24,8 @@ here.
 
 **This runs batched at `/maintenance`, not per merge (David, 2026-08-20).**
 One pass covers every production-phase feature merged since the last
-maintenance run; a prototype-phase feature waits for its flip
+maintenance run; a prototype-phase feature waits for the close-out of the
+hardening PR that follows its flip
 ([`documentation-workflow.md`](../../../docs/ai-context/documentation-workflow.md)).
 Process PRs — guards, scripts, skills, contracts, process docs — get no harvest
 at all: anything worth keeping from those is a Type 1 learning, persisted the
