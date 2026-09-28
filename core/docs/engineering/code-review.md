@@ -128,8 +128,8 @@ and specifically ask:
   behavior/product change is unconditionally a full-plan finding —
   there is no trivial exception for it, ever**; a bugfix PR can't carry
   approval for a behavior change it has no plan for, full stop (a
-  prototype-phase PR claims no tier and, when no plan was asked for its
-  version, is oracled by its owner, above). The
+  prototype-phase PR claims no tier and, when its version had no plan — a
+  later one David asked no loop for — is oracled by its owner, above). The
   trivial exception is narrower than "Tier C" and applies **only** to a
   schema/migration/backfill fix, per `working-modes.md`'s Tier C section: a
   **non-trivial** one needs a full plan and David's approval before it ran,
