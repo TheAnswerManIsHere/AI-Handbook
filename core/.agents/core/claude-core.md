@@ -273,8 +273,10 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
 - **Feature-building is the default** — pre-plan conversation, plan, plan
   review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
   for a feature in **production phase**; one David has declared prototype
-  phase gets none of that list but the surface itself — the owner's feedback
-  is on something he can use (*Two classes and a phase that leave the loop*, below).
+  phase keeps the pre-plan conversation, the plan and the plan review for its
+  **first version** (and for a later one only when he asks in words), then
+  the surface itself and nothing else on that list — the owner's feedback is
+  on something he can use (*Two classes and a phase that leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
   loop** — I write the real file and ship it. Product code in production
@@ -441,8 +443,12 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   declares that specific change Trivial.
 - **A third exemption is a phase, not a class** (David, 2026-09-26): a product
   feature in **prototype phase**, declared per feature in the consumer's
-  `overlay-declarations.md`, gets no plan, no loop, no tests, no UAT doc and no
-  hardening bar until David declares it production. Where nothing is
+  `overlay-declarations.md`, gets the planning loop for its first version —
+  pre-plan conversation, a short plan, Astra's review, his approval — and for
+  a later version only when he asks in words; it gets no code-review loop, no
+  tests, no UAT doc and no hardening bar until David declares it production
+  (David, 2026-09-28: *"What we're cutting out is the code review loop once
+  we've built it."*). Where nothing is
   downstream of `main` it lives on `main` and its PR merges in the same turn,
   Codex's automatic pass read for nothing; where users are, it lives on a
   `prototype/<feature>` branch with its own environment and database, and

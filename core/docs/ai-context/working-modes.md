@@ -27,11 +27,12 @@ The full workflow for building or changing product functionality. In this mode:
    build — see the plan-before-implementation rule in
    [`agent-working-rules.md`](./agent-working-rules.md) and the template in
    [`../../.agents/PLANS.md`](../../.agents/PLANS.md). Do not start the build on an
-   unapproved non-trivial plan. **The one exception is a feature David has
-   declared in prototype phase** (*The prototype phase, per feature*, below),
-   which has no plan by design — and, of steps 3 to 5, keeps only the usable
-   surface: no tests, no doc updates as a bar, and a PR only in the regime
-   that opens one.
+   unapproved non-trivial plan. **A feature David has declared in prototype
+   phase** (*The prototype phase, per feature*, below) keeps this step for its
+   **first version** — a short plan, Astra's review, his approval — and drops
+   it for every later version unless he asks for the loop in words; of steps
+   3 to 5 it keeps only the usable surface: no tests, no doc updates as a
+   bar, and a PR only in the regime that opens one (David, 2026-09-28).
 3. **Build it fully, end to end** (backend + the UI surface to exercise it + tests
    + any doc updates).
 4. **Tests prove the general invariant**, not just the reported example.
@@ -691,24 +692,46 @@ hardening PR ports the ledger with the code it describes; the registry on
 no path to update it there. A feature not listed is in
 **production** phase: the safe failure is more ceremony, never less.
 
+**What prototype phase keeps: the planning loop, for the first version**
+(David, 2026-09-28, correcting the reading #168 merged that morning). *"It
+MUST get a planning review loop. That's the whole point. We're planning
+something new, trying to figure out how it should work, arguing back and
+forth with you and Astra about the best way to accomplish the goal. What
+we're cutting out is the code review loop once we've built it. We want to
+prototype the RIGHT THING, but we don't want to code review it until we're
+sure it really is the right thing."* So a prototype's **first version** goes
+through the pre-plan conversation, a short plan — the design question the
+prototype exists to answer, the hypothesis it tries, the surface it shows and
+what it leaves out — Astra's review through the `plan-review-loop` skill, and
+David's explicit approval, exactly as a production-phase increment does; the
+questions file is that plan's product. **Every later version is built with no
+loop**, on his feedback alone, *"so I can fix a quick bug or issue or try a
+new variation without needing the rigor of a planning loop"* — unless he asks
+for the loop in words for that version, which he can *"easily"*; the agent
+never infers the ask. A UI or UX fix on a prototype is one of those versions.
+
 **What prototype phase removes.** For a PR that touches only prototype-phase
-features: no plan document, no plan-review loop, no scope-of-work gate, no
-review loop of any kind (no requested Codex round, no shared judgement, no
-translation), no tests, no `/simplify`, and none of security, performance,
-observability or documentation as a bar — *"We must not care about security,
-performance, observability, documentation, etc. until we've locked a design
-and the feature spec."* His "etc." covers the product-design principles too
+features: no code-review loop of any kind (no requested Codex round, no
+shared judgement, no translation), no tests, no `/simplify`, and none of
+security, performance, observability or documentation as a bar — *"We must
+not care about security, performance, observability, documentation, etc.
+until we've locked a design and the feature spec."* and *"I don't care about
+security issues or potential edge cases in a prototype."* (The rule read "no
+plan document, no plan-review loop, no scope-of-work gate" from 2026-09-26
+to 2026-09-28: his "no looping at all" was read as covering both loops, and
+it covered one.) His "etc." covers the product-design principles too
 (legible async status, no raw identifiers on a surface, and their kin): a
 prototype follows them where they cost nothing, and a miss is a ledger line
 for the flip, never a finding that starts a fix. The PR is opened and merged
 by the same agent in the same turn, on green CI. Codex's automatic pass on PR-open still runs and is
 **read for nothing**: each of its threads is resolved with one line naming
-this phase, and no finding on a prototype-phase feature starts a fix. **The
-only feedback that changes a prototype is the product owner's**, about how it
-feels to use, gathered the way the `prototype` skill describes — and a defect
-he reports on it is the next version through that skill, never a bugfix:
-bugfix mode is for already-agreed behaviour, and nothing about a prototype
-is agreed yet. **Publishing
+this phase, and no finding on a prototype-phase feature starts a fix. **Once
+the first version is approved, the only feedback that changes a prototype is
+the product owner's**, about how it feels to use, gathered the way the
+`prototype` skill describes — and a defect he reports on it, a UI or UX fix
+included, is the next version through that skill, never a bugfix and never
+code-reviewed: bugfix mode is for already-agreed behaviour, and nothing about
+a prototype is agreed yet. **Publishing
 is never part of this**: the agent merges to `main` and stops; David decides
 every publish (*"I'm the one who will decide when we publish"*), tests in the
 development environment himself, and hands the link to the user when he is
