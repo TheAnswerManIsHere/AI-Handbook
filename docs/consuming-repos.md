@@ -210,7 +210,7 @@ to worry about strange links."*)
    **Write `docs/ai-context/overlay-declarations.md` as part of this step.** It
    is the one consumer document the payload *dereferences* rather than merely
    links to, and it is the easiest to skip because **nothing complains when it
-   is missing.** The shared rules ask this repo five questions — in
+   is missing.** The shared rules ask this repo six questions — in
    `agents-core.md` as well as `claude-core.md`, so this binds Codex too — and
    each replaced a hardcoded answer naming one product's modules:
 
@@ -220,7 +220,8 @@ to worry about strange links."*)
    | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
    | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
    | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
-   | Which **features are in prototype phase**, each with its regime (`main`, or a `prototype/<feature>` branch once users are downstream), its questions file and its ledger of shortcuts taken; and which **user tier is the tester tier** (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — the one answer here that fails toward *more* ceremony |
+   | Which **features are in prototype phase**, each with its regime (`main`, or a `prototype/<feature>` branch once users are downstream), its questions file and its ledger of shortcuts taken (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — an answer that fails toward *more* ceremony |
+   | Which **user tier is the tester tier**, and the configuration setting that switches it on (*Tester tier*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | No prototype-phase feature may start: the tier is built through the normal pipeline before the product's first prototype ships, so a missing declaration holds the first prototype rather than running it with a feedback rail nobody can see — the second answer that fails toward *more* ceremony |
 
    One payload route is deliberately **not** in that table: `/next` and the
    tracking skills ask the overlay for the repo's **product direction and
@@ -228,17 +229,17 @@ to worry about strange links."*)
    here* section — a route to documents the repo already owns, not a fact it
    has to declare. See *the path is a default, not a route*, above.
 
-   **All but one of these fail silently** — the feature-phase row above is
-   the one that fails toward more ceremony. Every other one degrades into
+   **All but two of these fail silently** — the feature-phase and tester-tier
+   rows above are the ones that fail toward more ceremony. Every other one degrades into
    less ceremony or weaker review, silently, which is why the answers are written *before* the
    first sync rather than when something breaks. And **one document, routed
    from both overlays**, rather than a section in each: two copies are two
    hand-maintained lists of one thing, and this repository exists because that
    shape drifts.
 
-   **A sixth question later gets a new section here, not a new file.** The
-   payload gained the first four one at a time across #62 (the fifth, the
-   feature-phase row, arrived with #168), and each was installed
+   **A seventh question later gets a new section here, not a new file.** The
+   payload gained the first four one at a time across #62 (the fifth and
+   sixth, the feature-phase and tester-tier rows, arrived with #168), and each was installed
    separately or not at all — three of the four were not installed until round
    5 caught them. One document with a growing list is the shape that cannot
    repeat that.
@@ -400,9 +401,9 @@ to worry about strange links."*)
    starts dereferencing a new answer arrives **fully armed against an overlay
    that has never heard of it.** Nothing errors. The rule simply resolves to
    nothing, and the repo silently gets less ceremony than it had the day
-   before — or, for the feature-phase row, more: an unlisted feature is
-   production phase, so a prototype the overlay never declared gets the
-   full loop.
+   before — or, for the feature-phase and tester-tier rows, more: an unlisted
+   feature is production phase, so a prototype the overlay never declared
+   gets the full loop, and an undeclared tier holds the first prototype.
 
    Before a re-sync, diff step 1's table against that repo's
    `docs/ai-context/overlay-declarations.md` and land the missing answers in

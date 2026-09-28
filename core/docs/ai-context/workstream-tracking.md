@@ -165,6 +165,8 @@ in the branch regime, the `prototype/<feature>` branch; its PR, where one
 exists, carries `Workstream: #N` like any other; no `stage:code-review` ever
 follows, because no loop runs. **The flip is a relabel of the same issue,
 performed by the `prototype` skill before `plan-review-loop` starts**: it
+first lands the registry change on `main` (the entry reads production, by a
+one-line `Refs #N` PR that moves no label), then
 locates the feature's issue by its `Workstream:` line or title, moves it to
 `stage:planning` / `waiting:david`, and records the declaration in the
 State of Play — so the planning loop finds an issue already at
@@ -412,8 +414,12 @@ open either.** What keeps a merged workstream open is a UAT still owed —
 or, for a feature David has declared prototype phase, the phase itself: its
 merges have no close-out, its issue stays at `stage:coding` through every
 version, and it closes at the close-out of the hardening PR that follows
-the flip (*Promotion is a real operation*, above; the rule is
-[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). Where none is owed, nothing remains for anyone to
+the flip — or, when David declares the feature abandoned, as *not planned*
+in the same pass that removes its registry entry, with a comment naming the
+decision (*Promotion is a real operation*, above; the rule is
+[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+The one-line registry PRs the phase uses — at the start under the branch
+regime, at the flip, at abandonment — say `Refs #N` and own no lifecycle. Where none is owed, nothing remains for anyone to
 verify after the close-out sync, so the issue closes then. (David, 2026-09-25. Before this,
 the only step that closed an issue was an accepted `/uat` run. Every
 workstream with no UAT — every docs, devops and Tier A bugfix PR, and in

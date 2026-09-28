@@ -661,7 +661,9 @@ a whole; features flip one at a time, and a repo carrying both phases is the
 normal case, not a transition.
 
 **Where the phase is recorded.** The consumer repo's
-`docs/ai-context/overlay-declarations.md` carries a *Feature phases* section:
+`docs/ai-context/overlay-declarations.md` carries a *Feature phases* section
+(and, beside it, a *Tester tier* section naming the tier and the setting that
+switches it on — absent, no prototype-phase feature may start):
 one entry per feature, its phase, the date it last changed, and — while it is
 in prototype phase — a running one-line-per-item **ledger of the shortcuts
 taken** (state held in memory, no auth on a route, a secret in an environment
@@ -710,10 +712,28 @@ the plan as Product Intent and Settled Decisions the way any feature's are,
 so a hardening PR that clears every shortcut while regressing what the owner
 approved fails review. The ledger exists so that this increment is a list to
 work through rather than an archaeology of the code; it costs a sentence at
-the moment a shortcut is taken. (An observable
+the moment a shortcut is taken. **The declaration is persisted before
+anything else happens**: the feature's registry entry on `main` changes to
+production, with the date, by its own one-line PR — in the branch regime
+too, since every session reads the registry first and a resumed one would
+otherwise route the hardening work back down the no-review path. Planning
+starts only once that PR has merged. **Questions still unanswered when he
+declares are retired by the declaration**: they become the first items of
+the pre-plan conversation, never a reason for another prototype version.
+(An observable
 trigger — the first time the user's real work exists only in the product —
 was proposed and declined; the dissent is recorded so the next session does
 not re-raise it.)
+
+**A prototype can also end by being abandoned** (David, 2026-09-28, closing
+a review finding). The declaration is his, in words, like the flip. Its
+registry entry is removed by its own one-line PR; in the `main` regime its
+code is removed from `main` by an ordinary PR (a change touching only a
+prototype-phase feature, so it merges in the same turn); in the branch regime
+the branch is deleted, or left for David to delete, and the registry no
+longer names it; the workstream issue is closed as *not planned* with a
+comment naming the decision and the answer the prototype gave. Nothing is
+harvested, since nothing was decided about how the system works.
 
 **Where a prototype lives is decided by who is downstream of `main`** (David,
 2026-09-27). Unchecked code is dangerous to a live product through three
@@ -741,7 +761,14 @@ feature is in:
   lives on a **`prototype/<feature>` branch of the same repository** and
   never on `main` while in that phase. A second deployment, the **prototype
   environment**, tracks the branch and has **its own database**, seeded from
-  fixtures or a sanitized copy, never production's. **No PR is opened while
+  fixtures or a sanitized copy, never production's. Its integrations are the
+  product's real ones, credentials included — a prototype that could not
+  charge, send or write would not answer the question it exists to ask
+  (David, 2026-09-28, declining a review finding that asked for sandbox
+  credentials or disabled egress: *"The only people who will be running the
+  prototype environment will know that their actions have ramifications"*).
+  Only tester-tier members can sign in there, and that is the whole
+  safeguard. **No PR is opened while
   the feature is in prototype phase** — nothing merges, so there is nothing
   to review, and David's declaration of the phase is the explicit "no PR"
   the pull-request rule allows; the branch name in the registry is the
@@ -752,7 +779,10 @@ feature is in:
   reads from `main` as no entry, which is production phase. That PR is prose
   recording a decision — David's declaration, quoted — so it is a
   Documentation-class change unless he declares it Trivial in the same
-  words, which the declaration itself can carry. The branch takes `main` in
+  words, which the declaration itself can carry. It says `Refs #N` for the
+  feature's issue, never `Workstream: #N`, so it owns no lifecycle and moves
+  no label (`workstream-tracking.md`, *Closing an issue*); the same holds for
+  the one-line registry PRs at the flip and at abandonment. The branch takes `main` in
   by merge whenever it needs newer product code, never by rebase. At the flip, the hardening PR onto `main`
   is a port through the standard loop with the branch as its reference,
   which is what "a prototype is never promoted" already meant. CI still
