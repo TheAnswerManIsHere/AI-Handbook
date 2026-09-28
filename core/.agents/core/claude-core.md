@@ -1159,7 +1159,9 @@ shows the true delta.
     Fable while I wait.
   - **Mandatory before product code.** Not needed to keep talking, to plan, or
     for a docs/process edit — the ask at every small thing is the overhead this
-    is meant to avoid.
+    is meant to avoid. A prototype-phase feature is product code too: the
+    phase removes ceremony, and the model tier is not on its list (*Two
+    classes and a phase that leave the loop*, above).
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
