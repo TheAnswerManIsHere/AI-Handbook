@@ -691,7 +691,12 @@ shortcut taken on the branch is recorded where it was taken and the
 hardening PR ports the ledger with the code it describes; the registry on
 `main` never carries the ledger itself, since a branch-regime prototype has
 no path to update it there. A feature not listed is in
-**production** phase: the safe failure is more ceremony, never less.
+**production** phase: the safe failure is more ceremony, never less. **The
+entry is written before the first version's planning loop opens**, by its own
+one-line registry PR in either regime (the branch-regime bullet below gives
+its shape): every entry router reads the registry, so a loop resumed in
+another session would otherwise run a production plan for an unlisted feature
+(Codex, #173 round 2).
 
 **What prototype phase keeps: the planning loop, for the first version**
 (David, 2026-09-28, correcting the reading #168 merged that morning). *"It
@@ -872,8 +877,8 @@ feature is in:
   to review, and David's declaration of the phase is the explicit "no PR"
   the pull-request rule allows; the branch name in the registry is the
   visibility — **and the registry lives on `main`, so the entry lands there
-  by its own one-line PR**, opened when the prototype starts and never left
-  on the branch alone: a session starting from `main` reads the registry to
+  by its own one-line PR**, opened before its first version's planning loop
+  and never left on the branch alone: a session starting from `main` reads the registry to
   learn a feature's phase, and an entry only the unmerged branch carries
   reads from `main` as no entry, which is production phase. That PR is
   Trivial by his phase declaration (the flip paragraph above), quoted in its

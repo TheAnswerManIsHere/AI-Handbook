@@ -154,8 +154,9 @@ whether the feature does what David wants does.)
 
 The intent agreed *before the plan* is what the work is verified against — not the
 plan, the PR title, or the code. (A prototype-phase feature's first version
-has a plan and this applies to it; its later versions have none, and their
-oracle is the questions file and the owner's feedback —
+has a plan and this applies to it, as it does to a later version David asked
+a loop for; a version built with no plan is verified against the questions
+file and the owner's feedback —
 [`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26).) If the conversation said "users should be able to
 A and B" and the plan only covers A **with no trace of B anywhere**, the plan is
 wrong — revise it. If you notice during implementation that the intent implied a
