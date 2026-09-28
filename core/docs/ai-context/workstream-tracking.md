@@ -166,7 +166,7 @@ his feedback starts another revision, so the board asks him to act only
 while there is something to act on. Its issue names the questions file and,
 in the branch regime, the `prototype/<feature>` branch; its PR, where one
 exists, carries `Workstream: #N` like any other; no `stage:code-review` ever
-follows, because no loop runs. **The flip is a relabel of the same issue,
+follows, because no code-review loop runs on any version. **The flip is a relabel of the same issue,
 performed by the `prototype` skill before `plan-review-loop` starts**: it
 first lands the registry change on `main` (the entry reads production, by a
 one-line `Refs #N` PR that moves no label), then
@@ -486,7 +486,8 @@ set" `stage:done`, and nothing ever asked him to.)
   an issue body is public even though the Project itself is private. This
   is the **canonical definition** of the disclosure check that gates
   opening a public workstream issue, referenced (not restated) by
-  `plan-review-loop`, the `prototype` skill when it opens a feature's issue,
+  `plan-review-loop` (which opens a prototype's first-version issue too), the
+  `prototype` skill before a questions file or ledger's first push,
   `working-modes.md`'s bugfix disclosure check, and
   `documentation-workflow.md`'s harvest-tracking section: before a
   workstream — a plan, a bug report, or a `/document` harvest — becomes a

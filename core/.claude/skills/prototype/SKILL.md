@@ -7,7 +7,7 @@ description: Build a feature in prototype phase to answer a design question with
 
 # Prototype
 
-> The body below is upstream's, kept as technique. *Local adaptations* further down says which of its mechanics — where the prototype lives, how it is handed over and captured — are replaced here, and cites the rule.
+> The body below is upstream's, kept as technique. *Local adaptations* further down says which of its mechanics — where the prototype lives, how it is handed over and captured, and the planning gates a first version passes before any of it is built — are replaced here, and cites the rule.
 
 A prototype is **throwaway code that answers a question**. The question decides the shape.
 
