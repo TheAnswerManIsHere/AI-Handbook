@@ -399,8 +399,10 @@ The reviewer's own standard is shared, not my ceremony:
 ## When the next request isn't a bug
 
 There is no mode to exit — classification is per-request. A feature-shaped
-request ("let's build / add / change X") simply gets the feature workflow,
-and the classification announcement makes the switch visible. Two cases
+request ("let's build / add / change X") simply gets the feature workflow —
+after the registry read at the top of this file, which sends a
+prototype-phase feature to the `prototype` skill instead — and the
+classification announcement makes the switch visible. Two cases
 still deserve care:
 
 - **A request that could be either** — a "fix" that might really mean
@@ -424,7 +426,8 @@ generated API-validation schemas, which stay Q1 Tier B — see
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-c--this-is-not-a-bug-fix-leave-bugfix-mode)),
 or anything where David needs to verify intent is out of the fast path — a
 non-trivial one goes to **feature mode**, a genuinely trivial database schema
-fix runs migration ceremony directly per Tier C. Don't use `/bugfix` to sneak a
+fix runs migration ceremony directly per Tier C, and one on a feature the
+registry lists in prototype phase goes to the `prototype` skill. Don't use `/bugfix` to sneak a
 feature through the fast path — and don't let a fix quietly become one
 mid-build; that's Tier C.
 

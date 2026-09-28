@@ -25,8 +25,8 @@ it works cold in a brand-new session and shouldn't be run inside a long
 existing thread (that burns the wrong session's context for no benefit).
 
 **This is a read-only reporting skill.** It never writes labels, comments,
-or issue bodies — that's `pr-watch`, `plan-review-loop`, `bugfix`, and
-`pr-docs`'s job at the moments those already fire. (The old automated
+or issue bodies — that's `pr-watch`, `plan-review-loop`, `bugfix`,
+`prototype` and `pr-docs`'s job at the moments those already fire. (The old automated
 exception, the `test-run-completion.yml` Action, is retired with the
 TEST_RUN file pattern, 2026-08-15 — the `stage:test-run` →
 `stage:uat`/`stage:close-out` transition is `pr-watch`'s close-out

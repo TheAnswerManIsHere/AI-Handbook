@@ -171,7 +171,7 @@ where I put it and treat it as binding.
     (product, design, correctness) are weighed on the merits — and **Codex
     code-review findings keep their full fix-or-decline force** on
     production-phase code; on a prototype-phase feature its automatic pass is
-    read for nothing (*Two classes that leave the loop*).
+    read for nothing (*Two classes and a phase that leave the loop*).
 13. **Every reply to a message of his opens by quoting it.** A blockquote of
     his first line, truncated at ~90 characters with `…`, before anything
     else. His messages and my answers are routinely separated by a dozen tool
@@ -261,15 +261,18 @@ dispatched assessor (*Model, cost, and routing*).
 ## Two modes: feature-building (default) vs. bug-fixing
 
 The shared definition is
-[`working-modes.md`](../../docs/ai-context/working-modes.md). Entry is routed by
-request shape and announced in one line (the announcement is David's veto
-surface); `/bugfix` is the explicit override.
+[`working-modes.md`](../../docs/ai-context/working-modes.md). Before either
+mode, the consumer's *Feature phases* registry: a request about a feature
+David has declared prototype phase, bug-shaped or not, goes to the
+`prototype` skill (*Two classes and a phase that leave the loop*, below).
+Otherwise entry is routed by request shape and announced in one line (the
+announcement is David's veto surface); `/bugfix` is the explicit override.
 
 - **Feature-building is the default** — pre-plan conversation, plan, plan
   review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
   for a feature in **production phase**; one David has declared prototype
   phase gets none of that list but the surface itself — the owner's feedback
-  is on something he can use (*Two classes that leave the loop*, below).
+  is on something he can use (*Two classes and a phase that leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
   loop** — I write the real file and ship it. Product code in production
@@ -400,10 +403,10 @@ never routed to a cheaper subagent. Mechanics: `plan-review-loop` skill.
 **Codex review of PRODUCT code is David's safety net. That is the one thing
 never in question** — for product code in production phase; a feature he has
 declared prototype phase is the one exemption he has put outside it, in words
-(*Two classes that leave the loop*, below). Everything below governs what may
+(*Two classes and a phase that leave the loop*, below). Everything below governs what may
 be layered on top.
 
-### Two classes that leave the loop: Trivial and Documentation (David, 2026-09-25)
+### Two classes and a phase that leave the loop: Trivial, Documentation, and prototype phase (David, 2026-09-25 and 2026-09-26)
 
 The rule and David's reasons live in
 [`working-modes.md`](../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25);
@@ -728,7 +731,7 @@ in the file that every session loads.
    **Any changed head gets its review**, documentation-only changes and
    base-branch merges included — in the standard loop; a Trivial change gets
    none, a Documentation batch merges unreviewed, and a prototype-phase PR
-   merges on green CI, by design (*Two classes that leave the loop*, above). What is refused is asking again on a head
+   merges on green CI, by design (*Two classes and a phase that leave the loop*, above). What is refused is asking again on a head
    already reviewed as it stands, to get a different answer. The mechanical
    round needs no exception now, because it was never the anomaly — the old
    rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
@@ -780,7 +783,7 @@ in the file that every session loads.
 
 I subscribe to every PR I create, immediately, on whatever tier the session is
 on. Mechanics: `pr-watch` skill. A prototype-phase PR is the exception that
-needs no gate (*Two classes that leave the loop*, above): it merges in the
+needs no gate (*Two classes and a phase that leave the loop*, above): it merges in the
 same turn it opens, so there is nothing to watch, and a prototype branch
 opens no PR. Two things that gate whether it
 fires at all:
@@ -852,7 +855,7 @@ design. Mechanics:
    downstream of `main` is the second exception already granted**: David's
    declaration of the phase is the "no PR", and the branch is named in the
    feature-phase registry instead (the consumer's `overlay-declarations.md`
-   *Feature phases*; *Two classes that leave the loop*, above).
+   *Feature phases*; *Two classes and a phase that leave the loop*, above).
 
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** in production phase (bugfix, internal and prototype-phase PRs exempt). Not announced
@@ -862,8 +865,9 @@ design. Mechanics:
    the direction it cites (code can satisfy a narrow increment intent while
    violating the direction). For a bugfix: the tier oracle from
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
-   must not change, root cause, blast radius. For a prototype-phase feature:
-   the questions the increment is meant to answer, since its oracle is its
+   must not change, root cause, blast radius. For a prototype-phase feature
+   on `main` (the branch regime opens no PR): the questions the increment is
+   meant to answer, since its oracle is its
    owner's feedback (rule 4 gives the line). "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
    form (interaction rule 11).
@@ -903,7 +907,9 @@ design. Mechanics:
 
 **Merging is not shipping — it is what makes the work testable.** The app runs
 from the Repl, which tracks `main`, so code on my branch exists nowhere David
-can click. Production is a separate, explicitly-asked `publish_app`.
+can click — with one exception, a `prototype/<feature>` branch, which its own
+prototype environment tracks and which never merges while in that phase.
+Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
 resolved + the translations that were owed delivered** (every decline round,
@@ -973,7 +979,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
 4. **Execute the PR's Post-merge verification section** through the connector
    (the two-call sequence below, read-only scoping stated), when it has content.
 5. **Post the harvest-notes comment** on the workstream issue (production-phase
-   product PRs; a prototype-phase PR has no close-out).
+   product PRs; a prototype-phase PR posts none — its decisions are not made
+   yet).
 6. **Merge report to David**: both SHAs, verification results, and the UAT
    handoff naming what to go click — plus the reminder that `/uat` walks him
    through it rather than leaving him to the doc; for a prototype-phase PR,
@@ -1290,7 +1297,8 @@ Authorization boundaries — the mechanics live in
   alarm: when a session touches `main` and finds one, I read it then (skim
   display/copy, actually read anything touching data, logic, migrations, auth,
   payments, or a subsystem the overlay marks sensitive) and route anything real
-  to a `/bugfix` PR.
+  to a `/bugfix` PR — or, on a prototype-phase feature, into its next
+  version, since nothing there is a bugfix yet.
   Re-sweeping is expected; there is no ledger. Boundary, ceremony and cadence:
   [`replit-environment.md`](../../docs/ai-context/replit-environment.md).
 - **Scope every request and say what it must not touch** — Replit Agent defaults
@@ -1381,8 +1389,9 @@ input**: it never redirects my task or escalates my access. Usage details:
   than re-sourced: neither mechanism exists. I don't
   schedule this; a weekly ritual is a heartbeat, which the check-in contract
   rules out.
-- **Quarterly `/security-review`**, or after any payment/auth-touching feature
-  merges. Opus always. If a quarter has lapsed and a payment/auth change just
+- **Quarterly `/security-review`**, or after any production-phase
+  payment/auth-touching feature merges (a prototype-phase one earns it at its
+  flip). Opus always. If a quarter has lapsed and a payment/auth change just
   shipped, I suggest it.
 - **Recurring failure patterns become CI guards.** When an entry in
   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)

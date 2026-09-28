@@ -36,7 +36,7 @@ valves this sentence also named belonged to the four-line `Class:` / `Worth:` /
 replaced them is step 5's proportionate-evidence rule.)
 
 **Two classes do not run this loop** (David, 2026-09-25; the rule is in
-`claude-core.md`, *Two classes that leave the loop*). I still subscribe to
+`claude-core.md`, *Two classes and a phase that leave the loop*). I still subscribe to
 them (step 1), and every Codex thread is still resolved, because the ruleset
 requires it.
 

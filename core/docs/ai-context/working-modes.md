@@ -1534,10 +1534,11 @@ was entered. Rationale in [`decisions.md`](./decisions.md).)
   workflow, plan first). Codex reads *this doc* via `AGENTS.md` and applies
   the matching workflow. Absent an explicit signal, Codex is in **feature
   mode** (the default) and follows the plan-before-implementation rule; a
-  declared mode governs its thread until David changes it. In feature mode
-  the consumer's *Feature phases* registry is read first: a feature David has
-  declared prototype phase has no plan (*The prototype phase, per feature*,
-  above), whatever the prompt's prefix.
+  declared mode governs its thread until David changes it. Before any mode,
+  whatever the prompt's prefix, the consumer's *Feature phases* registry is
+  read: a request about a feature David has declared prototype phase goes to
+  its next version through the `prototype` skill, with no plan and no bugfix
+  (*The prototype phase, per feature*, above).
   - *Optional:* if a given Codex setup supports custom prompt files (e.g. a
     `/bugfix` prompt), point that prompt at this doc — it doesn't change the
     contract, just the trigger.
@@ -1550,7 +1551,9 @@ backfill** (Tier C without exception, regardless of product consequence —
 not generated API-validation schemas, which stay Q1 Tier B — see *Tier C*
 above), **do not silently treat it as a fix** — **ask** whether it should
 take the feature workflow, or (for a genuinely trivial database schema fix)
-proceed straight to migration ceremony per Tier C. Guessing wrong is
+proceed straight to migration ceremony per Tier C — or, when the registry
+says the feature is in prototype phase, go to the `prototype` skill and no
+mode at all. Guessing wrong is
 expensive in both directions (skipping a plan a feature or a non-trivial
 schema change needed, or piling ceremony onto a one-line fix), and the
 confirm costs one question.
@@ -1561,7 +1564,9 @@ Features, behavior changes, **any *database* schema change, migration, or
 backfill** (Tier C without exception — see above; not gated on product
 consequence; not generated API-validation schemas, which stay Q1 Tier B), or
 anything where David needs to verify intent — that's **feature mode**, or for a
-trivial database schema fix, migration ceremony run directly per Tier C. Don't
+trivial database schema fix, migration ceremony run directly per Tier C, or
+for a feature the registry lists in prototype phase, the `prototype` skill
+(*The prototype phase, per feature*, above). Don't
 use bugfix mode to sneak a feature through the lightweight path. **And a
 "clean up the review findings" batch is not a bug fix (David, 2026-08-09):**
 N leftover findings are N defects, and batching them recreates exactly what

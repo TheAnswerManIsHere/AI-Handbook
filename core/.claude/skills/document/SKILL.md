@@ -23,7 +23,9 @@ no-empty-chapter quality bar, proportionality, boundaries). I don't restate it
 here.
 
 **This runs batched at `/maintenance`, not per merge (David, 2026-08-20).**
-One pass covers every product feature merged since the last maintenance run.
+One pass covers every production-phase feature merged since the last
+maintenance run; a prototype-phase feature waits for its flip
+([`documentation-workflow.md`](../../../docs/ai-context/documentation-workflow.md)).
 Process PRs — guards, scripts, skills, contracts, process docs — get no harvest
 at all: anything worth keeping from those is a Type 1 learning, persisted the
 moment it was learned.

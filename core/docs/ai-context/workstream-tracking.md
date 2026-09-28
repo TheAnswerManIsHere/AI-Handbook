@@ -177,7 +177,8 @@ feature has one issue across both phases. The rule is working-modes.md,
    issue **is** the workstream issue — reuse it, don't open a second one.
 2. **Promote it**: remove the `queue:` label, add the full `stage:`/
    `waiting:` set for wherever this skill is entering the lifecycle
-   (`stage:planning` for a feature plan, `stage:coding` for a bugfix), and
+   (`stage:planning` for a feature plan, `stage:coding` for a bugfix or a
+   prototype-phase feature, the latter at `waiting:claude`), and
    write the State of Play block fresh (the backlog body's nuance carries
    forward as narrative, not as a field to preserve verbatim).
 3. **Only if no matching backlog issue exists** does the normal fresh-issue

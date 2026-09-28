@@ -1,11 +1,11 @@
 ---
 name: pr-docs
-description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier.
+description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier — and neither does a prototype-phase PR, which ships neither half.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
-# Every PR ships post-merge verification + a UAT
+# Every production-phase feature PR ships post-merge verification + a UAT
 
 Migrated out of `CLAUDE.md` so it loads when the docs are actually being
 written. The rule that a product-visible feature PR is not complete until
@@ -13,7 +13,7 @@ both halves exist stays resident in `CLAUDE.md`.
 
 ### The pairing (David, 2026-08-15 — the standalone TEST_RUN file is retired)
 
-**This section is the feature-mode default: paired by default, unconditionally.**
+**This section is the feature-mode default: paired by default, for a feature in production phase.**
 Bugfix mode does **not** inherit this pairing — its verification is
 conditional per tier, and its infra-only fixes may ship neither half: see
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-b--elevated-fix).
