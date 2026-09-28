@@ -7,6 +7,11 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 
 # Writing Plans
 
+> **Local note (AI-Handbook #168).** A feature David has declared prototype
+> phase has no plan to write: it goes through the `prototype` skill, and its
+> questions file stands where a plan would
+> ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+
 ## Overview
 
 Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.

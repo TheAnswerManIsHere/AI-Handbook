@@ -1,11 +1,11 @@
 ---
 name: pr-docs
-description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier.
+description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier — and neither does a prototype-phase PR, which ships neither half.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
 
-# Every PR ships post-merge verification + a UAT
+# Every production-phase feature PR ships post-merge verification + a UAT
 
 Migrated out of `CLAUDE.md` so it loads when the docs are actually being
 written. The rule that a product-visible feature PR is not complete until
@@ -13,14 +13,17 @@ both halves exist stays resident in `CLAUDE.md`.
 
 ### The pairing (David, 2026-08-15 — the standalone TEST_RUN file is retired)
 
-**This section is the feature-mode default: paired by default, unconditionally.**
+**This section is the feature-mode default: paired by default, for a feature in production phase.**
 Bugfix mode does **not** inherit this pairing — its verification is
 conditional per tier, and its infra-only fixes may ship neither half: see
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-b--elevated-fix).
 What follows describes the feature-mode default.
 
-For **every** feature-mode PR that has product-visible or testable behavior,
-I ship two things:
+For **every** feature-mode PR that has product-visible or testable behavior
+**and is in production phase**, I ship two things. A prototype-phase PR
+ships neither: its feedback rail is its verification, and a UAT doc would be
+the documentation bar the phase removes (working-modes.md, *The prototype
+phase, per feature*).
 
 1. **The PR body's *Post-merge verification* section** — the
    engineering checks for Replit's live environment (the technical safety
@@ -93,7 +96,7 @@ I ship two things:
 A product-visible PR is **not** complete — and I don't present it to David
 as done — until the verification section has real content (or an explicit
 "none needed") and the UAT doc exists and is linked, unless the
-ship-the-UI-surface exception applies. For the UAT's structure, follow
+ship-the-UI-surface exception applies or the PR is in prototype phase (above). For the UAT's structure, follow
 [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md) — **not** the
 nearest surviving doc, which is how six competing conventions accumulated in
 the first place. (Pure infra/refactor with zero

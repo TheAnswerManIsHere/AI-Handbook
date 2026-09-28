@@ -23,15 +23,19 @@ no-empty-chapter quality bar, proportionality, boundaries). I don't restate it
 here.
 
 **This runs batched at `/maintenance`, not per merge (David, 2026-08-20).**
-One pass covers every product feature merged since the last maintenance run.
+One pass covers every production-phase feature merged since the last
+maintenance run; a prototype-phase feature waits for the close-out of the
+hardening PR that follows its flip
+([`documentation-workflow.md`](../../../docs/ai-context/documentation-workflow.md)).
 Process PRs — guards, scripts, skills, contracts, process docs — get no harvest
 at all: anything worth keeping from those is a Type 1 learning, persisted the
 moment it was learned.
 
 **There is no run/don't-run judgement dispatch any more.** It existed to decide
 whether a single merge warranted the whole ceremony; with the ceremony batched
-and a harvest-notes comment posted at every close-out, there is nothing left to
-judge.
+and a harvest-notes comment posted at every production-phase close-out (a
+prototype-phase PR posts none — the phase rule cited above), there is nothing
+left to judge.
 
 **The harvest never runs in a subagent.** Its richest sources are the build
 sessions' own decisions and rejected alternatives, which a cold worker does not

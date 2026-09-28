@@ -149,7 +149,10 @@ nothing to harvest and nothing deferred still ships a one-line
 If no marker exists at all (first pass under this contract), fall back to
 the last 7 days and say so in the report rather than presenting the
 fallback as the real boundary. Run `/document` once, covering every product
-feature merged in that window — its sources are the **harvest-notes comments on each
+feature in production phase merged in that window — a prototype-phase
+feature has no close-out and is harvested once the hardening PR that follows
+its flip has closed out, never at the registry flip itself
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)) — its sources are the **harvest-notes comments on each
 feature's workstream issue** (posted at close-out) plus the merged diffs.
 Process PRs get no harvest. Type 1 learnings — anything that changes how we
 work — were already persisted the moment they were learned and are not
@@ -163,7 +166,9 @@ stored records. From the merged-PR list for the window:
   process/guard/docs-about-process. This is the number that started the
   2026-08-20 review: it was running about 70% meta over three weeks.
 - **Rounds per loop.** From the PRs' own review history — how many code loops
-  ran, and how long each took. Include closed `[PLAN REVIEW]` PRs in a window
+  ran, and how long each took. A prototype-phase PR and the phase's registry
+  PRs ran no loop by design (step 6a's rule), so they leave the denominator
+  rather than entering it as zero-round loops. Include closed `[PLAN REVIEW]` PRs in a window
   that reaches back before 2026-09-09; after that date there are none.
   **Planning loops are no longer countable from GitHub** (Codex, #69 round 1):
   they run in-session, their exchange files are gitignored, and since
@@ -265,7 +270,9 @@ seconds; assuming someone else read it is how one gets missed.
    this step exists to catch. The boundary is display vs. behavior, never file
    location — the same one the fast lane itself uses.
 4. Anything real found goes through the normal channel: a `/bugfix` PR, or a
-   flagged item for David in the numbered-question list. **Never revert or
+   flagged item for David in the numbered-question list — or, on a feature
+   the registry lists in prototype phase, a note for its next version
+   (Boundaries, below). **Never revert or
    modify Replit's work unilaterally** — this is a retrospective read, not a
    gate, and it doesn't block or delay anything.
 5. One line in the report either way: "N Replit commits this week, nothing
@@ -293,8 +300,13 @@ PR's branch cleans up on its own — this section exists for the two shapes
 it doesn't cover: **closed-but-unmerged** PR branches, and branches with
 **no PR at all**.
 
-1. `mcp__github__list_branches`, paginated. Skip `main` and any branch
-   matching `plan-review/<slug>-combined` outright. Plan review has opened no
+1. `mcp__github__list_branches`, paginated. Skip `main`, any branch
+   matching `plan-review/<slug>-combined`, and any `prototype/<feature>`
+   branch the consumer's *Feature phases* registry names outright — the
+   last is a feature in prototype phase under the branch regime, which by
+   design carries unique commits, opens no PR and lives for as long as the
+   phase does ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)); one the
+   registry does not name is reported as *needs a look* like any other. Plan review has opened no
    branch and no PR at all since 2026-09-09, so no new branch of that shape is
    produced; any survivor predates that change and is the one branch whose
    commit only the branch itself retains. Never a deletion candidate, full
@@ -460,8 +472,9 @@ goes in a numbered question list at the end per the numbered-questions rule.
 If the report is substantial, also publish it as an Artifact page — the chat
 message remains the canonical copy. (CLAUDE.md's combined Artifact-delivery
 paragraph this used to cite was retired; only its UAT-specific rule survives,
-under *Every PR ships with a Replit test plan + a UAT*, and it doesn't cover
-maintenance reports. This is now a standalone maintenance-skill rule.)
+as `claude-core.md` Pull requests rule 5 — a UAT doc for product-visible
+feature PRs in production phase — and it doesn't cover maintenance reports.
+This is now a standalone maintenance-skill rule.)
 
 ## Boundaries
 
@@ -470,7 +483,10 @@ maintenance reports. This is now a standalone maintenance-skill rule.)
   David, or a `/bugfix` fix (its own branch and PR per bug — bugfix mode no
   longer batches, see
   [`working-modes.md`](../../../docs/ai-context/working-modes.md#one-bug-one-branch-one-pr-david-2026-07-26))
-  if he says so. Maintenance touches nothing but
+  if he says so — or, on a feature the registry lists in prototype phase,
+  a note for its next version, since nothing there is a bugfix yet
+  ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+  Maintenance touches nothing but
   dependency merges, **with two narrow exceptions**: committing updates to
   [`docs/engineering/deferred-work.md`](../../../docs/engineering/deferred-work.md)
   (step 4) — recording a newly-parked item or updating an entry's status —

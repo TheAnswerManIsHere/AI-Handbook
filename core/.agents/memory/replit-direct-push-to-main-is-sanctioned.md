@@ -47,8 +47,9 @@ looks alarming when measured against the agent's own constraints. A
 
 The generalizing shape, beyond Replit: **an agent's own guardrails are not the
 user's guardrails.** The pipeline (branch → PR → Codex → merge) binds Claude
-Code because Claude Code's unreviewed changes are the risk it was built to
-contain. David owns the repo and the product; the same action from him is a
+Code on production-phase code because Claude Code's unreviewed changes are the
+risk it was built to contain (a prototype-phase feature takes the path
+[`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26) gives it). David owns the repo and the product; the same action from him is a
 decision, not a bypass. Reading a constraint on oneself as a constraint on
 everyone turns settled policy into a false alarm.
 

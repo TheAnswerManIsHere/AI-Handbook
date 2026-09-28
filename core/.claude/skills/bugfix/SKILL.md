@@ -37,6 +37,12 @@ feature-shaped request arriving mid-run simply gets the feature workflow
 branch discipline in step 1 — skipping it is how a second bug lands on the
 first bug's already-pushed branch, silently breaking one-bug-per-PR.
 
+**Never for a feature David has declared prototype phase.** A defect there is
+the next version through the `prototype` skill, not a bugfix PR — nothing
+about a prototype is agreed behaviour yet, and no review loop runs on it
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). The registry is read
+before this mode is entered.
+
 **The one-line summary of what this mode is:** it drops the *planning* ceremony
 (plan file, pre-plan conversation, the multi-round Codex plan-review loop), not
 the *verification*. A small-looking fix can still have wide consequences, so the
@@ -393,8 +399,10 @@ The reviewer's own standard is shared, not my ceremony:
 ## When the next request isn't a bug
 
 There is no mode to exit — classification is per-request. A feature-shaped
-request ("let's build / add / change X") simply gets the feature workflow,
-and the classification announcement makes the switch visible. Two cases
+request ("let's build / add / change X") simply gets the feature workflow —
+after the registry read at the top of this file, which sends a
+prototype-phase feature to the `prototype` skill instead — and the
+classification announcement makes the switch visible. Two cases
 still deserve care:
 
 - **A request that could be either** — a "fix" that might really mean
@@ -418,7 +426,8 @@ generated API-validation schemas, which stay Q1 Tier B — see
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#tier-c--this-is-not-a-bug-fix-leave-bugfix-mode)),
 or anything where David needs to verify intent is out of the fast path — a
 non-trivial one goes to **feature mode**, a genuinely trivial database schema
-fix runs migration ceremony directly per Tier C. Don't use `/bugfix` to sneak a
+fix runs migration ceremony directly per Tier C, and one on a feature the
+registry lists in prototype phase goes to the `prototype` skill. Don't use `/bugfix` to sneak a
 feature through the fast path — and don't let a fix quietly become one
 mid-build; that's Tier C.
 

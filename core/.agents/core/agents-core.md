@@ -39,7 +39,9 @@
 
 David is the product owner. **Do not implement major changes from a non-trivial
 plan until David has explicitly approved that plan.** An ambiguous nudge or another
-agent's approval is not David's approval. Full working rules:
+agent's approval is not David's approval. The one work that has no plan to
+approve is a feature David has declared **prototype phase** (below, and
+working-modes.md *The prototype phase, per feature*). Full working rules:
 [`docs/ai-context/agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md).
 
 **Two working modes — the ceremony in force is always visible, never silent.**
@@ -50,14 +52,20 @@ signal you are in feature mode. (Claude routes by request shape with an
 announced, vetoable classification — see the mode-entry section of
 working-modes.md.) Read
 [`docs/ai-context/working-modes.md`](../../docs/ai-context/working-modes.md) for the full
-contract of each and how to switch between them.
+contract of each and how to switch between them. **A feature also has a
+phase, prototype or production, declared per feature in this repo's
+`docs/ai-context/overlay-declarations.md`** (David, 2026-09-26): a change
+touching only prototype-phase features is outside every review loop, and a
+change touching any production-phase feature is in the standard loop for the
+whole PR. The rule is working-modes.md, *The prototype phase, per feature*.
 
 **End-of-feature documentation.** Follow
 [`docs/ai-context/documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).
 **The per-merge close-out judgement is retired (David, 2026-08-20)** — the
 heavyweight harvest now runs **batched at `/maintenance`**, covering every
-product feature merged since the last pass, or whenever David asks. What
-close-out owes instead is cheap and unconditional: a **harvest-notes comment
+production-phase feature merged since the last pass (a prototype-phase
+feature waits for its flip), or whenever David asks. What a production-phase
+feature's close-out owes instead is cheap and unconditional: a **harvest-notes comment
 on the feature's workstream issue** — decisions and why, alternatives
 rejected, gotcha candidates — so the batched pass inherits the session's
 context. Process PRs get no harvest. This is distinct from a one-off
@@ -161,14 +169,18 @@ Prefer, in order:
   [`docs/ai-context/async-ui-status.md`](../../docs/ai-context/async-ui-status.md).
 - **Ship the surface with the behavior** (no dead UI, no invisible backend), and
   **enforce every permission server-side.**
-- Pre-launch: features ship **on-by-default, no rollout flags**; **no new external
-  vendors** without David's sign-off.
+- Pre-launch: features ship **on-by-default, no rollout flags** (the tester
+  tier's configuration switch is not one — `agent-working-rules.md`, *No
+  rollout-flag gating*); **no new external vendors** without David's sign-off.
 
 ## Planning standard
 
 For non-trivial implementation work, create or update a plan using
 [`.agents/PLANS.md`](../PLANS.md). **Do not begin implementation until David
-approves the plan.**
+approves the plan.** A feature in **prototype phase** is outside this
+standard by David's declaration: it has no plan, and its only reviewer is
+the product owner using it
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 **Planning (not code review).** A planning loop does not run on a pull request
 (2026-09-09), and since 2026-09-18 it is not a review: two parties develop the

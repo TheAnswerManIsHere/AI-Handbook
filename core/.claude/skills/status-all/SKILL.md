@@ -16,15 +16,17 @@ the other repositories in the fleet.
 
 David runs ~10 concurrent sessions across Discovery → Planning →
 🛑 Plan approval → Coding → Code review → 🛑 Merge → Test run →
-🛑 UAT → Close-out. He can't tell which sessions need him without opening
+🛑 UAT → Close-out — or, for a feature he has declared prototype phase,
+Coding → 🛑 his feedback → Coding, with no review and no UAT
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). He can't tell which sessions need him without opening
 each one. This skill answers that from **outside** any of them, using
 GitHub as the shared substrate — no session memory required, which is why
 it works cold in a brand-new session and shouldn't be run inside a long
 existing thread (that burns the wrong session's context for no benefit).
 
 **This is a read-only reporting skill.** It never writes labels, comments,
-or issue bodies — that's `pr-watch`, `plan-review-loop`, `bugfix`, and
-`pr-docs`'s job at the moments those already fire. (The old automated
+or issue bodies — that's `pr-watch`, `plan-review-loop`, `bugfix`,
+`prototype` and `pr-docs`'s job at the moments those already fire. (The old automated
 exception, the `test-run-completion.yml` Action, is retired with the
 TEST_RUN file pattern, 2026-08-15 — the `stage:test-run` →
 `stage:uat`/`stage:close-out` transition is `pr-watch`'s close-out
@@ -93,8 +95,8 @@ list_issues(owner, repo, state: OPEN, perPage: 100,
 ```
 
 Filter out anything without a `stage:` label — that's not a workstream
-issue (shouldn't happen if `/document`, `bugfix`, and plan-review-loop are
-tagging correctly, but don't assume).
+issue (shouldn't happen if `/document`, `bugfix`, `prototype` and
+plan-review-loop are tagging correctly, but don't assume).
 
 For each issue, parse its labels the same way `sync-project-fields.mjs`
 does:
@@ -217,6 +219,14 @@ from the issue's own labels and comment history — Step 4's no-PR path —
 and never as missing, unlinked or stalled on the strength of having no PR.
 Reading a healthy planning workstream as stalled is the specific
 misclassification this paragraph exists to prevent (Codex, #69 round 1).
+
+**A prototype-phase feature under the branch regime has no PR by design
+either**, at `stage:coding` for as long as the phase lasts: the consumer's
+*Feature phases* registry names its `prototype/<feature>` branch, and that
+branch, not a PR, is where its activity is. Check the registry before the
+targeted PR lookup below, read activity from the branch's commits, and
+report it from the issue's labels — never as unlinked or stalled for having
+no PR ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 **Once the implementation PR itself merges, both matches are closed** — the
 plan-review PR (never merged, per `plan-review-loop`'s own contract) and
@@ -354,7 +364,9 @@ Discovery/Planning: any workstream Step 3 confirms has no linked PR
 (including a genuinely PR-less Coding-stage issue, e.g. before its
 implementation PR has opened) sitting at `waiting:claude`/`waiting:codex`
 with no repo activity for days is stalled the same way a quiet PR thread
-is. For these, apply the **same attributable, non-David filtering as the
+is — except that for a branch-regime prototype (above) the activity is the
+`prototype/<feature>` branch's commits, read before the issue's comments.
+For these, apply the **same attributable, non-David filtering as the
 PR path above** (the login-vs-signature distinction included) to the
 issue's own comment history (`issue_read`, **paged to exhaustion, same as
 the PR path's `get_commits`/`get_review_comments`/`get_comments`**), not
@@ -400,9 +412,11 @@ David-gate definition above):
 
 - If there's an open, unresolved review thread addressed to David → read
   it and restate the actual question in plain language.
-- If the gate is structural (🛑 Scope of work, 🛑 Plan approval, or 🛑 UAT)
-  with no open question — say so plainly, and **match the example to the
-  gate actually held**, since none of the three is a merge gate any more:
+- If the gate is structural (🛑 Scope of work, 🛑 Plan approval, 🛑 UAT, or —
+  on a prototype-phase feature at `stage:coding` — a usable version delivered
+  and waiting on his feedback through the rail) with no open question — say
+  so plainly, and **match the example to the gate actually held**, since none
+  of the four is a merge gate any more:
   "scope agreed in outline, waiting on your go-ahead before the plan is
   drafted" / "plan v3 delivered in chat, waiting on your approval" /
   "merged — UAT doc at `docs/tests/UAT/PR<N>_..._UAT.md`, not

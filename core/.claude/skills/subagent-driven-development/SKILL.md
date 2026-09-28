@@ -18,8 +18,11 @@ model that under-delegated; Opus 5 over-delegates. Apply it only to plans whose
 tasks are genuinely substantial and independent — a plan of small, sequential
 edits should be executed directly, not fanned out one subagent per task. Collapse
 the per-task reviewer into your own review when the task is small; the
-whole-branch review at the end plus Codex on the PR is the real safety net, and
-a reviewer subagent per trivial task is pure overhead. Full rules: CLAUDE.md →
+whole-branch review at the end plus Codex on the PR is the real safety net
+(this flow executes a plan, so it is production phase by construction; a
+prototype-phase feature has neither —
+[`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)), and a reviewer subagent per trivial task
+is pure overhead. Full rules: CLAUDE.md →
 *Subagent delegation is capped*.
 
 **Narration:** between tool calls, narrate at most one short line — the

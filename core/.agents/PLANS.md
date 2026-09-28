@@ -6,7 +6,9 @@
 > not begin implementation until David approves the plan** (explicitly, in words —
 > see [`../docs/ai-context/agent-working-rules.md`](../docs/ai-context/agent-working-rules.md)).
 > Trivial, well-scoped fixes don't need the full template; a "bug fix" that is
-> really a behavior change does.
+> really a behavior change does. A feature David has declared **prototype
+> phase** has no plan at all (working-modes.md, *The prototype phase, per
+> feature*).
 >
 > *(Path note: this lives under the repo's existing `.agents/` agent-facing
 > directory, alongside `.agents/memory/`.)*

@@ -18,7 +18,13 @@ at a time. A repo without one skips the Manual step; the harvest into
 
 **When it runs (David, 2026-08-20 — superseding the per-merge trigger):**
 **batched at `/maintenance`**, one pass covering every product feature merged
-since the last maintenance run. David can also invoke it directly whenever he
+since the last maintenance run — a feature still in prototype phase is not
+harvested until the hardening PR that follows its flip has closed out, since
+what it records is by design not yet how the system works, and the flip is
+persisted before planning starts while the implementation still changes
+through the standard loop; the close-out, which posts the harvest-notes
+comment, is the eligibility point, never the registry flip (Codex, #168
+round 7; [`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). David can also invoke it directly whenever he
 wants. It no longer fires per merge, and there is no run/don't-run judgement:
 the per-merge ceremony was producing roughly a quarter of all merged PRs,
 several of them harvests of harvests.
@@ -28,9 +34,12 @@ process documentation are excluded by class — anything durable they produce is
 a Type 1 learning (below), already persisted.
 
 **The bridge that makes batching safe: a harvest-notes comment at every
-close-out.** Before the batched pass exists to read them, each product feature's
-close-out posts a short comment on its workstream issue — decisions and why,
-alternatives rejected, gotcha candidates. Cheap, always, no PR. Without it a
+close-out.** Before the batched pass exists to read them, each production-phase
+product feature's close-out posts a short comment on its workstream issue —
+decisions and why, alternatives rejected, gotcha candidates. Cheap, always, no
+PR — and a prototype-phase PR posts none, since nothing about how the system
+works is decided yet (the phase rule above, and its home in `working-modes.md`
+*The prototype phase, per feature*). Without it a
 weekly pass would be reconstructing intent from cold diffs, which is exactly
 what this ceremony exists to avoid.
 
@@ -85,7 +94,8 @@ Worked classifier examples (a fresh agent should sort these without guessing):
 ## Step 1 — Harvest
 
 **In the batched `/maintenance` pass (the normal case), first enumerate the
-window**: every product feature merged since the last maintenance pass, and
+window**: every production-phase feature merged since the last maintenance
+pass (the phase rule above), and
 for each one its **harvest-notes comment on the workstream issue** — the
 close-out bridge that carries the build session's context. The batch covers
 ALL of them; skipping a feature whose notes exist is a miss, not a judgment
@@ -291,8 +301,10 @@ ceremony, not just Claude's enactment of it:
 
 1. Open the harvest PR **as a draft, and do not subscribe or apply any
    label yet.** Draft status only defers Codex's *auto*-review — it does
-   **not** defer the watching agent's own subscription (Claude always
-   subscribes to a PR it creates, draft or not) or any labeling that
+   **not** defer the watching agent's own subscription (Claude subscribes
+   to every PR it creates in the standard loop, draft or not — a
+   prototype-phase PR and the phase's registry PRs are the exceptions, per
+   the phase rule cited above) or any labeling that
    subscription's own review-loop skill would otherwise do on PR-open.
    Treat steps 2–3 as blocking: no subscribe, no `Workstream:`-line read,
    no label write, until the sub-issue (or standalone issue) is real and

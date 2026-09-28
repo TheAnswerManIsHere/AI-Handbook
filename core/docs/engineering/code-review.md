@@ -44,7 +44,10 @@ whose plan cited one is itself a finding.
 
 **The body names the oracle's source on one plain line**, `Oracle source:` —
 the approved plan's filename and full sha256 digest, the issue where the scope
-was agreed, the bugfix tier, or `no plan`
+was agreed, the bugfix tier, `no plan`, or `prototype phase — <feature>` with
+the questions file named beside it — the one form with no plan and no bug
+behind it that is not trivial, since a prototype-phase PR is judged by its
+owner alone ([`working-modes.md`](../ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
 ([`claude-core.md` Pull requests rule 4](../../.agents/core/claude-core.md#pull-requests)).
 Nothing parses it. In a multi-round plan review, an oracle pasted from an
 earlier revision is a plausible failure and an invisible one: the PR looks
@@ -123,8 +126,9 @@ and specifically ask:
   regardless of which of those five it trips. Flag that first. **A
   behavior/product change is unconditionally a full-plan finding —
   there is no trivial exception for it, ever**; a bugfix PR can't carry
-  approval for a behavior change it has no plan for, full stop. The trivial
-  exception is narrower than "Tier C" and applies **only** to a
+  approval for a behavior change it has no plan for, full stop (a
+  prototype-phase PR claims no tier and is oracled by its owner, above). The
+  trivial exception is narrower than "Tier C" and applies **only** to a
   schema/migration/backfill fix, per `working-modes.md`'s Tier C section: a
   **non-trivial** one needs a full plan and David's approval before it ran,
   which a bugfix PR obviously can't have; a genuinely **trivial** one is
@@ -440,7 +444,9 @@ two limits are independent, so a security bounce can fire *during* a real
 code-review outage, and testing for "no review **and** no bounce" would let
 that unrelated comment mask the outage indefinitely. That case still exists,
 and since 2026-08-17 it is a **development stop**, not a stakes-graded
-proceed: **every PR gets a code review, and nothing merges until it returns.**
+proceed: **every PR in the standard loop gets a code review, and nothing
+merges until it returns** (a prototype-phase change never enters the loop —
+working-modes.md, *The prototype phase, per feature*).
 How many rounds follow is the **two-review limit**'s
 ([`working-modes.md`](../ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) on work it
 bounds; nothing governs whether the first one has to come back. The Worth rule

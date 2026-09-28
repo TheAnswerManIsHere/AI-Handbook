@@ -74,6 +74,9 @@ repository exists to remove.>
 ## Environment
 
 <What is specific to this product's environment: its Repl, its database, its
+prototype environment and its database where the branch regime applies — and
+the product-specific private content a sanitized production copy strips
+beyond the contact and payment floor, or that it seeds from fixtures — its
 external services, its network allowlist.>
 ```
 
@@ -125,7 +128,7 @@ destination.
 | `docs/engineering/migrations-and-backfills.md` | Written as operational instruction against one product's schema layout and migration commands. Its principles are fleet-wide; its instructions are not, and an agent follows instructions |
 | `docs/tests/test-run-contract.md` | What a PR's post-merge verification must contain, in terms of this repo's own test runners |
 | `docs/handoff/README.md` | The cross-tool transit folder and its delete-when-addressed contract |
-| `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks, plus the one-line `Oracle source:` that `claude-core.md` Pull requests rule 4 requires. A template written before 2026-09-25 may still carry a fenced `plan-provenance` block; that block is retired (#103) and is replaced by the line. Its non-oracle sections are per-repo |
+| `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks, plus the one-line `Oracle source:` that `claude-core.md` Pull requests rule 4 requires — including its `prototype phase — <feature>` form, with the questions file beside it, for a prototype-phase PR (rule 3 gives that body its shape). A template written before 2026-09-25 may still carry a fenced `plan-provenance` block; that block is retired (#103) and is replaced by the line. Its non-oracle sections are per-repo |
 | `docs/tests/uat-doc-format.md` | The UAT skill and `check-uat-format.mjs` define a run through this file's structure, which names this repo's own surfaces |
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
@@ -209,7 +212,7 @@ to worry about strange links."*)
    **Write `docs/ai-context/overlay-declarations.md` as part of this step.** It
    is the one consumer document the payload *dereferences* rather than merely
    links to, and it is the easiest to skip because **nothing complains when it
-   is missing.** The shared rules ask this repo four questions — in
+   is missing.** The shared rules ask this repo six questions — in
    `agents-core.md` as well as `claude-core.md`, so this binds Codex too — and
    each replaced a hardcoded answer naming one product's modules:
 
@@ -219,6 +222,8 @@ to worry about strange links."*)
    | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
    | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
    | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
+   | Which **features are in prototype phase**, each with its regime (`main`, or a `prototype/<feature>` branch once users are downstream), which branch the prototype environment tracks, and the path of its prototype directory holding the questions file and the ledger (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — an answer that fails toward *more* ceremony |
+   | Which **user tier is the tester tier**, the configuration setting that switches it on, and — declared with it — the CI workflow's `push` trigger on `prototype/**`, since a branch that opens no PR fires no pull-request run (*Tester tier*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | No branch-regime prototype may start: the tier is built through the normal pipeline before the product's first prototype in that regime, so a missing declaration holds it rather than running it with a feedback rail nobody can see; a product with no users needs no tier yet — the second answer that fails toward *more* ceremony |
 
    One payload route is deliberately **not** in that table: `/next` and the
    tracking skills ask the overlay for the repo's **product direction and
@@ -226,15 +231,17 @@ to worry about strange links."*)
    here* section — a route to documents the repo already owns, not a fact it
    has to declare. See *the path is a default, not a route*, above.
 
-   **None of these fail loudly.** Every one degrades into less ceremony or
-   weaker review, silently, which is why the answers are written *before* the
+   **All but two of these fail silently** — the feature-phase and tester-tier
+   rows above are the ones that fail toward more ceremony. Every other one degrades into
+   less ceremony or weaker review, silently, which is why the answers are written *before* the
    first sync rather than when something breaks. And **one document, routed
    from both overlays**, rather than a section in each: two copies are two
    hand-maintained lists of one thing, and this repository exists because that
    shape drifts.
 
-   **A fifth question later gets a new section here, not a new file.** The
-   payload gained these four one at a time across #62, and each was installed
+   **A seventh question later gets a new section here, not a new file.** The
+   payload gained the first four one at a time across #62 (the fifth and
+   sixth, the feature-phase and tester-tier rows, arrived with #168), and each was installed
    separately or not at all — three of the four were not installed until round
    5 caught them. One document with a growing list is the shape that cannot
    repeat that.
@@ -265,7 +272,9 @@ to worry about strange links."*)
    pushes, is required** (David, 2026-09-16, #106). The two above leave a gap
    the deleted guard did not: the guard was scoped to no namespace, so a
    working branch a runner assigns under some other prefix was covered before
-   the cut and not after. `claude-core.md` now states as fact that a force
+   the cut and not after — and since #168 a `prototype/<feature>` branch is
+   the standing case outside `claude/**`, living for weeks with no PR.
+   `claude-core.md` now states as fact that a force
    push is blocked on every branch, so a consumer that omits this gets a
    contract asserting a protection its repository does not have.
 
@@ -396,7 +405,9 @@ to worry about strange links."*)
    starts dereferencing a new answer arrives **fully armed against an overlay
    that has never heard of it.** Nothing errors. The rule simply resolves to
    nothing, and the repo silently gets less ceremony than it had the day
-   before.
+   before — or, for the feature-phase and tester-tier rows, more: an unlisted
+   feature is production phase, so a prototype the overlay never declared
+   gets the full loop, and an undeclared tier holds the first branch-regime prototype.
 
    Before a re-sync, diff step 1's table against that repo's
    `docs/ai-context/overlay-declarations.md` and land the missing answers in

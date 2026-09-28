@@ -7,6 +7,12 @@ description: "You MUST use this before any creative work - creating features, bu
 
 # Brainstorming Ideas Into Designs
 
+> **Local note (AI-Handbook #168).** A feature David has declared prototype
+> phase does not pass the gate below: his declaration is the design
+> conversation's outcome, the prototype's questions file is the design, and
+> the `prototype` skill is the entry point
+> ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+
 Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
 
 Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.

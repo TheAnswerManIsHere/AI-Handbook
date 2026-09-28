@@ -7,6 +7,15 @@ description: Use after opening or being re-engaged on any PR, and whenever a git
 
 # Watching the PRs I open
 
+**Not a prototype-phase PR.** It merges in the same turn it opens (or, on a
+`prototype/<feature>` branch, there is no PR), so nothing here fires for it:
+no subscription, no labels, no rounds. **Nor one of the phase's one-line
+registry PRs** — at a prototype's start under the branch regime, at its flip
+and at its abandonment — which are Trivial by David's phase declaration,
+carry `Refs #N` rather than `Workstream: #N`, and own no lifecycle: no
+subscription, no labels (Codex, #168 round 7). The rule is working-modes.md,
+*The prototype phase, per feature*.
+
 **This file was 1,182 lines before the #89 cut, and most of that was mechanics
 for machinery that no longer exists**: budget cadence, receipt shapes, snapshot
 recipes, round-count recovery and adjudicator dispatch. All of it is gone,
@@ -31,8 +40,9 @@ valves this sentence also named belonged to the four-line `Class:` / `Worth:` /
 replaced them is step 5's proportionate-evidence rule.)
 
 **Two classes do not run this loop** (David, 2026-09-25; the rule is in
-`claude-core.md`, *Two classes that leave the loop*). I still subscribe to
-them (step 1), and every Codex thread is still resolved, because the ruleset
+`claude-core.md`, *Two classes and a phase that leave the loop*). I still subscribe to
+them (step 1) — except the phase's registry PRs, top of this file — and every
+Codex thread is still resolved, because the ruleset
 requires it.
 
 - **Trivial**, declared by David alone: no review requested of anyone. Read
@@ -59,7 +69,9 @@ requires it.
    gate. An open PR I created and am not yet watching gets subscribed the
    moment I notice it, without David re-asking.
 
-   **One exception, and it is not optional** (Codex, PR #458 round 1): a
+   **Three exceptions, and none is optional.** A prototype-phase PR is never
+   subscribed, and neither is one of the phase's one-line registry PRs (top
+   of this file). And (Codex, PR #458 round 1) a
    `/document` harvest PR is subscribed only at step 5 of
    [`documentation-workflow.md`](../../../docs/ai-context/documentation-workflow.md),
    after the workstream issue exists and the PR body's `Workstream:` line
@@ -761,7 +773,9 @@ Per [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
 `pr-watch` owns `stage:code-review` and everything downstream of it for the
 PR's workstream issue (found via `Workstream: #N` in the PR body — if it's
 missing, that PR skipped the tracking convention; flag it rather than
-silently leaving the workstream unlabeled):
+silently leaving the workstream unlabeled — unless it is one of the phase's
+registry PRs, which carry `Refs #N` by design and are never subscribed, top
+of this file):
 
 - **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
 - **Codex posts findings, I start responding** → `waiting:claude`.
@@ -806,7 +820,8 @@ silently leaving the workstream unlabeled):
   and neither does a Tier A bugfix or a Tier B bugfix whose only surface is
   internal (per `working-modes.md`'s Tier B exception): all three go
   straight to `stage:close-out` instead, since holding them at `uat` would
-  be a gate with nothing to run against it. "Has product-visible behavior"
+  be a gate with nothing to run against it (a prototype-phase PR ships none
+  either, and never reaches this step — top of this file). "Has product-visible behavior"
   is *not* the test by itself — a Tier A fix can be product-visible and
   still ship no UAT doc, which is what makes checking for the doc the right
   test, not the behavior. **The straight-to-close-out case does not stop
