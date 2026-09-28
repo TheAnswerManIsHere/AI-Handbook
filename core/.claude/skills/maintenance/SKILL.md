@@ -465,8 +465,9 @@ goes in a numbered question list at the end per the numbered-questions rule.
 If the report is substantial, also publish it as an Artifact page — the chat
 message remains the canonical copy. (CLAUDE.md's combined Artifact-delivery
 paragraph this used to cite was retired; only its UAT-specific rule survives,
-under *Every PR ships with a Replit test plan + a UAT*, and it doesn't cover
-maintenance reports. This is now a standalone maintenance-skill rule.)
+as `claude-core.md` Pull requests rule 5 — a UAT doc for product-visible
+feature PRs in production phase — and it doesn't cover maintenance reports.
+This is now a standalone maintenance-skill rule.)
 
 ## Boundaries
 
@@ -476,7 +477,8 @@ maintenance reports. This is now a standalone maintenance-skill rule.)
   longer batches, see
   [`working-modes.md`](../../../docs/ai-context/working-modes.md#one-bug-one-branch-one-pr-david-2026-07-26))
   if he says so — or, on a feature the registry lists in prototype phase,
-  a note for its next version, since nothing there is a bugfix yet.
+  a note for its next version, since nothing there is a bugfix yet
+  ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
   Maintenance touches nothing but
   dependency merges, **with two narrow exceptions**: committing updates to
   [`docs/engineering/deferred-work.md`](../../../docs/engineering/deferred-work.md)
