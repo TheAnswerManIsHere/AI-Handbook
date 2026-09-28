@@ -408,9 +408,13 @@ restatement.
 ## Closing an issue
 
 **Merge is not verification, and it is not the reason an issue stays
-open either.** What keeps a merged workstream open is a UAT still owed.
-Where none is owed, nothing remains for anyone to verify after the
-close-out sync, so the issue closes then. (David, 2026-09-25. Before this,
+open either.** What keeps a merged workstream open is a UAT still owed —
+or, for a feature David has declared prototype phase, the phase itself: its
+merges have no close-out, its issue stays at `stage:coding` through every
+version, and it closes at the close-out of the hardening PR that follows
+the flip (*Promotion is a real operation*, above; the rule is
+[`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). Where none is owed, nothing remains for anyone to
+verify after the close-out sync, so the issue closes then. (David, 2026-09-25. Before this,
 the only step that closed an issue was an accepted `/uat` run. Every
 workstream with no UAT — every docs, devops and Tier A bugfix PR, and in
 AI-Handbook nearly every PR — parked at `stage:close-out` with "David's to

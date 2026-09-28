@@ -399,7 +399,9 @@ to worry about strange links."*)
    starts dereferencing a new answer arrives **fully armed against an overlay
    that has never heard of it.** Nothing errors. The rule simply resolves to
    nothing, and the repo silently gets less ceremony than it had the day
-   before.
+   before — or, for the feature-phase row, more: an unlisted feature is
+   production phase, so a prototype the overlay never declared gets the
+   full loop.
 
    Before a re-sync, diff step 1's table against that repo's
    `docs/ai-context/overlay-declarations.md` and land the missing answers in
