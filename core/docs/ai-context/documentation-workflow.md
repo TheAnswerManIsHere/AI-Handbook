@@ -30,9 +30,12 @@ process documentation are excluded by class — anything durable they produce is
 a Type 1 learning (below), already persisted.
 
 **The bridge that makes batching safe: a harvest-notes comment at every
-close-out.** Before the batched pass exists to read them, each product feature's
-close-out posts a short comment on its workstream issue — decisions and why,
-alternatives rejected, gotcha candidates. Cheap, always, no PR. Without it a
+close-out.** Before the batched pass exists to read them, each production-phase
+product feature's close-out posts a short comment on its workstream issue —
+decisions and why, alternatives rejected, gotcha candidates. Cheap, always, no
+PR — and a prototype-phase PR posts none, since nothing about how the system
+works is decided yet (the phase rule above, and its home in `working-modes.md`
+*The prototype phase, per feature*). Without it a
 weekly pass would be reconstructing intent from cold diffs, which is exactly
 what this ceremony exists to avoid.
 

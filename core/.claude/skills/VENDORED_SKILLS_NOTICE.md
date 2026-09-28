@@ -153,7 +153,9 @@ Modification status:
   runs after the registry read, and one under `systematic-debugging/SKILL.md`'s
   title, whose own description is a trigger the router note cannot reach,
   and under `writing-plans/SKILL.md`'s title for the same reason; upstream
-  text below each note is untouched.
+  text below each note is untouched. #168's round-6 sweep added one more
+  under `finishing-a-development-branch/SKILL.md`'s title, since its
+  "exactly 4 options" menu has no option a prototype branch can take.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was

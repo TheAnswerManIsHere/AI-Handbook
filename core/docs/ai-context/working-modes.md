@@ -1152,7 +1152,10 @@ candidate at loop close, per the standing recurring-failure-patterns rule.
 
 ### The scope-of-work gate (David, 2026-08-15)
 
-Before any plan-review loop opens, the pre-plan conversation's outcome is
+Before any plan-review loop opens (for a feature in production phase; a
+prototype-phase feature opens no loop and passes no scope gate —
+[*The prototype phase, per feature*](#the-prototype-phase-per-feature-david-2026-09-26)),
+the pre-plan conversation's outcome is
 compressed into a **scope of work David explicitly agrees to**: the direction
 served, product intent for this increment, must-not-change, settled
 decisions, the explicit scope boundaries (what is already decided to be
