@@ -1069,7 +1069,9 @@ on the answer.
 
 **The one shape that would need a force push**, so it is not rediscovered as a
 surprise: restarting a branch in place, under the same name, before it has
-merged. The remedy is a new branch name and a new PR. Every other case has an
+merged. The remedy is a new branch name and a new PR — or, for a
+`prototype/<feature>` branch, which opens no PR, a new name written into its
+registry line (*Two classes and a phase that leave the loop*, above). Every other case has an
 answer that never rewrites history — squash-merge handles rebasing and commit
 messages, rotation rather than rewriting handles a leaked secret (a rewrite
 does not unpublish it), and `git checkout -B <branch> origin/<branch>` handles
