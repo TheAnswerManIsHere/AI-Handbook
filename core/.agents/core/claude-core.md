@@ -1078,7 +1078,7 @@ a diverged local copy.
 | Command | Result |
 |---|---|
 | any force push, any shape, any branch | blocked by a ruleset |
-| a plain push of new commits to `claude/**` | **works** — this is every flow |
+| a plain push of new commits to `claude/**`, or to a `prototype/<feature>` branch ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)) | **works** — this is every flow |
 | `git reset --hard` | works (cannot reach the remote) |
 | `git push origin --delete <branch>` | does **not** work (proxy hangs) |
 | `git checkout -B <branch> <ref>` | works — my reset primitive |
