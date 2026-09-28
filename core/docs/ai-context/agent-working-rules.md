@@ -274,7 +274,11 @@ version of this note that classified the script rather than the edit — the
 artifact-level reading the test exists to refuse.)
 
 - **Mission-critical** (payments, auth, data migrations, moderation): go as
-  deep as the risk warrants. Nothing changes here.
+  deep as the risk warrants. Nothing changes here — for a feature in
+  production phase. A prototype-phase feature that touches one of these is
+  not engineered to this depth until its flip; what keeps it off production's
+  process and data meanwhile is the branch regime, not the depth
+  ([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 - **Internal tooling** (metrics, tracking, dev scripts, reporting): build the
   boring version. An occasional hand-resolved conflict, a week of missing
   data, or a manual fix-up is an **acceptable outcome**, not a defect to

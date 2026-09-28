@@ -87,7 +87,8 @@ Worked classifier examples (a fresh agent should sort these without guessing):
 ## Step 1 — Harvest
 
 **In the batched `/maintenance` pass (the normal case), first enumerate the
-window**: every product feature merged since the last maintenance pass, and
+window**: every production-phase feature merged since the last maintenance
+pass (the phase rule above), and
 for each one its **harvest-notes comment on the workstream issue** — the
 close-out bridge that carries the build session's context. The batch covers
 ALL of them; skipping a feature whose notes exist is a miss, not a judgment

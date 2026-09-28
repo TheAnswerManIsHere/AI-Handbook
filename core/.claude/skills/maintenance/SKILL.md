@@ -473,7 +473,9 @@ maintenance reports. This is now a standalone maintenance-skill rule.)
   David, or a `/bugfix` fix (its own branch and PR per bug — bugfix mode no
   longer batches, see
   [`working-modes.md`](../../../docs/ai-context/working-modes.md#one-bug-one-branch-one-pr-david-2026-07-26))
-  if he says so. Maintenance touches nothing but
+  if he says so — or, on a feature the registry lists in prototype phase,
+  a note for its next version, since nothing there is a bugfix yet.
+  Maintenance touches nothing but
   dependency merges, **with two narrow exceptions**: committing updates to
   [`docs/engineering/deferred-work.md`](../../../docs/engineering/deferred-work.md)
   (step 4) — recording a newly-parked item or updating an entry's status —
