@@ -25,8 +25,10 @@ product *should do*, you're guessing wrong by definition — ask.
 ## End-to-end ownership
 
 When David asks for something, own it end-to-end: backend, frontend, schema,
-infra, docs, tests. **"Done" means David can test the intended behavior in the
-product** — not that types compile or a job was enqueued.
+infra, docs, tests — the last two for a feature in production phase; a feature
+he has declared prototype phase owes neither
+([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). **"Done" means David can test the intended
+behavior in the product** — not that types compile or a job was enqueued.
 
 ## Ship the UI surface with the behavior
 
@@ -37,12 +39,18 @@ done. Mentally write the acceptance script ("open page X, do Y, expect Z") befor
 declaring complete; if you can't write it against the UI, the feature isn't built.
 **Symmetric rule:** don't ship dead UI controls with no backend. *Exception:*
 infra/refactor/perf/security changes with no visible behavior ship as code + a
-written verification note ("run X, observe Y").
+written verification note ("run X, observe Y"). A prototype-phase feature
+keeps this rule — its surface is the thing the owner uses — but the acceptance
+script is his feedback, not a note
+([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 ## Pre-launch: no legacy burden — bias to clean, bold changes
 
 The product is **pre-launch**: there are no real users and no precious
-production data yet, so **almost nothing we change can harm anyone.** David's
+production data yet, so **almost nothing we change can harm anyone.** (That is
+a fact about a product, not the fleet: from the day a product has its first
+user, this section's premise is gone and a prototype-phase feature lives on
+its own branch — [`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26).) David's
 standing guidance (2026-07-21): **be brave.** Concretely, this lowers the bar on
 *defensive* work whose only purpose is protecting existing users/data:
 
