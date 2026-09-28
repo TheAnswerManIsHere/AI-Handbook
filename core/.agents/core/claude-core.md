@@ -371,7 +371,9 @@ enactment is `.claude/skills/document/`.
    no loop to open unless David asks for one in words (*Two classes and a
    phase that leave the loop*, below). Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
-   boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
+   boundaries, ceremony tier — goes to David as a 🛑 banner; for a
+   prototype's version, the short plan's four items stand in for intent,
+   must-not-change and settled decisions. His explicit
    agreement is what authorizes the loop to run autonomously.
 5. **Mid-flight scope gets the now/next/never question** — three options with
    ramifications, default **next**. A two-option scope question is a bug in the
