@@ -152,7 +152,10 @@ whether the feature does what David wants does.)
 ## Pre-plan intent is the source of truth
 
 The intent agreed *before the plan* is what the work is verified against — not the
-plan, the PR title, or the code. If the conversation said "users should be able to
+plan, the PR title, or the code. (For a feature that has a plan; a
+prototype-phase feature has none, and its oracle is its questions file and
+the owner's feedback —
+[`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26).) If the conversation said "users should be able to
 A and B" and the plan only covers A **with no trace of B anywhere**, the plan is
 wrong — revise it. If you notice during implementation that the intent implied a
 missing piece, pause and ask.
@@ -376,7 +379,11 @@ in the product.
   See [`code-review.md`](../engineering/code-review.md#review-output-format)
   and [`planning-contract.md`](./planning-contract.md).
 - **Clear mechanical issue** (off-by-one, missing await, dead import, obvious lint,
-  a clear logic bug) → fix it, push, mention briefly — and the push owes a
+  a clear logic bug) → fix it, push, mention briefly — on a PR in the
+  standard loop; on a prototype-phase PR Codex's automatic pass is read for
+  nothing and no finding starts a fix
+  ([`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
+  — and the push owes a
   round, as every write in the standard loop does ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)). **Design/architecture/
   trade-off** call (which abstraction, whether to refactor more, a behavior change)
   → summarize your position and escalate to David; don't silently rewrite the
