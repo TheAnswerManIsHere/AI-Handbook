@@ -1463,7 +1463,10 @@ schema, which puts it here on that separate basis. It always runs
 [`../engineering/migrations-and-backfills.md`](../engineering/migrations-and-backfills.md)'s
 ceremony (idempotency, observable counts, human-override preservation,
 rollback for destructive ops). Whether it *also* needs a full approved plan
-first is decided by **AGENTS.md's repo-wide planning standard** — non-trivial
+first is decided by **AGENTS.md's repo-wide planning standard** (for a
+production-phase feature; a prototype-phase one never reaches this tier,
+since the registry is read before bugfix mode is entered — *The prototype
+phase, per feature*, above) — non-trivial
 implementation work requires a plan via
 [`.agents/PLANS.md`](../../.agents/PLANS.md) with David's explicit approval
 before anything runs — **not** by product-visibility; a schema/data change

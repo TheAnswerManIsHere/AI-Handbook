@@ -136,7 +136,8 @@ Modification status:
   `ADR-FORMAT.md` not vendored (the target files carry their own formats).
 - `prototype/SKILL.md` — upstream body verbatim plus a "Local adaptations"
   section that **replaces upstream's delivery and capture mechanics** (as of
-  #168): a prototype is a feature in prototype phase inside the product,
+  #168; the rule is `working-modes.md` *The prototype phase, per feature*):
+  a prototype is a feature in prototype phase inside the product,
   delivered as the published product or a prototype environment, with a
   questions file, a feedback rail stored in the product's database, a tester
   tier, and a per-feature phase registry; upstream's Artifact/double-click
