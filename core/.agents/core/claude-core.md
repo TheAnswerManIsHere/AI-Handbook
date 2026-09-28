@@ -605,8 +605,8 @@ would have been capped at two reviews by the exception written to prevent
 exactly that.) Everything that is genuinely routine and recoverable — which is
 nearly all of it — stays internal:
 
-- **A clean automatic pass is the whole ceremony** (standard loop; Trivial and
-  Documentation are outside it, above). Round 1 fires on PR-open;
+- **A clean automatic pass is the whole ceremony** (standard loop; Trivial,
+  Documentation and a prototype-phase feature are outside it, above). Round 1 fires on PR-open;
   finding nothing, there is nothing to assess and no receipt to write —
   nothing was written, so the head is already reviewed.
 - **Every finding is judged on what it is worth, and the tier says what is
@@ -917,7 +917,7 @@ Production is a separate, explicitly-asked `publish_app`.
 **The bar: CI green + Codex review returned for the head commit + every thread
 resolved + the translations that were owed delivered** (every decline round,
 plus the last round before the merge). That is the whole bar, for
-product and internal PRs alike — except the two classes that leave the loop
+product and internal PRs alike — except the two classes and the phase that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
 threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch, with no Codex review
