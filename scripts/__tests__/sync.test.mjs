@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {
   mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync,
-  symlinkSync, linkSync, statSync, readdirSync,
+  symlinkSync, linkSync, statSync, readdirSync, realpathSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -11,10 +11,27 @@ import { fileURLToPath } from "node:url";
 
 import {
   routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed,
+  carriesBanner, staleFiles, uncommittedPaths,
 } from "../sync.mjs";
+import { missingBanners } from "../check-payload-banners.mjs";
 
 const silent = () => {};
-const fresh = () => mkdtempSync(join(tmpdir(), "sync-test-"));
+const git = (cwd, ...args) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
+// A consumer is a git checkout: the sync finds what it manages through the
+// consumer's index, and refuses a directory that has none.
+const fresh = () => {
+  const dir = mkdtempSync(join(tmpdir(), "sync-test-"));
+  git(dir, "init", "-q");
+  git(dir, "config", "user.email", "test@example.invalid");
+  git(dir, "config", "user.name", "sync test");
+  git(dir, "config", "commit.gpgsign", "false");
+  return dir;
+};
+const commitAll = (dir) => {
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "--allow-empty", "-m", "sync");
+};
+const BANNER = "<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. -->";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 // Materialize the committed payload ONCE and hand it to the tests, so the
@@ -44,6 +61,7 @@ const countFiles = (dir) => {
   let n = 0;
   const walk = (d) => {
     for (const e of readdirSync(d)) {
+      if (e === ".git") continue;
       const f = join(d, e);
       if (statSync(f).isDirectory()) walk(f);
       else n++;
@@ -200,18 +218,335 @@ test("machinery.json is the only seed a sync tops up", () => {
   assert.deepEqual(toppedUp, [".agents/machinery.json"]);
 });
 
-test("the sync never deletes anything, including files it no longer ships", () => {
+// ── deletion (#55): no ledger, so nothing stored can be wrong ─────────────
+//
+// The first removing sync was reverted after one round found four ways it
+// deleted the wrong thing. Each of those cases has a test below, named for it,
+// run against a consumer that is a real git checkout.
+
+/** A synced, committed consumer holding one extra tracked file at `rel`. */
+function consumerWith(rel, content) {
   const dest = fresh();
+  run(dest);
+  mkdirSync(dirname(join(dest, rel)), { recursive: true });
+  writeFileSync(join(dest, rel), content);
+  commitAll(dest);
+  return dest;
+}
+
+test("a tracked file carrying the header that the payload no longer ships is deleted", () => {
+  // The shape of the first real instance: #160 deleted plan-provenance.mjs and
+  // its format document from the payload, and Overhype kept both.
+  const dest = consumerWith("scripts/plan-provenance.mjs", `#!/usr/bin/env node\n// SYNCED FROM AI-Handbook — do not edit.\nexport {};\n`);
   try {
-    run(dest);
-    const stale = join(dest, "docs/ai-context/no-longer-shipped.md");
-    mkdirSync(dirname(stale), { recursive: true });
-    writeFileSync(stale, "a file the payload does not contain");
-    run(dest);
-    assert.ok(existsSync(stale), "an unshipped file must survive a re-sync");
+    const counts = run(dest);
+    assert.equal(counts.deleted, 1);
+    assert.ok(!existsSync(join(dest, "scripts/plan-provenance.mjs")));
+    assert.ok(existsSync(join(dest, "scripts/review-proxy.mjs")), "a file the payload still ships is untouched");
   } finally {
     rmSync(dest, { recursive: true, force: true });
   }
+});
+
+test("a dry run names the deletion and deletes nothing", () => {
+  const dest = consumerWith("docs/ai-context/retired.md", `${BANNER}\n# Retired\n`);
+  try {
+    const lines = [];
+    const counts = sync(dest, { log: (l) => lines.push(l), payloadRoot: PAYLOAD, dryRun: true });
+    assert.equal(counts.deleted, 1);
+    assert.ok(lines.some((l) => l.includes("delete docs/ai-context/retired.md")), lines.join("\n"));
+    assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")));
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("the consumer's own files are never deleted: no header, or not tracked", () => {
+  const dest = consumerWith("docs/ai-context/product-brief.md", "# Our product\n");
+  try {
+    // The phrase inside a line is prose or a string literal, not a claim.
+    writeFileSync(join(dest, "docs/quoting.md"), "Synced files open with SYNCED FROM AI-Handbook in a comment.\n");
+    commitAll(dest);
+    // Untracked, even with the header: the consumer's work in progress.
+    writeFileSync(join(dest, "docs/draft2.md"), `${BANNER}\n`);
+    const counts = run(dest);
+    assert.equal(counts.deleted, 0);
+    for (const f of ["docs/ai-context/product-brief.md", "docs/quoting.md", "docs/draft2.md"]) {
+      assert.ok(existsSync(join(dest, f)), `${f} must survive`);
+    }
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("reverted case 1: a stale path that resolves outside the consumer is refused, not followed", () => {
+  // The ledger version deleted whatever a stored `..` path pointed at. Git
+  // never lists such a path, so the reachable form is a directory replaced by
+  // a symlink after the file under it was committed.
+  const dest = consumerWith("old/stale.md", `${BANNER}\n`);
+  const outside = fresh();
+  try {
+    writeFileSync(join(outside, "stale.md"), `${BANNER}\nPRECIOUS\n`);
+    rmSync(join(dest, "old"), { recursive: true });
+    symlinkSync(outside, join(dest, "old"));
+    assert.throws(() => run(dest), /symlink/);
+    assert.equal(readFileSync(join(outside, "stale.md"), "utf8"), `${BANNER}\nPRECIOUS\n`);
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("reverted case 2: a routed destination is never deleted, whatever it contains", () => {
+  // The ledger version deleted a consumer's config when a managed file became
+  // a seed: the seed's destination fell off the delivered list. Here the
+  // consumer's settings.json carries the header -- the state a file that was
+  // managed and then became a seed would leave behind -- and survives.
+  const dest = fresh();
+  try {
+    run(dest);
+    const owned = join(dest, ".claude/settings.json");
+    const settings = JSON.parse(readFileSync(owned, "utf8"));
+    const withHeader = `{\n  "$comment": "SYNCED FROM AI-Handbook — do not edit.",${JSON.stringify(settings, null, 2).slice(1)}\n`;
+    writeFileSync(owned, withHeader);
+    commitAll(dest);
+    const counts = run(dest);
+    assert.equal(counts.deleted, 0);
+    assert.equal(readFileSync(owned, "utf8"), withHeader, "the consumer's seed copy is untouched");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("reverted case 3: paths come from the consumer's own index, one separator, nothing stored", () => {
+  // The ledger version read a Linux-written ledger on Windows as every entry
+  // removed. There is no stored path now: git reports the consumer's tracked
+  // paths with `/` on every platform, and the routes are computed in the same
+  // run. A nested stale file is found under its exact route-shaped path, and
+  // the directories it leaves empty go with it.
+  const dest = consumerWith(".claude/skills/retired-skill/SKILL.md", `---\nname: x\n---\n\n${BANNER}\n`);
+  try {
+    const routed = new Set(payloadFiles(PAYLOAD).map((f) => routeOf(f).to));
+    assert.deepEqual(staleFiles(realpathSync(dest), routed), [".claude/skills/retired-skill/SKILL.md"]);
+    run(dest);
+    assert.ok(!existsSync(join(dest, ".claude/skills/retired-skill")), "its emptied directory is pruned");
+    assert.ok(existsSync(join(dest, ".claude/skills/pr-watch/SKILL.md")), "and a sibling is untouched");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("reverted case 4: a stale file where the payload needs a directory is cleared before the copy", () => {
+  // File -> directory: a stale FILE at `docs/engineering` blocks the payload's
+  // `docs/engineering/code-review.md`. Deletion runs first, so the copy lands.
+  const dest = fresh();
+  try {
+    writeFileSync(join(dest, "placeholder"), "x");
+    mkdirSync(join(dest, "docs"), { recursive: true });
+    writeFileSync(join(dest, "docs/engineering"), `${BANNER}\n`);
+    commitAll(dest);
+    run(dest);
+    assert.ok(statSync(join(dest, "docs/engineering")).isDirectory());
+    assert.ok(existsSync(join(dest, "docs/engineering/code-review.md")));
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("reverted case 4, the other way: stale files where the payload needs a file are cleared first", () => {
+  // Directory -> file: stale files under `docs/engineering/code-review.md/`
+  // block the payload's file of that name. Deleting them empties the
+  // directory, pruning removes it, and the copy lands.
+  const dest = fresh();
+  try {
+    mkdirSync(join(dest, "docs/engineering/code-review.md"), { recursive: true });
+    writeFileSync(join(dest, "docs/engineering/code-review.md/part.md"), `${BANNER}\n`);
+    commitAll(dest);
+    run(dest);
+    assert.ok(statSync(join(dest, "docs/engineering/code-review.md")).isFile());
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+// Codex, #169 round 1: the copy phase's refusals used to fire AFTER the
+// deletions, leaving a consumer half-synced -- and a dry run reported success
+// on the tree the real run failed on. Each shape below is a different way the
+// consumer's own material can be in the way; each must refuse by name, with
+// the stale file still there, nothing changed, and the dry run agreeing.
+
+/** A synced, committed consumer with one stale file, then `obstruct` applied and committed. */
+function blockedConsumer(obstruct) {
+  const dest = fresh();
+  run(dest);
+  mkdirSync(join(dest, "docs/ai-context"), { recursive: true });
+  writeFileSync(join(dest, "docs/ai-context/retired.md"), `${BANNER}\n`);
+  obstruct(dest);
+  commitAll(dest);
+  return dest;
+}
+
+const BLOCKED = [
+  ["a consumer's own file where the payload needs a directory", (dest) => {
+    rmSync(join(dest, "docs/engineering"), { recursive: true });
+    writeFileSync(join(dest, "docs/engineering"), "the consumer's own notes\n");
+  }, /needs docs\/engineering\/ as a directory/],
+  ["a directory of the consumer's own files where the payload needs a file", (dest) => {
+    rmSync(join(dest, "docs/engineering/code-review.md"));
+    mkdirSync(join(dest, "docs/engineering/code-review.md"));
+    writeFileSync(join(dest, "docs/engineering/code-review.md/notes.md"), "the consumer's own notes\n");
+  }, /needs docs\/engineering\/code-review\.md as a file/],
+  ["a symlinked directory on the way to a destination", (dest) => {
+    rmSync(join(dest, "docs/engineering"), { recursive: true });
+    symlinkSync(tmpdir(), join(dest, "docs/engineering"));
+  }, /refusing to write through a symlink/],
+];
+
+for (const [shape, obstruct, refusal] of BLOCKED) {
+  for (const dryRun of [false, true]) {
+    test(`${shape} is refused before anything is deleted${dryRun ? " (dry run)" : ""}`, () => {
+      const dest = blockedConsumer(obstruct);
+      try {
+        assert.throws(() => run(dest, { dryRun }), refusal);
+        assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")), "the stale file is still there");
+        assert.equal(git(dest, "status", "--porcelain"), "", "nothing in the consumer changed");
+      } finally {
+        rmSync(dest, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+test("a consumer's seed that is present is not judged for placement, as it is not placed", () => {
+  // The preflight covers exactly what the copy phase writes; a present seed is
+  // left alone there, so a directory standing where one lands is not refused.
+  const dest = fresh();
+  try {
+    run(dest);
+    rmSync(join(dest, ".claude/settings.json"));
+    mkdirSync(join(dest, ".claude/settings.json"));
+    writeFileSync(join(dest, ".claude/settings.json/odd.txt"), "x\n");
+    commitAll(dest);
+    assert.doesNotThrow(() => run(dest));
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("a stale file with uncommitted edits refuses the whole sync, before anything is written", () => {
+  const dest = consumerWith("docs/ai-context/retired.md", `${BANNER}\n# Retired\n`);
+  try {
+    writeFileSync(join(dest, "docs/ai-context/retired.md"), `${BANNER}\n# Retired, with a local edit\n`);
+    rmSync(join(dest, "docs/engineering/code-review.md"));
+    assert.throws(() => run(dest), /uncommitted edits:\n {2}docs\/ai-context\/retired\.md/);
+    assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")), "the edited file survives");
+    assert.ok(!existsSync(join(dest, "docs/engineering/code-review.md")), "and nothing was copied either");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("uncommittedPaths reads both sides of a staged rename", () => {
+  const dest = consumerWith("a.md", "x\n");
+  try {
+    git(dest, "mv", "a.md", "b.md");
+    const dirty = uncommittedPaths(dest);
+    assert.ok(dirty.has("a.md") && dirty.has("b.md"), [...dirty].join(", "));
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("a destination that is not a git checkout is refused, rather than reported clean", () => {
+  const plain = mkdtempSync(join(tmpdir(), "sync-test-plain-"));
+  try {
+    assert.throws(() => run(plain), /not a git checkout/);
+    assert.equal(countFiles(plain), 0);
+  } finally {
+    rmSync(plain, { recursive: true, force: true });
+  }
+});
+
+test("a subdirectory of a checkout is refused: the routes are relative to its root", () => {
+  const dest = fresh();
+  try {
+    mkdirSync(join(dest, "sub"));
+    assert.throws(() => run(join(dest, "sub")), /is not its root/);
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("a second sync after the first is committed changes nothing", () => {
+  const dest = consumerWith("scripts/plan-provenance.mjs", "// SYNCED FROM AI-Handbook — do not edit.\n");
+  try {
+    run(dest);
+    commitAll(dest);
+    const again = run(dest);
+    assert.equal(again.deleted, 0);
+    assert.equal(git(dest, "status", "--porcelain"), "", "the second run leaves no diff");
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("every file a sync delivers is one a later sync can take back", () => {
+  // The header is the only record, so a delivered file without one would be
+  // delivered forever. The real payload, not a fixture.
+  const dest = fresh();
+  try {
+    run(dest);
+    const unmanaged = payloadFiles(PAYLOAD)
+      .filter((f) => !routeOf(f).seed)
+      .filter((f) => !carriesBanner(readFileSync(join(dest, routeOf(f).to), "utf8")));
+    assert.deepEqual(unmanaged, []);
+  } finally {
+    rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test("check-payload-banners names a payload file that lacks the header", () => {
+  const repo = fresh();
+  try {
+    mkdirSync(join(repo, "core/docs"), { recursive: true });
+    writeFileSync(join(repo, "core/docs/managed.md"), `${BANNER}\n`);
+    writeFileSync(join(repo, "core/docs/unmanaged.md"), "# no header\n");
+    writeFileSync(join(repo, "core/docs/quoted.md"), "the words SYNCED FROM AI-Handbook, in prose\n");
+    mkdirSync(join(repo, "core/.claude"), { recursive: true });
+    writeFileSync(join(repo, "core/.claude/settings.template.json"), "{}\n");
+    commitAll(repo);
+    assert.deepEqual(missingBanners(repo), ["core/docs/quoted.md", "core/docs/unmanaged.md"]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("check-payload-banners refuses a tree with no payload, rather than passing it", () => {
+  const repo = fresh();
+  try {
+    assert.throws(() => missingBanners(repo), /refusing to report a clean payload/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("a header past the first 64 KiB is invisible to the check, as it is to the sync", () => {
+  const repo = fresh();
+  try {
+    mkdirSync(join(repo, "core"), { recursive: true });
+    writeFileSync(join(repo, "core/late.md"), `${"x".repeat(70 * 1024)}\n${BANNER}\n`);
+    commitAll(repo);
+    assert.deepEqual(missingBanners(repo), ["core/late.md"]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("the header is read only within the window, as a whole comment line", () => {
+  assert.equal(carriesBanner(`#!/usr/bin/env bash\n# SYNCED FROM AI-Handbook — x\n`), true);
+  assert.equal(carriesBanner(`{\n  "$comment": "SYNCED FROM AI-Handbook — x",\n}`), true);
+  assert.equal(carriesBanner(`writeFileSync(abs, "<!-- SYNCED FROM AI-Handbook — do not edit -->");`), false);
+  assert.equal(carriesBanner(`${"\n".repeat(40)}// SYNCED FROM AI-Handbook — x\n`), false);
 });
 
 test("a dry run reports what it would do and writes nothing", () => {

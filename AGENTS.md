@@ -102,6 +102,7 @@ node --test scripts/__tests__/*.test.mjs        # the machinery's own tests
 node --test core/scripts/__tests__/*.test.mjs   # the payload's tests
 node scripts/check-root-wiring.mjs              # this repo actually reaches its payload
 node scripts/check-settings-fields.mjs          # no settings field Claude Code would refuse
+node scripts/check-payload-banners.mjs          # every payload file the sync can take back says so
 node scripts/sync.mjs --to <repo> --dry-run     # what a consumer would receive
 ```
 

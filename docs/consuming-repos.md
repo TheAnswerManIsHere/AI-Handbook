@@ -411,7 +411,9 @@ to worry about strange links."*)
    and later syncs that can, which is exactly why it sits here rather than in
    step 1. Codex, #62 round 5.)
 
-7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>` — then
+7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>`, where
+   the path is the root of the consumer's git checkout (the sync refuses
+   anything else) — then
    review the resulting diff as a pull request in that repo and merge. **On a
    clean enrollment this is where step 4 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
@@ -451,21 +453,28 @@ added to this list later belongs above step 7, not below it.
 ## Rules for changing shared content
 
 - **Never edit a vendored file in a consumer.** The next sync overwrites it and
-  the reasoning is lost. Every synced **Markdown** file carries a header saying
-  so. The non-Markdown payload is **partly** there: everything `machinery`
-  delivers — `core/scripts/*.mjs`, `retry-on-eagain.sh` and their tests — now
-  carries the notice too, placed after the shebang. Skill helper executables do
-  **not** yet — a real gap, and one that ships, since the payload no longer
-  waits behind a staging flag.
-  `core/.claude/settings.template.json` is a third case and **is the
-  one payload file that cannot carry a notice at all**: JSON has no comments,
-  and Claude Code refuses a settings file over any unrecognised top-level key —
-  which is what a notice would have to be. It once carried one anyway, in the
-  `_comment` array that `node scripts/check-settings-fields.mjs` now rejects.
-  It does not need one: it is a **seed** — the delivered
-  `.claude/settings.json` is **consumer-owned from the moment it lands**, so
-  the rule this bullet states does not apply to it. That ownership is stated in
-  enrollment step 5 instead, where whoever adapts the file is already reading.
+  the reasoning is lost. **Every payload file says so in its own text** — the
+  `SYNCED FROM AI-Handbook` header, as a comment line in whatever syntax the
+  format has (after a shebang or front matter), or a `$comment` key in the one
+  JSON schema. That header is also how the sync recognises a copy it may
+  delete once the payload stops shipping it (#55), so it is not optional:
+  `node scripts/check-payload-banners.mjs` refuses a payload file without one.
+  The two **seeds** are the exception, and `settings.template.json` could not
+  carry a header anyway: Claude Code refuses a settings file over any
+  unrecognised top-level key, which is what a header would have to be — it
+  once carried one, in the `_comment` array that
+  `node scripts/check-settings-fields.mjs` now rejects. A seed does not need
+  one: the delivered `.claude/settings.json` is **consumer-owned from the
+  moment it lands**, so the rule this bullet states does not apply to it, and
+  the sync never deletes it. That ownership is stated in enrollment step 5
+  instead, where whoever adapts the file is already reading.
+- **A file removed from the payload leaves every consumer on the next sync.**
+  The sync deletes a tracked consumer file that carries the header when
+  nothing in the payload routes to its path — before copying anything, and
+  never a file with uncommitted edits, which refuses the whole run instead. It
+  keeps no record of past syncs: the header is the record, so there is nothing
+  stored to go stale. A consumer that has copied the header into a file of its
+  own has claimed that file is the handbook's, and a sync will treat it so.
 - **Change the handbook, let the sync carry it.** One edit, every repo, each
   through review.
 - **Everything in `core/` syncs.** There is no staging and no per-group status:
