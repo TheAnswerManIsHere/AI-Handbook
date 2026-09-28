@@ -410,7 +410,9 @@ be layered on top.
 ### Two classes and a phase that leave the loop: Trivial, Documentation, and prototype phase (David, 2026-09-25 and 2026-09-26)
 
 The rule and David's reasons live in
-[`working-modes.md`](../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25);
+[`working-modes.md`](../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)
+for the two classes and in
+[its phase section](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26) for the third exemption;
 this is my enactment. Everything else in this section is the **standard**
 loop, and each of its rules below — the write-gate, shared judgement, review
 rule 4's "any changed head gets its review", translation and the close-out bar

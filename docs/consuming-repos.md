@@ -236,8 +236,9 @@ to worry about strange links."*)
    hand-maintained lists of one thing, and this repository exists because that
    shape drifts.
 
-   **A fifth question later gets a new section here, not a new file.** The
-   payload gained these four one at a time across #62, and each was installed
+   **A sixth question later gets a new section here, not a new file.** The
+   payload gained the first four one at a time across #62 (the fifth, the
+   feature-phase row, arrived with #168), and each was installed
    separately or not at all — three of the four were not installed until round
    5 caught them. One document with a growing list is the shape that cannot
    repeat that.
