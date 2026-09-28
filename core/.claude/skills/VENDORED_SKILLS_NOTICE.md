@@ -150,7 +150,9 @@ Modification status:
   title of `brainstorming/SKILL.md` and `test-driven-development/SKILL.md`,
   saying a prototype-phase feature does not pass their gates, and one under
   `using-superpowers/SKILL.md`'s subagent stop saying its phrase router
-  runs after the registry read; upstream text below each note is untouched.
+  runs after the registry read, and one under `systematic-debugging/SKILL.md`'s
+  title, whose own description is a trigger the router note cannot reach;
+  upstream text below each note is untouched.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was
