@@ -200,8 +200,9 @@ The block carries these seven, in order:
    imaginary. Name the tool with its server prefix: a bare `add_repo` does not
    resolve, and the session then has to guess.
 4. **Mode, phase and tier** — feature or bugfix, the feature's phase
-   (production, or prototype by David's declaration, with the regime), the
-   ceremony tier, and which skill to invoke on entry (`/status` is the safe
+   (production, or prototype by David's declaration, with the regime —
+   [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)),
+   the ceremony tier, and which skill to invoke on entry (`/status` is the safe
    default first move).
 5. **Settled — do not re-open** — the inline list from the handoff comment.
 6. **First action** — one concrete instruction, not a menu.
