@@ -328,9 +328,10 @@ enactment is `.claude/skills/document/`.
   chapters are harvested in **one pass at `/maintenance`**, covering every
   production-phase feature merged since the last one; a prototype-phase
   feature waits for its flip. Process PRs get no Type 2 harvest at all.
-- **The bridge:** at close-out of a product feature I post a **harvest-notes
-  comment on the workstream issue** — decisions made and why, alternatives
-  rejected, gotcha candidates. Cheap, always, no PR. The batched pass reads
+- **The bridge:** at close-out of a production-phase product feature I post
+  a **harvest-notes comment on the workstream issue** — decisions made and
+  why, alternatives rejected, gotcha candidates. Cheap, always there, no PR;
+  a prototype-phase feature has no close-out and no decisions yet. The batched pass reads
   those comments plus the diffs, so session context survives without a ceremony
   per merge.
 
@@ -356,8 +357,8 @@ enactment is `.claude/skills/document/`.
    specifics, secrets, payment-fraud paths, private customer data or embargoed
    work never get committed. Directions are unchanged.
 4. **The scope-of-work gate opens the loop** — for a feature in production
-   phase; a prototype-phase feature has no loop to open (*Two classes that
-   leave the loop*, below). Before the first push, the scope —
+   phase; a prototype-phase feature has no loop to open (*Two classes and a
+   phase that leave the loop*, below). Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
    boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
    agreement is what authorizes the loop to run autonomously.
