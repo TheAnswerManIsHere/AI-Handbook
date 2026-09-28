@@ -96,8 +96,9 @@ is **state**, not difficulty:
 
   The run/don't-run **judgement** that used to dispatch here is **gone**
   (David, 2026-08-20): the harvest is batched at `/maintenance` and every
-  close-out posts harvest notes, so there is no per-merge decision left to
-  judge.
+  production-phase close-out posts harvest notes (a prototype-phase PR posts
+  none — `working-modes.md` *The prototype phase, per feature*), so there is
+  no per-merge decision left to judge.
 - **Not routable**: a review loop or any long-running stateful loop; anything
   whose judgment is mine under the standing dispatch bars; verification of my
   own work (barred by `CLAUDE.md`'s delegation caps).

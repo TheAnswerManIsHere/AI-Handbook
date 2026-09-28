@@ -95,8 +95,8 @@ list_issues(owner, repo, state: OPEN, perPage: 100,
 ```
 
 Filter out anything without a `stage:` label — that's not a workstream
-issue (shouldn't happen if `/document`, `bugfix`, and plan-review-loop are
-tagging correctly, but don't assume).
+issue (shouldn't happen if `/document`, `bugfix`, `prototype` and
+plan-review-loop are tagging correctly, but don't assume).
 
 For each issue, parse its labels the same way `sync-project-fields.mjs`
 does:
