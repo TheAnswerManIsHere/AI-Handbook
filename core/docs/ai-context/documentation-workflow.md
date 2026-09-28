@@ -301,8 +301,10 @@ ceremony, not just Claude's enactment of it:
 
 1. Open the harvest PR **as a draft, and do not subscribe or apply any
    label yet.** Draft status only defers Codex's *auto*-review — it does
-   **not** defer the watching agent's own subscription (Claude always
-   subscribes to a PR it creates, draft or not) or any labeling that
+   **not** defer the watching agent's own subscription (Claude subscribes
+   to every PR it creates in the standard loop, draft or not — a
+   prototype-phase PR and the phase's registry PRs are the exceptions, per
+   the phase rule cited above) or any labeling that
    subscription's own review-loop skill would otherwise do on PR-open.
    Treat steps 2–3 as blocking: no subscribe, no `Workstream:`-line read,
    no label write, until the sub-issue (or standalone issue) is real and

@@ -166,7 +166,9 @@ stored records. From the merged-PR list for the window:
   process/guard/docs-about-process. This is the number that started the
   2026-08-20 review: it was running about 70% meta over three weeks.
 - **Rounds per loop.** From the PRs' own review history — how many code loops
-  ran, and how long each took. Include closed `[PLAN REVIEW]` PRs in a window
+  ran, and how long each took. A prototype-phase PR and the phase's registry
+  PRs ran no loop by design (step 6a's rule), so they leave the denominator
+  rather than entering it as zero-round loops. Include closed `[PLAN REVIEW]` PRs in a window
   that reaches back before 2026-09-09; after that date there are none.
   **Planning loops are no longer countable from GitHub** (Codex, #69 round 1):
   they run in-session, their exchange files are gitignored, and since
