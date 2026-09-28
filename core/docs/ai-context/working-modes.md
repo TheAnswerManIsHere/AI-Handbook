@@ -702,6 +702,17 @@ every publish (*"I'm the one who will decide when we publish"*), tests in the
 development environment himself, and hands the link to the user when he is
 ready.
 
+**What it does not remove of the disclosure rules.** The questions file
+and the ledger are prose that reaches a public branch, the way a plan once
+did, so they get the canonical disclosure check
+([`workstream-tracking.md`](./workstream-tracking.md#what-must-never-happen))
+before their first push, and a shortcut whose ledger line would describe an
+exploit path against a live prototype environment gets a sanitized line with
+its specifics on the private path — the treatment an override on a
+disclosure-gated subject already gets. The code itself is under the rule
+every commit is under, whatever the phase: no secret and no customer data is
+ever committed (Codex, #168 round 6).
+
 **What it does not remove.** The phase is a property of product features. The
 repository's machinery — CI, settings, permissions, the vendored handbook
 payload, an agent role's definition — has no phase and stays in the standard
@@ -719,7 +730,15 @@ runs in the standard loop. **Its oracle is the feature's agreed outcome, never
 the ledger**: the owner's answers to the prototype's questions, carried into
 the plan as Product Intent and Settled Decisions the way any feature's are,
 so a hardening PR that clears every shortcut while regressing what the owner
-approved fails review. The ledger exists so that this increment is a list to
+approved fails review. **And in the `main` regime the hardening PR's diff is
+not the feature**: the prototype's code merged unreviewed and is already on
+`main`, so the diff carries only the ledger-driven edits, where the branch
+regime's port carries the whole feature. So a `main`-regime hardening PR
+names the feature's files in its body and in the round-context comment
+posted before each review request, and the shared-judgement package pins
+the same paths, so Codex and both assessors read the complete
+implementation and not the diff alone — a latent defect nobody recognised
+as a shortcut is exactly what the ledger cannot list (Codex, #168 round 6). The ledger exists so that this increment is a list to
 work through rather than an archaeology of the code; it costs a sentence at
 the moment a shortcut is taken. **The declaration is persisted before
 anything else happens**: the feature's registry entry on `main` changes to
@@ -754,8 +773,11 @@ phase. In the branch regime the registry entry is removed, the prototype
 environment is retired the same way as at a flip (deployment stopped,
 database dropped; David's step where only he can do it), and the branch is
 deleted or left for him to delete. Either way the workstream issue is closed
-as *not planned* with a comment naming the decision and the answer the
-prototype gave. Nothing is harvested, since nothing was decided about how
+as *not planned*, with a comment naming the decision and the answer the
+prototype gave, **once the teardown is confirmed** — in the branch regime
+that may wait on David's host step, and until then the issue stays open at
+`waiting:david`, so `/next` and `/status-all` keep surfacing an environment
+still running (Codex, #168 round 6). Nothing is harvested, since nothing was decided about how
 the system works.
 
 **Where a prototype lives is decided by who is downstream of `main`** (David,
@@ -788,6 +810,12 @@ feature is in:
   the copy strips every contact and payment channel (email addresses, phone
   numbers, payment tokens and their like), so a bug in unreviewed code
   holding real credentials cannot reach a real customer (David, 2026-09-28).
+  That strip is the floor every product applies, not the whole definition:
+  the overlay's *Environment* section names the product-specific private
+  content the copy also strips — uploads, messages, documents, addresses and
+  their kin — and a product whose overlay names none seeds from fixtures,
+  since a tester tier limits who can sign in, never what a bug in unreviewed
+  code does with the rows behind the sign-in (Codex, #168 round 6).
   **Prototypes are serialised in this regime** (David, 2026-09-28: one
   environment per product): the registry entry names which branch the
   prototype environment currently tracks, a second branch-regime prototype

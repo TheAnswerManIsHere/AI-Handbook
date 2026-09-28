@@ -415,7 +415,9 @@ or, for a feature David has declared prototype phase, the phase itself: its
 merges have no close-out, its issue stays at `stage:coding` through every
 version, and it closes at the close-out of the hardening PR that follows
 the flip — or, when David declares the feature abandoned, as *not planned*
-in the same pass that removes its registry entry, with a comment naming the
+once its teardown is confirmed (in the branch regime that may wait on
+David's host step, and the issue stays open at `waiting:david` until then),
+with a comment naming the
 decision (*Promotion is a real operation*, above; the rule is
 [`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 The one-line registry PRs the phase uses — at the start under the branch
