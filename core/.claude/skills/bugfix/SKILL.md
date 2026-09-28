@@ -37,6 +37,12 @@ feature-shaped request arriving mid-run simply gets the feature workflow
 branch discipline in step 1 — skipping it is how a second bug lands on the
 first bug's already-pushed branch, silently breaking one-bug-per-PR.
 
+**Never for a feature David has declared prototype phase.** A defect there is
+the next version through the `prototype` skill, not a bugfix PR — nothing
+about a prototype is agreed behaviour yet, and no review loop runs on it
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)). The registry is read
+before this mode is entered.
+
 **The one-line summary of what this mode is:** it drops the *planning* ceremony
 (plan file, pre-plan conversation, the multi-round Codex plan-review loop), not
 the *verification*. A small-looking fix can still have wide consequences, so the

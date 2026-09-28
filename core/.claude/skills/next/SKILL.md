@@ -167,6 +167,12 @@ close-out > uat > test-run > merge > code-review > coding
   > queue:now > queue:next > queue:later
 ```
 
+A feature David has declared prototype phase ranks at `coding` for as long as
+the phase lasts, and under the branch regime its activity is on the
+`prototype/<feature>` branch the consumer's *Feature phases* registry names,
+not on a PR — read the registry before calling it idle
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+
 Why this rule and not a hand-maintained list of special cases: a workstream
 parked mid-lifecycle is **decaying context** — every day it sits, resuming
 costs more, because the person who held it in their head has moved on.
@@ -336,6 +342,8 @@ looks thin:
 
 - **Work with no issue** — a Discovery conversation that never opened one
   is invisible. If the picture looks emptier than David expects, say this.
+- **A prototype branch** — a `prototype/<feature>` branch opens no PR, so
+  the PR sweep never finds it; only the registry and the branch itself do.
 - **Sensitive / disclosure-carve-out workstreams**, which are private draft
   Project items by design, not issues.
 - **A stale backlog.** `/next` computes from `queue:` labels, `Blocked by:`

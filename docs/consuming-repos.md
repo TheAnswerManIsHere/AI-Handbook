@@ -126,7 +126,7 @@ destination.
 | `docs/engineering/migrations-and-backfills.md` | Written as operational instruction against one product's schema layout and migration commands. Its principles are fleet-wide; its instructions are not, and an agent follows instructions |
 | `docs/tests/test-run-contract.md` | What a PR's post-merge verification must contain, in terms of this repo's own test runners |
 | `docs/handoff/README.md` | The cross-tool transit folder and its delete-when-addressed contract |
-| `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks, plus the one-line `Oracle source:` that `claude-core.md` Pull requests rule 4 requires. A template written before 2026-09-25 may still carry a fenced `plan-provenance` block; that block is retired (#103) and is replaced by the line. Its non-oracle sections are per-repo |
+| `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks, plus the one-line `Oracle source:` that `claude-core.md` Pull requests rule 4 requires — including its `prototype phase — <feature>` form, with the questions file beside it, for a prototype-phase PR (rule 3 gives that body its shape). A template written before 2026-09-25 may still carry a fenced `plan-provenance` block; that block is retired (#103) and is replaced by the line. Its non-oracle sections are per-repo |
 | `docs/tests/uat-doc-format.md` | The UAT skill and `check-uat-format.mjs` define a run through this file's structure, which names this repo's own surfaces |
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
@@ -228,8 +228,9 @@ to worry about strange links."*)
    here* section — a route to documents the repo already owns, not a fact it
    has to declare. See *the path is a default, not a route*, above.
 
-   **None of these fail loudly.** Every one degrades into less ceremony or
-   weaker review, silently, which is why the answers are written *before* the
+   **All but one of these fail silently** — the feature-phase row above is
+   the one that fails toward more ceremony. Every other one degrades into
+   less ceremony or weaker review, silently, which is why the answers are written *before* the
    first sync rather than when something breaks. And **one document, routed
    from both overlays**, rather than a section in each: two copies are two
    hand-maintained lists of one thing, and this repository exists because that

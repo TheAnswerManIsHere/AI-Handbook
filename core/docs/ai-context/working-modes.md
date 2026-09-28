@@ -39,7 +39,10 @@ schema change is feature mode — **not** gated on product consequence: a
 non-trivial database schema change of any kind (see *Tier C* below) needs a
 plan and David's approval before anything runs. A database schema change is
 feature mode by default; it stays out of the full plan only if it's genuinely
-trivial, in which case it runs migration ceremony directly per Tier C. (This
+trivial, in which case it runs migration ceremony directly per Tier C — or if
+it belongs to a prototype-phase feature, which has no plan and whose
+database is its own under the branch regime (*The prototype phase, per
+feature*, below). (This
 is the *database* schema — migrations and table structure — not **generated
 API-validation schemas**, which have their own explicit Tier B routing; see
 *Tier C* below. A repo that generates such schemas names them in its overlay.)
@@ -610,7 +613,9 @@ until the #89 cut removed it; nothing dispatched now decides anything.)
 **standard** loop, and each statement of it elsewhere — here, in
 [`code-review.md`](../engineering/code-review.md), in
 [`documentation-workflow.md`](documentation-workflow.md), in `claude-core.md`
-— applies to the standard loop and points back here for these two.
+— applies to the standard loop and points back here for these two, and to
+*The prototype phase, per feature* below for the third thing outside the
+loop, which is a phase of a feature rather than a class of change.
 
 **Trivial — "just do it."** **Only David declares it**, in words, for a
 specific change; no agent assigns it, and the PR body quotes his words. No
@@ -674,7 +679,10 @@ same turn, on green CI. Codex's automatic pass on PR-open still runs and is
 **read for nothing**: each of its threads is resolved with one line naming
 this phase, and no finding on a prototype-phase feature starts a fix. **The
 only feedback that changes a prototype is the product owner's**, about how it
-feels to use, gathered the way the `prototype` skill describes. **Publishing
+feels to use, gathered the way the `prototype` skill describes — and a defect
+he reports on it is the next version through that skill, never a bugfix:
+bugfix mode is for already-agreed behaviour, and nothing about a prototype
+is agreed yet. **Publishing
 is never part of this**: the agent merges to `main` and stops; David decides
 every publish (*"I'm the one who will decide when we publish"*), tests in the
 development environment himself, and hands the link to the user when he is
@@ -1514,7 +1522,10 @@ was entered. Rationale in [`decisions.md`](./decisions.md).)
   the bugfix workflow, entered with a **one-line announcement** that is
   David's veto surface; clearly feature-shaped ("let's build / add /
   change X") → feature mode, as that phrasing always has; genuinely
-  ambiguous → one numbered question. `/bugfix` remains an **explicit
+  ambiguous → one numbered question. Before either, the consumer's
+  *Feature phases* registry: a request about a feature David has declared
+  prototype phase, bug-shaped or not, goes to the `prototype` skill
+  (*The prototype phase, per feature*, above). `/bugfix` remains an **explicit
   override** that forces the light path. Classification is **per-request**
   — no sticky mode state, no exit phrases.
 - **Codex** has no auto-triggering skill system, so the signal stays **in

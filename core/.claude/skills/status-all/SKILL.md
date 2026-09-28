@@ -364,7 +364,9 @@ Discovery/Planning: any workstream Step 3 confirms has no linked PR
 (including a genuinely PR-less Coding-stage issue, e.g. before its
 implementation PR has opened) sitting at `waiting:claude`/`waiting:codex`
 with no repo activity for days is stalled the same way a quiet PR thread
-is. For these, apply the **same attributable, non-David filtering as the
+is — except that for a branch-regime prototype (above) the activity is the
+`prototype/<feature>` branch's commits, read before the issue's comments.
+For these, apply the **same attributable, non-David filtering as the
 PR path above** (the login-vs-signature distinction included) to the
 issue's own comment history (`issue_read`, **paged to exhaustion, same as
 the PR path's `get_commits`/`get_review_comments`/`get_comments`**), not

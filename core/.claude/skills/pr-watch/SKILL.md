@@ -64,7 +64,8 @@ requires it.
    gate. An open PR I created and am not yet watching gets subscribed the
    moment I notice it, without David re-asking.
 
-   **One exception, and it is not optional** (Codex, PR #458 round 1): a
+   **Two exceptions, and neither is optional.** A prototype-phase PR is never
+   subscribed (top of this file). And (Codex, PR #458 round 1) a
    `/document` harvest PR is subscribed only at step 5 of
    [`documentation-workflow.md`](../../../docs/ai-context/documentation-workflow.md),
    after the workstream issue exists and the PR body's `Workstream:` line
@@ -795,7 +796,8 @@ silently leaving the workstream unlabeled):
   and neither does a Tier A bugfix or a Tier B bugfix whose only surface is
   internal (per `working-modes.md`'s Tier B exception): all three go
   straight to `stage:close-out` instead, since holding them at `uat` would
-  be a gate with nothing to run against it. "Has product-visible behavior"
+  be a gate with nothing to run against it (a prototype-phase PR ships none
+  either, and never reaches this step — top of this file). "Has product-visible behavior"
   is *not* the test by itself — a Tier A fix can be product-visible and
   still ship no UAT doc, which is what makes checking for the doc the right
   test, not the behavior. **When that straight-to-close-out case is a

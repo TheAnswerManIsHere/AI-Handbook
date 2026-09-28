@@ -38,8 +38,10 @@ until it flips (*Promotion is a real operation*, below; the rule is
 glyph used for the mid-task interruption banner in chat, deliberately: one
 symbol means "David," everywhere, not only in conversation. **Merge stopped
 being a David-gate on 2026-08-15** (the agent driving the PR merges it once
-the close-out bar in CLAUDE.md is met — CI green, the reviewer's pass returned
-for the head commit, every thread resolved, the owed translations delivered),
+the close-out bar in CLAUDE.md is met — for the standard loop, CI green, the
+reviewer's pass returned for the head commit, every thread resolved, the owed
+translations delivered; the two classes and the prototype phase carry their
+own bars there),
 and the **scope-of-work gate** was added
 the same day at the front of Planning (see
 [`working-modes.md`](./working-modes.md#the-scope-of-work-gate-david-2026-08-15)).
@@ -409,7 +411,8 @@ restatement.
   an issue body is public even though the Project itself is private. This
   is the **canonical definition** of the disclosure check that gates
   opening a public workstream issue, referenced (not restated) by
-  `plan-review-loop`, `working-modes.md`'s bugfix disclosure check, and
+  `plan-review-loop`, the `prototype` skill when it opens a feature's issue,
+  `working-modes.md`'s bugfix disclosure check, and
   `documentation-workflow.md`'s harvest-tracking section: before a
   workstream — a plan, a bug report, or a `/document` harvest — becomes a
   public issue, confirm it contains none of unpatched-vulnerability

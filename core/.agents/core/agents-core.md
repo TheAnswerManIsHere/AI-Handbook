@@ -63,8 +63,9 @@ whole PR. The rule is working-modes.md, *The prototype phase, per feature*.
 [`docs/ai-context/documentation-workflow.md`](../../docs/ai-context/documentation-workflow.md).
 **The per-merge close-out judgement is retired (David, 2026-08-20)** — the
 heavyweight harvest now runs **batched at `/maintenance`**, covering every
-product feature merged since the last pass, or whenever David asks. What
-close-out owes instead is cheap and unconditional: a **harvest-notes comment
+production-phase feature merged since the last pass (a prototype-phase
+feature waits for its flip), or whenever David asks. What a production-phase
+feature's close-out owes instead is cheap and unconditional: a **harvest-notes comment
 on the feature's workstream issue** — decisions and why, alternatives
 rejected, gotcha candidates — so the batched pass inherits the session's
 context. Process PRs get no harvest. This is distinct from a one-off

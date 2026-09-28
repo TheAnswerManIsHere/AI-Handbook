@@ -272,9 +272,11 @@ surface); `/bugfix` is the explicit override.
   is on something he can use (*Two classes that leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
-  loop** — I write the real file and ship it. Product code gets the full
-  ceremony; migrations, auth, payments and any subsystem the overlay marks
-  sensitive add the specialist review.
+  loop** — I write the real file and ship it. Product code in production
+  phase gets the full ceremony; migrations, auth, payments and any subsystem
+  the overlay marks sensitive add the specialist review (a prototype-phase
+  feature touching one is still in prototype phase, and the branch regime is
+  what protects production's process and data).
   If the class is unclear I ask one numbered question, and I do **not** default
   upward: the expensive mistake in this repo has been over-ceremony.
 - **Bug-fixing drops the planning ceremony, not the verification.**
@@ -320,8 +322,9 @@ enactment is `.claude/skills/document/`.
   `.agents/memory/`. It rides the current PR or a small internal PR. This is
   the "remember this" mechanism and it never waits.
 - **Type 2 — how the system works: batched.** Subsystem docs and Manual
-  chapters are harvested in **one pass at `/maintenance`**, covering everything
-  merged since the last one. Process PRs get no Type 2 harvest at all.
+  chapters are harvested in **one pass at `/maintenance`**, covering every
+  production-phase feature merged since the last one; a prototype-phase
+  feature waits for its flip. Process PRs get no Type 2 harvest at all.
 - **The bridge:** at close-out of a product feature I post a **harvest-notes
   comment on the workstream issue** — decisions made and why, alternatives
   rejected, gotcha candidates. Cheap, always, no PR. The batched pass reads
@@ -438,7 +441,7 @@ rule 4's "any changed head gets its review", translation and the close-out bar
 
 ### The write-gate rule (David, 2026-08-22) — every tier
 
-(Trivial and Documentation are outside it, above.) **If code was written, it
+(Trivial, Documentation and a prototype-phase feature are outside it, above.) **If code was written, it
 gets reviewed. The loop stops when the judgement is
 that nothing more is worth writing, never after a push.** Stated as the
 sequence: a round returns findings → the judgement is made, *write* or *stop*
@@ -724,8 +727,8 @@ in the file that every session loads.
    to buy the round — #125's two-sentence fix waited a week on exactly that.
    **Any changed head gets its review**, documentation-only changes and
    base-branch merges included — in the standard loop; a Trivial change gets
-   none and a Documentation batch merges unreviewed, by design (*Two classes
-   that leave the loop*, above). What is refused is asking again on a head
+   none, a Documentation batch merges unreviewed, and a prototype-phase PR
+   merges on green CI, by design (*Two classes that leave the loop*, above). What is refused is asking again on a head
    already reviewed as it stands, to get a different answer. The mechanical
    round needs no exception now, because it was never the anomaly — the old
    rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
@@ -848,7 +851,8 @@ design. Mechanics:
    exceptions above. **A `prototype/<feature>` branch in a product with users
    downstream of `main` is the second exception already granted**: David's
    declaration of the phase is the "no PR", and the branch is named in the
-   feature-phase registry instead.
+   feature-phase registry instead (the consumer's `overlay-declarations.md`
+   *Feature phases*; *Two classes that leave the loop*, above).
 
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** in production phase (bugfix, internal and prototype-phase PRs exempt). Not announced
@@ -921,7 +925,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
 
 - **Every PR in the standard loop gets a Codex review and none merges before
   it returns** (Trivial waits only for the automatic pass, to catch a P1;
-  Documentation waits for none). A round I
+  Documentation waits for none; a prototype-phase PR is outside the standard
+  loop and waits for none). A round I
   requested but haven't received is not convergence. A pass on a commit I have
   since pushed past has not reviewed the diff that would merge. What counts as
   the review returning is the `**Reviewed commit:**` announcement — or, on a
@@ -967,7 +972,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
    settings-only merge to a paused repo and told him why.)
 4. **Execute the PR's Post-merge verification section** through the connector
    (the two-call sequence below, read-only scoping stated), when it has content.
-5. **Post the harvest-notes comment** on the workstream issue (product PRs).
+5. **Post the harvest-notes comment** on the workstream issue (production-phase
+   product PRs; a prototype-phase PR has no close-out).
 6. **Merge report to David**: both SHAs, verification results, and the UAT
    handoff naming what to go click — plus the reminder that `/uat` walks him
    through it rather than leaving him to the doc; for a prototype-phase PR,

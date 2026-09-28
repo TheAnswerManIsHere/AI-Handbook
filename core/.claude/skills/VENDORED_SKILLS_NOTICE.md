@@ -146,7 +146,10 @@ Modification status:
   sweep: a reader of either file alone was still told to gate the switcher
   on `NODE_ENV` and capture the prototype on a throwaway branch) saying
   which of their mechanics `SKILL.md` replaces; their upstream text is not
-  otherwise edited.
+  otherwise edited. The same sweep put a one-paragraph local note under the
+  title of `brainstorming/SKILL.md` and `test-driven-development/SKILL.md`,
+  saying a prototype-phase feature does not pass their gates; upstream text
+  below each note is untouched.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was
