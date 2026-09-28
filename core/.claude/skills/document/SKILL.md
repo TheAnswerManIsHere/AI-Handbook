@@ -32,8 +32,9 @@ moment it was learned.
 
 **There is no run/don't-run judgement dispatch any more.** It existed to decide
 whether a single merge warranted the whole ceremony; with the ceremony batched
-and a harvest-notes comment posted at every close-out, there is nothing left to
-judge.
+and a harvest-notes comment posted at every production-phase close-out (a
+prototype-phase PR posts none — the phase rule cited above), there is nothing
+left to judge.
 
 **The harvest never runs in a subagent.** Its richest sources are the build
 sessions' own decisions and rejected alternatives, which a cold worker does not

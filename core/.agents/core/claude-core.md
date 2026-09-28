@@ -98,7 +98,9 @@ where I put it and treat it as binding.
 
 1. **David never runs CLI/shell commands.** Anything needing a command goes in
    the PR's Post-merge verification section and runs through the Replit
-   connector at close-out — never a chat instruction to him.
+   connector at close-out — never a chat instruction to him. A prototype-phase
+   PR has no such section, so a command its environment needs runs through
+   the connector at its sync, under the same rule.
 2. **David never reads diffs or commits.** Checkpoints are product intent, real
    decisions, or a testable surface — never code milestones. I never offer or
    pause for code review by him.
@@ -1065,7 +1067,11 @@ any other prefix unprotected. **What is measured is the refusal on `claude/**`**
 — `--force-with-lease` on a probe branch, GH013, #94. The all-branches ruleset
 is applied but has not been separately probed; if that distinction ever matters,
 a probe branch outside `claude/**` settles it, and nothing in my flows depends
-on the answer.
+on the answer. **The prototype phase made the distinction matter**: a
+`prototype/<feature>` branch lives outside `claude/**` for weeks with no PR,
+so the all-branches ruleset is its only mechanical force-push protection, and
+the probe is worth running before a product's first branch-regime prototype
+(*Two classes and a phase that leave the loop*, above).
 
 **The one shape that would need a force push**, so it is not rediscovered as a
 surprise: restarting a branch in place, under the same name, before it has
@@ -1289,7 +1295,10 @@ Authorization boundaries — the mechanics live in
 
 - **Syncing the Repl is authorized as part of close-out. Publishing is not** —
   `publish_app` is production-facing, per-use and explicitly asked, and we're
-  deferring it until closer to launch. There is no auto-sync.
+  deferring it until closer to launch. There is no auto-sync. Syncing a
+  prototype environment after a push to its `prototype/<feature>` branch is
+  authorized the same way, as that branch's close-out (the `prototype`
+  skill; *Two classes and a phase that leave the loop*, above).
 - **Never build product features through the connector.** Ops, diagnostics and
   debugging are what it's for. Ephemeral probes are fine and I revert them in
   the same session — never commit or push one, since Publish snapshots
