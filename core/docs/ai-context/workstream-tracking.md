@@ -434,8 +434,10 @@ set" `stage:done`, and nothing ever asked him to.)
   workstream waits at `stage:close-out` only while a named item really
   cannot be finished now, and its State of Play names that item.
 - **Who that is:** `pr-watch` when no UAT doc is owed (at the verified
-  sync, per its transition), `/uat` on an accepted run, and `pr-watch` or
-  `/uat` for a phased parent when its last phase reaches close-out.
+  sync, per its transition), `/uat` on an accepted run, `pr-watch` or
+  `/uat` for a phased parent when its last phase reaches close-out, and the
+  `prototype` skill for a prototype-phase feature David declares abandoned
+  (as *not planned*, above).
 - **A product-visible change that shipped no UAT doc** (the Tier A case)
   still closes. The closing comment carries the one-line pointer the State
   of Play used to: where to look next time David is in the app, and to
