@@ -356,7 +356,9 @@ enactment is `.claude/skills/document/`.
    earlier version of this line named two of the four, and a checklist that
    lists some of its items invites skipping the ones it omits. A plan specifies
    invariants, not implementation — applied line by line as I draft, not as a
-   trimming pass afterwards.
+   trimming pass afterwards. A prototype's short plan — its first version's,
+   or a later version's David asked a loop for — runs the increment test
+   alone; `PLANS.md` says so, and which sections it omits.
 3. **A plan is never published, so the pre-push disclosure gate is gone**
    (David, 2026-09-09): working tree, in-session peer, chat — no public
    channel. What survives is narrower and still binding: a
@@ -885,9 +887,11 @@ design. Mechanics:
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
    must not change, root cause, blast radius. For a prototype-phase feature
    on `main` (the branch regime opens no PR): the questions the increment is
-   meant to answer, and for a first version the approved plan's Product
-   Intent, since after that its oracle is its
-   owner's feedback (rule 4 gives the line). "n/a — no plan" only for a
+   meant to answer, and, for a version that had a plan — the first, or a
+   later one David asked a loop for — the approved short plan verbatim (its
+   four items: the design question, the hypothesis, the surface, what it
+   leaves out); otherwise its oracle is its owner's feedback (rule 4 gives
+   the line). "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
    form (interaction rule 11).
 4. **The body says in one plain line what the code is judged against.**
@@ -897,9 +901,10 @@ design. Mechanics:
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
    or `no plan`, for the "n/a — no plan" change rule 3 allows; or, for a
    prototype-phase feature on `main`, `prototype phase — <feature>`, with the
-   questions file the increment answers named beside it and, for a first
-   version, the approved plan's digest, since after that such a PR has
-   no plan and is judged by nobody but its owner. (It read
+   questions file the increment answers named beside it and, for a version
+   that had a plan — the first, or a later one David asked a loop for — that
+   plan's digest; otherwise such a PR has no plan and is judged by nobody
+   but its owner. (It read
    `trivial` until 2026-09-25, when Trivial became a review class David alone
    declares; one word meaning two things is how a label starts granting what it
    only described.) Nothing parses it — it points

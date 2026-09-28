@@ -223,7 +223,8 @@ misclassification this paragraph exists to prevent (Codex, #69 round 1).
 
 **A prototype-phase feature under the branch regime has no PR by design
 either**, at `stage:coding` from its first version's approval for as long as
-the phase lasts: the consumer's
+the phase lasts (back at `stage:planning` only while a loop David asked for
+runs): the consumer's
 *Feature phases* registry names its `prototype/<feature>` branch, and that
 branch, not a PR, is where its activity is. Check the registry before the
 targeted PR lookup below, read activity from the branch's commits, and

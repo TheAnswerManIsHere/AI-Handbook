@@ -11,7 +11,12 @@
 > question it exists to answer, the hypothesis it tries, the surface it shows,
 > what it leaves out — reviewed by Astra and approved by David like any other;
 > later versions get none unless he asks (working-modes.md, *The prototype
-> phase, per feature*).
+> phase, per feature*). **For that short plan, those four items are the whole
+> plan**: it runs the Preflight's increment test — what this version makes
+> true, what bounds it, how completion is recognised — and none of the other
+> three checks, and none of the sections below apply to it. It is still
+> written to `docs/plans/PLAN_<SLUG>.md`, so the loop's digest line works
+> unchanged; a later version David asks a loop for gets the same short plan.
 >
 > *(Path note: this lives under the repo's existing `.agents/` agent-facing
 > directory, alongside `.agents/memory/`.)*

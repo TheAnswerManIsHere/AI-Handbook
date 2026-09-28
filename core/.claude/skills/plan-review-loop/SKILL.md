@@ -475,9 +475,14 @@ this at the scope gate, before the first label below is touched:
    `prototype` skill relabels its existing issue to `stage:planning` before
    this loop starts ([`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),
    *Promotion is a real operation*), so a flip never reaches step 3. A
-   prototype's **first version** arrives here too: the `prototype` skill opens
-   or promotes its issue at `stage:planning` for the short plan this loop
-   reviews, and moves it to `stage:coding` on David's approval.
+   **later prototype version David asked a loop for** arrives the same way:
+   the `prototype` skill relabels the feature's existing issue from
+   `stage:coding` to `stage:planning` / `waiting:david` before this loop
+   starts, exactly as at the flip minus the registry change, so the issue is
+   reused rather than duplicated. A prototype's **first version** has no
+   special entry: its issue is a `queue:` item or nothing, so steps 2 and 3
+   promote or open it like any feature's, and David's approval returns it to
+   `stage:coding` (below).
 2. **Otherwise check the backlog first**, per
    [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md).
    This may be exactly a `queue:`-labeled item David is now starting. If a

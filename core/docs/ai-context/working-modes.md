@@ -708,7 +708,8 @@ David's explicit approval, exactly as a production-phase increment does; the
 questions file is that plan's product. **Every later version is built with no
 loop**, on his feedback alone, *"so I can fix a quick bug or issue or try a
 new variation without needing the rigor of a planning loop"* — unless he asks
-for the loop in words for that version, which he can *"easily"*; the agent
+for the loop in words for that version, which he can *"easily"* — the same
+short plan through the same loop, on the feature's existing issue; the agent
 never infers the ask. A UI or UX fix on a prototype is one of those versions.
 
 **What prototype phase removes.** For a PR that touches only prototype-phase

@@ -13,6 +13,9 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 > none for later versions unless David asks; the questions file is that plan's
 > product, and the `prototype` skill is the entry point
 > ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+> The header, task structure and TDD steps below are for a production-phase
+> plan and do not apply to that short plan; `.agents/PLANS.md` says what it
+> contains and which Preflight check it runs.
 
 ## Overview
 
