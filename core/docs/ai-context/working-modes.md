@@ -29,8 +29,9 @@ The full workflow for building or changing product functionality. In this mode:
    [`../../.agents/PLANS.md`](../../.agents/PLANS.md). Do not start the build on an
    unapproved non-trivial plan. **The one exception is a feature David has
    declared in prototype phase** (*The prototype phase, per feature*, below),
-   which has no plan by design — and none of steps 3 to 5 either: no tests,
-   no doc updates as a bar, and a PR only in the regime that opens one.
+   which has no plan by design — and, of steps 3 to 5, keeps only the usable
+   surface: no tests, no doc updates as a bar, and a PR only in the regime
+   that opens one.
 3. **Build it fully, end to end** (backend + the UI surface to exercise it + tests
    + any doc updates).
 4. **Tests prove the general invariant**, not just the reported example.
