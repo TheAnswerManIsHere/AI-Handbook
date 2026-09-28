@@ -344,7 +344,9 @@ read-time join path.
 
 ## Async work must show status
 
-Anything asynchronous must report per-item + aggregate status at all times — this
+Anything asynchronous must report per-item + aggregate status at all times (on
+a prototype-phase feature, where it costs nothing — the canonical doc carries
+that clause and cites the phase rule) — this
 is a load-bearing principle with its own canonical doc:
 **[`async-ui-status.md`](./async-ui-status.md).** Read it before building any
 queued/bulk/long-running surface.

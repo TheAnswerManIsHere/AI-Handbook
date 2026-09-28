@@ -331,7 +331,8 @@ enactment is `.claude/skills/document/`.
 - **The bridge:** at close-out of a production-phase product feature I post
   a **harvest-notes comment on the workstream issue** — decisions made and
   why, alternatives rejected, gotcha candidates. Cheap, always there, no PR;
-  a prototype-phase feature has no close-out and no decisions yet. The batched pass reads
+  a prototype-phase PR's close-out is the sync and the merge report alone,
+  since it has no decisions to harvest yet (*Close-out*, below). The batched pass reads
   those comments plus the diffs, so session context survives without a ceremony
   per merge.
 
