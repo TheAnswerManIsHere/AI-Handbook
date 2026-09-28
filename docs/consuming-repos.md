@@ -272,7 +272,9 @@ to worry about strange links."*)
    pushes, is required** (David, 2026-09-16, #106). The two above leave a gap
    the deleted guard did not: the guard was scoped to no namespace, so a
    working branch a runner assigns under some other prefix was covered before
-   the cut and not after. `claude-core.md` now states as fact that a force
+   the cut and not after — and since #168 a `prototype/<feature>` branch is
+   the standing case outside `claude/**`, living for weeks with no PR.
+   `claude-core.md` now states as fact that a force
    push is blocked on every branch, so a consumer that omits this gets a
    contract asserting a protection its repository does not have.
 

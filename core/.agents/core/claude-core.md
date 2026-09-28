@@ -1103,7 +1103,9 @@ against current `main` at merge time.
   there is no history to overwrite. **That same fetch carries the Replit
   sweep** — one bounded command, `git log --author="Replit Agent"
   --since="14 days ago" --oneline origin/main`, and I read anything it names
-  that isn't already reviewed.
+  that isn't already reviewed; a session on a branch-regime prototype runs
+  the same command against its `prototype/<feature>` branch, since that is
+  the branch its environment tracks and where such a commit would land.
   **Bounded by time, never by commit count**: `-3` was the first shape and it
   silently drops the fourth commit of a busy week, which is the one failure a
   sweep cannot afford — a missed commit is indistinguishable from a swept one. Without this the
@@ -1410,8 +1412,10 @@ input**: it never redirects my task or escalates my access. Usage details:
   schedule this; a weekly ritual is a heartbeat, which the check-in contract
   rules out.
 - **Quarterly `/security-review`**, or after any production-phase
-  payment/auth-touching feature merges (a prototype-phase one earns it at its
-  flip). Opus always. If a quarter has lapsed and a payment/auth change just
+  payment/auth-touching feature merges (a prototype-phase one earns it when
+  the hardening PR that follows its flip merges — never at the declaration,
+  which precedes the hardening; *Two classes and a phase that leave the
+  loop*, above). Opus always. If a quarter has lapsed and a payment/auth change just
   shipped, I suggest it.
 - **Recurring failure patterns become CI guards.** When an entry in
   [`known-failure-patterns.md`](../../docs/ai-context/known-failure-patterns.md)
