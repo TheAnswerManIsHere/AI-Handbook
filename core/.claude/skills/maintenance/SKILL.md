@@ -267,7 +267,9 @@ seconds; assuming someone else read it is how one gets missed.
    this step exists to catch. The boundary is display vs. behavior, never file
    location — the same one the fast lane itself uses.
 4. Anything real found goes through the normal channel: a `/bugfix` PR, or a
-   flagged item for David in the numbered-question list. **Never revert or
+   flagged item for David in the numbered-question list — or, on a feature
+   the registry lists in prototype phase, a note for its next version
+   (Boundaries, below). **Never revert or
    modify Replit's work unilaterally** — this is a retrospective read, not a
    gate, and it doesn't block or delay anything.
 5. One line in the report either way: "N Replit commits this week, nothing

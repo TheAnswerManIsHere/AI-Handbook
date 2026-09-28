@@ -674,8 +674,11 @@ review loop of any kind (no requested Codex round, no shared judgement, no
 translation), no tests, no `/simplify`, and none of security, performance,
 observability or documentation as a bar — *"We must not care about security,
 performance, observability, documentation, etc. until we've locked a design
-and the feature spec."* The PR is opened and merged by the same agent in the
-same turn, on green CI. Codex's automatic pass on PR-open still runs and is
+and the feature spec."* His "etc." covers the product-design principles too
+(legible async status, no raw identifiers on a surface, and their kin): a
+prototype follows them where they cost nothing, and a miss is a ledger line
+for the flip, never a finding that starts a fix. The PR is opened and merged
+by the same agent in the same turn, on green CI. Codex's automatic pass on PR-open still runs and is
 **read for nothing**: each of its threads is resolved with one line naming
 this phase, and no finding on a prototype-phase feature starts a fix. **The
 only feedback that changes a prototype is the product owner's**, about how it

@@ -306,7 +306,10 @@ the thing away**.
 No internal ID, GUID/UUID, session token, or other non-human-interpretable code
 may ever reach a user-, admin-, or tester-visible surface — not in rendered UI
 text, not in an error message, not in a log line a human is expected to read.
-This applies everywhere, including admin-only surfaces (admins are not exempt).
+This applies everywhere, including admin-only surfaces (admins are not exempt);
+on a feature David has declared prototype phase it is followed where it costs
+nothing and is otherwise a ledger line for the flip, not a bar
+([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 **Avoid:** wherever a UI attributes an action to an actor (audit trails,
 version history, "last edited by," activity logs), resolve the ID to a
 human-readable label (display name, falling back to email) before it can be

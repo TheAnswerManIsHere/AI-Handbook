@@ -169,8 +169,9 @@ Prefer, in order:
   [`docs/ai-context/async-ui-status.md`](../../docs/ai-context/async-ui-status.md).
 - **Ship the surface with the behavior** (no dead UI, no invisible backend), and
   **enforce every permission server-side.**
-- Pre-launch: features ship **on-by-default, no rollout flags**; **no new external
-  vendors** without David's sign-off.
+- Pre-launch: features ship **on-by-default, no rollout flags** (the tester
+  tier's configuration switch is not one — `agent-working-rules.md`, *No
+  rollout-flag gating*); **no new external vendors** without David's sign-off.
 
 ## Planning standard
 
