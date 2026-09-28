@@ -618,7 +618,10 @@ until the #89 cut removed it; nothing dispatched now decides anything.)
 loop, which is a phase of a feature rather than a class of change.
 
 **Trivial — "just do it."** **Only David declares it**, in words, for a
-specific change; no agent assigns it, and the PR body quotes his words. No
+specific change; no agent assigns it, and the PR body quotes his words. One
+standing declaration exists: a feature's phase declaration is the Trivial
+declaration for the one-line registry PR that records it (*The prototype
+phase, per feature*, below; David, 2026-09-28). No
 review of any kind is requested: no Codex round, no assessment, no
 translation. The change merges on green CI. Codex's automatic pass on PR-open
 still runs; it is read for one thing, **a P1, which holds the merge until
@@ -663,11 +666,17 @@ normal case, not a transition.
 **Where the phase is recorded.** The consumer repo's
 `docs/ai-context/overlay-declarations.md` carries a *Feature phases* section
 (and, beside it, a *Tester tier* section naming the tier and the setting that
-switches it on — absent, no prototype-phase feature may start):
-one entry per feature, its phase, the date it last changed, and — while it is
-in prototype phase — a running one-line-per-item **ledger of the shortcuts
-taken** (state held in memory, no auth on a route, a secret in an environment
-variable, an input never validated). A feature not listed is in
+switches it on — required from the branch regime onward, below):
+one entry per feature, its phase, the date it last changed, its regime and
+branch, and the path of the feature's prototype directory. That directory
+lives **with the code** — on `main` in the first regime, on the branch in the
+second — and holds the questions file and a running one-line-per-item
+**ledger of the shortcuts taken** (state held in memory, no auth on a route,
+a secret in an environment variable, an input never validated), so a
+shortcut taken on the branch is recorded where it was taken and the
+hardening PR ports the ledger with the code it describes; the registry on
+`main` never carries the ledger itself, since a branch-regime prototype has
+no path to update it there. A feature not listed is in
 **production** phase: the safe failure is more ceremony, never less.
 
 **What prototype phase removes.** For a PR that touches only prototype-phase
@@ -717,7 +726,16 @@ anything else happens**: the feature's registry entry on `main` changes to
 production, with the date, by its own one-line PR — in the branch regime
 too, since every session reads the registry first and a resumed one would
 otherwise route the hardening work back down the no-review path. Planning
-starts only once that PR has merged. **Questions still unanswered when he
+starts only once that PR has merged. **Every one-line registry PR the phase
+uses — at the start under the branch regime, at the flip, at abandonment —
+is Trivial by David's phase declaration** (David, 2026-09-28: *"Yes,
+trivial"*): the declaration is the one the Trivial class requires, in his
+words, for that change, so the PR quotes it and merges on green CI with no
+review of any kind. At the flip under the branch regime the hardening PR's
+close-out also **retires the prototype environment**: the deployment is
+stopped and its database dropped once the owner's answers and the port are
+captured, owned by the `prototype` skill, and where only David can delete
+the host's deployment that step is a numbered ask to him. **Questions still unanswered when he
 declares are retired by the declaration**: they become the first items of
 the pre-plan conversation, never a reason for another prototype version.
 (An observable
@@ -726,14 +744,19 @@ was proposed and declined; the dissent is recorded so the next session does
 not re-raise it.)
 
 **A prototype can also end by being abandoned** (David, 2026-09-28, closing
-a review finding). The declaration is his, in words, like the flip. Its
-registry entry is removed by its own one-line PR; in the `main` regime its
-code is removed from `main` by an ordinary PR (a change touching only a
-prototype-phase feature, so it merges in the same turn); in the branch regime
-the branch is deleted, or left for David to delete, and the registry no
-longer names it; the workstream issue is closed as *not planned* with a
-comment naming the decision and the answer the prototype gave. Nothing is
-harvested, since nothing was decided about how the system works.
+a review finding). The declaration is his, in words, like the flip. In the
+`main` regime the order is fixed: the code is removed from `main` first, by
+a PR touching only the still-listed prototype-phase feature, so it merges in
+the same turn; the registry entry is removed second, by its own one-line
+Trivial PR — the other way round, the removal would touch a feature the
+registry no longer lists, which this rule's own fallback reads as production
+phase. In the branch regime the registry entry is removed, the prototype
+environment is retired the same way as at a flip (deployment stopped,
+database dropped; David's step where only he can do it), and the branch is
+deleted or left for him to delete. Either way the workstream issue is closed
+as *not planned* with a comment naming the decision and the answer the
+prototype gave. Nothing is harvested, since nothing was decided about how
+the system works.
 
 **Where a prototype lives is decided by who is downstream of `main`** (David,
 2026-09-27). Unchecked code is dangerous to a live product through three
@@ -761,7 +784,16 @@ feature is in:
   lives on a **`prototype/<feature>` branch of the same repository** and
   never on `main` while in that phase. A second deployment, the **prototype
   environment**, tracks the branch and has **its own database**, seeded from
-  fixtures or a sanitized copy, never production's. Its integrations are the
+  fixtures or a sanitized copy, never production's — and *sanitized* means
+  the copy strips every contact and payment channel (email addresses, phone
+  numbers, payment tokens and their like), so a bug in unreviewed code
+  holding real credentials cannot reach a real customer (David, 2026-09-28).
+  **Prototypes are serialised in this regime** (David, 2026-09-28: one
+  environment per product): the registry entry names which branch the
+  prototype environment currently tracks, a second branch-regime prototype
+  waits for the environment or for David to ask for a second one, and a
+  second environment, when he does, is declared in the overlay's
+  *Environment* section like the first. Its integrations are the
   product's real ones, credentials included — a prototype that could not
   charge, send or write would not answer the question it exists to ask
   (David, 2026-09-28, declining a review finding that asked for sandbox
@@ -776,10 +808,9 @@ feature is in:
   by its own one-line PR**, opened when the prototype starts and never left
   on the branch alone: a session starting from `main` reads the registry to
   learn a feature's phase, and an entry only the unmerged branch carries
-  reads from `main` as no entry, which is production phase. That PR is prose
-  recording a decision — David's declaration, quoted — so it is a
-  Documentation-class change unless he declares it Trivial in the same
-  words, which the declaration itself can carry. It says `Refs #N` for the
+  reads from `main` as no entry, which is production phase. That PR is
+  Trivial by his phase declaration (the flip paragraph above), quoted in its
+  body, and merges on green CI. It says `Refs #N` for the
   feature's issue, never `Workstream: #N`, so it owns no lifecycle and moves
   no label (`workstream-tracking.md`, *Closing an issue*); the same holds for
   the one-line registry PRs at the flip and at abandonment. The branch takes `main` in
@@ -791,11 +822,13 @@ feature is in:
 **The tester tier exists in every product** (David, 2026-09-27), named in
 the overlay: a user tier beside the admin one, switched on by a configuration
 setting. It gates two things — the **feedback rail** renders only for its
-members, and only its members can sign in to a prototype environment. In a
-product with no users yet, David and the product owner are simply its
-members. It is a product feature, built through the normal pipeline before
-the product's first prototype-phase feature ships. What the tier does **not**
-do is isolate: hiding a screen never hides a migration, and that is why the
+members, and only its members can sign in to a prototype environment. **It
+is required from the branch regime onward, and not before** (David,
+2026-09-28): in a product with no users there is nobody to keep the rail
+from, so it renders for everyone and the first work is the first prototype,
+not a full-loop tier — the tier is built through the normal pipeline before
+the product's first branch-regime prototype, which is also before its first
+user. What the tier does **not** do is isolate: hiding a screen never hides a migration, and that is why the
 second regime is a branch and a deployment rather than a flag.
 
 The earlier design put every prototype in a separate repository and Repl.

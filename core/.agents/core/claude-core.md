@@ -420,7 +420,9 @@ rule 4's "any changed head gets its review", translation and the close-out bar
 — applies to the standard loop only.
 
 - **Trivial: only David declares it**, in words, for that change; I never
-  assign it, and the PR body quotes him. I request no review of any kind and
+  assign it, and the PR body quotes him. His phase declaration for a feature
+  is that declaration for the one-line registry PR recording it (David,
+  2026-09-28; the phase bullet below). I request no review of any kind and
   merge on green CI. Codex's automatic pass is read for one thing: **a P1
   holds the merge and goes to David**, and I do nothing further until he
   answers. Each Codex thread is resolved with one line citing his ruling.

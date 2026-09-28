@@ -220,8 +220,8 @@ to worry about strange links."*)
    | Which modules generate its **API-validation schemas** | `working-modes.md` Tier B/C routing | A schema change routes to the wrong tier |
    | Which panel is its **reference implementation** for async status | `async-ui-status.md` | An agent re-derives a solved UI instead of copying the working one |
    | Which **shared modules a reviewer should know** | `code-review.md` | Reuse stops being a review criterion, so reimplementation goes unflagged |
-   | Which **features are in prototype phase**, each with its regime (`main`, or a `prototype/<feature>` branch once users are downstream), its questions file and its ledger of shortcuts taken (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — an answer that fails toward *more* ceremony |
-   | Which **user tier is the tester tier**, and the configuration setting that switches it on (*Tester tier*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | No prototype-phase feature may start: the tier is built through the normal pipeline before the product's first prototype ships, so a missing declaration holds the first prototype rather than running it with a feedback rail nobody can see — the second answer that fails toward *more* ceremony |
+   | Which **features are in prototype phase**, each with its regime (`main`, or a `prototype/<feature>` branch once users are downstream), which branch the prototype environment tracks, and the path of its prototype directory holding the questions file and the ledger (*Feature phases*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | Every feature is treated as production phase, so a prototype gets the full loop — an answer that fails toward *more* ceremony |
+   | Which **user tier is the tester tier**, and the configuration setting that switches it on (*Tester tier*) | `working-modes.md` *The prototype phase, per feature*; the `prototype` skill | No branch-regime prototype may start: the tier is built through the normal pipeline before the product's first prototype in that regime, so a missing declaration holds it rather than running it with a feedback rail nobody can see; a product with no users needs no tier yet — the second answer that fails toward *more* ceremony |
 
    One payload route is deliberately **not** in that table: `/next` and the
    tracking skills ask the overlay for the repo's **product direction and
@@ -403,7 +403,7 @@ to worry about strange links."*)
    nothing, and the repo silently gets less ceremony than it had the day
    before — or, for the feature-phase and tester-tier rows, more: an unlisted
    feature is production phase, so a prototype the overlay never declared
-   gets the full loop, and an undeclared tier holds the first prototype.
+   gets the full loop, and an undeclared tier holds the first branch-regime prototype.
 
    Before a re-sync, diff step 1's table against that repo's
    `docs/ai-context/overlay-declarations.md` and land the missing answers in
