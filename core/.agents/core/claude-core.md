@@ -266,7 +266,9 @@ The shared definition is
 [`working-modes.md`](../../docs/ai-context/working-modes.md). Before either
 mode, the consumer's *Feature phases* registry: a request about a feature
 David has declared prototype phase, bug-shaped or not, goes to the
-`prototype` skill (*Two classes and a phase that leave the loop*, below).
+`prototype` skill — a first version through the planning loop, a later one
+with none unless David asks (*Two classes and a phase that leave the loop*,
+below).
 Otherwise entry is routed by request shape and announced in one line (the
 announcement is David's veto surface); `/bugfix` is the explicit override.
 

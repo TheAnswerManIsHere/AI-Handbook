@@ -1667,8 +1667,9 @@ was entered. Rationale in [`decisions.md`](./decisions.md).)
   change X") → feature mode, as that phrasing always has; genuinely
   ambiguous → one numbered question. Before either, the consumer's
   *Feature phases* registry: a request about a feature David has declared
-  prototype phase, bug-shaped or not, goes to the `prototype` skill
-  (*The prototype phase, per feature*, above). `/bugfix` remains an **explicit
+  prototype phase, bug-shaped or not, goes to the `prototype` skill — a
+  first version through the planning loop, a later one with none unless
+  David asks (*The prototype phase, per feature*, above). `/bugfix` remains an **explicit
   override** that forces the light path. Classification is **per-request**
   — no sticky mode state, no exit phrases.
 - **Codex** has no auto-triggering skill system, so the signal stays **in
@@ -1697,7 +1698,8 @@ above), **do not silently treat it as a fix** — **ask** whether it should
 take the feature workflow, or (for a genuinely trivial database schema fix)
 proceed straight to migration ceremony per Tier C — or, when the registry
 says the feature is in prototype phase, go to the `prototype` skill: its
-first version plans there, and after that no mode at all. Guessing wrong is
+first version plans there, and after that no mode at all (*The prototype
+phase, per feature*, above). Guessing wrong is
 expensive in both directions (skipping a plan a feature or a non-trivial
 schema change needed, or piling ceremony onto a one-line fix), and the
 confirm costs one question.
