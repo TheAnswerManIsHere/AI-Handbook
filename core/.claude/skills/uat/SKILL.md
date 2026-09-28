@@ -363,7 +363,7 @@ Then, in one edit:
 
 - **On an accepted verdict, drive close-out to done rather than parking
   there.** An accepted UAT is the last David-gate; what remains of close-out
-  is mine (the harvest-notes comment for a production-phase product feature, any outstanding
+  is mine (the harvest-notes comment for a production-phase product feature — a prototype-phase one posts none, per [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26) — any outstanding
   item the State of Play lists). Do what remains, and when nothing is left,
   set `stage:done` and close the issue as completed, with a comment naming
   the PR(s) — the shared rule is
