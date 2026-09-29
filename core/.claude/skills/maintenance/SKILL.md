@@ -150,7 +150,7 @@ If no marker exists at all (first pass under this contract), fall back to
 the last 7 days and say so in the report rather than presenting the
 fallback as the real boundary. Run `/document` once, covering every product
 feature in production phase merged in that window — a prototype-phase
-feature has no close-out and is harvested once the hardening PR that follows
+feature's close-out harvests nothing, and it is harvested once the hardening PR that follows
 its flip has closed out, never at the registry flip itself
 ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)) — its sources are the **harvest-notes comments on each
 feature's workstream issue** (posted at close-out) plus the merged diffs.
@@ -175,7 +175,8 @@ stored records. From the merged-PR list for the window:
   2026-09-18 they reach David in chat, which is not a record either. So the
   number comes from the **approval ask's trail, restated in the workstream
   issue's harvest comment** — `plan-review-loop` requires exchanges-run there
-  for exactly this reason.
+  for exactly this reason — or, for a prototype's version, which posts no
+  harvest comment, in its issue's State of Play block at approval.
   **Say so when a plan loop has no harvest comment**, rather than reporting a
   rounds-per-loop figure that silently omits it: understating review cost is
   the bias the old dual inventory existed to prevent, and it comes back the

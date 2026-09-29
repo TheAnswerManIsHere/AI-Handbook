@@ -8,7 +8,9 @@
 > `NODE_ENV` gate on the switcher, the double-clicked file — [SKILL.md](SKILL.md)'s
 > *Local adaptations* replace it: a prototype here is a product feature in
 > prototype phase, it stays where the phase puts it, and the tester tier, not
-> the build mode, decides who sees it
+> the build mode, decides who sees it; and the one-line plan this file writes
+> before building is, for a first version, the short plan the planning loop
+> reviews and David approves ([SKILL.md](SKILL.md), *Ceremony*)
 > ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.

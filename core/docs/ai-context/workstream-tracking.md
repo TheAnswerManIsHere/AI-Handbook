@@ -29,9 +29,10 @@ Code review → Merge → Test run → 🛑 UAT → Close-out → Done
 Bug-fixing mode (`/bugfix`) branches straight from Discovery to Coding,
 skipping Planning and Plan approval — it still lands in Code review, Merge,
 Test run, and UAT like everything else. A feature David has declared
-prototype phase enters at Coding and stays there, alternating between
-his feedback and the next version, with no Code review, Test run or UAT
-until it flips (*Promotion is a real operation*, below; the rule is
+prototype phase runs Discovery, Planning and Plan approval for its first
+version, then enters Coding and stays there, alternating between his
+feedback and the next version, with no Code review, Test run or UAT until
+it flips (*Promotion is a real operation*, below; the rule is
 [`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 🛑 marks a **David-gate** — a stage only he can move past. It's the same
@@ -153,17 +154,20 @@ whole state machine:
 starts."** Whichever skill is the one that first opens or reuses a
 workstream issue for a given piece of work — `plan-review-loop` for a
 phased or unphased feature plan, `bugfix` for a fix, `prototype` for a
-feature David has declared prototype phase — owns performing it,
+feature David has declared prototype phase, from its first version's
+approval onward (that version's issue is opened by `plan-review-loop` at
+`stage:planning`, like any feature's) — owns performing it,
 and does so **before** creating a fresh issue. **A prototype-phase feature
-enters at `stage:coding` / `waiting:claude`** — there is no planning stage
-to enter at, and until a version David can use exists, the agent is the
+reaches `stage:coding` / `waiting:claude` on its first version's approval**
+(and again on the approval of any later version David asked a loop for),
+and until a version David can use exists, the agent is the
 holder. It moves to `waiting:david` when a usable version is delivered (on
 `main`, or on the prototype environment) and back to `waiting:claude` when
 his feedback starts another revision, so the board asks him to act only
 while there is something to act on. Its issue names the questions file and,
 in the branch regime, the `prototype/<feature>` branch; its PR, where one
 exists, carries `Workstream: #N` like any other; no `stage:code-review` ever
-follows, because no loop runs. **The flip is a relabel of the same issue,
+follows, because no code-review loop runs on any version. **The flip is a relabel of the same issue,
 performed by the `prototype` skill before `plan-review-loop` starts**: it
 first lands the registry change on `main` (the entry reads production, by a
 one-line `Refs #N` PR that moves no label), then
@@ -171,8 +175,12 @@ locates the feature's issue by its `Workstream:` line or title, moves it to
 `stage:planning` / `waiting:david`, and records the declaration in the
 State of Play — so the planning loop finds an issue already at
 `stage:planning` and reuses it rather than opening a second one, and the
-feature has one issue across both phases. The rule is working-modes.md,
-*The prototype phase, per feature*:
+feature has one issue across both phases. **A later prototype version
+David asks a loop for takes the same relabel**, minus the registry change:
+the `prototype` skill moves the feature's existing issue from `stage:coding`
+to `stage:planning` / `waiting:david` before `plan-review-loop` starts, the
+loop reuses it, and his approval returns it to `stage:coding`. The rule is
+working-modes.md, *The prototype phase, per feature*:
 
 1. **Search first**: does an open issue already carry `queue:` and
    describe this work (`search_issues`, title/body match, or David names
@@ -180,8 +188,9 @@ feature has one issue across both phases. The rule is working-modes.md,
    issue **is** the workstream issue — reuse it, don't open a second one.
 2. **Promote it**: remove the `queue:` label, add the full `stage:`/
    `waiting:` set for wherever this skill is entering the lifecycle
-   (`stage:planning` for a feature plan, `stage:coding` for a bugfix or a
-   prototype-phase feature, the latter at `waiting:claude`), and
+   (`stage:planning` for a feature plan, a prototype's first version
+   included; `stage:coding` for a bugfix, or for a prototype-phase feature
+   after that approval, at `waiting:claude`), and
    write the State of Play block fresh (the backlog body's nuance carries
    forward as narrative, not as a field to preserve verbatim).
 3. **Only if no matching backlog issue exists** does the normal fresh-issue
@@ -386,7 +395,7 @@ work it's already doing — not as a separate reminder to go check the board:
 | --- | --- |
 | `plan-review-loop` | `waiting:claude` for the whole loop — a planning exchange is a local process the builder waits on, so there is no `waiting:codex` state; `stage:plan-approval` + `waiting:david` at the approval ask |
 | `bugfix` | Opening the workstream at `stage:coding` directly (no Planning stage), `mode:bugfix` |
-| `prototype` | Opening or promoting the workstream at `stage:coding` / `waiting:claude` for a feature David has declared prototype phase, `mode:feature`; `waiting:david` when a usable version is delivered and back when his feedback starts a revision; the relabel to `stage:planning` / `waiting:david` at the flip, before `plan-review-loop` starts (*Promotion is a real operation*, above) |
+| `prototype` | The workstream from `stage:coding` / `waiting:claude` onward for a feature David has declared prototype phase (its first version's issue is opened at `stage:planning` by `plan-review-loop`, above), `mode:feature`; `waiting:david` when a usable version is delivered and back when his feedback starts a revision; the relabel to `stage:planning` / `waiting:david` before `plan-review-loop` starts, at the flip and for a later version David asked a loop for (*Promotion is a real operation*, above) |
 | `pr-watch` | `stage:code-review` onward — round-by-round `waiting` toggling, `waiting:david` on escalation, `stage:test-run`/`waiting:replit` at merge when the PR's Post-merge verification section has real content (the close-out sequence then drives the checks and moves the label to `stage:uat`/`stage:close-out` once the checks pass); with "none needed" verification, the transition to `stage:uat`/`stage:close-out` still waits for the close-out sync checks (SHA match + clean worktree) to pass — never at the merge click itself, either branch. A workstream reaching `stage:close-out` this way (no UAT owed) goes on to `stage:done` and is closed in the same pass (*Closing an issue*, below). Also the labels on a follow-up issue it files from a review round: `gap` and the workstream's `mode:`, with no `queue:` until `/maintenance` triages it (#98; David, 2026-09-28) |
 | `pr-docs` | No stage transition of its own — confirms `mode:feature` is right on the PR this pairing rides on |
 | `/uat` | The exit from `stage:uat` — the one stage no agent could previously move, since only David could run it. `Accepted` and `Accepted with issues` both reach `stage:close-out` (his acceptance is what converts that run's bugs from blockers into independently-tracked work); a `Blocked` run holds at `stage:uat`. `waiting:claude` either way — the next real action is a fix or a close-out, not something David can click. An accepted run drives close-out through to `stage:done` and closes the issue. Also owns the `Blocked by:` + failed-step record at the moment a run finds a bug, executing `bugfix`'s intake contract earlier, while the context is still in front of it — but **not** the `waiting:` flip, which waits until the run actually stops, since a run David chooses to continue is still David-held |
@@ -416,8 +425,10 @@ restatement.
 **Merge is not verification, and it is not the reason an issue stays
 open either.** What keeps a merged workstream open is a UAT still owed —
 or, for a feature David has declared prototype phase, the phase itself: its
-merges have no close-out, its issue stays at `stage:coding` through every
-version, and it closes at the close-out of the hardening PR that follows
+merges have no close-out, its issue stays at `stage:coding` from its first
+version's approval through every later version (back at `stage:planning`
+only while a loop David asked for runs), and it closes at the
+close-out of the hardening PR that follows
 the flip — or, when David declares the feature abandoned, as *not planned*
 once its teardown is confirmed (in the branch regime that may wait on
 David's host step, and the issue stays open at `waiting:david` until then),
@@ -481,7 +492,8 @@ set" `stage:done`, and nothing ever asked him to.)
   an issue body is public even though the Project itself is private. This
   is the **canonical definition** of the disclosure check that gates
   opening a public workstream issue, referenced (not restated) by
-  `plan-review-loop`, the `prototype` skill when it opens a feature's issue,
+  `plan-review-loop` (which opens a prototype's first-version issue too), the
+  `prototype` skill before a questions file or ledger's first push,
   `working-modes.md`'s bugfix disclosure check, and
   `documentation-workflow.md`'s harvest-tracking section: before a
   workstream — a plan, a bug report, or a `/document` harvest — becomes a

@@ -401,7 +401,8 @@ The reviewer's own standard is shared, not my ceremony:
 There is no mode to exit — classification is per-request. A feature-shaped
 request ("let's build / add / change X") simply gets the feature workflow —
 after the registry read at the top of this file, which sends a
-prototype-phase feature to the `prototype` skill instead — and the
+prototype-phase feature to the `prototype` skill instead (where a first
+version still plans) — and the
 classification announcement makes the switch visible. Two cases
 still deserve care:
 

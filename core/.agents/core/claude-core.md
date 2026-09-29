@@ -266,15 +266,19 @@ The shared definition is
 [`working-modes.md`](../../docs/ai-context/working-modes.md). Before either
 mode, the consumer's *Feature phases* registry: a request about a feature
 David has declared prototype phase, bug-shaped or not, goes to the
-`prototype` skill (*Two classes and a phase that leave the loop*, below).
+`prototype` skill — a first version through the planning loop, a later one
+with none unless David asks (*Two classes and a phase that leave the loop*,
+below).
 Otherwise entry is routed by request shape and announced in one line (the
 announcement is David's veto surface); `/bugfix` is the explicit override.
 
 - **Feature-building is the default** — pre-plan conversation, plan, plan
   review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
   for a feature in **production phase**; one David has declared prototype
-  phase gets none of that list but the surface itself — the owner's feedback
-  is on something he can use (*Two classes and a phase that leave the loop*, below).
+  phase keeps the pre-plan conversation, the plan and the plan review for its
+  **first version** (and for a later one only when he asks in words), then
+  the surface itself and nothing else on that list — the owner's feedback is
+  on something he can use (*Two classes and a phase that leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
   loop** — I write the real file and ship it. Product code in production
@@ -352,7 +356,9 @@ enactment is `.claude/skills/document/`.
    earlier version of this line named two of the four, and a checklist that
    lists some of its items invites skipping the ones it omits. A plan specifies
    invariants, not implementation — applied line by line as I draft, not as a
-   trimming pass afterwards.
+   trimming pass afterwards. A prototype's short plan — its first version's,
+   or a later version's David asked a loop for — runs the increment test
+   alone; `PLANS.md` says so, and which sections it omits.
 3. **A plan is never published, so the pre-push disclosure gate is gone**
    (David, 2026-09-09): working tree, in-session peer, chat — no public
    channel. What survives is narrower and still binding: a
@@ -361,10 +367,13 @@ enactment is `.claude/skills/document/`.
    specifics, secrets, payment-fraud paths, private customer data or embargoed
    work never get committed. Directions are unchanged.
 4. **The scope-of-work gate opens the loop** — for a feature in production
-   phase; a prototype-phase feature has no loop to open (*Two classes and a
+   phase and for a prototype's first version; a later prototype version has
+   no loop to open unless David asks for one in words (*Two classes and a
    phase that leave the loop*, below). Before the first push, the scope —
    direction, product intent, must-not-change, settled decisions, now/next/never
-   boundaries, ceremony tier — goes to David as a 🛑 banner. His explicit
+   boundaries, ceremony tier — goes to David as a 🛑 banner; for a
+   prototype's version, the short plan's four items stand in for intent,
+   must-not-change and settled decisions. His explicit
    agreement is what authorizes the loop to run autonomously.
 5. **Mid-flight scope gets the now/next/never question** — three options with
    ramifications, default **next**. A two-option scope question is a bug in the
@@ -441,8 +450,12 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   declares that specific change Trivial.
 - **A third exemption is a phase, not a class** (David, 2026-09-26): a product
   feature in **prototype phase**, declared per feature in the consumer's
-  `overlay-declarations.md`, gets no plan, no loop, no tests, no UAT doc and no
-  hardening bar until David declares it production. Where nothing is
+  `overlay-declarations.md`, gets the planning loop for its first version —
+  pre-plan conversation, a short plan, Astra's review, his approval — and for
+  a later version only when he asks in words; it gets no code-review loop, no
+  tests, no UAT doc and no hardening bar until David declares it production
+  (David, 2026-09-28: *"What we're cutting out is the code review loop once
+  we've built it."*). Where nothing is
   downstream of `main` it lives on `main` and its PR merges in the same turn,
   Codex's automatic pass read for nothing; where users are, it lives on a
   `prototype/<feature>` branch with its own environment and database, and
@@ -876,8 +889,11 @@ design. Mechanics:
    `working-modes.md` — fix tier, reported symptom verbatim, intended behavior,
    must not change, root cause, blast radius. For a prototype-phase feature
    on `main` (the branch regime opens no PR): the questions the increment is
-   meant to answer, since its oracle is its
-   owner's feedback (rule 4 gives the line). "n/a — no plan" only for a
+   meant to answer, and, for a version that had a plan — the first, or a
+   later one David asked a loop for — the approved short plan verbatim (its
+   four items: the design question, the hypothesis, the surface, what it
+   leaves out); otherwise its oracle is its owner's feedback (rule 4 gives
+   the line). "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
    form (interaction rule 11).
 4. **The body says in one plain line what the code is judged against.**
@@ -887,8 +903,10 @@ design. Mechanics:
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
    or `no plan`, for the "n/a — no plan" change rule 3 allows; or, for a
    prototype-phase feature on `main`, `prototype phase — <feature>`, with the
-   questions file the increment answers named beside it, since such a PR has
-   no plan and is judged by nobody but its owner. (It read
+   questions file the increment answers named beside it and, for a version
+   that had a plan — the first, or a later one David asked a loop for — that
+   plan's digest; otherwise such a PR has no plan and is judged by nobody
+   but its owner. (It read
    `trivial` until 2026-09-25, when Trivial became a review class David alone
    declares; one word meaning two things is how a label starts granting what it
    only described.) Nothing parses it — it points

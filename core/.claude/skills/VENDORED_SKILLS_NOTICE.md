@@ -149,7 +149,9 @@ Modification status:
   which of their mechanics `SKILL.md` replaces; their upstream text is not
   otherwise edited. The same sweep put a one-paragraph local note under the
   title of `brainstorming/SKILL.md` and `test-driven-development/SKILL.md`,
-  saying a prototype-phase feature does not pass their gates, and one under
+  saying a prototype-phase feature does not pass their gates (corrected by
+  #173: a first version passes brainstorming's, as its pre-plan
+  conversation; tests stay removed), and one under
   `using-superpowers/SKILL.md`'s subagent stop saying its phrase router
   runs after the registry read, and one under `systematic-debugging/SKILL.md`'s
   title, whose own description is a trigger the router note cannot reach,
