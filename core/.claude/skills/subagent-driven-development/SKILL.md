@@ -142,7 +142,14 @@ that implementer. Single-file mechanical fixes also take the cheapest tier.
 **Task complexity signals (implementation tasks):**
 - Touches 1-2 files with a complete spec → cheap model
 - Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+- Requires design judgment or broad codebase understanding → Opus
+
+**Fleet ceiling (David, 2026-10-03): implementation never goes above Opus.**
+Fable is reserved for planning and discussion, so "most capable" for anything
+that writes code — an implementer, or a re-dispatch of a stuck one — means
+Opus. Architecture and design tasks, and reviews, are judgement rather than
+building and may use the strongest tier. The rule's home is `claude-core.md`,
+*Model, cost, and routing*.
 
 ## Handling Implementer Status
 
@@ -156,7 +163,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **BLOCKED:** The implementer cannot complete the task. Assess the blocker:
 1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
+2. If the task requires more reasoning, re-dispatch with a more capable model, up to Opus (the fleet ceiling above)
 3. If the task is too large, break it into smaller pieces
 4. If the plan itself is wrong, escalate to the human
 
