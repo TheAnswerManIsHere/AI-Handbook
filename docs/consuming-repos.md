@@ -142,7 +142,8 @@ from the corresponding file in another repo, but they are then owned locally
 and diverge — that is the point. A copy started that way carries any rule the
 payload has since retired, so read it against the payload before committing
 it: a `replit-environment.md` copied from a repo enrolled before 2026-10-03
-still describes the Replit direct-push lane as sanctioned (step 6).
+still describes the Replit direct-push lane as sanctioned, or says Replit puts
+a tweak on a branch by itself (step 6).
 
 ### This table is not exhaustive, and cannot be
 
@@ -434,7 +435,10 @@ to worry about strange links."*)
    record, and land the correction there first. The case that added this
    line: retiring the Replit direct-push lane (David, 2026-10-03) left each
    consumer's `docs/ai-context/replit-environment.md` describing the lane as
-   sanctioned.
+   sanctioned. A copy corrected to say Replit commits a tweak to a branch by
+   itself is stale too: the Repl tracks `main`, so a tweak lands there and I
+   move it to a branch (`claude-core.md`, *This environment's git
+   constraints*).
 
 7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>`, where
    the path is the root of the consumer's git checkout (the sync refuses
