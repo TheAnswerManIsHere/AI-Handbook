@@ -991,14 +991,16 @@ conversation resolution, so the Merge button is inert while a thread is open.
    `pull_request_read`, not cached green. If anything moved, re-work the bar.
 2. **Squash-merge.** Every merge in this repo is a squash-merge, whoever clicks
    it.
-3. **Trigger the Repl sync**, wait ~15 seconds, then verify via one
-   `ask_question` that the checked-out SHA matches the new `main` commit **and**
-   the worktree is clean. Neither check substitutes for the other. A SHA that
-   differs is read with `git status -sb`: **ahead** means commits made in the
-   Repl, which are moved to a branch before anything else (*This environment's
-   git constraints*), never synced over; **behind** means it hasn't landed, so
-   retry at ~15-second intervals up to 4 tries, then report a sync problem
-   rather than waiting longer. **Every merge, with no exception I
+3. **Check the Repl, then trigger its sync.** First, one read-only
+   `ask_question` for `git fetch` and `git status -sb`: a Repl `main` that is
+   **ahead** of GitHub's, alone or diverged, holds commits made in the Repl,
+   which are moved to a branch before anything else (*This environment's git
+   constraints*) and never synced over. Then trigger a fast-forward-only sync,
+   wait ~15 seconds, and verify via one `ask_question` that the checked-out SHA
+   matches the new `main` commit **and** the worktree is clean. Neither check
+   substitutes for the other. Still **behind** means it hasn't landed: retry at
+   ~15-second intervals up to 4 tries, then report a sync problem rather than
+   waiting longer. **Every merge, with no exception I
    reason my way into** — not "the project is paused", not "this change has no
    product surface", not "the Repl will pick it up on its next sync anyway".
    Each of those is a judgement about *this* commit; drift is the sum of all of
