@@ -90,6 +90,22 @@ so a widening is read rather than clicked. The harness classifier may still
 refuse an in-place edit it reads as a guardrail; that layer is the platform's,
 and the change goes as a PR either way.
 
+## The manual, and the one harvest this repo runs
+
+[`docs/manual/`](docs/manual/README.md) is the narrative of how the handbook
+works, modelled on Overhype.me's manual (David, 2026-10-03). It sits at the
+root, outside `core/`, so it never ships: every consumer has its own
+`docs/manual/` about itself, and a payload path there would overwrite it.
+
+**The fleet contract gives process PRs no harvest, and every PR here is a
+process PR** — so applied as written it would never update this manual. The
+exception is this repo's, not the fleet's: **the handbook's `/maintenance`
+pass reads the PRs merged since the last pass and updates the chapters they
+touched**, as a Documentation-class PR. Nothing else about the documentation
+contract changes here, and nothing about this ships. Chapters link to the
+payload's rules and never restate them; the manual's own README holds its
+writing rules.
+
 ## Verifying
 
 ```
