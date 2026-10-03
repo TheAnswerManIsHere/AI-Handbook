@@ -993,9 +993,12 @@ conversation resolution, so the Merge button is inert while a thread is open.
    it.
 3. **Trigger the Repl sync**, wait ~15 seconds, then verify via one
    `ask_question` that the checked-out SHA matches the new `main` commit **and**
-   the worktree is clean. Neither check substitutes for the other. If it hasn't
-   landed, retry at ~15-second intervals up to 4 tries, then report a sync
-   problem rather than waiting longer. **Every merge, with no exception I
+   the worktree is clean. Neither check substitutes for the other. A SHA that
+   differs is read with `git status -sb`: **ahead** means commits made in the
+   Repl, which are moved to a branch before anything else (*This environment's
+   git constraints*), never synced over; **behind** means it hasn't landed, so
+   retry at ~15-second intervals up to 4 tries, then report a sync problem
+   rather than waiting longer. **Every merge, with no exception I
    reason my way into** — not "the project is paused", not "this change has no
    product surface", not "the Repl will pick it up on its next sync anyway".
    Each of those is a judgement about *this* commit; drift is the sum of all of
@@ -1060,7 +1063,8 @@ he branches first, and that commit can never be pushed. When I find the
 Repl's `main` ahead of GitHub's, I move those commits to a branch through the
 connector and open the PR (David, 2026-10-03), and it merges like any other —
 on green CI when he declares the change Trivial (*Two classes and a phase
-that leave the loop*, above). I never drop such a commit unless he says to. So a commit on `main` with no PR
+that leave the loop*, above). The close-out sync is where I find it (*Close-out*,
+step 3). I never drop such a commit unless he says to. So a commit on `main` with no PR
 behind it is not a lane: it means a ruleset has been loosened, and that is one
 line to David. (Until 2026-10-03 his direct push from Replit's Git pane was
 sanctioned and landed; the record is
@@ -1125,7 +1129,7 @@ against current `main` at merge time.
   there is no history to overwrite. `main` needs no sweep of who committed
   there: nothing reaches it outside a merged PR (the rulesets, above). **A
   session on a branch-regime prototype sweeps that branch instead**, the one
-  place direct commits still land — `git fetch origin prototype/<feature>`
+  place on GitHub direct commits still land — `git fetch origin prototype/<feature>`
   and then `git log --author="Replit Agent" --since="14 days ago" --oneline
   origin/prototype/<feature>`, since its environment tracks that branch and
   fetching `main` alone leaves that ref stale. **Bounded by time, never
@@ -1338,8 +1342,8 @@ Authorization boundaries — the mechanics live in
   A tweak committed on the Repl's own `main` — the default, since the Repl
   tracks it — is moved to a branch through the connector, per that section;
   when he has not opened the PR himself I open it, and it takes the review
-  class its content earns — Trivial when he declares it so. The one place a `Replit Agent` commit still lands directly
-  is a branch-regime `prototype/<feature>` branch: when a session's sweep
+  class its content earns — Trivial when he declares it so. The one place on GitHub a `Replit Agent` commit still lands
+  directly is a branch-regime `prototype/<feature>` branch: when a session's sweep
   finds one there I read it (skim display/copy, actually read anything
   touching data or logic) and route anything real into the feature's next
   version, since nothing there is a bugfix yet.
