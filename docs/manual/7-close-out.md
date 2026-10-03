@@ -254,4 +254,4 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
 Claude communicates at every step: banners, notifications, numbered questions
 and quoting.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

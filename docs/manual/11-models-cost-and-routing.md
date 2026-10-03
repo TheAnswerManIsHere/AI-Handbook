@@ -289,4 +289,4 @@ whole mechanism.
 **Next:** chapter 12 — [`12-the-machinery.md`](./12-the-machinery.md), the
 scripts, checks and settings files underneath everything described so far.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

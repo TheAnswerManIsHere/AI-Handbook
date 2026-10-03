@@ -285,4 +285,4 @@ gone. What they protected is now covered without a parser:
 [manual's contents](./README.md#contents), or look a term up in the
 [glossary](./glossary.md).
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

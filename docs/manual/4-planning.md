@@ -328,4 +328,4 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
 **Next:** chapter 5 — [`5-opening-a-pr.md`](./5-opening-a-pr.md), how the
 approved work is built and shipped as a pull request.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

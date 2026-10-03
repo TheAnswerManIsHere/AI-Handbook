@@ -309,4 +309,4 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
 **Next:** chapter 4 — [`4-planning.md`](./4-planning.md), how a feature's
 intent is agreed and turned into a plan David approves.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

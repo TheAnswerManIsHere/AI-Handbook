@@ -331,4 +331,4 @@ for a merge to register. The rules for that are short:
 which model does each job, what is handed to a [subagent](./glossary.md#subagent), and what a review
 round costs.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

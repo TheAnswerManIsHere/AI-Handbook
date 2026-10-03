@@ -149,14 +149,14 @@ In reading order. A chapter file appears only once it holds real content, so
 | 2 | [`2-who-does-what.md`](./2-who-does-what.md) | David, Claude, Codex, Astra, Fable and Replit — what each is for and what each may decide | ✅ written |
 | 3 | [`3-routing-a-request.md`](./3-routing-a-request.md) | **Route** — feature, bugfix or prototype; how much ceremony a change earns; the Trivial and Documentation classes | ✅ written |
 | 4 | [`4-planning.md`](./4-planning.md) | **Plan** — the pre-plan conversation, the plan, Astra's review, the scope gate and David's approval | ✅ written |
-| 5 | `5-opening-a-pr.md` | **Build** — branches, the PR body and its oracle, the server-side rulesets | not yet written |
-| 6 | `6-the-review-loop.md` | **Review** — Codex, shared judgement, the Worth rule, the two-review limit, the ship gate, translation | not yet written |
-| 7 | `7-close-out.md` | **Close out** — the merge bar, the Repl sync, post-merge verification, UAT | not yet written |
-| 8 | `8-talking-to-david.md` | Banners, notifications, numbered questions, quoting — how Claude communicates | not yet written |
-| 9 | `9-memory-and-documentation.md` | **Remember** — Type 1 and Type 2 documentation, memory notes, handoff, prose sweeps | not yet written |
-| 10 | `10-tracking-work.md` | Workstream issues, `/status`, `/next`, `/maintenance` | not yet written |
-| 11 | `11-models-cost-and-routing.md` | Which model does what, subagent routing, and what a loop costs | not yet written |
-| 12 | `12-the-machinery.md` | The scripts, the CI checks, the settings template, and how skills and agents are wired | not yet written |
+| 5 | [`5-opening-a-pr.md`](./5-opening-a-pr.md) | **Build** — branches, the PR body and its oracle, the server-side rulesets | ✅ written |
+| 6 | [`6-the-review-loop.md`](./6-the-review-loop.md) | **Review** — Codex, shared judgement, the Worth rule, the two-review limit, the ship gate, translation | ✅ written |
+| 7 | [`7-close-out.md`](./7-close-out.md) | **Close out** — the merge bar, the Repl sync, post-merge verification, UAT | ✅ written |
+| 8 | [`8-talking-to-david.md`](./8-talking-to-david.md) | Banners, notifications, numbered questions, quoting — how Claude communicates | ✅ written |
+| 9 | [`9-memory-and-documentation.md`](./9-memory-and-documentation.md) | **Remember** — Type 1 and Type 2 documentation, memory notes, handoff, prose sweeps | ✅ written |
+| 10 | [`10-tracking-work.md`](./10-tracking-work.md) | Workstream issues, `/status`, `/next`, `/maintenance` | ✅ written |
+| 11 | [`11-models-cost-and-routing.md`](./11-models-cost-and-routing.md) | Which model does what, subagent routing, and what a loop costs | ✅ written |
+| 12 | [`12-the-machinery.md`](./12-the-machinery.md) | The scripts, the CI checks, the settings template, and how skills and agents are wired | ✅ written |
 
 **This table is the source of truth for chapter numbers**, and the number
 appears in two other places that must agree with it: each chapter's own

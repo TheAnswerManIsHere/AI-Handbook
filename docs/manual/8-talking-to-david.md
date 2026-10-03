@@ -234,4 +234,4 @@ product, the design or correctness are weighed on the merits.
 **Next:** chapter 9 — [`9-memory-and-documentation.md`](./9-memory-and-documentation.md),
 how what was learned gets written down so the next session starts from it.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*

@@ -322,4 +322,4 @@ nothing about it ships to a product.
 every piece of work is tracked on GitHub so David can see what needs him
 without opening each session.
 
-*Verified against `081ef0c` (2026-10-03).*
+*Verified against `118e076` (2026-10-03).*
