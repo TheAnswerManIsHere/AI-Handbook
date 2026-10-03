@@ -1464,8 +1464,9 @@ Everything in Tier A, plus:
   Opus 5.5 is out, it's strong enough for any development work. We'll reserve
   Fable for planning and discussion."*). This line read "the strongest model
   tier available" until the machinery pin's strongest Claude became Fable, at
-  which point it contradicted the core's Opus-reserved execution and the
-  bugfix skill's "never starts on Fable".
+  which point it contradicted the core (*Model, cost, and routing*: Opus
+  builds everything, Tier B included) and the bugfix skill's "never starts on
+  Fable".
 
 **Internal/infra-only exception on the UAT doc.** The test is **whether the
 fix has any product-visible behavior at all — not which Q1/Q2 trigger(s)

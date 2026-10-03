@@ -119,9 +119,10 @@ Use the least powerful model that can handle each role to conserve cost and incr
 
 **Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
 
-**Architecture and design tasks**: use the most capable available model.
-The final whole-branch review is one of these — dispatch it on the most
-capable available model, not the session default.
+**Architecture and design tasks**: use Opus — they write code, and building
+never goes above Opus (the fleet ceiling, below). The final whole-branch
+review is different: it is a review, so dispatch it on the most capable
+available model, not the session default.
 
 **Review tasks**: choose the model with the same judgment, scaled to the
 diff's size, complexity, and risk. A small mechanical diff does not need the
@@ -147,8 +148,9 @@ that implementer. Single-file mechanical fixes also take the cheapest tier.
 **Fleet ceiling (David, 2026-10-03): implementation never goes above Opus.**
 Fable is reserved for planning and discussion, so "most capable" for anything
 that writes code — an implementer, or a re-dispatch of a stuck one — means
-Opus. Architecture and design tasks, and reviews, are judgement rather than
-building and may use the strongest tier. The rule's home is `claude-core.md`,
+Opus — architecture and design tasks included, since in this skill they are
+plan tasks that write code. Only reviews, which judge rather than build, may
+use the strongest tier. The rule's home is `claude-core.md`,
 *Model, cost, and routing*.
 
 ## Handling Implementer Status
