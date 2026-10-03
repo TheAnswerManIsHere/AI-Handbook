@@ -271,18 +271,16 @@ to worry about strange links."*)
    constraining what a session can push. Settings are a repo-level thing the
    sync cannot write, so this is a human step and it gates the ones below.
 
-   **A second ruleset on `claude/**`, blocking force pushes, is #94's** — it is
-   what replaces the guard's lease rule, and it is created per repo at
-   enrolment. Verified in AI-Handbook 2026-09-16: a plain push landed,
-   `--force-with-lease` on a probe branch was refused with GH013, and a plain
-   push of a further commit landed after it.
-
-   **A third ruleset, targeting all branches (`~ALL`) and blocking force
-   pushes, is required** (David, 2026-09-16, #106). The two above leave a gap
-   the deleted guard did not: the guard was scoped to no namespace, so a
-   working branch a runner assigns under some other prefix was covered before
-   the cut and not after — and since #168 a `prototype/<feature>` branch is
-   the standing case outside `claude/**`, living for weeks with no PR.
+   **A second ruleset, targeting all branches (`~ALL`) and blocking force
+   pushes, is required** (David, 2026-09-16, #106). It is what replaces the
+   deleted guard's lease rule, and like the guard it is scoped to no
+   namespace, so this session's `claude/**` branches, a runner-assigned
+   branch under any other prefix, and a `prototype/<feature>` branch living
+   for weeks with no PR are all covered. A separate `claude/**` ruleset (#94)
+   used to be created here too; the all-branches one made it redundant and it
+   is no longer created (David, 2026-10-03). Measured in DojoOS 2026-10-03,
+   with only this ruleset and `main`'s: `--force-with-lease` was refused with
+   GH013 on `claude/ruleset-probe` and on `probe/ruleset-probe`.
    `claude-core.md` now states as fact that a force
    push is blocked on every branch, so a consumer that omits this gets a
    contract asserting a protection its repository does not have.
@@ -290,8 +288,8 @@ to worry about strange links."*)
    Two things about this one. **Put nothing else on it** — in particular not
    *restrict deletions*, which is a separate toggle from force-push and would
    leave a stale branch behind after every merge, since merged branches
-   auto-delete. And **it does not conflict with the two above**: GitHub unions
-   rulesets, so the overlap on `main` and `claude/**` is harmless, and
+   auto-delete. And **it does not conflict with the one above**: GitHub unions
+   rulesets, so the overlap on `main` is harmless, and
    targeting all branches with no exclusion is deliberately broader than
    "everything except `main`" — there is no list of runner prefixes to get
    wrong.

@@ -69,7 +69,7 @@ git checkout -b claude/bugfix-<topic> origin/main   # -b, never -B
 **Never `-B`.** `-B` *resets* the ref to `origin/main`, which would silently wipe
 an existing same-named branch's unpushed work. If `-b` fails because the name
 exists, that is the signal to pick a different slug — never fall back to `-B`,
-`--force`, or any reset. (A GitHub ruleset blocks force pushes on `claude/**`,
+`--force`, or any reset. (A GitHub ruleset blocks force pushes on every branch,
 so the push would be refused anyway; the local reset it would follow is what
 loses the work. See CLAUDE.md's *This environment's git constraints*.)
 
