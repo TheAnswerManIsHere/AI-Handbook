@@ -139,7 +139,10 @@ destination.
 
 A consumer needs these before or alongside its first sync. They may be started
 from the corresponding file in another repo, but they are then owned locally
-and diverge — that is the point.
+and diverge — that is the point. A copy started that way carries any rule the
+payload has since retired, so read it against the payload before committing
+it: a `replit-environment.md` copied from a repo enrolled before 2026-10-03
+still describes the Replit direct-push lane as sanctioned (step 6).
 
 ### This table is not exhaustive, and cannot be
 
