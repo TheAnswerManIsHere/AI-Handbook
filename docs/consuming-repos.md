@@ -251,9 +251,10 @@ to worry about strange links."*)
    status checks, and **require conversation resolution before merging** — and
    that **no ruleset carries a bypass actor**. A bypass for the Admin role
    exempts the identity a cloud session pushes as, since it pushes as the
-   owner's account, so every rule below it would bind nobody who matters; the
-   contract states that every change to `main` arrives through a PR (David,
-   2026-10-03), which is only true with an empty bypass list. That
+   owner's account, so every rule below it would bind nobody who matters.
+   `claude-core.md`, *This environment's git constraints*, states that every
+   change to `main` arrives through a PR (David, 2026-10-03), which is only
+   true with an empty bypass list. That
    last one used to be the merge-gate hook's job; with the hook deleted it is
    the only thing that keeps an unresolved review thread from being mergeable,
    and the contract now states it as fact (`claude-core.md`, *Close-out*: "the
@@ -423,6 +424,16 @@ to worry about strange links."*)
    (A first sync cannot hit this — step 1 wrote the answers. It is the second
    and later syncs that can, which is exactly why it sits here rather than in
    step 1. Codex, #62 round 5.)
+
+   **The same applies when the payload retires a rule a consumer-owned
+   document restates.** The sync cannot rewrite that document, and the payload
+   still routes readers to it, so the retired rule reads as current at the end
+   of a live link. Before a re-sync that carries a retirement, read the
+   consumer's own copies of the documents the retired rule named as its
+   record, and land the correction there first. The case that added this
+   line: retiring the Replit direct-push lane (David, 2026-10-03) left each
+   consumer's `docs/ai-context/replit-environment.md` describing the lane as
+   sanctioned.
 
 7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>`, where
    the path is the root of the consumer's git checkout (the sync refuses
