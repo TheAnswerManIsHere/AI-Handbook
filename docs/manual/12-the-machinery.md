@@ -127,8 +127,10 @@ make explicitly, not by quietly adding one.
 ### How this repository reaches its own payload
 
 The handbook governs itself with the file it ships: its `CLAUDE.md` imports the
-portable [core](./glossary.md#core) straight from `core/`. Everything else
-under `core/` reaches this repository only through that import — except two
+portable [core](./glossary.md#core) straight from `core/`, and its root
+`AGENTS.md` links the agents core and declares it binding here, so Codex and
+other agents are governed by the payload too. Everything else under `core/`
+reaches this repository only through those two instruction files — except two
 kinds of entry:
 
 - **[Skills](./glossary.md#skill) and [agent

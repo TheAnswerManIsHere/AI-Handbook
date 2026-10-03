@@ -70,10 +70,13 @@ A few details shape how that plays out:
 
 ### Effort: the second dial
 
-Separate from *which* model is *how hard it thinks*. Effort is a level from
-low to max, and it applies to every Claude model. It can be persisted as a
-setting in a repository's `.claude/settings.json`, which makes it a real cost
-lever that needs no ask of David, and it can be set per
+Separate from *which* model is *how hard it thinks*. Effort is a level, and
+it applies to every Claude model. Most levels can be persisted as a setting in
+a repository's `.claude/settings.json`, which makes it a real cost lever that
+needs no ask of David; the very highest level is session-only and cannot be a
+repository default. Which levels exist, and which persist, is in the
+[`model-routing`](../../core/.claude/skills/model-routing/SKILL.md) skill.
+Effort can also be set per
 [subagent](./glossary.md#subagent) in that subagent's own definition. The one
 session-level dial Claude asks David to move is the model, at the build
 boundary; effort is not something Claude asks him to type.

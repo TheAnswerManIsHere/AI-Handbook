@@ -159,8 +159,10 @@ chapter could check — **Needs David confirmation**.
 Enrolling a product is a short ordered procedure in
 [`docs/consuming-repos.md`](../consuming-repos.md): write the overlay first,
 create the per-product documents, verify the server-side branch protections,
-adapt the seeded settings, fill in the machinery file, and only then run the
-sync. The order matters because a vendored core that nothing imports looks
+and only then run the sync — adapting the seeded settings and filling in the
+machinery file either beforehand, where the product already has them, or
+while reviewing the first sync's pull request, where the sync is what creates
+them. The order matters because a vendored core that nothing imports looks
 governed without being governed.
 
 ### How this repository governs itself
@@ -176,7 +178,9 @@ A few parts of the payload are live in this repository too, not just shipped
 from it. The skills and agent definitions are reached through symbolic links
 from this repository's own `.claude/` folder into `core/`, so there is still
 only one copy of each. Everything else in `core/` reaches this repository only
-through that import line. The settings template is the clearest example of
+through its instruction files: `CLAUDE.md` imports the Claude core, and the
+root `AGENTS.md` links the agents core and declares it binding here, which is
+how Codex and other agents are governed by the payload too. The settings template is the clearest example of
 something that is purely data here: editing it changes what the next product
 is seeded with, not how this repository behaves, because this repository keeps
 its own separately adapted settings file.
@@ -239,8 +243,10 @@ process changes no write-up at all. Both are stated in
 
 ## Boundaries & known limitations
 
-- **The sync never edits a product-owned file.** That is deliberate, and it
-  has a cost: when the handbook starts asking a product a new question, or
+- **The sync does not rewrite a product-owned file.** The one edit it makes
+  is additive: it tops up the machinery seed with any setting the handbook
+  newly requires, never changing a value the product holds. That restraint is
+  deliberate, and it has a cost: when the handbook starts asking a product a new question, or
   retires a rule that a product's own documents restate, the sync cannot
   update the product's side. The enrollment procedure handles this with an
   explicit step before every re-sync rather than with machinery, and it is a

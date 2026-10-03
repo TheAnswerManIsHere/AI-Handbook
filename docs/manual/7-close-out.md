@@ -25,8 +25,8 @@ environment can run, write down what was decided, and tell David exactly what
 to go and try.
 
 It is also where a [workstream](./glossary.md#workstream) ends. If no UAT is
-owed, nothing remains for anyone to verify once the sync is confirmed, so the
-workstream's issue is closed in the same pass. If one is owed, the issue stays
+owed, the issue is closed in the same pass once the sync is confirmed and any
+post-merge verification has passed — a failed live check keeps it open. If one is owed, the issue stays
 open until David's run is accepted.
 
 Production is a different thing again. Publishing the app to real users is a

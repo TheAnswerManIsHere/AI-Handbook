@@ -182,9 +182,9 @@ Home: [`core/.claude/agents/fable-review-assessor.md`](../../core/.claude/agents
 
 A plain-English account of one code review round, written for David by a
 separate Claude subagent that reads the round from GitHub itself and whose
-words reach him unedited. It is owed on rounds where Claude declined
-something or where something smells wrong, and always on the last round
-before a merge. It holds no authority: nothing in the review or merge path
+words reach him unedited. It is owed on the rounds where an
+independent reading is most likely to catch something, and before anything
+merges; the exact triggers live in its home's rules. It holds no authority: nothing in the review or merge path
 reads it.
 Home: [`core/.claude/agents/fable-round-translation.md`](../../core/.claude/agents/fable-round-translation.md)
 
@@ -193,9 +193,10 @@ Home: [`core/.claude/agents/fable-round-translation.md`](../../core/.claude/agen
 A separate Claude worker that Claude Code dispatches for a bounded job and
 whose report it reads back. Some subagents are fixed roles with an
 [agent definition](#agent-definition) (the assessors); others are ordinary
-delegations of stateless work to a cheaper model. Anything stateful or
-judgement-heavy — a review loop, verifying Claude's own work, a harvest —
-is never routed to one, every dispatch is announced, and delegation is
+delegations of stateless work to a cheaper model. A judgement that is
+Claude's own — running a review loop, verifying its own work, a harvest — is
+never routed to one (bounded, independent judgements such as the assessments
+are dispatched deliberately, at the strongest tier), every dispatch is announced, and delegation is
 capped.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
@@ -208,7 +209,8 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 One piece of work tracked end to end by **one GitHub issue**, from the first
 conversation to close-out. Its labels say what stage it is in and who it is
 waiting on, a project board shows them, and the PRs that serve it name it
-in their body. It is how David sees where many concurrent sessions stand
+in their body. Not every PR belongs to one: a display-only Replit tweak of
+David's is recorded by its PR alone. It is how David sees where many concurrent sessions stand
 without opening each one.
 Home: [`core/docs/ai-context/workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
 
@@ -273,7 +275,8 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 
 Which review a change gets: the [standard loop](#standard-loop), or one of
 the two classes that leave it — [Trivial](#trivial) and
-[Documentation](#documentation-class). A PR body names its class. A
+[Documentation](#documentation-class). A Trivial PR's body quotes David's
+declaration; a Documentation pass is named on its review request. A
 prototype-phase feature also sits outside the standard loop, but as a
 *phase* of a feature rather than a class of change.
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
@@ -425,8 +428,8 @@ Home: [`core/docs/ai-context/review-judgment.md`](../../core/docs/ai-context/rev
 ### Two-review limit
 
 The bound on how long Claude may keep **editing** without David, where the
-limit applies: review the head, make one coherent batch of corrections,
-review the corrected head, and stop. It caps editing, never reviewing, and
+limit applies: a small, fixed allowance of reviews and corrections, after
+which iteration stops — the allowance itself is stated only in its home. It caps editing, never reviewing, and
 ending iteration is not "merge regardless" — a head that still falls short
 goes to David with a choice. It exists because chains of individually
 sensible fixes kept producing the next round's findings.
@@ -497,8 +500,8 @@ Home: [`core/.claude/skills/pr-docs/SKILL.md`](../../core/.claude/skills/pr-docs
 
 User acceptance testing: David clicking through a change in the running
 product to confirm it does what was agreed — CI and Codex catch *broken*,
-UAT catches *wrong*. Product-visible production-phase features (and the
-elevated bug fixes) ship a UAT doc in the same PR, and `/uat` walks David
+UAT catches *wrong*. Product-visible production-phase features (and Tier B
+bug fixes with product-visible behaviour) ship a UAT doc in the same PR, and `/uat` walks David
 through it step by step in chat rather than leaving him to read it alone.
 The doc is deleted once he confirms the run complete.
 Home: [`core/.claude/skills/uat/SKILL.md`](../../core/.claude/skills/uat/SKILL.md)

@@ -86,10 +86,9 @@ Read this first; every rule later in the chapter is one step of it.
    the round costs and protects, and carries pre-registered
    [flip conditions](./glossary.md#flip-condition). The trigger itself carries
    no prose; the context goes in a separate comment just before it.
-9. **Translate, when owed.** If Claude declined something in the round, if
-   something about it smells wrong, or if it is the last round before a merge,
-   a separate translator explains the round to David in plain English, in
-   chat (below).
+9. **Translate, when owed.** On the rounds where an independent reading is
+   most likely to catch something, and before anything merges, a separate
+   translator explains the round to David in plain English, in chat (below).
 10. **Loop or stop.** A changed head goes back to step 2. A round whose
     findings warrant no code — or a limit that says iteration is over — ends
     the loop, and the pull request goes to
@@ -122,7 +121,8 @@ again just to get a different answer is refused.
 
 ### Shared judgement on a round
 
-Every round that returns findings gets both assessments **before** anything is
+This is the round's [shared judgement](./glossary.md#shared-judgement). Every
+round that returns findings gets both assessments **before** anything is
 written for it — whatever the findings look like, nits included. Skipping them
 because Claude expects to decline everything would end the round on Claude's
 judgement alone, which is exactly what the two assessments replace.
@@ -177,11 +177,13 @@ its real output goes in the reply.
 
 ### The two-review limit
 
-On internal tooling, **autonomous iteration is bounded at two reviews**:
-review the head; if corrections are warranted, make one coherent batch; review
-the corrected head; stop. Anything still worth doing after that becomes a
-recorded gap or a follow-up issue — filed so that it does not enter the work
-queue until David has triaged it (chapter 10).
+On internal tooling, **autonomous iteration is bounded by a small, fixed
+allowance of reviews and corrections**, after which it stops. Anything still
+worth doing then becomes a recorded gap or a follow-up issue — filed so that it
+does not enter the work queue until David has triaged it (chapter 10). The
+allowance itself, and the exact sequence it permits, are stated in
+[`working-modes.md`](../../core/docs/ai-context/working-modes.md) and nowhere
+else; this section explains why it exists.
 
 Three things make the limit what it is:
 
@@ -189,10 +191,9 @@ Three things make the limit what it is:
   To make that structurally safe, the limit is checked *before* anything is
   written in a round, so Claude never produces a head it would be forbidden to
   have reviewed.
-- **Ending iteration is not "merge regardless".** If the corrected head still
-  breaks an agreed requirement, fails a required check, or carries a finding
-  of real harm David has not accepted, it goes to David with the shortfall and
-  a choice — continue, cut the scope, or stop — not to the Merge button.
+- **Ending iteration is not "merge regardless".** A corrected head that still
+  falls short of what was agreed goes to David with the shortfall and a
+  choice, not to the Merge button.
 - **Claude cannot award itself a third review.** Only David can reopen the
   work. "Another correction seems worthwhile" is precisely the reasoning the
   limit exists to refuse.
@@ -274,11 +275,11 @@ round itself from GitHub — the findings, Claude's replies, the diff — and it
 account reaches David unedited, pasted into chat exactly as composed. It
 decides nothing; nothing in the loop reads it.
 
-It runs **when Claude declined something in the round, when something about
-the round smells wrong, and always on the last round before a merge**. Those
-are the rounds where an independent reading has actually caught things. It
-runs only *after* the next review has been requested, so Claude cannot act on
-it mid-round. Its report leads with what the round was about and any
+It is owed on **the rounds where an independent reading has actually caught
+things, and always before a merge** — the exact triggers are in
+[`claude-core.md`](../../core/.agents/core/claude-core.md), *Watching the PRs I
+open*. It runs only *after* the round it covers has been triggered, so Claude
+cannot act on it mid-round. Its report leads with what the round was about and any
 disagreement with Claude's account, then gives one line per finding, flagging
 any where Claude wrote more than the finding was worth.
 
@@ -288,12 +289,14 @@ arrive is reported in plain English and never blocks the loop.
 
 ### The six-hour stop
 
-A loop pauses after six hours and asks David to resume. The clock is measured
-from a single quantity readable off GitHub rather than any judgement about how
-much of the time was "unattended", because the earlier, arguable wording was
-never once consulted across the seven rounds of the pull request that wrote
-it. Expiry pauses and asks; it never counts as convergence and never extends
-itself.
+A loop that has run too long pauses and asks David to resume. Its clock is a
+quantity anyone can read off GitHub rather than a judgement about how much of
+the time was "unattended", because the earlier, arguable wording was never once
+consulted across the seven rounds of the pull request that wrote it. Expiry
+pauses and asks; it never counts as convergence and never extends itself. The
+duration and the exact clock are in
+[`claude-core.md`](../../core/.agents/core/claude-core.md), *Shared judgement on
+a review round*.
 
 ### Who skips the loop
 
@@ -367,8 +370,9 @@ because the ruleset requires it.
   being deliberately misleading.** Claude launches it, chooses what round it
   reads and pastes the result. Its value is that it says what it checked and
   what it took on trust.
-- **Which model answered is self-reported.** Each assessor states what it is
-  running as, and a mismatch with what was requested is flagged to David as an
+- **Which model answered is self-reported, and only for the Claude roles.**
+  The Fable assessor and the translator state what they are running as; Astra
+  cannot, so its header names only what was requested (chapter 11). A mismatch with what was requested is flagged to David as an
   [FYI](./glossary.md#fyi). The platform does record the serving model, so a
   real observation could be built; David judged it not worth building
   (2026-09-19).

@@ -1,7 +1,7 @@
 # Chapter 10 · Tracking work
 
 > How David can tell, without opening a single session, what every piece of
-> work is, where it stands and whether it needs him. Each unit of work gets
+> work is, where it stands and whether it needs him. Each workstream gets
 > one GitHub issue; labels on that issue record its stage and who is holding
 > it; a narrative block at the top of the issue makes it resumable cold; and
 > three read-mostly [skills](./glossary.md#skill) turn that record into
@@ -26,7 +26,9 @@ management rather than a bespoke tracker:
 
 - **One issue per workstream** — every feature, bug fix or documentation
   [harvest](./glossary.md#harvest) that is underway has exactly one issue, and
-  every pull request for it names that issue in its body.
+  every pull request for it names that issue in its body. The one kind of pull
+  request with no issue of its own is one of David's display-only Replit
+  tweaks: its pull request is its own record.
 - **Labels are the truth** about where the work is and who holds it.
 - **A private Project board** displays those labels for visual scanning; each
   product names its board in its own [overlay](./glossary.md#overlay).
@@ -45,7 +47,7 @@ Every workstream moves through one lifecycle: discovery, the
 [scope-of-work gate](./glossary.md#scope-of-work-gate), planning, plan
 approval, coding, code review, merge, test run, [UAT](./glossary.md#uat),
 [close-out](./glossary.md#close-out), done. Three of those stages are marked
-with 🛑 — scope of work, plan approval and UAT — and they are **David-gates**:
+with 🛑 — scope of work, plan approval and UAT — and they are **[David-gates](./glossary.md#david-gate)**:
 stages only he can move past. The glyph is deliberately the same one Claude
 uses for a [blocking ask](./glossary.md#blocking-ask) in chat, so one symbol
 means "David" everywhere.
@@ -209,9 +211,12 @@ in parallel sessions, and — when the queue is empty — proposes what to build
 It recommends; it never starts the work.
 
 All three answer for **the repository the session is working in, never the
-[fleet](./glossary.md#fleet)**. They read that repository's declared identity from its machinery
-file, cross-check it against the git remote, and stop and ask if the two
-disagree rather than reporting confidently on the wrong product.
+[fleet](./glossary.md#fleet)**. The two repository-wide views, `/status-all`
+and `/next`, read that repository's declared identity from its machinery file,
+cross-check it against the git remote, and stop and ask if the two disagree
+rather than reporting confidently on the wrong product. `/status` needs no
+such check: it finds this session's workstream from the issue it was given,
+its pull request or its branch.
 
 ### The maintenance pass keeps the record honest
 
@@ -293,6 +298,9 @@ for a merge to register. The rules for that are short:
 
 ## Boundaries & known limitations
 
+- **Not every pull request has an issue, by design.** David's display-only
+  Replit tweaks are recorded by their pull request alone; anything found
+  while reviewing one that needs real work gets ordinary tracking.
 - **Work with no issue is invisible.** A discovery conversation that has not
   yet opened its issue does not exist as far as GitHub knows, so `/status-all`
   cannot see it. If a report looks short, that is the likely reason.

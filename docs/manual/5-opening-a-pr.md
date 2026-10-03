@@ -86,6 +86,10 @@ work this is (chapter 3 explains the routing):
   what must not change, the root cause and the blast radius.
 - **A prototype-phase change on `main`** — the questions the increment is
   meant to answer and, if the version had a plan, that short plan.
+- **A [Documentation-class](./glossary.md#documentation-class) change** — the
+  decision the prose records, quoted from where it was made: David's words,
+  the issue, or the merged pull request that changed the rule. Its assessment
+  refuses to run without one.
 - **"n/a — no plan"** — only for a genuinely trivial change.
 
 **One line naming what the code is judged against.** The `Oracle source:` line
@@ -96,7 +100,8 @@ in conversation, the bugfix tier, the prototype feature, or "no plan". Nothing
 parses it; it is a pointer for people.
 
 **A link to the workstream, never a closing keyword.** The body says
-`Workstream: #N`. It never says "Closes #N" for its own workstream, because
+`Workstream: #N` — except on one of David's display-only Replit tweaks, which
+has no workstream issue: its pull request is its own record. It never says "Closes #N" for its own workstream, because
 GitHub would close the issue at merge — before post-merge verification and
 before David has tested anything (chapter 10).
 

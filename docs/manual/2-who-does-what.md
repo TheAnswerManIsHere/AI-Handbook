@@ -125,8 +125,8 @@ own work.
 The Fable assessor is a Claude [subagent](./glossary.md#subagent),
 running on the strongest Claude model, that reads the same findings, the same
 agreed intent and the same version of the code as Astra, and writes its own
-assessment without seeing Astra's. Together they form the **shared
-judgement** on a review round: both advise, and
+assessment without seeing Astra's. Together they form the **[shared
+judgement](./glossary.md#shared-judgement)** on a review round: both advise, and
 Claude decides from the two.
 
 Where Astra and the Fable assessor still disagree on a purely technical point

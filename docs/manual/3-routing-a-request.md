@@ -155,12 +155,14 @@ changes stored data — and none of that is known until the cause is found.
 - **Tier A — a contained fix.** Nothing tripped. With that checklist, Tier A
   is the exception, and that is intended.
 
-Every tier keeps a regression test that fails on the old code, a
+Tiers A and B both keep a regression test that fails on the old code, a
 blast-radius check of what else shares the path, and a bugfix
 [oracle](./glossary.md#oracle) in the pull request body — the reported
 symptom quoted, what correct looks like, what must not change, and the root
 cause — so the reviewer has something to judge the fix against besides the
-diff itself. Codex still reviews every bugfix.
+diff itself. Tier C is different by construction: it has left bugfix mode,
+and its one continuing path — a trivial schema fix David green-lights — uses
+its own oracle block. Codex still reviews every bugfix.
 
 ### Prototype phase
 
