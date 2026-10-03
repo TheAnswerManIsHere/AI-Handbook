@@ -186,7 +186,7 @@ the PR. Tier A is the exception, by design.
   boundary is product code, and a bugfix crosses it: reproducing the symptom,
   reading the failing path and classifying the tier are all thinking, so a
   Fable session does them without ceremony — then names the boundary and asks
-  for `/model claude-opus-5` before the first edit. **A Tier B fix never starts
+  for `/model claude-opus-5-5` before the first edit. **A Tier B fix never starts
   on Fable at all**, since it is Opus-reserved execution. Triage and
   diagnosis stay in my main loop. A **bounded** piece of the work — reproduce
   the symptom, find every caller of X — is eligible for a Sonnet subagent;

@@ -1460,7 +1460,12 @@ Everything in Tier A, plus:
   content), and a check that re-verifies what CI already gates is waste.
   The driving agent executes the section through the Replit connector at
   close-out (the standalone TEST_RUN file is retired, 2026-08-15).
-- **The strongest model tier available** for the fix itself.
+- **Opus, the build tier, for the fix itself** (David, 2026-10-03: *"Now that
+  Opus 5.5 is out, it's strong enough for any development work. We'll reserve
+  Fable for planning and discussion."*). This line read "the strongest model
+  tier available" until the machinery pin's strongest Claude became Fable, at
+  which point it contradicted the core's Opus-reserved execution and the
+  bugfix skill's "never starts on Fable".
 
 **Internal/infra-only exception on the UAT doc.** The test is **whether the
 fix has any product-visible behavior at all — not which Q1/Q2 trigger(s)

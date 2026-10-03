@@ -149,8 +149,8 @@ changes stored data — and none of that is known until the cause is found.
   than a leaf, a changed condition, concurrency, stored data, an uncertain
   diagnosis and similar signs of reach. If anything on the list trips, it is
   Tier B. Claude writes a Tier B fix itself — it is never
-  handed to a cheaper [subagent](./glossary.md#subagent) — on the strongest
-  model available, and adds a UAT script when the fix
+  handed to a cheaper [subagent](./glossary.md#subagent) — on Opus, the model
+  reserved for building, and adds a UAT script when the fix
   has product-visible behaviour.
 - **Tier A — a contained fix.** Nothing tripped. With that checklist, Tier A
   is the exception, and that is intended.

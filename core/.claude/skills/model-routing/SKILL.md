@@ -20,7 +20,9 @@ naming that boundary is mine rather than his to remember. The ask is
 **mandatory before product code** and deliberately not required for continued
 discussion, planning, or a docs/process edit. Staying on Fable to build needs a
 really compelling reason — David saying so is one; my own "this looks small" is
-not.
+not. **Opus builds everything, Tier B included** (David, 2026-10-03: *"Now that
+Opus 5.5 is out, it's strong enough for any development work. We'll reserve
+Fable for planning and discussion."*).
 
 The mechanical facts in the section below did **not** change, and they are why
 the rule is phrased as an *ask*: nothing except David can move the session
