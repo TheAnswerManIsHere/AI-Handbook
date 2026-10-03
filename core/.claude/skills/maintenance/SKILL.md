@@ -13,8 +13,8 @@ switch for it.** The *Fable to explore, Opus to build* rule (David,
 2026-08-28, see `CLAUDE.md`'s *Model, cost, and routing*) asks for a switch
 before **product code**, which this pass never writes: its two docs-only
 exceptions and its dependency merges are not building. A `/bugfix` that comes
-*out* of this pass is building, and takes the tier its own classification
-calls for.
+*out* of this pass is building, and so runs on Opus, whatever tier its
+classification lands in.
 Bounded, stateless pieces of the pass — a research sweep, a self-contained
 lookup — are eligible for a Sonnet subagent; the triage judgements are not.
 
