@@ -82,8 +82,8 @@ changes he makes himself during UAT — carry no issue of their own: like every
 change to `main` since his ruling of 2026-10-03 (*"Yes, everything goes
 through a pull request"*), each arrives as a pull request, and that PR is its
 record. A tweak Replit commits on the Repl's own `main`, which the Repl tracks,
-cannot be pushed, so it is moved to a branch first and the PR opened from
-there. What reviewing one *finds* beyond the tweak is ordinary work and gets
+cannot be pushed, so Claude moves it to a branch through the connector and
+opens the PR from there, never dropping it unless David says to. What reviewing one *finds* beyond the tweak is ordinary work and gets
 an issue like anything else. Read
 [`docs/ai-context/workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md)
 before opening or reviewing a PR — it covers the label conventions and what
