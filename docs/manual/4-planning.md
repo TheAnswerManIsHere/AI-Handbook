@@ -28,8 +28,8 @@ build the right thing the wrong way", is before anything is built.
 It applies to [feature-building mode](./glossary.md#feature-building-mode) for
 product code in [production phase](./glossary.md#production-phase), and to the
 first version of a feature in [prototype phase](./glossary.md#prototype-phase).
-It does not apply to bug fixes, which drop planning entirely, or to
-agent-facing markdown such as a skill, where the file itself is the plan
+It does not apply to [bug fixes](./glossary.md#bug-fixing-mode), which drop planning entirely, or to
+agent-facing markdown such as a [skill](./glossary.md#skill), where the file itself is the plan
 (chapter 3).
 
 The output is an approved plan whose intent sections — the direction it
@@ -131,9 +131,9 @@ interject at any time.
 
 ### 5. Exchanges with Astra
 
-Astra is the strongest Codex model, run through the Codex command-line tool in
+Astra is the strongest [Codex](./glossary.md#codex) model, run through the Codex command-line tool in
 a read-only sandbox, so it can read the repository but cannot edit what it is
-discussing. Which model that is comes from the fleet's
+discussing. Which model that is comes from the [fleet](./glossary.md#fleet)'s
 [machinery pin](./glossary.md#machinery-pin), not from the script.
 
 **One contract, two roles.** Both Claude and Astra read the same
@@ -157,8 +157,8 @@ no plan edit and no new assessment.
 
 **Continuity lives in a concern ledger**, a file Claude maintains beside the
 plan. Every concern keeps its original reasoning and names where it came
-from, and each has a state: open, addressed, superseded, withdrawn, waiting
-on David, accepted by David, or
+from, and each has a state — still open, resolved in one of several named
+ways, waiting on David, or
 [settled over dissent](./glossary.md#settled-over-dissent). Settled is not
 closed: any entry can be pulled back into a discussion.
 
@@ -227,7 +227,7 @@ workstream issue at approval, so none can be forgotten later.
 ### Underneath
 
 One script, `plan-review.mjs`, runs each exchange. It assembles the package —
-role block, contract, the Worth rule and the oracle — launches Astra, and
+role block, contract, the [Worth rule](./glossary.md#worth-rule) and the oracle — launches Astra, and
 saves the Markdown answer. Its machinery protects things other than a verdict:
 
 - **The oracle is pinned** on the first exchange and checked on every one
@@ -255,8 +255,10 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
   stop a revision he disagrees with. A readout after the fact is a report, not
   a control.
 - **Chat, not a page.** The plan was once reviewed on a pull request, then on
-  a private page. Both were something David had to go and open. He reads chat
-  and uses it well, so the plan now comes to him there, complete.
+  a private page. The plan loop now follows the same rule as the code review
+  loop, where a page turned out to be something David had to go and open
+  rather than something he read: he reads chat and uses it well, so the plan
+  comes to him there, complete.
 - **The plan is never published**, which is why the old disclosure gate on
   plans was retired. What remains is the check before a plan file is ever
   committed, if David asks for that.
@@ -265,7 +267,7 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
   sweeping end state, so every discovery was in scope by definition. The fix
   was a third destination for a discovery — not *in* and not *rejected*, but
   *next plan* — and the split between directions and plans. Notably, not one
-  of that loop's findings overturned a decision from the pre-plan
+  of that loop's [findings](./glossary.md#finding) overturned a decision from the pre-plan
   conversation; the front of the process worked.
 - **The scope exchange is the cheapest round there is.** It reviews a page,
   not a plan, and it is the one place that asks whether the thing should
@@ -293,13 +295,13 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
   in what Claude supplies produces a confidently wrong assessment, and an
   incomplete list is invisible to the assessor. That is why Claude marks
   every factual premise as checked or unverified, and why Astra is told to
-  verify load-bearing premises itself.
+  verify [load-bearing](./glossary.md#load-bearing-claim) premises itself.
 - **Exchanges are slow.** Each one is a long-running process run in the
-  background rather than a quick call, and Astra's sign-in expires quickly
-  enough that David has to approve it on the spot.
+  background rather than a quick call. Astra's sign-in code also expires
+  within minutes, so David has to approve it on the spot.
 - **If Astra is unreachable**, Claude says so as a blocking ask and stops.
-  The fallback — David pasting the plan into ChatGPT by hand — exists, and
-  Claude says plainly when it is being used.
+  A manual fallback — pasting the plan into ChatGPT by hand — exists, and
+  Claude says plainly when it is on it.
 - **Planning does not end the questions.** If something ambiguous turns up
   during the build that the plan did not cover, Claude stops and asks rather
   than guessing and flagging it later.

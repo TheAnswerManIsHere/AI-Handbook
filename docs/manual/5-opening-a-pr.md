@@ -15,9 +15,10 @@
 
 ## What it does
 
-A pull request is the unit everything downstream works on. Codex reviews a
+A pull request is the unit everything downstream works on.
+[Codex](./glossary.md#codex) reviews a
 pull request, not a branch; the review loop of chapter 6 runs on its threads;
-close-out (chapter 7) merges it; and the [workstream](./glossary.md#workstream)
+[close-out](./glossary.md#close-out) (chapter 7) merges it; and the [workstream](./glossary.md#workstream)
 issue that tracks a piece of work points at it. Work that never becomes a pull
 request is invisible to all of that, so the rule is simple: **work with commits
 gets a pull request before Claude's turn ends**, against `main`, every time.
@@ -108,7 +109,7 @@ that slips past.
 
 **For a product-visible feature, two more pieces.** The
 [`pr-docs`](../../core/.claude/skills/pr-docs/SKILL.md) skill adds a
-*Post-merge verification* section — checks that only the live environment can
+[*Post-merge verification*](./glossary.md#post-merge-verification) section — checks that only the live environment can
 answer, run through the Replit connector at close-out — and a
 [UAT](./glossary.md#uat) script David will be walked through. The UAT file is
 named after the pull request's number, so the PR opens first with a "docs

@@ -1,8 +1,9 @@
 # Chapter 6 · The review loop
 
 > What happens between a pull request opening and the judgement that it is
-> ready: Codex reviews the code, two independent assessors advise on which of
-> its findings are worth acting on, Claude decides and writes one batch of
+> ready: [Codex](./glossary.md#codex) reviews the code, two independent
+> assessors advise on which of its [findings](./glossary.md#finding) are worth
+> acting on, Claude decides and writes one batch of
 > fixes, and the corrected code is reviewed again. The loop is built around
 > two promises — **nothing merges unreviewed, and a loop always ends on a
 > reviewed head** — and around one hard-won lesson: a chain of individually
@@ -12,18 +13,20 @@
 > Deep rules: [`claude-core.md`](../../core/.agents/core/claude-core.md) —
 > *Review loops* and all its subsections;
 > [`review-judgment.md`](../../core/docs/ai-context/review-judgment.md) (the
-> Worth rule, its only statement);
+> [Worth rule](./glossary.md#worth-rule), its only statement);
 > [`working-modes.md`](../../core/docs/ai-context/working-modes.md) (the
-> write-gate and the two-review limit); the
+> [write-gate](./glossary.md#write-gate) and the
+> [two-review limit](./glossary.md#two-review-limit)); the
 > [`pr-watch`](../../core/.claude/skills/pr-watch/SKILL.md) skill (how a round
 > actually runs).
 
 ## What it does
 
-David does not read code. [Codex](./glossary.md#codex)'s review of product
+David does not read code. Codex's review of product
 code is his safety net, and it is the one part of this process that is never
-in question for a production-phase product change. Everything in this chapter
-is what sits on top of that review: how its [findings](./glossary.md#finding)
+in question for a [production-phase](./glossary.md#production-phase)
+product change. Everything in this chapter
+is what sits on top of that review: how its findings
 are judged, who judges them, how much code gets written in response, when the
 loop stops, and how David learns what happened without reading a diff.
 
@@ -72,7 +75,7 @@ Read this first; every rule later in the chapter is one step of it.
    and acts on its wording.
 6. **Check the limit, then write one batch.** Before any code is written,
    Claude checks whether this round is one the
-   [two-review limit](./glossary.md#two-review-limit) says must be the last
+   two-review limit says must be the last
    (below). If writing is allowed, every finding worth acting on is fixed
    together, in one validated push.
 7. **Reply and resolve, thread by thread.** Each finding gets a reply saying
@@ -89,12 +92,13 @@ Read this first; every rule later in the chapter is one step of it.
    chat (below).
 10. **Loop or stop.** A changed head goes back to step 2. A round whose
     findings warrant no code — or a limit that says iteration is over — ends
-    the loop, and the pull request goes to close-out (chapter 7) or, where
+    the loop, and the pull request goes to
+    [close-out](./glossary.md#close-out) (chapter 7) or, where
     the rules require, to David.
 
 ### The write-gate: code written is code reviewed
 
-The [write-gate](./glossary.md#write-gate) is the rule the whole loop is
+The write-gate is the rule the whole loop is
 built around. The decision about whether to write happens *before* anything is
 written, and anything written is reviewed:
 
@@ -148,7 +152,7 @@ to proceed.
 
 The question asked of every finding is not "is it correct?" but **"does acting
 on it serve the agreed outcome at a cost proportionate to what it prevents?"**
-That is the [Worth rule](./glossary.md#worth-rule), and it has exactly one
+That is the Worth rule, and it has exactly one
 statement,
 [`review-judgment.md`](../../core/docs/ai-context/review-judgment.md), which
 Astra, the Fable assessor and Claude all apply in the same words. It sets **no
@@ -259,7 +263,8 @@ declining harder to write than fixing, which is the very imbalance the loop
 exists to remove.
 
 Resolving threads is not only tidiness: the `main` ruleset requires every
-conversation to be resolved before the Merge button works.
+conversation to be resolved before the Merge button works — a
+[ruleset](./glossary.md#ruleset) GitHub enforces on the server.
 
 ### The translation for David
 
@@ -294,11 +299,12 @@ itself.
 
 Not every pull request runs this loop. A change David declares
 [Trivial](./glossary.md#trivial) merges on green CI unless Codex's automatic
-pass raises its highest severity; a
+pass raises a P1-severity finding, which holds the merge and goes to David; a
 [Documentation class](./glossary.md#documentation-class) change gets one pass
-from the two assessors and no Codex review; and a prototype-phase feature gets
-no code-review loop at all. Chapter 3 explains each. Codex's threads are still
-resolved in every case, because the ruleset requires it.
+from the two assessors and no Codex review; and a [prototype-phase](./glossary.md#prototype-phase) feature gets
+no code-review loop at all. Chapter 3 explains each. On a Trivial or
+Documentation change Codex's threads are still resolved, each with one line,
+because the ruleset requires it.
 
 ## Why it works this way
 
@@ -333,7 +339,8 @@ resolved in every case, because the ruleset requires it.
   work already met its goal. Nothing was listening. Now that answer, given
   first, changes the default.
 - **Observables, because judgements get reinterpreted.** Flip conditions
-  phrased as judgements were crossed and not acted on; conditions phrased as
+  phrased as judgements were crossed without Claude noticing (once it was the
+  translation that caught it); conditions phrased as
   observable events fired and decided without Claude's judgement entering. The
   same lesson shaped the six-hour clock.
 - **The class, not the line.** One early loop fixed exactly the cited lines,
@@ -383,7 +390,8 @@ resolved in every case, because the ruleset requires it.
   after every translation.
 - **There is no checker for load-bearing claims in replies**, and none is to
   be built. Review noticing is the enforcement.
-- **In this repository**, almost every pull request is internal tier, so the
+- **In this repository**, almost every pull request is
+  [internal tier](./glossary.md#internal-tier), so the
   two-review limit is the normal ending — weighed per change, since this
   repository also holds the machinery that publishes to every product
   ([`CLAUDE.md`](../../CLAUDE.md), *Ceremony*).

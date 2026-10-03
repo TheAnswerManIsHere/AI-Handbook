@@ -6,7 +6,7 @@
 > it; a narrative block at the top of the issue makes it resumable cold; and
 > three read-mostly skills turn that record into answers — where this session
 > stands, what needs David across everything, and what to pick up next. A
-> weekly maintenance pass keeps the record from decaying, and a small set of
+> weekly [maintenance pass](./glossary.md#maintenance-pass) keeps the record from decaying, and a small set of
 > waiting rules governs how an agent passes the time while GitHub catches up.
 >
 > Deep rules: [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
@@ -16,13 +16,14 @@
 
 ## What it does
 
-David runs many sessions at once — the contract puts it at around ten — and
+Every unit of work in a product is a
+[workstream](./glossary.md#workstream). David runs many sessions at once — the contract puts it at around ten — and
 cannot hold their state in his head. He has said so, and asked the system not
 to rely on his memory. This area solves that with GitHub's own project
 management rather than a bespoke tracker:
 
-- **One issue per [workstream](./glossary.md#workstream)** — every feature,
-  bug fix or documentation harvest that is underway has exactly one issue,
+- **One issue per workstream** — every feature,
+  bug fix or documentation [harvest](./glossary.md#harvest) that is underway has exactly one issue,
   and every pull request for it names that issue in its body.
 - **Labels are the truth** about where the work is and who holds it.
 - **A private Project board** displays those labels for visual scanning; each
@@ -64,7 +65,7 @@ make, so ordinary self-merged work briefly shows 🛑 there without needing him.
 Every workstream issue carries exactly one label from each of three families:
 
 - **`stage:`** — where it is in the lifecycle.
-- **`waiting:`** — who is holding it right now: David, Claude, Codex, Replit
+- **`waiting:`** — who is holding it right now: David, Claude, [Codex](./glossary.md#codex), Replit
   or CI.
 - **`mode:`** — what kind of work it is: feature, bugfix, docs or devops.
 
@@ -95,14 +96,15 @@ and a UAT run in progress, which records which step is next.
 There is no background job keeping labels current. Instead each
 [skill](./glossary.md#skill) updates the labels at a moment it already fires:
 the planning skill when a plan goes to David for approval, the bug-fix skill
-when it opens a fix, the pull-request watcher at each review round and at
+when it opens a fix, the pull-request watcher at each
+[review round](./glossary.md#review-round) and at
 merge, the UAT skill when David accepts or blocks a run. The contract carries
 the full table of who owns which transition. The effect is that tracking is a
 side effect of doing the work rather than a separate chore that can be
 forgotten.
 
 The board itself is fed by a GitHub Action that mirrors labels onto the
-board's fields on every label change, using the payload's
+board's fields on every label change, using the [payload](./glossary.md#payload)'s
 `core/scripts/sync-project-fields.mjs`. It resolves the board's columns by
 normalised name rather than exact spelling, and fails loudly on anything it
 cannot map. **Needs David confirmation:** whether the Action's workflow file
@@ -205,13 +207,13 @@ in parallel sessions, and — when the queue is empty — proposes what to build
 It recommends; it never starts the work.
 
 All three answer for **the repository the session is working in, never the
-fleet**. They read that repository's declared identity from its machinery
+[fleet](./glossary.md#fleet)**. They read that repository's declared identity from its machinery
 file, cross-check it against the git remote, and stop and ask if the two
 disagree rather than reporting confidently on the wrong product.
 
 ### The maintenance pass keeps the record honest
 
-The weekly [maintenance pass](./glossary.md#maintenance-pass)
+The weekly maintenance pass
 ([`maintenance` skill](../../core/.claude/skills/maintenance/SKILL.md)) is
 David-invoked and covers dependency updates, production errors, CI health, a
 "what shipped" digest written for a product manager, the batched
@@ -324,7 +326,7 @@ for a merge to register. The rules for that are short:
   note [`github-rest-api-blocked-from-bash.md`](../../core/.agents/memory/github-rest-api-blocked-from-bash.md).
 
 **Next:** chapter 11 — [`11-models-cost-and-routing.md`](./11-models-cost-and-routing.md),
-which model does each job, what is handed to a subagent, and what a review
+which model does each job, what is handed to a [subagent](./glossary.md#subagent), and what a review
 round costs.
 
 *Verified against `081ef0c` (2026-10-03).*

@@ -101,7 +101,8 @@ out.
 
 ### The harvest itself
 
-At the maintenance pass, the [`document` skill](../../core/.claude/skills/document/SKILL.md)
+At the maintenance pass, the [`document`](../../core/.claude/skills/document/SKILL.md)
+[skill](./glossary.md#skill)
 runs the contract's five steps — harvest, route, update the manual chapter,
 cross-check, report and commit. In outline:
 
