@@ -107,10 +107,10 @@ busy; re-invoking there opens a brand-new agent turn.
 ## What this never becomes
 
 **Diagnosis only. The fix goes through the pipeline.** Branch → PR → Codex
-review → merge → sync. A repair applied through the connector has had no Codex
-review and no GitHub Actions gate before reaching `main` — **not** "no CI":
-Replit runs its own internal review/testing loop, which is real and is simply
-not ours. Routing my own unreviewed patch through Replit is laundering, not
+review → merge → sync. A repair made through the connector reaches `main` only
+as a pull request, like every change (`claude-core.md`, *This environment's git
+constraints*), and that PR takes its review like any other. Replit's own
+internal review/testing loop is real and is simply not ours. Routing my own unreviewed patch through Replit is laundering, not
 shipping — a sanctioned live repair has to be David-originated.
 
 Ephemeral probes are fine and are reverted in the same session. **Never commit or

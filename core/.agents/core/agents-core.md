@@ -77,14 +77,12 @@ batch.
 has a GitHub issue as its spine, tracked on a private Project board and kept
 current via `stage:`/`waiting:`/`mode:` labels — with **two** exceptions.
 *Sensitive/disclosure-carve-out work* never becomes a public issue and is a
-private draft Project item instead. *David's Replit fast-lane tweaks* —
-display-only UI changes he makes himself during UAT — carry no issue at all:
-the retrospective sweep is their accountability rather than the Project board,
-so no agent should demand one for a fast-lane commit retroactively (boundary
-and sweep:
-[`docs/ai-context/replit-environment.md`](../../docs/ai-context/replit-environment.md)).
-What that sweep *finds* is ordinary work and gets an issue like anything
-else. Read
+private draft Project item instead. *David's Replit tweaks* — display-only UI
+changes he makes himself during UAT — carry no issue of their own: like every
+change to `main` since his ruling of 2026-10-03 (*"Yes, everything goes
+through a pull request"*), each arrives as a pull request, and that PR is its
+record. What reviewing one *finds* beyond the tweak is ordinary work and gets
+an issue like anything else. Read
 [`docs/ai-context/workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md)
 before opening or reviewing a PR — it covers the label conventions and what
 must never happen (e.g. `Closes #N` for the PR's own workstream, which would

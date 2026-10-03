@@ -163,7 +163,9 @@ the two hundred lines that used to explain them.
 **What replaced them is server-side.** A branch ruleset on `claude/**` blocks
 force pushes; the `main` ruleset blocks them too and now also requires
 conversation resolution, which is what makes the Merge button inert while a
-review thread is open. Neither can fail open, neither can be disarmed by a
+review thread is open. Neither carries a bypass actor (David, 2026-10-03), so
+they bind every pusher, this session's admin identity included — see
+`claude-core.md`, *This environment's git constraints*. Neither can fail open, neither can be disarmed by a
 `cd`, and neither is a parser. `drizzle-kit push` is still refused by
 `permissions.deny` in the template.
 

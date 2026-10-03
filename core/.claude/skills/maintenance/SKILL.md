@@ -233,64 +233,18 @@ the standing recommendation on file is the delete list from the #541 review.
 Below three qualifying loops, say "not yet informative" rather than dressing two
 data points as a trend.
 
-## 7. Replit commit review
+## 7. Stale handoffs
 
-Retrospective read of what Replit pushed straight to `main` this week — the
-only enforcement point on that path, since nothing gates the push itself.
-Full rationale in
-[`replit-environment.md`](../../../docs/ai-context/replit-environment.md).
-
-**This pass is the backstop, not the only sweep** (David, 2026-08-28). Any
-session that touches `main` sweeps `Replit Agent` commits opportunistically,
-so most weeks the commits here have already been read. **Sweep them again
-anyway** — there is deliberately no ledger of what was already covered, on
-the same reasoning that retired the review-round tally (a cache of state the
-git log already holds, which drifts). Re-reading a display-only diff costs
-seconds; assuming someone else read it is how one gets missed.
-
-1. `git log --author="Replit Agent" --since="7 days ago" --oneline main`
-   (adjust the window to the last maintenance run, same as section 5). Filter
-   on the display name, **not** a specific email address — the repo's history
-   has commits from at least two Replit bot identities that share the name
-   ("Replit Agent <agent@replit.com>" and
-   "Replit Agent <replit-agent@bots.noreply.replit.com>"); an exact-email
-   filter would silently skip whichever one isn't currently active, and this
-   step is the only retrospective check on direct-to-`main` changes —
-   including migrations, auth, and payments — so a missed identity defeats
-   the whole point.
-2. **Skim** a change that is genuinely display-only — copy, layout, or a
-   value already present in the data. No deep read needed.
-3. **Actually read** anything that changes behavior, **whatever file it lives
-   in**: data, logic, migrations, schema, auth, payments, or the
-   visual/enrichment pipelines — full diff, not just the commit message (a
-   Replit commit message is a checkpoint label, not a description to trust at
-   face value; see `replit-environment.md`'s note on checkpoints vs. intent).
-   **A UI file is not evidence of a display-only change.** The Visual
-   Overrides regression (#582) was behavior inside the UI layer, so the older
-   "skim anything UI/copy/test-only" rule would have skimmed exactly the tweak
-   this step exists to catch. The boundary is display vs. behavior, never file
-   location — the same one the fast lane itself uses.
-4. Anything real found goes through the normal channel: a `/bugfix` PR, or a
-   flagged item for David in the numbered-question list — or, on a feature
-   the registry lists in prototype phase, a note for its next version
-   (Boundaries, below). **Never revert or
-   modify Replit's work unilaterally** — this is a retrospective read, not a
-   gate, and it doesn't block or delay anything.
-5. One line in the report either way: "N Replit commits this week, nothing
-   found" or naming what was found and what happens next.
-6. **Check [`docs/handoff/`](../../../docs/handoff/README.md) for stale
-   files, excluding `README.md`** — that file is the folder's own durable
-   contract, not a handoff, and is expected to sit there indefinitely; only
-   dated handoff files (`<date>-<from>-to-<to>-<topic>.md`) count. Anything
-   older than ~7 days (`git log -1 --format=%cd <file>` per file, or
-   `git log --diff-filter=A` for when it was added) is a handoff nobody
-   addressed and deleted per its contract. Flag each one by name in the
-   report as a numbered decision item rather than deleting it yourself — a
-   stale handoff usually means the finding inside it needs David's eyes, not
-   just cleanup.
-
-If nothing landed from Replit this week, say so in one line and move on —
-same discipline as the other sections.
+**Check [`docs/handoff/`](../../../docs/handoff/README.md) for stale
+files, excluding `README.md`** — that file is the folder's own durable
+contract, not a handoff, and is expected to sit there indefinitely; only
+dated handoff files (`<date>-<from>-to-<to>-<topic>.md`) count. Anything
+older than ~7 days (`git log -1 --format=%cd <file>` per file, or
+`git log --diff-filter=A` for when it was added) is a handoff nobody
+addressed and deleted per its contract. Flag each one by name in the
+report as a numbered decision item rather than deleting it yourself — a
+stale handoff usually means the finding inside it needs David's eyes, not
+just cleanup.
 
 ## 8. Branch hygiene sweep
 

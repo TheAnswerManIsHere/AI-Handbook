@@ -732,8 +732,10 @@ requires it.
    direct its one write tool at any path in the checkout.
    What actually bounds it, in descending order of how much I would rely on it:
    the answer directory is `*`-gitignored, so the legitimate output can never
-   be committed; the container is ephemeral; and **the only route to `main` is a
-   commit I make**, so after any translation dispatch, read
+   be committed; the container is ephemeral; and **the only route from this
+   checkout to `main` is a commit I make**, reaching it through a merged PR like
+   every change (`claude-core.md`, *This environment's git constraints*), so
+   after any translation dispatch, read
    `git status --porcelain`. That last one is an honest party looking, not a
    lock on the same ring: the attacker here is a third party, not me.
 
@@ -775,7 +777,9 @@ PR's workstream issue (found via `Workstream: #N` in the PR body — if it's
 missing, that PR skipped the tracking convention; flag it rather than
 silently leaving the workstream unlabeled — unless it is one of the phase's
 registry PRs, which carry `Refs #N` by design and are never subscribed, top
-of this file):
+of this file, or one of David's display-only Replit tweaks, which carries no
+issue by design and is its own record (`agents-core.md`, *Workstream
+tracking*), so it has no labels to keep):
 
 - **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
 - **Codex posts findings, I start responding** → `waiting:claude`.

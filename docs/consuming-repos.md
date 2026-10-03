@@ -139,7 +139,10 @@ destination.
 
 A consumer needs these before or alongside its first sync. They may be started
 from the corresponding file in another repo, but they are then owned locally
-and diverge — that is the point.
+and diverge — that is the point. A copy started that way carries any rule the
+payload has since retired, so read it against the payload before committing
+it: a `replit-environment.md` copied from a repo enrolled before 2026-10-03
+still describes the Replit direct-push lane as sanctioned (step 6).
 
 ### This table is not exhaustive, and cannot be
 
@@ -248,7 +251,13 @@ to worry about strange links."*)
 2. Create the required consumer documents above.
 3. **Verify the repo's `main` ruleset is in place** — block force pushes,
    restrict deletions, require linear history, require a pull request, require
-   status checks, and **require conversation resolution before merging**. That
+   status checks, and **require conversation resolution before merging** — and
+   that **no ruleset carries a bypass actor**. A bypass for the Admin role
+   exempts the identity a cloud session pushes as, since it pushes as the
+   owner's account, so every rule below it would bind nobody who matters.
+   `claude-core.md`, *This environment's git constraints*, states that every
+   change to `main` arrives through a PR (David, 2026-10-03), which is only
+   true with an empty bypass list. That
    last one used to be the merge-gate hook's job; with the hook deleted it is
    the only thing that keeps an unresolved review thread from being mergeable,
    and the contract now states it as fact (`claude-core.md`, *Close-out*: "the
@@ -418,6 +427,16 @@ to worry about strange links."*)
    (A first sync cannot hit this — step 1 wrote the answers. It is the second
    and later syncs that can, which is exactly why it sits here rather than in
    step 1. Codex, #62 round 5.)
+
+   **The same applies when the payload retires a rule a consumer-owned
+   document restates.** The sync cannot rewrite that document, and the payload
+   still routes readers to it, so the retired rule reads as current at the end
+   of a live link. Before a re-sync that carries a retirement, read the
+   consumer's own copies of the documents the retired rule named as its
+   record, and land the correction there first. The case that added this
+   line: retiring the Replit direct-push lane (David, 2026-10-03) left each
+   consumer's `docs/ai-context/replit-environment.md` describing the lane as
+   sanctioned.
 
 7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>`, where
    the path is the root of the consumer's git checkout (the sync refuses

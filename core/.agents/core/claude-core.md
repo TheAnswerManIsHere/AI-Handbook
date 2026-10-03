@@ -1039,10 +1039,10 @@ Two layers, in order of authority: the **harness classifier** refuses to let me
 edit my own guardrails in place (the platform's layer, unaffected by the
 close-out change above: a guard change goes through a PR like any other, and a
 blocked in-place edit is that layer working); and **GitHub's rulesets**,
-server-side, binding on **me** in every shape I can push **to the branches
-they target**, and on no other branch.
+server-side, binding on **everyone who pushes, me included**, in every shape
+**to the branches they target**, and on no other branch.
 
-On `main`: block force pushes, restrict deletions, require linear history,
+On `main`, with **no bypass actor**: block force pushes, restrict deletions, require linear history,
 require a PR, require status checks, require conversation resolution (that
 last is what makes the Merge button inert while a thread is open, in
 *Close-out* above). On `claude/**`: **block force pushes**
@@ -1051,13 +1051,18 @@ was refused with GH013, and a plain push of a further commit landed). On **all
 branches**: block force pushes (David, 2026-09-16, #106 — the namespace gap the
 two rulesets above left).
 
-**They are not binding on David**: his own direct-push path to `main` through
-Replit's Git pane lands, settled 2026-08-09 and documented in
-[`replit-environment.md`](../../docs/ai-context/replit-environment.md). So never
-predict that a push of his will be refused, and never read a `Replit Agent`
-commit on `main` as evidence something broke — that inference is exactly the
-false alarm recorded in
-[`replit-direct-push-to-main-is-sanctioned.md`](../../.agents/memory/replit-direct-push-to-main-is-sanctioned.md).
+**They bind David too, and every change to `main` arrives through a pull
+request** (David, 2026-10-03: *"Yes, everything goes through a pull
+request."*). He removed the Admin bypass from every ruleset in every repo, so
+no identity lands on `main` outside a merged PR — not his, and not this
+session's, which pushes as his admin account. His display-only tweaks from
+Replit included: Replit commits them to a branch and the PR merges like any
+other, merging on green CI when he declares the change Trivial (*Two classes
+and a phase that leave the loop*, above). So a commit on `main` with no PR
+behind it is not a lane: it means a ruleset has been loosened, and that is one
+line to David. (Until 2026-10-03 his direct push from Replit's Git pane was
+sanctioned and landed; the record is
+[`replit-commits-reach-main-only-through-a-pr.md`](../../.agents/memory/replit-commits-reach-main-only-through-a-pr.md).)
 
 **There is no local shell guard any more.** `.claude/guard.sh` and its parser
 were removed in the #89 cut (#94): no accidental destructive command is
@@ -1118,18 +1123,16 @@ against current `main` at merge time.
 - **First push of a fresh branch:** `git fetch origin main && git checkout -B
   <branch> origin/main`, apply work, push. Also how I restart a branch whose PR
   squash-merged — a plain push, because GitHub deleted the merged branch and
-  there is no history to overwrite. **That same fetch carries the Replit
-  sweep** — one bounded command, `git log --author="Replit Agent"
-  --since="14 days ago" --oneline origin/main`, and I read anything it names
-  that isn't already reviewed; a session on a branch-regime prototype runs
-  the same command against its `prototype/<feature>` branch, since that is
-  the branch its environment tracks and where such a commit would land.
-  **Bounded by time, never by commit count**: `-3` was the first shape and it
-  silently drops the fourth commit of a busy week, which is the one failure a
-  sweep cannot afford — a missed commit is indistinguishable from a swept one. Without this the
-  opportunistic cadence is nominal only: `fetch` and `checkout` print nothing
-  about authorship, so "a session that touches `main` finds one" describes no
-  actual moment. Sweep rules: the *Connectors → Replit* bullet below.
+  there is no history to overwrite. `main` needs no sweep of who committed
+  there: nothing reaches it outside a merged PR (the rulesets, above). **A
+  session on a branch-regime prototype sweeps that branch instead**, the one
+  place direct commits still land — `git fetch origin prototype/<feature>`
+  and then `git log --author="Replit Agent" --since="14 days ago" --oneline
+  origin/prototype/<feature>`, since its environment tracks that branch and
+  fetching `main` alone leaves that ref stale. **Bounded by time, never
+  by commit count**: `-3` silently drops the fourth commit of a busy week, and
+  a missed commit is indistinguishable from a swept one. What a sweep finds
+  goes into the feature's next version (*Connectors → Replit*, below).
 - **Follow-up on an already-pushed branch:** add commits and plain-push. If the
   branch genuinely needs newly-landed `main`, **merge, never rebase**.
 - **If local has diverged accidentally:** realign with `git checkout -B <branch>
@@ -1331,16 +1334,15 @@ Authorization boundaries — the mechanics live in
   never through the connector). A sanctioned live repair
   has to be David-originated; I don't launder my own unreviewed patch through
   Replit.
-- **David's own display-only UI tweaks are a sanctioned fast lane**, settled
-  long before I meet any given one — a `Replit Agent` commit on `main` is the
-  normal case, never an incident to escalate. My duty is the sweep, not an
-  alarm: when a session touches `main` and finds one, I read it then (skim
-  display/copy, actually read anything touching data, logic, migrations, auth,
-  payments, or a subsystem the overlay marks sensitive) and route anything real
-  to a `/bugfix` PR — or, on a prototype-phase feature, into its next
+- **David's own display-only UI tweaks from Replit arrive as pull requests**,
+  like every change to `main` (*This environment's git constraints*, above).
+  Replit commits the tweak to a branch; when he has not opened the PR himself I
+  open it, and it takes the review class its content earns — Trivial when he
+  declares it so. The one place a `Replit Agent` commit still lands directly
+  is a branch-regime `prototype/<feature>` branch: when a session's sweep
+  finds one there I read it (skim display/copy, actually read anything
+  touching data or logic) and route anything real into the feature's next
   version, since nothing there is a bugfix yet.
-  Re-sweeping is expected; there is no ledger. Boundary, ceremony and cadence:
-  [`replit-environment.md`](../../docs/ai-context/replit-environment.md).
 - **Scope every request and say what it must not touch** — Replit Agent defaults
   to *building*, so an unscoped ops question can come back as a feature.
 - **`ask_question` reads, `update_app_using_prompt` acts.** Only
