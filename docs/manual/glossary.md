@@ -577,8 +577,8 @@ Home: [`core/.claude/skills/maintenance/SKILL.md`](../../core/.claude/skills/mai
 ### David-gate
 
 A stage of a workstream that only David can move past — agreeing the scope
-of work, approving a plan, and running UAT. It is marked 🛑 on the board and
-in labels, the same glyph as a blocking ask in chat, so one symbol means
+of work, approving a plan, and running UAT. It is marked 🛑 in the lifecycle and on the project
+board — the same glyph as a blocking ask in chat, so one symbol means
 "David" everywhere. Merge is deliberately not one: the agent merges once the
 merge bar is met.
 Home: [`core/docs/ai-context/workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
@@ -642,7 +642,7 @@ The audit David ran in September 2026 that deleted most of the process's
 machinery — round budgets, an external adjudicator whose verdict decided,
 committed receipts, a merge-readiness checker, and the local shell guard.
 Measured over a ten-round loop, none of it had changed a decision. Many
-rules still say what the cut removed and what, if anything, replaced it; it
-is the reason later proposals to add accounting or gates are viewed
-skeptically.
+rules still say what the cut removed and what, if anything, replaced it, and
+the contract warns explicitly against undoing it piecemeal by adding ledgers
+or receipts back.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)

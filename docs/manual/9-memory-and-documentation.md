@@ -5,11 +5,13 @@
 > written into versioned files rather than held in a conversation, and splits
 > that writing into two kinds on two schedules: lessons about **how the agents
 > work together**, persisted the moment they are learned, and knowledge of
-> **how the product works**, harvested in one batch at the weekly maintenance
-> pass. Around those two sit three supporting tools: a handoff that moves a
-> live session's context to a fresh one, a prose sweep that keeps the rules
-> consistent after one of them is retired, and a catalogue of failure
-> patterns the fleet has already paid for.
+> **how the product works**, harvested in one batch at the weekly
+> [maintenance pass](./glossary.md#maintenance-pass). Around those two sit
+> three supporting tools: a [handoff](./glossary.md#handoff) that moves a
+> live session's context to a fresh one, a [prose sweep](./glossary.md#prose-sweep)
+> that keeps the rules consistent after one of them is retired, and a
+> catalogue of failure patterns the [fleet](./glossary.md#fleet) has already
+> paid for.
 >
 > Deep rules: [`documentation-workflow.md`](../../core/docs/ai-context/documentation-workflow.md)
 > (the documentation contract),
@@ -23,7 +25,7 @@ Every session starts cold. Whatever was settled in yesterday's chat — a
 decision and its reason, an approach tried and abandoned, a tool that behaves
 oddly in this environment — is gone unless someone wrote it into a file the
 next session will read. This area of the handbook is the set of habits and
-ceremonies that do that writing, and that decide *where* each piece of
+[ceremonies](./glossary.md#ceremony) that do that writing, and that decide *where* each piece of
 knowledge goes so it has exactly one home.
 
 It answers four questions:
@@ -31,14 +33,14 @@ It answers four questions:
 1. **When David says "remember this", where does it go, and when?** At once,
    into the durable file that owns that kind of rule.
 2. **When a feature ships, how does what it taught us reach the product's
-   documentation?** Through a short note at close-out, then a batched
-   [harvest](./glossary.md#harvest) at the weekly
-   [maintenance pass](./glossary.md#maintenance-pass).
+   documentation?** Through a short note at
+   [close-out](./glossary.md#close-out), then a batched
+   [harvest](./glossary.md#harvest) at the weekly maintenance pass.
 3. **When a session has to end mid-work, how does its context survive?**
-   Through a [handoff](./glossary.md#handoff) written onto the work's
+   Through a handoff written onto the work's
    tracking issue.
 4. **When a rule is retired, how do the other files that mention it get
-   fixed?** Through a [prose sweep](./glossary.md#prose-sweep) run by readers
+   fixed?** Through a prose sweep run by readers
    who did not write the change.
 
 ## How it works
@@ -50,7 +52,7 @@ everything else on it — [Type 1 and Type 2 documentation](./glossary.md#type-1
 
 - **Type 1 — how we work together — is written immediately.** A new rule, a
   process gotcha, a mistake that must never be repeated: anything that changes
-  how Claude or Codex operate is persisted the moment it is learned, into the
+  how Claude or [Codex](./glossary.md#codex) operate is persisted the moment it is learned, into the
   working contracts or into a [memory note](./glossary.md#memory-note). It
   rides the pull request already in flight, or a small one of its own. It
   never waits for a batch, because the very next session needs it.
@@ -88,7 +90,7 @@ agent sorts these the same way every time.
 
 Batching only works if the context a build session held is still available a
 week later. So when a [production-phase](./glossary.md#production-phase)
-product feature reaches [close-out](./glossary.md#close-out), Claude posts a
+product feature reaches close-out, Claude posts a
 [harvest-notes comment](./glossary.md#harvest-notes-comment) on its
 [workstream](./glossary.md#workstream) issue: the decisions made and why, the
 alternatives rejected, the gotcha candidates. It costs a comment, not a pull
@@ -262,7 +264,7 @@ nothing about it ships to a product.
   known miss sat within a screen of an edit the author had just made. A later
   case on a prototype-phase change made the same point: a hand sweep across
   twelve files missed the one file that wins on conflict, and the miss cost a
-  review round.
+  [review round](./glossary.md#review-round).
 - **A sweep is not a phrase search.** Some of the most consequential stale
   statements carried none of the retired rule's vocabulary — a file wrong by
   omission, or one citing the right file but the wrong rule inside it. A text

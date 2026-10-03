@@ -263,10 +263,9 @@ whole mechanism.
   `.agents/machinery.json` from a template and then leaves it alone, so a later
   change to the handbook's pin does not reach an already-enrolled product
   (see [`docs/consuming-repos.md`](../consuming-repos.md)).
-- **Stale references to a "tier table".** Several skills, including
-  `model-routing` and `maintenance`, point at a task-shape tier table in
-  `CLAUDE.md`'s *Model, cost, and routing*; the portable core no longer
-  contains one. **Needs David confirmation** whether the table was retired
+- **Stale references to a "tier table".** Several skills — `model-routing`,
+  `bugfix`, `next` and `status-all` — point at a task-shape tier table said to
+  live in `CLAUDE.md`; the portable core contains no such table. **Needs David confirmation** whether the table was retired
   deliberately and those references are stale.
 - **The advisor tool** — a stronger model Claude consults at decision points —
   could not be configured with Fable when the routing skill last recorded it.

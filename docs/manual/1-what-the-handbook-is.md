@@ -50,9 +50,9 @@ Every product repository that takes the handbook — a
 
 The split shows up most visibly in the two files an agent reads first. A
 product's `CLAUDE.md` (Claude Code's instructions) is its overlay, and its
-first line imports the vendored Claude core, so the fleet rules load
+first line imports the vendored Claude core, so the [fleet](./glossary.md#fleet) rules load
 automatically at the start of every session. A product's `AGENTS.md` (the
-instructions Codex and other agents read) is its other overlay; it cannot
+instructions [Codex](./glossary.md#codex) and other agents read) is its other overlay; it cannot
 import anything, so it links to the vendored agents core instead. That
 difference has one practical consequence the handbook is careful about: a rule
 that must bind Codex has to live in the agents core, where the link leads, not
@@ -62,7 +62,7 @@ Beyond those two portable cores, the payload carries the shared contracts
 (working rules, working modes, planning, review judgement, documentation,
 workstream tracking, failure patterns), the [skills](./glossary.md#skill) —
 procedures Claude Code loads on demand, such as `/bugfix` or `/uat` — the
-[agent definitions](./glossary.md#agent-definition) for the subagents the
+[agent definitions](./glossary.md#agent-definition) for the [subagents](./glossary.md#subagent) the
 review loop dispatches, the shared [memory notes](./glossary.md#memory-note)
 about the environment, and the scripts that run the review and planning
 machinery.
@@ -150,7 +150,7 @@ merge.
 
 ### The fleet of products
 
-The products that take the handbook are the [fleet](./glossary.md#fleet).
+The products that take the handbook are the fleet.
 [`AGENTS.md`](../../AGENTS.md) names two consumers as of its writing,
 Overhype.me and DojoOS. Whether the first real sync into each has already been
 run, or enrollment is still in progress, is not recorded in a form this
@@ -211,7 +211,7 @@ process changes no write-up at all. Both are stated in
   work*; the overlay owns *what this product is*. Without the split, every
   rule change would be a judgement about which copies to update, and the
   answer is always "the one you forgot".
-- **One routing rule, because the old design proved the rest was ceremony.**
+- **One routing rule, because the old design proved the rest was [ceremony](./glossary.md#ceremony).**
   The sync was once described by a 1,325-line routing manifest and a
   1,176-line checker. Of the twenty routes it declared, eighteen were "same
   path, minus `core/`" and the other two were the seed files — two rules in
@@ -225,7 +225,7 @@ process changes no write-up at all. Both are stated in
   delivers it is what to build.
 - **The banner is the record, because a record of past syncs went wrong four
   ways.** A first version of the deleting sync kept a list of what earlier
-  runs had delivered, and one review round found four ways that list led it to
+  runs had delivered, and one [review round](./glossary.md#review-round) found four ways that list led it to
   delete the wrong thing — including outside the product and including a
   product-owned seed. With no stored list, every input is read fresh in the
   same run, so there is nothing to go stale or disagree.

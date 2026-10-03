@@ -1,9 +1,9 @@
 # Chapter 2 · Who does what
 
-> Every product in the fleet is built by the same cast: David decides, Claude
-> builds and owns the work end to end, Codex reviews code on GitHub, Astra and
-> a Fable assessor advise on what review findings are worth, a Fable
-> translator explains review rounds to David in plain English, and Replit
+> Every product in the [fleet](./glossary.md#fleet) is built by the same cast: David decides, Claude
+> builds and owns the work end to end, [Codex](./glossary.md#codex) reviews code on GitHub, [Astra](./glossary.md#astra) and
+> a [Fable assessor](./glossary.md#fable-assessor) advise on what review [findings](./glossary.md#finding) are worth, a Fable
+> translator explains [review rounds](./glossary.md#review-round) to David in plain English, and Replit
 > hosts the running product. This chapter says what each is for, what each
 > may decide, and what is reserved for David alone.
 >
@@ -49,7 +49,7 @@ him, because a guess about product intent is wrong by definition.
 
 Claude is the builder, and owns each piece of work **end to end**: backend,
 frontend, schema, infrastructure, documentation and tests, through to
-merging the pull request, syncing the running product, verifying it, and
+merging the pull request, [syncing](./glossary.md#repl-sync) the running product, verifying it, and
 reporting back. "Done" means David can exercise the intended behaviour in the
 product, not that the code compiles.
 
@@ -72,9 +72,9 @@ code until the switch is made. (Chapter 11 covers this.)
 
 ### Codex — the code-review safety net on GitHub
 
-**Codex** reviews pull requests on GitHub through the Codex connector. A pass
+Codex reviews pull requests on GitHub through the Codex connector. A pass
 runs automatically when a pull request opens; Claude requests further rounds
-after it pushes fixes. Codex returns [findings](./glossary.md#finding) —
+after it pushes fixes. Codex returns findings —
 comments anchored to lines of the change, each with a severity badge.
 
 For product code in [production phase](./glossary.md#production-phase), Codex
@@ -91,12 +91,12 @@ everything as needing revision because that is its job; whether a finding is
 worth writing code for is a separate judgement (below, and chapter 6). Its
 opinions about branches, git or shipping mechanics carry no authority at all,
 because it cannot see the environment those choices are made in. Codex reads
-the agents core through each product's `AGENTS.md` and is increasingly
+the agents [core](./glossary.md#core) through each product's `AGENTS.md` and is increasingly
 expected to build features as well as review them, under the same rules.
 
 ### Astra — the strongest reasoning model, reached through the Codex CLI
 
-[Astra](./glossary.md#astra) is not a separate product; it is the name for
+Astra is not a separate product; it is the name for
 whatever the strongest available OpenAI model is, run through the Codex
 command-line tool inside Claude's own session. Which model that is comes from
 a single [machinery pin](./glossary.md#machinery-pin) file, so a model upgrade
@@ -122,11 +122,11 @@ own work.
 
 ### The Fable assessor — the second assessment, and the tie-break
 
-The [Fable assessor](./glossary.md#fable-assessor) is a Claude subagent,
+The Fable assessor is a Claude [subagent](./glossary.md#subagent),
 running on the strongest Claude model, that reads the same findings, the same
 agreed intent and the same version of the code as Astra, and writes its own
 assessment without seeing Astra's. Together they form the **shared
-judgement** on a [review round](./glossary.md#review-round): both advise, and
+judgement** on a review round: both advise, and
 Claude decides from the two.
 
 Where Astra and the Fable assessor still disagree on a purely technical point
@@ -185,11 +185,11 @@ path — is product truth, kept in each product's repository rather than here.
 ### Other subagents
 
 Beyond the two Fable roles, Claude may hand bounded, self-contained work to a
-cheaper [subagent](./glossary.md#subagent) — a codebase investigation, a
+cheaper subagent — a codebase investigation, a
 mechanical edit from an approved plan, a research sweep — and announces every
 such dispatch. It never hands off a review loop, verification of its own
 work, or anything where the judgement is its own. A few security-review
-skills also bring their own specialist subagents. Chapter 11 covers routing.
+[skills](./glossary.md#skill) also bring their own specialist subagents. Chapter 11 covers routing.
 
 ### What is reserved for David
 
@@ -201,7 +201,7 @@ No agent agreement substitutes for David on any of these:
 - **Intended behaviour, scope, and any shortfall a user (or David himself,
   using the agents) would feel.** These go to him as numbered questions with a
   recommendation, never absorbed silently into a revision.
-- **Declaring a change Trivial, or a feature prototype phase.** Both remove
+- **Declaring a change [Trivial](./glossary.md#trivial), or a feature prototype phase.** Both remove
   review, and only he can grant that, in words, for that change or feature.
 - **Publishing to production.**
 - **Overrides.** He may overrule Claude's advice; the override is explicit,
@@ -227,7 +227,7 @@ No agent agreement substitutes for David on any of these:
 - **Authority follows evidence, not role.** David knows the product and its
   history; an agent often knows the general engineering better. Neither fact
   settles a checkable question — checking it does. The same principle runs
-  through the assessors' brief: the oracle sets the intent, while Codex's
+  through the assessors' brief: the [oracle](./glossary.md#oracle) sets the intent, while Codex's
   severity labels, Claude's explanations and each assessor's conclusions are
   arguments to weigh, not facts to accept.
 - **Two assessors, because one judge failed in both directions.** Triaging
@@ -248,7 +248,7 @@ No agent agreement substitutes for David on any of these:
   through the connector would reach the product without review; routing
   everything through a pull request means every change to the main branch has
   the same record and the same checks. As of 2026-10-03 that includes David's
-  own tweaks, after he removed the last bypass from the branch protections.
+  own tweaks, after he removed the admin bypass from every branch protection.
 
 ## Boundaries & known limitations
 
@@ -260,14 +260,15 @@ No agent agreement substitutes for David on any of these:
 - **The translator cannot protect against a misleading builder.** It defends
   against error, not deceit, because the builder launches it.
 - **Astra depends on a per-session sign-in** that only David can complete,
-  and the code expires quickly. A missed sign-in means a round with one
-  assessment fewer is not run, rather than run on one.
+  and the code expires quickly. A missed sign-in, like any failed dispatch,
+  stops the round and is reported; it is never quietly run on the one
+  assessment that did arrive.
 - **Claude cannot switch its own model.** The Fable-to-Opus handover relies on
   Claude naming the boundary and David acting on it.
 - **"Codex" names two different things.** The GitHub reviewer is the Codex
   connector; Astra runs through the Codex command-line tool. They resolve to
-  different jobs and different rules, and only the GitHub reviewer is the merge
-  bar.
+  different jobs and different rules, and only the GitHub reviewer is the
+  [merge bar](./glossary.md#merge-bar).
 
 ## Going deeper
 
