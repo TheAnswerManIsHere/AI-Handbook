@@ -186,6 +186,8 @@ deliberate escalation.
   hard piece of work — a migration design, a root-cause hunt in the visual
   pipeline, an architecture call — to Fable while the session stays where it is,
   with **no action from David**.
+  That route is for design and diagnosis only: the code itself is written on
+  Opus (*Fable to explore, Opus to build*, above).
   **The two layers take different values, and this bullet used to say they take
   the same ones** (AI-Handbook #131 round 2, where the Fable assessor found the
   sentence contradicting the measured table below it, in the same file):
