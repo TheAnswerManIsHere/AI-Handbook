@@ -40,5 +40,5 @@ there is no exemption.
   a fact about the ruleset's current configuration, readable from the
   repository's rulesets, never an inference from who is pushing.
 - **The one place direct commits still land** is a branch-regime
-  `prototype/<feature>` branch, which opens no PR; its sweep is in the home
-  section above.
+  `prototype/<feature>` branch, which opens no PR; its sweep is in the same
+  home, `claude-core.md`, *This environment's git constraints*.
