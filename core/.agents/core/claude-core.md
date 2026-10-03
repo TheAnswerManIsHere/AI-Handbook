@@ -994,8 +994,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
 3. **Check the Repl, then trigger its sync.** First, one read-only
    `ask_question` for `git fetch` and `git status -sb`: a Repl `main` that is
    **ahead** of GitHub's, alone or diverged, holds commits made in the Repl,
-   which are moved to a branch before anything else (*This environment's git
-   constraints*) and never synced over. Then trigger a fast-forward-only sync,
+   which are moved to a pushed branch and the Repl's `main` realigned before
+   anything else (*This environment's git constraints*), never synced over. Then trigger a fast-forward-only sync,
    wait ~15 seconds, and verify via one `ask_question` that the checked-out SHA
    matches the new `main` commit **and** the worktree is clean. Neither check
    substitutes for the other. Still **behind** means it hasn't landed: retry at
@@ -1063,7 +1063,9 @@ session's, which pushes as his admin account. His display-only tweaks from
 Replit included: the Repl tracks `main`, so a tweak is committed there unless
 he branches first, and that commit can never be pushed. When I find the
 Repl's `main` ahead of GitHub's, I move those commits to a branch through the
-connector and open the PR (David, 2026-10-03), and it merges like any other —
+connector, push it, realign the Repl's `main` to GitHub's (nothing is lost:
+the commits now live on the pushed branch), and open the PR (David,
+2026-10-03), and it merges like any other —
 on green CI when he declares the change Trivial (*Two classes and a phase
 that leave the loop*, above). The close-out sync is where I find it (*Close-out*,
 step 3). I never drop such a commit unless he says to. So a commit on `main` with no PR

@@ -20,8 +20,9 @@ Two `main`s, two meanings. A commit on **GitHub's** `main` with no PR behind
 it is not a lane to sweep: it means a ruleset has been loosened, and that is
 one line to David. A commit on the **Repl's** `main` that GitHub lacks is the
 ordinary case — the Repl tracks `main`, so a tweak lands there unless David
-branches first — and it is moved to a branch through the connector and opened
-as a PR, never dropped unless David says to. The close-out sync's `git status
+branches first — and it is moved to a pushed branch through the connector, the
+Repl's `main` realigned to GitHub's, and the branch opened as a PR, never
+dropped unless David says to. The close-out sync's `git status
 -sb` is where it shows up (David, 2026-10-03).
 
 ## What it replaced
