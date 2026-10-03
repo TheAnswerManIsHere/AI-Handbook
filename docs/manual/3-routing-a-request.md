@@ -36,13 +36,13 @@ order:
 2. **Otherwise, is it a feature or a bug?** That picks
    [feature-building mode](./glossary.md#feature-building-mode) (the default)
    or [bug-fixing mode](./glossary.md#bug-fixing-mode).
-3. **How much ceremony does the artifact itself earn?** A skill file, a
+3. **How much ceremony does the artifact itself earn?** A [skill](./glossary.md#skill) file, a
    product screen and a database migration all start as "let's build X", and
    they get very different treatment.
 
 Separately, when the change reaches review, David can place it in one of two
-[review classes](./glossary.md#review-class) — **Trivial** or
-**Documentation** — that skip most of the
+[review classes](./glossary.md#review-class) — **[Trivial](./glossary.md#trivial)** or
+**[Documentation](./glossary.md#documentation-class)** — that skip most of the
 [standard loop](./glossary.md#standard-loop). Those are covered at the end of
 *How it works*.
 
@@ -61,7 +61,7 @@ ceremony, never less.
 
 Every agent reads the registry **before** choosing a mode. A request about a
 prototype-phase feature — "build this" and "fix this" alike — goes to the
-`prototype` [skill](./glossary.md#skill). A defect in a prototype is never a bugfix, because bugfix
+`prototype` skill. A defect in a prototype is never a bugfix, because bugfix
 mode exists to restore behaviour that was agreed, and nothing about a
 prototype is agreed yet.
 
@@ -193,12 +193,12 @@ unread.
 These apply at review time rather than at intake, but they are part of the
 same "how much process" decision.
 
-- **[Trivial](./glossary.md#trivial)** — David's "just do it" lever. **Only
+- **Trivial** — David's "just do it" lever. **Only
   David can declare it**, in words, for one specific change, and the pull
   request quotes him. No review is requested; the change merges when CI is
   green. Codex's automatic first pass still runs and is read for one thing
-  only: a top-severity finding holds the merge and goes to David.
-- **[Documentation](./glossary.md#documentation-class)** — for changes whose
+  only: a top-severity [finding](./glossary.md#finding) holds the merge and goes to David.
+- **Documentation** — for changes whose
   substance is prose: contracts, skills, memory notes, sweeps, and chapters
   like this one. Instead of a Codex review, Astra and a
   [Fable assessor](./glossary.md#fable-assessor) each read the change once,
@@ -217,7 +217,7 @@ unless David declares that specific change Trivial.
 Changes to the process itself — scripts, skills, contracts, process docs —
 run the standard loop at the [internal tier](./glossary.md#internal-tier) by
 default. The tier does not lower the bar for care. It only says that nobody's
-money or data sits downstream, so a [finding](./glossary.md#finding) is
+money or data sits downstream, so a finding is
 weighed by its effect on David's ability to direct the agents and understand
 the results. A clean automatic Codex pass is the whole ceremony.
 

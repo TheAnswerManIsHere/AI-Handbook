@@ -4,10 +4,12 @@
 > work is, where it stands and whether it needs him. Each unit of work gets
 > one GitHub issue; labels on that issue record its stage and who is holding
 > it; a narrative block at the top of the issue makes it resumable cold; and
-> three read-mostly skills turn that record into answers — where this session
-> stands, what needs David across everything, and what to pick up next. A
-> weekly [maintenance pass](./glossary.md#maintenance-pass) keeps the record from decaying, and a small set of
-> waiting rules governs how an agent passes the time while GitHub catches up.
+> three read-mostly [skills](./glossary.md#skill) turn that record into
+> answers — where this session stands, what needs David across everything, and
+> what to pick up next. A weekly
+> [maintenance pass](./glossary.md#maintenance-pass) keeps the record from decaying, and a
+> small set of waiting rules governs how an agent passes the time while GitHub
+> catches up.
 >
 > Deep rules: [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
 > (the board, the labels and who updates what), and the *Waiting, and
@@ -16,15 +18,15 @@
 
 ## What it does
 
-Every unit of work in a product is a
-[workstream](./glossary.md#workstream). David runs many sessions at once — the contract puts it at around ten — and
+Every unit of work in a product is a [workstream](./glossary.md#workstream).
+David runs many sessions at once — the contract puts it at around ten — and
 cannot hold their state in his head. He has said so, and asked the system not
 to rely on his memory. This area solves that with GitHub's own project
 management rather than a bespoke tracker:
 
-- **One issue per workstream** — every feature,
-  bug fix or documentation [harvest](./glossary.md#harvest) that is underway has exactly one issue,
-  and every pull request for it names that issue in its body.
+- **One issue per workstream** — every feature, bug fix or documentation
+  [harvest](./glossary.md#harvest) that is underway has exactly one issue, and
+  every pull request for it names that issue in its body.
 - **Labels are the truth** about where the work is and who holds it.
 - **A private Project board** displays those labels for visual scanning; each
   product names its board in its own [overlay](./glossary.md#overlay).
@@ -94,7 +96,7 @@ and a UAT run in progress, which records which step is next.
 ### Nobody owns the board; each step updates its own labels
 
 There is no background job keeping labels current. Instead each
-[skill](./glossary.md#skill) updates the labels at a moment it already fires:
+skill updates the labels at a moment it already fires:
 the planning skill when a plan goes to David for approval, the bug-fix skill
 when it opens a fix, the pull-request watcher at each
 [review round](./glossary.md#review-round) and at
