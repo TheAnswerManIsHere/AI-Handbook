@@ -1128,7 +1128,7 @@ against current `main` at merge time.
 - **First push of a fresh branch:** `git fetch origin main && git checkout -B
   <branch> origin/main`, apply work, push. Also how I restart a branch whose PR
   squash-merged — a plain push, because GitHub deleted the merged branch and
-  there is no history to overwrite. `main` needs no sweep of who committed
+  there is no history to overwrite. GitHub's `main` needs no sweep of who committed
   there: nothing reaches it outside a merged PR (the rulesets, above). **A
   session on a branch-regime prototype sweeps that branch instead**, the one
   place on GitHub direct commits still land — `git fetch origin prototype/<feature>`
