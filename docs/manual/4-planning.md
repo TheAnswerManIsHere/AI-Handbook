@@ -3,8 +3,8 @@
 > How a feature's intent becomes a plan David approves. The plan is developed
 > by Claude together with [Astra](./glossary.md#astra), an independent reviewer
 > running on a different model family, as peers reading one contract. David
-> controls the loop at two points: at the front, by agreeing the **scope of
-> work** that becomes the [oracle](./glossary.md#oracle) everything is judged
+> controls the loop at two points: at the front, by agreeing the **[scope of
+> work](./glossary.md#scope-of-work-gate)** that becomes the [oracle](./glossary.md#oracle) everything is judged
 > against, and at the back, by **approving the plan in words**. Between those
 > points the loop runs on its own, and every exchange is relayed to him in
 > plain English before Claude revises anything. It all happens in chat; no
@@ -64,7 +64,7 @@ nowhere, the plan is wrong.
 ### 2. The scope-of-work gate
 
 Before the plan is written, Claude compresses the conversation into a
-[scope of work](./glossary.md#scope-of-work-gate) and asks David to agree it,
+scope of work and asks David to agree it,
 as a [blocking ask](./glossary.md#blocking-ask) with a push notification. It
 names the direction the work serves, the intent for this increment, what must
 not change, the decisions already settled, the scope boundaries already

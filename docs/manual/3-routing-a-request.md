@@ -214,9 +214,9 @@ unless David declares that specific change Trivial.
 
 ### The internal tier: asking what is downstream
 
-Changes to the process itself — scripts, skills, contracts, process docs —
-run the standard loop at the [internal tier](./glossary.md#internal-tier) by
-default. The tier does not lower the bar for care. It only says that nobody's
+Changes to the process itself — scripts, checks, and any skill or contract
+change that is not in the Documentation class — run the standard loop at the
+[internal tier](./glossary.md#internal-tier) by default. The tier does not lower the bar for care. It only says that nobody's
 money or data sits downstream, so a finding is
 weighed by its effect on David's ability to direct the agents and understand
 the results. A clean automatic Codex pass is the whole ceremony.
