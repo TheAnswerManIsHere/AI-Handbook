@@ -1126,9 +1126,10 @@ against current `main` at merge time.
   there is no history to overwrite. `main` needs no sweep of who committed
   there: nothing reaches it outside a merged PR (the rulesets, above). **A
   session on a branch-regime prototype sweeps that branch instead**, the one
-  place direct commits still land — `git log --author="Replit Agent"
-  --since="14 days ago" --oneline origin/prototype/<feature>` in the same
-  fetch, since its environment tracks that branch. **Bounded by time, never
+  place direct commits still land — `git fetch origin prototype/<feature>`
+  and then `git log --author="Replit Agent" --since="14 days ago" --oneline
+  origin/prototype/<feature>`, since its environment tracks that branch and
+  fetching `main` alone leaves that ref stale. **Bounded by time, never
   by commit count**: `-3` silently drops the fourth commit of a busy week, and
   a missed commit is indistinguishable from a swept one. What a sweep finds
   goes into the feature's next version (*Connectors → Replit*, below).

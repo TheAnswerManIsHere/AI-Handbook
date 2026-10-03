@@ -777,7 +777,9 @@ PR's workstream issue (found via `Workstream: #N` in the PR body — if it's
 missing, that PR skipped the tracking convention; flag it rather than
 silently leaving the workstream unlabeled — unless it is one of the phase's
 registry PRs, which carry `Refs #N` by design and are never subscribed, top
-of this file):
+of this file, or one of David's display-only Replit tweaks, which carries no
+issue by design and is its own record (`agents-core.md`, *Workstream
+tracking*), so it has no labels to keep):
 
 - **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
 - **Codex posts findings, I start responding** → `waiting:claude`.
