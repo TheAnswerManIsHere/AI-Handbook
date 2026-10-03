@@ -60,7 +60,10 @@ a reproduction there can silently exercise different code from the branch I am
 diagnosing. Ask for `git rev-parse HEAD` and `git status` in the same breath as
 the diagnostic, and compare the SHA against the revision I mean to be testing.
 Both halves matter: a matching SHA with a dirty worktree ran something other
-than that commit, and a clean worktree on a stale SHA is simply behind. A
+than that commit, and a clean worktree on a different SHA is either behind or
+carrying commits made in the Repl, which `git status -sb` tells apart (a commit
+there is moved to a branch, never synced over: `claude-core.md`, *This
+environment's git constraints*). A
 reproduction whose revision I never established is an anecdote, not evidence
 for a root cause or a tier.
 

@@ -757,7 +757,7 @@ requires it.
 
 8. **Merge, sync, report**, per `claude-core.md`'s *Close-out is mine, end to
    end*: re-verify live state with a fresh `pull_request_read` — not cached
-   green — then squash-merge, trigger the Repl sync and verify it, execute the
+   green — then squash-merge, check the Repl for its own commits and then sync and verify it (close-out step 3), execute the
    Post-merge verification section, post the harvest-notes comment, and send
    the merge report with both SHAs, the latitude line and the UAT handoff.
    **No readiness receipt is minted or quoted**: `pr-ready.mjs` is gone, and
@@ -790,8 +790,7 @@ tracking*), so it has no labels to keep):
   hasn't moved, but the turn has.
 - **The close-out bar is met** (CLAUDE.md's *Close-out*, all four items) →
   the ready bar is met and **I merge it myself per CLAUDE.md's close-out
-  contract (David, 2026-08-15)** — re-verify live state, squash-merge, sync,
-  verify, report — so `stage:merge` is normally a moment, not a resting
+  contract (David, 2026-08-15)** — re-verify live state, squash-merge, check and sync the Repl, verify, report — so `stage:merge` is normally a moment, not a resting
   state. There is no carve-out exception any more (David, 2026-09-14): a
   guardrail- or authority-widening PR merges the same way, with the latitude
   it grants named in the report. The one PR that does not is a change to the

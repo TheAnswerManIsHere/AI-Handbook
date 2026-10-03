@@ -991,11 +991,16 @@ conversation resolution, so the Merge button is inert while a thread is open.
    `pull_request_read`, not cached green. If anything moved, re-work the bar.
 2. **Squash-merge.** Every merge in this repo is a squash-merge, whoever clicks
    it.
-3. **Trigger the Repl sync**, wait ~15 seconds, then verify via one
-   `ask_question` that the checked-out SHA matches the new `main` commit **and**
-   the worktree is clean. Neither check substitutes for the other. If it hasn't
-   landed, retry at ~15-second intervals up to 4 tries, then report a sync
-   problem rather than waiting longer. **Every merge, with no exception I
+3. **Check the Repl, then trigger its sync.** First, one read-only
+   `ask_question` for `git fetch` and `git status -sb`: a Repl `main` that is
+   **ahead** of GitHub's, alone or diverged, holds commits made in the Repl,
+   which are moved to a pushed branch and the Repl's `main` realigned before
+   anything else (*This environment's git constraints*), never synced over. Then trigger a fast-forward-only sync,
+   wait ~15 seconds, and verify via one `ask_question` that the checked-out SHA
+   matches the new `main` commit **and** the worktree is clean. Neither check
+   substitutes for the other. Still **behind** means it hasn't landed: retry at
+   ~15-second intervals up to 4 tries, then report a sync problem rather than
+   waiting longer. **Every merge, with no exception I
    reason my way into** — not "the project is paused", not "this change has no
    product surface", not "the Repl will pick it up on its next sync anyway".
    Each of those is a judgement about *this* commit; drift is the sum of all of
@@ -1045,20 +1050,25 @@ server-side, binding on **everyone who pushes, me included**, in every shape
 On `main`, with **no bypass actor**: block force pushes, restrict deletions, require linear history,
 require a PR, require status checks, require conversation resolution (that
 last is what makes the Merge button inert while a thread is open, in
-*Close-out* above). On `claude/**`: **block force pushes**
-(#94, created and verified 2026-09-16 — `--force-with-lease` on a probe branch
-was refused with GH013, and a plain push of a further commit landed). On **all
-branches**: block force pushes (David, 2026-09-16, #106 — the namespace gap the
-two rulesets above left).
+*Close-out* above). On **all branches**, `claude/**` included: block force
+pushes (David, 2026-09-16, #106). A separate `claude/**` ruleset (#94) did
+that job for this session's branches until the all-branches one made it
+redundant, and it is gone (David, 2026-10-03).
 
 **They bind David too, and every change to `main` arrives through a pull
 request** (David, 2026-10-03: *"Yes, everything goes through a pull
 request."*). He removed the Admin bypass from every ruleset in every repo, so
 no identity lands on `main` outside a merged PR — not his, and not this
 session's, which pushes as his admin account. His display-only tweaks from
-Replit included: Replit commits them to a branch and the PR merges like any
-other, merging on green CI when he declares the change Trivial (*Two classes
-and a phase that leave the loop*, above). So a commit on `main` with no PR
+Replit included: the Repl tracks `main`, so a tweak is committed there unless
+he branches first, and that commit can never be pushed. When I find the
+Repl's `main` ahead of GitHub's, I move those commits to a branch through the
+connector, push it, realign the Repl's `main` to GitHub's (nothing is lost:
+the commits now live on the pushed branch), and open the PR (David,
+2026-10-03), and it merges like any other —
+on green CI when he declares the change Trivial (*Two classes and a phase
+that leave the loop*, above). The close-out sync is where I find it (*Close-out*,
+step 3). I never drop such a commit unless he says to. So a commit on `main` with no PR
 behind it is not a lane: it means a ruleset has been loosened, and that is one
 line to David. (Until 2026-10-03 his direct push from Replit's Git pane was
 sanctioned and landed; the record is
@@ -1087,15 +1097,12 @@ rulesets are not yet configured.
 all branches in all repos (2026-09-16), closing a gap the #89 cut had opened
 for a day: the guard was scoped to no namespace, and the rulesets that replaced
 it reached only `main` and `claude/**`, leaving a runner-assigned branch under
-any other prefix unprotected. **What is measured is the refusal on `claude/**`**
-— `--force-with-lease` on a probe branch, GH013, #94. The all-branches ruleset
-is applied but has not been separately probed; if that distinction ever matters,
-a probe branch outside `claude/**` settles it, and nothing in my flows depends
-on the answer. **The prototype phase made the distinction matter**: a
-`prototype/<feature>` branch lives outside `claude/**` for weeks with no PR,
-so the all-branches ruleset is its only mechanical force-push protection, and
-the probe is worth running before a product's first branch-regime prototype
-(*Two classes and a phase that leave the loop*, above).
+any other prefix unprotected. **The all-branches ruleset is measured on its
+own** (DojoOS, 2026-10-03, whose only rulesets are it and `main`'s):
+`--force-with-lease` was refused with GH013 on both `claude/ruleset-probe` and
+`probe/ruleset-probe`. That is the protection a `prototype/<feature>` branch
+relies on, living outside `claude/**` for weeks with no PR (*Two classes and
+a phase that leave the loop*, above).
 
 **The one shape that would need a force push**, so it is not rediscovered as a
 surprise: restarting a branch in place, under the same name, before it has
@@ -1123,10 +1130,10 @@ against current `main` at merge time.
 - **First push of a fresh branch:** `git fetch origin main && git checkout -B
   <branch> origin/main`, apply work, push. Also how I restart a branch whose PR
   squash-merged — a plain push, because GitHub deleted the merged branch and
-  there is no history to overwrite. `main` needs no sweep of who committed
+  there is no history to overwrite. GitHub's `main` needs no sweep of who committed
   there: nothing reaches it outside a merged PR (the rulesets, above). **A
   session on a branch-regime prototype sweeps that branch instead**, the one
-  place direct commits still land — `git fetch origin prototype/<feature>`
+  place on GitHub direct commits still land — `git fetch origin prototype/<feature>`
   and then `git log --author="Replit Agent" --since="14 days ago" --oneline
   origin/prototype/<feature>`, since its environment tracks that branch and
   fetching `main` alone leaves that ref stale. **Bounded by time, never
@@ -1336,10 +1343,11 @@ Authorization boundaries — the mechanics live in
   Replit.
 - **David's own display-only UI tweaks from Replit arrive as pull requests**,
   like every change to `main` (*This environment's git constraints*, above).
-  Replit commits the tweak to a branch; when he has not opened the PR himself I
-  open it, and it takes the review class its content earns — Trivial when he
-  declares it so. The one place a `Replit Agent` commit still lands directly
-  is a branch-regime `prototype/<feature>` branch: when a session's sweep
+  A tweak committed on the Repl's own `main` — the default, since the Repl
+  tracks it — is moved to a branch through the connector, per that section;
+  when he has not opened the PR himself I open it, and it takes the review
+  class its content earns — Trivial when he declares it so. The one place on GitHub a `Replit Agent` commit still lands
+  directly is a branch-regime `prototype/<feature>` branch: when a session's sweep
   finds one there I read it (skim display/copy, actually read anything
   touching data or logic) and route anything real into the feature's next
   version, since nothing there is a bugfix yet.

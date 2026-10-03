@@ -16,8 +16,14 @@ every ruleset in every repo, so the rulesets bind every identity: his, and a
 cloud session's, which pushes as his admin account. The rule's home is
 `claude-core.md`, *This environment's git constraints*.
 
-So a commit sitting on `main` with no PR behind it is not a lane to sweep. It
-means a ruleset has been loosened, and that is one line to David.
+Two `main`s, two meanings. A commit on **GitHub's** `main` with no PR behind
+it is not a lane to sweep: it means a ruleset has been loosened, and that is
+one line to David. A commit on the **Repl's** `main` that GitHub lacks is the
+ordinary case — the Repl tracks `main`, so a tweak lands there unless David
+branches first — and it is moved to a pushed branch through the connector, the
+Repl's `main` realigned to GitHub's, and the branch opened as a PR, never
+dropped unless David says to. The close-out sync's `git status
+-sb` is where it shows up (David, 2026-10-03).
 
 ## What it replaced
 
@@ -39,6 +45,6 @@ there is no exemption.
 - **Read the rulesets before predicting a push.** Whether a push will land is
   a fact about the ruleset's current configuration, readable from the
   repository's rulesets, never an inference from who is pushing.
-- **The one place direct commits still land** is a branch-regime
+- **The one place on GitHub direct commits still land** is a branch-regime
   `prototype/<feature>` branch, which opens no PR; its sweep is in the same
   home, `claude-core.md`, *This environment's git constraints*.
