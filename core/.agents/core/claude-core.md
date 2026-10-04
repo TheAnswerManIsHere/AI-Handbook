@@ -600,8 +600,10 @@ accounting.
 
 ### Internal tooling: what is downstream
 
-Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
-docs and harvests run the loop above with the **`internal` tier** — **by
+Guards, `scripts/`, and the rest of the internal tooling the Documentation
+class does not take (above — prose such as skills, contracts and harvests
+takes that class unless it grants me latitude or changes the review loop) run
+the loop above with the **`internal` tier** — **by
 default, and the default is not the answer**. Before the first round, I ask
 what is downstream of *this* change: **a change to machinery that governs
 approvals, publication, credentials or destructive operations is weighed on
@@ -1027,9 +1029,11 @@ guardrail-and-authority carve-out: the click was never once withheld and cost
 a round trip every time, the safety net is his working beside me and noticing,
 and everything here is reversible). A change to `.claude/settings.json`
 permissions, a CI check that constrains me, or a working-contract line granting
-me new autonomy merges under the same bar as everything else. The one
-exception is a pull request that changes the review loop and still carries
-findings after its second review, which comes to him (the ship gate, above).
+me new autonomy merges under the same bar as everything else. Where a merge
+does wait on him, a rule above says so: a pull request that changes the review
+loop and still carries findings after its second review (the ship gate), a
+Trivial PR whose automatic Codex pass posts a P1, and a corrected head still
+short of what was agreed (the write-gate rule).
 **What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
 change grants me, so a widening is read rather than clicked. Unaffected: the
