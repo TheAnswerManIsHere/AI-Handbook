@@ -319,8 +319,8 @@ ceremony, not just Claude's enactment of it:
    feature is simply pre-tracking legacy work; check why the parent is
    missing before defaulting to the public path.
 3. For everything else: open the sub-issue, parented to the feature's
-   workstream issue if one exists (`stage:code-review`, `waiting:claude` —
-   the Documentation-class pass is one Claude runs, not a Codex round —
+   workstream issue if one exists (`stage:code-review`, `waiting:claude` while
+   the draft is Claude's to finish; from step 5, `pr-watch`'s labels apply —
    `mode:docs`, its own State of Play block). **If the feature never got
    its own workstream issue** for a genuinely legacy reason (a `/document`
    run against pre-this-system work, not a disclosure carve-out) — open the

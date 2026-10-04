@@ -653,10 +653,13 @@ records, quoted** — David's words, or the issue or merged PR where the rule
 changed — so a sweep needs no fresh agreement. **Codex's automatic pass on
 PR-open is waited for and handed to both assessors as one input**: no Codex
 round is requested, and its findings are weighed like any other under the
-Worth rule rather than acted on because Codex raised them. The wait ends when
-that pass reports **Completed** for the head commit, or thirty minutes after
-the PR opened, whichever is first; a pass that has not come back by then is
-left out and the merge report says so. One batch of corrections follows and
+Worth rule rather than acted on because Codex raised them. **The wait ends
+only when that pass reports Completed** — a draft is reviewed once it is marked
+ready, so the wait runs from then — and it has no timeout: the pass is never
+composed without Codex's result, because a review that has not returned is
+not a clean one (Codex and Astra, #184 round 1). A pass that does not come
+back is an outage, which the core already takes to David, and the PR waits
+with everything else Codex is holding. One batch of corrections follows and
 the change merges on green CI; the batch is not reviewed again, and the merge
 report says what it changed. Each Codex thread gets the reply review rule 6
 gives any finding — fixed in a named commit, or declined with the reason — and

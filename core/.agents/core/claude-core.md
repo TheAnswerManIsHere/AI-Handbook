@@ -444,7 +444,8 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   prose: contracts, skills, memory notes, docs sweeps, harvests, Manual
   chapters. `review-proxy.mjs --documentation`, with the oracle being **the
   decision the prose records, quoted**, and Codex's automatic findings passed
-  as `--findings-file` once that pass is back or the home's wait has run out.
+  as `--findings-file` (or `--codex-clean`) once that pass reports Completed,
+  with no timeout.
   I request no Codex round. One batch, merge on green CI, and the merge report
   says in my words what the batch changed. Each Codex thread is answered like
   any finding — fixed in a named commit, or declined with the reason — and
@@ -952,8 +953,8 @@ product and internal PRs alike — except the two classes and the phase that lea
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
 threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch — assessed once
-Codex's automatic pass is back or the home's wait has run out — with no Codex
-round requested and no translation owed — and a **prototype-phase** PR, on `main` only where
+Codex's automatic pass reports Completed — with no Codex round requested and
+no translation owed — and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
 automatic pass read for nothing and no translation owed. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
@@ -988,7 +989,10 @@ conversation resolution, so the Merge button is inert while a thread is open.
   code, tell David immediately as a 🛑 with a push notification, say which PRs
   are blocked and in what state, and wait. Noticing recovery is not permission
   to restart. A prototype-phase feature owes no Codex review, so an outage
-  blocks nothing there and that work continues.
+  blocks nothing there and that work continues. A Documentation PR is among
+  the blocked ones: its one pass waits for Codex's automatic review as an
+  input, with no timeout (*Two classes and a phase that leave the loop*,
+  above).
 - **Two things no gate ever proved, and they are still mine to check by eye.**
   That every requested round came back — a permitted retry needs no push, so
   two requests can name one commit and a single pass satisfies both — and that

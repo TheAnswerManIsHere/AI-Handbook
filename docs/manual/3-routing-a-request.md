@@ -284,9 +284,9 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
 - **The phase registry must be current.** Routing reads it first. A missing
   entry fails safe (production phase), but a stale entry pointing the wrong
   way would route work down the lighter path.
-- **The Documentation pass waits for Codex's automatic review**, up to a
-  fixed time; if that review has not come back by then, the pass runs without
-  it and the merge report says so.
+- **The Documentation pass waits for Codex's automatic review to finish**,
+  with no time limit. If Codex is down, the pull request waits and the outage
+  goes to David; it is never assessed with Codex's input missing.
 - **The internal-tier question is asked per change**, so two changes to the
   same file can earn different treatment. That is intended, and it is also a
   judgement no script makes.

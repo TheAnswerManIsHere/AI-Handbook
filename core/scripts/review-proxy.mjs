@@ -530,7 +530,8 @@ export function assessmentBrief({
       }
     } else {
       lines.push(
-        "Codex's automatic pass on this commit returned no findings, so there is no reviewer input this round.",
+        "Codex's automatic pass on this pull request reported Completed with no findings, so there is no reviewer",
+        "input this round.",
         "",
       );
     }
@@ -732,7 +733,7 @@ const SOURCE_NAMES = { astra: "Astra", fable: "Fable" };
  * assessment, which findings -- because asking a model to restate facts nobody
  * was missing spends the reader's attention for nothing.
  */
-export function prComment(result, { reviewedCommit = null, findingIds = [], requested = null, documentationBase = null } = {}) {
+export function prComment(result, { reviewedCommit = null, findingIds = [], requested = null, documentationBase = null, codexClean = false } = {}) {
   const who = SOURCE_NAMES[result.source] ?? result.source;
   const what = result.followUp ? `round ${result.round}, follow-up ${result.followUp}` : `round ${result.round}`;
   if (result.failed) {
@@ -758,6 +759,7 @@ export function prComment(result, { reviewedCommit = null, findingIds = [], requ
   if (reviewedCommit) facts.push(`Assessed at \`${reviewedCommit}\``);
   if (findingIds.length) facts.push(`findings ${findingIds.map((id) => `\`${String(id).trim()}\``).join(", ")}`);
   if (documentationBase) facts.push(`documentation pass over \`${documentationBase}..${reviewedCommit ?? "?"}\``);
+  if (documentationBase && codexClean) facts.push("Codex's automatic pass: clean");
   // EVERY FACT LABELLED BY WHAT IT IS, AND "REQUESTED" ONLY WHERE THIS SCRIPT
   // PASSED THE VALUE (David, 2026-09-18: *"any model call must report loudly if
   // the requested model doesn't match the used model"*). The header states what
@@ -890,11 +892,11 @@ export const USAGE = [
   "",
   "  Documentation pass (the Documentation review class: one pass, one batch):",
   `    node ${INVOCATION} --pr <n> --round 1 --commit <sha> --tier internal --documentation \\`,
-  "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
+  "        --oracle-file <path> (--findings-file <path.json> | --codex-clean) [--history-file <path.json>] [--note <text>]",
   `                  Both assessors read the diff from where --commit left ${DOCUMENTATION_BASE_REF} (derived,`,
-  "                  never typed) against the oracle. --findings-file carries Codex's automatic pass on",
-  "                  this commit, as one input; it is left out only when that pass returned no findings.",
-  "                  There is no follow-up in this class.",
+  "                  never typed) against the oracle. Run it once Codex's automatic pass has reported",
+  "                  Completed: --findings-file carries its findings, as one input, or --codex-clean",
+  "                  says it returned none. One of the two is required. There is no follow-up in this class.",
   "",
   "  Focused follow-up (same revision, no new commit, no new Codex round):",
   `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\`,
@@ -945,10 +947,11 @@ const FLAGS = {
   render: "render",
   source: "source",
   documentation: "documentation",
+  "codex-clean": "codexClean",
 };
 
 const NUMERIC = new Set(["pr", "round", "followUp"]);
-const BOOLEAN = new Set(["promptOnly", "render", "documentation"]);
+const BOOLEAN = new Set(["promptOnly", "render", "documentation", "codexClean"]);
 
 /**
  * The finding ids the header names — derived the same way for both paths.
@@ -1041,6 +1044,29 @@ export function main(
     log(`review-proxy: the Documentation class is one pass and one batch; it has no follow-up\n\n${USAGE}`);
     return 2;
   }
+  // CODEX'S AUTOMATIC PASS IS STATED, NEVER INFERRED (Codex `4179754463`,
+  // #184 round 1). A documentation pass is composed only after that pass
+  // reports Completed, and its result arrives one of two ways: its findings,
+  // as --findings-file, or --codex-clean when it came back with none. A pass
+  // given neither is refused, so a review that never returned cannot reach the
+  // assessors -- or the posted header -- dressed as a clean one.
+  if (documentation && !followUp) {
+    if (flags.findingsFile && flags.codexClean) {
+      log(`review-proxy: --findings-file and --codex-clean contradict each other; Codex's automatic pass either returned findings or came back clean\n\n${USAGE}`);
+      return 2;
+    }
+    if (!flags.findingsFile && !flags.codexClean) {
+      log(
+        "review-proxy: a documentation pass needs Codex's automatic pass on this pull request -- --findings-file with " +
+          "its findings, or --codex-clean when it reported Completed with none. Wait for it; a pass that has not " +
+          `returned is not a clean one\n\n${USAGE}`,
+      );
+      return 2;
+    }
+  } else if (flags.codexClean) {
+    log(`review-proxy: --codex-clean belongs to a documentation pass\n\n${USAGE}`);
+    return 2;
+  }
   let documentationBase = null;
   if (documentation) {
     try {
@@ -1109,7 +1135,7 @@ export function main(
         log(`review-proxy: ${flag} is required to render ${followUp ? "a follow-up" : "a round"} — the header names the findings the assessment covers, and a comment claiming no scope is worse than one that was not posted\n\n${USAGE}`);
         return 2;
       }
-      rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested, documentationBase });
+      rendered = prComment(read, { reviewedCommit: flags.commit, findingIds: ids, requested, documentationBase, codexClean: Boolean(flags.codexClean) });
     } catch (err) {
       log(`review-proxy: ${err.message}`);
       return 2;

@@ -1194,7 +1194,7 @@ test("a documentation pass with a clean Codex pass sends the change itself, and 
   assert.ok(pkg.includes(`git diff ${BASE}..${COMMIT}`), "the diff to read is not named");
   assert.match(pkg, /When the change is documentation/);
   assert.doesNotMatch(pkg, /## \[reviewer\]/);
-  assert.match(pkg, /returned no findings, so there is no reviewer input/);
+  assert.match(pkg, /reported Completed with no findings, so there is no reviewer/);
   // Same brief and Worth rule as a code round: only the evidence section differs.
   assert.ok(pkg.includes(fs.readFileSync(briefPath(), "utf8").trim()));
 });
@@ -1247,13 +1247,13 @@ test("the CLI takes no base, and the class has no follow-up", () => {
   fs.writeFileSync(findingsFile, JSON.stringify([{ id: "c1", body: "b" }]));
   const argv = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle];
   const opts = { root, run: () => assert.fail("nothing may run"), git: docGit(), log: () => {} };
-  assert.equal(main([...argv, "--documentation", "--base", BASE, "--prompt-only"], opts), 2, "--base is not a flag");
-  assert.equal(main([...argv, "--documentation", "--follow-up", "1"], opts), 2, "follow-up");
+  assert.equal(main([...argv, "--documentation", "--codex-clean", "--base", BASE, "--prompt-only"], opts), 2, "--base is not a flag");
+  assert.equal(main([...argv, "--documentation", "--codex-clean", "--follow-up", "1"], opts), 2, "follow-up");
   let printed = "";
   const stdout = process.stdout.write;
   process.stdout.write = (chunk) => ((printed += chunk), true);
   try {
-    assert.equal(main([...argv, "--documentation", "--prompt-only", "--source", "fable"], opts), 0);
+    assert.equal(main([...argv, "--documentation", "--codex-clean", "--prompt-only", "--source", "fable"], opts), 0);
   } finally {
     process.stdout.write = stdout;
   }
@@ -1276,7 +1276,7 @@ test("a documentation assessment renders with its derived range in the header an
   process.stdout.write = (chunk) => ((out += chunk), true);
   let code;
   try {
-    code = main(["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--documentation"], {
+    code = main(["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--documentation", "--codex-clean"], {
       root,
       io: pinIo(root),
       git: docGit(),
@@ -1288,6 +1288,31 @@ test("a documentation assessment renders with its derived range in the header an
   assert.equal(code, 0, out);
   assert.ok(out.includes(`documentation pass over \`${BASE}..${COMMIT}\``), out);
   assert.doesNotMatch(out, /findings `/);
+  assert.ok(out.includes("Codex's automatic pass: clean"), "a clean pass is not named in the header");
+});
+
+test("a documentation pass is refused unless Codex's automatic pass is stated, never inferred from a missing file", () => {
+  // Codex `4179754463`, #184 round 1: with no file, the package used to tell
+  // both assessors Codex had returned nothing -- which a pass still running, or
+  // never run, also looks like.
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-doc-"));
+  const oracle = path.join(dir, "o.md");
+  fs.writeFileSync(oracle, "ORACLE");
+  const findingsFile = path.join(dir, "f.json");
+  fs.writeFileSync(findingsFile, JSON.stringify([{ id: "c1", body: "b" }]));
+  const argv = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle];
+  const logged = [];
+  const opts = { root, run: () => assert.fail("nothing may run"), git: docGit(), log: (m) => logged.push(m) };
+  assert.equal(main([...argv, "--documentation", "--prompt-only", "--source", "fable"], opts), 2, "neither stated");
+  assert.match(logged.join("\n"), /a pass that has not returned is not a clean one/);
+  assert.equal(
+    main([...argv, "--documentation", "--codex-clean", "--findings-file", findingsFile, "--prompt-only", "--source", "fable"], opts),
+    2,
+    "both stated",
+  );
+  assert.equal(main(["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--documentation"], opts), 2, "render, neither");
+  assert.equal(main([...argv, "--findings-file", findingsFile, "--codex-clean", "--prompt-only"], opts), 2, "clean outside a documentation pass");
 });
 
 test("a documentation assessment that weighed Codex's findings names them in its header", () => {
