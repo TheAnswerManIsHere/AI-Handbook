@@ -119,9 +119,10 @@ Use the least powerful model that can handle each role to conserve cost and incr
 
 **Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
 
-**Architecture and design tasks**: use the most capable available model.
-The final whole-branch review is one of these — dispatch it on the most
-capable available model, not the session default.
+**Architecture and design tasks**: use Opus — they write code, and building
+never goes above Opus (the fleet ceiling, below). The final whole-branch
+review is different: it is a review, so dispatch it on the most capable
+available model, not the session default.
 
 **Review tasks**: choose the model with the same judgment, scaled to the
 diff's size, complexity, and risk. A small mechanical diff does not need the
@@ -142,7 +143,18 @@ that implementer. Single-file mechanical fixes also take the cheapest tier.
 **Task complexity signals (implementation tasks):**
 - Touches 1-2 files with a complete spec → cheap model
 - Touches multiple files with integration concerns → standard model
-- Requires design judgment or broad codebase understanding → most capable model
+- Requires design judgment or broad codebase understanding → Opus
+
+**Fleet ceiling (David, 2026-10-03): implementation never goes above Opus.**
+Fable is reserved for planning and discussion, so "most capable" for anything
+that writes code — an implementer, or a re-dispatch of a stuck one — means
+Opus — architecture and design tasks included, since in this skill they are
+plan tasks that write code. Opus is a ceiling, not a floor: the cheaper tiers
+above still take mechanical work (David, 2026-10-04). Only work that does not
+write code — reviews, and design or diagnosis handed off as such (see
+`model-routing`, *Reaching Fable 5 without a session switch*) — may use the
+strongest tier. The rule's home is `claude-core.md`,
+*Model, cost, and routing*.
 
 ## Handling Implementer Status
 
@@ -156,7 +168,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 **BLOCKED:** The implementer cannot complete the task. Assess the blocker:
 1. If it's a context problem, provide more context and re-dispatch with the same model
-2. If the task requires more reasoning, re-dispatch with a more capable model
+2. If the task requires more reasoning, re-dispatch with a more capable model, up to Opus (the fleet ceiling above)
 3. If the task is too large, break it into smaller pieces
 4. If the plan itself is wrong, escalate to the human
 

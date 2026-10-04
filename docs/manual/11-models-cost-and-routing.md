@@ -44,7 +44,9 @@ expensive Claude model — for the thinking half of the work: exploring
 possibilities, asking "how or why do we do it this way", the pre-plan
 conversation. That is the intended use, not a misconfiguration to flag.
 
-When the work turns to **building**, the session should move to **Opus**. The
+When the work turns to **building**, the session should move to **Opus** —
+for all development work, the riskiest bug fixes included; nothing is reserved
+for a stronger tier (David, 2026-10-03). The
 catch is mechanical: **only David can change the session model.** There is no
 tool, hook or setting through which Claude can switch it, so the rule is
 written as something Claude *can* keep — at the moment the conversation
