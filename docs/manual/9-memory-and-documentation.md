@@ -126,7 +126,8 @@ cross-check, report and commit. In outline:
   confirmation** instead of being stated.
 - **Delivery is one pull request per pass**, in the
   [Documentation class](./glossary.md#documentation-class): one independent
-  review pass over the prose, one batch of corrections if warranted, then
+  review pass over the prose, which also weighs Codex's automatic first pass,
+  one batch of corrections if warranted, then
   merge.
 
 David can also invoke `/document` directly for one feature; the contract

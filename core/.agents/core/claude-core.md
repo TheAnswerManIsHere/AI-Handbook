@@ -951,8 +951,9 @@ plus the last round before the merge). That is the whole bar, for
 product and internal PRs alike — except the two classes and the phase that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
 threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
-on green CI, resolved threads and its one assessed batch, with no Codex round
-requested and no translation owed — and a **prototype-phase** PR, on `main` only where
+on green CI, resolved threads and its one assessed batch — assessed once
+Codex's automatic pass is back or the home's wait has run out — with no Codex
+round requested and no translation owed — and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
 automatic pass read for nothing and no translation owed. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
