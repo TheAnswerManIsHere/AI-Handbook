@@ -596,11 +596,10 @@ sentence was not precise enough.
 
 **PR #504 is the worked example: five definitions of one boundary failed in
 sequence**, each refuted by a concrete counter-example, while the behaviour
-underneath never changed. The enumeration and what each attempt got wrong are
-in `CLAUDE.md`'s *Model, cost, and routing*, under the rule that an
-unclassified judgement does not dispatch — not repeated here, since the
-instance belongs to that contract and only the generalization belongs in shared
-review practice.
+underneath never changed. The rule that survived is in `CLAUDE.md`'s *Model,
+cost, and routing* — an unclassified judgement does not dispatch — and the five
+attempts themselves are recorded only in #504's own review threads; what
+belongs in shared review practice is the generalization.
 
 **What actually ended it was two things arriving together, and neither was a
 better sentence:** an owner resolving what a dispatched assessment is *worth*,
