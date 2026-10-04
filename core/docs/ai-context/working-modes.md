@@ -338,8 +338,8 @@ data-derivation rule is the obvious example, and it is one of this section's
 own triggers — has no oracle that finds every instance, however the regex is
 written. The class-sweep protocol below already handles exactly this at fix
 time (*"If the finding genuinely cannot be mechanized (a pure design/semantics
-finding), the reply says so — that inability is itself a signal, and it routes
-the finding to the driving agent's judgment-escalation triggers"*), and the
+finding), the reply says so — that inability is itself a signal, and the
+round's two assessments weigh that finding as such"*), and the
 same escape applies here: **record that the class cannot be mechanized, and
 route the scope call to judgment/escalation.** What is forbidden is the third
 option — running a nominal search that does not actually find every instance and
