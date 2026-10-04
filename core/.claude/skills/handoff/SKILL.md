@@ -30,8 +30,9 @@ reason a `/document` harvest isn't routable.
 **That makes this a standing dispatch BAR under `CLAUDE.md`'s
 *Model, cost, and routing* (an unclassified judgement does not dispatch; a dispatch bar is a contract change)** — pre-registered here,
 in writing, rather than claimed in the moment. It is deliberately **not**
-overridden by the 2026-08-17 always-Fable rule for dispatched judgements, and
-the reason is functional rather than a plea about context: a dispatched
+one of the core's named strongest-tier judgements (and was not overridden by
+the 2026-08-17 always-Fable rule while that stood, until David narrowed it on
+2026-10-04), and the reason is functional rather than a plea about context: a dispatched
 judgement packages **material plus its evidence** for a verdict, while the
 Step 1 verdict below is **enumeration from memory** — you cannot package what
 you have not yet noticed, and noticing is the whole task. A stronger model

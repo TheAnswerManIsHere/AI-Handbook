@@ -1167,8 +1167,8 @@ instances are.** For every finding, whichever agent is driving the fixes:
 2. **Write a mechanical oracle for the class** — the `grep`/`ls`/`find`/
    one-liner that detects *every* instance, not just the cited ones. If the
    finding genuinely cannot be mechanized (a pure design/semantics finding),
-   the reply says so — that inability is itself a signal, and it routes the
-   finding to the driving agent's judgment-escalation triggers.
+   the reply says so — that inability is itself a signal, and the round's
+   two assessments weigh that finding as such.
 3. **Sweep the full scope before fixing, fix every hit, re-run the oracle
    to zero.** Scope defaults to the whole artifact/diff and widens to the
    repo when the class plausibly lives outside it. The reply cites the
@@ -1181,9 +1181,8 @@ instances are.** For every finding, whichever agent is driving the fixes:
 5. **A recurrence of a swept class in a later round is a process failure by
    definition** — the class was misnamed or the sweep skipped. It is the
    "repairing an earlier round's fix" causal flag made mechanically
-   detectable: it gets flagged as such in that round's record, and the
-   re-naming of the class escalates to a stronger model rather than being
-   retried at the tier that misnamed it.
+   detectable: it gets flagged as such in that round's record, and the class
+   is re-named from the recurrence rather than patched at the new instance.
 
 When instance = class — a genuinely one-off defect with no plausible
 siblings — saying so in the reply *is* the sweep. The obligation is making

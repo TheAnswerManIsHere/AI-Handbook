@@ -234,8 +234,8 @@ whole mechanism.
   was the design failing while reporting success. A check now holds the
   declarations to the pin, because an instruction that has to be remembered
   is one the repository has watched fail.
-- **The pin is a tier, not a version,** so the instruction "for judgements,
-  use the strongest possible model" survives the next model release as a
+- **The pin is a tier, not a version,** so the instruction "for the named
+  judgements, use the strongest possible model" survives the next model release as a
   one-line edit.
 - **Disclosed rather than observed, by David's choice.** Reading the serving
   model independently is possible; David ruled it not worth building, since

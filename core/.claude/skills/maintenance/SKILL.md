@@ -24,7 +24,8 @@ loop, settled, not pending classification.
 
 Two earlier versions of this line were both wrong, and the second is the
 instructive one. It first excluded them from *Sonnet* delegation while saying
-nothing about Fable, leaving them undefined once the always-Fable rule landed.
+nothing about Fable, leaving them undefined once the always-Fable rule landed (since narrowed to
+the core's named judgements, 2026-10-04).
 The fix then marked them "unclassified" — but that global default treats
 unclassified as **temporary**, a signal to go classify the surface in a PR, so
 every weekly run would have manufactured a standing follow-up obligation for a
