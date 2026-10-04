@@ -439,13 +439,16 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   merge on green CI. Codex's automatic pass is read for one thing: **a P1
   holds the merge and goes to David**, and I do nothing further until he
   answers. Each Codex thread is resolved with one line citing his ruling.
-- **Documentation: one Astra and Fable pass, and no Codex.** For prose:
-  contracts, skills, memory notes, docs sweeps, harvests, Manual chapters.
-  `review-proxy.mjs --documentation`, with the oracle being **the decision the
-  prose records, quoted**. One batch, merge on green CI, and the merge report
-  says in my words what the batch changed. Codex's threads are resolved with
-  one line saying the class does not read them. **A trial of five PRs**, then
-  David and I look at whether it caught contradictions without Codex.
+- **Documentation: one Astra and Fable pass, with Codex's automatic pass as
+  one input** (David, 2026-10-04, after a seven-PR trial without it). For
+  prose: contracts, skills, memory notes, docs sweeps, harvests, Manual
+  chapters. `review-proxy.mjs --documentation`, with the oracle being **the
+  decision the prose records, quoted**, and Codex's automatic findings passed
+  as `--findings-file` once that pass is back or the home's wait has run out.
+  I request no Codex round. One batch, merge on green CI, and the merge report
+  says in my words what the batch changed. Each Codex thread is answered like
+  any finding — fixed in a named commit, or declined with the reason — and
+  resolved.
 - **Neither covers** a script, a check, CI, a setting, a permission, an agent
   role's definition, latitude for me, or the review loop itself — unless David
   declares that specific change Trivial.
@@ -948,8 +951,8 @@ plus the last round before the merge). That is the whole bar, for
 product and internal PRs alike — except the two classes and the phase that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
 threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
-on green CI, resolved threads and its one assessed batch, with no Codex review
-and no translation owed — and a **prototype-phase** PR, on `main` only where
+on green CI, resolved threads and its one assessed batch, with no Codex round
+requested and no translation owed — and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
 automatic pass read for nothing and no translation owed. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
@@ -962,7 +965,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
 
 - **Every PR in the standard loop gets a Codex review and none merges before
   it returns** (Trivial waits only for the automatic pass, to catch a P1;
-  Documentation waits for none; a prototype-phase PR is outside the standard
+  Documentation waits only for the automatic pass, as an input to its one
+  assessed batch; a prototype-phase PR is outside the standard
   loop and waits for none). A round I
   requested but haven't received is not convergence. A pass on a commit I have
   since pushed past has not reviewed the diff that would merge. What counts as

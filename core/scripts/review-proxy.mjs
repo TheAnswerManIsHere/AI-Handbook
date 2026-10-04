@@ -407,29 +407,29 @@ export function assessmentBrief({
         "recorded where it can be quoted. Pass it from there, not from the PR body: the body's copy is the builder's prose.",
     );
   }
-  // A DOCUMENTATION PASS HAS NO REVIEWER FINDINGS, BY DESIGN (David,
-  // 2026-09-25). Codex reviews prose adversarially, marks a word choice P1, and
-  // the loop then builds fixes and guards for it; Astra and Fable read prose
-  // better. So in this class the assessors read the change itself against its
-  // intent, and Codex's output is not part of the package at all -- refused
-  // here rather than silently dropped, so a caller who passes it learns the
-  // class does not use it.
+  // A DOCUMENTATION PASS READS THE CHANGE ITSELF, AND CODEX'S AUTOMATIC PASS
+  // AS ONE INPUT (David, 2026-10-04, ending the five-PR trial of 2026-09-25).
+  // The class began with Codex's output kept out of the package entirely:
+  // Codex reviews prose adversarially and the loop used to build fixes and
+  // guards for a word choice. Seven trial PRs said the assessors alone miss
+  // what Codex catches -- 17 of its 26 findings were raised by neither
+  // assessor, and the two left unread on #170 were still on `main` -- so its
+  // findings now reach both assessors as an input they weigh, never as a
+  // reviewer in charge. Zero findings is a valid documentation pass: Codex's
+  // automatic pass may have come back clean.
   const documentation = documentationBase !== null;
   if (documentation) {
     if (typeof documentationBase !== "string" || documentationBase.trim() === "") {
       throw new Error("review-proxy: a documentation pass needs the commit the change is measured from (documentationBaseFor derives it)");
     }
-    if (Array.isArray(findings) && findings.length) {
-      throw new Error(
-        "review-proxy: a documentation pass reads the change itself, not reviewer findings -- Codex's output is not " +
-          "part of this class (David, 2026-09-25); drop --findings-file",
-      );
+    if (!Array.isArray(findings)) {
+      throw new Error(`review-proxy: findings must be an array, got ${typeof findings}`);
     }
   } else if (!Array.isArray(findings) || findings.length === 0) {
     throw new Error("review-proxy: the assessors are dispatched on a round that RETURNED findings; there are none here");
   }
   const seen = new Set();
-  for (const f of documentation ? [] : findings) {
+  for (const f of findings) {
     // GitHub's review-comment ids are integers and JSON keeps them integers, so
     // the id is coerced rather than demanded as a string. (Codex, #120 round 1.)
     const id = f == null || f.id == null ? "" : String(f.id).trim();
@@ -505,8 +505,8 @@ export function assessmentBrief({
     lines.push(
       "## [change] A documentation pass: read the change itself",
       "",
-      "There are no reviewer findings in this round, deliberately: this is the **Documentation** review class",
-      "(David, 2026-09-25), and Codex's output is not part of it. Read the change in the checkout --",
+      "This is the **Documentation** review class (David, 2026-09-25; Codex's automatic pass added as an input",
+      "2026-10-04). Read the change in the checkout --",
       `\`git diff ${documentationBase.trim()}..${reviewedCommit}\` -- against the oracle, applying the brief's section`,
       "*When the change is documentation*. This is the only review pass the change gets: Claude writes one batch",
       "from it and the change merges, so an empty list of concerns is a valid and useful answer.",
@@ -514,6 +514,26 @@ export function assessmentBrief({
       "Label each concern you raise `D1`, `D2`, ... so Claude can answer each by name.",
       "",
     );
+    if (findings.length) {
+      lines.push(
+        "## [reviewer] Codex's automatic pass on this commit: one input, not a reviewer in charge",
+        "",
+        "Codex reviewed this pull request when it opened. Its findings are below. Weigh each one by the Worth rule",
+        "like any finding -- say whether it is real and whether it is worth writing for -- and cover every one,",
+        "using these IDs exactly. A finding you would also have raised is answered under its ID, not repeated as a D-item.",
+        "",
+      );
+      for (const f of findings) {
+        lines.push(`### Finding \`${String(f.id).trim()}\``, "");
+        if (f.path) lines.push(`- Location: \`${f.path}\`${f.line ? `:${f.line}` : ""}`);
+        lines.push("", String(f.body ?? "").trim(), "");
+      }
+    } else {
+      lines.push(
+        "Codex's automatic pass on this commit returned no findings, so there is no reviewer input this round.",
+        "",
+      );
+    }
   } else {
     lines.push("## [reviewer] This round's findings", "", "Cover every one, using these IDs exactly.", "");
     for (const f of findings) {
@@ -868,12 +888,13 @@ export const USAGE = [
   `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> \\`,
   "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   "",
-  "  Documentation pass (the Documentation review class: no reviewer findings, one pass):",
+  "  Documentation pass (the Documentation review class: one pass, one batch):",
   `    node ${INVOCATION} --pr <n> --round 1 --commit <sha> --tier internal --documentation \\`,
-  "        --oracle-file <path> [--history-file <path.json>] [--note <text>]",
+  "        --oracle-file <path> --findings-file <path.json> [--history-file <path.json>] [--note <text>]",
   `                  Both assessors read the diff from where --commit left ${DOCUMENTATION_BASE_REF} (derived,`,
-  "                  never typed) against the oracle. There is no follow-up in this class and no",
-  "                  --findings-file: Codex's output is not part of it.",
+  "                  never typed) against the oracle. --findings-file carries Codex's automatic pass on",
+  "                  this commit, as one input; it is left out only when that pass returned no findings.",
+  "                  There is no follow-up in this class.",
   "",
   "  Focused follow-up (same revision, no new commit, no new Codex round):",
   `    node ${INVOCATION} --pr <n> --round <n> --commit <sha> --tier <t> --follow-up <n> \\`,
@@ -1070,7 +1091,8 @@ export function main(
               definitionModel: agentFrontmatter(root, ASSESSOR_AGENT, "model"),
               definitionEffort: agentFrontmatter(root, ASSESSOR_AGENT, "effort"),
             };
-      const ids = documentation ? [] : headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
+      const ids =
+        documentation && !flags.findingsFile ? [] : headerFindingIds({ followUp, findings: flags.findings, findingsFile: flags.findingsFile });
       // AN EMPTY SCOPE IS REFUSED, NOT PRINTED. Round 1 gave both paths one
       // derivation and stopped there; the input that derivation needs never
       // reached the operator-facing recipe, so a follow-up posted exactly as
@@ -1128,9 +1150,8 @@ export function main(
         assessmentFile: file,
       });
     } else if (documentation) {
-      if (flags.findingsFile) {
-        throw new Error("review-proxy: a documentation pass reads the change itself; Codex's output is not part of this class -- drop --findings-file");
-      }
+      const findings = flags.findingsFile ? JSON.parse(fs.readFileSync(flags.findingsFile, "utf8")) : [];
+      if (findings.length) findingIds = headerFindingIds({ followUp, parsed: findings });
       prompt = assessmentBrief({
         source,
         pr: flags.pr,
@@ -1142,6 +1163,7 @@ export function main(
         builderNote: flags.note ?? "",
         assessmentFile: file,
         documentationBase,
+        findings,
       });
     } else {
       const findings = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));

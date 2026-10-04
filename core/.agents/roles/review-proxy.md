@@ -200,10 +200,15 @@ routine narration or duplicating shared arguments.
 ## When the change is documentation
 
 This section applies only when the package says the round is a
-**documentation pass** (David, 2026-09-25). There are no reviewer findings
-then: you read the change itself against the oracle, and yours is the only
-review it gets. Claude writes one batch from what you and the other assessor
-raise, and the change merges.
+**documentation pass** (David, 2026-09-25). You read the change itself
+against the oracle, and yours is the only review it gets. Codex's automatic
+pass on the pull request, when it returned findings, arrives in the package as
+**one input** (David, 2026-10-04): weigh each of its findings like any other
+under the Worth rule, by its ID, and keep reading the change yourself — the
+trial that preceded this showed Codex catches what neither assessor raised and
+misses what both did, so neither reading stands in for the other. Claude
+writes one batch from what you, the other assessor and the findings you agree
+with raise, and the change merges.
 
 **Judge it against its actual reader.** Most of what this class covers —
 contracts, skills, memory notes — is read by a model, the next session, which

@@ -202,12 +202,11 @@ same "how much process" decision.
   only: a top-severity [finding](./glossary.md#finding) holds the merge and goes to David.
 - **Documentation** — for changes whose
   substance is prose: contracts, skills, memory notes, sweeps, and chapters
-  like this one. Instead of a Codex review, Astra and a
+  like this one. Instead of a Codex review loop, Astra and a
   [Fable assessor](./glossary.md#fable-assessor) each read the change once,
-  against the decision the prose records (quoted). One batch of corrections
-  follows and the change merges on green CI. This class is running as a
-  trial; the open question is whether it catches the failure prose is most
-  prone to — two live statements of one rule that disagree — without Codex.
+  against the decision the prose records (quoted), and each also weighs the
+  findings from Codex's automatic first pass as one input. One batch of
+  corrections follows and the change merges on green CI.
 
 **Neither class covers machinery or authority**: a script, a check, CI, a
 setting, a permission, an agent's role definition, anything that widens what
@@ -269,6 +268,13 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
   own work would be a way around review. Documentation exists because Codex
   reviews prose adversarially — a word choice marked as severe, then fixes
   and guards built around it — while Astra and Fable judge prose better.
+- **Codex is an input to the Documentation pass, not left out of it.** The
+  class began as a trial with Codex unread. Over seven pull requests Codex
+  raised seventeen findings neither assessor did, including factual errors in
+  this manual and an instruction that would have let a stranger's issue text
+  reach the session that merges, while the assessors raised every question
+  that was David's to answer. Each reading caught what the other missed, so
+  David kept the class and gave the assessors both (2026-10-04).
 
 ## Boundaries & known limitations
 
@@ -278,9 +284,9 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
 - **The phase registry must be current.** Routing reads it first. A missing
   entry fails safe (production phase), but a stale entry pointing the wrong
   way would route work down the lighter path.
-- **The Documentation class is a trial**, not a settled design. If it misses
-  contradictions, the planned repair is to give Codex's output to the
-  assessors as one input, not to put Codex back in charge.
+- **The Documentation pass waits for Codex's automatic review**, up to a
+  fixed time; if that review has not come back by then, the pass runs without
+  it and the merge report says so.
 - **The internal-tier question is asked per change**, so two changes to the
   same file can earn different treatment. That is intended, and it is also a
   judgement no script makes.

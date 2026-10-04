@@ -51,14 +51,21 @@ requires it.
   green CI.
 - **Documentation**: one pass, `review-proxy.mjs --documentation --round 1`,
   with the Fable assessor dispatched on the same package (`--prompt-only
-  --source fable`). The range is derived from where the reviewed commit left
+  --source fable`). Wait for Codex's automatic pass first — its review-summary
+  row reading **Completed** for the head commit, or thirty minutes from PR
+  open, whichever comes first — and pass its inline findings as
+  `--findings-file` (step 3's findings shape), so both assessors weigh them;
+  a clean pass means no file, and a pass not back in time is named in the
+  merge report. The range is derived from where the reviewed commit left
   `main`; nothing is typed. **The oracle file is the decision the prose
   records, quoted** — David's words, or the issue or merged PR where the rule
   changed — so a docs sweep needs no new agreement from David, and step 3's
   🛑 on a missing oracle applies only when no such decision can be quoted.
   Both assessments are posted verbatim (step 3's mechanics, using its
-  documentation render command). I write one batch, resolve each Codex thread
-  with one line saying the class does not read it, and merge on green CI. No
+  documentation render command, with the same `--findings-file`). I write one
+  batch, answer each Codex thread as review rule 6 answers any finding — fixed
+  in a named commit, or declined with the reason and the assessment it rests
+  on — resolve it, and merge on green CI. No
   translation, no second pass. The merge report says what the batch changed,
   in my words.
 
@@ -173,14 +180,17 @@ requires it.
       node "$P" --render --source fable --pr <n> --round <n> --follow-up <k> \
         --commit <reviewed sha> --findings <id,id>
 
-      # a documentation pass — no findings; the header carries the derived range
+      # a documentation pass — the header carries the derived range, and the
+      # Codex findings it weighed when its automatic pass returned any
       node "$P" --render --source fable --pr <n> --round 1 \
-        --commit <reviewed sha> --documentation
+        --commit <reviewed sha> --documentation [--findings-file <path>]
       ```
 
       **Three commands, and each one's scope flag is mandatory for it.** A
       follow-up never reads `--findings-file`, an ordinary round never reads
-      `--findings`, and a documentation pass reads neither. This
+      `--findings`, and a documentation pass takes `--findings-file` exactly
+      when it composed with one — the same file, so the header names what the
+      assessment covered. This
       recipe used to show one command with both marked optional, which posted a
       follow-up header naming no findings at all — the script refuses that now,
       but the recipe is what a reader copies (Codex `4051974432`, #131 round 2).
