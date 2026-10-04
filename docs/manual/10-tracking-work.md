@@ -24,8 +24,9 @@ cannot hold their state in his head. He has said so, and asked the system not
 to rely on his memory. This area solves that with GitHub's own project
 management rather than a bespoke tracker:
 
-- **One issue per workstream** — every feature, bug fix or documentation
-  [harvest](./glossary.md#harvest) that is underway has exactly one issue, and
+- **One issue per workstream** — every feature, bug fix or ad-hoc documentation
+  [harvest](./glossary.md#harvest) that is underway has exactly one issue (the
+  batched harvest at the maintenance pass has none of its own), and
   every pull request for it names that issue in its body. The one kind of pull
   request with no issue of its own is one of David's display-only Replit
   tweaks: its pull request is its own record.

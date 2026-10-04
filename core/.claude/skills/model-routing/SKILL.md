@@ -36,8 +36,8 @@ half of a session and the building half want different tiers, and putting the
 boundary on me to *name* is what makes it survive a long conversation, since
 the transition to building is visible to me and invisible to a PM mid-thought.
 
-Full rule, including the maintenance exemption: `CLAUDE.md`'s *Model, cost, and
-routing*.
+Full rule: `CLAUDE.md`'s *Model, cost, and routing*. The maintenance
+exemption (no switch ask for an ops pass) is the `maintenance` skill's own.
 
 ### Superseded — the session model is a constant, not a dial (David, 2026-08-15)
 
@@ -67,7 +67,8 @@ was "a real blocker." Both answers come from the same verified facts:
   exception: a session genuinely below Opus that reaches Opus-reserved
   *execution* (migration, Tier B fix, security review, dev-infra), where
   routing a judgement doesn't satisfy the reservation and I ask David to run
-  it from an Opus session (see `CLAUDE.md`'s tier guard). The `opusplan` default is
+  it from an Opus session (see `CLAUDE.md`'s *Verify the active tier before
+  Opus-reserved execution*). The `opusplan` default is
   retired along with its "mind the gap" caveat — that gap existed because plan
   mode was what put the session on Opus, and now nothing needs to.
 - **The `model` key is read once at session start.** A change to it lands on
