@@ -111,8 +111,8 @@ does:
 For every workstream issue, call `issue_read` (`method: get`) — this same
 call already returns `has_children` **and** `has_parent`/`parent`, so check
 both, not just the downward direction. Where `has_children` is true,
-`get_sub_issues` to pull the children (e.g. a `/document` harvest nested
-under its parent feature). **Filter the returned children to `state: OPEN`
+`get_sub_issues` to pull the children (e.g. a phase, or an ad-hoc `/document`
+harvest, nested under its parent feature). **Filter the returned children to `state: OPEN`
 before rendering** — `get_sub_issues` returns closed children too (e.g. a
 harvest sub-issue that finished and closed while its parent stayed open
 through UAT), and this is a report of *open* work, so a closed child
@@ -120,7 +120,7 @@ should render as neither a nested row nor inflate any count. An open
 sub-issue is its own row with its own `stage:`/`waiting:` labels — render
 it nested under its parent, not flattened into the top-level list.
 
-**An open issue can have a parent that's already closed** — a
+**An open issue can have a parent that's already closed** — an ad-hoc
 documentation-harvest sub-issue can outlive its feature (the parent closes
 first, the harvest lags a little). Downward traversal alone misses this:
 Step 1 only fetched *open* issues, so a closed parent was never in that
