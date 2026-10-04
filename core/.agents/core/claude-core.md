@@ -1226,12 +1226,14 @@ shows the true delta.
   judgment is mine, verification of my own work, a Tier B fix, or a `/document`
   harvest (its first source is *this session's* decisions, which a cold worker
   doesn't inherit).
-- **Named judgements dispatch at the strongest available tier, resolved
-  through `.agents/machinery.json`, and only those** (David, 2026-10-04,
+- **Named judgements dispatch at the strongest available tier, and only
+  those** (David, 2026-10-04,
   narrowing the 2026-08-17 "every judgement, no exceptions"): the plan
   reviewer and Astra's code-round assessment, resolving `strongestCodex`; the
   Fable assessor and the round translator, resolving `strongestClaude`; and
-  `/next`'s three judgement steps, on Fable inline or dispatched. Any other
+  `/next`'s three judgement steps, which name Fable by alias rather than
+  reading the pin, inline or dispatched. The four roles resolve their tier
+  through `.agents/machinery.json`. Any other
   subagent judgement — the per-task reviews in `subagent-driven-development`
   included — is sized to its work like any other dispatch. (The
   `review-loop-adjudicator` agent that stood here was removed by the #89 cut.)
