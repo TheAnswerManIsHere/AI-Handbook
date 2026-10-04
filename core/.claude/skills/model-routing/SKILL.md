@@ -240,12 +240,17 @@ the prompt cache.
 
 Two facts that decide how we use it today:
 
-- **Fable is not currently available as an advisor.** Claude Code shows it as a
-  dimmed `Fable 5 (temporarily unavailable)` row and rejects `/advisor fable`,
-  pending a remote rollout. So the pairing David would most want —
-  Sonnet or Opus main with a Fable advisor — **cannot be configured yet.** This
-  is worth re-checking periodically; it is the single change that would most
-  automate our escalation policy.
+- **Fable is available as an advisor (measured 2026-10-04, CLI 2.1.289).**
+  `claude -p "Reply with the single word ok." --advisor fable --max-turns 1`
+  answered `ok`; `--advisor not-a-model` was refused with `The model
+  "not-a-model" cannot be used as an advisor.`, so the flag is validated rather
+  than ignored; and a prompt asking the main loop to consult the advisor
+  returned the advisor's answer with `claude-fable-5-1` among the run's
+  `modelUsage` keys. This replaces a note that it showed as a dimmed
+  `Fable 5 (temporarily unavailable)` row pending a rollout. **Nothing here
+  configures it**: the advisor is David's setting, like `/model`, and no rule
+  in this payload routes a judgement through it — the named strongest-tier
+  judgements below dispatch as subagents.
 - **`Sonnet main + Opus advisor` is retired — the configuration no longer
   exists (2026-08-15).** It used to be the live automation for the tier
   table's *Debugging new features* row: Sonnet handling routine work and
@@ -255,16 +260,20 @@ Two facts that decide how we use it today:
   advising Opus) and a user-operated configuration ask of exactly the kind
   this change removed. **Do not suggest it** — for review loops (already
   superseded 2026-08-08 by the structural triggers below) or for debugging.
-  The advisor as a *mechanism* stays interesting if Fable ever becomes
-  available as one; see the bullet above.
+  A Fable advisor is a different question, and the bullet above is where it
+  stands.
 
-### Every dispatched judgement runs on the strongest available model (David, 2026-08-17; mechanism updated 2026-09-06)
+### The named judgements run on the strongest available model (David, 2026-08-17, narrowed 2026-10-04; mechanism updated 2026-09-06)
 
-**Every judgement subagent dispatches at the strongest tier available — no
-exceptions, no tier judgement at the dispatch site.** David's instruction:
-*for judgements, I want the strongest possible model.* This supersedes the
-Opus/Fable split that used to run through the two sections below, where
-triggers 1–3 went to Opus and the stopping-rule trigger went to Fable.
+**The judgements named in `claude-core.md`, *Model, cost, and routing*,
+dispatch at the strongest tier available, with no tier judgement at the
+dispatch site** — that list is the rule's only statement, and a dispatch not on
+it is sized like any other subagent. David's instruction of 2026-08-17 was
+*for judgements, I want the strongest possible model*, with no exceptions; on
+2026-10-04 he narrowed it to the named ones, keeping the per-task reviews in
+`subagent-driven-development` sized by their diff. The 2026-08-17 rule superseded the Opus/Fable
+split that used to run through the two sections below, where triggers 1–3 went
+to Opus and the stopping-rule trigger went to Fable.
 
 **The tier is named in one place: `.agents/machinery.json`'s `models` block** —
 `strongestClaude` and `strongestCodex`, each mapping to a full model id and an
@@ -391,8 +400,10 @@ they looked, which is a self-assessment of exactly the kind the structural
 triggers exist to eliminate. A decline that resolves a thread nothing
 downstream catches is not obviously cheaper than a stop decision, and
 deciding which deserves the stronger model is one more judgement made by the
-context that is already suspect. Routing every dispatched judgement to one
-tier removes the question.
+context that is already suspect. Naming the judgements that go to the
+strongest tier, once and in the core, removes the question from the dispatch
+site (every judgement went there from 2026-08-17 until David narrowed it on
+2026-10-04).
 
 The cost note that justified the split still holds and now argues the other
 way: judgement moments are perhaps 2% of a loop's tokens and carry all of its

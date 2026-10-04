@@ -121,12 +121,13 @@ Use the least powerful model that can handle each role to conserve cost and incr
 
 **Architecture and design tasks**: use Opus — they write code, and building
 never goes above Opus (the fleet ceiling, below). The final whole-branch
-review is different: it is a review, so dispatch it on the most capable
-available model, not the session default.
+review is a review, so the ceiling does not bind it; it is sized like the
+others, below — usually the largest diff this skill reviews.
 
 **Review tasks**: choose the model with the same judgment, scaled to the
-diff's size, complexity, and risk. A small mechanical diff does not need the
-most capable model; a subtle concurrency change does.
+diff's size, complexity, and risk (David, 2026-10-04: these are not among the
+core's named strongest-tier judgements). A small mechanical diff does not need
+the most capable model; a subtle concurrency change does.
 
 **Always specify the model explicitly when dispatching a subagent.** An
 omitted model inherits your session's model — often the most capable and
