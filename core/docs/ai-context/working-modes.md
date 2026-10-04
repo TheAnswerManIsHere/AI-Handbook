@@ -1460,13 +1460,15 @@ Everything in Tier A, plus:
   content), and a check that re-verifies what CI already gates is waste.
   The driving agent executes the section through the Replit connector at
   close-out (the standalone TEST_RUN file is retired, 2026-08-15).
-- **Opus, the build tier, for the fix itself** (David, 2026-10-03: *"Now that
-  Opus 5.5 is out, it's strong enough for any development work. We'll reserve
-  Fable for planning and discussion."*). This line read "the strongest model
-  tier available" until the machinery pin's strongest Claude became Fable, at
-  which point it contradicted the core (*Model, cost, and routing*: Opus
-  builds everything, Tier B included) and the bugfix skill's "never starts on
-  Fable".
+- **The build tier the agent's own core names, for the fix itself** — for
+  Claude, Opus (`claude-core.md`, *Model, cost, and routing*; David,
+  2026-10-03: *"Now that Opus 5.5 is out, it's strong enough for any
+  development work I think. We'll reserve Fable for planning and
+  discussion."*). This line read "the strongest model tier available" until
+  the machinery pin's strongest Claude became Fable, at which point it
+  contradicted the core and the bugfix skill's "never starts on Fable"; it
+  names no model itself because this file binds Codex too, which cannot
+  choose a Claude model.
 
 **Internal/infra-only exception on the UAT doc.** The test is **whether the
 fix has any product-visible behavior at all — not which Q1/Q2 trigger(s)

@@ -149,8 +149,11 @@ that implementer. Single-file mechanical fixes also take the cheapest tier.
 Fable is reserved for planning and discussion, so "most capable" for anything
 that writes code — an implementer, or a re-dispatch of a stuck one — means
 Opus — architecture and design tasks included, since in this skill they are
-plan tasks that write code. Only reviews, which judge rather than build, may
-use the strongest tier. The rule's home is `claude-core.md`,
+plan tasks that write code. Opus is a ceiling, not a floor: the cheaper tiers
+above still take mechanical work (David, 2026-10-04). Only work that does not
+write code — reviews, and design or diagnosis handed off as such (see
+`model-routing`, *Reaching Fable 5 without a session switch*) — may use the
+strongest tier. The rule's home is `claude-core.md`,
 *Model, cost, and routing*.
 
 ## Handling Implementer Status

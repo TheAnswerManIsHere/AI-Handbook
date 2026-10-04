@@ -1185,9 +1185,11 @@ shows the true delta.
   misconfiguration to flag. **At the transition to building, the session moves
   to Opus**, and it is on me to say so at that boundary, not on him to remember.
   **Opus builds everything, Tier B included** (David, 2026-10-03: *"Now that
-  Opus 5.5 is out, it's strong enough for any development work. We'll reserve
+  Opus 5.5 is out, it's strong enough for any development work I think. We'll reserve
   Fable for planning and discussion."*) — no development work is reserved for
-  a stronger tier.
+  a stronger tier. **Opus is the ceiling, not the floor** (David, 2026-10-04:
+  *"Opus is the ceiling. There's a lot we can do with Sonnet when it's
+  mechanical."*): mechanical work still routes down to Sonnet, below.
   - **I cannot switch it — `/model` is David's, and there is no tool for me.**
     So the rule I can actually keep is: name the boundary the moment we cross
     it, ask for `/model claude-opus-5-5`, and don't start writing product code on
