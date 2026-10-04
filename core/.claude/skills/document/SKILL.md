@@ -120,7 +120,8 @@ Decide by what "this" refers to (contract's trigger table):
 - **Manual is scaffolded, not backfilled here** — I create/update only the
   chapter for the area this feature touched, and only if it clears the quality
   bar. The one-time backfill of all existing areas is separate deferred work.
-- **The harvest is its own tracked workstream** — a shared-contract
+- **An ad-hoc harvest is its own tracked workstream** (the batched one, above,
+  is not) — a shared-contract
   requirement (`documentation-workflow.md`'s *The harvest itself is a
   tracked workstream*), not Claude-specific, so I don't restate the *why*
   or the disclosure/parentless branching here. My tooling specifics:

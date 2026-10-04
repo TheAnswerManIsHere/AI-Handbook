@@ -464,7 +464,7 @@ This is now a standalone maintenance-skill rule.)
 - **No scheduled self-wakeups — same conclusion, different reason as of
   2026-08-15.** This used to rest on the blanket no-background-check-ins
   rule. That rule is gone, replaced by the bounded contract in `CLAUDE.md`'s
-  *Scheduled self-check-ins* — and that contract doesn't authorize this
+  *Waiting, and scheduled check-ins* — and that contract doesn't authorize this
   either: a weekly ritual is a recurring heartbeat, not a wait on a named
   external state, and heartbeats are the one thing it still rules out. So
   David still invokes this manually. If he later opts into a scheduled weekly
