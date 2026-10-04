@@ -28,7 +28,7 @@ context *is* the subject matter, and a subagent has none of it — the same
 reason a `/document` harvest isn't routable.
 
 **That makes this a standing dispatch BAR under `CLAUDE.md`'s
-*Whether a judgement dispatches is fixed in advance*** — pre-registered here,
+*Model, cost, and routing* (an unclassified judgement does not dispatch; a dispatch bar is a contract change)** — pre-registered here,
 in writing, rather than claimed in the moment. It is deliberately **not**
 overridden by the 2026-08-17 always-Fable rule for dispatched judgements, and
 the reason is functional rather than a plea about context: a dispatched

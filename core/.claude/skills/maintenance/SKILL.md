@@ -19,7 +19,7 @@ Bounded, stateless pieces of the pass — a research sweep, a self-contained
 lookup — are eligible for a Sonnet subagent; the triage judgements are not.
 
 **The triage judgements are a standing dispatch BAR** under `CLAUDE.md`'s
-*Whether a judgement dispatches is fixed in advance* — they run in my main
+*Model, cost, and routing* (an unclassified judgement does not dispatch; a dispatch bar is a contract change) — they run in my main
 loop, settled, not pending classification.
 
 Two earlier versions of this line were both wrong, and the second is the
@@ -36,7 +36,7 @@ queue the main loop is already holding — which bump to merge, which error
 matters, which trigger has fired — not a bounded verdict on packageable
 material. Removing this bar is a contract change that ships in a PR.
 
-The deliverable is one concise report at the end covering the seven areas
+The deliverable is one concise report at the end covering the ten areas
 below. If an area has nothing to report, one line ("no open dependency
 PRs") — the discipline stays visible, the report stays short.
 

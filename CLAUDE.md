@@ -161,13 +161,14 @@ Two things are deliberately NOT symlinks:
   `drizzle-kit push`. `node scripts/check-settings-fields.mjs` is what makes
   that loud. The prose those blocks held now lives where whoever adapts the
   file will actually read it: the adaptation record above, and
-  [`docs/consuming-repos.md`](docs/consuming-repos.md) step 5 for a consumer's
+  [`docs/consuming-repos.md`](docs/consuming-repos.md) step 4 for a consumer's
   copy.
-- **`.agents/receipts/.gitignore` and `.agents/reviews/.gitignore`** are real
-  files, mirrored rather than pointed at, because **git does not follow a
-  symlinked `.gitignore`** — their patterns would never apply and every
-  ephemeral dispatch receipt and plan-round snapshot would be committed. The
-  root-wiring check compares each pair's pattern lines.
+- **`.agents/receipts/.gitignore`, `.agents/reviews/.gitignore` and
+  `docs/plans/.gitignore`** are real files, mirrored rather than pointed at,
+  because **git does not follow a symlinked `.gitignore`** — their patterns
+  would never apply and every ephemeral dispatch receipt, plan-round snapshot
+  and plan under development would be committed. The root-wiring check
+  compares each pair's pattern lines.
 
 ## The guard is gone, and what that changed
 

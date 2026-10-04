@@ -61,8 +61,7 @@ two markdown files — went through the full plan + convergence loop and reached
 **six review rounds and a 660-line plan** before anyone asked whether the
 ceremony fit the thing being built.
 
-The deciding question is the one already used for model routing in
-[`CLAUDE.md`](../../CLAUDE.md): **if this goes subtly wrong, will code review or
+The deciding question: **if this goes subtly wrong, will code review or
 David's product-testing catch it before it does damage?** Where the answer is
 "immediately and obviously," heavy ceremony buys nothing and actively costs —
 every round of adversarial review on a low-risk artifact generates new surface
@@ -1205,8 +1204,8 @@ decisions, the explicit scope boundaries (what is already decided to be
 *next* or *never*), and the artifact's ceremony tier. (A 1–100 criticality
 rating was agreed here too, for the gate deleted on 2026-08-20; the tier
 carries what it was for.)
-**That agreement is the loop's authority to run autonomously to
-convergence** — it replaces the retired per-round check-in (below) as
+**That agreement is the loop's authority to run autonomously up to the
+approval ask** — it replaces the retired per-round check-in (below) as
 David's control point at the front of the loop, paired with explicit plan
 approval at the back. **The agreed scope of work is also the review oracle
 itself** — it is handed to the reviewer verbatim, every round, as the thing the

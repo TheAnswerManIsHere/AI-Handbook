@@ -111,9 +111,10 @@ The board itself is fed by a GitHub Action that mirrors labels onto the
 board's fields on every label change, using the [payload](./glossary.md#payload)'s
 `core/scripts/sync-project-fields.mjs`. It resolves the board's columns by
 normalised name rather than exact spelling, and fails loudly on anything it
-cannot map. **Needs David confirmation:** whether the Action's workflow file
-is supplied to each product by the handbook or set up by hand — the contract
-names it, but no workflow file for it ships in the payload.
+cannot map. The workflow file itself is each product's own — its board and
+the token that writes to it are per product — so the handbook ships the
+script and lists the workflow among the documents a product must supply
+([`docs/consuming-repos.md`](../consuming-repos.md)).
 
 ### Large features: one parent, one sub-issue per phase
 

@@ -229,8 +229,8 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   every pull request owes no UAT and closes its workstream at close-out
   ([`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   says as much of AI-Handbook).
-  Whether a Repl tracks this repository, and so whether step 3 applies here,
-  is not stated in the repo's own files — **Needs David confirmation**.
+  No Repl tracks this repository — a search of David's Replit apps on
+  2026-10-03 found none — so the sync step has nothing to sync here.
 
 ## Going deeper
 

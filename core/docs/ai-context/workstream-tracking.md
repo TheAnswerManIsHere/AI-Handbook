@@ -69,7 +69,7 @@ what the other seven were. The design settled 2026-08-05 and is built as of
   holds `mode:feature` and a **Phases checklist** (below). There is no
   separate whole-feature UAT gate — the next bullet is why.
 - **Each phase is a GitHub sub-issue** of that parent (the native sub-issue
-  relationship, the same one `/document` harvests use), with its own
+  relationship, the same one an ad-hoc `/document` harvest uses), with its own
   `stage:`/`waiting:`/`mode:` labels, its own PR carrying
   `Workstream: #<phase-issue>`, and its own merge.
 - **Phases merge sequentially, never stacked.** No phase PR bases on
@@ -399,7 +399,7 @@ work it's already doing — not as a separate reminder to go check the board:
 | `pr-watch` | `stage:code-review` onward — round-by-round `waiting` toggling, `waiting:david` on escalation, `stage:test-run`/`waiting:replit` at merge when the PR's Post-merge verification section has real content (the close-out sequence then drives the checks and moves the label to `stage:uat`/`stage:close-out` once the checks pass); with "none needed" verification, the transition to `stage:uat`/`stage:close-out` still waits for the close-out sync checks (SHA match + clean worktree) to pass — never at the merge click itself, either branch. A workstream reaching `stage:close-out` this way (no UAT owed) goes on to `stage:done` and is closed in the same pass (*Closing an issue*, below). Also the labels on a follow-up issue it files from a review round: `gap` and the workstream's `mode:`, with no `queue:` until `/maintenance` triages it (#98; David, 2026-09-28) |
 | `pr-docs` | No stage transition of its own — confirms `mode:feature` is right on the PR this pairing rides on |
 | `/uat` | The exit from `stage:uat` — the one stage no agent could previously move, since only David could run it. `Accepted` and `Accepted with issues` both reach `stage:close-out` (his acceptance is what converts that run's bugs from blockers into independently-tracked work); a `Blocked` run holds at `stage:uat`. `waiting:claude` either way — the next real action is a fix or a close-out, not something David can click. An accepted run drives close-out through to `stage:done` and closes the issue. Also owns the `Blocked by:` + failed-step record at the moment a run finds a bug, executing `bugfix`'s intake contract earlier, while the context is still in front of it — but **not** the `waiting:` flip, which waits until the run actually stops, since a run David chooses to continue is still David-held |
-| `/document` | A harvest is a **sub-issue** of the parent workstream (GitHub's native sub-issue relationship), not a status value on the parent — it has its own branch, PR, and review loop, so it needs its own row |
+| `/document` | An **ad-hoc** harvest (one feature, invoked directly) is a **sub-issue** of the parent workstream (GitHub's native sub-issue relationship), not a status value on the parent — it has its own branch, PR, and review loop, so it needs its own row. The **batched** harvest at `/maintenance` gets no sub-issue: it rides the maintenance docs PR, and its tracking is the harvest-notes comments already on each feature's issue ([`documentation-workflow.md`](documentation-workflow.md)) |
 
 **Phase ownership rides the same trigger points**, with no new maintainer:
 

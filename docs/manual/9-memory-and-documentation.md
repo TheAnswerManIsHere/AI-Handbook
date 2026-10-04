@@ -295,11 +295,13 @@ nothing about it ships to a product.
 - **A sweep's "swept" clearance is weaker than a full read.** Readers declare
   which mode they used so that weakness is visible, but a file only swept can
   still hide a statement that uses none of the expected vocabulary.
-- **There is no index file for memory notes in the payload.** The
-  documentation contract describes an index entry alongside each new memory
-  note, but the payload's memory folder carries no such index, and only some
-  notes open with a name-and-description header. **Needs David
-  confirmation** on whether an index is meant to exist.
+- **The memory-note index is each product's, not the payload's.** The
+  documentation contract asks for an index line beside each new note, and
+  that index lives in each product's `.agents/memory/MEMORY.md`, because it
+  lists the product's own notes beside the fleet's. So a fleet note the sync
+  delivers gets its index line added by hand in that sync's pull request
+  ([`docs/consuming-repos.md`](../consuming-repos.md)). Only some notes open
+  with a name-and-description header.
 
 ## Going deeper
 

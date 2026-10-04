@@ -15,7 +15,7 @@ where "everything" is every session working in **this** repository, never
 the other repositories in the fleet.
 
 David runs ~10 concurrent sessions across Discovery → Planning →
-🛑 Plan approval → Coding → Code review → 🛑 Merge → Test run →
+🛑 Plan approval → Coding → Code review → Merge → Test run →
 🛑 UAT → Close-out — or, for a feature he has declared prototype phase,
 Discovery → Planning → 🛑 Plan approval for its first version, then Coding →
 🛑 his feedback → Coding, with no code review and no UAT
@@ -490,5 +490,5 @@ so completeness matters more than brevity here.
 ## Model tier
 
 Ops-shaped, checkable output, no product surface → **Sonnet**, per
-CLAUDE.md's tier table. If invoked on a higher tier, no need to flag it —
+`CLAUDE.md`'s *Model, cost, and routing* (mechanical work routes down). If invoked on a higher tier, no need to flag it —
 this isn't the kind of task where a mismatch matters.

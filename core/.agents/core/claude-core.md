@@ -249,10 +249,11 @@ thing claimed is mine, and not how long checking it would take (David,
 - **A fix I claim is a fix I re-read.** Asserting that an edit applied,
   without reading the file back, is the same failure one level down.
 
-The vocabulary is the planning contract's — *verified* and *unable to
-verify*, in its evidence section — never a parallel one. (It used to be the
-plan-review schema's fields; the schema went with the verdict-driven design on
-2026-09-18 and the contract kept both terms.) **There is no checker for this, and
+The vocabulary is these two terms, *verified* and *unable to verify*, and
+never a parallel one. (They were the plan-review schema's fields until the
+schema went with the verdict-driven design on 2026-09-18; this section is now
+their only statement — an earlier line here said the planning contract kept
+them, and it does not.) **There is no checker for this, and
 none is to be built** — the one named exception to *Recurring failure
 patterns become CI guards* under *Standing rituals*: the rule adds a word
 where the honest answer is "I could not check" and a quotation where I did,
