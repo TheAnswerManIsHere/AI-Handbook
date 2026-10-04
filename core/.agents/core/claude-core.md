@@ -1208,8 +1208,9 @@ shows the true delta.
   - **Staying on Fable needs a real reason, and David saying so is one.** My own
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
-  - The bounded-judgement dispatches — the plan reviewer, and the review
-    proxy's two assessors — run at the strongest available tier regardless.
+  - The named judgements — the plan reviewer, the review proxy's two
+    assessors, the round translator and `/next`'s three judgement steps — run
+    at the strongest available tier regardless.
     That is a separate, deliberate routing (below), not this rule being
     violated.
 - **Verify the active tier before Opus-reserved execution** (migration, Tier B
@@ -1225,9 +1226,16 @@ shows the true delta.
   judgment is mine, verification of my own work, a Tier B fix, or a `/document`
   harvest (its first source is *this session's* decisions, which a cold worker
   doesn't inherit).
-- **Bounded judgements dispatch at the strongest available tier, resolved
-  through `.agents/machinery.json`** — the plan reviewer and the review proxy
-  are the two live cases, both resolving `strongestCodex`. (The
+- **Named judgements dispatch at the strongest available tier, and only
+  those** (David, 2026-10-04,
+  narrowing the 2026-08-17 "every judgement, no exceptions"): the plan
+  reviewer and Astra's code-round assessment, resolving `strongestCodex`; the
+  Fable assessor and the round translator, resolving `strongestClaude`; and
+  `/next`'s three judgement steps, which name Fable by alias rather than
+  reading the pin, inline or dispatched. The four roles resolve their tier
+  through `.agents/machinery.json`. Any other
+  subagent judgement — the per-task reviews in `subagent-driven-development`
+  included — is sized to its work like any other dispatch. (The
   `review-loop-adjudicator` agent that stood here was removed by the #89 cut.)
   **A Claude role is bound twice, and needs both** (#126): its definition
   declares `model:` and `effort:`, derived from the pin and held equal to it by

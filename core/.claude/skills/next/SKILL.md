@@ -54,7 +54,9 @@ worth a look." "What's next" means next *here*.
 ## Model tier — mechanical steps anywhere, judgment on Fable
 
 Steps 1–3 are mechanical (fetch, filter, sort by a stated rule) and run at
-any tier. **Three things are judgment and run on Fable 5:**
+any tier. **Three things are judgment and run on Fable 5** — they are on the
+core's list of named strongest-tier judgements (`claude-core.md`, *Model,
+cost, and routing*), which is what keeps them there:
 
 1. The **severe-bug preemption** call (step 3's override).
 2. **Parallel-lane independence** where it isn't mechanically decidable.

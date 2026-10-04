@@ -121,12 +121,13 @@ Use the least powerful model that can handle each role to conserve cost and incr
 
 **Architecture and design tasks**: use Opus — they write code, and building
 never goes above Opus (the fleet ceiling, below). The final whole-branch
-review is different: it is a review, so dispatch it on the most capable
-available model, not the session default.
+review is a review, so the ceiling does not bind it; it is sized like the
+others, below — usually the largest diff this skill reviews.
 
 **Review tasks**: choose the model with the same judgment, scaled to the
-diff's size, complexity, and risk. A small mechanical diff does not need the
-most capable model; a subtle concurrency change does.
+diff's size, complexity, and risk (David, 2026-10-04: these are not among the
+core's named strongest-tier judgements). A small mechanical diff does not need
+the most capable model; a subtle concurrency change does.
 
 **Always specify the model explicitly when dispatching a subagent.** An
 omitted model inherits your session's model — often the most capable and
@@ -151,9 +152,9 @@ that writes code — an implementer, or a re-dispatch of a stuck one — means
 Opus — architecture and design tasks included, since in this skill they are
 plan tasks that write code. Opus is a ceiling, not a floor: the cheaper tiers
 above still take mechanical work (David, 2026-10-04). Only work that does not
-write code — reviews, and design or diagnosis handed off as such (see
-`model-routing`, *Reaching Fable 5 without a session switch*) — may use the
-strongest tier. The rule's home is `claude-core.md`,
+write code may go above Opus — a review whose diff earns it, sized as above,
+and design or diagnosis handed off as such (see `model-routing`, *Reaching
+Fable 5 without a session switch*). The rule's home is `claude-core.md`,
 *Model, cost, and routing*.
 
 ## Handling Implementer Status

@@ -3,8 +3,8 @@
 > Which model does which piece of work, how hard it thinks, and what that
 > costs. Three ideas carry the whole chapter: **the session's model follows
 > the kind of work** (a thinking model to explore, a building model to build);
-> **every dispatched judgement runs at the strongest tier available**, named in
-> one file; and **bounded, stateless chores go down to a cheaper model while
+> **a named set of handed-off judgements runs at the strongest tier
+> available**, pinned in one file; and **bounded, stateless chores go down to a cheaper model while
 > anything stateful or judgement-dense stays in the main loop.** Over all of
 > it sits one cost rule: a review round has a price, and it is stated before
 > the round runs.
@@ -28,8 +28,9 @@ So this part of the handbook answers four questions:
 
 1. **Which model is the session itself on?** That depends on whether the work
    is thinking or building.
-2. **Which model runs a judgement that is handed off?** Always the strongest
-   available, from one pinned place.
+2. **Which model runs a judgement that is handed off?** For the named ones,
+   the strongest available, from one pinned place; any other is sized to its
+   work.
 3. **What work may be handed down to a cheaper model, and what never may?**
    The dividing line is state, not difficulty.
 4. **What does a review loop cost, and who sees the bill?** Claude states it,
@@ -83,11 +84,11 @@ Effort can also be set per
 session-level dial Claude asks David to move is the model, at the build
 boundary; effort is not something Claude asks him to type.
 
-### Judgements that are handed off run at the strongest tier
+### The named judgements run at the strongest tier
 
 Some judgements are deliberately given to a reader that did not produce the
-work being judged. Today there are two live cases, and both run at the
-strongest tier available:
+work being judged. A short, named list of them runs at the strongest tier
+available — the list lives in the core, and these are what it covers today:
 
 - **The plan reviewer** — Astra, in the [plan review
   loop](./glossary.md#plan-review-loop) (chapter 4).
@@ -96,6 +97,13 @@ strongest tier available:
   Codex's findings (chapter 6). The [round
   translation](./glossary.md#round-translation) that explains a round to David
   runs on the same Claude tier.
+- **`/next`'s judgement steps** — whether a severe bug preempts the queue,
+  whether two lanes are truly independent, and what to build when the queue is
+  empty (chapter 10).
+
+Other handed-off judgements — the reviews inside the build skill's per-task
+loop, for instance — are sized to the diff like any other subagent (David,
+2026-10-04, narrowing an earlier "every judgement, no exceptions").
 
 **"Strongest" is named in exactly one place**: the [machinery
 pin](./glossary.md#machinery-pin), a small configuration file
@@ -203,13 +211,16 @@ whole mechanism.
   Putting the boundary on Claude to *name* is what makes it survive a long
   conversation — the turn to building is visible to Claude and easy for a PM
   mid-thought to miss.
-- **One tier for every handed-off judgement removes a question nobody should
-  answer.** An earlier design sent some judgements to Opus and others to
-  Fable, sorted by how consequential they looked. That sorting was itself a
-  self-assessment by the context whose conclusions were being checked. Routing
-  every dispatched judgement to the strongest tier removes the question, and
-  it is cheap: the judgement moments are a small fraction of a loop's tokens
-  and carry nearly all of its consequence.
+- **A named list, not a judgement at the dispatch site.** An earlier design
+  sent some judgements to Opus and others to Fable, sorted by how
+  consequential they looked — a self-assessment by the context whose
+  conclusions were being checked. The fix was to take the question away from
+  the dispatch site: first by sending every judgement to the strongest tier,
+  and since 2026-10-04 by naming which ones go there. A name is still decided
+  once, in the core, rather than in the moment. The named ones are cheap: they
+  are a small fraction of a loop's tokens and carry nearly all of its
+  consequence. A per-task review inside a build is sized like the code it
+  reads, which is what David chose to keep.
 - **Independence and strength are two different properties.** The point of
   handing a judgement off was always a reader that did not produce the
   conclusion; the strongest model adds a second property on top. Neither
@@ -223,8 +234,8 @@ whole mechanism.
   was the design failing while reporting success. A check now holds the
   declarations to the pin, because an instruction that has to be remembered
   is one the repository has watched fail.
-- **The pin is a tier, not a version,** so the instruction "for judgements,
-  use the strongest possible model" survives the next model release as a
+- **The pin is a tier, not a version,** so for the four roles that read it
+  the instruction "use the strongest possible model" survives the next model release as a
   one-line edit.
 - **Disclosed rather than observed, by David's choice.** Reading the serving
   model independently is possible; David ruled it not worth building, since
@@ -269,8 +280,9 @@ whole mechanism.
   change to the handbook's pin does not reach an already-enrolled product
   (see [`docs/consuming-repos.md`](../consuming-repos.md)).
 - **The advisor tool** — a stronger model Claude consults at decision points —
-  could not be configured with Fable when the routing skill last recorded it.
-  **Needs David confirmation** whether that is still true.
+  accepts Fable (measured 2026-10-04), but nothing in the process uses it:
+  setting it is David's, like the session's model, and the named judgements
+  run as dispatched subagents instead.
 
 ## Going deeper
 

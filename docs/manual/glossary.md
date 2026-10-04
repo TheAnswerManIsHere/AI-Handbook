@@ -195,8 +195,8 @@ whose report it reads back. Some subagents are fixed roles with an
 [agent definition](#agent-definition) (the assessors); others are ordinary
 delegations of stateless work to a cheaper model. A judgement that is
 Claude's own — running a review loop, verifying its own work, a harvest — is
-never routed to one (bounded, independent judgements such as the assessments
-are dispatched deliberately, at the strongest tier), every dispatch is announced, and delegation is
+never routed to one (a named set of independent judgements, such as the
+assessments, is dispatched deliberately, at the strongest tier), every dispatch is announced, and delegation is
 capped.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
