@@ -30,7 +30,7 @@ phase, per feature*).
    net). This replaced the old `docs/tests/Replit/PR<N>_..._TEST_RUN.md`
    file (David, 2026-08-15): the checks are written **with the diff and
    reviewed with it** in the same Codex pass, instead of shipping as a
-   separate criticality-1 artifact with its own lifecycle.
+   separate near-zero-stakes artifact with its own lifecycle.
 
    **Content and shape are governed by
    [`test-run-contract.md`](../../../docs/tests/test-run-contract.md)** —

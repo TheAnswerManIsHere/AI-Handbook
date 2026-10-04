@@ -73,7 +73,8 @@ context. Process PRs get no harvest. This is distinct from a one-off
 "remember this" (immediate targeted persistence), which never waits for a
 batch.
 
-**Workstream tracking.** Every unit of work — feature, bugfix, doc harvest —
+**Workstream tracking.** Every unit of work — feature, bugfix, ad-hoc doc
+harvest (the batched harvest at `/maintenance` has none of its own) —
 has a GitHub issue as its spine, tracked on a private Project board and kept
 current via `stage:`/`waiting:`/`mode:` labels — with **two** exceptions.
 *Sensitive/disclosure-carve-out work* never becomes a public issue and is a
