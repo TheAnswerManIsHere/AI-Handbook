@@ -1120,7 +1120,7 @@ prototype phase, per feature*, above).
   the round. Measured: #125's two-sentence fix waited a week under exactly that
   reading. **Any changed head gets review before merge** — documentation-only
   changes and base-branch merges included — in the standard loop; a Trivial
-  change gets none, a Documentation batch merges unreviewed, and a
+  change gets none, a Documentation change's one batch of corrections merges without a second review, and a
   prototype-phase PR merges on green CI with the automatic pass read for
   nothing, by design (above). What is refused is a round requested
   merely to get a different answer on a head already reviewed as it stands.

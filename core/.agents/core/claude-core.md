@@ -759,7 +759,7 @@ in the file that every session loads.
    to buy the round — #125's two-sentence fix waited a week on exactly that.
    **Any changed head gets its review**, documentation-only changes and
    base-branch merges included — in the standard loop; a Trivial change gets
-   none, a Documentation batch merges unreviewed, and a prototype-phase PR
+   none, a Documentation change's one batch of corrections merges without a second review, and a prototype-phase PR
    merges on green CI, by design (*Two classes and a phase that leave the loop*, above). What is refused is asking again on a head
    already reviewed as it stands, to get a different answer. The mechanical
    round needs no exception now, because it was never the anomaly — the old
