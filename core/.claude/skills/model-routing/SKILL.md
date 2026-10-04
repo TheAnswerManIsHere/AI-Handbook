@@ -1,6 +1,6 @@
 ---
 name: model-routing
-description: Use when deciding or explaining a model/effort escalation beyond the tier table in CLAUDE.md, or when David asks whether a switch can be automated.
+description: Use when deciding or explaining a model/effort escalation beyond what CLAUDE.md's *Model, cost, and routing* states, or when David asks whether a switch can be automated.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -8,8 +8,10 @@ description: Use when deciding or explaining a model/effort escalation beyond th
 # Model and effort routing — the reference detail
 
 Migrated out of `CLAUDE.md` so it loads when a routing question is actually
-live. The task-shape tier table stays resident in `CLAUDE.md`, because it has
-to fire at task boundaries without being invoked.
+live. The routing rules themselves stay resident in `CLAUDE.md`'s *Model,
+cost, and routing*, because they have to fire at task boundaries without
+being invoked. (They were a task-shape tier table once; it is gone, and
+pointers to it are stale.)
 
 ### Fable to explore, Opus to build (David, 2026-08-28)
 
@@ -34,8 +36,8 @@ half of a session and the building half want different tiers, and putting the
 boundary on me to *name* is what makes it survive a long conversation, since
 the transition to building is visible to me and invisible to a PM mid-thought.
 
-Full rule, including the maintenance exemption: `CLAUDE.md`'s *Model, cost, and
-routing*.
+Full rule: `CLAUDE.md`'s *Model, cost, and routing*. The maintenance
+exemption (no switch ask for an ops pass) is the `maintenance` skill's own.
 
 ### Superseded — the session model is a constant, not a dial (David, 2026-08-15)
 
@@ -65,7 +67,8 @@ was "a real blocker." Both answers come from the same verified facts:
   exception: a session genuinely below Opus that reaches Opus-reserved
   *execution* (migration, Tier B fix, security review, dev-infra), where
   routing a judgement doesn't satisfy the reservation and I ask David to run
-  it from an Opus session (see `CLAUDE.md`'s tier guard). The `opusplan` default is
+  it from an Opus session (see `CLAUDE.md`'s *Verify the active tier before
+  Opus-reserved execution*). The `opusplan` default is
   retired along with its "mind the gap" caveat — that gap existed because plan
   mode was what put the session on Opus, and now nothing needs to.
 - **The `model` key is read once at session start.** A change to it lands on
@@ -125,7 +128,7 @@ is **state**, not difficulty:
 
 ### Effort is the second dial, and it CAN be persisted (corrected 2026-08-15)
 
-The tier table in `CLAUDE.md` is entirely about *which model*. `effort` is a separate
+`CLAUDE.md`'s routing rules are about *which model*. `effort` is a separate
 control for *how hard it thinks*, and it applies on Opus 5, Sonnet 5, and Fable
 5 alike: `low`, `medium`, `high`, `xhigh`, `max`, defaulting to `high`. David
 sets it with `/effort`; I can set it per-subagent via `effort` frontmatter, and
@@ -246,7 +249,7 @@ Two facts that decide how we use it today:
 - **`Sonnet main + Opus advisor` is retired — the configuration no longer
   exists (2026-08-15).** It used to be the live automation for the tier
   table's *Debugging new features* row: Sonnet handling routine work and
-  escalating hard moments without a switch. That row now keeps diagnosis in
+  escalating hard moments without a switch. Diagnosis now stays in
   the Opus main loop, and the session is never on Sonnet in the first
   place, so recommending `/advisor opus` would be both redundant (Opus
   advising Opus) and a user-operated configuration ask of exactly the kind

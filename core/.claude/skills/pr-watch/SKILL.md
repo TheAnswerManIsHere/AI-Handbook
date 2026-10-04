@@ -781,7 +781,9 @@ of this file, or one of David's display-only Replit tweaks, which carries no
 issue by design and is its own record (`agents-core.md`, *Workstream
 tracking*), so it has no labels to keep):
 
-- **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex`.
+- **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex` — or
+  `waiting:claude` on a Documentation-class PR, whose one pass is mine to
+  run and owes Codex nothing.
 - **Codex posts findings, I start responding** → `waiting:claude`.
 - **I post the next round's `@codex review` trigger** → `waiting:codex`.
 - **Intended behaviour or an accepted user-facing shortfall goes to David**

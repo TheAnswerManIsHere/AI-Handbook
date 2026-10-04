@@ -53,7 +53,11 @@ path in the consumer, minus the `core/` prefix. The only exception is a
 `*.template.*` file, which lands under its real name (`settings.template.json`
 → `.claude/settings.json`) and **only if the consumer does not already have
 one** — those two files are consumer-owned once they land, and overwriting them
-would clobber a repo's own permissions and identity.
+would clobber a repo's own permissions and identity. The one edit the sync
+makes to an existing seed is additive: it tops up `.agents/machinery.json`
+with any top-level key the template newly carries, never changing a value
+the consumer already holds — a key nested inside an existing block is not
+added, so a script that needs one must not rely on the top-up.
 
 **What the payload stops shipping, the sync takes back.** A file a consumer's
 git index tracks, whose own text carries the `SYNCED FROM AI-Handbook` header,

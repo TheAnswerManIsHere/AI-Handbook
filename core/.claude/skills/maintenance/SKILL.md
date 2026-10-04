@@ -19,7 +19,7 @@ Bounded, stateless pieces of the pass — a research sweep, a self-contained
 lookup — are eligible for a Sonnet subagent; the triage judgements are not.
 
 **The triage judgements are a standing dispatch BAR** under `CLAUDE.md`'s
-*Whether a judgement dispatches is fixed in advance* — they run in my main
+*Model, cost, and routing* (an unclassified judgement does not dispatch; a dispatch bar is a contract change) — they run in my main
 loop, settled, not pending classification.
 
 Two earlier versions of this line were both wrong, and the second is the
@@ -36,7 +36,7 @@ queue the main loop is already holding — which bump to merge, which error
 matters, which trigger has fired — not a bounded verdict on packageable
 material. Removing this bar is a contract change that ships in a PR.
 
-The deliverable is one concise report at the end covering the seven areas
+The deliverable is one concise report at the end covering the ten areas
 below. If an area has nothing to report, one line ("no open dependency
 PRs") — the discipline stays visible, the report stays short.
 
@@ -449,10 +449,11 @@ This is now a standalone maintenance-skill rule.)
   docs-only and zero behavior/dependency change, and both ship together in
   **one maintenance docs PR per pass** (internal by consequence and recoverability — a docs
   pass touching no approvals, publication, credentials or destructive machinery — so the
-  two-review limit in
-  [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
-  bounds it: the automatic pass, one batch of corrections
-  if any are warranted, a review of that head, then stop) — one PR for the whole pass, never one per
+  it is the Documentation review class in
+  [`working-modes.md`](../../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25):
+  one Astra and Fable pass, Codex's output not read, one batch of corrections
+  if any are warranted, then merge. Until 2026-09-25 it was the two-review
+  limit's Codex loop) — one PR for the whole pass, never one per
   harvested feature, per `documentation-workflow.md`'s batched delivery path. Neither is license to fix, refactor, or bump
   anything the backlog pass turns up — a fired trigger for a *major* bump
   (dependency or Action) still only ever becomes a reported decision item,
@@ -464,7 +465,7 @@ This is now a standalone maintenance-skill rule.)
 - **No scheduled self-wakeups — same conclusion, different reason as of
   2026-08-15.** This used to rest on the blanket no-background-check-ins
   rule. That rule is gone, replaced by the bounded contract in `CLAUDE.md`'s
-  *Scheduled self-check-ins* — and that contract doesn't authorize this
+  *Waiting, and scheduled check-ins* — and that contract doesn't authorize this
   either: a weekly ritual is a recurring heartbeat, not a wait on a named
   external state, and heartbeats are the one thing it still rules out. So
   David still invokes this manually. If he later opts into a scheduled weekly

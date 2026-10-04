@@ -211,8 +211,9 @@ the PR. Tier A is the exception, by design.
   tier there — but a genuinely **trivial database schema fix that David
   explicitly green-lights runs migration ceremony directly, without
   restarting anywhere** (see *When NOT to use this mode*), and that path is
-  **Opus, always** per the tier table's migrations row, never the Sonnet
-  triage tier it was diagnosed on.
+  **Opus, always** — a migration is Opus-reserved execution (`CLAUDE.md`'s
+  *Model, cost, and routing*) — never the Sonnet triage tier it was
+  diagnosed on.
 
 ## 3. Ship it — PR immediately, no waiting
 

@@ -249,10 +249,11 @@ thing claimed is mine, and not how long checking it would take (David,
 - **A fix I claim is a fix I re-read.** Asserting that an edit applied,
   without reading the file back, is the same failure one level down.
 
-The vocabulary is the planning contract's — *verified* and *unable to
-verify*, in its evidence section — never a parallel one. (It used to be the
-plan-review schema's fields; the schema went with the verdict-driven design on
-2026-09-18 and the contract kept both terms.) **There is no checker for this, and
+The vocabulary is these two terms, *verified* and *unable to verify*, and
+never a parallel one. (They were the plan-review schema's fields until the
+schema went with the verdict-driven design on 2026-09-18; this section is now
+their only statement — an earlier line here said the planning contract kept
+them, and it does not.) **There is no checker for this, and
 none is to be built** — the one named exception to *Recurring failure
 patterns become CI guards* under *Standing rituals*: the rule adds a word
 where the honest answer is "I could not check" and a quotation where I did,
@@ -599,8 +600,11 @@ accounting.
 
 ### Internal tooling: what is downstream
 
-Guards, `scripts/`, skills, this file, `docs/ai-context/` contracts, process
-docs and harvests run the loop above with the **`internal` tier** — **by
+Guards, `scripts/`, and the rest of the internal tooling the Documentation
+class does not take (above — prose such as skills, contracts and harvests
+takes that class unless it is on the list of changes that class does not
+cover, which is `working-modes.md`'s) run
+the loop above with the **`internal` tier** — **by
 default, and the default is not the answer**. Before the first round, I ask
 what is downstream of *this* change: **a change to machinery that governs
 approvals, publication, credentials or destructive operations is weighed on
@@ -1026,9 +1030,11 @@ guardrail-and-authority carve-out: the click was never once withheld and cost
 a round trip every time, the safety net is his working beside me and noticing,
 and everything here is reversible). A change to `.claude/settings.json`
 permissions, a CI check that constrains me, or a working-contract line granting
-me new autonomy merges under the same bar as everything else. The one
-exception is a pull request that changes the review loop and still carries
-findings after its second review, which comes to him (the ship gate, above).
+me new autonomy merges under the same bar as everything else. Where a merge
+does wait on him, a rule above says so — among them a pull request that changes the review
+loop and still carries findings after its second review (the ship gate), a
+Trivial PR whose automatic Codex pass posts a P1, and a corrected head still
+short of what was agreed (the write-gate rule).
 **What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
 change grants me, so a widening is read rather than clicked. Unaffected: the

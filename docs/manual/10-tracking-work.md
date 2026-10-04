@@ -24,8 +24,9 @@ cannot hold their state in his head. He has said so, and asked the system not
 to rely on his memory. This area solves that with GitHub's own project
 management rather than a bespoke tracker:
 
-- **One issue per workstream** — every feature, bug fix or documentation
-  [harvest](./glossary.md#harvest) that is underway has exactly one issue, and
+- **One issue per workstream** — every feature, bug fix or ad-hoc documentation
+  [harvest](./glossary.md#harvest) that is underway has exactly one issue (the
+  batched harvest at the maintenance pass has none of its own), and
   every pull request for it names that issue in its body. The one kind of pull
   request with no issue of its own is one of David's display-only Replit
   tweaks: its pull request is its own record.
@@ -111,9 +112,10 @@ The board itself is fed by a GitHub Action that mirrors labels onto the
 board's fields on every label change, using the [payload](./glossary.md#payload)'s
 `core/scripts/sync-project-fields.mjs`. It resolves the board's columns by
 normalised name rather than exact spelling, and fails loudly on anything it
-cannot map. **Needs David confirmation:** whether the Action's workflow file
-is supplied to each product by the handbook or set up by hand — the contract
-names it, but no workflow file for it ships in the payload.
+cannot map. The workflow file itself is each product's own — its board and
+the token that writes to it are per product — so the handbook ships the
+script and lists the workflow among the documents a product must supply
+([`docs/consuming-repos.md`](../consuming-repos.md)).
 
 ### Large features: one parent, one sub-issue per phase
 

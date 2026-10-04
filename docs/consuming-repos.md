@@ -135,6 +135,8 @@ destination.
 | `docs/ai-context/product-direction.md` | Product truth by definition. **The path is a default, not a route** — see below |
 | `docs/ai-context/overlay-declarations.md` | **The answers the shared rules dereference** — sensitive subsystems, and which of this repo's modules play the roles those rules name. Both overlays route to it; see enrollment step 1 and the list below |
 | `docs/ai-context/current-roadmap.md` | Same, and per-product. **The path is a default, not a route** — see below |
+| `.agents/memory/MEMORY.md` | The one-line index of the repo's memory notes, which [`documentation-workflow.md`](../core/docs/ai-context/documentation-workflow.md) Step 2 requires every new note to join. It indexes the repo's own notes beside the fleet's, so it cannot be overwritten by a sync — and so a fleet note a sync delivers gets its index line added in that sync's pull request, by hand |
+| `.github/workflows/project-sync.yml` | The Action that mirrors workstream labels onto the repo's private Project board, running the shipped `scripts/sync-project-fields.mjs` ([`workstream-tracking.md`](../core/docs/ai-context/workstream-tracking.md)). The board, and the token that writes to it, are the repo's |
 | `.mcp.json` | The repo's MCP server declarations. Consumer-owned because a sync that overwrote it would delete the servers this repo declares beyond Firecrawl |
 
 A consumer needs these before or alongside its first sync. They may be started

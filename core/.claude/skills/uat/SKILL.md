@@ -442,4 +442,6 @@ The walkthrough is conversational and cheap; the judgement calls in it are
 not. Severity reads, the is-this-a-bug-or-a-design-change split, and the
 bug intake all happen in **my main loop** — never routed to a subagent,
 which would be a cold worker guessing at a session it didn't sit through.
-No tier switch, no ask; the session is Opus.
+No tier switch and no ask: a walkthrough is not building, so it runs on
+whatever the session is (`CLAUDE.md`'s *Model, cost, and routing* asks for
+Opus only before product code).

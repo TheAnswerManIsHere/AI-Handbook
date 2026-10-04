@@ -125,8 +125,8 @@ full view by naming it in a discussion — **settled is not closed**.
 
 Unchanged, and still the thing that authorizes the loop to run autonomously: the
 direction served, this increment's product intent, must-not-change, settled
-decisions, the now/next/never calls already made, the ceremony tier and the
-1–100 criticality, as a 🛑 NEED YOU banner with its push notification. See
+decisions, the now/next/never calls already made and the ceremony tier, as a
+🛑 NEED YOU banner with its push notification. See
 [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-scope-of-work-gate-david-2026-08-15).
 For a prototype's version the banner carries the short plan's four items —
 the design question, the hypothesis, the surface, what it leaves out — in

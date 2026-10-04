@@ -97,10 +97,10 @@ Decide by what "this" refers to (contract's trigger table):
   scope — prose style, structure preferences, completeness beyond the
   session's actual learnings.* Out-of-scope findings are declined against
   the stated oracle — a harvest is internal by consequence when it touches no
-  approvals, publication, credentials or destructive machinery, and a Type 1
-  harvest that edits a contract governing those is weighed on its consequence
-  and recoverability like any other such change, which keeps it in the
-  standard loop. Otherwise it is the **Documentation review class**
+  approvals, publication, credentials or destructive machinery. A harvest
+  that is one of the changes the Documentation class does not cover (that
+  list is `working-modes.md`'s, *Two classes outside the review loop*) stays
+  in the standard loop. Otherwise it is the **Documentation review class**
   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)): that oracle is what the pass reads the change against, one batch of
   corrections follows, and the change merges. Once the ready bar is met I self-merge per CLAUDE.md's
   close-out contract. I only
@@ -120,7 +120,8 @@ Decide by what "this" refers to (contract's trigger table):
 - **Manual is scaffolded, not backfilled here** — I create/update only the
   chapter for the area this feature touched, and only if it clears the quality
   bar. The one-time backfill of all existing areas is separate deferred work.
-- **The harvest is its own tracked workstream** — a shared-contract
+- **An ad-hoc harvest is its own tracked workstream** (the batched one, above,
+  is not) — a shared-contract
   requirement (`documentation-workflow.md`'s *The harvest itself is a
   tracked workstream*), not Claude-specific, so I don't restate the *why*
   or the disclosure/parentless branching here. My tooling specifics:

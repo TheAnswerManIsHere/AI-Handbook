@@ -112,5 +112,6 @@ stages are named.
 
 ## Model tier
 
-Ops-shaped, checkable, no product surface → **Sonnet**. No need to flag a
+Ops-shaped, checkable, no product surface → **Sonnet**, per `CLAUDE.md`'s
+*Model, cost, and routing* (mechanical work routes down). No need to flag a
 mismatch if invoked higher.

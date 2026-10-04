@@ -59,8 +59,8 @@ any tier. **Three things are judgment and run on Fable 5:**
 1. The **severe-bug preemption** call (step 3's override).
 2. **Parallel-lane independence** where it isn't mechanically decidable.
 3. The **empty-queue feature recommendation** (step 5) — always, without
-   exception. This is product-direction reasoning, the row the tier table
-   marks Opus-or-above precisely because a wrong call here is uncatchable.
+   exception. This is product-direction reasoning — judgement, not building —
+   and it runs on Fable precisely because a wrong call here is uncatchable.
 
 **If the session is already on Fable, do them inline. Otherwise dispatch a
 Fable subagent for those steps only** — per the `model-routing` skill's
@@ -264,7 +264,7 @@ sessions**. Two candidates are independent only if **all** hold:
    `Artifacts` fields and the roadmap's subsystem grouping; this is the
    judgment component — route it to Fable when it isn't obvious).
 4. **Neither is a migration.** Migrations serialize against everything —
-   the sharpest edge in the tier table, and not worth the concurrency.
+   the sharpest edge in the fleet, and not worth the concurrency.
 5. **They are not two branch-regime prototypes of one product.** One
    prototype environment per product, the registry naming the branch it
    tracks; the second waits for it (the ladder paragraph above, and the
