@@ -152,9 +152,9 @@ that writes code — an implementer, or a re-dispatch of a stuck one — means
 Opus — architecture and design tasks included, since in this skill they are
 plan tasks that write code. Opus is a ceiling, not a floor: the cheaper tiers
 above still take mechanical work (David, 2026-10-04). Only work that does not
-write code — reviews, and design or diagnosis handed off as such (see
-`model-routing`, *Reaching Fable 5 without a session switch*) — may use the
-strongest tier. The rule's home is `claude-core.md`,
+write code may go above Opus — a review whose diff earns it, sized as above,
+and design or diagnosis handed off as such (see `model-routing`, *Reaching
+Fable 5 without a session switch*). The rule's home is `claude-core.md`,
 *Model, cost, and routing*.
 
 ## Handling Implementer Status
