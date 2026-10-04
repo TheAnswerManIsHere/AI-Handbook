@@ -331,11 +331,11 @@ ceremony, not just Claude's enactment of it:
    issue) just created — never the parent, which is typically already well
    past this harvest's own stage.
 5. **Now subscribe, mark the PR ready, and run its review.** A harvest is
-   the Documentation class — one Astra and Fable pass, no Codex
-   ([`working-modes.md`](./working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25))
-   — unless it edits a contract governing approvals, publication,
-   credentials or destructive operations, which keeps it in the standard
-   loop. Subscribing only now, not at step 1, is what actually defers
+   the Documentation class — one Astra and Fable pass, no Codex — unless it
+   is one of the changes that class does not cover, which stay in the
+   standard loop; that list is
+   [`working-modes.md`](./working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)'s
+   alone, and is not restated here. Subscribing only now, not at step 1, is what actually defers
    labeling — draft status alone does not.
 6. From there the harvest is watched exactly like any other PR — the
    normal review-loop skill/process for that agent owns the label

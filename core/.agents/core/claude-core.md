@@ -602,7 +602,8 @@ accounting.
 
 Guards, `scripts/`, and the rest of the internal tooling the Documentation
 class does not take (above — prose such as skills, contracts and harvests
-takes that class unless it grants me latitude or changes the review loop) run
+takes that class unless it is on the list of changes that class does not
+cover, which is `working-modes.md`'s) run
 the loop above with the **`internal` tier** — **by
 default, and the default is not the answer**. Before the first round, I ask
 what is downstream of *this* change: **a change to machinery that governs
@@ -1030,7 +1031,7 @@ a round trip every time, the safety net is his working beside me and noticing,
 and everything here is reversible). A change to `.claude/settings.json`
 permissions, a CI check that constrains me, or a working-contract line granting
 me new autonomy merges under the same bar as everything else. Where a merge
-does wait on him, a rule above says so: a pull request that changes the review
+does wait on him, a rule above says so — among them a pull request that changes the review
 loop and still carries findings after its second review (the ship gate), a
 Trivial PR whose automatic Codex pass posts a P1, and a corrected head still
 short of what was agreed (the write-gate rule).

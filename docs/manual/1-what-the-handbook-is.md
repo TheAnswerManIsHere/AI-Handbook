@@ -152,9 +152,8 @@ merge.
 
 The products that take the handbook are the fleet.
 [`AGENTS.md`](../../AGENTS.md) names two consumers as of its writing,
-Overhype.me and DojoOS. Whether the first real sync into each has already been
-run, or enrollment is still in progress, is not recorded in a form this
-chapter could check — **Needs David confirmation**.
+Overhype.me and DojoOS. Both have been synced: on 2026-10-04 Overhype.me's
+`main` carried 154 files with the sync banner and DojoOS's 191.
 
 Enrolling a product is a short ordered procedure in
 [`docs/consuming-repos.md`](../consuming-repos.md): write the overlay first,
