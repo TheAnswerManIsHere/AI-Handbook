@@ -247,7 +247,11 @@ from prose several lines later, or match an example inside a quoted plan.
   public and anyone can open an issue, but outside accounts cannot apply
   labels — so an issue with no `stage:` and no `queue:` label is not part
   of this system and its markers are ignored. Same trust posture
-  `/status-all` applies to PR bodies.
+  `/status-all` applies to PR bodies. **That holds only because an
+  outsider's issue is adopted by the owner filing their own issue, never by
+  labelling the outsider's**: a label leaves the author able to rewrite the
+  text, and `/maintenance` reads a labelled issue's body only when the owner
+  wrote it (its step 9).
 
 ## When UAT finds a bug: the descent stack
 
