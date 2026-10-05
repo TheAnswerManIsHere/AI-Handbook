@@ -73,8 +73,8 @@ Decide by what "this" refers to (contract's trigger table):
     workstream issue. Internal **by consequence and recoverability** — a docs
     harvest that touches no approvals, publication, credentials or
     destructive machinery — so it is the **Documentation review class**
-    ([`working-modes.md`](../../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)): one Astra and Fable pass over the change, Codex's output not read,
-    one coherent batch of corrections if any are warranted, merge. (Until
+    ([`working-modes.md`](../../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)): one Astra and Fable pass over the change, Codex's automatic pass as
+    one input, one coherent batch of corrections if any are warranted, merge. (Until
     2026-09-25 this path was the two-review limit's Codex loop.) Everything below this bullet describes the AD-HOC path's
     **delivery mechanics** only; the termination rule above is common to both.
   - **Ad-hoc standalone invocation** (David asks for one feature directly):

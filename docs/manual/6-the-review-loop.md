@@ -304,10 +304,12 @@ Not every pull request runs this loop. A change David declares
 [Trivial](./glossary.md#trivial) merges on green CI unless Codex's automatic
 pass raises a P1-severity finding, which holds the merge and goes to David; a
 [Documentation class](./glossary.md#documentation-class) change gets one pass
-from the two assessors and no Codex review; and a [prototype-phase](./glossary.md#prototype-phase) feature gets
-no code-review loop at all. Chapter 3 explains each. On a Trivial or
-Documentation change Codex's threads are still resolved, each with one line,
-because the ruleset requires it.
+from the two assessors, who also weigh Codex's automatic first pass as one
+input, and no Codex review round; and a [prototype-phase](./glossary.md#prototype-phase) feature gets
+no code-review loop at all. Chapter 3 explains each. On a Trivial change
+Codex's threads are resolved with one line each, because the ruleset requires
+it; on a Documentation change each gets a real answer — fixed, or declined
+with the reason — like any finding.
 
 ## Why it works this way
 

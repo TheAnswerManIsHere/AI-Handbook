@@ -252,7 +252,8 @@ separation aids review). Placement:
   credentials or destructive machinery — so it is the **Documentation review
   class**
   ([`working-modes.md`](working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)):
-  one Astra and Fable pass over the change, Codex's output not read, one
+  one Astra and Fable pass over the change, with Codex's automatic pass as one
+  input, one
   coherent batch of corrections if any are warranted, then merge, with the
   merge report saying what the batch changed. (Until 2026-09-25 this was the
   two-review limit's loop: the Codex pass, a batch, a review of the corrected
@@ -318,8 +319,8 @@ ceremony, not just Claude's enactment of it:
    feature is simply pre-tracking legacy work; check why the parent is
    missing before defaulting to the public path.
 3. For everything else: open the sub-issue, parented to the feature's
-   workstream issue if one exists (`stage:code-review`, `waiting:claude` —
-   the Documentation-class pass is one Claude runs, not a Codex round —
+   workstream issue if one exists (`stage:code-review`, `waiting:claude` while
+   the draft is Claude's to finish; from step 5, `pr-watch`'s labels apply —
    `mode:docs`, its own State of Play block). **If the feature never got
    its own workstream issue** for a genuinely legacy reason (a `/document`
    run against pre-this-system work, not a disclosure carve-out) — open the
@@ -331,7 +332,8 @@ ceremony, not just Claude's enactment of it:
    issue) just created — never the parent, which is typically already well
    past this harvest's own stage.
 5. **Now subscribe, mark the PR ready, and run its review.** A harvest is
-   the Documentation class — one Astra and Fable pass, no Codex — unless it
+   the Documentation class — one Astra and Fable pass, Codex's automatic
+   pass as one input — unless it
    is one of the changes that class does not cover, which stay in the
    standard loop; that list is
    [`working-modes.md`](./working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)'s

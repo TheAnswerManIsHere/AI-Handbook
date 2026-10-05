@@ -448,11 +448,11 @@ This is now a standalone maintenance-skill rule.)
   (step 4) — recording a newly-parked item or updating an entry's status —
   and the batched documentation harvest (step 6a). Both are
   docs-only and zero behavior/dependency change, and both ship together in
-  **one maintenance docs PR per pass** (internal by consequence and recoverability — a docs
-  pass touching no approvals, publication, credentials or destructive machinery — so the
-  it is the Documentation review class in
+  **one maintenance docs PR per pass** (a docs pass touching no approvals,
+  publication, credentials or destructive machinery, so it is the Documentation
+  review class in
   [`working-modes.md`](../../../docs/ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25):
-  one Astra and Fable pass, Codex's output not read, one batch of corrections
+  one Astra and Fable pass, Codex's automatic pass as one input, one batch of corrections
   if any are warranted, then merge. Until 2026-09-25 it was the two-review
   limit's Codex loop) — one PR for the whole pass, never one per
   harvested feature, per `documentation-workflow.md`'s batched delivery path. Neither is license to fix, refactor, or bump
