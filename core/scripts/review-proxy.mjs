@@ -1049,7 +1049,11 @@ export function main(
   // reports Completed, and its result arrives one of two ways: its findings,
   // as --findings-file, or --codex-clean when it came back with none. A pass
   // given neither is refused, so a review that never returned cannot reach the
-  // assessors -- or the posted header -- dressed as a clean one.
+  // assessors -- or the posted header -- dressed as a clean one. So is a
+  // findings file holding no findings (Codex `4179811296`, #184 round 2): an
+  // empty collection says nothing about whether Codex returned -- a pass not
+  // yet back and a collection that missed its threads both produce one -- and
+  // the clean case already has its own explicit flag.
   if (documentation && !followUp) {
     if (flags.findingsFile && flags.codexClean) {
       log(`review-proxy: --findings-file and --codex-clean contradict each other; Codex's automatic pass either returned findings or came back clean\n\n${USAGE}`);
@@ -1062,6 +1066,23 @@ export function main(
           `returned is not a clean one\n\n${USAGE}`,
       );
       return 2;
+    }
+    if (flags.findingsFile) {
+      let parsed;
+      try {
+        parsed = JSON.parse(fs.readFileSync(flags.findingsFile, "utf8"));
+      } catch (err) {
+        log(`review-proxy: cannot read --findings-file ${flags.findingsFile}: ${err.message}`);
+        return 2;
+      }
+      if (Array.isArray(parsed) && parsed.length === 0) {
+        log(
+          "review-proxy: --findings-file holds no findings, which states nothing about whether Codex's automatic pass " +
+            "returned. A pass that reported Completed with none is --codex-clean, with the file dropped; otherwise " +
+            `wait for it, or collect its findings again\n\n${USAGE}`,
+        );
+        return 2;
+      }
     }
   } else if (flags.codexClean) {
     log(`review-proxy: --codex-clean belongs to a documentation pass\n\n${USAGE}`);
@@ -1126,7 +1147,9 @@ export function main(
       // asymmetry as `--commit`, where the render path accepted less than the
       // dispatch path requires. Every round dispatched here has at least one
       // finding (`assessmentBrief` refuses otherwise), so an empty list is
-      // always a missing flag and never a quiet round. Uniform on the
+      // always a missing flag and never a quiet round -- outside a
+      // documentation pass, whose clean case is stated by --codex-clean and
+      // checked above. Uniform on the
       // failed-dispatch shape too: the operator composed the package from the
       // same file minutes earlier. (Codex `4051974432`; both assessors said to
       // put the refusal in the script rather than only in the recipe.)
@@ -1282,7 +1305,7 @@ export function main(
         reason: `the reviewer process exited ${result.status ?? "(no status)"}${result.signal ? ` on signal ${result.signal}` : ""}`,
       };
   process.stdout.write(
-    `${prComment(read, { reviewedCommit: flags.commit, findingIds, requested: result.reviewer, documentationBase })}\n`,
+    `${prComment(read, { reviewedCommit: flags.commit, findingIds, requested: result.reviewer, documentationBase, codexClean: Boolean(flags.codexClean) })}\n`,
   );
   return read.failed ? 1 : 0;
 }

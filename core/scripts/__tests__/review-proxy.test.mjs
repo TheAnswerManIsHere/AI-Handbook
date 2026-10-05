@@ -1315,6 +1315,53 @@ test("a documentation pass is refused unless Codex's automatic pass is stated, n
   assert.equal(main([...argv, "--findings-file", findingsFile, "--codex-clean", "--prompt-only"], opts), 2, "clean outside a documentation pass");
 });
 
+test("an empty findings file is refused on a documentation pass: the clean case has its own flag", () => {
+  // Codex `4179811296`, #184 round 2: a file holding [] passed the presence
+  // check and the package told both assessors Codex had come back clean -- the
+  // case round 1 meant to close, reached through a path its fix missed.
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-doc-"));
+  const oracle = path.join(dir, "o.md");
+  fs.writeFileSync(oracle, "ORACLE");
+  const empty = path.join(dir, "empty.json");
+  fs.writeFileSync(empty, "[]");
+  const argv = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle];
+  const logged = [];
+  const opts = { root, run: () => assert.fail("nothing may run"), git: docGit(), log: (m) => logged.push(m) };
+  assert.equal(main([...argv, "--documentation", "--findings-file", empty, "--prompt-only", "--source", "fable"], opts), 2, "compose");
+  assert.match(logged.join("\n"), /holds no findings, which states nothing about whether Codex's automatic pass returned/);
+  assert.equal(main([...argv, "--documentation", "--findings-file", empty], opts), 2, "dispatch");
+  assert.equal(
+    main(["--render", "--pr", String(PR), "--round", "1", "--commit", COMMIT, "--documentation", "--findings-file", empty], opts),
+    2,
+    "render",
+  );
+});
+
+test("the dispatch path names a clean Codex pass in Astra's header, as the render path does", () => {
+  // Codex `4179811301`, #184 round 2: only --render forwarded the flag, so on
+  // the default path Astra's posted header was silent where Fable's was not.
+  const root = tmpRoot();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "proxy-doc-"));
+  const oracle = path.join(dir, "o.md");
+  fs.writeFileSync(oracle, "ORACLE");
+  const argv = ["--pr", String(PR), "--round", "1", "--commit", COMMIT, "--tier", "internal", "--oracle-file", oracle, "--documentation", "--codex-clean"];
+  const run = (_bin, args) => {
+    if (args[0] === "login") return { status: 0, stdout: "Logged in using ChatGPT" };
+    fs.writeFileSync(args[args.indexOf("--output-last-message") + 1], "Oracle met at this head: yes\n\nNo concerns.");
+    return { status: 0 };
+  };
+  let printed = "";
+  const stdout = process.stdout.write;
+  process.stdout.write = (chunk) => ((printed += chunk), true);
+  try {
+    assert.equal(main(argv, { root, run, git: docGit(), log: () => {} }), 0);
+  } finally {
+    process.stdout.write = stdout;
+  }
+  assert.ok(printed.includes("Codex's automatic pass: clean"), printed);
+});
+
 test("a documentation assessment that weighed Codex's findings names them in its header", () => {
   const root = tmpRoot();
   fs.writeFileSync(prepareAssessmentPath(root, PR, 1, { source: "astra" }), "Oracle met at this head: yes\n\nNo concerns.");
