@@ -170,9 +170,10 @@ style nit.
 
 ### Documentation-only PRs get a light review (David, 2026-08-08)
 
-**Most documentation PRs no longer get a Codex review at all.** Since
+**Most documentation PRs no longer get a Codex review round.** Since
 2026-09-25 they are the **Documentation class**: one Astra and Fable pass over
-the change, Codex's output not read, one batch, merge ([`working-modes.md`](../ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25), the rule's
+the change, with Codex's automatic pass on PR-open as one input to it (since
+2026-10-04), one batch, merge ([`working-modes.md`](../ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25), the rule's
 home). What follows is the bar for a docs-only PR that stays in the standard
 loop — one that changes the review loop or an agent's latitude.
 

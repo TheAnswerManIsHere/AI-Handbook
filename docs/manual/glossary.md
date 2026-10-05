@@ -295,11 +295,12 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 
 The review class for a change whose substance is prose — contracts, skills,
 memory notes, harvests, manual chapters. It gets one pass by Astra and the
-Fable assessor against the decision the prose records, one batch of
-corrections, and no Codex review. It does not cover scripts, checks,
-settings, permissions, agent role definitions or the review loop itself,
-even when they are mostly words. It began as a trial, to be re-examined
-after a handful of PRs.
+Fable assessor against the decision the prose records, with Codex's
+automatic first pass handed to both as one input, one batch of corrections,
+and no Codex review round. It does not cover scripts, checks, settings,
+permissions, agent role definitions or the review loop itself, even when they
+are mostly words. It began as a trial with Codex left out; seven pull requests
+showed each reading catching what the other missed (David, 2026-10-04).
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
 
 ### Standard loop

@@ -643,23 +643,41 @@ resolved with one line citing his ruling, because the `main` ruleset will not
 merge with a thread open. His reason: *"I might be wrong but I need that lever
 to pull when I want quick changes."*
 
-**Documentation — one Astra and Fable pass, and no Codex.** For a change whose
-substance is prose: contracts, skills, memory notes, docs sweeps, harvests,
-Manual chapters. Both assessors read the change itself, from where the
-reviewed commit left `main`, against its intent, under the documentation
-section of their shared brief (`.agents/roles/review-proxy.md`). **The
-oracle is the decision the prose records, quoted** — David's words, or the
-issue or merged PR where the rule changed — so a sweep needs no fresh
-agreement. One batch of corrections follows and the change merges on green
-CI; the batch is not reviewed again, and the merge report says what it
-changed. **Codex's output is not read and not given to the assessors**; its
-threads are resolved with one line saying so. His reason: Codex reviews prose
-adversarially, marks a word choice P1, and the loop then builds fixes and
-guards for it, while Astra and Fable judge prose better. **It is a trial**:
-after five Documentation PRs, the question is whether the pass caught the
-class that matters most in prose — two live statements of one rule that
-disagree — without Codex. If not, the repair is to hand Codex's output to the
-assessors as one input, not to put it back in charge.
+**Documentation — one Astra and Fable pass, with Codex's automatic pass as
+one input.** For a change whose substance is prose: contracts, skills, memory
+notes, docs sweeps, harvests, Manual chapters. Both assessors read the change
+itself, from where the reviewed commit left `main`, against its intent, under
+the documentation section of their shared brief
+(`.agents/roles/review-proxy.md`). **The oracle is the decision the prose
+records, quoted** — David's words, or the issue or merged PR where the rule
+changed — so a sweep needs no fresh agreement. **Codex's automatic pass on
+PR-open is waited for and handed to both assessors as one input**: no Codex
+round is requested, and its findings are weighed like any other under the
+Worth rule rather than acted on because Codex raised them. **The wait ends
+only when that pass reports Completed** — a draft is reviewed once it is marked
+ready, so the wait runs from then — and it has no timeout: the pass is never
+composed without Codex's result, because a review that has not returned is
+not a clean one (Codex and Astra, #184 round 1). A pass that does not come
+back is an outage, which the core already takes to David, and the PR waits
+with everything else Codex is holding. One batch of corrections follows and
+the change merges on green CI; the batch is not reviewed again, and the merge
+report says what it changed. Each Codex thread gets the reply review rule 6
+gives any finding — fixed in a named commit, or declined with the reason — and
+is resolved.
+
+**Why Codex is an input and not the reviewer.** David's reason for the class:
+Codex reviews prose adversarially, marks a word choice P1, and the loop then
+builds fixes and guards for it, while Astra and Fable judge prose better. It
+began as a trial with Codex's output kept out entirely, the planned repair
+being this one if the pass alone missed what matters. **Seven trial PRs
+(#170–#183) settled it** (David, 2026-10-04): Codex raised 26 findings, 17 of
+which neither assessor raised — nine factual errors in one Manual PR, and on
+#170 an instruction to read the bodies of issues anyone can file, in the
+session that then merges — while the assessors raised 11 Codex did not,
+including every question that was David's to answer. The 17 reached the batch
+anyway wherever Claude read the threads despite the rule, and the two it did
+not read on #170 were still on `main` when the trial was counted. Each reading
+catches what the other misses, so the assessors get both.
 
 **Neither class covers** a change to a script, a check, CI, a setting, a
 permission or an agent role's definition, or one granting an agent latitude,
@@ -1105,7 +1123,7 @@ prototype phase, per feature*, above).
   the round. Measured: #125's two-sentence fix waited a week under exactly that
   reading. **Any changed head gets review before merge** — documentation-only
   changes and base-branch merges included — in the standard loop; a Trivial
-  change gets none, a Documentation batch merges unreviewed, and a
+  change gets none, a Documentation change's one batch of corrections merges without a second review, and a
   prototype-phase PR merges on green CI with the automatic pass read for
   nothing, by design (above). What is refused is a round requested
   merely to get a different answer on a head already reviewed as it stands.

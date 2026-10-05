@@ -51,14 +51,23 @@ requires it.
   green CI.
 - **Documentation**: one pass, `review-proxy.mjs --documentation --round 1`,
   with the Fable assessor dispatched on the same package (`--prompt-only
-  --source fable`). The range is derived from where the reviewed commit left
-  `main`; nothing is typed. **The oracle file is the decision the prose
+  --source fable`). Wait for Codex's automatic pass first — its review-summary
+  row reading **Completed**; a draft is reviewed only once marked ready — and
+  pass its inline findings as `--findings-file` (step 3's findings shape), so
+  both assessors weigh them, or `--codex-clean` when it reported Completed with
+  none. The script refuses a pass given neither. There is no timeout: a pass
+  that never comes back is the outage in *One standing stop*, below. The
+  range is derived from where the reviewed commit left `main`; nothing is
+  typed. **The oracle file is the decision the prose
   records, quoted** — David's words, or the issue or merged PR where the rule
   changed — so a docs sweep needs no new agreement from David, and step 3's
   🛑 on a missing oracle applies only when no such decision can be quoted.
   Both assessments are posted verbatim (step 3's mechanics, using its
-  documentation render command). I write one batch, resolve each Codex thread
-  with one line saying the class does not read it, and merge on green CI. No
+  documentation render command, with the same `--findings-file` or
+  `--codex-clean`). I write one
+  batch, answer each Codex thread as review rule 6 answers any finding — fixed
+  in a named commit, or declined with the reason and the assessment it rests
+  on — resolve it, and merge on green CI. No
   translation, no second pass. The merge report says what the batch changed,
   in my words.
 
@@ -173,14 +182,17 @@ requires it.
       node "$P" --render --source fable --pr <n> --round <n> --follow-up <k> \
         --commit <reviewed sha> --findings <id,id>
 
-      # a documentation pass — no findings; the header carries the derived range
+      # a documentation pass — the header carries the derived range, and the
+      # Codex findings it weighed when its automatic pass returned any
       node "$P" --render --source fable --pr <n> --round 1 \
-        --commit <reviewed sha> --documentation
+        --commit <reviewed sha> --documentation (--findings-file <path> | --codex-clean)
       ```
 
       **Three commands, and each one's scope flag is mandatory for it.** A
       follow-up never reads `--findings-file`, an ordinary round never reads
-      `--findings`, and a documentation pass reads neither. This
+      `--findings`, and a documentation pass takes whichever of `--findings-file`
+      and `--codex-clean` it composed with, so the header names what the
+      assessment covered. This
       recipe used to show one command with both marked optional, which posted a
       follow-up header naming no findings at all — the script refuses that now,
       but the recipe is what a reader copies (Codex `4051974432`, #131 round 2).
@@ -767,7 +779,10 @@ requires it.
 
 **A Codex code-review outage is a FULL STOP**, not the security-review
 usage-limit bounce. Stop building, tell David as a 🛑 with a push
-notification, say which PRs are blocked and in what state, and wait.
+notification, say which PRs are blocked and in what state, and wait. A
+Documentation-class PR still waiting on Codex's automatic pass is one of
+them; a prototype-phase PR owes Codex nothing and is not (`claude-core.md`,
+*Close-out*).
 
 ## Keeping the workstream issue's labels current
 
@@ -781,9 +796,10 @@ of this file, or one of David's display-only Replit tweaks, which carries no
 issue by design and is its own record (`agents-core.md`, *Workstream
 tracking*), so it has no labels to keep):
 
-- **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex` — or
-  `waiting:claude` on a Documentation-class PR, whose one pass is mine to
-  run and owes Codex nothing.
+- **PR opens / round 1 triggers** → `stage:code-review`, `waiting:codex` — on
+  a Documentation-class PR too, while its one pass waits for Codex's
+  automatic pass; `waiting:claude` once that pass reports Completed, since the
+  assessed pass and its batch are mine to run.
 - **Codex posts findings, I start responding** → `waiting:claude`.
 - **I post the next round's `@codex review` trigger** → `waiting:codex`.
 - **Intended behaviour or an accepted user-facing shortfall goes to David**
