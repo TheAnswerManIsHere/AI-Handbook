@@ -95,9 +95,13 @@ phase, per feature*).
    whether a result reads right, or something only his own account or device
    can do. Everything else is `ci`, `scripted` or `live`, and **the check it
    cites is written in this same PR**, so the UAT he runs is the human residue
-   and nothing more. A step whose check cannot exist yet — its feature or the
-   double it needs lands in a later PR — is `**Deferred:** #N` to the issue
-   that will make it runnable, never quietly given to him instead.
+   and nothing more. **A behaviour a later PR delivers has no step here** — it
+   belongs in the oracle's scope line (below). A behaviour **this** PR claims
+   whose machine check cannot exist yet, because the double or fixture it
+   needs lands later, keeps its machine step `**Deferred:** #N` to that owner
+   **and** gets a `human` stand-in step beside it, written openly, so the
+   phase can be accepted on its own; once the owner lands, the stand-in is
+   deleted and the deferral lifted.
    `node scripts/check-uat-format.mjs` refuses a step without a lane and a
    machine-lane step whose cited check does not exist.
 
