@@ -88,6 +88,19 @@ phase, per feature*).
    `/uat` section 2). The doc is still the canonical script;
    **I delete it once he confirms the run complete** (David, 2026-08-22).
 
+   **Every step gets a lane, and the default is a machine** (David,
+   2026-10-07; the lanes are defined in
+   [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)).
+   A step is `human` only when no machine can answer it — taste, legibility,
+   whether a result reads right, or something only his own account or device
+   can do. Everything else is `ci`, `scripted` or `live`, and **the check it
+   cites is written in this same PR**, so the UAT he runs is the human residue
+   and nothing more. A step whose check cannot exist yet — its feature or the
+   double it needs lands in a later PR — is `**Deferred:** #N` to the issue
+   that will make it runnable, never quietly given to him instead.
+   `node scripts/check-uat-format.mjs` refuses a step without a lane and a
+   machine-lane step whose cited check does not exist.
+
    **No Artifact page (David, 2026-08-21 — retiring the 2026-07-22 rule).**
    The Artifact existed as a reading surface for working through the doc
    alone on an iPad; the `/uat` session replaced that job. Publish one only
