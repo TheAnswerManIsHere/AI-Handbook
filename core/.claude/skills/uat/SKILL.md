@@ -126,10 +126,18 @@ Hence one format, one rule (David, 2026-08-22; #554, #560).
 
 **Lanes decide who verifies each step, and only `human` reaches David**
 (David, 2026-10-07; [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)).
-**The commit under test** is the commit the run verifies: the PR's merge
-commit on `main`, the one synced to the Repl. I name it in the run record
-before the first step, and **a machine-lane result is evidence only at that
-commit**.
+**The commit under test** is the commit the run verifies: **the Repl's
+checked-out commit when the run starts** — the same SHA close-out's sync
+check reads — and it must **contain the PR's merge commit** (an ancestor
+check, `git merge-base --is-ancestor <merge> <deployed>`). Usually it is a
+later commit on `main`, because other PRs merge while a doc waits; that is
+the build he clicks, so it is the build the machines check. If it does not
+contain the merge, the Repl is behind: the run is Blocked on the sync, never
+run against an older build. I record both SHAs in the run record before the
+first step, and **a machine-lane result is evidence only at the commit it
+ran at**. On resume I re-read the Repl's commit; if it has moved, I re-resolve
+the machine block at the new commit, and every earlier result keeps the
+commit it ran at rather than becoming evidence for the new one.
 
 Before the first human step, I resolve every machine-lane step myself, **in
 document order**, and show him the result in one block — never one per turn,
@@ -151,7 +159,13 @@ the doc-wrong case below, never a check to run early:
   Setup `[claude]` line with its `[restore]` (section 2); a probe whose
   refusal is the thing tested writes nothing and is not a write.
 - **`Deferred:`** — not run; listed as outstanding with its owner. Never a
-  pass, never a skip he can wave through.
+  pass, never a skip he can wave through. When it is the only evidence for a
+  claimed behaviour, the run is Blocked on its owner: `Blocked by: #N` on
+  this workstream, recorded as section 4 step 5 does for a bug, so the
+  owner landing is what reopens it. The owner's PR replaces the line with
+  its runnable **Check:** in the surviving doc (`pr-docs`), so the resumed
+  run executes it; a doc still carrying the line after #N closed is the
+  doc-wrong case, and closing #N alone is never passing evidence.
 
 Each gets the same four statuses as a human step, with its evidence in the
 record. A machine-lane step that fails is a failure like any other: section 4
@@ -319,7 +333,7 @@ have no reliable way to tell which is current.
 ## UAT run — PR #472 · Admin help system
 
 **Doc:** `docs/tests/UAT/PR472_ADMIN_HELP_SYSTEM_UAT.md`
-**Commit under test:** `<merge commit sha>`
+**Commit under test:** `<Repl's checked-out sha>` (contains merge `<PR merge sha>`)
 **Started:** 2026-08-21 · **Last updated:** 2026-08-21
 **Verdict:** in progress
 

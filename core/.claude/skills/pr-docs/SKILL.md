@@ -101,7 +101,12 @@ phase, per feature*).
    needs lands later, keeps its machine step `**Deferred:** #N` to that
    owner, and **the owed check is recorded on issue #N when the line is
    written** (one comment naming the doc, the step and the check), so whoever
-   lands #N knows it. It is **never** turned into a `human` step to get past
+   lands #N knows it. **The PR that lands #N pays that debt in the same PR**:
+   it writes the check and, in every UAT doc still on `main` that defers to
+   #N, replaces the `**Deferred:**` line with the runnable `**Check:**` —
+   the checker validates the citation, and a resumed `/uat` runs it. A doc
+   already deleted needs nothing more than the record on #N.
+   The deferred step is **never** turned into a `human` step to get past
    the wait: David's share is judgement only. Such a run is Blocked until #N
    lands, which is the honest state of a behaviour nothing has yet checked.
    `node scripts/check-uat-format.mjs` refuses a step without a lane and a

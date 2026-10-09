@@ -71,8 +71,9 @@ yet. It names the issue that owns it. A deferred step is **never a pass**:
 `/uat` lists it as outstanding, and when it is the only evidence for a
 behaviour the PR claims, the run cannot be Accepted. A deferred machine-lane
 step may omit its `**Check:**`; one it does carry (partial evidence kept for
-the owner) is validated like any other. A behaviour a *later* PR delivers has
-no step here at all: it belongs in the oracle's scope line, not in this doc.
+the owner) is validated like any other. The PR that lands #N replaces the line with
+its runnable `**Check:**` in every doc still deferring to it. A behaviour a
+*later* PR delivers has no step here at all: it belongs in the oracle's scope line, not in this doc.
 
 **Three records, never merged.** The **lane** (where and how a step is
 verified) lives in this doc. Whether the obligation is met now, deferred, or
