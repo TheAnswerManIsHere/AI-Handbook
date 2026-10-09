@@ -129,7 +129,6 @@ destination.
 | `docs/tests/test-run-contract.md` | What a PR's post-merge verification must contain, in terms of this repo's own test runners |
 | `docs/handoff/README.md` | The cross-tool transit folder and its delete-when-addressed contract |
 | `.github/pull_request_template.md` | The PR body is the reviewer's oracle, and `code-review.md`, `working-modes.md` and the bugfix skill all require its feature and Tier-C blocks, plus the one-line `Oracle source:` that `claude-core.md` Pull requests rule 4 requires — including its `prototype phase — <feature>` form, with the questions file beside it and, for a version that had a plan (the first, or a later one David asked a loop for), the approved short plan verbatim and its digest, for a prototype-phase PR (rule 3 gives that body its shape). A template written before 2026-09-25 may still carry a fenced `plan-provenance` block; that block is retired (#103) and is replaced by the line. Its non-oracle sections are per-repo |
-| `docs/tests/uat-doc-format.md` | The UAT skill and `check-uat-format.mjs` define a run through this file's structure, which names this repo's own surfaces |
 | `docs/tests/TESTING.md` | `.agents/PLANS.md` routes verification through it, in terms of this repo's actual suites and runners |
 | `docs/engineering/deferred-work.md` | The maintenance skill reads and updates it every pass; its contents are this repo's own deferred items |
 | `docs/ai-context/product-direction.md` | Product truth by definition. **The path is a default, not a route** — see below |
@@ -208,6 +207,8 @@ accepts **one canonical link form** and reports anything else as something to
 rewrite, which turns an unbounded parsing problem into a style rule the payload
 can simply obey. (David, 2026-09-09: *"You control everything so you don't have
 to worry about strange links."*)
+
+**`docs/tests/uat-doc-format.md` is no longer on this list** (2026-10-09, AI-Handbook #187): the UAT format now ships in the payload, and the sync replaces a consumer's own copy with it. A consumer that had adapted the format locally moves its product-specific notes into its UAT docs or its overlay before syncing.
 
 ## Enrolling a repo
 
