@@ -98,10 +98,12 @@ phase, per feature*).
    and nothing more. **A behaviour a later PR delivers has no step here** — it
    belongs in the oracle's scope line (below). A behaviour **this** PR claims
    whose machine check cannot exist yet, because the double or fixture it
-   needs lands later, keeps its machine step `**Deferred:** #N` to that owner
-   **and** gets a `human` stand-in step beside it, written openly, so the
-   phase can be accepted on its own; once the owner lands, the stand-in is
-   deleted and the deferral lifted.
+   needs lands later, keeps its machine step `**Deferred:** #N` to that
+   owner, and **the owed check is recorded on issue #N when the line is
+   written** (one comment naming the doc, the step and the check), so whoever
+   lands #N knows it. It is **never** turned into a `human` step to get past
+   the wait: David's share is judgement only. Such a run is Blocked until #N
+   lands, which is the honest state of a behaviour nothing has yet checked.
    `node scripts/check-uat-format.mjs` refuses a step without a lane and a
    machine-lane step whose cited check does not exist.
 

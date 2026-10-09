@@ -126,6 +126,11 @@ Hence one format, one rule (David, 2026-08-22; #554, #560).
 
 **Lanes decide who verifies each step, and only `human` reaches David**
 (David, 2026-10-07; [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)).
+**The commit under test** is the commit the run verifies: the PR's merge
+commit on `main`, the one synced to the Repl. I name it in the run record
+before the first step, and **a machine-lane result is evidence only at that
+commit**.
+
 Before the first human step, I resolve every machine-lane step myself, **in
 document order**, and show him the result in one block — never one per turn,
 and never as a question. Machine-lane checks are self-contained by the
@@ -135,10 +140,14 @@ the doc-wrong case below, never a check to run early:
 - **`ci`** — I confirm the cited check ran and passed **on the commit under
   test** (the check runs of that commit, or the test file run locally at that
   commit). A green run on a different commit is not evidence.
-- **`scripted`** — I run the cited spec, script or command, or read evidence
-  recorded **for this commit**, and keep the output.
+- **`scripted`** — I run the cited spec, script or command **in a checkout or
+  worktree at the commit under test** (or dispatch the on-demand workflow on
+  that commit), or read evidence recorded for that commit, and keep the
+  output with the commit it ran at. Output from any other checkout is not
+  evidence, however recent.
 - **`live`** — I run the cited check through the live-environment connector,
-  **read-only, always**, and quote what it printed. State a check needs is a
+  **read-only, always**, after confirming the Repl's synced commit is the
+  commit under test, and quote what it printed. State a check needs is a
   Setup `[claude]` line with its `[restore]` (section 2); a probe whose
   refusal is the thing tested writes nothing and is not a write.
 - **`Deferred:`** — not run; listed as outstanding with its owner. Never a
@@ -310,6 +319,7 @@ have no reliable way to tell which is current.
 ## UAT run — PR #472 · Admin help system
 
 **Doc:** `docs/tests/UAT/PR472_ADMIN_HELP_SYSTEM_UAT.md`
+**Commit under test:** `<merge commit sha>`
 **Started:** 2026-08-21 · **Last updated:** 2026-08-21
 **Verdict:** in progress
 
@@ -356,7 +366,7 @@ never from a general impression of how it went:
 
 | Verdict | When |
 | --- | --- |
-| **Accepted** | Every step executed and Passed — **every step section 3 enumerated, regression checks and machine lanes included**; a `Deferred:` step is never a pass: it is left out of "every step" only when another step in the same run Passed the behaviour it would check; when it is the only evidence for a behaviour the PR claims, the run is **Blocked**, resuming after its owner issue lands. A Skip counts toward this only when **David explicitly called the step not-applicable** — a reason alone doesn't qualify, or a run where he lacked a phone or a test account could skip its way to a clean acceptance without exercising anything. A step he *couldn't* do is `Blocked`, which never counts. The doc-wrong case counts only re-run per section 3 |
+| **Accepted** | Every step executed and Passed — **every step section 3 enumerated, regression checks and machine lanes included**; a `Deferred:` step is never a pass: it is left out of "every step" only when another step in the same run Passed the behaviour it would check; when it is the only evidence for a behaviour the PR claims, the run is **Blocked**, resuming after its owner issue lands. A mechanical step is never turned into a human one to get past a deferral: David's share is judgement only (his words, 2026-10-04: "anything mechanical is truly verified by scripting"). A Skip counts toward this only when **David explicitly called the step not-applicable** — a reason alone doesn't qualify, or a run where he lacked a phone or a test account could skip its way to a clean acceptance without exercising anything. A step he *couldn't* do is `Blocked`, which never counts. The doc-wrong case counts only re-run per section 3 |
 | **Accepted with issues** | Failures exist and **David explicitly accepts each one as shippable**. Minor/cosmetic is the normal case; accepting a major is his call to make in so many words, never a default |
 | **Blocked** | Any failure David hasn't accepted — a showstopper or an unaccepted major ends the run here even when more steps were testable — or too much skipped/untestable to honestly call it either way |
 
@@ -414,6 +424,10 @@ Then, in one edit:
   `workstream-tracking.md`'s backlog contract. A bare `queue:` shorthand
   creates an item `/next` can't rank and the board can't display.
 - **Fix the doc** if a step's expected result was wrong.
+- **Before deleting, every `Deferred:` step still in the doc is recorded on
+  its owner issue** — one comment there naming the doc, the step and the
+  check still owed — so the obligation survives the file. A step not yet
+  recorded there blocks the deletion.
 - **Delete the UAT doc once he confirms the run is complete** (David,
   2026-08-22). Deletion is the default, in the same close-out, so
   `docs/tests/UAT/` never accumulates finished tests and a surviving file
