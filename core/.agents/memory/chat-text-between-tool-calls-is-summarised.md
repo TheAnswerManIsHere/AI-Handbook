@@ -43,3 +43,14 @@ doing the showing me the same thing twice thing again."* The final message is
 verbatim in the turn that raises the ask, and it stays in the conversation;
 a later turn that leaves the ask unchanged points back to it in one line and
 re-fires the notification (`claude-core.md`, interaction preference 6).
+
+## Not twice in one turn either
+
+The same rule broke the other way on 2026-10-10. The full answer and its
+banner were written, then `PushNotification` fired, then the whole message was
+written again so that it would be the turn's last text — and David saw it
+twice, with *"you double responded to me yet again."* "The ask is the last
+text" was being satisfied by repetition, when the rule above already said the
+notification runs *first*. `claude-core.md` interaction preference 6 now says
+it outright: a turn that ends with an ask fires the notification before any of
+the message, then writes the message once.
