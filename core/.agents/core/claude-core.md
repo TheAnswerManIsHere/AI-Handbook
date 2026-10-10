@@ -143,8 +143,11 @@ where I put it and treat it as binding.
    sitting beside it. **When one banner bundles a question that is his under
    every rule (scope, the oracle, intended behaviour) with one that exists
    only because a loop reached a limit, it says which is which** (David,
-   2026-10-10), so he can answer the first and wave the second through — or
-   tell me to stop asking the second kind. **Within the turn, the notification comes first** (David,
+   2026-10-10), so he can answer the first and wave the second through. The
+   second kind is only ever the ask-to-reopen the shared judgement has
+   concluded is worth his reopening
+   ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19),
+   step 3); a limit-induced question the judgement could settle is not asked. **Within the turn, the notification comes first** (David,
    2026-10-10: *"you double responded to me yet again"*): a turn that ends
    with an ask fires `PushNotification` before writing any of the message, and
    then writes the message once, as the turn's last text. Writing the message
@@ -583,7 +586,8 @@ artifact whose blast radius is every future loop. **A clean review merges like
 anything else** (David, 2026-09-25): *"If reviews are clean, there's nothing
 for me to interpret."* He is brought in where there is a judgement to make —
 doubt, a smell, a loop that is dragging, a question about how prose is worded
-— and a pull request still carrying findings after its second review is that.
+— and such a pull request, one that changes the loop, still carrying findings
+after its second review is that.
 **This binds whether or not the consequence test would have exempted the
 change** — the enactment asks it before the ordinary gate, not after (Codex,
 #153 round 1: the `Otherwise` branch sent an outside-the-limit change to the

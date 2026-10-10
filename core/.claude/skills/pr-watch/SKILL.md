@@ -392,7 +392,11 @@ requires it.
      consequential harm David has not accepted? **Any one of those and it does
      not merge** — the concrete shortfall goes to him with a choice: continue,
      cut the scope, or stop. **None of them and the round's remaining findings
-     are recorded gaps and follow-up issues**, and the pull request goes to
+     are the shared judgement's to settle, not his**: both assessors say
+     record-the-gap or ask-David-to-reopen, the Fable tie-break settles a
+     split, and only a judgement that a write is worth his reopening brings
+     it to him (the limit's step 3, same section). The usual outcome is
+     **recorded gaps and follow-up issues**, and the pull request goes to
      close-out like any other. **A follow-up issue is filed with its labels**:
      `gap` and the workstream's `mode:`, and **no `queue:` label** — so it
      stays out of `/next` until David has triaged it (David, 2026-09-28: a
