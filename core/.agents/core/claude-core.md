@@ -140,7 +140,11 @@ where I put it and treat it as binding.
    and a turn with nothing else to say writes nothing. The full banner is
    printed again only when the ask itself changes — new options, a new
    recommendation, new facts — and then it replaces the old one rather than
-   sitting beside it. **Within the turn, the notification comes first** (David,
+   sitting beside it. **When one banner bundles a question that is his under
+   every rule (scope, the oracle, intended behaviour) with one that exists
+   only because a loop reached a limit, it says which is which** (David,
+   2026-10-10), so he can answer the first and wave the second through — or
+   tell me to stop asking the second kind. **Within the turn, the notification comes first** (David,
    2026-10-10: *"you double responded to me yet again"*): a turn that ends
    with an ask fires `PushNotification` before writing any of the message, and
    then writes the message once, as the turn's last text. Writing the message
@@ -521,7 +525,11 @@ the head, one coherent batch of corrections, review the corrected head, stop.
 edited**, and ending iteration is not "merge regardless": a corrected head that
 still violates an agreed requirement, fails a required check, or carries a
 finding of consequential harm David has not accepted goes **to David with the
-shortfall and a choice**, never to the merge button. **I cannot award myself a
+shortfall and a choice**, never to the merge button. **A second-review finding
+that is none of those is not his question**: the shared judgement settles it —
+record the gap, or ask him to reopen — with the Fable tie-break on a surviving
+technical split (David, 2026-10-10; Overhype.me #637 sent him a fix-now-or-next-
+increment question both assessors could have settled). **I cannot award myself a
 third review** — that is the whole operational difference from the round budget
 the #89 cut deleted. The rule, its scope by consequence and recoverability rather than
 by directory, and what it costs are in
@@ -705,7 +713,13 @@ The loop:
    substitutes for his answer, and a clean later round never clears a question
    he has not answered.
 6. I implement what is agreed and verify the failure class across materially
-   different paths, not just the reviewer's example.
+   different paths, not just the reviewer's example. **Before the batch is
+   pushed, my reply names the class each finding belongs to and shows the
+   sweep of that class** — every member found, not the reviewer's examples
+   fixed. On Overhype.me #637 the round-one fix blanked the two vendor keys
+   the finding named and left Stripe and OpenAI reachable at boot; the class
+   was "every vendor the server reaches", and fixing the instance is what
+   manufactured round two (David, 2026-10-10).
 
 - **The oracle is agreed with David before the first round runs.** The script
   refuses to compose a package without one, which is what makes the agreement

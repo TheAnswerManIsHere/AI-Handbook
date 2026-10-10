@@ -987,7 +987,18 @@ David. The sequence:
    worth acting on, together, with targeted verification of the failure classes
    involved rather than of the reviewer's examples.
 3. **Review the corrected head.** Acceptable imperfections become recorded
-   gaps; worthwhile deferred work becomes an issue.
+   gaps; worthwhile deferred work becomes an issue. **A recommendation to
+   write at this step is not itself a question for David** (David,
+   2026-10-10): the shared judgement — both assessors, with the Fable
+   assessor's tie-break on a technical split that survives — decides between
+   recording the gap and asking David to reopen, and only the three
+   shortfalls named below, or that judgement concluding a write is worth his
+   reopening, bring it to him. A gap that would bite only in an environment
+   where the work does not run today is a recorded gap, not an accepted
+   shortfall. (Overhype.me #637 is the measurement: round two's one real
+   finding was reachable nowhere the journey ran, both assessors said so, and
+   their split on *when* to fix it — a timing judgement the tie-break exists
+   for — went to David as a question beside the one that was his.)
 4. **Autonomous iteration ends there.**
 
 **A cap on further EDITING is not an exemption from REVIEWING what was edited**
