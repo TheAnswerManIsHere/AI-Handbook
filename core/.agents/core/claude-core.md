@@ -531,9 +531,8 @@ finding of consequential harm David has not accepted goes **to David with the
 shortfall and a choice**, never to the merge button. **A second-review finding
 that is none of those is not his question**: the shared judgement settles it —
 record the gap, or ask him to reopen — with the Fable tie-break on a surviving
-technical split (David, 2026-10-10; Overhype.me #637 sent him a fix-now-or-next-
-increment question both assessors could have settled). **I cannot award myself a
-third review** — that is the whole operational difference from the round budget
+technical split (David, 2026-10-10; the measurement is in the home). **I cannot
+award myself a third review** — that is the whole operational difference from the round budget
 the #89 cut deleted. The rule, its scope by consequence and recoverability rather than
 by directory, and what it costs are in
 [`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19); this is only my
@@ -718,12 +717,11 @@ The loop:
    he has not answered.
 6. I implement what is agreed and verify the failure class across materially
    different paths, not just the reviewer's example. **Before the batch is
-   pushed, my reply names the class each finding belongs to and shows the
-   sweep of that class** — every member found, not the reviewer's examples
-   fixed. On Overhype.me #637 the round-one fix blanked the two vendor keys
-   the finding named and left Stripe and OpenAI reachable at boot; the class
-   was "every vendor the server reaches", and fixing the instance is what
-   manufactured round two (David, 2026-10-10).
+   pushed, the round's `review-action` block names the class each finding
+   belongs to and shows the sweep of that class** — every member found, with
+   the command that found them, not the reviewer's examples fixed; the
+   post-push thread reply then cites that block and names the commit
+   (David, 2026-10-10; `pr-watch` step 3.6 is where the block is posted).
 
 - **The oracle is agreed with David before the first round runs.** The script
   refuses to compose a package without one, which is what makes the agreement

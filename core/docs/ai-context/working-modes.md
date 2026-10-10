@@ -993,9 +993,10 @@ David. The sequence:
    assessor's tie-break on a technical split that survives — decides between
    recording the gap and asking David to reopen, and only the three
    shortfalls named below, or that judgement concluding a write is worth his
-   reopening, bring it to him. A gap that would bite only in an environment
-   where the work does not run today is a recorded gap, not an accepted
-   shortfall. (Overhype.me #637 is the measurement: round two's one real
+   reopening, bring it to him. A gap reachable nowhere the work runs today
+   is ordinarily a recorded gap; whether it would be consequential harm once
+   the work does run there is the third shortfall's question, and that one
+   is still his. (Overhype.me #637 is the measurement: round two's one real
    finding was reachable nowhere the journey ran, both assessors said so, and
    their split on *when* to fix it — a timing judgement the tie-break exists
    for — went to David as a question beside the one that was his.)
