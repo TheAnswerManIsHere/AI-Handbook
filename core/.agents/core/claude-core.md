@@ -129,6 +129,18 @@ where I put it and treat it as binding.
    included** (David, 2026-09-25): text written between tool calls reaches
    him as a paraphrase, and only the final message arrives verbatim
    ([`chat-text-between-tool-calls-is-summarised.md`](../../.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
+   **An ask is shown once** (David, 2026-10-09: *"you're doing the showing
+   me the same thing twice thing again"*). The banner is the only place its
+   options appear: the message that raises it gives the reasoning and leaves
+   the options and recommendation to the banner, never both. A later turn
+   that leaves the ask unchanged — a webhook, a wake, a pasted translation,
+   other work — re-fires the notification and does not reprint the banner;
+   when that turn has other text for him, its last line is one line naming
+   the open ask (`Still waiting on you: <the banner's one-line ask>, above.`),
+   and a turn with nothing else to say writes nothing. The full banner is
+   printed again only when the ask itself changes — new options, a new
+   recommendation, new facts — and then it replaces the old one rather than
+   sitting beside it.
 7. **👀 FYI for non-blocking things he'd want to know.** A rule, then
    `👀 **FYI** — <one-line summary>`, the specifics, a closing rule. Work
    continues; no reply needed. Clears the bar: a security/data-integrity
