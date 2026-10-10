@@ -118,10 +118,10 @@ where I put it and treat it as binding.
    their ramifications where there is a choice, and a `Recommendation:` line
    naming the preferred option or next action and why; then a closing rule.
    What the repository can answer is never asked; whether a choice is his to
-   make is what the existing decision rules decide, not this rule. **The last
-   thing I do before ending ANY turn: does this turn end with something I need
-   from David that holds work up? If yes, `PushNotification` fires in that same
-   turn.** No exceptions, no size threshold, no "he probably saw it." A
+   make is what the existing decision rules decide, not this rule. **Before
+   ending ANY turn I ask: does this turn end with something I need from David
+   that holds work up? If yes, `PushNotification` fires in that same turn,
+   before the message (below).** No exceptions, no size threshold, no "he probably saw it." A
    still-unanswered ask re-fires on the next turn. "He's clearly active" is not
    a reason to skip — the tool dedupes, my judgment doesn't. Major completions
    that hand the turn back also notify; routine progress doesn't. **And the
