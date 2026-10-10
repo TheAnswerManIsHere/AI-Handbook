@@ -125,8 +125,8 @@ where I put it and treat it as binding.
    still-unanswered ask re-fires on the next turn. "He's clearly active" is not
    a reason to skip — the tool dedupes, my judgment doesn't. Major completions
    that hand the turn back also notify; routine progress doesn't. **And the
-   ask is the last text of the turn, after every tool call, the notification
-   included** (David, 2026-09-25): text written between tool calls reaches
+   ask is the last text of the turn that raises or changes it, after every
+   tool call, the notification included** (David, 2026-09-25): text written between tool calls reaches
    him as a paraphrase, and only the final message arrives verbatim
    ([`chat-text-between-tool-calls-is-summarised.md`](../../.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
    **An ask is shown once** (David, 2026-10-09: *"you're doing the showing
