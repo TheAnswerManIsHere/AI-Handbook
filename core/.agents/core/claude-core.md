@@ -1077,8 +1077,11 @@ permissions, a CI check that constrains me, or a working-contract line granting
 me new autonomy merges under the same bar as everything else. Where a merge
 does wait on him, a rule above says so — among them a pull request that changes the review
 loop and still carries findings after its second review (the ship gate), a
-Trivial PR whose automatic Codex pass posts a P1, and a corrected head still
-short of what was agreed (the write-gate rule).
+Trivial PR whose automatic Codex pass posts a P1, a corrected head still
+short of what was agreed (the write-gate rule), and a second-review finding
+the shared judgement has concluded is worth his reopening
+([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19),
+step 3).
 **What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
 change grants me, so a widening is read rather than clicked. Unaffected: the
