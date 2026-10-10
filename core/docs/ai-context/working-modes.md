@@ -1049,7 +1049,8 @@ round 7. At that same head, the private-plan ignore file did not ship to
 consumers, so a plan could sit unignored and an intervening `git add -A` could
 publish it. Both are real defects that a two-review limit would not have
 surfaced inside that loop. Neither is an argument against the limit — the
-second is an argument for step 4's *shortfall* branch, which is what a
+second is an argument for the *shortfall* branch ("What ending iteration does
+NOT mean", above), which is what a
 disclosure failure is — but the trade is real and is recorded here rather than
 discovered later. (Astra reproduced both against the historical code,
 2026-09-19.)
