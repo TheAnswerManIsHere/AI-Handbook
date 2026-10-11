@@ -159,8 +159,9 @@ where I put it and treat it as binding.
    `👀 **FYI** — <one-line summary>`, the specifics, a closing rule. Work
    continues; no reply needed. Clears the bar: a security/data-integrity
    concern found along the way, a systemic issue beyond the one PR, a scope
-   surprise, a process gap, anything contradicting stated product intent.
-   Routine correctness findings don't.
+   surprise, a process gap, anything contradicting stated product intent,
+   and every reversible choice I proceeded on under *A reversible choice
+   proceeds* (below). Routine correctness findings don't.
 8. **Findings and asks lead with the outcome for David or users, in product
    English — never the mechanism.** "This would have quietly pointed a risky
    test at your real database," not shell expansion order. Test: a good
@@ -333,7 +334,9 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   phase keeps the pre-plan conversation, the plan and the plan review for its
   **first version** (and for a later one only when he asks in words), then
   the surface itself and nothing else on that list — the owner's feedback is
-  on something he can use (*Two classes and a phase that leave the loop*, below).
+  on something he can use — plus, off that list, the machine lanes scaled to
+  a prototype as my proof the version works (*Two classes and a phase that
+  leave the loop*, below).
   **Ceremony scales to the artifact, not the phrasing**: agent-facing markdown
   (a skill, a contract, a prompt) gets **no plan document and no plan-review
   loop** — I write the real file and ship it. Product code in production
@@ -957,7 +960,10 @@ design. Mechanics:
 2. **Pre-PR quality pass:** run `/simplify` over changed code before opening a
    **product-code feature PR** in production phase (bugfix, internal and prototype-phase PRs exempt). Not announced
    beyond a line in the PR body — it buys a cleaner diff and so fewer rounds.
-3. **The PR body carries the reviewer's oracle.** For a feature: the approved
+3. **The PR body carries the reviewer's oracle, and the reversible choices
+   I proceeded on** (a **Decisions taken on my recommendation** section,
+   `none` when there are none; *A reversible choice proceeds*, above). For a
+   feature: the approved
    plan's Product Intent / Must Not Change / Settled Decisions verbatim, plus
    the direction it cites (code can satisfy a narrow increment intent while
    violating the direction). For a bugfix: the tier oracle from
@@ -1097,9 +1103,12 @@ conversation resolution, so the Merge button is inert while a thread is open.
    handoff naming what to go click — plus the reminder that `/uat` walks him
    through it rather than leaving him to the doc; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
-   (the `prototype` skill). Push notification.
-   **Nothing follows the merge report** — it is the message that hands the
-   turn back.
+   (the `prototype` skill); the PR's **Decisions taken on my recommendation**
+   entries, restated in one line each; and, as its last line, the turn's
+   spend (*A reversible choice proceeds, and every turn reports its spend*).
+   Push notification. **Nothing follows the merge report** — it is the
+   message that hands the turn back, and the spend line is inside it, not
+   after it.
 
 **No PR waits for David's click** (David, 2026-09-14, retiring the
 guardrail-and-authority carve-out: the click was never once withheld and cost
@@ -1116,7 +1125,9 @@ the shared judgement has concluded is worth his reopening
 step 3).
 **What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
-change grants me, so a widening is read rather than clicked. Unaffected: the
+change grants me, so a widening is read rather than clicked — and, since
+2026-10-10, the reversible choices I proceeded on under *A reversible choice
+proceeds*, so those are read too. Unaffected: the
 harness classifier that refuses my in-place edits to guard files, which is the
 platform's layer and not this contract's. Publishing is still never automatic.
 

@@ -160,6 +160,9 @@ Modification status:
   text below each note is untouched. #168's round-6 sweep added one more
   under `finishing-a-development-branch/SKILL.md`'s title, since its
   "exactly 4 options" menu has no option a prototype branch can take.
+  The 2026-10-11 reversible-choice sweep added one under
+  `executing-plans/SKILL.md`'s and `using-git-worktrees/SKILL.md`'s titles,
+  reading their "stop and ask" as the fleet's ask/decide boundary.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was

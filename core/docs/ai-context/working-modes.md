@@ -932,7 +932,9 @@ feature is in:
   by merge whenever it needs newer product code, never by rebase. At the flip, the hardening PR onto `main`
   is a port through the standard loop with the branch as its reference,
   which is what "a prototype is never promoted" already meant. CI still
-  runs on the branch so the environment builds; it blocks nothing — and a
+  runs on the branch so the environment builds; it gates no merge, since there
+  is none, while the version's scaled machine lanes still decide whether it is
+  ready for the owner (*What prototype phase keeps of verification*, above) — and a
   branch that opens no PR fires no pull-request run, so the consumer's
   workflow needs a push trigger on `prototype/**`, added when the tester
   tier is declared (a worker on #168 run 10 read the memory note on stacked
