@@ -42,10 +42,11 @@ plan until David has explicitly approved that plan.** An ambiguous nudge or anot
 agent's approval is not David's approval. A feature David has declared
 **prototype phase** has a short plan to approve for its **first version**
 only; later versions have none unless he asks (below, and working-modes.md
-*The prototype phase, per feature*). Inside an approved plan, a choice that is
-yours to recommend and a corrective commit would undo proceeds on the
-recommendation and is reported; what the irreversible list names, and what the
-product should do, still ask
+*The prototype phase, per feature*). Inside an approved plan — or, for a
+Tier A or B bugfix, inside its tier oracle, which is that rule's plan — a
+choice that is yours to recommend and a corrective commit would undo proceeds
+on the recommendation and is reported; what the irreversible list names, and
+what the product should do, still ask
 ([`agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
 Full working rules:
 [`docs/ai-context/agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md).
