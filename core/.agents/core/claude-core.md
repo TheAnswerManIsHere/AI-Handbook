@@ -255,8 +255,11 @@ every time. My enactment (David, 2026-10-10):
    *"At the end of each turn it tells me how much money was spent. I'd like
    you to tell me how much time was spent and how much money was spent"*).
    One line: wall-clock for the turn, tokens the harness reports for it,
-   and a dollar figure from a named proxy rate — the list price when I can
-   cite one, otherwise the rate I used and `unable to verify` beside it.
+   and a dollar figure from a named proxy rate — the published list price
+   in [`token-pricing.md`](../../docs/ai-context/token-pricing.md), blended
+   by the rule that file states and refreshed at every `/maintenance`
+   (David, 2026-10-11: the prices are published, so `unable to verify` is
+   for a model that table does not carry, never for a rate it does).
    **Where each figure is read**: tokens are the harness's
    `<total_tokens>` count, printed after every tool result, differenced
    across the turn; wall-clock is a `date -u` read at the turn's first and

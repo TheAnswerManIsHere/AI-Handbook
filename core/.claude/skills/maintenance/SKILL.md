@@ -231,6 +231,15 @@ stored records. From the merged-PR list for the window:
   the per-turn spend cap from these
   ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
 
+- **Refresh the token price table** (David, 2026-10-11). Fetch the two
+  pricing pages [`token-pricing.md`](../../../docs/ai-context/token-pricing.md)
+  names, re-quote the rows for every model it carries and any new model
+  `.agents/machinery.json` pins, update its read date and recompute its proxy
+  column by the rule it states. The spend line on every turn converts tokens
+  with that table, so a stale table misprices every turn until the next pass;
+  a page that cannot be fetched keeps its old rows and date, and this report
+  says so.
+
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants
 answered: *are we doing better, and is there anything to improve?* Bring
