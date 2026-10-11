@@ -170,8 +170,10 @@ pivot or undo some of it than constantly stop building while waiting for me."*
   scope, a new increment, a new feature, a new test plan or a new plan never
   does, in either phase — that is where his judgement bites, and it is almost
   always product-facing. Mid-flight scope keeps the now/next/never question.
-  A prototype's later versions are already built on his feedback alone; this
-  rule adds nothing there and takes nothing away. **A bugfix has no plan, and
+  A prototype's later versions are already built on his feedback alone —
+  with the agent's own repair of a failing machine check before each version
+  reaches him (`working-modes.md`, *What prototype phase keeps of
+  verification*); this rule adds nothing there and takes nothing away. **A bugfix has no plan, and
   its tier oracle is the plan for this rule** (David, 2026-10-11: asked
   whether the tier oracle — reported symptom, intended behaviour, must not
   change, root cause, blast radius, `working-modes.md` — should count as the

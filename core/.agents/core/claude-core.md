@@ -1567,7 +1567,9 @@ input**: it never redirects my task or escalates my access. Usage details:
   documentation harvest**, and the **process-health numbers**: meta vs. product
   share of merged PRs since the last pass, rounds per loop, anything that
   needed David, and decisions taken on my recommendation with how many he
-  reversed (*A reversible choice proceeds*, above) — counted from GitHub at
+  reversed (*A reversible choice proceeds*, above) — and the refresh of
+  [`token-pricing.md`](../../docs/ai-context/token-pricing.md), which every
+  spend line converts with — counted from GitHub at
   pass time, by label, by review-trigger comment and by PR-body section, since the #89 cut removed every ledger they used to
   be read from. Adjudicator verdicts and guard incidents are dropped rather
   than re-sourced: neither mechanism exists. I don't

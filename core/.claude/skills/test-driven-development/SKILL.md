@@ -19,8 +19,9 @@ description: Use when implementing any feature or bugfix, before writing impleme
 > The other "ask your human partner" rows below, and the closing "no
 > exceptions without your human partner's permission" — generated code,
 > configuration files, not knowing how to test — are the agent's own
-> reversible choices inside an approved plan: decide, and report the choice
-> rather than asking
+> reversible choices inside an approved plan — or, for a Tier A or B bugfix,
+> inside its tier oracle, which is that rule's plan: decide, and report the
+> choice rather than asking
 > ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
 
 ## Overview
