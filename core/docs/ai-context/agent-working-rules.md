@@ -425,14 +425,16 @@ queued/bulk/long-running surface.
 ## How to summarize completed work
 
 After implementing, report: **files changed, what was tested (exact commands +
-result), what failed, and what remains risky.** Separate valid repo-command
+result), what failed, and what remains risky** — and the reversible choices
+taken on your recommendation, each with its way back (*A reversible choice
+proceeds on the recommendation*, above). Separate valid repo-command
 failures (which may block merge) from invalid-command/environment failures (which
 must not). Don't claim "done" until the intended behavior can actually be exercised
 in the product.
 
 ## How Claude and Codex should interact
 
-- Codex and other AI reviewers are the ** — and the reversible choices taken on your recommendation, each with its way back (*A reversible choice proceeds on the recommendation*, above)independent reviewers**; Claude Code is
+- Codex and other AI reviewers are the **independent reviewers**; Claude Code is
   the product engineer. Codex is increasingly expected to **build** features too.
 - **Do not rubber-stamp another agent's plan or code.** Review it on its merits.
 - **No reviewer posts approval language — only David approves.** That holds on
