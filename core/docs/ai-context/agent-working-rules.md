@@ -171,7 +171,13 @@ pivot or undo some of it than constantly stop building while waiting for me."*
   does, in either phase — that is where his judgement bites, and it is almost
   always product-facing. Mid-flight scope keeps the now/next/never question.
   A prototype's later versions are already built on his feedback alone; this
-  rule adds nothing there and takes nothing away.
+  rule adds nothing there and takes nothing away. **A bugfix has no plan, and
+  its tier oracle is the plan for this rule** (David, 2026-10-11: asked
+  whether the tier oracle — reported symptom, intended behaviour, must not
+  change, root cause, blast radius, `working-modes.md` — should count as the
+  plan, *"Yes"*): a reversible technical choice inside a Tier A or Tier B fix
+  proceeds on the recommendation and is listed in that PR's Decisions section;
+  Tier C still stops, since it is not a bugfix.
 - **Production and prototype both run under it, production more sensitively**:
   the same observable, with the irreversible list read at its widest — a
   production-phase choice touching a subsystem the overlay marks sensitive

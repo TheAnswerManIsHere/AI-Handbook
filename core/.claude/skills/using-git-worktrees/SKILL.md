@@ -7,9 +7,13 @@ description: Use when starting feature work that needs isolation from current wo
 
 # Using Git Worktrees
 
-> **Local note (AI-Handbook, 2026-10-11).** Creating a worktree, and proceeding
-> past a baseline test failure that predates the branch, are reversible choices
-> the agent recommends on: proceed and report them rather than asking
+> **Local note (AI-Handbook, 2026-10-11).** Creating a worktree is setup
+> mechanics, not a decision: it is undone by removing the worktree, not by a
+> commit, so it is neither asked about nor reported as a reversible choice —
+> Step 0's consent prompt below does not run here, and nothing about it goes
+> in the FYI, the State of Play or the PR's Decisions section. Proceeding past
+> a baseline test failure that predates the branch *is* a reversible choice
+> the agent recommends on: proceed and report it rather than asking
 > ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)); a failure the branch introduced is a blocker, not a
 > choice. Upstream text below is untouched.
 

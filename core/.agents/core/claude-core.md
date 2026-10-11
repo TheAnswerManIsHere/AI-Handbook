@@ -374,10 +374,11 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   database schema fix he green-lights, straight to migration ceremony. Codex
   still reviews every bugfix diff. My enactment: `.claude/skills/bugfix/`.
 
-Both modes: pause and ask on genuine product ambiguity — and in feature
-mode, inside the approved plan, a technical one that is mine and reversible
-proceeds under *A reversible choice proceeds*, above; bugfix mode has no plan
-and keeps its own asks — (a "bug" that's really a
+Both modes: pause and ask on genuine product ambiguity — a technical one
+that is mine and reversible proceeds under *A reversible choice proceeds*,
+above, inside the approved plan in feature mode and inside the tier oracle in
+bugfix mode, which is that rule's plan for a Tier A or B fix (David,
+2026-10-11) — (a "bug" that's really a
 behavior change is feature work), verify before committing, and keep the
 squash-merge / never-force-push / bot-review discipline — the last where a
 review is owed, which a prototype-phase feature never is.

@@ -753,7 +753,9 @@ by the same agent in the same turn, on green CI. Codex's automatic pass on PR-op
 **read for nothing**: each of its threads is resolved with one line naming
 this phase, and no finding on a prototype-phase feature starts a fix. **Once
 the first version is approved, the only feedback that changes a prototype is
-the product owner's**, about how it feels to use, gathered the way the
+the product owner's** — once a version has reached him; before that, the
+agent's own failing machine check is repaired by the agent (*What prototype
+phase keeps of verification*, below) — about how it feels to use, gathered the way the
 `prototype` skill describes — and a defect he reports on it, a UI or UX fix
 included, is the next version through that skill, never a bugfix and never
 code-reviewed: bugfix mode is for already-agreed behaviour, and nothing about
@@ -781,9 +783,18 @@ in the branch regime, after the push, against the prototype environment that
 tracks the branch; in the `main` regime, after the merge's sync, in the
 close-out slot post-merge verification already holds — in both, **before the
 owner is asked for feedback**, so a failing one is a version that is not yet
-ready, said so in the report, and the owner is not yet asked. They are the
+ready, said so in the report, and the owner is not yet asked. **A failing
+machine check is repaired by the agent, before the owner is asked**: a
+further commit of the same version at prototype depth — in the `main` regime a
+further same-turn PR, merged the same way and synced; in the branch regime a
+further push — then the lanes run again, and the owner is asked only when
+they pass. That repair is the one change to a prototype that is not the
+owner's feedback, and it is authorised because the version has not reached
+him yet: *only the owner's feedback changes a prototype* (above) is about a
+version he has been asked about. They are the
 agent's proof that the version works; they are not a review bar, and no
-failing check starts a hardening fix. **The human lane is the owner's feedback through the rail,
+failing check starts a hardening fix — the repair is to the prototype, at
+its depth, never a production-bar fix. **The human lane is the owner's feedback through the rail,
 never a UAT script**: a prototype ships no UAT doc, and David's time goes to
 the question the prototype asks and to nothing a machine could answer
 (*"minimize my testing time while giving you as much autonomy as
