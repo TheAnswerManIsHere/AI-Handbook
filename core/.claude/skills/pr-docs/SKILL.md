@@ -21,10 +21,15 @@ What follows describes the feature-mode default.
 
 For **every** feature-mode PR that has product-visible or testable behavior
 **and is in production phase**, I ship two things. A prototype-phase PR
-ships neither: its scaled machine-lane checks and its feedback rail are its
-verification, and a UAT doc would be the documentation bar the phase removes
-(working-modes.md, *The prototype phase, per feature*, and *What prototype
-phase keeps of verification*).
+ships no UAT doc — that is the documentation bar the phase removes — and its
+*Post-merge verification* section carries exactly one thing: the version's
+`live` check, when its claim depends on the deployed environment or a real
+vendor, as the command and pass criterion I run after the merge's sync and
+before the owner is asked; otherwise "none needed". Its scaled `ci` and
+`scripted` lanes run before the merge and its feedback rail is the only human
+lane (working-modes.md, *The prototype phase, per feature*, and *What
+prototype phase keeps of verification*; Codex, DojoOS #8: without that record
+the mandatory live check had no recorded command for close-out to run).
 
 1. **The PR body's *Post-merge verification* section** — the
    engineering checks for Replit's live environment (the technical safety

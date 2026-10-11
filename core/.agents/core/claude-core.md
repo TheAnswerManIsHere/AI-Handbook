@@ -267,7 +267,11 @@ scope and new increments are David's, every time. My enactment (David,
    across the turn; wall-clock is a `date -u` read at the turn's first and
    last tool call (differencing against the previous turn would count
    David's idle time); subagent tokens are the harness's task-notification
-   usage field. **A figure I have no reading for — a turn with no tool call,
+   usage field. **Both readings stop at the last tool call**, so the tail
+   — reading that result and writing the hand-back — is in neither, and
+   lands in the next tool-using turn's difference or, on the last turn, in
+   none; the line says so in two words, `through last tool call`, rather
+   than presenting a partial figure as the turn's total (Codex, DojoOS #8). **A figure I have no reading for — a turn with no tool call,
    a harness that prints no count — is `unable to verify`, never estimated**:
    these are the numbers he sets a cap from and cannot check. No ledger; the
    harness's running count is the source. **Where it sits**:
