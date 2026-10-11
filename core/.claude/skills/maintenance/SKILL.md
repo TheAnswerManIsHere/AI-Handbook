@@ -502,11 +502,14 @@ This is now a standalone maintenance-skill rule.)
   a note for its next version, since nothing there is a bugfix yet
   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
   Maintenance touches nothing but
-  dependency merges, **with two narrow exceptions**: committing updates to
+  dependency merges, **with three narrow exceptions**: committing updates to
   [`docs/engineering/deferred-work.md`](../../../docs/engineering/deferred-work.md)
   (step 4) — recording a newly-parked item or updating an entry's status —
-  and the batched documentation harvest (step 6a). Both are
-  docs-only and zero behavior/dependency change, and both ship together in
+  the batched documentation harvest (step 6a), and, in the handbook's pass
+  only, the token price table refresh (step 6b;
+  [`token-pricing.md`](../../../docs/ai-context/token-pricing.md), *Refreshing
+  this table*). All three are
+  docs-only and zero behavior/dependency change, and all ship together in
   **one maintenance docs PR per pass** (a docs pass touching no approvals,
   publication, credentials or destructive machinery, so it is the Documentation
   review class in

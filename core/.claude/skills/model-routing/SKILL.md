@@ -182,8 +182,11 @@ burns tokens fast and should be a deliberate ask, never something I assume.)
 ### Reaching Fable 5 without a session switch
 
 Fable 5 is enabled on David's account (confirmed 2026-07-24). It costs
-**$10/$50 per million tokens against Opus 5's $5/$25**, so it is always a
-deliberate escalation.
+**several times Opus per token** — the rates are the list prices in
+[`token-pricing.md`](../../../docs/ai-context/token-pricing.md), never copied
+here, since a copy goes stale the day the table is refreshed (this paragraph
+carried `$10/$50` against `$5/$25` until 2026-10-11, by then wrong on the
+Opus side) — so it is always a deliberate escalation.
 
 - **Subagent routing is the mechanism I control.** So I can hand one genuinely
   hard piece of work — a migration design, a root-cause hunt in the visual
