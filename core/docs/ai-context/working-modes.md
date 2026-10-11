@@ -1678,6 +1678,11 @@ reported symptom disappear while breaking an adjacent behavior nobody wrote down
 Feature mode solves this by pasting the approved plan into the PR body as the
 reviewer's oracle. **A bug fix has no plan, so it needs its own oracle** — and
 "n/a — no plan" leaves the reviewer checking the diff against nothing but itself.
+That oracle is also the plan for *A reversible choice proceeds on the
+recommendation* ([`agent-working-rules.md`](agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10);
+David, 2026-10-11): a reversible technical choice inside a Tier A or B fix
+proceeds on the agent's recommendation and is listed under the PR body's
+**Decisions taken on my recommendation**, like any PR's.
 
 **This section covers the Tier A/B oracle.** A trivial Tier C schema fix uses a
 different, dedicated block (symptom, root cause, why it's trivial, David's

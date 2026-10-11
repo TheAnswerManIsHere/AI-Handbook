@@ -190,7 +190,8 @@ approves the plan.** A feature in **prototype phase** meets this standard
 once, for its first version — a short plan, Astra's review, David's
 approval — and is outside it for later versions unless he asks; no version
 gets a code review, and after the first the only reviewer is the product
-owner using it
+owner using it — after the version's scaled machine lanes have passed, any
+failing one repaired by the agent first
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 **Planning (not code review).** A planning loop does not run on a pull request

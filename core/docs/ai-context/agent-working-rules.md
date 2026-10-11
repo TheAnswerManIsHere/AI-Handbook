@@ -225,7 +225,7 @@ whether the feature does what David wants — that you didn't surface in the pla
 is not acceptable — by the time the PR is in front of David, half the build
 assumes the wrong answer. A **technical** ambiguity whose resolution is yours to
 recommend and a corrective commit would undo is not this: it proceeds on the
-recommendation and is reported as it happens (*A reversible choice proceeds on the recommendation*, below). (Neither is a
+recommendation and is reported as it happens (*A reversible choice proceeds on the recommendation*, above). (Neither is a
 micro-decision: a variable name doesn't require pausing or reporting.)
 
 ## Pre-plan intent is the source of truth
@@ -480,7 +480,7 @@ in the product.
   ([`planning-contract.md`](./planning-contract.md)), the Fable assessor on a
   **code** round (`claude-core.md`'s *Shared judgement on a review round*).
   A purely technical choice a corrective commit would undo proceeds on the
-  recommendation and is reported, inside an approved plan (*A reversible choice proceeds on the recommendation*, below).
+  recommendation and is reported, inside an approved plan or a bugfix's tier oracle (*A reversible choice proceeds on the recommendation*, above).
   What still reaches David on either is intended behaviour, scope, a knowingly
   accepted user-facing shortfall, and approval; and a constraint he required
   explicitly does not become negotiable for being technical.

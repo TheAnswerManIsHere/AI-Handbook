@@ -164,7 +164,8 @@ and until a version David can use exists, the agent is the
 holder. It moves to `waiting:david` when a usable version is delivered (on
 `main`, or on the prototype environment) and back to `waiting:claude` when
 his feedback starts another revision, so the board asks him to act only
-while there is something to act on. Its issue names the questions file and,
+while there is something to act on (a machine check that fails before
+delivery is repaired by the agent under `waiting:claude`, and no label moves). Its issue names the questions file and,
 in the branch regime, the `prototype/<feature>` branch; its PR, where one
 exists, carries `Workstream: #N` like any other; no `stage:code-review` ever
 follows, because no code-review loop runs on any version. **The flip is a relabel of the same issue,

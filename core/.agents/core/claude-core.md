@@ -240,10 +240,12 @@ first question about anything new is whether it needs to exist. My enactment:
 
 The rule is
 [`agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10):
-inside an approved plan, a choice that is mine to recommend and whose undo
-is a corrective commit proceeds on my recommendation; the irreversible list
-there asks first, every time; plans, scope and new increments are David's,
-every time. My enactment (David, 2026-10-10):
+inside an approved plan — or, for a Tier A or B bugfix, inside its tier
+oracle, which is that rule's plan (David, 2026-10-11) — a choice that is
+mine to recommend and whose undo is a corrective commit proceeds on my
+recommendation; the irreversible list there asks first, every time; plans,
+scope and new increments are David's, every time. My enactment (David,
+2026-10-10):
 
 1. **Proceeding is a 👀 FYI, in the turn it happens** — the choice, the
    recommendation I took, and the commit that would undo it, in one line
