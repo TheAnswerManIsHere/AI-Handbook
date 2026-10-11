@@ -47,7 +47,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * `docs/` is deliberately not a root: a consumer's `docs/` holds its manual,
  * its plans and its subsystem docs, none of which the payload owns.
  */
-export const PAYLOAD_ROOTS = [".agents/", ".claude/", "docs/ai-context/", "docs/engineering/"];
+export const PAYLOAD_ROOTS = [".agents/", ".claude/", "docs/ai-context/", "docs/engineering/", "docs/tests/"];
 /** Directories a docs-shaped scope misses and this one must not (prose-sweep.md, *Scope*). */
 export const ALWAYS_IN_SCOPE = [".agents/roles/", ".claude/agents/", ".agents/memory/"];
 /** Repo-root files that describe the payload and carry its claims. */

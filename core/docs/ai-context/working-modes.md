@@ -32,8 +32,10 @@ The full workflow for building or changing product functionality. In this mode:
    phase** (*The prototype phase, per feature*, below) keeps this step for its
    **first version** — a short plan, Astra's review, his approval — and drops
    it for every later version unless he asks for the loop in words; of steps
-   3 to 5 it keeps only the usable surface: no tests, no doc updates as a
-   bar, and a PR only in the regime that opens one (David, 2026-09-28).
+   3 to 5 it keeps the usable surface and the machine-lane checks that prove
+   it works, scaled to a prototype (*What prototype phase keeps of
+   verification*, below); no doc updates as a bar, and a PR only in the
+   regime that opens one (David, 2026-09-28 and 2026-10-10).
 3. **Build it fully, end to end** (backend + the UI surface to exercise it + tests
    + any doc updates).
 4. **Tests prove the general invariant**, not just the reported example.
@@ -736,7 +738,7 @@ never infers the ask. A UI or UX fix on a prototype is one of those versions.
 
 **What prototype phase removes.** For a PR that touches only prototype-phase
 features: no code-review loop of any kind (no requested Codex round, no
-shared judgement, no translation), no tests, no `/simplify`, and none of
+shared judgement, no translation), no `/simplify`, no UAT doc, and none of
 security, performance, observability or documentation as a bar — *"We must
 not care about security, performance, observability, documentation, etc.
 until we've locked a design and the feature spec."* and *"I don't care about
@@ -760,6 +762,30 @@ is never part of this**: the agent merges to `main` and stops; David decides
 every publish (*"I'm the one who will decide when we publish"*), tests in the
 development environment himself, and hands the link to the user when he is
 ready.
+
+**What prototype phase keeps of verification: the machine lanes, scaled**
+(David, 2026-10-10). The 2026-09-28 reading took tests out of a prototype
+with the review loop, and the cost showed the day a DojoOS session handed
+David a list of manual steps to click through: *"Here's a good example of
+what I want to avoid. I want as much testing as is required to prove that
+what we're building works to be automated. Same lanes as we'll have in
+production, but scaled to be appropriate for prototyping."* So a prototype
+version carries the `ci` and `scripted` checks that prove its surface does
+what the version claims — the lanes
+[`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)
+defines, at a prototype's depth: the happy path and the states the design
+question turns on, not edge cases, security or performance. They are the
+agent's proof that the version works before the owner's feedback is asked
+for, run before the merge like any check; they are not a review bar, and a
+failing one is a version that is not ready, never a finding that starts a
+hardening fix. **The human lane is the owner's feedback through the rail,
+never a UAT script**: a prototype ships no UAT doc, and David's time goes to
+the question the prototype asks and to nothing a machine could answer
+(*"minimize my testing time while giving you as much autonomy as
+possible"*). The checks are throwaway with the prototype — the flip's
+hardening PR keeps or rewrites them under the standard loop — and *"no
+tests"* in a vendored prototype technique (the `prototype` skill's upstream
+body) is read as "no test as a bar", not as a ban.
 
 **What it does not remove of the disclosure rules.** The questions file
 and the ledger are prose that reaches a public branch, the way a plan once

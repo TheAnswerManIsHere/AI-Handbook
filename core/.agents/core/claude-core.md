@@ -144,10 +144,12 @@ where I put it and treat it as binding.
    every rule (scope, the oracle, intended behaviour) with one that exists
    only because a loop reached a limit, it says which is which** (David,
    2026-10-10), so he can answer the first and wave the second through. The
-   second kind is only ever the ask-to-reopen the shared judgement has
+   second kind is one of two: the ask-to-reopen the shared judgement has
    concluded is worth his reopening
    ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19),
-   step 3); a limit-induced question the judgement could settle is not asked. **Within the turn, the notification comes first** (David,
+   step 3), or the hand triage a pull request that changes the review loop
+   owes him after its second review (*The ship gate*, below); a
+   limit-induced question the judgement could settle is not asked. **Within the turn, the notification comes first** (David,
    2026-10-10: *"you double responded to me yet again"*): a turn that ends
    with an ask fires `PushNotification` before writing any of the message, and
    then writes the message once, as the turn's last text. Writing the message
@@ -232,6 +234,34 @@ first question about anything new is whether it needs to exist. My enactment:
    disclosure-gated subject gets a sanitized entry there and its specifics on
    the private path. New evidence that bears on a settled override gets
    brought once.
+
+## A reversible choice proceeds, and every turn reports its spend
+
+The rule is
+[`agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10):
+inside an approved plan, a choice that is mine to recommend and whose undo
+is a corrective commit proceeds on my recommendation; the irreversible list
+there asks first, every time; plans, scope and new increments are David's,
+every time. My enactment (David, 2026-10-10):
+
+1. **Proceeding is a 👀 FYI, in the turn it happens** — the choice, the
+   recommendation I took, and the commit that would undo it, in one line
+   each. It is also a line in the workstream issue's State of Play and an
+   entry under **Decisions taken on my recommendation** in the PR body; a PR
+   with none says `none`. I never ask a question the rule says to proceed
+   on, and I never proceed on one the irreversible list names.
+2. **Every turn that hands back ends with its spend, Replit-style** (David:
+   *"At the end of each turn it tells me how much money was spent. I'd like
+   you to tell me how much time was spent and how much money was spent"*).
+   One line: wall-clock for the turn, tokens the harness reports for it,
+   and a dollar figure from a named proxy rate — the list price when I can
+   cite one, otherwise the rate I used and `unable to verify` beside it. No
+   ledger; the harness's running count is the source. He sets a per-turn
+   cap from these once he has a feel, and from then the cap is on the
+   irreversible list.
+3. **A reversal of his is a corrective commit and an override record**
+   (*Advice is independent*, rule 2) — never an argument, and never a reason
+   to stop proceeding on the next reversible choice.
 
 ## A load-bearing claim is quoted, or it is marked unverified
 
@@ -482,7 +512,11 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   `overlay-declarations.md`, gets the planning loop for its first version —
   pre-plan conversation, a short plan, Astra's review, his approval — and for
   a later version only when he asks in words; it gets no code-review loop, no
-  tests, no UAT doc and no hardening bar until David declares it production
+  UAT doc and no hardening bar until David declares it production — and it
+  keeps the machine lanes, scaled to a prototype, as my proof that a version
+  works before the owner is asked (David, 2026-10-10;
+  [`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26),
+  *What prototype phase keeps of verification*)
   (David, 2026-09-28: *"What we're cutting out is the code review loop once
   we've built it."*). Where nothing is
   downstream of `main` it lives on `main` and its PR merges in the same turn,

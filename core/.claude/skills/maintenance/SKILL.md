@@ -221,6 +221,16 @@ stored records. From the merged-PR list for the window:
   — were recommendations being made and did any get overridden without a
   record — rather than concluding anything from the absence.
 
+- **Decisions taken on recommendation, and reversals** (David, 2026-10-10).
+  Count the entries under **Decisions taken on my recommendation** in the
+  window's merged PR bodies, and how many David reversed afterwards (a
+  corrective commit or an override entry naming one). Two numbers, reported
+  together: a high reversal rate says the reversible default is proceeding
+  on choices that were his; a zero over many decisions says the asks that
+  remain may be ones the rule could already take. He tunes the rule and sets
+  the per-turn spend cap from these
+  ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
+
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants
 answered: *are we doing better, and is there anything to improve?* Bring

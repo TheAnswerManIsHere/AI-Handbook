@@ -307,9 +307,13 @@ requires it.
       never David's approval. **When the action is `proceed`, the block is
       posted before the batch is pushed and carries, per finding, the class
       the finding belongs to and the sweep of that class** — every member
-      found, with the command that found them (`claude-core.md`, *Shared
-      judgement* item 6). The thread reply after the push cites this block and
-      names the commit; the sweep is stated once, here, not again there.
+      found, with the command that found them — or, where the class is design
+      judgement or naming and no command can enumerate it, saying so, as
+      `working-modes.md`'s class-sweep step 2 allows (`claude-core.md`,
+      *Shared judgement* item 6). The thread reply after the push cites this
+      block for the class and the pre-fix sweep, names the commit, and carries
+      the post-fix re-run of the oracle to zero, which the block cannot hold
+      because it is posted before the batch is written (class-sweep step 3).
 
    **Sign-in before the first dispatch, not mid-round.** `$CODEX_BIN login
    status` decides; the steps are in `claude-core.md`'s *Astra* section, and the

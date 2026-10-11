@@ -125,6 +125,58 @@ His override is explicit, in words, and ends the argument. How an agent
 records a durable override is that agent's own enactment (Claude Code:
 `CLAUDE.md`, *Advice is independent*).
 
+### A reversible choice proceeds on the recommendation (David, 2026-10-10)
+
+David takes the agent's recommendation about nine times in ten (*"90% of the
+time I go with your recommendation so it makes sense that we default to you
+going with it and just letting me know that you did, assuming that the build
+is reversible"*), and every ask still costs him a round trip. So inside an
+approved plan the default flips: **when a choice is the agent's to recommend
+and the build is reversible, the agent proceeds on its own recommendation and
+tells him it did.** *"I'd rather you build a bit too much and then we have to
+pivot or undo some of it than constantly stop building while waiting for me."*
+
+- **Reversible is an observable, not a feeling.** A choice is reversible when
+  undoing it is a corrective commit in the same repository and nothing outside
+  the repository has to be put back: no row written outside a test database,
+  nothing sent, nothing charged, nothing published, no credential issued. If
+  the agent cannot name the commit that would undo it, it is not reversible.
+- **The irreversible list always asks first, in words, whatever the phase**: a
+  publish or deploy to anything a user reaches; a write, migration or deletion
+  against a production or shared database; anything that sends (email, SMS,
+  push, a webhook to a third party) or charges; creating, rotating or deleting
+  a credential or a secret; deleting a branch, an environment, a bucket or a
+  repository; a change to a ruleset, a permission or a CI gate; spend above a
+  per-turn cap once David sets one. The list is closed and grows only by his
+  word.
+- **Plans are his, every time** (David, 2026-10-10: *"Don't do anything that's
+  not in a plan and don't build new plans and start executing against them
+  without me."*). A reversible choice *inside* an approved plan proceeds; new
+  scope, a new increment, a new feature, a new test plan or a new plan never
+  does, in either phase — that is where his judgement bites, and it is almost
+  always product-facing. Mid-flight scope keeps the now/next/never question.
+  A prototype's later versions are already built on his feedback alone; this
+  rule adds nothing there and takes nothing away.
+- **Production and prototype both run under it, production more sensitively**:
+  the same observable, with the irreversible list read at its widest — a
+  production-phase choice touching a subsystem the overlay marks sensitive
+  asks even when a commit would undo it; a prototype *"can go wild"* short of
+  the list.
+- **Proceeding is visible, never silent.** Each decision taken this way is
+  reported as it happens (Claude Code: a 👀 FYI in chat — the choice, the
+  recommendation taken, the way back), recorded as a line in the workstream
+  issue's State of Play, and gathered under a **Decisions taken on my
+  recommendation** heading in the PR body, so David and a reviewer read every
+  one in one place. His reversal afterwards is a corrective commit, and the
+  advice rule's override record applies.
+- **`/maintenance` counts them**: decisions taken this way in the window, and
+  how many he reversed. A reversal rate is the signal that the default is set
+  wrong, in either direction — he sets the per-turn spend cap and tunes this
+  from those numbers, not from a feeling about a week.
+
+This narrows *Ask by default* above for the reversible case; *Ask always* —
+what the product should do — is untouched, and reaches him through the plan.
+
 ## Plan-before-implementation rule
 
 For **non-trivial** work, produce a plan and **do not begin implementation until
