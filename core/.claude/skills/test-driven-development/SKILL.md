@@ -14,7 +14,8 @@ description: Use when implementing any feature or bugfix, before writing impleme
 > scaled to a prototype (David, 2026-10-10) — and the `prototype`
 > skill is the entry point
 > ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
-> The other "ask your human partner" rows below — generated code,
+> The other "ask your human partner" rows below, and the closing "no
+> exceptions without your human partner's permission" — generated code,
 > configuration files, not knowing how to test — are the agent's own
 > reversible choices inside an approved plan: decide, and report the choice
 > rather than asking

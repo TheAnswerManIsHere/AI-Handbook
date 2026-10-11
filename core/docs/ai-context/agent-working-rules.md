@@ -158,9 +158,12 @@ pivot or undo some of it than constantly stop building while waiting for me."*
   against a production or shared database; anything that sends (email, SMS,
   push, a webhook to a third party) or charges; creating, rotating or deleting
   a credential or a secret; deleting a branch, an environment, a bucket or a
-  repository; a change to a ruleset, a permission or a CI gate; spend above a
-  per-turn cap once David sets one. The list is closed and grows only by his
-  word.
+  repository; a change to a ruleset, a permission or a CI gate made anywhere
+  but a reviewed pull request (one landed by PR takes the ordinary bar, with
+  its latitude line, as the Claude core's *No PR waits for David's click*
+  already says — the list names the live toggle, not the reviewed diff);
+  spend above a per-turn cap once David sets one. The list is closed and
+  grows only by his word.
 - **Plans are his, every time** (David, 2026-10-10: *"Don't do anything that's
   not in a plan and don't build new plans and start executing against them
   without me."*). A reversible choice *inside* an approved plan proceeds; new
