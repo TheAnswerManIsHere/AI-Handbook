@@ -9,7 +9,9 @@ description: Use when implementing any feature or bugfix, before writing impleme
 
 > **Local note (AI-Handbook #168).** The "ask your human partner" exception
 > below for a throwaway prototype is already answered for a feature David has
-> declared prototype phase: the declaration removes tests, and the `prototype`
+> declared prototype phase: the declaration removes tests as a bar — the
+> version still carries the `ci` and `scripted` checks that prove it works,
+> scaled to a prototype (David, 2026-10-10) — and the `prototype`
 > skill is the entry point
 > ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 

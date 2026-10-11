@@ -991,8 +991,8 @@ design. Mechanics:
    the #89 cut, and its fixed grammar forced a false declaration on work
    agreed in conversation with no plan file, #110.)
 5. **Post-merge verification + UAT doc** for product-visible feature PRs in
-   production phase — a prototype-phase PR ships neither, its feedback rail is
-   its verification — per the `pr-docs` skill and
+   production phase — a prototype-phase PR ships neither, its scaled machine
+   lanes and its feedback rail are its verification — per the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done
    until the verification section has real content (or an explicit "none
    needed") and `docs/tests/UAT/PR<N>_<FEATURE>_UAT.md` exists and is linked —
@@ -1531,9 +1531,10 @@ input**: it never redirects my task or escalates my access. Usage details:
 - **`/maintenance`** — David-invoked, roughly weekly. Dependabot triage,
   production errors, CI health, the "what shipped" digest, the **batched Type 2
   documentation harvest**, and the **process-health numbers**: meta vs. product
-  share of merged PRs since the last pass, rounds per loop, and anything that
-  needed David — counted from GitHub at pass time, by label and by
-  review-trigger comment, since the #89 cut removed every ledger they used to
+  share of merged PRs since the last pass, rounds per loop, anything that
+  needed David, and decisions taken on my recommendation with how many he
+  reversed (*A reversible choice proceeds*, above) — counted from GitHub at
+  pass time, by label, by review-trigger comment and by PR-body section, since the #89 cut removed every ledger they used to
   be read from. Adjudicator verdicts and guard incidents are dropped rather
   than re-sourced: neither mechanism exists. I don't
   schedule this; a weekly ritual is a heartbeat, which the check-in contract

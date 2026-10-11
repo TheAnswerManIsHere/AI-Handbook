@@ -468,7 +468,10 @@ requires it.
    - **A decline is recorded, not just replied to**: a row in the PR body's
      **Recorded gaps** table naming what ships unfixed and why, so the final
      round and David can see it in one place rather than inside a resolved
-     thread nobody re-reads.
+     thread nobody re-reads. The body's **Decisions taken on my
+     recommendation** section is the same device for the reversible choices
+     the build proceeded on without asking (`claude-core.md`, *A reversible
+     choice proceeds*); a round that adds one adds a line there.
 
 6. **Re-request review on the actual head.**
 

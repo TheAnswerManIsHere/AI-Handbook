@@ -12,6 +12,10 @@
 > before building is, for a first version, the short plan the planning loop
 > reviews and David approves ([SKILL.md](SKILL.md), *Ceremony*)
 > ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+> Where this file says a prototype has no tests, read "no test as a bar": a
+> prototype-phase feature keeps the `ci` and `scripted` checks that prove its
+> version works, scaled (David, 2026-10-10; *What prototype phase keeps of
+> verification* in the same home).
 
 A single, self-contained HTML file (a **shareable demo**) that lets anyone drive a state model by clicking buttons. Use this when the question is about **business logic, state transitions, or data shape**: the kind of thing that looks reasonable on paper but only feels wrong once you push it through real cases.
 

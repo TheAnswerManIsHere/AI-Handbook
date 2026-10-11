@@ -314,6 +314,10 @@ of the workstream issue's body, with these fields:
   stage name alone (the same accuracy bar `/status-all` applies). If nothing's
   blocking, say so.
 - **What you need to do** — the concrete next action, or "nothing right now."
+- **Decisions taken on recommendation** — one line per reversible choice the
+  agent proceeded on without asking, with the way back
+  ([`agent-working-rules.md`](./agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10));
+  omitted when there are none.
 - **Artifacts** — PR numbers, branch names, key file paths, the Project link.
 - **To resume** — the literal instruction for picking this back up: which
   branch/session to open, what to ask for, which model tier fits.

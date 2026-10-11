@@ -151,7 +151,8 @@ Modification status:
   title of `brainstorming/SKILL.md` and `test-driven-development/SKILL.md`,
   saying a prototype-phase feature does not pass their gates (corrected by
   #173: a first version passes brainstorming's, as its pre-plan
-  conversation; tests stay removed), and one under
+  conversation; and on 2026-10-10 tests stay removed only as a bar — a
+  prototype keeps its machine lanes, scaled), and one under
   `using-superpowers/SKILL.md`'s subagent stop saying its phrase router
   runs after the registry read, and one under `systematic-debugging/SKILL.md`'s
   title, whose own description is a trigger the router note cannot reach,
