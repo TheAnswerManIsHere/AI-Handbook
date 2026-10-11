@@ -465,7 +465,9 @@ How to run it:
 
 Single message, ten short sections, worst news first. When something needs
 David's decision (major bump, alarming Sentry issue, recurring flake), it
-goes in a numbered question list at the end per the numbered-questions rule.
+goes in a numbered question list at the end per the numbered-questions rule,
+with the turn's spend line directly above that list (`claude-core.md`, *A
+reversible choice proceeds, and every turn reports its spend*).
 If the report is substantial, also publish it as an Artifact page — the chat
 message remains the canonical copy. (CLAUDE.md's combined Artifact-delivery
 paragraph this used to cite was retired; only its UAT-specific rule survives,

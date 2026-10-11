@@ -16,6 +16,9 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 > The header, task structure and TDD steps below are for a production-phase
 > plan and do not apply to that short plan; `.agents/PLANS.md` says what it
 > contains and which Preflight check it runs.
+> The *Execution Handoff* at the end asks which execution approach to use;
+> here that is my own reversible choice — take the recommended one and report
+> it, never ask ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10), 2026-10-11).
 
 ## Overview
 

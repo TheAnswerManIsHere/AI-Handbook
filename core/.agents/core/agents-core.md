@@ -108,7 +108,9 @@ When asked to **implement** (an approved plan):
 2. Confirm the affected files.
 3. Make the smallest coherent change.
 4. Run relevant tests.
-5. Summarize what changed, what was tested, and what remains risky.
+5. Summarize what changed, what was tested, what remains risky, and the
+   reversible choices taken on your recommendation, each with its way back
+   (`agent-working-rules.md`, *How to summarize completed work*).
 
 ## Technical priorities
 

@@ -262,7 +262,9 @@ every time. My enactment (David, 2026-10-10):
    that ends with a 🛑 ask or an open-ask line, where interaction rule 6
    keeps the ask last and the spend line sits directly above it; a turn that
    writes nothing (rule 9's webhook echo, a silent wake) owes no spend line,
-   since nothing was handed back. He sets a per-turn cap from these once he
+   since nothing was handed back, and a `/uat` walkthrough turn carries none
+   either — the run's total goes in its end-of-run hand-back (the `uat`
+   skill). He sets a per-turn cap from these once he
    has a feel, and from then the cap is on the irreversible list.
 3. **A reversal of his is a corrective commit and an override record**
    (*Advice is independent*, rule 2) — never an argument, and never a reason

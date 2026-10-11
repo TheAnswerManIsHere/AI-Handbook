@@ -160,9 +160,13 @@ Modification status:
   text below each note is untouched. #168's round-6 sweep added one more
   under `finishing-a-development-branch/SKILL.md`'s title, since its
   "exactly 4 options" menu has no option a prototype branch can take.
-  The 2026-10-11 reversible-choice sweep added one under
-  `executing-plans/SKILL.md`'s and `using-git-worktrees/SKILL.md`'s titles,
-  reading their "stop and ask" as the fleet's ask/decide boundary.
+  The 2026-10-11 reversible-choice sweep added a note reading each skill's
+  "stop and ask" as the fleet's ask/decide boundary under the titles of
+  `executing-plans`, `using-git-worktrees`, `writing-plans` (its Execution
+  Handoff) and `finishing-a-development-branch` (its menu), and the same
+  sentence inside the existing notes of `receiving-code-review` and
+  `test-driven-development`; `systematic-debugging`'s three-failed-fixes stop
+  was left as an ask, since a design flaw after three fixes is Tier C.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was
