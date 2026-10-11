@@ -103,8 +103,11 @@ root, outside `core/`, so it never ships: every consumer has its own
 process PR** — so applied as written it would never update this manual. The
 exception is this repo's, not the fleet's: **the handbook's `/maintenance`
 pass reads the PRs merged since the last pass and updates the chapters they
-touched**, as a Documentation-class PR. Nothing else about the documentation
-contract changes here, and nothing about this ships. Chapters link to the
+touched**, as a Documentation-class PR. The second handbook-only step is
+the refresh of `core/docs/ai-context/token-pricing.md` (the `maintenance`
+skill, step 6b): the table has one source, so only this repository's pass
+rewrites it; a consumer's pass reads its copy. Nothing else about the
+documentation contract changes here, and nothing about this ships. Chapters link to the
 payload's rules and never restate them; the manual's own README holds its
 writing rules.
 

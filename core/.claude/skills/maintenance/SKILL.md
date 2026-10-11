@@ -231,14 +231,22 @@ stored records. From the merged-PR list for the window:
   the per-turn spend cap from these
   ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
 
-- **Refresh the token price table** (David, 2026-10-11). Fetch the two
-  pricing pages [`token-pricing.md`](../../../docs/ai-context/token-pricing.md)
-  names, re-quote the rows for every model it carries and any new model
-  `.agents/machinery.json` pins, update its read date and recompute its proxy
-  column by the rule it states. The spend line on every turn converts tokens
-  with that table, so a stale table misprices every turn until the next pass;
-  a page that cannot be fetched keeps its old rows and date, and this report
-  says so.
+- **Refresh the token price table — in the handbook's pass only** (David,
+  2026-10-11; AI-Handbook #194 round 4). The table
+  [`token-pricing.md`](../../../docs/ai-context/token-pricing.md) has one
+  source, so it has one refresher: when this pass runs **in AI-Handbook**,
+  fetch the two pricing pages the table names, re-quote the rows for every
+  model it carries and any new model this repository's `.agents/machinery.json`
+  pins, update each section's read date and recompute its proxy column by
+  the rule it states. When this pass runs **in a consumer**, the table is a
+  vendored copy the sync overwrites (its banner says so), so the pass edits
+  nothing: it reads the shipped table and reports each section's read date
+  and how old it is in this report — and nothing more, since a consumer
+  holds no record of when the handbook's pass last ran, and a newer table
+  reaches this repository only by the next sync from the handbook, where the
+  source is refreshed. The spend line on every turn converts tokens with
+  that table, so an old copy misprices every turn until that sync; a page
+  that cannot be fetched keeps its old rows and date, and the report says so.
 
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants
@@ -495,11 +503,14 @@ This is now a standalone maintenance-skill rule.)
   a note for its next version, since nothing there is a bugfix yet
   ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
   Maintenance touches nothing but
-  dependency merges, **with two narrow exceptions**: committing updates to
+  dependency merges, **with three narrow exceptions**: committing updates to
   [`docs/engineering/deferred-work.md`](../../../docs/engineering/deferred-work.md)
   (step 4) — recording a newly-parked item or updating an entry's status —
-  and the batched documentation harvest (step 6a). Both are
-  docs-only and zero behavior/dependency change, and both ship together in
+  the batched documentation harvest (step 6a), and, in the handbook's pass
+  only, the token price table refresh (step 6b;
+  [`token-pricing.md`](../../../docs/ai-context/token-pricing.md), *Refreshing
+  this table*). All three are
+  docs-only and zero behavior/dependency change, and all ship together in
   **one maintenance docs PR per pass** (a docs pass touching no approvals,
   publication, credentials or destructive machinery, so it is the Documentation
   review class in
@@ -511,7 +522,7 @@ This is now a standalone maintenance-skill rule.)
   anything the backlog pass turns up — a fired trigger for a *major* bump
   (dependency or Action) still only ever becomes a reported decision item,
   never a direct action, per step 4 above. **Step 9's backlog hygiene is
-  not a third exception** — it writes only issue labels, bodies, and
+  not an exception** — it writes only issue labels, bodies, and
   closures, never code, and only the specific lines David approved from
   its numbered diff. An unapproved line is not applied, and "I was already
   in there" is not approval.
