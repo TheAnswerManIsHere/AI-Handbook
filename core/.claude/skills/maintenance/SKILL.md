@@ -221,6 +221,25 @@ stored records. From the merged-PR list for the window:
   — were recommendations being made and did any get overridden without a
   record — rather than concluding anything from the absence.
 
+- **Decisions taken on recommendation, and reversals** (David, 2026-10-10).
+  Count the entries under **Decisions taken on my recommendation** in the
+  window's merged PR bodies, and how many David reversed afterwards (a
+  corrective commit or an override entry naming one). Two numbers, reported
+  together: a high reversal rate says the reversible default is proceeding
+  on choices that were his; a zero over many decisions says the asks that
+  remain may be ones the rule could already take. He tunes the rule and sets
+  the per-turn spend cap from these
+  ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
+
+- **Refresh the token price table** (David, 2026-10-11). Fetch the two
+  pricing pages [`token-pricing.md`](../../../docs/ai-context/token-pricing.md)
+  names, re-quote the rows for every model it carries and any new model
+  `.agents/machinery.json` pins, update its read date and recompute its proxy
+  column by the rule it states. The spend line on every turn converts tokens
+  with that table, so a stale table misprices every turn until the next pass;
+  a page that cannot be fetched keeps its old rows and date, and this report
+  says so.
+
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants
 answered: *are we doing better, and is there anything to improve?* Bring
@@ -455,7 +474,9 @@ How to run it:
 
 Single message, ten short sections, worst news first. When something needs
 David's decision (major bump, alarming Sentry issue, recurring flake), it
-goes in a numbered question list at the end per the numbered-questions rule.
+goes in a numbered question list at the end per the numbered-questions rule,
+with the turn's spend line directly above that list (`claude-core.md`, *A
+reversible choice proceeds, and every turn reports its spend*).
 If the report is substantial, also publish it as an Artifact page — the chat
 message remains the canonical copy. (CLAUDE.md's combined Artifact-delivery
 paragraph this used to cite was retired; only its UAT-specific rule survives,
