@@ -330,8 +330,11 @@ skills that own label transitions
 own keeping this block current at those same trigger points. There is no
 separate maintainer beyond those six **for label-driven updates**.
 
-**Exactly two writers update this block without any label change:
-`/handoff` and `/uat`.** `/handoff`
+**Three writers update this block without any label change: `/handoff`,
+`/uat`, and whichever skill is building, for the *Decisions taken on
+recommendation* line, written at the moment the choice is taken
+([`agent-working-rules.md`](./agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).**
+`/handoff`
 (`.claude/skills/handoff/SKILL.md`, Claude-only): when a session's context is
 moved to a fresh session, the narrative changes while `stage:` and `waiting:`
 deliberately do not — the holder is `claude` before and after, and a handoff

@@ -770,15 +770,20 @@ David a list of manual steps to click through: *"Here's a good example of
 what I want to avoid. I want as much testing as is required to prove that
 what we're building works to be automated. Same lanes as we'll have in
 production, but scaled to be appropriate for prototyping."* So a prototype
-version carries the `ci` and `scripted` checks that prove its surface does
-what the version claims — the lanes
+version carries the three machine lanes
 [`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)
-defines, at a prototype's depth: the happy path and the states the design
-question turns on, not edge cases, security or performance. They are the
-agent's proof that the version works before the owner's feedback is asked
-for, run before the merge like any check; they are not a review bar, and a
-failing one is a version that is not ready, never a finding that starts a
-hardening fix. **The human lane is the owner's feedback through the rail,
+defines — `ci`, `scripted` and `live` — at a prototype's depth: the happy
+path and the states the design question turns on, not edge cases, security
+or performance. `ci` and `scripted` run before the merge like any check. A
+`live` check is the read-only proof a claim that depends on the deployed
+environment or a real vendor needs, and it runs where that environment is:
+in the branch regime, after the push, against the prototype environment that
+tracks the branch; in the `main` regime, after the merge's sync, in the
+close-out slot post-merge verification already holds — in both, **before the
+owner is asked for feedback**, so a failing one is a version that is not yet
+ready, said so in the report, and the owner is not yet asked. They are the
+agent's proof that the version works; they are not a review bar, and no
+failing check starts a hardening fix. **The human lane is the owner's feedback through the rail,
 never a UAT script**: a prototype ships no UAT doc, and David's time goes to
 the question the prototype asks and to nothing a machine could answer
 (*"minimize my testing time while giving you as much autonomy as

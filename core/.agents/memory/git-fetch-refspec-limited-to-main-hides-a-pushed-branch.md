@@ -27,9 +27,17 @@ set up by the session harness.
 git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 git fetch origin claude/<branch>
 git branch --set-upstream-to=origin/claude/<branch>
+git config --get-all remote.origin.fetch   # look for per-branch entries
+git config --unset-all remote.origin.fetch '\+refs/heads/claude/<old-branch>.*'
 git log --oneline @{u}..HEAD | wc -l    # 0
 ```
 
-A stale per-branch refspec for a deleted branch (`+refs/heads/claude/old-…`)
-can sit beside the narrow one and is harmless; `git config --unset-all
-remote.origin.fetch '<pattern>'` removes it.
+**A stale per-branch refspec is not harmless.** Once GitHub deletes that
+branch at squash-merge, every bare `git fetch` or `git fetch origin` in the
+clone fails with `fatal: couldn't find remote ref refs/heads/claude/<old-branch>`
+(measured 2026-10-11, Git 2.43.0: a probe refspec for a non-existent branch
+made `git fetch origin` fail that way while `git fetch origin main` still
+succeeded, because an explicit ref bypasses the configured refspecs). So the
+repair ends by removing every per-branch entry whose branch is gone — the
+`--unset-all` line above; its value is a regex, hence the escaped `+` — and
+the check that it worked is a bare `git fetch origin` exiting 0.

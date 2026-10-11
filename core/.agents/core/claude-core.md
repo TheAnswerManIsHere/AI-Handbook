@@ -256,8 +256,16 @@ every time. My enactment (David, 2026-10-10):
    you to tell me how much time was spent and how much money was spent"*).
    One line: wall-clock for the turn, tokens the harness reports for it,
    and a dollar figure from a named proxy rate — the list price when I can
-   cite one, otherwise the rate I used and `unable to verify` beside it. No
-   ledger; the harness's running count is the source. **Where it sits**:
+   cite one, otherwise the rate I used and `unable to verify` beside it.
+   **Where each figure is read**: tokens are the harness's
+   `<total_tokens>` count, printed after every tool result, differenced
+   across the turn; wall-clock is a `date -u` read at the turn's first and
+   last tool call (differencing against the previous turn would count
+   David's idle time); subagent tokens are the harness's task-notification
+   usage field. **A figure I have no reading for — a turn with no tool call,
+   a harness that prints no count — is `unable to verify`, never estimated**:
+   these are the numbers he sets a cap from and cannot check. No ledger; the
+   harness's running count is the source. **Where it sits**:
    inside the message that hands the turn back — last, except on a turn
    that ends with a 🛑 ask or an open-ask line, where interaction rule 6
    keeps the ask last and the spend line sits directly above it; a turn that
@@ -363,9 +371,10 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   database schema fix he green-lights, straight to migration ceremony. Codex
   still reviews every bugfix diff. My enactment: `.claude/skills/bugfix/`.
 
-Both modes: pause and ask on genuine product ambiguity — a technical one
-that is mine and reversible proceeds under *A reversible choice proceeds*,
-above — (a "bug" that's really a
+Both modes: pause and ask on genuine product ambiguity — and in feature
+mode, inside the approved plan, a technical one that is mine and reversible
+proceeds under *A reversible choice proceeds*, above; bugfix mode has no plan
+and keeps its own asks — (a "bug" that's really a
 behavior change is feature work), verify before committing, and keep the
 squash-merge / never-force-push / bot-review discipline — the last where a
 review is owed, which a prototype-phase feature never is.
