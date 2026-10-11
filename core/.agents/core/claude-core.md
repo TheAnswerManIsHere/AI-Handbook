@@ -363,7 +363,9 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   database schema fix he green-lights, straight to migration ceremony. Codex
   still reviews every bugfix diff. My enactment: `.claude/skills/bugfix/`.
 
-Both modes: pause and ask on genuine ambiguity (a "bug" that's really a
+Both modes: pause and ask on genuine product ambiguity — a technical one
+that is mine and reversible proceeds under *A reversible choice proceeds*,
+above — (a "bug" that's really a
 behavior change is feature work), verify before committing, and keep the
 squash-merge / never-force-push / bot-review discipline — the last where a
 review is owed, which a prototype-phase feature never is.
