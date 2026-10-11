@@ -1684,7 +1684,10 @@ That oracle is also the plan for *A reversible choice proceeds on the
 recommendation* ([`agent-working-rules.md`](agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10);
 David, 2026-10-11): a reversible technical choice inside a Tier A or B fix
 proceeds on the agent's recommendation and is listed under the PR body's
-**Decisions taken on my recommendation**, like any PR's.
+**Decisions taken on my recommendation**, like any PR's — under the canonical
+disclosure check like every record of one (`workstream-tracking.md`,
+*Sensitive / disclosure-carve-out workstreams*), and never the regression test
+of step 3 above, which only that step's carve-out can waive.
 
 **This section covers the Tier A/B oracle.** A trivial Tier C schema fix uses a
 different, dedicated block (symptom, root cause, why it's trivial, David's
