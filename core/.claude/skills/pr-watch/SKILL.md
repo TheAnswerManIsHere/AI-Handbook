@@ -789,7 +789,10 @@ requires it.
    end*: re-verify live state with a fresh `pull_request_read` — not cached
    green — then squash-merge, check the Repl for its own commits and then sync and verify it (close-out step 3), execute the
    Post-merge verification section, post the harvest-notes comment, and send
-   the merge report with both SHAs, the latitude line and the UAT handoff.
+   the merge report with both SHAs, the latitude line, the PR's **Decisions
+   taken on my recommendation** entries, the UAT handoff and, as its last
+   line, the turn's spend (`claude-core.md`, *A reversible choice proceeds,
+   and every turn reports its spend*).
    **No readiness receipt is minted or quoted**: `pr-ready.mjs` is gone, and
    the four-item bar is read by eye.
 

@@ -86,7 +86,9 @@ entirely of such files: `core/.claude/settings.template.json`, and any edit to
 `claude-core.md` or `agents-core.md` that grants me latitude, now ship under
 the same bar as everything else. What survives is the naming: the PR body and
 the merge report each carry one line saying what latitude the change grants me,
-so a widening is read rather than clicked. The harness classifier may still
+so a widening is read rather than clicked — and, since 2026-10-10, the
+reversible choices I proceeded on under the core's *A reversible choice
+proceeds*, read the same way. The harness classifier may still
 refuse an in-place edit it reads as a guardrail; that layer is the platform's,
 and the change goes as a PR either way.
 
