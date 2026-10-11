@@ -251,7 +251,10 @@ scope and new increments are David's, every time. My enactment (David,
    recommendation I took, and the commit that would undo it, in one line
    each. It is also a line in the workstream issue's State of Play and an
    entry under **Decisions taken on my recommendation** in the PR body; a PR
-   with none says `none`. I never ask a question the rule says to proceed
+   with none says `none`. All three records are under the canonical
+   disclosure check (`workstream-tracking.md`, *Sensitive /
+   disclosure-carve-out workstreams*): one that fails it is written
+   sanitized, its specifics on the private path. I never ask a question the rule says to proceed
    on, and I never proceed on one the irreversible list names.
 2. **Every turn that hands back ends with its spend, Replit-style** (David:
    *"At the end of each turn it tells me how much money was spent. I'd like
