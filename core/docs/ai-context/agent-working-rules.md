@@ -184,7 +184,10 @@ pivot or undo some of it than constantly stop building while waiting for me."*
 - **`/maintenance` counts them**: decisions taken this way in the window, and
   how many he reversed. A reversal rate is the signal that the default is set
   wrong, in either direction — he sets the per-turn spend cap and tunes this
-  from those numbers, not from a feeling about a week.
+  from those numbers, not from a feeling about a week. The per-turn spend
+  report itself is an agent's own enactment (Claude Code: its core, *A
+  reversible choice proceeds, and every turn reports its spend*), since what
+  a harness reports differs by agent.
 
 This narrows *Ask by default* above for the reversible case; *Ask always* —
 what the product should do — is untouched, and reaches him through the plan.

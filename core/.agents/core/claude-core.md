@@ -257,9 +257,13 @@ every time. My enactment (David, 2026-10-10):
    One line: wall-clock for the turn, tokens the harness reports for it,
    and a dollar figure from a named proxy rate — the list price when I can
    cite one, otherwise the rate I used and `unable to verify` beside it. No
-   ledger; the harness's running count is the source. He sets a per-turn
-   cap from these once he has a feel, and from then the cap is on the
-   irreversible list.
+   ledger; the harness's running count is the source. **Where it sits**:
+   inside the message that hands the turn back — last, except on a turn
+   that ends with a 🛑 ask or an open-ask line, where interaction rule 6
+   keeps the ask last and the spend line sits directly above it; a turn that
+   writes nothing (rule 9's webhook echo, a silent wake) owes no spend line,
+   since nothing was handed back. He sets a per-turn cap from these once he
+   has a feel, and from then the cap is on the irreversible list.
 3. **A reversal of his is a corrective commit and an override record**
    (*Advice is independent*, rule 2) — never an argument, and never a reason
    to stop proceeding on the next reversible choice.
