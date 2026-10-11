@@ -5,7 +5,9 @@
 (`claude-core.md`, *A reversible choice proceeds, and every turn reports its
 spend*, item 2) converts tokens with. They are read from the vendors'
 published pricing pages, quoted here with the date they were read, and
-**refreshed at every `/maintenance` pass** (the `maintenance` skill, step 6b).
+**refreshed at the handbook's `/maintenance` pass** (the `maintenance` skill,
+step 6b) — the one source; a consumer's copy is vendored and read-only, and
+a consumer's pass reports its date rather than editing it.
 A spend line cites a rate from this table; `unable to verify` is for a model
 this table does not carry, never for a rate it does (David, 2026-10-11:
 *"Why do you keep saying you can't verify the list price for tokens? They're
@@ -80,9 +82,13 @@ by a decision recorded here; the rates change at every refresh.
 
 ## Refreshing this table
 
-At `/maintenance`, step 6b: fetch both pricing pages, re-quote the rows for
-every model this table names and for any new model the fleet's
-`.agents/machinery.json` pins, update the two tables and the read date, and
-recompute the proxy column from the rule above. A page that cannot be fetched
-leaves its section as is with the old date, and the maintenance report says
-so — a stale rate with its date is a reading; a guessed one is not.
+At **AI-Handbook's** `/maintenance`, step 6b — and only there, since this
+file is payload and a consumer's copy is overwritten by the next sync: fetch
+both pricing pages, re-quote the rows for every model this table names and
+for any new model the fleet's `.agents/machinery.json` pins, update the two
+tables and the read date, and recompute the proxy column from the rule above.
+A consumer's `/maintenance` reads this table, reports its read date, and
+names it stale when that date is older than the handbook's last pass; it
+never edits it. A page that cannot be fetched leaves its section as is with
+the old date, and the maintenance report says so — a stale rate with its
+date is a reading; a guessed one is not.

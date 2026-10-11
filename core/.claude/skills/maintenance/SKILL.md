@@ -231,14 +231,21 @@ stored records. From the merged-PR list for the window:
   the per-turn spend cap from these
   ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
 
-- **Refresh the token price table** (David, 2026-10-11). Fetch the two
-  pricing pages [`token-pricing.md`](../../../docs/ai-context/token-pricing.md)
-  names, re-quote the rows for every model it carries and any new model
-  `.agents/machinery.json` pins, update its read date and recompute its proxy
-  column by the rule it states. The spend line on every turn converts tokens
-  with that table, so a stale table misprices every turn until the next pass;
-  a page that cannot be fetched keeps its old rows and date, and this report
-  says so.
+- **Refresh the token price table — in the handbook's pass only** (David,
+  2026-10-11; AI-Handbook #194 round 4). The table
+  [`token-pricing.md`](../../../docs/ai-context/token-pricing.md) has one
+  source, so it has one refresher: when this pass runs **in AI-Handbook**,
+  fetch the two pricing pages the table names, re-quote the rows for every
+  model it carries and any new model `.agents/machinery.json` pins, update
+  its read date and recompute its proxy column by the rule it states. When
+  this pass runs **in a consumer**, the table is a vendored copy the sync
+  overwrites (its banner says so), so the pass edits nothing: it reads the
+  shipped table, reports its read date, and names it stale in this report
+  when that date is older than the handbook's last pass — the fix is the
+  handbook's pass, never a local edit. The spend line on every turn converts
+  tokens with that table, so a stale table misprices every turn until the
+  handbook's next pass; a page that cannot be fetched keeps its old rows and
+  date, and the report says so.
 
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants

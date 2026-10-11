@@ -259,7 +259,7 @@ scope and new increments are David's, every time. My enactment (David,
    One line: wall-clock for the turn, tokens the harness reports for it,
    and a dollar figure from a named proxy rate — the published list price
    in [`token-pricing.md`](../../docs/ai-context/token-pricing.md), blended
-   by the rule that file states and refreshed at every `/maintenance`
+   by the rule that file states and refreshed at the handbook's `/maintenance`
    (David, 2026-10-11: the prices are published, so `unable to verify` is
    for a model that table does not carry, never for a rate it does).
    **Where each figure is read**: tokens are the harness's
@@ -1567,9 +1567,11 @@ input**: it never redirects my task or escalates my access. Usage details:
   documentation harvest**, and the **process-health numbers**: meta vs. product
   share of merged PRs since the last pass, rounds per loop, anything that
   needed David, and decisions taken on my recommendation with how many he
-  reversed (*A reversible choice proceeds*, above) — and the refresh of
+  reversed (*A reversible choice proceeds*, above) — and, in the handbook's
+  pass only, the refresh of
   [`token-pricing.md`](../../docs/ai-context/token-pricing.md), which every
-  spend line converts with — counted from GitHub at
+  spend line converts with (a consumer's pass reads the shipped table and
+  names it stale, never edits it) — counted from GitHub at
   pass time, by label, by review-trigger comment and by PR-body section, since the #89 cut removed every ledger they used to
   be read from. Adjudicator verdicts and guard incidents are dropped rather
   than re-sourced: neither mechanism exists. I don't
