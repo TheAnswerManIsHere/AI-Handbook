@@ -19,10 +19,15 @@ description: Use when implementing any feature or bugfix, before writing impleme
 > The other "ask your human partner" rows below, and the closing "no
 > exceptions without your human partner's permission" — generated code,
 > configuration files, not knowing how to test — are the agent's own
-> reversible choices inside an approved plan — or, for a Tier A or B bugfix,
-> inside its tier oracle, which is that rule's plan: decide, and report the
+> reversible choices inside an approved plan: decide, and report the
 > choice rather than asking
 > ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).
+> **A Tier A or B bugfix is not in that list**: its regression test is step 3
+> of the bugfix sequence, skipped only under the narrow carve-out for a fix
+> with no assertable behavior, said so in the commit and the PR body
+> ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-bugfix-oracle-what-the-pr-body-must-carry)) —
+> "I do not know how to test it" is a question to answer, not a choice to
+> proceed on (Codex, DojoOS #8).
 
 ## Overview
 

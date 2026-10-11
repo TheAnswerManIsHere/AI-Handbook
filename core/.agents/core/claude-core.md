@@ -1028,10 +1028,12 @@ design. Mechanics:
    production phase — a prototype-phase PR ships no UAT doc, its Post-merge
    verification section carries only its version's `live` check, and its
    scaled machine lanes and feedback rail are its verification — per the `pr-docs` skill and
-   [`test-run-contract.md`](../../docs/tests/test-run-contract.md). The PR is not done
+   [`test-run-contract.md`](../../docs/tests/test-run-contract.md). A production-phase PR is not done
    until the verification section has real content (or an explicit "none
    needed") and `docs/tests/UAT/PR<N>_<FEATURE>_UAT.md` exists and is linked —
-   PR-first, added to the same PR before merge, never a later PR. **David
+   PR-first, added to the same PR before merge, never a later PR; a
+   prototype-phase PR is done on green CI with its verification section
+   filled, and never carries that doc. **David
    confirms a run complete and I delete the doc in that same close-out**
    (David, 2026-08-22) — unless it carries behavior recorded nowhere else, in
    which case that content is harvested into the Manual first. Bugfix mode does not
