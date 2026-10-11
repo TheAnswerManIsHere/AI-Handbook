@@ -181,10 +181,14 @@ pivot or undo some of it than constantly stop building while waiting for me."*
   proceeds on the recommendation and is listed in that PR's Decisions section;
   Tier C still stops, since it is not a bugfix.
 - **Production and prototype both run under it, production more sensitively**:
-  the same observable, with the irreversible list read at its widest — a
-  production-phase choice touching a subsystem the overlay marks sensitive
-  asks even when a commit would undo it; a prototype *"can go wild"* short of
-  the list.
+  the same observable in both phases, and the same closed list — no phase or
+  subsystem adds an ask of its own. Production asks more often because more
+  of the list is real there: a real database, real users, real sends and
+  charges, a publish that reaches someone; a prototype *"can go wild"* short of
+  the list. What makes a subsystem the overlay marks sensitive dangerous is
+  already on the list, and those subsystems keep their specialist review
+  (`working-modes.md`'s ceremony table) — care, not another approval (David,
+  2026-10-11, choosing this over a sensitive-subsystem stop: *"Option 1"*).
 - **Proceeding is visible, never silent.** Each decision taken this way is
   reported as it happens (Claude Code: a 👀 FYI in chat — the choice, the
   recommendation taken, the way back), recorded as a line in the workstream
