@@ -17,7 +17,7 @@ description: Use when starting feature work that needs isolation from current wo
 > cannot be a reversible decision
 > ([`agent-working-rules.md`](../../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10),
 > *Reversible is an observable*). Proceed, and record it as a pre-existing
-> limitation in the PR body's Verification section — the failing check and
+> limitation in the PR body's verification section — the failing check and
 > that it fails on `origin/main` too — never asking and never counting it as
 > a decision (Codex, DojoOS #8); a failure the branch introduced is a
 > blocker, not a choice. Upstream text below is untouched.
