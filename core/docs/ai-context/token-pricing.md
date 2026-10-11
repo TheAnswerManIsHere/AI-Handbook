@@ -7,7 +7,7 @@ spend*, item 2) converts tokens with. They are read from the vendors'
 published pricing pages, quoted here with the date they were read, and
 **refreshed at the handbook's `/maintenance` pass** (the `maintenance` skill,
 step 6b) — the one source; a consumer's copy is vendored and read-only, and
-a consumer's pass reports its date rather than editing it.
+a consumer's pass reports its dates rather than editing it.
 A spend line cites a rate from this table; `unable to verify` is for a model
 this table does not carry, never for a rate it does (David, 2026-10-11:
 *"Why do you keep saying you can't verify the list price for tokens? They're
@@ -85,10 +85,16 @@ by a decision recorded here; the rates change at every refresh.
 At **AI-Handbook's** `/maintenance`, step 6b — and only there, since this
 file is payload and a consumer's copy is overwritten by the next sync: fetch
 both pricing pages, re-quote the rows for every model this table names and
-for any new model the fleet's `.agents/machinery.json` pins, update the two
-tables and the read date, and recompute the proxy column from the rule above.
-A consumer's `/maintenance` reads this table, reports its read date, and
-names it stale when that date is older than the handbook's last pass; it
-never edits it. A page that cannot be fetched leaves its section as is with
-the old date, and the maintenance report says so — a stale rate with its
-date is a reading; a guessed one is not.
+for any new model the handbook's own `.agents/machinery.json` pins, update
+the two tables and each section's read date, and recompute the proxy column
+from the rule above. A consumer that pins a model this table does not carry
+gets its row by a pull request to the handbook, never by a local edit — a
+consumer's pins are its own, so the handbook's pass cannot see them, and
+until the row lands every spend line there reads `unable to verify`, which
+is the signal to open that pull request. A consumer's `/maintenance` reads
+this table and reports each section's read date and how old it is; it never
+edits it, and it does not judge the copy stale against the handbook's pass,
+whose date it has no way to read — a newer table reaches a consumer only by
+the next sync from the handbook. A page that cannot be fetched leaves its
+section as is with the old date, and the maintenance report says so — a
+stale rate with its date is a reading; a guessed one is not.

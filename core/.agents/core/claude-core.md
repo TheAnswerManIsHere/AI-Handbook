@@ -1571,7 +1571,7 @@ input**: it never redirects my task or escalates my access. Usage details:
   pass only, the refresh of
   [`token-pricing.md`](../../docs/ai-context/token-pricing.md), which every
   spend line converts with (a consumer's pass reads the shipped table and
-  names it stale, never edits it) — counted from GitHub at
+  reports its read dates, never edits it; a newer copy arrives by the sync) — counted from GitHub at
   pass time, by label, by review-trigger comment and by PR-body section, since the #89 cut removed every ledger they used to
   be read from. Adjudicator verdicts and guard incidents are dropped rather
   than re-sourced: neither mechanism exists. I don't

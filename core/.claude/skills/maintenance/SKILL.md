@@ -236,16 +236,17 @@ stored records. From the merged-PR list for the window:
   [`token-pricing.md`](../../../docs/ai-context/token-pricing.md) has one
   source, so it has one refresher: when this pass runs **in AI-Handbook**,
   fetch the two pricing pages the table names, re-quote the rows for every
-  model it carries and any new model `.agents/machinery.json` pins, update
-  its read date and recompute its proxy column by the rule it states. When
-  this pass runs **in a consumer**, the table is a vendored copy the sync
-  overwrites (its banner says so), so the pass edits nothing: it reads the
-  shipped table, reports its read date, and names it stale in this report
-  when that date is older than the handbook's last pass — the fix is the
-  handbook's pass, never a local edit. The spend line on every turn converts
-  tokens with that table, so a stale table misprices every turn until the
-  handbook's next pass; a page that cannot be fetched keeps its old rows and
-  date, and the report says so.
+  model it carries and any new model this repository's `.agents/machinery.json`
+  pins, update each section's read date and recompute its proxy column by
+  the rule it states. When this pass runs **in a consumer**, the table is a
+  vendored copy the sync overwrites (its banner says so), so the pass edits
+  nothing: it reads the shipped table and reports each section's read date
+  and how old it is in this report — and nothing more, since a consumer
+  holds no record of when the handbook's pass last ran, and a newer table
+  reaches this repository only by the next sync from the handbook, where the
+  source is refreshed. The spend line on every turn converts tokens with
+  that table, so an old copy misprices every turn until that sync; a page
+  that cannot be fetched keeps its old rows and date, and the report says so.
 
 **Step 6c — the "how are we doing" conversation.** Narrate the numbers in a few
 plain sentences — not tables — and open the question David actually wants
@@ -521,7 +522,7 @@ This is now a standalone maintenance-skill rule.)
   anything the backlog pass turns up — a fired trigger for a *major* bump
   (dependency or Action) still only ever becomes a reported decision item,
   never a direct action, per step 4 above. **Step 9's backlog hygiene is
-  not a third exception** — it writes only issue labels, bodies, and
+  not an exception** — it writes only issue labels, bodies, and
   closures, never code, and only the specific lines David approved from
   its numbered diff. An unapproved line is not applied, and "I was already
   in there" is not approval.
