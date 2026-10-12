@@ -25,7 +25,8 @@ gets a pull request before Claude's turn ends**, against `main`, every time.
 
 The PR body is the other half of the job. Codex cannot see the conversation
 in which David and Claude agreed what the change is for. So the body carries
-that agreement — the [oracle](./glossary.md#oracle) — word for word, and one
+that agreement — the [oracle](./glossary.md#oracle) — word for word (or
+sanitized, for a plan that failed the disclosure check), and one
 plain line saying where it came from. A reviewer holding the oracle can
 catch a change that does exactly what the code says and still not what David
 wanted.
@@ -201,8 +202,9 @@ what it finds, and folds anything real into the feature's next version.
 - **Verbatim, because a paraphrase drifts.** A summary of the plan is
   Claude's prose, and a slip in it would reach the reviewer unchecked. The
   one place that trade goes the other way is a plan with something that must
-  not be public in it: there the drift risk is accepted and the reviewer is
-  told which requirements it could not see. For the
+  not be public in it: there the drift risk is accepted. The sanitized copy
+  keeps every requirement and drops only the restricted specifics, and the
+  reviewer says which specifics it could not check. For the
   same reason, the two assessors of chapter 6 take the oracle from where it
   was agreed — the plan, the issue, David's words — and never from the PR
   body.
