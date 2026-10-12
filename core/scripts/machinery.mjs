@@ -701,7 +701,7 @@ export function codexUsage(jsonl) {
 
 /** One line for a log: the five buckets, or that the run reported none. */
 export function usageLine(usage) {
-  if (!usage) return "usage not reported (no turn.completed event) — price this run as unable to verify";
+  if (!usage) return "usage not reported (no usable turn.completed reading: absent, incomplete, all-zero, or after a model reroute — see the .events.jsonl beside the answer) — price this run as unable to verify";
   return `usage in ${usage.input} (cached ${usage.cachedInput}, cache-write ${usage.cacheWriteInput}) ` +
     `out ${usage.output} (reasoning ${usage.reasoningOutput})`;
 }

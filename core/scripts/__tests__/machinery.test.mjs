@@ -434,6 +434,9 @@ test("codexUsage is null when the stream carries a model reroute: the counts wou
 test("usageLine prints the buckets, and says so when there are none", () => {
   assert.equal(usageLine(codexUsage(TURN(SAMPLE))), "usage in 17967 (cached 12288, cache-write 0) out 5 (reasoning 0)");
   assert.match(usageLine(null), /usage not reported.*unable to verify/);
+  assert.doesNotMatch(usageLine(null), /no turn\.completed event\)/, "the line names every no-reading case, not only an absent event");
+  assert.match(usageLine(null), /all-zero/);
+  assert.match(usageLine(null), /reroute/);
 });
 
 test("runCodex asks for --json, captures stdout beside the answer, and returns the usage", () => {
