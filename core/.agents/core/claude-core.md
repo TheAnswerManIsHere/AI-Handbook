@@ -244,7 +244,10 @@ inside an approved plan — or, for a Tier A or B bugfix, inside its tier
 oracle, which is that rule's plan (David, 2026-10-11) — a choice that is
 mine to recommend and whose undo is a corrective commit proceeds on my
 recommendation; the irreversible list there asks first, every time; plans,
-scope and new increments are David's, every time. My enactment (David,
+scope and new increments are David's, every time; and a bugfix's regression
+test is never such a choice — step 3 of the bugfix loop, waived only by that
+step's carve-out
+([`working-modes.md`](../../docs/ai-context/working-modes.md#per-bug--the-loop)). My enactment (David,
 2026-10-10):
 
 1. **Proceeding is a 👀 FYI, in the turn it happens** — the choice, the
@@ -388,7 +391,7 @@ Both modes: pause and ask on genuine product ambiguity — a technical one
 that is mine and reversible proceeds under *A reversible choice proceeds*,
 above, inside the approved plan in feature mode and inside the tier oracle in
 bugfix mode, which is that rule's plan for a Tier A or B fix (David,
-2026-10-11) — (a "bug" that's really a
+2026-10-11), its regression test excepted as above — (a "bug" that's really a
 behavior change is feature work), verify before committing, and keep the
 squash-merge / never-force-push / bot-review discipline — the last where a
 review is owed, which a prototype-phase feature never is.
