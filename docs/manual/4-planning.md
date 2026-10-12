@@ -121,7 +121,8 @@ Before drafting, Claude runs every check in the preflight of
   invariants, not implementation.
 
 Claude then writes the plan to a file in its working tree, from the template
-in `PLANS.md`, with the oracle at its head. A prototype's first version gets a
+in `PLANS.md`, with the oracle at its head. It stays there, ignored by git,
+until David approves it. A prototype's first version gets a
 short plan instead — the design question, the hypothesis, the surface it
 shows, and what it leaves out — and only the increment test applies to it.
 
@@ -214,12 +215,13 @@ a tool error. When Claude is unsure whether it has been approved, it assumes
 it has not. The scope gate authorised the loop to *develop* the plan, never to
 build.
 
-What survives the loop by default is small. The plan file stays in Claude's
-working tree and reaches `main` only if David asks (after a check that it
-discloses nothing sensitive). The approved plan's intent sections are quoted
-verbatim into the implementation pull request, together with a line naming
-the plan file and a fingerprint of its exact text at the moment David
-approved it (chapter 5). The number of exchanges run goes into the
+At approval the plan gets a durable home. After a check that it discloses
+nothing sensitive, the plan file is committed on the feature branch and
+merges with the first increment's pull request; a plan that fails the check
+goes to the private tracking item instead, never staying in a working tree
+alone. The approved plan's intent sections are also quoted verbatim into the
+implementation pull request, together with a line naming the plan file and a
+fingerprint of its exact text at the moment David approved it (chapter 5). The number of exchanges run goes into the
 [harvest-notes comment](./glossary.md#harvest-notes-comment) on the
 workstream issue. If the plan ships in phases, every phase is listed in the
 workstream issue at approval, so none can be forgotten later.
@@ -259,9 +261,13 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
   loop, where a page turned out to be something David had to go and open
   rather than something he read: he reads chat and uses it well, so the plan
   comes to him there, complete.
-- **The plan is never published**, which is why the old disclosure gate on
-  plans was retired. What remains is the check before a plan file is ever
-  committed, if David asks for that.
+- **The approved plan is committed, after a disclosure check.** From
+  2026-09-09 the rule was that a plan is never published, and it stood in for
+  the disclosure gate once the review pull request went. It left the plan in
+  one container's working tree, and on 2026-10-12 a product lost an approved
+  plan when that container went (Overhype.me #631). A rule that forbids
+  publishing something has to say where it lives instead; this one now says
+  the feature branch.
 - **"Next" is the default for new scope.** On one product a plan grew from
   877 lines to roughly 1,370 during its own review, because its intent was a
   sweeping end state, so every discovery was in scope by definition. The fix

@@ -94,8 +94,9 @@ work this is (chapter 3 explains the routing):
 
 **One line naming what the code is judged against.** The `Oracle source:` line
 points a reviewer at the oracle's origin: the approved plan with a fingerprint
-of its exact text (an in-session plan is never committed, so the fingerprint
-is what pins the version David approved), the issue where the scope was agreed
+of its exact text (the plan is committed on the feature branch at approval,
+and the fingerprint lets anyone check that file is the version David
+approved), the issue where the scope was agreed
 in conversation, the bugfix tier, the prototype feature, or "no plan". Nothing
 parses it; it is a pointer for people.
 

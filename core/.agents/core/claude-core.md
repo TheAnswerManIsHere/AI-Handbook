@@ -389,7 +389,10 @@ versioned files don't. `/compact` is an in-session relief valve, not the memory.
 
 - **`/handoff`** carries a session's live state to a new session when — and only
   when — the context actually needs to move. It decides first and stops when the
-  answer is no. Runs in the main loop, never a subagent.
+  answer is no. Runs in the main loop, never a subagent. It never names a
+  working-tree file as a resume point: a file the next session needs is
+  pushed, or quoted into the issue, first (`handoff`, Step 2;
+  Planning rule 3 for a plan).
 - **`/document`** is the batched harvest of durable learnings (see below).
 - [`docs/handoff/`](../../docs/handoff/README.md) is cross-*tool* transit, which a
   session handoff never writes to.
@@ -434,13 +437,20 @@ enactment is `.claude/skills/document/`.
    trimming pass afterwards. A prototype's short plan — its first version's,
    or a later version's David asked a loop for — runs the increment test
    alone; `PLANS.md` says so, and which sections it omits.
-3. **A plan is never published, so the pre-push disclosure gate is gone**
-   (David, 2026-09-09): working tree, in-session peer, chat — no public
-   channel. What survives is narrower and still binding: a
-   `docs/plans/` file reaches `main` only if David asks, and **the disclosure
-   check runs before it does** — unpatched vulnerabilities, auth-bypass
-   specifics, secrets, payment-fraud paths, private customer data or embargoed
-   work never get committed. Directions are unchanged.
+3. **An approved plan is committed on its feature branch, and that is
+   where it lives** (David, 2026-10-12, retiring the 2026-09-09 rule that a
+   plan is never published — it left the plan in one container's working
+   tree, and a plan died with that container, Overhype.me #631). A draft
+   stays in the working tree, ignored by git, while the loop develops it. At
+   approval **the canonical disclosure check runs on it**
+   (`workstream-tracking.md`, *Sensitive / disclosure-carve-out
+   workstreams*); a plan that passes is committed under `docs/plans/` on the
+   feature branch and pushed that turn, and merges with the first
+   increment's PR, so the digest taken at approval verifies a file that
+   exists. An approved amendment is committed the same way. A plan that
+   fails the check goes to the private path that section names, **never to
+   a working tree alone**. Mechanics: `plan-review-loop`, *Close-out*, item 4.
+   Directions are unchanged.
 4. **The scope-of-work gate opens the loop** — for a feature in production
    phase and for a prototype's first version; a later prototype version has
    no loop to open unless David asks for one in words (*Two classes and a
@@ -460,8 +470,9 @@ enactment is `.claude/skills/document/`.
    complete plan**, in chat. No page, no HTML, no link — the same rule the code
    loop already carries, and rebuilding one is forbidden rather than merely
    unnecessary. `SendUserFile` for the plan document is **on request**: the ban
-   on it existed only because the page made it unnecessary. The plan file is
-   still pushed nowhere. **v1 is shown and the loop proceeds without waiting** —
+   on it existed only because the page made it unnecessary. Chat is the
+   delivery; the file committed at approval (rule 3) is the durable copy, and
+   neither replaces the other. **v1 is shown and the loop proceeds without waiting** —
    it changes anyway.
 7. **Choices that change intended behaviour, scope, or an accepted user-facing
    consequence escalate to David** as numbered questions carrying Astra's view
@@ -996,8 +1007,8 @@ design. Mechanics:
    form (interaction rule 11).
 4. **The body says in one plain line what the code is judged against.**
    `Oracle source:` then one of: the approved plan's filename and full sha256
-   digest (an in-session plan is never committed, so the digest is what pins
-   the text David approved); the issue where the scope was agreed in
+   digest (the digest pins the text David approved, and verifies the file
+   committed under Planning rule 3); the issue where the scope was agreed in
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
    or `no plan`, for the "n/a — no plan" change rule 3 allows; or, for a
    prototype-phase feature on `main`, `prototype phase — <feature>`, with the
