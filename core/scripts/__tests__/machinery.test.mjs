@@ -379,7 +379,7 @@ test("the alias is derived from the pin, and is null for anything that is not a 
 // runCodex: the usage reading (David, 2026-10-11 — an Astra run is priced
 // from `codex exec --json`'s turn.completed usage, not by a proxy).
 
-import { runCodex, codexUsage, usageLine } from "../machinery.mjs";
+import { runCodex, codexUsage, usageLine, CODEX_EVENTS_MAX_BUFFER } from "../machinery.mjs";
 import { readFileSync, existsSync } from "node:fs";
 
 const TURN = (usage) => JSON.stringify({ type: "turn.completed", usage });
@@ -424,6 +424,8 @@ test("runCodex asks for --json, captures stdout beside the answer, and returns t
     assert.ok(seen.args.includes("--json"), "events are requested as JSONL");
     assert.equal(seen.args.at(-1), "-", "the prompt still arrives on stdin");
     assert.deepEqual(seen.opts.stdio, ["pipe", "pipe", "inherit"], "stdout is captured, stderr still shows progress");
+    assert.equal(seen.opts.maxBuffer, CODEX_EVENTS_MAX_BUFFER, "the captured stream is not bounded by spawnSync's 1 MiB default");
+    assert.ok(CODEX_EVENTS_MAX_BUFFER >= 256 * 1024 * 1024);
     assert.equal(out.status, 0);
     assert.deepEqual(out.usage, { input: 17967, cachedInput: 12288, cacheWriteInput: 0, output: 5, reasoningOutput: 0 });
     assert.equal(out.eventsFile, `${outFile}.events.jsonl`);

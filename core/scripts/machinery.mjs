@@ -601,6 +601,9 @@ export const SIGN_IN_INSTRUCTIONS = [
  * scraped from a terminal. stderr stays inherited. The answer never comes
  * from either stream.
  */
+/** The stdout ceiling for a `codex exec --json` event stream: 256 MiB, the same bound the sync tests give `git archive`. */
+export const CODEX_EVENTS_MAX_BUFFER = 256 * 1024 * 1024;
+
 export function runCodex({ prompt, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
   const args = [
     "exec",
@@ -623,6 +626,13 @@ export function runCodex({ prompt, outFile, model, effort, sandbox, cwd, timeout
     stdio: ["pipe", "pipe", "inherit"],
     timeout: timeoutMs,
     cwd,
+    // A piped stdout is bounded by spawnSync's maxBuffer, 1 MiB by default,
+    // and crossing it kills the child with ENOBUFS and no status -- so a long
+    // review emitting verbose events would die before its answer and its
+    // turn.completed event were written. Inherited stdout had no ceiling;
+    // this one is set well above any event stream a round has produced.
+    // (Codex, AI-Handbook #199 round 1.)
+    maxBuffer: CODEX_EVENTS_MAX_BUFFER,
   });
   const events = typeof result.stdout === "string" ? result.stdout : "";
   const eventsFile = `${outFile}.events.jsonl`;
