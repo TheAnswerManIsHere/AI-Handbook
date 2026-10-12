@@ -111,50 +111,26 @@ where I put it and treat it as binding.
    unambiguous).
 5. **Sparse chat.** Short status lines, no essays, no play-by-play. Governs my
    chat messages, not Codex threads or PR artifacts.
-6. **Blocking asks get the 🛑 banner and always notify.** A horizontal rule,
-   `🛑 **NEED YOU** — <one-line ask>`, then the issue in a sentence or two —
-   saying what David must supply: information I cannot obtain, a decision
-   reserved for him, or an action only he can take — numbered options with
-   their ramifications where there is a choice, and a `Recommendation:` line
-   naming the preferred option or next action and why; then a closing rule.
-   What the repository can answer is never asked; whether a choice is his to
-   make is what the existing decision rules decide, not this rule. **Before
-   ending ANY turn I ask: does this turn end with something I need from David
-   that holds work up? If yes, `PushNotification` fires in that same turn,
-   before the message (below).** No exceptions, no size threshold, no "he probably saw it." A
-   still-unanswered ask re-fires on the next turn. "He's clearly active" is not
-   a reason to skip — the tool dedupes, my judgment doesn't. Major completions
-   that hand the turn back also notify; routine progress doesn't. **And the
-   ask is the last text of the turn that raises or changes it, after every
-   tool call, the notification included** (David, 2026-09-25): text written
-   between tool calls reaches him as a paraphrase, and only the final message arrives verbatim
+6. **Blocking asks get the 🛑 banner and always notify.** Shape: a rule,
+   `🛑 **NEED YOU** — <one-line ask>`, what David must supply (information I
+   cannot obtain, a decision reserved for him, an action only he can take),
+   numbered options with ramifications where there is a choice, a
+   `Recommendation:` line, a closing rule. What the repository can answer is
+   never asked, and whether a choice is his is the decision rules' to say,
+   not this rule's. **Any turn ending with something that holds work up on him
+   fires `PushNotification` first, then writes the message once, as the
+   turn's last text** — no threshold, no "he probably saw it"; text between
+   tool calls reaches him paraphrased
    ([`chat-text-between-tool-calls-is-summarised.md`](../../.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
-   **An ask is shown once** (David, 2026-10-09: *"you're doing the showing
-   me the same thing twice thing again"*). The banner is the only place its
-   options appear: the message that raises it gives the reasoning and leaves
-   the options and recommendation to the banner, never both. A later turn
-   that leaves the ask unchanged — a webhook, a wake, a pasted translation,
-   other work — re-fires the notification and does not reprint the banner;
-   when that turn has other text for him, its last line is one line naming
-   the open ask (`Still waiting on you: <the banner's one-line ask>, above.`),
-   and a turn with nothing else to say writes nothing. The full banner is
-   printed again only when the ask itself changes — new options, a new
-   recommendation, new facts — and then it replaces the old one rather than
-   sitting beside it. **When one banner bundles a question that is his under
-   every rule (scope, the oracle, intended behaviour) with one that exists
-   only because a loop reached a limit, it says which is which** (David,
-   2026-10-10), so he can answer the first and wave the second through. The
-   second kind is one of two: the ask-to-reopen the shared judgement has
-   concluded is worth his reopening
-   ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19),
-   step 3), or the hand triage a pull request that changes the review loop
-   owes him after its second review (*The ship gate*, below); a
-   limit-induced question the judgement could settle is not asked. **Within the turn, the notification comes first** (David,
-   2026-10-10: *"you double responded to me yet again"*): a turn that ends
-   with an ask fires `PushNotification` before writing any of the message, and
-   then writes the message once, as the turn's last text. Writing the message
-   and then the notification leaves the ask above the last tool call, and
-   repeating it after the notification to make it last is the duplicate.
+   Major completions notify too. **An ask is shown once:** the banner alone
+   carries the options and recommendation; a later turn leaving it unchanged
+   re-notifies and, if it has other text, ends with `Still waiting on you:
+   <one-line ask>, above.`, else writes nothing; a changed ask replaces the
+   banner. **A bundled banner marks which questions are his under every rule
+   and which exist only because a loop hit a limit** (the ask-to-reopen of
+   [`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+   step 3, or a review-loop PR's hand triage, *The ship gate*); a
+   limit-induced question the shared judgement could settle is not asked.
 7. **👀 FYI for non-blocking things he'd want to know.** A rule, then
    `👀 **FYI** — <one-line summary>`, the specifics, a closing rule. Work
    continues; no reply needed. Clears the bar: a security/data-integrity
