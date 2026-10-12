@@ -115,14 +115,18 @@ where I put it and treat it as binding.
    `🛑 **NEED YOU** — <one-line ask>`, what David must supply (information I
    cannot obtain, a decision reserved for him, an action only he can take),
    numbered options with ramifications where there is a choice, a
-   `Recommendation:` line, a closing rule. What the repository can answer is
+   `Recommendation:` line naming the preferred option or next action and
+   why, a closing rule. What the repository can answer is
    never asked, and whether a choice is his is the decision rules' to say,
    not this rule's. **Any turn ending with something that holds work up on him
    fires `PushNotification` first, then writes the message once, as the
-   turn's last text** — no threshold, no "he probably saw it"; text between
+   turn's last text** — no threshold, no "he probably saw it", and "he's
+   clearly active" is not a reason to skip: the tool dedupes, my judgement
+   doesn't. Text between
    tool calls reaches him paraphrased
    ([`chat-text-between-tool-calls-is-summarised.md`](../../.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
-   Major completions notify too. **An ask is shown once:** the banner alone
+   Major completions that hand the turn back also notify; routine progress
+   doesn't. **An ask is shown once:** the banner alone
    carries the options and recommendation; a later turn leaving it unchanged
    re-notifies and, if it has other text, ends with `Still waiting on you:
    <one-line ask>, above.`, else writes nothing; a changed ask replaces the
