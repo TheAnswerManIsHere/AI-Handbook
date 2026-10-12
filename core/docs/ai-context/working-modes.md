@@ -1175,7 +1175,10 @@ prototype phase, per feature*, above).
 
 - **A clean automatic pass on PR-open is the whole ceremony** for an internal
   PR in the standard loop (Trivial and Documentation are outside it, above). Finding nothing, it needs no judge: nothing was written, so the head is
-  already reviewed.
+  already reviewed. The one exception is a PR whose plan took the private
+  path, which the two assessors read against the full text once before
+  merge, clean pass or not (David, 2026-10-12; `claude-core.md`, *Internal
+  tooling: what is downstream*).
 - **Never a second review of an unchanged head; always a review of a changed
   one.** The rule here used to read "no re-request without a behavioural
   change", which contradicts the write-gate it sits under: a documentation pull
@@ -1346,7 +1349,11 @@ the paragraph fifty lines above had already diagnosed and fixed in the
 planning list.
 
 A round with **no findings** needs no dispatch: there is nothing to assess,
-and the loop ends on the head that round reviewed.
+and the loop ends on the head that round reviewed — except on a PR whose plan
+took the private path, where Codex saw only the sanitized oracle, so its
+silence says nothing about the restricted requirements; that PR's clean
+round is assessed once against the full text before merge (David,
+2026-10-12; `pr-watch`).
 
 **A round that did return findings is dispatched, whatever those findings look
 like** (David, 2026-09-18). The exemption here used to extend to a round "whose

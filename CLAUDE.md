@@ -59,7 +59,8 @@ risk. So:
 ## Ceremony
 
 **Internal tier**, per the core's review-loop rules: a clean automatic review
-pass is the whole ceremony, and a round that returns findings gets two
+pass is the whole ceremony (save a PR whose plan took the private path,
+assessed against the full text once regardless), and a round that returns findings gets two
 independent assessments before anything is written for it. How long iteration
 runs is not the tier's to say — it is the **two-review limit**
 ([`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),

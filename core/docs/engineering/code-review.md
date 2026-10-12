@@ -690,7 +690,10 @@ line — a dropped requirement, a touched must-not-change area — the most
 defensible nearby line). A clean round is an empty findings list; on a diff
 this is stronger evidence than on a plan (compiling, passing tests, and CI back
 it up), so — unlike the plan contract — silence here is a real, sufficient
-result, not a transport limitation to work around.
+result, not a transport limitation to work around. The exception is a PR
+built against a sanitized oracle: its silence covers only what the body
+shows, which is why such a PR is also assessed against the full text
+(above).
 
 (The product's plan-review skill defines the full plan-review format; this
 section is the code-review analog.)

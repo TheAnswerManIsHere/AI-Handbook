@@ -324,7 +324,10 @@ ceremony, not just Claude's enactment of it:
    **not** get a public issue of any kind, sub- or standalone. Use a
    private draft Project item instead. Don't assume every parentless
    feature is simply pre-tracking legacy work; check why the parent is
-   missing before defaulting to the public path.
+   missing before defaulting to the public path. A parent that turned
+   sensitive after its issue opened keeps that issue with sanitized tracking
+   only (`workstream-tracking.md`), and is the same case: its harvest is
+   checked as sensitive, not treated as legacy.
 3. For everything else: open the sub-issue, parented to the feature's
    workstream issue if one exists (`stage:code-review`, `waiting:claude` while
    the draft is Claude's to finish; from step 5, `pr-watch`'s labels apply —
