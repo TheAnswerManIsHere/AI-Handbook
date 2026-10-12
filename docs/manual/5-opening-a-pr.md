@@ -78,7 +78,10 @@ work this is (chapter 3 explains the routing):
 
 - **A feature in [production phase](./glossary.md#production-phase)** — the
   approved plan's product intent, what must not change, and its settled
-  decisions, copied exactly, plus the direction the plan serves. The
+  decisions, copied exactly, plus the direction the plan serves. A plan
+  that failed the disclosure check is the exception: the body carries a
+  sanitized copy that keeps each requirement, says it is sanitized, and
+  names the private item holding the full text. The
   direction matters because code can satisfy a narrow increment while
   quietly working against the larger goal it belongs to.
 - **A bugfix** — the oracle the [bugfix tier](./glossary.md#bugfix-tier)
@@ -196,7 +199,10 @@ what it finds, and folds anything real into the feature's next version.
   judge whether the code is internally sound; with it, it can catch code that
   works and still misses the point.
 - **Verbatim, because a paraphrase drifts.** A summary of the plan is
-  Claude's prose, and a slip in it would reach the reviewer unchecked. For the
+  Claude's prose, and a slip in it would reach the reviewer unchecked. The
+  one place that trade goes the other way is a plan with something that must
+  not be public in it: there the drift risk is accepted and the reviewer is
+  told which requirements it could not see. For the
   same reason, the two assessors of chapter 6 take the oracle from where it
   was agreed — the plan, the issue, David's words — and never from the PR
   body.

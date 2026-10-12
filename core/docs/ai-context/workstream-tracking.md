@@ -526,7 +526,9 @@ set" `stage:done`, and nothing ever asked him to.)
   public path — a draft Project item. **The same check gates committing an approved plan**
   (`claude-core.md` Planning rule 3): a plan that passes is committed on
   its feature branch, and a plan that fails goes in full into the
-  workstream's draft Project item, never into a working tree alone.
+  workstream's draft Project item, never into a working tree alone; its
+  implementation PR's oracle is then a sanitized copy that says so and names
+  that item (`claude-core.md` Pull requests rule 3).
 - **No hand-typed GitHub UI name (a field, an option) gets matched by exact
   string in code.** The sync script's first live run against the real board
   failed all 9 workstream syncs because the real `Waiting On` field

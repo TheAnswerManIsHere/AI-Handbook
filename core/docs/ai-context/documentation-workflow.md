@@ -311,7 +311,10 @@ ceremony, not just Claude's enactment of it:
    no label write, until the sub-issue (or standalone issue) is real and
    the line is corrected.
 2. **Disclosure check first**, same as the feature-level check the parent
-   went through: if the harvest itself is sensitive — most directly, if the
+   went through — the canonical one
+   ([`workstream-tracking.md`](./workstream-tracking.md#what-must-never-happen)),
+   which includes what a subsystem's own documents keep out of public prose:
+   if the harvest itself is sensitive — most directly, if the
    feature it documents was itself routed through the disclosure carve-out
    and therefore has no public parent issue *for that reason* — it does
    **not** get a public issue of any kind, sub- or standalone. Use a

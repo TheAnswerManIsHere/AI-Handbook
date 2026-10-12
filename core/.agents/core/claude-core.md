@@ -792,7 +792,8 @@ The loop:
   refuses to compose a package without one, which is what makes the agreement
   happen up front. **The assessors take it from where it was agreed — the
   plan, the issue, David's words — never from my PR body.** The body carries
-  a verbatim copy for Codex (Pull requests rule 3), but a copy I wrote is my
+  a copy for Codex (verbatim, or sanitized for a plan on the private path:
+  Pull requests rule 3), but a copy I wrote is my
   prose, and a slip in it would reach both assessors unchecked.
 - **What happens next is what I state, in a `review-action` block.** Nothing
   parses an assessment, so no phrase in one can authorise work.

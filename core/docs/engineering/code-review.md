@@ -25,7 +25,9 @@ as the [planning contract](../ai-context/planning-contract.md#2-turn-agreed-inte
 For a PR built from a David-approved plan, the PR body's **Approved-plan
 oracle** section (see the
 [PR template](../../.github/pull_request_template.md)) carries that plan's
-Product Intent / Must Not Change / Settled Decisions verbatim, and its
+Product Intent / Must Not Change / Settled Decisions verbatim (or a sanitized
+copy that says so, for a plan that failed the disclosure check — see the
+exception below), and its
 **Decisions taken on my recommendation** section lists the reversible choices
 the builder proceeded on without asking
 ([`agent-working-rules.md`](../ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10))
@@ -34,7 +36,8 @@ against that, not only against internal consistency: does it implement
 everything the intent called for, does it touch anything the plan marked
 must-not-change, does it match the settled decisions rather than a plausible
 alternative. Flag a dropped or narrowed requirement even if the code itself
-never mentions it — the absence is the finding.
+never mentions it — the absence is the finding. Against a sanitized oracle,
+a requirement you cannot see is named as unseen, not flagged as dropped.
 
 **If the plan cites a direction, check the code against that too, not just
 the plan's own Product Intent.** A plan built under

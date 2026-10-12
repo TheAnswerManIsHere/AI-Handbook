@@ -566,7 +566,9 @@ the oracle exists to prevent.
 
 So a plan owes one of two things for every load-bearing invariant: **state it
 in one of the four pasted sections**, or **paste it into the PR's oracle block
-explicitly alongside them**. *Must Not Change* is usually the natural home —
+explicitly alongside them** — in its sanitized form for a plan that failed the
+disclosure check, which keeps the requirement and drops the restricted
+specifics (`claude-core.md` Pull requests rule 3). *Must Not Change* is usually the natural home —
 an invariant worth protecting is, by definition, something that must not
 change. This was found by Codex reviewing this very rule, which is a fair
 demonstration of the rule's own point: no compiler or test could have caught a

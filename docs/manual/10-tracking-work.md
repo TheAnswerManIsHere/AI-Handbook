@@ -320,7 +320,8 @@ for a merge to register. The rules for that are short:
   cannot see it. If a report looks short, that is the likely reason.
 - **Sensitive work never becomes a public issue.** Anything that fails the
   disclosure check — vulnerability details, credentials, private customer
-  data and the like — is tracked as a private draft item on the board instead,
+  data and the like, plus anything a subsystem's own documents keep out of
+  public prose — is tracked as a private draft item on the board instead,
   and is therefore invisible to every tool-based report, deliberately.
 - **The board can lag the labels.** It is a projection updated by an Action;
   the labels are authoritative.

@@ -107,7 +107,8 @@ Decisions already made during the pre-plan conversation, and why (design
 choices, trade-offs resolved before writing this plan). These four sections
 — Direction, Product Intent, Must Not Change, Settled Decisions — are the
 oracle a reviewer checks the eventual implementation PR against, verbatim
-(see
+— sanitized instead, saying so, for a plan that failed the disclosure check
+([`core/claude-core.md`](core/claude-core.md) Pull requests rule 3) (see
 [`docs/engineering/code-review.md`](../docs/engineering/code-review.md#the-review-oracle-the-pr-body)).
 
 ## Repo Context Inspected
