@@ -204,8 +204,11 @@ what it finds, and folds anything real into the feature's next version.
   Claude's prose, and a slip in it would reach the reviewer unchecked. The
   one place that trade goes the other way is a plan with something that must
   not be public in it: there the drift risk is accepted. The sanitized copy
-  keeps every requirement and drops only the restricted specifics, and the
-  reviewer says which specifics it could not check. For the
+  keeps every requirement and drops only the restricted specifics. Codex's
+  structured pass stays silent about what it could not see — the body's own
+  "sanitized" statement is that record — so the two assessors of chapter 6,
+  who are handed the full text, read the change against it once before merge
+  even when Codex finds nothing, and say nothing restricted in public. For the
   same reason, the two assessors of chapter 6 take the oracle from where it
   was agreed — the plan, the issue, David's words — and never from the PR
   body.

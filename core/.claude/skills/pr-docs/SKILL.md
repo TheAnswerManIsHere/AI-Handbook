@@ -154,6 +154,9 @@ one phase of a phased feature (see
   under the same sanitizing (`claude-core.md` Pull requests rule 3); the body's `Oracle source:` line
   (`claude-core.md` Pull requests rule 4) names the approved plan and its
   digest (marked `private path` for a plan that failed the check), and the scope line stays beside it in prose.
+  Before the PR opens, the whole body — summary, scope, verification, UAT
+  prose — passes the canonical disclosure check or is written sanitized
+  (`workstream-tracking.md`).
 
 **Workstream label.** Per
 [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md),

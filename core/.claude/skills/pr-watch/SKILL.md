@@ -108,8 +108,18 @@ requires it.
    issue discussion, or an explicit request — recorded where it can be quoted,
    normally a comment on the workstream issue; for a plan that failed the
    disclosure check, the oracle file is the full text from the private item,
-   and the assessors' brief keeps their posted quotes to the sanitized copy
-   (`review-proxy.md`). `assessmentBrief` refuses
+   and the assessors' brief keeps their posted quotes and paraphrases to the
+   sanitized copy (`review-proxy.md`). That item is write-only to me, so a
+   session that does not already hold the text asks David to paste it — a
+   🛑, since the round cannot run without it — and writes it to the
+   scratchpad, never the repository (David, 2026-10-12;
+   `workstream-tracking.md`). **Such a PR is also assessed when its round
+   comes back clean**, once before merge (David, 2026-10-12; `claude-core.md`,
+   *Internal tooling: what is downstream*): with no findings to hand over, it
+   runs as `review-proxy.mjs --documentation --codex-clean`, the one mode
+   that reads the change itself against the oracle, and what it raises is
+   written and reviewed under the standard loop like any round's findings.
+   `assessmentBrief` refuses
    without one. **Reaching round 1 with no agreed oracle is a 🛑 to David, not
    a package I write myself.**
 

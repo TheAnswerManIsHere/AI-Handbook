@@ -728,7 +728,11 @@ nearly all of it — stays internal:
 - **A clean automatic pass is the whole ceremony** (standard loop; Trivial,
   Documentation and a prototype-phase feature are outside it, above). Round 1 fires on PR-open;
   finding nothing, there is nothing to assess and no receipt to write —
-  nothing was written, so the head is already reviewed.
+  nothing was written, so the head is already reviewed. **The exception is
+  a PR whose plan took the private path** (David, 2026-10-12): Codex sees
+  only the sanitized oracle, so its clean pass says nothing about the
+  restricted requirements, and Astra and the Fable assessor read the change
+  against the full text once before merge, clean pass or not (`pr-watch`).
 - **Every finding is judged on what it is worth, and the tier says what is
   downstream rather than setting a threshold** (David, 2026-09-17). The old
   rubric here reserved a write for "a very high chance of a critical flaw" and
@@ -1010,7 +1014,9 @@ design. Mechanics:
    sanitized oracle that keeps each requirement's meaning without the
    restricted specifics, says that it is sanitized, and names the private
    path holding the full text — the same treatment the decisions record
-   already gets (*A reversible choice proceeds*, rule 1).
+   already gets (*A reversible choice proceeds*, rule 1). The canonical
+   check covers the whole body before the PR opens, not only its oracle
+   (`workstream-tracking.md`).
 4. **The body says in one plain line what the code is judged against.**
    `Oracle source:` then one of: the approved plan's filename and full sha256
    digest (the digest pins the text David approved, and verifies the file

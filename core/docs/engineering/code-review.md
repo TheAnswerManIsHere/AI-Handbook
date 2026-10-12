@@ -40,7 +40,10 @@ never mentions it — the absence is the finding. Against a sanitized oracle,
 a requirement you cannot see is not flagged as dropped: on the structured
 defect pass it is not posted at all (the body's own "sanitized" statement is
 the record that it was not reviewable there), and on a full-assessment
-write-up it is named as unseen.
+write-up it is named as unseen. A clean structured pass is therefore never
+the whole review of such a PR: the two assessors read the change against
+the full text once before merge, whether or not that pass found anything
+(`claude-core.md`, *Internal tooling: what is downstream*; `pr-watch`).
 
 **If the plan cites a direction, check the code against that too, not just
 the plan's own Product Intent.** A plan built under

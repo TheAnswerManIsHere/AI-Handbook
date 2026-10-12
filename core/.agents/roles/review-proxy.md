@@ -83,8 +83,10 @@ authority over intended behavior, scope, and acceptance criteria.
 
 **When the PR body carries a sanitized oracle** (a plan that failed the
 disclosure check), the oracle in your package is the full text from the
-private item, and your assessment is posted on a public PR: quote no more of
-it than the PR body does, and name each requirement by its sanitized label.
+private item, and your assessment is posted on a public PR: quote or
+paraphrase no more of it than the PR body does. A restricted specific does not
+appear in your assessment in any wording — quoted, summarised, explained or
+hinted at — and each requirement is named by its sanitized label.
 
 Read it for both purpose and stated requirements. Use purpose to evaluate
 alternatives, without disregarding an explicit requirement. Implementation

@@ -444,8 +444,10 @@ link.
    A prototype's version posts no harvest comment, so its exchanges-run line
    goes in the issue's State of Play block at approval, where `/maintenance`
    reads it instead.
-   A private-path workstream has no public issue — its tracking is the draft
-   Project item, and the same trail goes in that item's note.
+   A private-path workstream has no public issue, or — where it turned
+   sensitive after one opened — a public issue holding only sanitized tracking
+   (`workstream-tracking.md`); either way the same trail goes in the draft
+   Project item's note.
 
 **The implementation PR's `Oracle source:` line names the plan and its
 digest** (`claude-core.md` Pull requests rule 4):
@@ -459,8 +461,9 @@ approval, with `, private path` appended: the file is not committed, and the
 digest pins the text the private item holds.
 
 For a prototype's version the line keeps its phase form and carries the
-digest beside it, and the body carries the short plan verbatim (rules 3 and
-4; the `prototype` skill's ceremony bullet):
+digest beside it, and the body carries the short plan verbatim — sanitized,
+saying so, for one that failed the check, with `, private path` appended to
+the line as above (rules 3 and 4; the `prototype` skill's ceremony bullet):
 
 ````markdown
 Oracle source: prototype phase — <feature>, <questions file>; PLAN_<SLUG>.md, sha256 <digest>, approved by David <YYYY-MM-DD>

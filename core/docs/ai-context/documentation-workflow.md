@@ -300,8 +300,11 @@ row — a **sub-issue** of the feature's workstream issue, never folded into
 the parent as a status value. This applies to every agent running this
 ceremony, not just Claude's enactment of it:
 
-1. Open the harvest PR **as a draft, and do not subscribe or apply any
-   label yet.** Draft status only defers Codex's *auto*-review — it does
+1. **Run step 2's disclosure check before the branch is pushed**: a draft
+   PR, its branch and its diff are all public, and nothing done after the
+   push unpublishes them. A harvest that fails it is never pushed; its prose
+   goes on the private path step 2 names. Then open the harvest PR **as a
+   draft, and do not subscribe or apply any label yet.** Draft status only defers Codex's *auto*-review — it does
    **not** defer the watching agent's own subscription (Claude subscribes
    to every PR it creates in the standard loop, draft or not — a
    prototype-phase PR and the phase's registry PRs are the exceptions, per
@@ -310,7 +313,8 @@ ceremony, not just Claude's enactment of it:
    Treat steps 2–3 as blocking: no subscribe, no `Workstream:`-line read,
    no label write, until the sub-issue (or standalone issue) is real and
    the line is corrected.
-2. **Disclosure check first**, same as the feature-level check the parent
+2. **Disclosure check first** — run before step 1's push, not after the
+   draft opens — same as the feature-level check the parent
    went through — the canonical one
    ([`workstream-tracking.md`](./workstream-tracking.md#what-must-never-happen)),
    which includes what a subsystem's own documents keep out of public prose:

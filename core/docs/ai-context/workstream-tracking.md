@@ -528,7 +528,22 @@ set" `stage:done`, and nothing ever asked him to.)
   its feature branch, and a plan that fails goes in full into the
   workstream's draft Project item, never into a working tree alone; its
   implementation PR's oracle is then a sanitized copy that says so and names
-  that item (`claude-core.md` Pull requests rule 3).
+  that item (`claude-core.md` Pull requests rule 3). **The check covers the
+  whole public body, not only the oracle**: before any PR opens, its summary,
+  scope, verification and UAT prose pass the same check or are written
+  sanitized, whichever path its plan took. **The draft item is write-only to
+  agents** (the `uat` skill's private path), so a later session gets the full
+  text back one way: it asks David, and he pastes it in (David, 2026-10-12).
+  That relay is the whole retrieval route, and it is acceptable only because
+  private plans are rare; the session writes the relayed text to its
+  scratchpad, never the repository. **A workstream that turns sensitive
+  after its public issue exists** — the approval-time check fails on a plan
+  whose scope passed when the issue opened — moves the plan, not the issue:
+  the full plan goes to a new draft item, the public issue keeps only
+  sanitized tracking (labels, a State of Play line saying the plan is on the
+  private path, and nothing it holds), and any text already on the issue that
+  fails the check is edited out and named to David in one line, since an
+  edit does not unpublish what was already read.
 - **No hand-typed GitHub UI name (a field, an option) gets matched by exact
   string in code.** The sync script's first live run against the real board
   failed all 9 workstream syncs because the real `Waiting On` field
