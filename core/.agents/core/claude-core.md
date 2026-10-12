@@ -1014,7 +1014,10 @@ design. Mechanics:
 4. **The body says in one plain line what the code is judged against.**
    `Oracle source:` then one of: the approved plan's filename and full sha256
    digest (the digest pins the text David approved, and verifies the file
-   committed under Planning rule 3); the issue where the scope was agreed in
+   committed under Planning rule 3 — or, for a plan that failed the
+   disclosure check, the same filename and digest, taken at approval, with
+   `private path` beside them: the file is not committed and the digest
+   pins the text the private item holds); the issue where the scope was agreed in
    conversation; the bugfix tier (A, B or C — a Tier C schema fix names `C`);
    or `no plan`, for the "n/a — no plan" change rule 3 allows; or, for a
    prototype-phase feature on `main`, `prototype phase — <feature>`, with the

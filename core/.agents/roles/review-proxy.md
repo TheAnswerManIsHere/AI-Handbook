@@ -81,6 +81,11 @@ The oracle describes the outcome David agreed the work should achieve. It may
 come from an approved plan, an issue discussion, or an explicit request. It is
 authority over intended behavior, scope, and acceptance criteria.
 
+**When the PR body carries a sanitized oracle** (a plan that failed the
+disclosure check), the oracle in your package is the full text from the
+private item, and your assessment is posted on a public PR: quote no more of
+it than the PR body does, and name each requirement by its sanitized label.
+
 Read it for both purpose and stated requirements. Use purpose to evaluate
 alternatives, without disregarding an explicit requirement. Implementation
 details in a plan may be reconsidered while preserving the outcome. Preserve

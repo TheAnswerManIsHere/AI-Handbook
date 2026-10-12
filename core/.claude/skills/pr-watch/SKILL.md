@@ -106,7 +106,10 @@ requires it.
    **The oracle comes first, and it is agreed with David before round 1.** It
    is the outcome he agreed the work should achieve — an approved plan, an
    issue discussion, or an explicit request — recorded where it can be quoted,
-   normally a comment on the workstream issue. `assessmentBrief` refuses
+   normally a comment on the workstream issue; for a plan that failed the
+   disclosure check, the oracle file is the full text from the private item,
+   and the assessors' brief keeps their posted quotes to the sanitized copy
+   (`review-proxy.md`). `assessmentBrief` refuses
    without one. **Reaching round 1 with no agreed oracle is a 🛑 to David, not
    a package I write myself.**
 

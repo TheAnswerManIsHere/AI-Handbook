@@ -37,7 +37,10 @@ everything the intent called for, does it touch anything the plan marked
 must-not-change, does it match the settled decisions rather than a plausible
 alternative. Flag a dropped or narrowed requirement even if the code itself
 never mentions it — the absence is the finding. Against a sanitized oracle,
-a requirement you cannot see is named as unseen, not flagged as dropped.
+a requirement you cannot see is not flagged as dropped: on the structured
+defect pass it is not posted at all (the body's own "sanitized" statement is
+the record that it was not reviewable there), and on a full-assessment
+write-up it is named as unseen.
 
 **If the plan cites a direction, check the code against that too, not just
 the plan's own Product Intent.** A plan built under
@@ -50,7 +53,8 @@ quietly wrong" shape this oracle exists to catch. Missing Direction on a PR
 whose plan cited one is itself a finding.
 
 **The body names the oracle's source on one plain line**, `Oracle source:` —
-the approved plan's filename and full sha256 digest, the issue where the scope
+the approved plan's filename and full sha256 digest (marked `private path` for
+a plan that failed the disclosure check), the issue where the scope
 was agreed, the bugfix tier, `no plan`, or `prototype phase — <feature>` with
 the questions file named beside it and, for a first version or a later one
 David asked a loop for, the approved plan's digest — otherwise a
@@ -77,8 +81,9 @@ plan has no durable home. The one exception is a plan that failed the
 disclosure check, which lives on the private path instead: there, present
 and specific is as far as a reviewer can go, the body's oracle is a
 sanitized copy that says so (`claude-core.md` Pull requests rule 3), and
-matching either to the approved plan is David's check — so a review of such
-a PR says which requirements it could not see rather than claiming them.
+matching either to the approved plan is David's check — so a full-assessment
+review of such a PR says which requirements it could not see rather than
+claiming them, and the structured defect pass posts nothing for them.
 
 ### The bugfix oracle (a PR with no plan)
 

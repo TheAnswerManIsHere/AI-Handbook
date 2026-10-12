@@ -100,7 +100,8 @@ work this is (chapter 3 explains the routing):
 points a reviewer at the oracle's origin: the approved plan with a fingerprint
 of its exact text (the plan is committed on the feature branch at approval,
 and the fingerprint lets anyone check that file is the version David
-approved), the issue where the scope was agreed
+approved; for a plan that failed the disclosure check the line says `private
+path`, and the fingerprint pins the text the private item holds), the issue where the scope was agreed
 in conversation, the bugfix tier, the prototype feature, or "no plan". Nothing
 parses it; it is a pointer for people.
 

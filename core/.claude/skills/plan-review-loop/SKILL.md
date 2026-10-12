@@ -436,7 +436,9 @@ link.
    body — sanitized instead for a plan that failed the check, saying so and
    naming the private path (`claude-core.md` Pull requests rule 3) — and the harvest comment goes on the workstream issue (a prototype's
    version posts none, so the short plan verbatim in its PR body is its
-   record).
+   record — for a short plan that failed the check, the private item holds
+   the full text and the PR body or, in the branch regime, the workstream
+   issue carries the sanitized short plan, saying so).
 5. **Exchanges run go in the workstream issue's harvest comment.** With no PR,
    that comment is the only place `/maintenance` can read planning cost from.
    A prototype's version posts no harvest comment, so its exchanges-run line
@@ -451,6 +453,10 @@ digest** (`claude-core.md` Pull requests rule 4):
 ````markdown
 Oracle source: PLAN_<SLUG>.md, sha256 <the 64-char digest>, approved by David <YYYY-MM-DD>
 ````
+
+A plan that failed the disclosure check keeps the same line, digest taken at
+approval, with `, private path` appended: the file is not committed, and the
+digest pins the text the private item holds.
 
 For a prototype's version the line keeps its phase form and carries the
 digest beside it, and the body carries the short plan verbatim (rules 3 and
