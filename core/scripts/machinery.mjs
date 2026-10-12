@@ -585,9 +585,21 @@ export const SIGN_IN_INSTRUCTIONS = [
  *   --ignore-rules           same reasoning for execpolicy .rules files.
  *   --ephemeral              no session file on disk; each round is a fresh
  *                            context by construction, not by convention.
+ *   --json                   events arrive on stdout as JSONL, and the last
+ *                            `turn.completed` event carries the run's token
+ *                            usage -- the only reading an Astra run has, so
+ *                            a spend line can price it instead of writing
+ *                            `unable to verify` (David, 2026-10-11; measured
+ *                            on codex-cli 0.160.0: `{"type":"turn.completed",
+ *                            "usage":{"input_tokens":…,"cached_input_tokens":…,
+ *                            "cache_write_input_tokens":…,"output_tokens":…,
+ *                            "reasoning_output_tokens":…}}`).
  *
- * stdout and stderr are inherited so a long run shows progress where a human
- * or a log file can see it; the answer never comes from either stream.
+ * stdout is therefore captured, not inherited: the whole event stream is
+ * written beside the answer as `<outFile>.events.jsonl`, so progress is still
+ * readable after the fact and the usage is read from a file rather than
+ * scraped from a terminal. stderr stays inherited. The answer never comes
+ * from either stream.
  */
 export function runCodex({ prompt, outFile, model, effort, sandbox, cwd, timeoutMs, run = spawnSyncDefault }) {
   const args = [
@@ -601,15 +613,65 @@ export function runCodex({ prompt, outFile, model, effort, sandbox, cwd, timeout
     "--ignore-user-config",
     "--ignore-rules",
     "--color", "never",
+    "--json",
     "-",
   ];
   const started = Date.now();
   const result = run(codexBin(), args, {
     input: prompt,
     encoding: "utf8",
-    stdio: ["pipe", "inherit", "inherit"],
+    stdio: ["pipe", "pipe", "inherit"],
     timeout: timeoutMs,
     cwd,
   });
-  return { args, status: result.status, signal: result.signal, error: result.error, seconds: (Date.now() - started) / 1000 };
+  const events = typeof result.stdout === "string" ? result.stdout : "";
+  const eventsFile = `${outFile}.events.jsonl`;
+  // Written even when empty: an absent sidecar would read as "never ran",
+  // and an empty one as "ran and emitted nothing" -- different facts.
+  try { fs.writeFileSync(eventsFile, events); } catch { /* the answer, not the stream, is the deliverable */ }
+  return {
+    args,
+    status: result.status,
+    signal: result.signal,
+    error: result.error,
+    seconds: (Date.now() - started) / 1000,
+    usage: codexUsage(events),
+    eventsFile,
+  };
+}
+
+/**
+ * The token usage of one `codex exec --json` run, read from the LAST
+ * `turn.completed` event in its JSONL stream -- `null` when the stream has
+ * none (a run that died before its turn completed, or an older CLI). The five
+ * buckets are returned as the CLI names them; nothing here prices them, since
+ * the rates live in `docs/ai-context/token-pricing.md` and a second copy in a
+ * script is the drift the model-routing skill already paid for.
+ */
+export function codexUsage(jsonl) {
+  if (typeof jsonl !== "string" || jsonl === "") return null;
+  let usage = null;
+  for (const line of jsonl.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("{")) continue;
+    let ev;
+    try { ev = JSON.parse(t); } catch { continue; }
+    if (ev?.type === "turn.completed" && ev.usage && typeof ev.usage === "object") usage = ev.usage;
+  }
+  if (!usage) return null;
+  const n = (k) => (Number.isFinite(usage[k]) ? usage[k] : 0);
+  return {
+    input: n("input_tokens"),
+    cachedInput: n("cached_input_tokens"),
+    cacheWriteInput: n("cache_write_input_tokens"),
+    output: n("output_tokens"),
+    reasoningOutput: n("reasoning_output_tokens"),
+  };
+}
+
+/** One line for a log: the five buckets, or that the run reported none. */
+export function usageLine(usage) {
+  if (!usage) return "usage not reported (no turn.completed event) — price this run as unable to verify";
+  return `usage in ${usage.input} (cached ${usage.cachedInput}, cache-write ${usage.cacheWriteInput}) ` +
+    `out ${usage.output} (reasoning ${usage.reasoningOutput})`;
 }

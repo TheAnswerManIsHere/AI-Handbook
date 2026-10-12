@@ -93,6 +93,7 @@ import {
   spawnSyncDefault,
   SIGN_IN_INSTRUCTIONS,
   runCodex,
+  usageLine,
 } from "./machinery.mjs";
 
 /**
@@ -1971,6 +1972,9 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
       // its absence is the ordinary case and its presence is loud.
       unpinned: flags.unpinned ?? null,
       seconds: outcome.seconds,
+      // The five usage buckets `codex exec --json` reported, or null: the spend
+      // line prices an Astra exchange from these (token-pricing.md, Astra rows).
+      usage: outcome.usage ?? null,
       finishedAt: new Date().toISOString(),
       accepted: !read.failed && planDrift === null,
       failure: read.failed ? read.reason : null,
@@ -2018,6 +2022,7 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         `  kind      ${kind}${kind === "discuss" ? ` (round ${round}, discussion ${discussion})` : kind === "assess" ? ` ${round}` : ""}\n` +
         `  concerns  ${concerns.length} on the ledger${selected.length ? `, ${selected.length} in full` : ""}\n` +
         `  seconds   ${Math.round(outcome.seconds)}\n` +
+        `  ${usageLine(outcome.usage)}\n` +
         (tier ? `  tier      ${tier}\n` : "") +
         `  Nothing here decides what happens next. Read it, and state the action.\n`,
     );
