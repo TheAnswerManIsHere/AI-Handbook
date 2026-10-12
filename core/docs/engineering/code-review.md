@@ -243,7 +243,9 @@ longer apply.
 **Internal tooling: the depth is lighter, and how long it loops is not this
 file's to say (David, 2026-09-19).** Guards, `scripts/`, skills, agent
 contracts, process docs and documentation harvests are reviewed by the
-automatic pass when the PR opens, and a clean pass ships — except the prose
+automatic pass when the PR opens, and a clean pass ships — save a PR whose
+plan took the private path, assessed against the full text regardless
+(above), and except the prose
 among them that is the Documentation class, and anything David declares
 Trivial, which leave this loop ([`working-modes.md`](../ai-context/working-modes.md#two-classes-outside-the-review-loop-trivial-and-documentation-david-2026-09-25)). Iteration beyond
 that is bounded by the **two-review limit** in

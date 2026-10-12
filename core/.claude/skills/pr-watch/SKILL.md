@@ -985,7 +985,10 @@ this is the UAT-descent shape:
 edit** — the block's `Stage`/`Waiting on`/`Last movement` fields at minimum,
 and `Where it actually stands`/`What's blocking` whenever there's real
 narrative to add (a round's findings, an escalation's actual question, what
-shipped at merge). Per `workstream-tracking.md`'s ownership rule: the skill
+shipped at merge), all of it under the canonical disclosure check — on a
+workstream that turned sensitive after its issue opened, the issue gets the
+sanitized tracking only and the narrative goes in the draft item
+(`workstream-tracking.md`). Per `workstream-tracking.md`'s ownership rule: the skill
 that moves the label moves the block, in the same edit, every time.
 
 An echo of my own comment bouncing back as a webhook event still needs the

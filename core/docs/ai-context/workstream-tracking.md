@@ -505,7 +505,8 @@ set" `stage:done`, and nothing ever asked him to.)
   `/status-all` keep surfacing it, and it hides the issues that are really
   open.
 - **Sensitive / disclosure-carve-out workstreams never become public
-  issues.** They're draft Project items instead — this repo is public, and
+  issues** (one that turns sensitive after its issue opened is the case at
+  the end of this bullet). They're draft Project items instead — this repo is public, and
   an issue body is public even though the Project itself is private. This
   is the **canonical definition** of the disclosure check that gates
   opening a public workstream issue, referenced (not restated) by

@@ -83,8 +83,9 @@ authority over intended behavior, scope, and acceptance criteria.
 
 **When the PR body carries a sanitized oracle** (a plan that failed the
 disclosure check), the oracle in your package is the full text from the
-private item, and your assessment is posted on a public PR: quote or
-paraphrase no more of it than the PR body does. A restricted specific does not
+private item (relayed by David, `workstream-tracking.md`), and your
+assessment is posted on a public PR: nothing beyond the sanitized copy in the
+PR body appears in it. A restricted specific does not
 appear in your assessment in any wording — quoted, summarised, explained or
 hinted at — and each requirement is named by its sanitized label.
 
