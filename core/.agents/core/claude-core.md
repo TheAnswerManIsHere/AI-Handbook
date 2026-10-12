@@ -1004,7 +1004,12 @@ design. Mechanics:
    leaves out); otherwise its oracle is its owner's feedback (rule 4 gives
    the line). "n/a — no plan" only for a
    genuinely trivial change. Verbatim carries a guarded string in its defanged
-   form (interaction rule 11).
+   form (interaction rule 11). **A plan that failed the disclosure check**
+   (Planning rule 3) is the exception to verbatim: the body carries a
+   sanitized oracle that keeps each requirement's meaning without the
+   restricted specifics, says that it is sanitized, and names the private
+   path holding the full text — the same treatment the decisions record
+   already gets (*A reversible choice proceeds*, rule 1).
 4. **The body says in one plain line what the code is judged against.**
    `Oracle source:` then one of: the approved plan's filename and full sha256
    digest (the digest pins the text David approved, and verifies the file

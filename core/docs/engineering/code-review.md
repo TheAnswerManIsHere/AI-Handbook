@@ -72,8 +72,10 @@ something vague), recompute `sha256sum` on that file, and flag a mismatch.
 A named plan file found in neither place is a finding too — the approved
 plan has no durable home. The one exception is a plan that failed the
 disclosure check, which lives on the private path instead: there, present
-and specific is as far as a reviewer can go, and matching it to the approved
-plan is David's check.
+and specific is as far as a reviewer can go, the body's oracle is a
+sanitized copy that says so (`claude-core.md` Pull requests rule 3), and
+matching either to the approved plan is David's check — so a review of such
+a PR says which requirements it could not see rather than claiming them.
 
 ### The bugfix oracle (a PR with no plan)
 

@@ -517,8 +517,13 @@ set" `stage:done`, and nothing ever asked him to.)
   public issue, confirm it contains none of unpatched-vulnerability
   details, auth/authorization bypass specifics, secrets/credentials,
   payment-fraud abuse paths, private customer/commercial data, or
-  embargoed-plan content. If it does, it stays off the public path — a
-  draft Project item. **The same check gates committing an approved plan**
+  embargoed-plan content — **or anything the repository's own documents
+  keep out of public prose for a subsystem** (a subsystem document's
+  must-not-publish header, or a restriction the overlay declares): that
+  content fails this check wherever it appears, which is what makes those
+  restrictions bind a plan, an issue, a PR body, a harvest or a handoff,
+  not only the document that states them. If it does, it stays off the
+  public path — a draft Project item. **The same check gates committing an approved plan**
   (`claude-core.md` Planning rule 3): a plan that passes is committed on
   its feature branch, and a plan that fails goes in full into the
   workstream's draft Project item, never into a working tree alone.

@@ -433,7 +433,8 @@ link.
    the workstream's draft Project item — the private path that section
    names — in full, and never stays in a working tree alone. Beside the
    file, the oracle is still quoted verbatim into the implementation PR
-   body, and the harvest comment goes on the workstream issue (a prototype's
+   body — sanitized instead for a plan that failed the check, saying so and
+   naming the private path (`claude-core.md` Pull requests rule 3) — and the harvest comment goes on the workstream issue (a prototype's
    version posts none, so the short plan verbatim in its PR body is its
    record).
 5. **Exchanges run go in the workstream issue's harvest comment.** With no PR,
