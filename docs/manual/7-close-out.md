@@ -127,6 +127,16 @@ data, putting configuration in a known state, confirming the app is up),
 presents one step at a time, records each result, and puts back everything it
 changed — including before a pause, since a paused run can sit for days.
 
+**Every step names the one lane it is verified in, and only the `human` lane
+reaches David.** A step a machine can check — a test in CI, a scripted check,
+a check against the live app — is written as a self-contained check in the
+same pull request and resolved by a machine before his first step, so his
+time goes only to what needs a person: whether the change feels right. When
+each lane runs is the format's to say. The lanes and their records are
+defined in
+[`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), and a checker
+refuses a document that leaves a step without one.
+
 When a step fails, Claude captures the exact evidence, files the bug while the
 context is fresh, records the way back to this run on the workstream, and asks
 David whether to continue or pause. It does not diagnose the bug inside the

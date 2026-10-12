@@ -202,6 +202,21 @@ line, what the round will cost and what it protects** — the token counts are
 already reported to Claude, and putting them beside what they bought is the
 whole mechanism.
 
+### The spend line and the price table
+
+Beyond the review round, **every turn that hands back to David reports its
+time, tokens and dollars** (chapter 8; a UAT walkthrough reports once, at the
+end of the run). The dollars come from one table,
+[`token-pricing.md`](../../core/docs/ai-context/token-pricing.md), which
+quotes the vendors' published list prices with the date they were read.
+Because the harness reports a single token count per turn — no split between
+input, output and cached reads — the table converts with a blended proxy rate
+per model, and says plainly that the blend is an assumption rather than a
+measurement. Each spend line names the rate it used, so the figure can be
+re-derived when prices move. The table has one source: only this
+repository's maintenance pass refreshes it, and each product reads the copy
+the sync delivers.
+
 ## Why it works this way
 
 - **The session tier follows how David works.** An earlier rule fixed one

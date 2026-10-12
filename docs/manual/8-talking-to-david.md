@@ -76,8 +76,9 @@ the stages only he can move past on the workstream board (chapter 10).
 want to know that does not need an answer: a security or data-integrity
 concern found along the way, a problem bigger than the one pull request, a
 surprise about scope, a gap in the process, anything that contradicts stated
-product intent. Work continues. Routine correctness findings do not clear the
-bar.
+product intent — and every reversible choice Claude went ahead with on its own
+recommendation (chapter 2), with the commit that would undo it. Work
+continues. Routine correctness findings do not clear the bar.
 
 ### Notifications, and why the ask is the last thing written
 
@@ -97,12 +98,37 @@ before the notification call arrived on David's iPad as a summary he could
 not decipher, followed by a three-word final message
 ([the memory note](../../core/.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
 So anything he must read exactly — a question, a banner, a merge report —
-goes last.
+goes last. **Within the turn the notification therefore comes first**, and the
+message is written once, after it: writing the ask and then notifying left it
+above the last tool call, and repeating it to make it last was a duplicate he
+noticed.
+
+**An ask is shown once.** The banner is the only place its options and
+recommendation appear; the message that raises it gives the reasoning and
+leaves the choices to the banner. A later turn that leaves the ask unchanged —
+a webhook, a wake, other work — notifies again but does not reprint it: if
+that turn has anything else to say, its last line is one line pointing back
+to the open ask. The full banner returns only when the ask itself changes, and
+then it replaces the old one.
+
+### The spend line
+
+**Every turn that hands back to David ends with what it spent** — wall-clock
+time, the tokens the harness reported, and a dollar figure — because he means
+to set a per-turn cap from these once he has a feel for them. Time and
+tokens are read, never estimated: time from the clock at the turn's first and
+last tool call, tokens from the harness's own count and each subagent's
+reported usage. A figure with no reading says `unable to verify`. **The dollar
+figure is an estimate**: those tokens priced at the published list prices in
+[`token-pricing.md`](../../core/docs/ai-context/token-pricing.md), blended by
+a rule that table names as an assumption (chapter 11). The line sits last, except
+that an open ask stays below it.
 
 One deliberate carve-out: during a live [UAT](./glossary.md#uat) walkthrough
 nearly every turn ends with a question by construction, and he is at the
-keyboard by premise, so ordinary step-by-step turns get no banner and no
-notification. The banner and the push return when the run ends needing him,
+keyboard by premise, so ordinary step-by-step turns get no banner, no
+notification and no spend line — the run's total arrives in its end-of-run
+hand-back. The banner and the push return when the run ends needing him,
 or when he has walked away and something needs him. The carve-out is written
 down in the [`uat`](../../core/.claude/skills/uat/SKILL.md) skill so a later
 session does not "fix" it back.

@@ -171,7 +171,10 @@ product owner's own reactions to something he can use. Its **first version**
 still goes through planning — a pre-plan conversation, a short plan, Astra's
 review and David's approval (chapter 4) — because the point is to prototype
 the *right* thing. After that, what the phase removes is the code-review loop
-and every production bar: no requested Codex review, no tests, no UAT script.
+and every production bar: no requested Codex review, no UAT script, no
+hardening. What it keeps is Claude's own proof that a version works: the
+machine verification lanes, scaled down to a prototype, run before David is
+asked to try it, and a lane that fails is repaired before he sees anything.
 Later versions are built straight from David's feedback, with no plan, unless
 he asks for the planning loop again in words.
 

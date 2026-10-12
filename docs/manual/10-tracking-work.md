@@ -236,6 +236,18 @@ Phases checklist against what actually merged. It delivers all of that as a
 numbered proposed diff; David approves, amends or declines each line, and only
 then are the approved ones applied.
 
+**The pass reads an issue's text only when the repository's owner wrote it.**
+Anyone can open an issue in a public repository, and the session running
+maintenance is one that merges and writes labels, so an outsider's issue text
+is exactly where an instruction it might follow would land. An outsider's
+issue appears in the diff by number and author only, unread; David adopts it,
+if he wants it, by filing his own. In an organisation-owned repository no
+account can match, so nothing unlabelled is read and a labelled issue is
+trusted only as far as its label — the weaker boundary, which the
+[skill](../../core/.claude/skills/maintenance/SKILL.md) states. The pass also counts the reversible
+choices Claude made on its own recommendation and how many David reversed —
+the two numbers he tunes that rule by (chapter 2).
+
 ### Waiting, and scheduled check-ins
 
 Much of the lifecycle is waiting on GitHub — for CI, for a review to land,
