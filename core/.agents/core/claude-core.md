@@ -733,7 +733,9 @@ nearly all of it — stays internal:
   a PR whose plan took the private path** (David, 2026-10-12): Codex sees
   only the sanitized oracle, so its clean pass says nothing about the
   restricted requirements, and Astra and the Fable assessor read the change
-  against the full text once before merge, clean pass or not (`pr-watch`).
+  against the full text once before merge, clean pass or not (`pr-watch`;
+  until its script mode exists, AI-Handbook #206, that round is a 🛑 to
+  David instead).
 - **Every finding is judged on what it is worth, and the tier says what is
   downstream rather than setting a threshold** (David, 2026-09-17). The old
   rubric here reserved a write for "a very high chance of a critical flaw" and

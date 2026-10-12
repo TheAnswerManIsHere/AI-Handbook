@@ -115,10 +115,12 @@ requires it.
    scratchpad, never the repository (David, 2026-10-12;
    `workstream-tracking.md`). **Such a PR is also assessed when its round
    comes back clean**, once before merge (David, 2026-10-12; `claude-core.md`,
-   *Internal tooling: what is downstream*): with no findings to hand over, it
-   runs as `review-proxy.mjs --documentation --codex-clean`, the one mode
-   that reads the change itself against the oracle, and what it raises is
-   written and reviewed under the standard loop like any round's findings.
+   *Internal tooling: what is downstream*). **No script mode runs that
+   assessment yet** (AI-Handbook #206), and the documentation mode is not a
+   substitute: it declares the Documentation class and applies its rubric to
+   code. Until the mode exists, such a PR's clean round is a 🛑 to David,
+   saying the assessment it is owed cannot run, and he decides how it
+   proceeds.
    `assessmentBrief` refuses
    without one. **Reaching round 1 with no agreed oracle is a 🛑 to David, not
    a package I write myself.**
