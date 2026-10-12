@@ -405,6 +405,17 @@ test("codexUsage is null with no turn.completed, an empty stream, or a non-strin
   assert.equal(codexUsage(JSON.stringify({ type: "turn.completed" })), null, "a turn.completed with no usage is not a reading");
 });
 
+test("codexUsage is null, never zero-filled, when any of the five buckets is missing, renamed, non-numeric or negative", () => {
+  for (const key of Object.keys(SAMPLE)) {
+    const missing = { ...SAMPLE }; delete missing[key];
+    assert.equal(codexUsage(TURN(missing)), null, `missing ${key}`);
+    assert.equal(codexUsage(TURN({ ...SAMPLE, [key]: "12" })), null, `string ${key}`);
+    assert.equal(codexUsage(TURN({ ...SAMPLE, [key]: -1 })), null, `negative ${key}`);
+  }
+  const renamed = { ...SAMPLE, reasoning_tokens: 0 }; delete renamed.reasoning_output_tokens;
+  assert.equal(codexUsage(TURN(renamed)), null, "a renamed bucket is not a reading");
+});
+
 test("usageLine prints the buckets, and says so when there are none", () => {
   assert.equal(usageLine(codexUsage(TURN(SAMPLE))), "usage in 17967 (cached 12288, cache-write 0) out 5 (reasoning 0)");
   assert.match(usageLine(null), /usage not reported.*unable to verify/);

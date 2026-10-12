@@ -62,23 +62,38 @@ An Astra run is the one dispatch with a real reading: `review-proxy.mjs` and
 `plan-review.mjs` run `codex exec --json` and print the `turn.completed`
 event's five usage buckets (`usage in … (cached …, cache-write …) out …
 (reasoning …)`; measured on codex-cli 0.160.0, 2026-10-11). So an Astra
-figure is priced **per bucket from the two rows above, not by the blended
-proxy below**: `(input − cached − cache-write) × input rate + cached × cached
-rate + cache-write × cache-write rate + (output + reasoning) × output rate`,
-and the row is the long-context one when `input_tokens` exceeds 272,000.
-Two readings behind that formula: `cached_input_tokens` sits inside
-`input_tokens` (both probes read cached below input: 12,288 of 17,967 and
-28,160 of 32,193), so it is subtracted before the base rate is applied;
-whether `reasoning_output_tokens` sits inside `output_tokens` is unable to
-verify — both probes, one at `high` effort with two commands run, read
-reasoning as 0 — so the formula adds it, which can only overstate, the side
-to err on for a figure a cap is set from (the Haiku rule below, same
-reason). A later run that reports a non-zero reasoning count is the moment
-to settle the nesting and simplify this. A run
-whose log says `usage not reported` is `unable to verify` in the spend line,
-as the rule at the top says. (This replaces the single $15/M Astra proxy row
-and answers Overhype.me #639 `4243652049` and DojoOS #8 `4243765922`: the
-reading now selects the row.)
+figure is priced **per bucket, not by the blended proxy below**:
+`(input − cached − cache-write) × input rate + cached × cached rate +
+cache-write × cache-write rate + output × output rate`.
+
+Three readings behind that formula, each settled rather than assumed:
+
+- **Cached and cache-write sit inside `input_tokens`** — both probes read
+  cached below input (12,288 of 17,967 and 28,160 of 32,193), so they are
+  subtracted before the base rate applies.
+- **Reasoning sits inside `output_tokens`** and is never added again. OpenAI's
+  Responses API describes `output_tokens_details` as "A detailed breakdown of
+  the output tokens", and its example totals input plus output alone (328 +
+  52 = 380 with `reasoning_tokens: 0`); the CLI copies both counters straight
+  from the turn total. So `reasoning_output_tokens` is diagnostic, not a
+  bucket (Codex, AI-Handbook #199 round 2).
+- **The usage is the turn's cumulative total, but the 272K threshold is per
+  request** — "Prompts with more than 272K input tokens are priced at 2x input
+  and cache rates and 1.5x output for the full request" (the `gpt-6-astra`
+  model page, read 2026-10-12), and the CLI's `turn.completed` is built from
+  the turn's running `total`. A turn of several tool-using requests can sum
+  past 272K with every request short. So: **`input_tokens` at or under
+  272,000 is priced exactly from the short row** — no single request can
+  exceed the turn's total. **Above it, the figure is an upper bound priced
+  from the long-context row, and the spend line says so** (`≤ $X, long-context
+  row as ceiling`), since which requests crossed is not in the reading. That
+  overstates and never understates, the side the Haiku rule below takes for
+  the same reason (Codex, AI-Handbook #199 round 2).
+
+A run whose log says `usage not reported` — including one whose usage object
+lacked any of the five buckets — is `unable to verify` in the spend line, as
+the rule at the top says. (This replaces the single $15/M Astra proxy row and
+answers Overhype.me #639 `4243652049` and DojoOS #8 `4243765922`.)
 
 ## How a spend line converts tokens — the blended proxy
 

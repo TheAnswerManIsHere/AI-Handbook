@@ -1911,6 +1911,10 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
     fs.rmSync(attemptFile, { force: true });
     log(`planning: ${kind} ${kind === "discuss" ? `${round}.${discussion}` : round} on ${model} (${effort}, ${sandbox})…`);
     const outcome = runCodex({ prompt, outFile: attemptFile, model, effort, sandbox, cwd: root, timeoutMs, run });
+    // The spend is real whether or not the exchange is accepted, so the usage
+    // is printed here, before the drift and failed-read checks can return --
+    // a rejected exchange still cost what it cost. (Codex, #199 round 2.)
+    log(`planning: ${usageLine(outcome.usage)}`);
 
     // --- the plan must not have moved under the reader --------------------
     //
@@ -2022,7 +2026,6 @@ export function main(argv = process.argv.slice(2), { root = REPO_ROOT, run = spa
         `  kind      ${kind}${kind === "discuss" ? ` (round ${round}, discussion ${discussion})` : kind === "assess" ? ` ${round}` : ""}\n` +
         `  concerns  ${concerns.length} on the ledger${selected.length ? `, ${selected.length} in full` : ""}\n` +
         `  seconds   ${Math.round(outcome.seconds)}\n` +
-        `  ${usageLine(outcome.usage)}\n` +
         (tier ? `  tier      ${tier}\n` : "") +
         `  Nothing here decides what happens next. Read it, and state the action.\n`,
     );

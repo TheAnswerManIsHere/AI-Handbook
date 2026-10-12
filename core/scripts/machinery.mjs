@@ -669,13 +669,19 @@ export function codexUsage(jsonl) {
     if (ev?.type === "turn.completed" && ev.usage && typeof ev.usage === "object") usage = ev.usage;
   }
   if (!usage) return null;
-  const n = (k) => (Number.isFinite(usage[k]) ? usage[k] : 0);
+  // ALL FIVE OR NONE. A bucket that is missing, renamed or not a finite
+  // non-negative number makes the whole reading null -- `unable to verify` in
+  // the spend line -- never a zero that prices the run confidently low. The
+  // CLI is installed unpinned, so a schema change is a real path, not a
+  // hypothetical. (Codex, AI-Handbook #199 round 2.)
+  const keys = ["input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens", "reasoning_output_tokens"];
+  if (!keys.every((k) => Number.isFinite(usage[k]) && usage[k] >= 0)) return null;
   return {
-    input: n("input_tokens"),
-    cachedInput: n("cached_input_tokens"),
-    cacheWriteInput: n("cache_write_input_tokens"),
-    output: n("output_tokens"),
-    reasoningOutput: n("reasoning_output_tokens"),
+    input: usage.input_tokens,
+    cachedInput: usage.cached_input_tokens,
+    cacheWriteInput: usage.cache_write_input_tokens,
+    output: usage.output_tokens,
+    reasoningOutput: usage.reasoning_output_tokens,
   };
 }
 
