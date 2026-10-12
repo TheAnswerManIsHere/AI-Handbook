@@ -205,7 +205,8 @@ whole mechanism.
 ### The spend line and the price table
 
 Beyond the review round, **every turn that hands back to David reports its
-time, tokens and dollars** (chapter 8). The dollars come from one table,
+time, tokens and dollars** (chapter 8; a UAT walkthrough reports once, at the
+end of the run). The dollars come from one table,
 [`token-pricing.md`](../../core/docs/ai-context/token-pricing.md), which
 quotes the vendors' published list prices with the date they were read.
 Because the harness reports a single token count per turn — no split between

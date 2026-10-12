@@ -241,7 +241,10 @@ Anyone can open an issue in a public repository, and the session running
 maintenance is one that merges and writes labels, so an outsider's issue text
 is exactly where an instruction it might follow would land. An outsider's
 issue appears in the diff by number and author only, unread; David adopts it,
-if he wants it, by filing his own. The pass also counts the reversible
+if he wants it, by filing his own. In an organisation-owned repository no
+account can match, so nothing unlabelled is read and a labelled issue is
+trusted only as far as its label — the weaker boundary, which the
+[skill](../../core/.claude/skills/maintenance/SKILL.md) states. The pass also counts the reversible
 choices Claude made on its own recommendation and how many David reversed —
 the two numbers he tunes that rule by (chapter 2).
 

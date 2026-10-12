@@ -115,18 +115,20 @@ then it replaces the old one.
 
 **Every turn that hands back to David ends with what it spent** — wall-clock
 time, the tokens the harness reported, and a dollar figure — because he means
-to set a per-turn cap from these once he has a feel for them. Each figure is
-read, never estimated: time from the clock at the turn's first and last tool
-call, tokens from the harness's own running count, and dollars from the
-published list prices in
-[`token-pricing.md`](../../core/docs/ai-context/token-pricing.md) (chapter 11).
-A figure with no reading says `unable to verify`. The line sits last, except
+to set a per-turn cap from these once he has a feel for them. Time and
+tokens are read, never estimated: time from the clock at the turn's first and
+last tool call, tokens from the harness's own count and each subagent's
+reported usage. A figure with no reading says `unable to verify`. **The dollar
+figure is an estimate**: those tokens priced at the published list prices in
+[`token-pricing.md`](../../core/docs/ai-context/token-pricing.md), blended by
+a rule that table names as an assumption (chapter 11). The line sits last, except
 that an open ask stays below it.
 
 One deliberate carve-out: during a live [UAT](./glossary.md#uat) walkthrough
 nearly every turn ends with a question by construction, and he is at the
-keyboard by premise, so ordinary step-by-step turns get no banner and no
-notification. The banner and the push return when the run ends needing him,
+keyboard by premise, so ordinary step-by-step turns get no banner, no
+notification and no spend line — the run's total arrives in its end-of-run
+hand-back. The banner and the push return when the run ends needing him,
 or when he has walked away and something needs him. The carve-out is written
 down in the [`uat`](../../core/.claude/skills/uat/SKILL.md) skill so a later
 session does not "fix" it back.

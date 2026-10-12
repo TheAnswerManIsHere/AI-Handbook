@@ -59,15 +59,16 @@ about anything that could meaningfully damage the product or that concerns
 what it should do. It routes each request to the right amount of process,
 holds the plan during planning, runs the review loop, and decides from the
 assessors' advice what to do about each review finding. **Inside an approved
-plan, a choice that is Claude's to recommend and that a corrective commit
+plan — or, for a bugfix, inside its tier oracle, which stands in for the plan
+— a choice that is Claude's to recommend and that a corrective commit
 would undo proceeds on Claude's own recommendation** rather than waiting on
 David — he takes the recommendation about nine times in ten, and each ask
 costs him a round trip. He hears about it the same turn, as an FYI naming the
 choice and the commit that would undo it (chapter 8), and every pull request
-lists those choices. A closed list of irreversible actions — publishing,
-production data, anything that sends or charges, credentials, deletions, live
-permission changes — still asks first, every time, and plans and scope stay
-his. The rule is
+lists those choices. A short closed list of irreversible actions — things
+that reach outside the repository, such as publishing, production data,
+credentials, or spend past a cap once he sets one — still asks first, every
+time; the rule holds the list itself. Plans and scope stay his. The rule is
 [`agent-working-rules.md`](../../core/docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10).
 Its own contract is
 [`claude-core.md`](../../core/.agents/core/claude-core.md); the rules it
