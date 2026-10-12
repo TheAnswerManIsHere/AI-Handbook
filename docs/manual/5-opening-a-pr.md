@@ -25,7 +25,8 @@ gets a pull request before Claude's turn ends**, against `main`, every time.
 
 The PR body is the other half of the job. Codex cannot see the conversation
 in which David and Claude agreed what the change is for. So the body carries
-that agreement — the [oracle](./glossary.md#oracle) — word for word, and one
+that agreement — the [oracle](./glossary.md#oracle) — word for word (or
+sanitized, for a plan that failed the disclosure check), and one
 plain line saying where it came from. A reviewer holding the oracle can
 catch a change that does exactly what the code says and still not what David
 wanted.
@@ -78,7 +79,10 @@ work this is (chapter 3 explains the routing):
 
 - **A feature in [production phase](./glossary.md#production-phase)** — the
   approved plan's product intent, what must not change, and its settled
-  decisions, copied exactly, plus the direction the plan serves. The
+  decisions, copied exactly, plus the direction the plan serves. A plan
+  that failed the disclosure check is the exception: the body carries a
+  sanitized copy that keeps each requirement, says it is sanitized, and
+  names the private item holding the full text. The
   direction matters because code can satisfy a narrow increment while
   quietly working against the larger goal it belongs to.
 - **A bugfix** — the oracle the [bugfix tier](./glossary.md#bugfix-tier)
@@ -96,7 +100,8 @@ work this is (chapter 3 explains the routing):
 points a reviewer at the oracle's origin: the approved plan with a fingerprint
 of its exact text (the plan is committed on the feature branch at approval,
 and the fingerprint lets anyone check that file is the version David
-approved), the issue where the scope was agreed
+approved; for a plan that failed the disclosure check the line says `private
+path`, and the fingerprint pins the text the private item holds), the issue where the scope was agreed
 in conversation, the bugfix tier, the prototype feature, or "no plan". Nothing
 parses it; it is a pointer for people.
 
@@ -196,7 +201,14 @@ what it finds, and folds anything real into the feature's next version.
   judge whether the code is internally sound; with it, it can catch code that
   works and still misses the point.
 - **Verbatim, because a paraphrase drifts.** A summary of the plan is
-  Claude's prose, and a slip in it would reach the reviewer unchecked. For the
+  Claude's prose, and a slip in it would reach the reviewer unchecked. The
+  one place that trade goes the other way is a plan with something that must
+  not be public in it: there the drift risk is accepted. The sanitized copy
+  keeps every requirement and drops only the restricted specifics. Codex's
+  structured pass stays silent about what it could not see — the body's own
+  "sanitized" statement is that record — so the two assessors of chapter 6,
+  who are handed the full text, read the change against it once before merge
+  even when Codex finds nothing, and say nothing restricted in public. For the
   same reason, the two assessors of chapter 6 take the oracle from where it
   was agreed — the plan, the issue, David's words — and never from the PR
   body.

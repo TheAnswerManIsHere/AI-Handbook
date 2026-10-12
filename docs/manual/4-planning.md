@@ -35,7 +35,8 @@ agent-facing markdown such as a [skill](./glossary.md#skill), where the file its
 The output is an approved plan whose intent sections — the direction it
 serves, what this increment makes true, what must not change, and the
 decisions already settled — are later pasted verbatim into the pull request
-as the reviewer's oracle.
+as the reviewer's oracle (sanitized instead when the plan failed the
+disclosure check, so nothing sensitive reaches the public pull request).
 
 ## How it works
 
@@ -220,7 +221,8 @@ nothing sensitive, the plan file is committed on the feature branch and
 merges with the first increment's pull request; a plan that fails the check
 goes to the private tracking item instead, never staying in a working tree
 alone. The approved plan's intent sections are also quoted verbatim into the
-implementation pull request, together with a line naming the plan file and a
+implementation pull request (for a plan that failed the check, a sanitized
+copy that says so and points at the private item), together with a line naming the plan file and a
 fingerprint of its exact text at the moment David approved it (chapter 5). The number of exchanges run goes into the
 [harvest-notes comment](./glossary.md#harvest-notes-comment) on the
 workstream issue. If the plan ships in phases, every phase is listed in the
