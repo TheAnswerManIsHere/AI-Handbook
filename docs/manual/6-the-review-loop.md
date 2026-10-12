@@ -197,6 +197,13 @@ Three things make the limit what it is:
 - **Claude cannot award itself a third review.** Only David can reopen the
   work. "Another correction seems worthwhile" is precisely the reasoning the
   limit exists to refuse.
+- **A second-review finding that is not a shortfall is not David's question.**
+  Unless it breaks what was agreed, fails a required check, or is harm he has
+  not accepted, the same two assessors decide between recording it as a gap
+  and asking him to reopen — with the Fable assessor breaking a technical
+  tie — so he is asked only when they conclude reopening is worth his time.
+  A bundled ask says which of its questions are his on the merits and which
+  exist only because a loop hit its limit.
 
 **What counts as internal is asked of each change, by its consequence and how
 recoverable it is** — not read off the directory it lives in. A change to
