@@ -27,6 +27,10 @@ const fresh = () => {
   git(dir, "config", "commit.gpgsign", "false");
   return dir;
 };
+// Teardown of a checkout a `git` child may still be releasing: `rmSync` with
+// no retries raced that release and died with ENOTEMPTY on `.git` (handbook
+// #198's CI, one run of twelve), so every tree removal here retries briefly.
+const removeTree = (dir) => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 const commitAll = (dir) => {
   git(dir, "add", "-A");
   git(dir, "commit", "-q", "--allow-empty", "-m", "sync");
@@ -54,7 +58,7 @@ function archiveHead() {
 
 let PAYLOAD;
 before(() => { PAYLOAD = archiveHead(); });
-after(() => { if (PAYLOAD) rmSync(PAYLOAD, { recursive: true, force: true }); });
+after(() => { if (PAYLOAD) removeTree(PAYLOAD); });
 
 const run = (dest, opts = {}) => sync(dest, { log: silent, payloadRoot: PAYLOAD, ...opts });
 const countFiles = (dir) => {
@@ -126,7 +130,7 @@ test("the payload comes from the committed tree, so ignored evidence never ships
       assert.ok(existsSync(ignored), "the ignored file is really on disk");
       assert.ok(!files.some((f) => f.includes("pr-999999")), "a gitignored receipt must not ship");
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      removeTree(root);
     }
   } finally {
     rmSync(ignored, { force: true });
@@ -162,7 +166,7 @@ test("a fresh consumer receives every payload file, and no temporaries", () => {
     assert.ok(!existsSync(join(dest, ".agents/machinery.template.json")));
     assert.equal(countFiles(dest), payloadFiles(PAYLOAD).length, "no stray temporary files");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -181,7 +185,7 @@ test("a re-sync never clobbers a value the consumer has edited", () => {
     const after = JSON.parse(readFileSync(owned, "utf8"));
     assert.equal(after.repo, "consumer/edited");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -207,7 +211,7 @@ test("a settings key the consumer DELETED stays deleted across a re-sync", () =>
     run(dest);
     assert.equal(readFileSync(owned, "utf8"), deliberate, "an absent settings key is a decision, not a gap to backfill");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -244,7 +248,7 @@ test("a tracked file carrying the header that the payload no longer ships is del
     assert.ok(!existsSync(join(dest, "scripts/plan-provenance.mjs")));
     assert.ok(existsSync(join(dest, "scripts/review-proxy.mjs")), "a file the payload still ships is untouched");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -257,7 +261,7 @@ test("a dry run names the deletion and deletes nothing", () => {
     assert.ok(lines.some((l) => l.includes("delete docs/ai-context/retired.md")), lines.join("\n"));
     assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")));
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -275,7 +279,7 @@ test("the consumer's own files are never deleted: no header, or not tracked", ()
       assert.ok(existsSync(join(dest, f)), `${f} must survive`);
     }
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -292,8 +296,8 @@ test("reverted case 1: a stale path that resolves outside the consumer is refuse
     assert.throws(() => run(dest), /symlink/);
     assert.equal(readFileSync(join(outside, "stale.md"), "utf8"), `${BANNER}\nPRECIOUS\n`);
   } finally {
-    rmSync(dest, { recursive: true, force: true });
-    rmSync(outside, { recursive: true, force: true });
+    removeTree(dest);
+    removeTree(outside);
   }
 });
 
@@ -314,7 +318,7 @@ test("reverted case 2: a routed destination is never deleted, whatever it contai
     assert.equal(counts.deleted, 0);
     assert.equal(readFileSync(owned, "utf8"), withHeader, "the consumer's seed copy is untouched");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -332,7 +336,7 @@ test("reverted case 3: paths come from the consumer's own index, one separator, 
     assert.ok(!existsSync(join(dest, ".claude/skills/retired-skill")), "its emptied directory is pruned");
     assert.ok(existsSync(join(dest, ".claude/skills/pr-watch/SKILL.md")), "and a sibling is untouched");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -349,7 +353,7 @@ test("reverted case 4: a stale file where the payload needs a directory is clear
     assert.ok(statSync(join(dest, "docs/engineering")).isDirectory());
     assert.ok(existsSync(join(dest, "docs/engineering/code-review.md")));
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -365,7 +369,7 @@ test("reverted case 4, the other way: stale files where the payload needs a file
     run(dest);
     assert.ok(statSync(join(dest, "docs/engineering/code-review.md")).isFile());
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -411,7 +415,7 @@ for (const [shape, obstruct, refusal] of BLOCKED) {
         assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")), "the stale file is still there");
         assert.equal(git(dest, "status", "--porcelain"), "", "nothing in the consumer changed");
       } finally {
-        rmSync(dest, { recursive: true, force: true });
+        removeTree(dest);
       }
     });
   }
@@ -429,7 +433,7 @@ test("a consumer's seed that is present is not judged for placement, as it is no
     commitAll(dest);
     assert.doesNotThrow(() => run(dest));
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -442,7 +446,7 @@ test("a stale file with uncommitted edits refuses the whole sync, before anythin
     assert.ok(existsSync(join(dest, "docs/ai-context/retired.md")), "the edited file survives");
     assert.ok(!existsSync(join(dest, "docs/engineering/code-review.md")), "and nothing was copied either");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -453,7 +457,7 @@ test("uncommittedPaths reads both sides of a staged rename", () => {
     const dirty = uncommittedPaths(dest);
     assert.ok(dirty.has("a.md") && dirty.has("b.md"), [...dirty].join(", "));
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -463,7 +467,7 @@ test("a destination that is not a git checkout is refused, rather than reported 
     assert.throws(() => run(plain), /not a git checkout/);
     assert.equal(countFiles(plain), 0);
   } finally {
-    rmSync(plain, { recursive: true, force: true });
+    removeTree(plain);
   }
 });
 
@@ -473,7 +477,7 @@ test("a subdirectory of a checkout is refused: the routes are relative to its ro
     mkdirSync(join(dest, "sub"));
     assert.throws(() => run(join(dest, "sub")), /is not its root/);
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -486,7 +490,7 @@ test("a second sync after the first is committed changes nothing", () => {
     assert.equal(again.deleted, 0);
     assert.equal(git(dest, "status", "--porcelain"), "", "the second run leaves no diff");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -501,7 +505,7 @@ test("every file a sync delivers is one a later sync can take back", () => {
       .filter((f) => !carriesBanner(readFileSync(join(dest, routeOf(f).to), "utf8")));
     assert.deepEqual(unmanaged, []);
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -517,7 +521,7 @@ test("check-payload-banners names a payload file that lacks the header", () => {
     commitAll(repo);
     assert.deepEqual(missingBanners(repo), ["core/docs/quoted.md", "core/docs/unmanaged.md"]);
   } finally {
-    rmSync(repo, { recursive: true, force: true });
+    removeTree(repo);
   }
 });
 
@@ -526,7 +530,7 @@ test("check-payload-banners refuses a tree with no payload, rather than passing 
   try {
     assert.throws(() => missingBanners(repo), /refusing to report a clean payload/);
   } finally {
-    rmSync(repo, { recursive: true, force: true });
+    removeTree(repo);
   }
 });
 
@@ -538,7 +542,7 @@ test("a header past the first 64 KiB is invisible to the check, as it is to the 
     commitAll(repo);
     assert.deepEqual(missingBanners(repo), ["core/late.md"]);
   } finally {
-    rmSync(repo, { recursive: true, force: true });
+    removeTree(repo);
   }
 });
 
@@ -556,7 +560,7 @@ test("a dry run reports what it would do and writes nothing", () => {
     assert.equal(counts.copied + counts.seeded, payloadFiles(PAYLOAD).length);
     assert.equal(countFiles(dest), 0);
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 
@@ -578,8 +582,8 @@ test("a SYMLINK at a destination file is replaced, not written through", () => {
     assert.equal(readFileSync(victim, "utf8"), "PRECIOUS", "the external file must be untouched");
     assert.ok(readFileSync(join(dest, "docs/engineering/code-review.md"), "utf8").length > 100);
   } finally {
-    rmSync(dest, { recursive: true, force: true });
-    rmSync(outside, { recursive: true, force: true });
+    removeTree(dest);
+    removeTree(outside);
   }
 });
 
@@ -600,8 +604,8 @@ test("a HARD LINK at a destination file does not truncate the shared inode", () 
     run(dest);
     assert.equal(readFileSync(victim, "utf8"), "PRECIOUS", "the external file must be untouched");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
-    rmSync(outside, { recursive: true, force: true });
+    removeTree(dest);
+    removeTree(outside);
   }
 });
 
@@ -619,8 +623,8 @@ test("a SYMLINK at an intermediate DIRECTORY is refused", () => {
     assert.throws(() => run(dest), /refusing to write through a symlink/);
     assert.equal(countFiles(outside), 0, "nothing may land outside");
   } finally {
-    rmSync(dest, { recursive: true, force: true });
-    rmSync(outside, { recursive: true, force: true });
+    removeTree(dest);
+    removeTree(outside);
   }
 });
 
@@ -641,7 +645,7 @@ test("assertNoSymlinkOnPath ignores the final entry, which rename handles", () =
     assert.doesNotThrow(() => assertNoSymlinkOnPath(dest, "docs/linked.md"));
     assert.doesNotThrow(() => assertNoSymlinkOnPath(dest, "docs/nothing/here.md"));
   } finally {
-    rmSync(dest, { recursive: true, force: true });
+    removeTree(dest);
   }
 });
 

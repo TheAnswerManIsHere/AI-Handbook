@@ -272,8 +272,11 @@ step's carve-out
    `<total_tokens>` count, printed after every tool result, differenced
    across the turn; wall-clock is a `date -u` read at the turn's first and
    last tool call (differencing against the previous turn would count
-   David's idle time); subagent tokens are the harness's task-notification
-   usage field. **Both readings stop at the last tool call**, so the tail
+   David's idle time); a Claude subagent's tokens are the harness's
+   task-notification usage field; an Astra run's are the five usage buckets
+   `review-proxy` and `plan-review` print from `codex exec --json`, priced
+   per bucket from the table's Astra rows rather than by the proxy (David,
+   2026-10-11). **Both readings stop at the last tool call**, so the tail
    — reading that result and writing the hand-back — is in neither, and
    lands in the next tool-using turn's difference or, on the last turn, in
    none; the line carries the label `through last tool call` rather
