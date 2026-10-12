@@ -85,7 +85,9 @@ harvest (the batched harvest at `/maintenance` has none of its own) —
 has a GitHub issue as its spine, tracked on a private Project board and kept
 current via `stage:`/`waiting:`/`mode:` labels — with **two** exceptions.
 *Sensitive/disclosure-carve-out work* never becomes a public issue and is a
-private draft Project item instead. *David's Replit tweaks* — display-only UI
+private draft Project item instead — or, where it turned sensitive after its
+issue opened, keeps that issue with sanitized tracking only
+([`workstream-tracking.md`](../../docs/ai-context/workstream-tracking.md#what-must-never-happen)). *David's Replit tweaks* — display-only UI
 changes he makes himself during UAT — carry no issue of their own: like every
 change to `main` since his ruling of 2026-10-03 (*"Yes, everything goes
 through a pull request"*), each arrives as a pull request, and that PR is its

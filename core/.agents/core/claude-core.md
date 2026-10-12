@@ -681,7 +681,8 @@ vary with WHICH finding it returns.** Two assessments that each re-read the
 repository, a translation when one is owed, and my own turns to package, post,
 reply and resolve — the same bill for a label's wording as for a role running
 as the wrong model, and the Worth rule is applied only after it has been paid.
-**A clean round is not that bill**: neither assessor is dispatched when there
+**A clean round is not that bill** (save the one clean round of a PR whose
+plan took the private path, assessed regardless, below): neither assessor is dispatched when there
 is nothing to assess, so the cost is my turns plus the translation the last
 round before a merge always owes. Stating it otherwise overstates the
 commonest way a loop ends, which corrupts the very decision the disclosure
@@ -1067,7 +1068,9 @@ Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
 resolved + the translations that were owed delivered** (every decline round,
-plus the last round before the merge). That is the whole bar, for
+plus the last round before the merge), and, for a PR whose plan took the
+private path, the one assessment against the full text (*Internal tooling:
+what is downstream*). That is the whole bar, for
 product and internal PRs alike — except the two classes and the phase that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
 threads unless Codex's automatic pass posts a P1, and a **Documentation** PR

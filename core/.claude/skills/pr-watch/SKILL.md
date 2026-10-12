@@ -519,7 +519,8 @@ requires it.
      comment, before it runs. The bill is **conditional and the condition is
      the findings**: two assessments at roughly a hundred and fifty thousand
      tokens each **only if the round returns findings**, since step 3
-     dispatches neither on a clean round; a translation when one is owed,
+     dispatches neither on a clean round — save the one clean round of a PR
+     whose plan took the private path, which step 3 assesses anyway; a translation when one is owed,
      which the last round before a merge always is, so a clean terminal round
      is not free; and my own turns either way. Then what is downstream if this
      round finds nothing. When that reads "a sentence in a
