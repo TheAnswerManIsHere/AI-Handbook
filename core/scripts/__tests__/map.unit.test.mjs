@@ -9,8 +9,9 @@ import assert from "node:assert/strict";
 import {
   globToRegExp, matchesAny, parseHeader, sizeAfterHeader, relationsInSql, looksLikeSql, joinPaths,
   routeMatches, stableStringify, serializeIndex, validateSchema, formatAnswer, carriesSyncBanner, computeSets, nearest,
+  run as runMap,
 } from "../map.mjs";
-import { median, scoreAnswer, verdict, summarize, relationPattern, THRESHOLDS, GRADING_MATERIAL } from "../map-eval.mjs";
+import { median, scoreAnswer, verdict, summarize, relationPattern, THRESHOLDS, GRADING_MATERIAL, runProblems, SEEDS_PER_TASK_PER_ARM, run as runEval } from "../map-eval.mjs";
 
 test("globs: ** spans directories including none, * stays in a segment, braces alternate", () => {
   assert.ok(globToRegExp("src/**/*.ts").test("src/a.ts"));
@@ -137,4 +138,32 @@ test("eval: a relation pattern matches quoted and schema forms, and grading mate
   assert.ok(relationPattern("facts").test("SELECT 1 FROM facts"));
   assert.ok(!relationPattern("facts").test("SELECT 1 FROM user_facts"));
   assert.deepEqual(GRADING_MATERIAL, [".agents/map/eval-tasks.json", ".agents/map/eval-keys.json", ".agents/map/eval-results"]);
+});
+
+test("a bare or empty --root is refused as a usage error, never read as the current checkout", () => {
+  for (const argv of [["purpose", "x", "--root"], ["purpose", "x", "--root", ""], ["build", "--root", "--json"]]) {
+    const errs = [];
+    assert.equal(runMap(argv, { log: () => {}, err: (m) => errs.push(m) }), 2, argv.join(" "));
+    assert.match(errs.join("\n"), /--root needs a directory/);
+  }
+  for (const argv of [["score", "--runs"], ["prepare", "--ref", "HEAD", "--out", ""], ["keys", "--root", ""]]) {
+    const errs = [];
+    assert.equal(runEval(argv, { log: () => {}, err: (m) => errs.push(m) }), 2, argv.join(" "));
+    assert.match(errs.join("\n"), /needs a value/);
+  }
+});
+
+test("scoring needs the complete matrix: every task, both arms, the protocol's seeds, each with files and tokens", () => {
+  assert.equal(SEEDS_PER_TASK_PER_ARM, 2);
+  const tasks = [{ id: "t1" }, { id: "t2" }];
+  const full = [];
+  for (const task of ["t1", "t2"]) for (const arm of ["A", "B"]) for (const seed of [1, 2]) full.push({ task, arm, seed, files: [], tokens: 10 });
+  assert.deepEqual(runProblems(full, tasks), []);
+  assert.match(runProblems(full.slice(1), tasks).join("\n"), /t1 \/ A: 1 distinct seed\(s\)/);
+  assert.match(runProblems([...full, full[0]], tasks).join("\n"), /run 9: duplicates run 1/);
+  assert.match(runProblems([...full, { task: "t9", arm: "A", seed: 1, files: [], tokens: 1 }], tasks).join("\n"), /unknown task "t9"/);
+  assert.match(runProblems(full.map((r, i) => (i ? r : { ...r, arm: "C" })), tasks).join("\n"), /unknown arm "C"/);
+  assert.match(runProblems(full.map((r, i) => (i ? r : { ...r, tokens: undefined })), tasks).join("\n"), /run 1: tokens is not a measured number/);
+  assert.match(runProblems(full.map((r, i) => (i ? r : { ...r, files: "a.ts" })), tasks).join("\n"), /run 1: files is not an array/);
+  assert.deepEqual(runProblems({}, tasks), ["the runs file is not a JSON array"]);
 });

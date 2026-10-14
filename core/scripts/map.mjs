@@ -598,11 +598,12 @@ function extractFile(ts, prog, sf, ctx) {
       const decl = target?.declarations?.[0];
       const here = e.declarations?.find((d) => d.getSourceFile() === sf);
       const entry = { name: e.name, kind: kindOf(ts, decl), line: here ? lineOf(here) : null };
-      if (e.flags & ts.SymbolFlags.Alias) {
-        const c = ctx.canon(prog, target);
-        if (c) entry.reexportOf = c;
-        else if (decl && ctx.rel(decl.getSourceFile().fileName) === null) entry.reexportOf = "external";
-      }
+      // reexportOf names the canonical key whenever this export name is not
+      // it: a re-export, a local alias, or a default export of a declaration
+      // also exported by name. A query of any exported name follows it.
+      const c = ctx.canon(prog, target);
+      if (c && c !== `${rel}#${e.name}`) entry.reexportOf = c;
+      else if (!c && e.flags & ts.SymbolFlags.Alias && decl && ctx.rel(decl.getSourceFile().fileName) === null) entry.reexportOf = "external";
       rec.exports.push(entry);
     }
   }
@@ -723,9 +724,16 @@ function extractFile(ts, prog, sf, ctx) {
       addImport(node.moduleSpecifier, ts.isImportDeclaration(node) ? !!node.importClause?.isTypeOnly : !!node.isTypeOnly);
     } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference) && ts.isStringLiteralLike(node.moduleReference.expression)) {
       addImport(node.moduleReference.expression, node.isTypeOnly);
-    } else if (ts.isCallExpression(node) && node.arguments.length >= 1 && ts.isStringLiteralLike(node.arguments[0]) &&
+    } else if (ts.isCallExpression(node) && node.arguments.length >= 1 &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) {
-      addImport(node.arguments[0], false);
+      // The callee decides that this is a module load; the argument decides
+      // only whether its target is known. A computed target is kept as an
+      // unresolved site, never dropped (agent-legible-codebase.md, the matrix).
+      if (ts.isStringLiteralLike(node.arguments[0])) addImport(node.arguments[0], false);
+      else {
+        const callee = node.expression.kind === ts.SyntaxKind.ImportKeyword ? "import" : "require";
+        rec.unresolved.push({ kind: "import", line: lineOf(node), reason: "dynamic-target", detail: `${callee}(${node.arguments[0].getText(sf).slice(0, 60)}) loads a module whose name is computed` });
+      }
     }
 
     // canonical symbol references
@@ -806,13 +814,20 @@ function extractFile(ts, prog, sf, ctx) {
           if (lib === "express") {
             ctx.candidates.route += 1;
             if (method === "use") {
+              const typeOf = (a) => { try { return checker.getTypeAtLocation(a); } catch { return undefined; } };
+              const isRouter = (t) => !!(t && t.getProperty && t.getProperty("use") && t.getProperty("get"));
+              const isCallable = (t) => !!(t && t.getCallSignatures && t.getCallSignatures().length);
+              // Three overloads, told apart by the first argument: a literal
+              // path; a router or handler, meaning the path was omitted; or
+              // anything else, which is a prefix the extractor cannot read.
+              // That last one is recorded as unknown (path null), never as "".
               const p = literalPath(args[0]);
-              const rest = p !== null ? args.slice(1) : args;
+              const first = args[0] ? typeOf(args[0]) : undefined;
+              const omitted = p === null && (isRouter(first) || isCallable(first));
+              const rest = p !== null || !omitted ? args.slice(1) : args;
               for (const a of rest) {
-                let at;
-                try { at = checker.getTypeAtLocation(a); } catch { continue; }
-                if (at && at.getProperty && at.getProperty("use") && at.getProperty("get")) {
-                  ctx.mounts.push({ parent: ctx.routerId(prog, sf, recv), path: p ?? "", child: ctx.routerId(prog, sf, a), file: rel, line: lineOf(node) });
+                if (isRouter(typeOf(a))) {
+                  ctx.mounts.push({ parent: ctx.routerId(prog, sf, recv), path: p !== null ? p : omitted ? "" : null, child: ctx.routerId(prog, sf, a), file: rel, line: lineOf(node) });
                 }
               }
             } else if (args.length >= 2 && !(ts.isCallExpression(recv) && ts.isPropertyAccessExpression(recv.expression) && recv.expression.name.text === "route")) {
@@ -972,12 +987,24 @@ export function buildIndex(root, cfg) {
         let ms;
         try { ms = prog.checker.getSymbolAtLocation(sf); } catch {}
         if (ms) {
+          // One canonical export name per declaration, chosen without regard
+          // to iteration order: the declaration's own name when it is exported
+          // under it, else the first named alias alphabetically, `default` last.
+          // Every other name the file exports for it carries reexportOf to
+          // this one, which is what a query of that name follows.
+          const names = new Map();
           for (const e of prog.checker.getExportsOfModule(ms)) {
             let t = e;
             for (let i = 0; t && t.flags & ts.SymbolFlags.Alias && i < 10; i++) {
               try { t = prog.checker.getAliasedSymbol(t); } catch { break; }
             }
-            if (!m.has(t) || m.get(t) === "default") m.set(t, e.name);
+            if (!names.has(t)) names.set(t, []);
+            names.get(t).push(e.name);
+          }
+          for (const [t, ns] of names) {
+            const own = t.declarations?.[0] ? declName(t.declarations[0], t) : null;
+            const rank = (n) => (n === own ? 0 : n === "default" ? 2 : 1);
+            m.set(t, [...ns].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))[0]);
           }
         }
         cache.set(sf.fileName, m);
@@ -1080,23 +1107,33 @@ export function buildIndex(root, cfg) {
     if (!childOf.has(m.child)) childOf.set(m.child, []);
     childOf.get(m.child).push(m);
   }
+  // A prefix is a string, or unknown: { unknown: "<file>:<line>" } names the
+  // mount whose path the extractor could not read. Unknown is carried through
+  // nested mounts and never composed into a path.
   const memo = new Map();
   const prefixes = (router, seen = new Set()) => {
     if (memo.has(router)) return memo.get(router);
     if (seen.has(router)) return [""];
     seen.add(router);
     const ms = childOf.get(router);
-    const res = !ms ? [""] : [...new Set(ms.flatMap((m) => prefixes(m.parent, seen).map((p) => joinPaths(p, m.path))))];
-    memo.set(router, res);
-    return res;
+    const res = !ms ? [""] : ms.flatMap((m) => prefixes(m.parent, seen).map((p) =>
+      typeof p !== "string" ? p : m.path === null ? { unknown: `${m.file}:${m.line}` } : joinPaths(p, m.path)));
+    const uniq = [...new Map(res.map((p) => [typeof p === "string" ? `s:${p}` : `u:${p.unknown}`, p])).values()];
+    memo.set(router, uniq);
+    return uniq;
   };
   const routes = [];
   for (const r of ctx.routes) {
-    const composed = r.method === "ANY" || r.method === "PAGE" ? [r.path] : prefixes(r.router).map((p) => joinPaths(p, r.path));
+    const composed = r.method === "ANY" || r.method === "PAGE" ? [r.path] : prefixes(r.router).map((p) => (typeof p === "string" ? joinPaths(p, r.path) : p));
     for (const full of composed) {
+      if (typeof full !== "string") {
+        out[r.file].unresolved.push({ kind: "route", line: r.line, reason: "dynamic-target", detail: `${r.method} "${r.path}" is mounted under a computed prefix at ${full.unknown}` });
+        continue;
+      }
       routes.push({ method: r.method, path: full, file: r.file, line: r.line, handler: r.handler, ...(full !== r.path ? { registeredAs: r.path } : {}) });
     }
   }
+  for (const r of Object.values(out)) r.unresolved.sort((a, b) => a.line - b.line || a.kind.localeCompare(b.kind) || a.detail.localeCompare(b.detail));
   routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method) || a.file.localeCompare(b.file) || a.line - b.line);
   const mounts = ctx.mounts
     .map(({ file, line, path, child, parent }) => ({ file, line, path, child, parent }))
@@ -1227,10 +1264,28 @@ function sizeFailures(index, baseline) {
     const allow = Math.max(cap, baseline.baselines?.[f] ?? 0);
     if (size > allow) grown.push(`${f}  (${size} lines, allowed ${allow})`);
   }
-  return grown.length
-    ? [failure("size", `${grown.length} file(s) exceed their size allowance`, grown,
-        `split the file so it fits within ${cap} non-blank lines (a frozen file may only shrink); baselines are never raised by hand`, "the-size-ratchet")]
-    : [];
+  // An allowance follows every shrink: a baseline the file no longer needs
+  // (gone, out of the sized set, back within the cap, or smaller than its
+  // baseline) fails until ratchet lowers or releases it, so a split file
+  // cannot quietly regrow to its old allowance.
+  const sized = new Set(index.sets.sized);
+  const stale = [];
+  for (const [f, n] of Object.entries(baseline.baselines || {})) {
+    const size = index.files[f]?.size;
+    if (!sized.has(f) || size === undefined) stale.push(`${f}  (baseline ${n}; the file is gone or no longer sized)`);
+    else if (size <= cap) stale.push(`${f}  (baseline ${n}; now ${size} lines, within the cap of ${cap})`);
+    else if (size < n) stale.push(`${f}  (baseline ${n}; now ${size} lines)`);
+  }
+  return [
+    ...(grown.length
+      ? [failure("size", `${grown.length} file(s) exceed their size allowance`, grown,
+          `split the file so it fits within ${cap} non-blank lines (a frozen file may only shrink); baselines are never raised by hand`, "the-size-ratchet")]
+      : []),
+    ...(stale.length
+      ? [failure("size", `${stale.length} baseline(s) allow more than their file now needs`, stale,
+          "run `node scripts/map.mjs ratchet`, which lowers or releases them, and commit the result", "the-size-ratchet")]
+      : []),
+  ];
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1341,6 +1396,16 @@ function cmdBaseline(root, mode, log) {
   const baselines = { ...(b.baselines || {}) };
   const changes = [];
   if (mode === "freeze") {
+    // freeze grandfathers the files that were already over the cap when a
+    // repository adopts the guard; after adoption it would grant an
+    // allowance from nothing, so it refuses.
+    if (b.adopted === true) {
+      throw new MapError("size", "freeze only runs before the size baseline is adopted; this one is adopted", {
+        fix: "split the oversized file so it fits within the cap, or run `node scripts/map.mjs ratchet` to lower allowances; " +
+          "to bring a file under governance deliberately, set \"adopted\": false, freeze, and set it back in the same reviewed change",
+        anchor: "the-size-ratchet",
+      });
+    }
     for (const [f, n] of Object.entries(sizes)) {
       if (n > b.cap && !(f in baselines)) { baselines[f] = n; changes.push(`froze ${f} at ${n}`); }
     }
@@ -1437,8 +1502,8 @@ function cmdDependents(root, target, opts, log) {
     return answer(opts, log, {
       banners, title: `dependents ${target}  (modules importing or re-exporting this file; for a declaration's users ask for <file>#<symbol>)`,
       resolvedData: res, fmt: (d) => `${d.file}:${d.line}`,
-      unresolvedData: unresolvedOf(index, "import", (_, u) => u.detail.includes(stem)),
-      coverage: [`module edges across ${Object.keys(index.files).length} indexed files`],
+      unresolvedData: unresolvedOf(index, "import", (_, u) => u.reason === "dynamic-target" || u.detail.includes(stem)),
+      coverage: [`module edges across ${Object.keys(index.files).length} indexed files; every computed import() or require() is listed above, since its target could be this file`],
     });
   }
   const file = target.slice(0, hash), name = target.slice(hash + 1);
@@ -1449,18 +1514,28 @@ function cmdDependents(root, target, opts, log) {
       fix: "name a declaration the file exports, as <file>#<name>", anchor: "queries",
     });
   }
+  // Every exported name resolves to one canonical key: an alias, a barrel
+  // re-export or a default export carries reexportOf, and refs are keyed by
+  // the canonical alone.
+  const entry = rec.exports.find((e) => e.name === name);
+  const external = entry.reexportOf === "external";
+  const key = entry.reexportOf && !external ? entry.reexportOf : target;
   const res = [];
-  for (const [f, r] of Object.entries(index.files)) {
-    const hit = r.refs[target];
-    if (hit) res.push({ file: f, line: hit[0], count: hit[1] });
+  if (!external) {
+    for (const [f, r] of Object.entries(index.files)) {
+      const hit = r.refs[key];
+      if (hit) res.push({ file: f, line: hit[0], count: hit[1] });
+    }
   }
   res.sort((a, b) => a.file.localeCompare(b.file));
   return answer(opts, log, {
-    banners, title: `dependents ${target}  (sites referencing this declaration, through any alias or re-export)`,
+    banners, title: `dependents ${target}${key !== target ? `  → ${key}` : ""}  (sites referencing this declaration, through any alias or re-export)`,
     resolvedData: res, fmt: (d) => `${d.file}:${d.line}${d.count > 1 ? `  (+${d.count - 1} more in file)` : ""}`,
-    unresolvedData: (() => { const st = relatedStems(index, target); return unresolvedOf(index, "import", (_, u) => [...st].some((s) => u.detail.includes(`/${s}"`) || u.detail.includes(`"${s}"`))); })(),
+    unresolvedData: (() => { const st = relatedStems(index, key); return unresolvedOf(index, "import", (_, u) => u.reason === "dynamic-target" || [...st].some((s) => u.detail.includes(`/${s}"`) || u.detail.includes(`"${s}"`))); })(),
     coverage: [
-      `canonical symbol references across ${Object.keys(index.files).length} indexed files; an unresolved import above could hide a user`,
+      external
+        ? `${target} re-exports a declaration from outside the indexed set; its users are not indexed, so no reference is listed`
+        : `canonical symbol references across ${Object.keys(index.files).length} indexed files; an unresolved import above could hide a user`,
       `${unresolvedOf(index, "import").length} unresolved imports in the repository in all: \`node scripts/map.mjs unresolved import\` lists them`,
     ],
   });
@@ -1580,7 +1655,13 @@ export function run(argv, { log = console.log, err = console.error, cwd = proces
     const a = argv[i];
     if (a === "--json") opts.json = true;
     else if (a === "--allow-stale") opts.allowStale = true;
-    else if (a === "--root") rootArg = argv[++i];
+    else if (a === "--root") {
+      // A bare or empty --root is an operator mistake, never "the current
+      // checkout": refuse before any configuration is read or file written.
+      const v = argv[++i];
+      if (v === undefined || v === "" || v.startsWith("--")) { err(`--root needs a directory\n${USAGE}`); return 2; }
+      rootArg = v;
+    }
     else if (a === "--ratchet") pos.unshift("ratchet");
     else pos.push(a);
   }
@@ -1590,7 +1671,7 @@ export function run(argv, { log = console.log, err = console.error, cwd = proces
     return true;
   };
   try {
-    const root = rootArg ? realpathSync(resolve(rootArg)) : repoRoot(cwd);
+    const root = repoRoot(rootArg !== null ? resolve(cwd, rootArg) : cwd);
     switch (cmd) {
       case "build": return cmdBuild(root, log);
       case "check": return cmdCheck(root, log, err);

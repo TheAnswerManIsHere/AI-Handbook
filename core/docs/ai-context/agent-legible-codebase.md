@@ -131,7 +131,11 @@ that lists them). An empty `resolved` section never prints alone, and while
 `dependents <file>#<name>` reports references to the canonical declaration
 through any chain of aliases and re-exports, which is the question a barrel
 makes necessary: a constant declared in one file and imported from a
-package's index is used by files that never import the declaring file.
+package's index is used by files that never import the declaring file. Every
+name a file exports for the declaration (its own, a local alias, `default`, a
+barrel's re-export) answers with the same users. A reverse query also lists
+every computed `import()` or `require()` in the repository as unresolved,
+since its target could be the file asked about.
 
 **One hop, always.** No query walks further.
 
@@ -149,7 +153,7 @@ adding a form is a handbook change with a fixture, never a consumer patch.
 | HTTP routes | Express `Router`/`Application` method registrations, composed through `use(path, router)` mounts, with the handler's declaration when it resolves; `route(path).verb()`; wouter `<Route path component>` (method `PAGE`); in a Cloudflare Worker (a default-exported object with `fetch`), a string or regular-expression literal tested against a request's `pathname` (method `ANY`) |
 | Tables | Drizzle `pgTable` declarations map relation names to table symbols; a table answer joins typed references to the symbol with references in SQL text |
 | SQL text | Drizzle `sql` tagged templates and `sql.raw`, Drizzle `execute`, the `query` method of a `pg` `Client` or `Pool`, including a statement bound to a same-file variable, and a same-file string constant interpolated into it; relation names outside the Drizzle set are reported as **external relations**, derived and never whitelisted |
-| Candidates kept | A `query`/`execute` call carrying SQL whose receiver is unresolved or not a supported client, a route-shaped registration on an unresolved receiver, and any computed path or relation: each is an `unresolved` site, never dropped |
+| Candidates kept | A `query`/`execute` call carrying SQL whose receiver is unresolved or not a supported client, a route-shaped registration on an unresolved receiver, a module loaded by a computed name, a route under a mount whose prefix is computed (reported at the route, naming the mount), and any computed path or relation: each is an `unresolved` site, never dropped |
 
 ## Freshness
 
@@ -212,7 +216,12 @@ header comment (adding a header never grows a file). `node scripts/map.mjs
 freeze` records every sized file over the cap at adoption; those may only
 shrink. `node scripts/map.mjs ratchet` lowers a baseline after a file
 shrinks and releases one that falls within the cap; nothing ever raises one.
-Growth past the allowance fails the check.
+Growth past the allowance fails the check, and so does a baseline larger
+than its file now needs (the file shrank, fell within the cap or is gone)
+until `ratchet` is run, so a split file cannot regrow to its old allowance.
+`freeze` refuses once `size-baseline.json` is adopted; bringing a file under
+governance after that is deliberate and visible: set `"adopted": false`,
+freeze, and set it back in the same reviewed change.
 
 ## The forcing rule
 

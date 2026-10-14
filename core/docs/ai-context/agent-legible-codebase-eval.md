@@ -63,23 +63,27 @@ its verification.
 | **A** | the repository at its adopted commit | the map, with the forcing rule in force |
 
 Same model in both (Sonnet, where mechanical work already routes), a fresh
-agent and a fresh worktree per run, two seeds per task per arm: about 120 runs.
+agent and a fresh run repository per run, two seeds per task per arm: about 120 runs.
 
 **Grading material never reaches an agent.** `node scripts/map-eval.mjs
-prepare --ref <commit> --out <dir>` creates the run's worktree and removes the
-task file, the keys and any earlier results from it; the scorer keeps them in
-the main checkout. `node scripts/map-eval.mjs prompts --out <dir>` writes one
+prepare --ref <commit> --out <dir>` exports the tree at that commit without
+the task file, the keys or any earlier results, and makes it a fresh
+repository with one commit, so neither arm's files nor its history hold an
+answer; the scorer keeps them in the main checkout. `node scripts/map-eval.mjs prompts --out <dir>` writes one
 prompt per task carrying the question and the answer format, never the target.
 
 ## Running it
 
 1. Write the task set, run `keys`, verify every key by hand, commit both.
-2. For each task, arm and seed: `prepare` a worktree at that arm's commit, and
+2. For each task, arm and seed: `prepare` a run repository at that arm's commit, and
    dispatch a fresh agent into it with the task's prompt. Record a run line:
    `{task, arm, seed, files, tokens, toolCalls, seconds}`, with tokens read
    from the dispatch's own usage report, never estimated.
 3. `node scripts/map-eval.mjs score --runs <file>` prints recall and precision
-   per arm and tier, median tokens per arm, and the verdict.
+   per arm and tier, median tokens per arm, and the verdict. It gives no
+   verdict unless the file is the complete matrix: every task in both arms
+   under exactly two distinct seeds, no duplicate or unknown record, each
+   with its `files` and measured `tokens`; it lists what is missing instead.
 4. Record the result, the verdict and the runs file on the consumer's
    workstream issue, and set `enabled` in `.agents/map/config.json` to match.
 

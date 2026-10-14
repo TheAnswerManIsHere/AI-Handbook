@@ -77,7 +77,12 @@ function suite() {
     "tsconfig.base.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "ESNext", moduleResolution: "bundler", strict: false, skipLibCheck: true, jsx: "react-jsx", types: [] } }),
     "packages/lib/package.json": JSON.stringify({ name: "@workspace/lib", type: "module", exports: { ".": "./src/index.ts" } }),
     "packages/lib/tsconfig.json": JSON.stringify({ extends: "../../tsconfig.base.json", include: ["src"] }),
-    "packages/lib/src/brandTokens.ts": H("Brand colour tokens shared by every surface.", "design") + 'export const BRAND_ORANGE = "#ff6b00";\n',
+    "packages/lib/src/brandTokens.ts": H("Brand colour tokens shared by every surface.", "design") + 'export const BRAND_ORANGE = "#ff6b00";\nexport { BRAND_ORANGE as ORANGE };\n',
+    // One declaration under a second name, used by that name only.
+    "packages/lib/src/accent.ts": H("The accent colour, by its alias.", "design") + 'import { ORANGE } from "./brandTokens";\nexport const ACCENT = ORANGE;\n',
+    // One declaration exported by name and as default, used through the default.
+    "packages/lib/src/greet.ts": H("A greeting exported by name and as default.", "design") + 'export function greet() { return "hi"; }\nexport default greet;\n',
+    "packages/lib/src/useGreet.ts": H("Uses the greeting through its default export.", "design") + 'import hello from "./greet";\nexport const greeting = hello();\n',
     "packages/lib/src/schema.ts": H("Drizzle table declarations.", "data") +
       'import { pgTable, text, serial } from "drizzle-orm/pg-core";\n' +
       'export const factsTable = pgTable("facts", { id: serial("id").primaryKey(), body: text("body") });\n' +
@@ -87,10 +92,19 @@ function suite() {
     "packages/server/package.json": JSON.stringify({ name: "@workspace/server", type: "module" }),
     "packages/server/tsconfig.json": JSON.stringify({ extends: "../../tsconfig.base.json", compilerOptions: { types: ["node"] }, include: ["src"] }),
     "packages/server/src/app.ts": H("The Express application and its top-level mounts.", "http") +
-      'import express from "express";\nimport router from "./routes/index";\n' +
+      'import express from "express";\nimport router from "./routes/index";\nimport legacy from "./routes/legacy";\n' +
       "export const app = express();\n" +
       'app.post("/api/stripe/webhook", (req, res) => { res.sendStatus(200); });\n' +
-      'app.use("/api", router);\n',
+      'app.use("/api", router);\n' +
+      // A prefix held in a variable: its routes are unresolved, never composed at the root.
+      'const PREFIX = process.env.PREFIX ?? "/v2";\napp.use(PREFIX, legacy);\n',
+    "packages/server/src/routes/legacy.ts": H("Legacy routes mounted under a configured prefix.", "http") +
+      'import { Router } from "express";\nimport { getFact } from "../lib/handlers";\n' +
+      'const legacy = Router();\nlegacy.get("/old", getFact);\nexport default legacy;\n',
+    // Modules loaded by a computed name: unresolved sites, never dropped.
+    "packages/server/src/lib/loader.ts": H("Loads plugins by name.", "http") +
+      "export async function load(name: string) { return import(name); }\n" +
+      "export function loadSync(name: string) { return require(name); }\n",
     "packages/server/src/routes/index.ts": H("Mounts every feature router.", "http") +
       'import { Router } from "express";\nimport factsRouter from "./facts";\nconst router = Router();\nrouter.use(factsRouter);\nexport default router;\n',
     "packages/server/src/routes/facts.ts": H("Fact routes.", "http") +
@@ -243,11 +257,11 @@ function suite() {
     const d = adopted();
     const sym = mapJson(d, "dependents", "packages/lib/src/brandTokens.ts#BRAND_ORANGE");
     const files = sym.resolved.map((r) => r.file).sort();
-    assert.deepEqual(files, ["packages/lib/src/index.ts", "packages/web/src/pages/Profile.tsx", "scripts/tool.mjs"], "the re-exporting barrel and both callers, nothing else");
+    assert.deepEqual(files, ["packages/lib/src/accent.ts", "packages/lib/src/index.ts", "packages/web/src/pages/Profile.tsx", "scripts/tool.mjs"], "the re-exporting barrel, the alias's user and both callers, nothing else");
     assert.ok(files.includes("packages/web/src/pages/Profile.tsx"), "a caller behind the barrel and a path alias");
     assert.ok(files.includes("scripts/tool.mjs"), "a JavaScript caller through a supplementary program");
     const file = mapJson(d, "dependents", "packages/lib/src/brandTokens.ts");
-    assert.deepEqual(file.resolved.map((r) => r.file), ["packages/lib/src/index.ts"], "a file query reports module edges only");
+    assert.deepEqual(file.resolved.map((r) => r.file), ["packages/lib/src/accent.ts", "packages/lib/src/index.ts"], "a file query reports module edges only");
     const deps = mapJson(d, "deps", "packages/web/src/pages/Profile.tsx");
     assert.deepEqual(deps.resolved.map((r) => r.file).sort(), ["packages/lib/src/index.ts", "packages/web/src/lib/util.ts"]);
     const testDeps = mapJson(d, "dependents", "packages/web/src/lib/util.ts");
@@ -272,6 +286,33 @@ function suite() {
     const paths = worker.resolved.map((r) => r.path).sort();
     assert.deepEqual(paths, ["prefix:/share/", "regex:/^\\/og\\/(\\w+)$/"]);
     assert.equal(mapJson(d, "route", "ANY", "/og/abc").resolved.length, 1);
+  });
+
+  test("answers: every exported name of one declaration finds the same users; computed loads and computed mounts are unresolved, never dropped", () => {
+    const d = adopted();
+    const users = (q) => mapJson(d, "dependents", q).resolved.map((r) => r.file).sort();
+    const canonical = users("packages/lib/src/brandTokens.ts#BRAND_ORANGE");
+    assert.deepEqual(users("packages/lib/src/brandTokens.ts#ORANGE"), canonical, "a local alias");
+    assert.deepEqual(users("packages/lib/src/index.ts#BRAND_ORANGE"), canonical, "the barrel's re-export");
+    assert.ok(canonical.includes("packages/lib/src/accent.ts"), "a user of the alias is a user of the declaration");
+    assert.deepEqual(users("packages/lib/src/greet.ts#default"), ["packages/lib/src/useGreet.ts"], "the default export");
+    assert.deepEqual(users("packages/lib/src/greet.ts#greet"), ["packages/lib/src/useGreet.ts"], "the named export of the same declaration");
+
+    const loads = mapJson(d, "deps", "packages/server/src/lib/loader.ts");
+    assert.equal(loads.unresolved.filter((u) => u.reason === "dynamic-target").length, 2, "import(name) and require(name) are both reported");
+    assert.ok(mapJson(d, "unresolved", "import").unresolved.some((u) => /require\(name\)/.test(u.detail)));
+    const rev = mapJson(d, "dependents", "packages/server/src/lib/handlers.ts");
+    assert.ok(rev.unresolved.some((u) => u.file === "packages/server/src/lib/loader.ts"), "a reverse query discloses a load whose target could be this file");
+    const revSym = mapJson(d, "dependents", "packages/server/src/lib/handlers.ts#getFact");
+    assert.ok(revSym.unresolved.some((u) => u.file === "packages/server/src/lib/loader.ts"), "so does a symbol query");
+
+    const old = mapJson(d, "route", "GET", "/old");
+    assert.equal(old.resolved.length, 0, "no route is invented at the root for a router under a computed prefix");
+    assert.ok(old.unresolved.some((u) => u.file === "packages/server/src/routes/legacy.ts" && /computed prefix at packages\/server\/src\/app\.ts:\d+/.test(u.detail)), JSON.stringify(old.unresolved));
+    const legacyFile = mapJson(d, "routes", "packages/server/src/routes/legacy.ts");
+    assert.equal(legacyFile.resolved.length, 0);
+    assert.ok(legacyFile.unresolved.some((u) => /computed prefix/.test(u.detail)), "the route's own file answer carries the uncertainty a mount elsewhere introduced");
+    assert.equal(mapJson(d, "route", "GET", "/api/facts/42").resolved.length, 1, "a literal mount and an omitted-path mount still compose");
   });
 
   test("answers: tables through typed symbols and every SQL form, external relations, and what could not be resolved", () => {
@@ -419,7 +460,14 @@ function suite() {
   test("sizes: growth past the allowance fails; freeze and ratchet only ever lower", () => {
     const d = adopted();
     setJson(d, ".agents/map/size-baseline.json", (b) => { b.cap = 6; });
+    const refused = map(d, "freeze");
+    assert.equal(refused.code, 1, "freeze refuses once the baseline is adopted");
+    assert.match(refused.err, /only runs before the size baseline is adopted/);
+    assert.deepEqual(json(d, ".agents/map/size-baseline.json").baselines, {}, "and grants nothing");
+    setJson(d, ".agents/map/size-baseline.json", (b) => { b.adopted = false; });
     assert.equal(map(d, "freeze").code, 0);
+    setJson(d, ".agents/map/size-baseline.json", (b) => { b.adopted = true; });
+    map(d, "build");
     const base = json(d, ".agents/map/size-baseline.json").baselines;
     assert.ok(base["packages/server/src/lib/db.ts"] > 6, "an over-cap file is frozen");
     assert.equal(map(d, "check").code, 0);
@@ -433,8 +481,19 @@ function suite() {
     assert.equal(json(d, ".agents/map/size-baseline.json").baselines["packages/server/src/lib/db.ts"], base["packages/server/src/lib/db.ts"]);
     git(d, "checkout", "--", "packages/server/src/lib/db.ts");
     write(d, "packages/server/src/lib/db.ts", read(d, "packages/server/src/lib/db.ts").replace(/export async function unresolvedReceiver.*\n/, ""));
+    map(d, "build");
+    r = map(d, "check");
+    assert.equal(r.code, 1, "a shrunk file's old allowance fails until it is lowered");
+    assert.match(r.err, /baseline\(s\) allow more than their file now needs/);
+    assert.match(r.err, /fix: run `node scripts\/map\.mjs ratchet`/);
     map(d, "ratchet");
     assert.ok(json(d, ".agents/map/size-baseline.json").baselines["packages/server/src/lib/db.ts"] < base["packages/server/src/lib/db.ts"], "ratchet lowers after a shrink");
+    assert.equal(map(d, "check").code, 0, map(d, "check").all);
+    rmSync(join(d, "packages/server/src/lib/db.ts"));
+    write(d, "packages/server/src/lib/db.ts", "export const db = 1;\n");
+    map(d, "build");
+    r = map(d, "check");
+    assert.match(r.err, /db\.ts\s+\(baseline \d+; now \d+ lines, within the cap/, "a file back within the cap must be released");
   });
 
   test("the back-out switch releases a failing guard, and queries say they are disabled", () => {
@@ -516,20 +575,32 @@ function suite() {
     const wt = join(mkdtempSync(join(tmpdir(), "map-arm-")), "arm");
     const p = run(d, "map-eval.mjs", ["prepare", "--ref", "HEAD", "--out", wt]);
     assert.equal(p.code, 0, p.all);
-    assert.ok(existsSync(join(wt, "scripts/map.mjs")), "the worktree is the repository at the ref");
-    assert.ok(!existsSync(join(wt, ".agents/map/eval-keys.json")), "the agent's worktree has no answer key");
+    assert.ok(existsSync(join(wt, "scripts/map.mjs")), "the run repository is the tree at the ref");
+    assert.ok(!existsSync(join(wt, ".agents/map/eval-keys.json")), "the agent's repository has no answer key");
     assert.ok(!existsSync(join(wt, ".agents/map/eval-tasks.json")), "nor the task file with its targets");
+    const objects = git(wt, "rev-list", "--all", "--objects");
+    assert.doesNotMatch(objects, /eval-keys|eval-tasks|eval-results/, "nor anywhere in its history");
+    assert.equal(git(wt, "status", "--porcelain").trim(), "", "and ordinary git inspection shows nothing removed");
+    assert.equal(git(wt, "rev-list", "--count", "--all").trim(), "1", "one commit, sharing nothing with the source repository");
     assert.ok(existsSync(join(d, ".agents/map/eval-keys.json")), "the scorer still has them");
 
     setJson(d, ".agents/map/eval-keys.json", (all) => { for (const v of Object.values(all)) v.verified = true; });
     const runs = join(d, "..", `runs-${Date.now()}.json`);
-    writeFileSync(runs, JSON.stringify([
-      { task: "h1", arm: "A", files: keys.h1.files, tokens: 100 }, { task: "h1", arm: "B", files: [], tokens: 100 },
-      { task: "h2", arm: "A", files: keys.h2.files, tokens: 100 }, { task: "h2", arm: "B", files: keys.h2.files, tokens: 100 },
-      { task: "s1", arm: "A", files: keys.s1.files, tokens: 100 }, { task: "s1", arm: "B", files: keys.s1.files, tokens: 100 },
-    ]));
+    const answers = { A: { h1: keys.h1.files, h2: keys.h2.files, s1: keys.s1.files }, B: { h1: [], h2: keys.h2.files, s1: keys.s1.files } };
+    const matrix = [];
+    for (const task of ["h1", "h2", "s1"]) for (const arm of ["A", "B"]) for (const seed of [1, 2]) matrix.push({ task, arm, seed, files: answers[arm][task], tokens: 100 });
+    writeFileSync(runs, JSON.stringify(matrix));
     const sc = run(d, "map-eval.mjs", ["score", "--runs", runs]);
     assert.equal(sc.code, 0, sc.all);
     assert.equal(JSON.parse(sc.out).verdict.decision, "keep");
+
+    writeFileSync(runs, JSON.stringify(matrix.slice(1)));
+    const short = run(d, "map-eval.mjs", ["score", "--runs", runs]);
+    assert.equal(short.code, 1, "an incomplete matrix gives no verdict");
+    assert.match(short.err, /h1 \/ A: 1 distinct seed\(s\), the protocol needs 2/);
+    writeFileSync(runs, JSON.stringify([...matrix, matrix[0]]));
+    assert.match(run(d, "map-eval.mjs", ["score", "--runs", runs]).err, /duplicates run 1/);
+    writeFileSync(runs, JSON.stringify(matrix.map((m, i) => (i === 3 ? { ...m, tokens: undefined } : m))));
+    assert.match(run(d, "map-eval.mjs", ["score", "--runs", runs]).err, /run 4: tokens is not a measured number/);
   });
 }

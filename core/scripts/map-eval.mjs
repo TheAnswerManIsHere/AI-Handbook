@@ -44,7 +44,43 @@ export const THRESHOLDS = {
   disable: { belowHiddenRecallGainPoints: 10, aboveMedianTokenIncreasePct: 25 },
 };
 
+/** The protocol's matrix: every task, in both arms, run under this many distinct seeds. */
+export const ARMS = ["A", "B"];
+export const SEEDS_PER_TASK_PER_ARM = 2;
+
 // ── pure functions (unit-tested on bare Node) ──────────────────────────────
+
+/**
+ * Everything wrong with a runs file, as readable lines; empty means it is the
+ * complete matrix and may be scored. The runs are assembled by an agent from
+ * many dispatches, so a missing, duplicated or malformed record is the normal
+ * failure, and a verdict computed over one would decide nothing.
+ */
+export function runProblems(runs, tasks) {
+  if (!Array.isArray(runs)) return ["the runs file is not a JSON array"];
+  const ids = new Set(tasks.map((t) => t.id));
+  const problems = [];
+  const seen = new Map();
+  runs.forEach((r, i) => {
+    const at = `run ${i + 1}`;
+    if (!r || typeof r !== "object") { problems.push(`${at}: not an object`); return; }
+    if (!ids.has(r.task)) problems.push(`${at}: unknown task ${JSON.stringify(r.task)}`);
+    if (!ARMS.includes(r.arm)) problems.push(`${at}: unknown arm ${JSON.stringify(r.arm)} (expected A or B)`);
+    if (r.seed === undefined || r.seed === null || r.seed === "") problems.push(`${at}: no seed`);
+    if (!Array.isArray(r.files)) problems.push(`${at}: files is not an array`);
+    if (typeof r.tokens !== "number" || !Number.isFinite(r.tokens) || r.tokens < 0) problems.push(`${at}: tokens is not a measured number`);
+    const k = `${r.task} / ${r.arm} / seed ${JSON.stringify(r.seed)}`;
+    if (seen.has(k)) problems.push(`${at}: duplicates run ${seen.get(k)} (${k})`);
+    else seen.set(k, i + 1);
+  });
+  for (const t of tasks) {
+    for (const arm of ARMS) {
+      const seeds = new Set(runs.filter((r) => r && r.task === t.id && r.arm === arm).map((r) => JSON.stringify(r.seed)));
+      if (seeds.size !== SEEDS_PER_TASK_PER_ARM) problems.push(`${t.id} / ${arm}: ${seeds.size} distinct seed(s), the protocol needs ${SEEDS_PER_TASK_PER_ARM}`);
+    }
+  }
+  return problems;
+}
 
 export function median(xs) {
   if (!xs.length) return null;
@@ -308,12 +344,23 @@ function cmdPrepare(root, ref, out, log) {
   if (!ref || !out) fail("prepare needs --ref <git-ref> and --out <dir>", "for example: prepare --ref <pre-adoption-sha> --out ../eval-arm-b");
   const dest = resolve(out);
   if (existsSync(dest)) fail(`${dest} already exists`, "choose a fresh directory for each run");
-  execFileSync("git", ["worktree", "add", "--detach", dest, ref], { cwd: root, stdio: "ignore" });
+  // The run repository shares nothing with this one: the tree at <ref> is
+  // exported, the grading material is removed, and a fresh repository is made
+  // with one commit. A linked worktree would share this repository's objects,
+  // so `git show HEAD:<keys>` or a `git diff` would hand the answers to arm A.
+  // Both arms get the same shape, so ordinary git inspection reveals nothing.
+  mkdirSync(dest, { recursive: true });
+  const tar = execFileSync("git", ["archive", "--format=tar", ref], { cwd: root, maxBuffer: 1 << 30 });
+  execFileSync("tar", ["-x", "-C", dest], { input: tar, maxBuffer: 1 << 30 });
   const removed = [];
   for (const g of GRADING_MATERIAL) {
     if (existsSync(join(dest, g))) { rmSync(join(dest, g), { recursive: true, force: true }); removed.push(g); }
   }
-  log(`prepared ${dest} at ${ref}; removed grading material: ${removed.length ? removed.join(", ") : "none present"}`);
+  const git = (...a) => execFileSync("git", a, { cwd: dest, stdio: ["ignore", "ignore", "pipe"] });
+  git("init", "-q");
+  git("add", "-A");
+  git("-c", "user.name=eval", "-c", "user.email=eval@localhost", "commit", "-q", "--no-gpg-sign", "-m", "eval run snapshot");
+  log(`prepared ${dest} from ${ref} as a fresh one-commit repository; grading material excluded: ${removed.length ? removed.join(", ") : "none present"}`);
   return 0;
 }
 
@@ -324,8 +371,12 @@ function cmdScore(root, runsFile, log) {
   const unverified = tasks.filter((t) => !keys[t.id]?.verified).map((t) => t.id);
   if (unverified.length) fail(`answer keys not yet verified by hand: ${unverified.join(", ")}`, `check each in ${KEYS} and set "verified": true`);
   const runs = JSON.parse(readFileSync(resolve(runsFile), "utf8"));
+  const problems = runProblems(runs, tasks);
+  if (problems.length) {
+    fail(`the runs file is not the complete matrix, so no verdict is given:\n    ${problems.slice(0, 40).join("\n    ")}${problems.length > 40 ? `\n    … and ${problems.length - 40} more` : ""}`,
+      `record exactly ${SEEDS_PER_TASK_PER_ARM} seeds per task per arm (A and B), each with files and tokens, and score again`);
+  }
   const s = summarize(runs, tasks, keys);
-  if (!s.A || !s.B) fail("the runs file needs both arms, A and B", "record every run with arm A (adopted, tool and rule) or B (pre-adoption, grep only)");
   const v = verdict(s.A, s.B);
   log(JSON.stringify({ summary: s, verdict: v, thresholds: THRESHOLDS }, null, 2));
   mkdirSync(join(root, RESULTS_DIR), { recursive: true });
@@ -336,11 +387,17 @@ export function run(argv, { log = console.log, err = console.error, cwd = proces
   const flags = {};
   const pos = [];
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith("--")) flags[argv[i].slice(2)] = argv[++i];
-    else pos.push(argv[i]);
+    if (argv[i].startsWith("--")) {
+      // Every flag takes a value; a bare or empty one is refused rather than
+      // read as absent, so --root "$UNSET" never falls back to the current checkout.
+      const v = argv[i + 1];
+      if (v === undefined || v === "" || v.startsWith("--")) { err(`${argv[i]} needs a value`); return 2; }
+      flags[argv[i].slice(2)] = v;
+      i++;
+    } else pos.push(argv[i]);
   }
   try {
-    const root = flags.root ? realpathSync(resolve(flags.root)) : repoRoot(cwd);
+    const root = repoRoot("root" in flags ? resolve(cwd, flags.root) : cwd);
     switch (pos[0]) {
       case "keys": return cmdKeys(root, log);
       case "prompts": return cmdPrompts(root, resolve(flags.out || "eval-prompts"), log);
