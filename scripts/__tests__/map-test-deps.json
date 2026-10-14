@@ -1,0 +1,12 @@
+{
+  "_README": "Pinned test dependencies for scripts/__tests__/map.test.mjs, installed by the Test job into a temporary directory outside the checkout (never into this repository, which stays dependency-free). Versions mirror the first consumer's lockfile so recognition is tested against the libraries it actually uses.",
+  "packages": {
+    "typescript": "5.9.3",
+    "@types/node": "25.3.5",
+    "@types/express": "5.0.6",
+    "@types/pg": "8.15.6",
+    "drizzle-orm": "0.45.2",
+    "wouter": "3.9.0",
+    "@types/react": "19.2.14"
+  }
+}

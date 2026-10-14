@@ -1250,7 +1250,13 @@ instances are.** For every finding, whichever agent is driving the fixes:
    one-liner that detects *every* instance, not just the cited ones. If the
    finding genuinely cannot be mechanized (a pure design/semantics finding),
    the reply says so — that inability is itself a signal, and the round's
-   two assessments weigh that finding as such.
+   two assessments weigh that finding as such. **Where the repository's map is
+   adopted and enabled, a class made of the uses of one TypeScript declaration
+   takes `node scripts/map.mjs dependents <file>#<name>` as its oracle beside
+   `git grep`**: it reaches users behind barrels and aliases that share no text
+   with the declaration, and it names what it could not resolve
+   ([`agents-core.md`](../../.agents/core/agents-core.md), *Query the structure
+   before you change it*).
 3. **Sweep the full scope before fixing, fix every hit, re-run the oracle
    to zero.** Scope defaults to the whole artifact/diff and widens to the
    repo when the class plausibly lives outside it. The reply cites the

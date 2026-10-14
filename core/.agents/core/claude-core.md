@@ -77,6 +77,10 @@ file, that's the same smell facing the other way.
 - **Engineering practice** — testing, migrations, code review under
   `docs/engineering/`; [`PLANS.md`](../PLANS.md) for planning.
 - **Web research** — [`web-research.md`](../../docs/ai-context/web-research.md).
+- **Querying structure before an edit** — where a repo's map is adopted and
+  enabled, [`agents-core.md`](agents-core.md), *Query the structure before you
+  change it*, binds me; the tool's contract is
+  [`agent-legible-codebase.md`](../../docs/ai-context/agent-legible-codebase.md).
 - **Environment memory** — `.agents/memory/`, the fleet's accumulated
   environment and tooling gotchas.
 
