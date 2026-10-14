@@ -305,6 +305,16 @@ the *disk*; use one only when that is genuinely what you mean. An oracle that
 silently skips a tracked file is the false-completeness failure below,
 arriving through the tool rather than the prose.
 
+**The corpus is one axis; reach is the other.** When the class is the uses of
+one TypeScript declaration, a text search over exactly the tracked set still
+misses the users that import it through a barrel or under an alias, since they
+share no text with it. Where the repository's map is adopted and enabled, that
+class takes the map's symbol query beside `git grep`, and its `unresolved`
+section is read by hand
+([`agents-core.md`](../../.agents/core/agents-core.md), *Query the structure
+before you change it*). That is not a second example of the corpus property
+above; it answers a question the corpus cannot.
+
 **This is the same move, moved earlier.** The class-sweep protocol exists
 because a reviewer's cited instance is never guaranteed to be every instance.
 Running that discovery step at *plan entry* instead of waiting for review to
@@ -1653,7 +1663,11 @@ oracle and the Tier A/B bugfix oracle below.
    the affected-surface inventory (above) at bug scale: name the pattern
    (the function, the table, the shape of derivation the bug lives in), write
    the tracked-set/callers-search that finds every site matching it, and state
-   what it found — not a memory of "what calls this." Regression tests pin
+   what it found — not a memory of "what calls this." Where the map is
+   adopted and enabled, the callers of a TypeScript declaration come from its
+   symbol query beside that search
+   ([`agents-core.md`](../../.agents/core/agents-core.md), *Query the
+   structure before you change it*). Regression tests pin
    the fixed behavior; they say nothing about the neighbors, which is exactly
    where a small-looking fix does its damage, and "I checked the obvious
    callers" is exactly the gap a mechanical search closes for free.
