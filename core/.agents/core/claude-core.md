@@ -1162,8 +1162,10 @@ conversation resolution, so the Merge button is inert while a thread is open.
    product PRs; a prototype-phase PR posts none — its decisions are not made
    yet).
 6. **Merge report to David**: both SHAs, verification results, and the UAT
-   handoff naming what to go click — plus the reminder that `/uat` walks him
-   through it rather than leaving him to the doc; for a prototype-phase PR,
+   handoff naming what to go click — the judgement steps, since `/uat`
+   resolves the machine lanes itself, screen facts included — plus the
+   reminder that `/uat` walks him through it rather than leaving him to the
+   doc; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
    entries, restated in one line each; and, as its last line, the turn's

@@ -446,8 +446,10 @@ complete, retryable and no-op states represented clearly enough for a human to
 act on? Do not universalise a feature-specific rule beyond what the plan
 warrants.
 
-**Testing.** Scale expectations to the change's risk. Manual QA is not
-automatically a rejection reason; say where automated coverage is needed.
+**Testing.** Scale expectations to the change's risk. Manual QA of the
+judgement residue is not a rejection reason; manual QA standing in for a
+screen fact a test could assert is (the lane rules, below). Say where
+automated coverage is needed.
 Consider unit, integration, migration, async-job and permission tests, regression
 fixtures from real cases, and a UAT doc for the judgement residue — a screen
 fact is an assertion in the same PR, never a step for David

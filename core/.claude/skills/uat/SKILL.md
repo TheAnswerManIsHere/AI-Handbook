@@ -1,6 +1,6 @@
 ---
 name: uat
-description: Run a UAT session with David step by step, in chat, instead of handing him a markdown file to read alone. Use when he says /uat, "let's test PR N", "walk me through the UAT", "I'm ready to test this", or "resume the UAT". I do the setup, present one step at a time, record Pass/Fail/Blocked/Skipped per step, capture evidence on anything that isn't a clean pass, file the bug and the way back the moment something breaks, and leave a durable run record any session can resume from. NOT for writing a UAT doc — that's `pr-docs`.
+description: Run a UAT session with David step by step, in chat, instead of handing him a markdown file to read alone. Use when he says /uat, "let's test PR N", "walk me through the UAT", "I'm ready to test this", or "resume the UAT". I do the setup, resolve every machine-lane step myself first (a screen fact is mine to check in a browser, whatever the doc labels it), present only the judgement steps to him one at a time, record Pass/Fail/Blocked/Skipped per step, capture evidence on anything that isn't a clean pass, file the bug and the way back the moment something breaks, and leave a durable run record any session can resume from. NOT for writing a UAT doc — that's `pr-docs`.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -53,7 +53,8 @@ An invocation may name a PR, an issue, or nothing.
    **None → say so** and don't invent a run.
 
 Then give him a **three-line preview before step 1**, never the whole doc:
-how many steps and how many regression checks, what I'm setting up for him
+how many machine-lane checks I resolved and how many steps are his, in
+`## Steps` and in `## Regression` (section 3), what I'm setting up for him
 (section 2), and anything he needs on hand — an admin login, a phone, a fresh browser tab. The doc's
 narrative preamble is mine to have read, not his to sit through.
 
@@ -114,10 +115,11 @@ this is true:
 > A step is any `### ` heading inside `## Steps` or `## Regression`, in
 > document order. Nothing else in the file is a step.
 
-So enumerate once at the start, say both counts in the preview ("7 steps, then
-4 regression checks"), and present them in order — the regression checks are
-steps in every sense that matters here: presented, recorded, and counted
-toward the verdict in section 6. There is nothing to infer and nothing to
+So enumerate once at the start, say the counts in the preview ("7 steps,
+then 4 regression checks" — each count split by lane, below, since the
+machine-lane ones are resolved before he starts), and present them in order
+— the regression checks are steps in every sense that matters here:
+presented, recorded, and counted toward the verdict in section 6. There is nothing to infer and nothing to
 classify; if a doc doesn't parse this way it is not in the format, and the
 answer is to fix the doc, not to guess.
 
@@ -529,8 +531,15 @@ screen checks reached him). Until 2026-10-15 this section said it waited on
 one decision — an admin identity that is not David's personal login — and
 that decision was settled by the seeded test accounts and the dev-admin
 login the per-PR E2E job signs in with (Overhype.me #631, increment 2), so
-the paragraph was a stale reason not to open a browser. What remains is
-where each check lives, and that is three places:
+the paragraph was a stale reason not to open a browser. **The rule
+(David, 2026-10-15): a step's lane is read from its `Expect`'s clauses,
+never from its heading or its verb. A screen fact — an element is there, a
+message reads a given sentence, a status or an error shows, a layout holds
+— is machine-lane; the clause that is judgement is a `human` step of its
+own; and a screen fact that reaches a run labelled `human` is run by me, in
+a real browser at the commit under test, before he sees anything (section
+3's machine block says how).** What remains is where each check lives, and
+that is three places:
 
 - **A screen fact a PR claims lives in CI**, as an assertion in a spec or
   component test the gate already runs, written in the same PR
