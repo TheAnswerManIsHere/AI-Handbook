@@ -101,8 +101,14 @@ the mandatory live check had no recorded command for close-out to run).
    whether a result reads right, or something only his own account or device
    can do. Everything else is `ci`, `scripted` or `live`, and **the check it
    cites is written in this same PR**, so the UAT he runs is the human residue
-   and nothing more. **A behaviour a later PR delivers has no step here** — it
-   belongs in the oracle's scope line (below). A behaviour **this** PR claims
+   and nothing more. **The lane is read from the `Expect`'s clauses, not from
+   the heading** (David, 2026-10-15): "the refusal reads well" over an
+   `Expect` naming the sentence, the status and that nothing overflows is a
+   machine-lane step with a Playwright or component assertion for those
+   clauses, plus a one-clause `human` step for "it is readable" — never one
+   `human` step carrying both. **A behaviour a later PR delivers has no step
+   here** — it belongs in the oracle's scope line (below). A behaviour
+   **this** PR claims
    whose machine check cannot exist yet, because the double or fixture it
    needs lands later, keeps its machine step `**Deferred:** #N` to that
    owner, and **the owed check is recorded on issue #N when the line is

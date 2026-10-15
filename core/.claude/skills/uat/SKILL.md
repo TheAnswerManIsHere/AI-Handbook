@@ -166,6 +166,26 @@ the doc-wrong case below, never a check to run early:
   its runnable **Check:** in the surviving doc (`pr-docs`), so the resumed
   run executes it; a doc still carrying the line after #N closed is the
   doc-wrong case, and closing #N alone is never passing evidence.
+- **A `human` step whose `Expect` a screen can answer** — an element is
+  there, a message reads a given sentence, a status or an error shows, a
+  layout holds at a width — **is mine, whatever lane the doc gave it**
+  (David, 2026-10-15: *"any tests that require checking that a button
+  exists or an error message is showing or any other UI element testing
+  that doesn't require taste input from me"* are run automatically). I run
+  it in a real browser at the commit under test, in this block,
+  before he sees anything: Playwright in the session's container against a
+  local stack at that commit (the per-PR E2E job's launcher shape, a
+  throwaway test-marked database, the seeded test accounts or the dev-admin
+  login), or the live-environment connector read-only where the step needs
+  the deployed build. The record quotes what the browser read, with the
+  commit it ran at; a screenshot is evidence when layout is the claim. Only
+  the clause that is judgement — "it is readable", "the image suits the
+  subject" — reaches him, as a step of its own. Such a step was mislabelled
+  (`uat-doc-format.md`, *A step is `human` only when no machine can answer
+  it*): it is the doc-wrong case, and the lane fix rides the next PR that
+  touches the doc. Measured once before the rule: Overhype.me #685's run,
+  2026-10-15, two `human` steps read from the screen in Chromium in fourteen
+  minutes once David asked; the rule removes the ask.
 
 Each gets the same four statuses as a human step, with its evidence in the
 record. A machine-lane step that fails is a failure like any other: section 4
@@ -489,20 +509,31 @@ when he's gone quiet mid-run and something needs him. This is a deliberate,
 narrow carve-out from interaction rule 6 rather than a drift away from it —
 written down so a later session doesn't "fix" it back.
 
-## What version 1 deliberately doesn't do
+## Where the browser automation lives
 
-**Playwright automation of the mechanical steps** is the intended next phase,
-not a gap (David, 2026-08-21) — the goal is that he only ever judges what
-genuinely needs human eyes. It waits on one real decision: a browser driving
-the admin console needs an admin identity that isn't David's personal login,
-and picking that (a dedicated test-admin account, most likely) is a security
-question, not a detail.
+**Driving a browser for the mechanical steps is not a later phase** (David,
+2026-08-21, asking for it; 2026-10-14 and 2026-10-15, asking again after
+screen checks reached him). Until 2026-10-15 this section said it waited on
+one decision — an admin identity that is not David's personal login — and
+that decision was settled by the seeded test accounts and the dev-admin
+login the per-PR E2E job signs in with (Overhype.me #631, increment 2), so
+the paragraph was a stale reason not to open a browser. What remains is
+where each check lives, and that is three places:
 
-Worth saying now, because it shapes that phase: **once a step is fully
-scriptable, UAT is usually the wrong home for it.** It belongs in CI or in
-the PR's post-merge verification, where it runs on every change forever
-instead of once. The automation phase is mostly *draining* mechanical steps
-out of UAT into the layers that already exist — and scripting whatever
+- **A screen fact a PR claims lives in CI**, as an assertion in a spec or
+  component test the gate already runs, written in the same PR
+  (`pr-docs`): it runs on every change forever instead of once.
+- **A screen fact that reached a run as a `human` step is run by me at run
+  time**, in the machine block above, and the step's lane is corrected.
+- **A capture run that writes the named screens for me to read** covers a
+  backlog's "look at the screen, no judgement" steps at once; it is a
+  consumer's increment to build (Overhype.me #631, increment 8), and until it
+  lands the run-time rule covers each run by hand.
+
+**Once a step is fully scriptable, UAT is usually the wrong home for it.** It
+belongs in CI or in the PR's post-merge verification, where it runs on every
+change forever instead of once. Automation is mostly *draining* mechanical
+steps out of UAT into the layers that already exist — and scripting whatever
 live-app checks are left over.
 
 ## Model tier

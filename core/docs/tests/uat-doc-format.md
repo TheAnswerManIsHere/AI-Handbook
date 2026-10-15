@@ -64,6 +64,15 @@ step created is a rule for human steps.
 '4 of 4 done'" is not judgement; it is an assertion a test can make.
 "The meme is funny and the caption is legible" is judgement. When in doubt,
 the step is machine-lane and its check is written in the same PR.
+**The lane is read from the `Expect`'s clauses, never from the heading or
+the verb** (David, 2026-10-15). "Reads well", "looks right" and "renders
+correctly" name the author's hope, not who can verify it: an `Expect` that
+says what the screen shows — a sentence, a status, an element, nothing
+overflowing a panel — is machine-lane for those clauses, and the one clause
+that is judgement ("it is readable") is a `human` step of its own. A step
+whose heading is a judgement over a mechanical `Expect` is the shape that
+puts a screen check in front of David (Overhype.me PR #687, steps 4 and 5,
+2026-10-15); `/uat` runs such a step itself and records the doc as wrong.
 
 **`**Deferred:** #N — <why>`** marks a step that cannot run in its lane yet
 — its feature is being rebuilt, or the double its check needs does not exist
