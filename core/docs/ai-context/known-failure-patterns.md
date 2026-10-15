@@ -1789,7 +1789,9 @@ whether the operation can instead be made correct **by construction**
 narrower control that doesn't need to parse intent at all — a server-side
 rule, a protocol-level restriction — already covers the actual risk. Size
 the defense to the *realistic* threat model (an honest mistake) rather than
-a fully adversarial one, when the two genuinely differ, and say so out loud
+a fully adversarial one, when the two genuinely differ — and who produced
+the value is what decides that (`agents-core.md`, *Important product principles*): a guard's own operator is one actor, the
+agent whose commands the shell guard constrained was another — and say so out loud
 rather than quietly absorbing round after round. **Overhype:**
 .claude/guard.sh / scripts/guard-decision.mjs (both since retired — #94; PR #329) — Codex review
 rounds found 11, then 11, then 12, then 19 parser gaps (fixing 9, 11, 11, 0).
@@ -3090,7 +3092,11 @@ name the `Worth:` line of a fixed four-line reply form; the form was retired on
 2026-09-17 and the discipline was not.) The tell is a decline whose consequence clause quotes details
 specific to the reviewer's scenario — "gitignored", "one directory over", "a
 file I chose by hand". Those are properties of the example. Strip them and ask
-what remains reachable. And re-examine a class the reviewer raises a second
+what remains reachable — **and by whom**: who produced the value decides
+whether a guard is in scope at all (`agents-core.md`, *Important product principles*), so "I chose it" is the fact that settles a
+hostile-value finding on an operator-chosen path, while a class the operator
+reaches by an honest slip, as `--out .git/HEAD` is, is still weighed at its
+worst. And re-examine a class the reviewer raises a second
 time on its new evidence and scope, naming what the new instance shows that the
 first did not. **Repetition alone does not establish that the earlier judgement
 was wrong** (David, 2026-09-17): the rule used to say it did, which turned any

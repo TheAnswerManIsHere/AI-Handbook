@@ -63,8 +63,8 @@ that actually happen, and every one is caught by the same simple shape:
    proceeds. There, the budget receipt is the anchor.
 
 A finding of the shape "an edit to the working tree could…" is declined by
-pointing here. It is not a defect in a mistake-catcher that its operator can
-disable it.
+pointing at the rule's home (`agents-core.md`, *Important product principles*) and at this note for the history. It is not a
+defect in a mistake-catcher that its operator can disable it.
 
 ## The fifth time, and why the rule did not fire (AI-Handbook #211, 2026-10-15)
 
@@ -105,4 +105,8 @@ is on the same ring, and every layer you add is a place for two copies of
 the same value to disagree. Ask instead what mistake the check catches, make
 it catch that mistake in one obvious way, and put the real control — a
 server-side rule, a human reading what the change grants — where a local
-script cannot reach it.
+script cannot reach it. The question is who produced the value, and this
+note's title is its answer for one producer only: a hook payload, a webhook
+body, a fetched document or another program's output is outside the
+operator's control, and a script that exists to constrain its producer
+validates that input as its whole job (the rule's home, `agents-core.md`, *Important product principles*).

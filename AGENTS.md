@@ -51,9 +51,12 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   [`docs/porting-notes.md`](docs/porting-notes.md) records how the current
   split was drawn.
 - **For values the operator supplies, the threat model is that operator's own
-  mistakes, not an adversary.** Where a script's input arrives as **argv, a
-  path, or a file the operator itself authored** — most of `scripts/` and
-  `core/scripts/`, and the eval's task file — the controls
+  mistakes, not an adversary** (the rule's home is
+  [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles),
+  *A check earns its place only when the value can differ from what you
+  intended*; this bullet is its application here). Where a script's input
+  arrives as **argv, a path, or a file the operator itself authored** — most
+  of `scripts/` and `core/scripts/`, and the eval's task file — the controls
   against deliberate action are GitHub's server-side ruleset and David
   working alongside, reading the latitude line every authority-widening PR
   carries (2026-09-14, when the David-merge gate was retired), and a local
@@ -74,12 +77,16 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   adversarial by construction relative to the thing it constrained, and
   hostile-value and parser findings there were fully in scope. The guard is
   gone (#94, replaced by server-side rulesets that need no parser), and **the
-  rule it illustrated is not**: a fetched document, a webhook body, a model's
-  answer, or any third-party output is input this code did not produce, and a
-  hostile-value finding on one is in scope. **The question is who produced the
-  value, never which directory the file lives in.** History:
+  rule it illustrated is not**: a fetched document, a webhook body, a
+  connector's comment, or any third-party program's output is input this
+  code did not produce, and a hostile-value finding on one is in scope. (A
+  role this agent dispatches, briefs and reads back is on the agent's side of
+  that line: its answer file gets the schema check that makes it readable,
+  and nothing more.) **The question is who produced the value, never which
+  directory the file lives in.** History:
   [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
-  the general rule is in `agents-core.md`'s product principles.
+  the general rule is
+  [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles).
 - **A consequence nobody would feel is not a consequence** (David,
   2026-09-11). Two classes are declined here rather than fixed, and both
   recur in this repository specifically. **Accounting precision**: how many

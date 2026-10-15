@@ -88,7 +88,9 @@ print order.
      worth. The builder's reply names the failure class and cites the
      assessment it rests on; read the diff against that. Code written for a
      consequence nobody would feel, or a fix out of proportion to what it
-     prevents, is overbuilt. The measured case (AI-Handbook #109): the
+     prevents, is overbuilt — and so is a guard against a value that only the
+     builder's own agent could have supplied, since that agent could equally
+     not run the script (`agents-core.md`, *Important product principles*). The measured case (AI-Handbook #109): the
      reviewer's login is a constant, and it got a config key, a reader, a
      refusal and a normalisation rule before being replaced by the constant.
      David reads this flag to stop that the next time, so set it whenever it
