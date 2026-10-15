@@ -13,7 +13,7 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -334,6 +334,55 @@ function suite() {
     assert.match(none.out, /resolved \(0\):\n  \(none found\)\nunresolved/, "an empty answer still prints what could not be resolved");
   });
 
+  test("answers: a Worker exported wrapped, or through a same-file const, lists the same routes as the bare one", () => {
+    const d = adopted();
+    const bare = read(d, "worker/src/index.ts");
+    const HANDLER = "type Handler = { fetch(request: Request): Promise<Response> };\n";
+    const forms = {
+      paren: bare.replace("export default {\n", "export default ({\n").replace(/\n};\n$/, "\n});\n"),
+      as: HANDLER + bare.replace(/\n};\n$/, "\n} as Handler;\n"),
+      satisfies: HANDLER + bare.replace(/\n};\n$/, "\n} satisfies Handler;\n"),
+      held: HANDLER + bare.replace("export default {\n", "const worker = {\n").replace(/\n};\n$/, "\n} satisfies Handler;\nexport default worker;\n"),
+    };
+    for (const [form, text] of Object.entries(forms)) {
+      assert.notEqual(text, bare, `the ${form} fixture differs from the bare one`);
+      write(d, `worker/src/${form}.ts`, text);
+    }
+    const b = map(d, "build");
+    assert.equal(b.code, 0, b.all);
+    const paths = (f) => mapJson(d, "routes", f).resolved.map((r) => r.path).sort();
+    const expected = paths("worker/src/index.ts");
+    assert.deepEqual(expected, ["prefix:/share/", "regex:/^\\/og\\/(\\w+)$/"]);
+    for (const form of Object.keys(forms)) assert.deepEqual(paths(`worker/src/${form}.ts`), expected, form);
+  });
+
+  for (const rootPath of [".", "./"]) {
+    test(`boundaries: a package at "${rootPath}" is the repository root, its layers are checked, and a nested package keeps its own files`, () => {
+      const d = adopted();
+      setJson(d, ".agents/map/architecture.json", (a) => {
+        a.packages = [
+          { name: "app", path: rootPath, layers: [{ name: "routes", prefix: "packages/server/src/routes/" }, { name: "lib", prefix: "packages/server/src/lib/" }], allowLayers: { routes: ["lib"], lib: [] } },
+          { name: "lib", path: "packages/lib" },
+        ];
+        a.allowPackages = { app: ["lib"], lib: [] };
+      });
+      map(d, "build");
+      let r = map(d, "check");
+      assert.equal(r.code, 0, `the declared architecture holds as written:\n${r.all}`);
+      const add = (rel, line) => write(d, rel, read(d, rel) + line);
+      add("packages/server/src/lib/handlers.ts", 'import "../routes/facts";\n');
+      map(d, "build");
+      r = map(d, "check");
+      assert.match(r.err, /layer boundary/);
+      assert.match(r.err, /app: lib may not import routes/);
+      git(d, "checkout", "--", "packages/server/src/lib/handlers.ts");
+      add("packages/lib/src/schema.ts", 'import "../../server/src/lib/handlers";\n');
+      map(d, "build");
+      r = map(d, "check");
+      assert.match(r.err, /lib may not import app/, "the nested package's file is classified as lib, not swallowed by the root");
+    });
+  }
+
   test("reconciliation: an indexed file no declared program reaches is a configuration error naming it", () => {
     const d = adopted();
     setJson(d, ".agents/map/config.json", (c) => { c.programs = c.programs.filter((p) => !p.name); });
@@ -540,13 +589,27 @@ function suite() {
 
   test("the delivered eval harness builds keys independently of the map, and keeps grading material out of run worktrees", () => {
     const d = adopted();
-    write(d, ".agents/map/eval-tasks.json", JSON.stringify({
-      tasks: [
-        { id: "h1", tier: "hidden", question: "Which files use the brand orange colour?", target: { kind: "symbol", ref: "packages/lib/src/brandTokens.ts#BRAND_ORANGE" } },
-        { id: "h2", tier: "hidden", question: "Which files read the Stripe products table?", target: { kind: "relation", name: "stripe.products" } },
-        { id: "s1", tier: "structural", question: "Where is the facts table used?", target: { kind: "relation", name: "facts", symbol: "packages/lib/src/schema.ts#factsTable" } },
-      ],
+    // The protocol's set: ten per tier. Three carry real targets; the rest are authored file lists.
+    const authored = (tier, letter, from) => Array.from({ length: 11 - from }, (_, i) => ({
+      id: `${letter}${from + i}`, tier, question: `Authored question ${letter}${from + i}.`, target: { kind: "files", files: ["packages/web/src/lib/util.ts"] },
     }));
+    const TASKS = [
+      { id: "h1", tier: "hidden", question: "Which files use the brand orange colour?", target: { kind: "symbol", ref: "packages/lib/src/brandTokens.ts#BRAND_ORANGE" } },
+      { id: "h2", tier: "hidden", question: "Which files read the Stripe products table?", target: { kind: "relation", name: "stripe.products" } },
+      { id: "s1", tier: "structural", question: "Where is the facts table used?", target: { kind: "relation", name: "facts", symbol: "packages/lib/src/schema.ts#factsTable" } },
+      ...authored("hidden", "h", 3), ...authored("structural", "s", 2), ...authored("keyword", "k", 1),
+    ];
+    const setTasks = (tasks) => write(d, ".agents/map/eval-tasks.json", JSON.stringify({ tasks }));
+    // A short tier, or a repeated id, is a different experiment: refused before any key is built.
+    setTasks(TASKS.filter((t) => t.id !== "k10"));
+    let refused = run(d, "map-eval.mjs", ["keys"]);
+    assert.equal(refused.code, 1, refused.all);
+    assert.match(refused.err, /tier keyword: 9 task\(s\), the protocol needs 10 \(k1, /);
+    setTasks([...TASKS.filter((t) => t.id !== "k10"), { ...TASKS.find((t) => t.id === "k9") }]);
+    refused = run(d, "map-eval.mjs", ["keys"]);
+    assert.match(refused.err, /duplicate task id\(s\): "k9"/);
+    assert.ok(!existsSync(join(d, ".agents/map/eval-keys.json")), "no key is written for a refused set");
+    setTasks(TASKS);
     const k = run(d, "map-eval.mjs", ["keys"]);
     assert.equal(k.code, 0, k.all);
     const keys = json(d, ".agents/map/eval-keys.json");
@@ -583,12 +646,27 @@ function suite() {
     assert.equal(git(wt, "status", "--porcelain").trim(), "", "and ordinary git inspection shows nothing removed");
     assert.equal(git(wt, "rev-list", "--count", "--all").trim(), "1", "one commit, sharing nothing with the source repository");
     assert.ok(existsSync(join(d, ".agents/map/eval-keys.json")), "the scorer still has them");
+    // Arm A must be able to use the tool it is measured with, with no install inside the run.
+    const q = run(wt, "map.mjs", ["purpose", "packages/web/src/lib/util.ts"]);
+    assert.equal(q.code, 0, `a map query in the prepared repository answers:\n${q.all}`);
+    assert.doesNotMatch(q.all, /STALE/, "from a fresh index, built by the compiler the committed index names");
+    assert.ok(realpathSync(join(wt, "node_modules/@workspace/lib")).startsWith(realpathSync(wt) + "/"), "a workspace link resolves inside the run repository, never back into the source checkout");
+    assert.ok(!realpathSync(join(wt, "node_modules")).startsWith(realpathSync(d)), "node_modules is the run repository's own directory, so .. from it never reaches the source checkout");
+    assert.equal(git(wt, "status", "--porcelain").trim(), "", "the linked dependencies are invisible to git");
+
+    // No compiler to link: refused before any agent is dispatched into it.
+    rmSync(join(d, "node_modules", "typescript"));
+    const noTs = run(d, "map-eval.mjs", ["prepare", "--ref", "HEAD", "--out", join(dirname(wt), "arm-no-ts")]);
+    assert.equal(noTs.code, 1, noTs.all);
+    assert.match(noTs.err, /node_modules\/typescript/);
+    symlinkSync(join(DEPS, "typescript"), join(d, "node_modules", "typescript"));
 
     setJson(d, ".agents/map/eval-keys.json", (all) => { for (const v of Object.values(all)) v.verified = true; });
     const runs = join(d, "..", `runs-${Date.now()}.json`);
-    const answers = { A: { h1: keys.h1.files, h2: keys.h2.files, s1: keys.s1.files }, B: { h1: [], h2: keys.h2.files, s1: keys.s1.files } };
+    // Arm B finds nothing on the hidden tier, so the gain is the whole tier.
+    const answer = (arm, t) => (arm === "B" && t.tier === "hidden" ? [] : keys[t.id].files);
     const matrix = [];
-    for (const task of ["h1", "h2", "s1"]) for (const arm of ["A", "B"]) for (const seed of [1, 2]) matrix.push({ task, arm, seed, files: answers[arm][task], tokens: 100 });
+    for (const t of TASKS) for (const arm of ["A", "B"]) for (const seed of [1, 2]) matrix.push({ task: t.id, arm, seed, files: answer(arm, t), tokens: 100 });
     writeFileSync(runs, JSON.stringify(matrix));
     const sc = run(d, "map-eval.mjs", ["score", "--runs", runs]);
     assert.equal(sc.code, 0, sc.all);
