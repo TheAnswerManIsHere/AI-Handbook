@@ -46,9 +46,10 @@ its redundant copy. A genuine choice stays an input, validated in proportion to
 credible mistakes. Where we control the producer, first consider whether
 correcting its output or simplifying the interface eliminates the need for
 consumer-side protection. **Who produced the value decides whether a guard is
-in scope at all** — the rule is `agents-core.md`, *A check earns its place
-only when the value can differ from what you intended*, and it is applied
-here, not restated. An input the agent authors itself, following its own
+in scope at all** — the rule's home is `agents-core.md`, *A check earns its
+place only when the value can differ from what you intended*; this step
+carries its application for an assessor who reads nothing else, and the home
+governs on any conflict. An input the agent authors itself, following its own
 protocol — a file it writes, a ref or path it picks, an argument it types —
 gets at most a cheap well-formedness check that catches its own mistake, and
 never a defence against a value it would have to construct on purpose

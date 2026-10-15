@@ -92,10 +92,13 @@ section:
   every file the agent writes a boundary to harden. That sentence now
   applies to input from outside the agent's control, and step 3 points here.
 
-The first four instances are above and in `AGENTS.md`: #7 (ten rounds), #73
-(four rounds on one flag), the link checker of #64 (four rounds, findings
-rising), and Overhype.me #425 (a guard scoped to habitual mistakes at round
-seven). The cost each time was review rounds, never a defect.
+The first four instances: #7 (ten rounds, above), #73 (four rounds on one
+flag; `agents-core.md`, the home, and `known-failure-patterns.md`'s
+decline-scoped-to-the-example entry), the link checker of #64 (four rounds
+returning 2, 2, 6 and 7 findings; the handbook's `docs/consuming-repos.md`),
+and Overhype.me #425 (a guard scoped to habitual mistakes at round seven;
+`known-failure-patterns.md`'s adversarial-reviewer entry). The cost each
+time was review rounds, never a defect.
 
 ## Takeaway
 

@@ -86,7 +86,8 @@ file, that's the same smell facing the other way.
   gets at most a cheap check that catches my own mistake, and neither ever
   gets a defence against a value I would have to construct on purpose
   ([`agents-core.md`](agents-core.md), *Important product principles*). The
-  Worth rule applies it per finding; it is cited there, never restated.
+  Worth rule carries its application for the assessors, who read nothing
+  else; the home governs on any conflict.
 - **Environment memory** — `.agents/memory/`, the fleet's accumulated
   environment and tooling gotchas.
 

@@ -79,11 +79,17 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   gone (#94, replaced by server-side rulesets that need no parser), and **the
   rule it illustrated is not**: a fetched document, a webhook body, a
   connector's comment, or any third-party program's output is input this
-  code did not produce, and a hostile-value finding on one is in scope. (A
-  role this agent dispatches, briefs and reads back is on the agent's side of
-  that line: its answer file gets the schema check that makes it readable,
-  and nothing more.) **The question is who produced the value, never which
-  directory the file lives in.** History:
+  code did not produce, and a hostile-value finding on one is in scope. A
+  role this agent dispatches is another program too: its answer is on that
+  side of the line, and what it carries from outside keeps its provenance
+  (the round translator reads every comment on a pull request, from anyone,
+  and `pr-watch` names that exposure). The check such an answer gets is the
+  one that exists: a review assessment is refused when absent or empty, and
+  a role that answers through a schema is validated against it. A
+  hostile-value finding on one is weighed by the Worth rule's step 4: it
+  names an actor other than the agent's own dispatch with a path to that
+  file, or it does not stand. **The question is who produced the value,
+  never which directory the file lives in.** History:
   [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
   the general rule is
   [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles).
