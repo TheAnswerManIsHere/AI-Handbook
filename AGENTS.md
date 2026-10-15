@@ -50,9 +50,13 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   product's code, paths, skills or subsystems is not.
   [`docs/porting-notes.md`](docs/porting-notes.md) records how the current
   split was drawn.
-- **For values an operator types, the threat model is that operator's own
-  mistakes, not an adversary.** Where a script's input arrives as **argv or a
-  path a human typed** — most of `scripts/` and `core/scripts/` — the controls
+- **For values the operator supplies, the threat model is that operator's own
+  mistakes, not an adversary** (the rule's home is
+  [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles),
+  *A check earns its place only when the value can differ from what you
+  intended*; this bullet is its application here). Where a script's input
+  arrives as **argv, a path, or a file the operator itself authored** — most
+  of `scripts/` and `core/scripts/`, and the eval's task file — the controls
   against deliberate action are GitHub's server-side ruleset and David
   working alongside, reading the latitude line every authority-widening PR
   carries (2026-09-14, when the David-merge gate was retired), and a local
@@ -73,12 +77,22 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   adversarial by construction relative to the thing it constrained, and
   hostile-value and parser findings there were fully in scope. The guard is
   gone (#94, replaced by server-side rulesets that need no parser), and **the
-  rule it illustrated is not**: a fetched document, a webhook body, a model's
-  answer, or any third-party output is input this code did not produce, and a
-  hostile-value finding on one is in scope. **The question is who produced the
-  value, never which directory the file lives in.** History:
+  rule it illustrated is not**: a fetched document, a webhook body, a
+  connector's comment, or any third-party program's output is input this
+  code did not produce, and a hostile-value finding on one is in scope. A
+  role this agent dispatches is another program too: its answer is on that
+  side of the line, and what it carries from outside keeps its provenance
+  (the round translator reads every comment on a pull request, from anyone,
+  and `pr-watch` names that exposure). The check such an answer gets is the
+  one that exists: a review assessment is refused when absent or empty, and
+  a role that answers through a schema is validated against it. A
+  hostile-value finding on one is weighed by the Worth rule's step 4: it
+  names an actor other than the agent's own dispatch with a path to that
+  file, or it does not stand. **The question is who produced the value,
+  never which directory the file lives in.** History:
   [`machinery-threat-model-is-my-own-mistakes.md`](core/.agents/memory/machinery-threat-model-is-my-own-mistakes.md);
-  the general rule is in `agents-core.md`'s product principles.
+  the general rule is
+  [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles).
 - **A consequence nobody would feel is not a consequence** (David,
   2026-09-11). Two classes are declined here rather than fixed, and both
   recur in this repository specifically. **Accounting precision**: how many
@@ -86,7 +100,9 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   someone might ask whether the process is tuned, not as an audit history —
   so a finding about how a round or a verdict might be miscounted, and any
   machinery that would make such a count exact, is out of scope. **An
-  agent's influence over its own tooling**: the agent that runs these scripts
+  agent's influence over its own tooling** (the second declined class of
+  [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles)):
+  the agent that runs these scripts
   is the only actor who could subvert their inputs, and it could equally just
   not run them, so a finding shaped "the session could edit what this reads"
   describes a lock whose key is on the same ring. Neither is declined for
