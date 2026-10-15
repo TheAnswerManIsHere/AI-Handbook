@@ -94,7 +94,9 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   someone might ask whether the process is tuned, not as an audit history —
   so a finding about how a round or a verdict might be miscounted, and any
   machinery that would make such a count exact, is out of scope. **An
-  agent's influence over its own tooling**: the agent that runs these scripts
+  agent's influence over its own tooling** (the second declined class of
+  [`agents-core.md`](core/.agents/core/agents-core.md#important-product-principles)):
+  the agent that runs these scripts
   is the only actor who could subvert their inputs, and it could equally just
   not run them, so a finding shaped "the session could edit what this reads"
   describes a lock whose key is on the same ring. Neither is declined for

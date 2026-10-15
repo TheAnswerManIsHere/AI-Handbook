@@ -82,8 +82,9 @@ file, that's the same smell facing the other way.
   change it*, binds me; the tool's contract is
   [`agent-legible-codebase.md`](../../docs/ai-context/agent-legible-codebase.md).
 - **Who produced the value** — the threat model for anything I author
-  myself, and the one input class I never guard against: a check earns its
-  place only when something outside my control produced the value
+  myself: a value I could derive is not an input at all, a choice I make
+  gets at most a cheap check that catches my own mistake, and neither ever
+  gets a defence against a value I would have to construct on purpose
   ([`agents-core.md`](agents-core.md), *Important product principles*). The
   Worth rule applies it per finding; it is cited there, never restated.
 - **Environment memory** — `.agents/memory/`, the fleet's accumulated
