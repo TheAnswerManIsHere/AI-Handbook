@@ -90,11 +90,16 @@ Four rules, because setup writes to the live app:
   that skipped teardown would leave production mis-configured for exactly
   that long. Tear down, record in the run what setup is owed on resume, and
   re-create it when he comes back.
-- **Say plainly what I can't set up.** I have no admin session — every
-  `/admin/*` route answers *Access Denied* to me, which is the same
-  limitation that made admin click-throughs UAT-shaped in the first place.
-  Admin-gated setup falls to David, as exact click steps in the preview, not
-  as a vague "get the app ready."
+- **Say plainly what I can't set up.** On the deployed build I have no
+  admin session: the live-environment connector reads, it does not click,
+  so admin-gated setup *there* falls to David, as exact click steps in the
+  preview, not as a vague "get the app ready." That is the deployed build
+  only. On a local stack at the commit under test the dev-admin login and
+  the seeded test accounts are mine, which is what lets me run a screen
+  check myself (*Where the browser automation lives*, below); until
+  2026-10-15 this bullet called the missing admin session "the same
+  limitation that made admin click-throughs UAT-shaped", a reason that
+  section retires.
 
 Setup runs through the Replit connector per CLAUDE.md's connector policy,
 and it is a **deliberately mutating** action — scope it explicitly, or Replit
@@ -125,7 +130,10 @@ sweep. A false pass makes this session *worse* than the file it replaced.
 Hence one format, one rule (David, 2026-08-22; #554, #560).
 
 **Lanes decide who verifies each step, and only `human` reaches David**
-(David, 2026-10-07; [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)).
+(David, 2026-10-07; [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07))
+— and a `human` step whose `Expect` a screen can answer is read as a
+machine step, whatever its label (the bullet below; *Where the browser
+automation lives*).
 **The commit under test** is the commit the run verifies: **the Repl's
 checked-out commit when the run starts** — the same SHA close-out's sync
 check reads — and it must **contain the PR's merge commit** (an ancestor
@@ -168,8 +176,10 @@ the doc-wrong case below, never a check to run early:
   doc-wrong case, and closing #N alone is never passing evidence.
 - **A `human` step whose `Expect` a screen can answer** — an element is
   there, a message reads a given sentence, a status or an error shows, a
-  layout holds at a width — **is mine, whatever lane the doc gave it**
-  (David, 2026-10-15: *"any tests that require checking that a button
+  layout holds at a width — **is mine, whatever lane the doc gave it**: the
+  lane is read from the `Expect`'s clauses, never from the heading or the
+  verb (the rule's home is *Where the browser automation lives*, below;
+  David, 2026-10-15: *"any tests that require checking that a button
   exists or an error message is showing or any other UI element testing
   that doesn't require taste input from me"* are run automatically). I run
   it in a real browser at the commit under test, in this block,
@@ -190,8 +200,10 @@ the doc-wrong case below, never a check to run early:
 Each gets the same four statuses as a human step, with its evidence in the
 record. A machine-lane step that fails is a failure like any other: section 4
 applies, and I file it before he sees the first human step. **He sees the
-machine block, then only the human steps** — so the preview says both counts
-("9 machine-lane checks, all passed; 3 steps for you").
+machine block, then only the human steps that are judgement** — a `human`
+label over a screen fact went into the machine block, above — so the
+preview says both counts ("9 machine-lane checks, all passed; 3 steps for
+you").
 
 **One step per turn.** What to do, what to expect, nothing else — not the
 next step, not the section after, not the reasoning behind the expectation

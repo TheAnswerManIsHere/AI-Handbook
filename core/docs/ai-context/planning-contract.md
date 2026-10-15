@@ -449,7 +449,9 @@ warrants.
 **Testing.** Scale expectations to the change's risk. Manual QA is not
 automatically a rejection reason; say where automated coverage is needed.
 Consider unit, integration, migration, async-job and permission tests, regression
-fixtures from real cases, and a UAT checklist for human-visible behaviour. Tests
+fixtures from real cases, and a UAT doc for the judgement residue — a screen
+fact is an assertion in the same PR, never a step for David
+([`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)). Tests
 should prove the general invariant, not only the reported example.
 
 **Security, permissions, validation, auditability.** Route permissions and

@@ -44,7 +44,10 @@ Two consequences worth stating, because they are what the rule buys:
 **Every step names exactly one lane, and only the human lane reaches David.**
 David is the slowest verifier in the system; a mechanical step that reaches
 him spends his time on something a machine does better. The lane is chosen
-when the step is written, not when the run starts.
+when the step is written, not when the run starts; a `human` label over a
+screen fact is a doc error, and `/uat` runs that step itself rather than
+hand it to him (the rule's home: the `uat` skill, *Where the browser
+automation lives*).
 
 | Lane | Who verifies it | When it runs | What a step in it must carry |
 |---|---|---|---|
@@ -72,7 +75,10 @@ overflowing a panel — is machine-lane for those clauses, and the one clause
 that is judgement ("it is readable") is a `human` step of its own. A step
 whose heading is a judgement over a mechanical `Expect` is the shape that
 puts a screen check in front of David (Overhype.me PR #687, steps 4 and 5,
-2026-10-15); `/uat` runs such a step itself and records the doc as wrong.
+2026-10-15); `/uat` runs such a step itself, in a real browser at the
+commit under test, and records the doc as wrong. The rule's home, with the
+run-time mechanics, is the `uat` skill, *Where the browser automation
+lives*; this paragraph is the authoring half.
 
 **`**Deferred:** #N — <why>`** marks a step that cannot run in its lane yet
 — its feature is being rebuilt, or the double its check needs does not exist
@@ -113,7 +119,7 @@ his decision rather than a gap.>
 
 **Do:** <the exact action — where to click, what to type>
 
-**Expect:** <the exact observable result>
+**Expect:** <the judgement only he can make — taste, legibility, whether it reads right>
 
 **Lane:** human
 
@@ -121,7 +127,7 @@ his decision rather than a gap.>
 
 **Do:** <…>
 
-**Expect:** <…>
+**Expect:** <the exact observable result — a screen fact is this lane's, never his>
 
 **Lane:** ci
 
@@ -185,9 +191,10 @@ human and the check's coverage can be reviewed against it.
 - **One action per step.** If a step needs "then also check", it is two steps.
   The driver presents one step per turn, so a compound step produces a
   compound answer and a muddy record.
-- **`Expect:` is an oracle, not a hope.** Something he can look at and answer
-  yes or no to. "The page loads correctly" is not; "a bordered table listing
-  chapters 1–12, and a search box above it" is.
+- **`Expect:` is an oracle, not a hope.** Something its lane can answer yes
+  or no to. "The page loads correctly" is not; "a bordered table listing
+  chapters 1–12, and a search box above it" is — and that one is a screen
+  fact, so its lane is a machine's, not his (*Lanes*, above).
 - **Never reference another step's state implicitly.** If step 4 needs what
   step 3 created, say so in step 4's **Do:**, because a resumed run may start
   at 4.
