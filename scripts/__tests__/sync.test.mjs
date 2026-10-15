@@ -95,9 +95,21 @@ test("'template' elsewhere in a name is not a seed", () => {
   assert.deepEqual(routeOf("docs/the.template"), { to: "docs/the.template", seed: false, topUp: false });
 });
 
-test("only the two known seeds are seeds, across the real payload", () => {
+test("only the known seeds are seeds, across the real payload", () => {
+  // Two until 2026-10-14; the map tool (#208) added its four configuration
+  // seeds, its eval task list and its path-scoped rule. Each is consumer-owned
+  // from the moment it lands, which is the property a seed exists to give.
   const seeds = payloadFiles(PAYLOAD).filter((f) => routeOf(f).seed).sort();
-  assert.deepEqual(seeds, [".agents/machinery.template.json", ".claude/settings.template.json"]);
+  assert.deepEqual(seeds, [
+    ".agents/machinery.template.json",
+    ".agents/map/architecture.template.json",
+    ".agents/map/config.template.json",
+    ".agents/map/eval-tasks.template.json",
+    ".agents/map/size-baseline.template.json",
+    ".agents/map/subsystems.template.json",
+    ".claude/rules/map-before-edit.template.md",
+    ".claude/settings.template.json",
+  ]);
 });
 
 test("no two payload files collide on one destination", () => {
@@ -184,6 +196,26 @@ test("a re-sync never clobbers a value the consumer has edited", () => {
     // refused every invocation. (Codex, #79 round 1.)
     const after = JSON.parse(readFileSync(owned, "utf8"));
     assert.equal(after.repo, "consumer/edited");
+  } finally {
+    removeTree(dest);
+  }
+});
+
+test("a re-sync leaves every edited seed byte-for-byte as the consumer wrote it", () => {
+  // The general form of the test above, over EVERY seed the payload carries
+  // rather than the one it was written for: the map tool (#208) added six,
+  // and a seed is only consumer-owned if a second sync provably leaves it be.
+  // machinery.json is the one topped-up seed, so it keeps its own test above.
+  const dest = fresh();
+  try {
+    run(dest);
+    const seeds = payloadFiles(PAYLOAD).map((f) => routeOf(f)).filter((r) => r.seed && !r.topUp).map((r) => r.to);
+    assert.ok(seeds.length >= 7, `expected the full seed set, got ${seeds.join(", ")}`);
+    const edited = new Map(seeds.map((to) => [to, `consumer-owned ${to}\n`]));
+    for (const [to, text] of edited) writeFileSync(join(dest, to), text);
+    commitAll(dest);
+    run(dest);
+    for (const [to, text] of edited) assert.equal(readFileSync(join(dest, to), "utf8"), text, `${to} was overwritten`);
   } finally {
     removeTree(dest);
   }

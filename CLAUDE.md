@@ -115,7 +115,7 @@ writing rules.
 ## Verifying
 
 ```
-node --test scripts/__tests__/*.test.mjs        # the machinery's own tests
+node --test scripts/__tests__/*.test.mjs        # the machinery's own tests (MAP_TEST_DEPS set; see below)
 node --test core/scripts/__tests__/*.test.mjs   # the payload's tests
 node scripts/sync.mjs --to <repo> --dry-run     # what a consumer would receive
 node scripts/check-root-wiring.mjs              # this repo actually reaches its payload
@@ -125,7 +125,11 @@ node scripts/check-agent-models.mjs             # every role named for a model d
 ```
 
 Both jobs run in CI on every PR. There is no product build here and no
-database. Three checks used to stand in this list and were removed by the #89
+database. The map tool's integration suite is the one test that needs
+installed dependencies: a pinned compiler and type declarations, installed
+outside the checkout and named by `MAP_TEST_DEPS`. Without them it refuses
+and prints the install command; the `Test` job does the same install in CI.
+Three checks used to stand in this list and were removed by the #89
 cut: `check-identity-sources.mjs` (identity now enters in one place,
 `core/scripts/machinery.mjs`), `check-contract-consistency.mjs` (the
 retired-phrase guard — #92 de-duplicates the rulebook instead) and

@@ -32,10 +32,22 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      # No install step: the machinery is deliberately dependency-free, and
-      # keeping it that way is why this line is a comment rather than an
-      # `npm ci`. If a dependency ever becomes necessary, that is a decision
-      # to make explicitly, not by adding it here quietly.
+      # No install step for the machinery: it is deliberately dependency-free,
+      # and keeping it that way is why there is no `npm ci` and no root
+      # package.json. ONE EXCEPTION, made explicitly (#208): the map tool's
+      # integration suite (scripts/__tests__/map.test.mjs) needs a real
+      # TypeScript compiler and the real type declarations of the libraries
+      # its supported-form matrix names, so the step below installs exactly
+      # the pins in scripts/__tests__/map-test-deps.json into a temporary
+      # directory OUTSIDE the checkout. Nothing in this repository imports
+      # them; the suite refuses, rather than skips, when they are absent.
+      - name: Install the map tool's pinned test dependencies (outside the checkout)
+        run: |
+          dir="$RUNNER_TEMP/map-test-deps"
+          mkdir -p "$dir"
+          specs=$(node -e 'const p=require(process.argv[1]).packages; console.log(Object.entries(p).map(([k,v])=>k+"@"+v).join(" "))' "$GITHUB_WORKSPACE/scripts/__tests__/map-test-deps.json")
+          (cd "$dir" && npm init -y >/dev/null && npm install --no-audit --no-fund --ignore-scripts $specs)
+          echo "MAP_TEST_DEPS=$dir/node_modules" >> "$GITHUB_ENV"
       # The glob is required, not stylistic: Node 22 resolves a bare directory
       # argument to `--test` as a MODULE path and dies with MODULE_NOT_FOUND
       # before running anything. It fails as "1 test, 1 failed", which reads

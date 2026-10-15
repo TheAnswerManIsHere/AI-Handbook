@@ -482,6 +482,41 @@ running it is a deliberate act, so "eligible" and "ready" are the same moment by
 construction rather than by a flag anyone has to remember to flip last. A step
 added to this list later belongs above step 7, not below it.
 
+## Adopting the map tool, and retiring it
+
+The payload carries a structural index and its guards, `scripts/map.mjs`, with
+its eval harness `scripts/map-eval.mjs` (#208). **Receiving them is not
+adopting them.** The first sync seeds five configuration files under
+`.agents/map/` and a path-scoped rule at `.claude/rules/map-before-edit.md`,
+every one consumer-owned from that moment and never overwritten by a later
+sync. Until the repository completes them, `node scripts/map.mjs check` fails
+with the adoption steps and the fleet rule that tells agents to query the map
+does not apply. Adoption is a repository's own increment, planned like any
+other; the steps and the tool's whole contract are in
+[`agent-legible-codebase.md`](../core/docs/ai-context/agent-legible-codebase.md#adopting-the-tool),
+and in short:
+
+1. Complete `.agents/map/config.json` (programs, the three file sets,
+   codegen-owned paths), `subsystems.json` and `architecture.json`; replace the
+   rule file's placeholder `paths:`.
+2. `node scripts/map.mjs build` until it reports no coverage gap; add the
+   headers; `node scripts/map.mjs freeze`.
+3. Set `"adopted": true` in the four configuration files and add
+   `node scripts/map.mjs check` to the always-on CI job. It needs the
+   repository's own `node_modules/typescript`, so it runs after the install
+   step.
+4. Run the eval
+   ([`agent-legible-codebase-eval.md`](../core/docs/ai-context/agent-legible-codebase-eval.md));
+   its pre-registered verdict sets `enabled`.
+
+**Backing out** is `"enabled": false` in `.agents/map/config.json`: one line,
+no sync. **Retiring the tool from the fleet** has an order, because the sync
+can take back only what it delivered: every consumer first removes its CI
+invocation, its `.agents/map/` and its rule file; then this repository deletes
+the payload files and the paragraph in `agents-core.md`, and the next sync
+takes back each delivered copy by its header. Reversed, a consumer's
+always-on check would call a script the sync had already removed.
+
 ## Rules for changing shared content
 
 - **Never edit a vendored file in a consumer.** The next sync overwrites it and

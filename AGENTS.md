@@ -95,7 +95,11 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
 
 ## Setup, verification, and the CI gate
 
-No install step; the machinery is dependency-free Node.
+No install step for the machinery, which is dependency-free Node. One
+exception: the map tool's integration suite (`scripts/__tests__/map.test.mjs`)
+needs a pinned TypeScript and four libraries' type declarations, installed
+outside the checkout and named by `MAP_TEST_DEPS`; without it that suite
+refuses and prints the one install command, which the `Test` job runs in CI.
 
 ```
 node --test scripts/__tests__/*.test.mjs        # the machinery's own tests

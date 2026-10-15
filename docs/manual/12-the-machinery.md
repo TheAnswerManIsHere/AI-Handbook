@@ -120,9 +120,12 @@ One workflow, two jobs, on every pull request to `main` and every push to it:
   [ruleset](./glossary.md#ruleset), and renaming it would block every pull
   request until the ruleset was edited.
 
-There is **no install step**. The machinery is deliberately dependency-free —
-plain Node — and the workflow says that adding a dependency is a decision to
-make explicitly, not by quietly adding one.
+There is **no install step** for the machinery. It is deliberately
+dependency-free — plain Node — and the workflow says that adding a dependency
+is a decision to make explicitly, not by quietly adding one. The one test that
+needs more is the map tool's integration suite, which needs a real compiler:
+the `Test` job installs pinned versions outside the checkout and names them in
+`MAP_TEST_DEPS`, and a local run without them refuses and prints the command.
 
 ### How this repository reaches its own payload
 
