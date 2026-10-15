@@ -50,9 +50,10 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   product's code, paths, skills or subsystems is not.
   [`docs/porting-notes.md`](docs/porting-notes.md) records how the current
   split was drawn.
-- **For values an operator types, the threat model is that operator's own
-  mistakes, not an adversary.** Where a script's input arrives as **argv or a
-  path a human typed** — most of `scripts/` and `core/scripts/` — the controls
+- **For values the operator supplies, the threat model is that operator's own
+  mistakes, not an adversary.** Where a script's input arrives as **argv, a
+  path, or a file the operator itself authored** — most of `scripts/` and
+  `core/scripts/`, and the eval's task file — the controls
   against deliberate action are GitHub's server-side ruleset and David
   working alongside, reading the latitude line every authority-widening PR
   carries (2026-09-14, when the David-merge gate was retired), and a local

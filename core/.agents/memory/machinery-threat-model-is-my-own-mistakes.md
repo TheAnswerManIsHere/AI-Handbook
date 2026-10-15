@@ -66,6 +66,37 @@ A finding of the shape "an edit to the working tree could…" is declined by
 pointing here. It is not a defect in a mistake-catcher that its operator can
 disable it.
 
+## The fifth time, and why the rule did not fire (AI-Handbook #211, 2026-10-15)
+
+The rule above was on file, in `agents-core.md` and in this note, when
+Codex's second review of #211 reported that an eval task file carrying the
+number `1` and the string `"1"` as two ids would pass the duplicate check
+and share one answer key. The task file is written by the agent running the
+eval, to a protocol whose ids are short strings. Both assessors still
+weighed it, one as an unmet requirement, and the builder took the split to
+David. His ruling: *"That's ridiculous to even consider. How would that
+situation ever even occur. Ignore it. … YOU ARE THE ONE WHO WOULD WRITE THE
+ID!"*
+
+Two mechanical reasons it reached him, both fixed in the PR that added this
+section:
+
+- **The assessors never saw the rule.** A review dispatch hands both
+  assessors the Worth rule (`review-judgment.md`) verbatim and nothing else
+  from the rulebook, and the Worth rule did not state the rule or point at
+  it.
+- **The Worth rule carried a sentence that read the other way.** Its step 3
+  said "deterministic construction differs from model-generated content …
+  where a model's output feeds a script, the script extends no latitude, and
+  exactness at that boundary is the standard" — which, by its letter, makes
+  every file the agent writes a boundary to harden. That sentence now
+  applies to input from outside the agent's control, and step 3 points here.
+
+The first four instances are above and in `AGENTS.md`: #7 (ten rounds), #73
+(four rounds on one flag), the link checker of #64 (four rounds, findings
+rising), and Overhype.me #425 (a guard scoped to habitual mistakes at round
+seven). The cost each time was review rounds, never a defect.
+
 ## Takeaway
 
 Before hardening a check, name the actor it is hardening against. If the
