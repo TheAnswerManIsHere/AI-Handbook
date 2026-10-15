@@ -120,8 +120,11 @@ then 4 regression checks" — each count split by lane, below, since the
 machine-lane ones are resolved before he starts), and present them in order
 — the regression checks are steps in every sense that matters here:
 presented, recorded, and counted toward the verdict in section 6. There is nothing to infer and nothing to
-classify; if a doc doesn't parse this way it is not in the format, and the
-answer is to fix the doc, not to guess.
+classify about *which headings are steps*; if a doc doesn't parse this way it
+is not in the format, and the answer is to fix the doc, not to guess. (Which
+lane a step is in is a different reading — its `Expect`'s clauses, below —
+and a label that disagrees with them is the doc-wrong case, not the
+authority.)
 
 **That determinism is the point, and it was bought the hard way.** The first
 version of this skill tried to infer coverage from whatever shape a doc
@@ -384,19 +387,19 @@ have no reliable way to tell which is current.
 
 | Step | Status | Note |
 | --- | --- | --- |
-| 1 · Manual renders | Pass | |
-| 2 · Deep link | Fail | #903 — landed at chapter top, not the heading |
-| 3 · Search | Pass | |
-| 4 · Deliberate absences | — | not yet run |
-| R1 · Sidebar unchanged | — | not yet run |
-| R2 · Admin on a phone | — | not yet run |
+| 1 · Manual renders (ci) | Pass | `adminHelp.spec.ts` green on the commit under test |
+| 2 · Deep link (human, run in browser) | Fail | #903 — landed at chapter top, not the heading; a screen fact, read by me at 1440 px, so the lane fix rides the next PR touching the doc |
+| 3 · Search reads right (human) | Pass | |
+| 4 · Deliberate absences (human) | — | not yet run |
+| R1 · Sidebar unchanged (ci) | Pass | `adminHelp.spec.ts` green on the commit under test |
+| R2 · Admin on a phone (human) | — | not yet run |
 
 **Setup owed on resume:** `budget_limit_legendary_usd` → 0.01 (real value
 2500.00 captured, restored at pause)
 **Bugs filed:** #903 (major)
 **Product notes:** none
 **Spend so far:** 23 min · 41,200 tokens (Opus, $6/M proxy, $0.25) over 5 walkthrough turns
-**Resume at:** step 4 (4 of 6 remaining, R1–R2 included)
+**Resume at:** step 4 (2 of his 4 remaining, R2 included; the 2 machine-lane checks are resolved at this commit)
 ```
 
 **Write it on the moments that matter, not every turn:** once after setup
