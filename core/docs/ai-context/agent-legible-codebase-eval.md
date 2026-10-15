@@ -82,10 +82,14 @@ prompt per task carrying the question and the answer format, never the target.
 
 1. Write the task set, run `keys`, verify every key by hand, commit both.
 2. For each task, arm and seed: `prepare` a run repository at that arm's commit, and
-   dispatch a fresh agent into it with the task's prompt. The checkout
-   `prepare` runs from must have its dependencies installed: `prepare` links
-   them into the run repository, so neither arm installs anything inside a
-   measured run, and it refuses when no `node_modules/typescript` is reachable.
+   dispatch a fresh agent into it with the task's prompt, started with the
+   run repository as its working directory: an agent started in the scorer's
+   checkout has the keys beside it, and nothing `prepare` does can undo that.
+   The checkout `prepare` runs from must have its dependencies installed:
+   `prepare` gives the run repository its own copy of them (hard-linked where
+   the filesystem allows, with no link back into the source checkout), so
+   neither arm installs anything inside a measured run, and it refuses when
+   no `node_modules/typescript` is reachable.
    Where the tree carries the map's index, it also runs one map query there
    and refuses unless it answers, so arm A is never handed a map that cannot
    run (a different installed compiler would make every query refuse). Record a run line:

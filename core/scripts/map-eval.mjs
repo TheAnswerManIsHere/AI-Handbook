@@ -24,7 +24,7 @@
 // one and set "verified": true.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, linkSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -421,13 +421,13 @@ function cmdPrepare(root, ref, out, log) {
   git("-c", "user.name=eval", "-c", "user.email=eval@localhost", "commit", "-q", "--no-gpg-sign", "-m", "eval run snapshot");
   const refuse = (msg, fix) => { rmSync(dest, { recursive: true, force: true }); fail(msg, fix); };
   // The arm-A agent is measured using the map, so the map must run here with
-  // no install inside the measured run: the source checkout's installed
-  // dependencies are linked in, and the link names are excluded in this
-  // repository's own .git/info/exclude, so git shows nothing.
-  const linked = linkDependencies(root, dest);
+  // no install inside the measured run: the run repository gets its own copy
+  // of the source checkout's installed dependencies, and their directories
+  // are excluded in this repository's own .git/info/exclude, so git shows nothing.
+  const provided = provideDependencies(root, dest);
   mkdirSync(join(dest, ".git", "info"), { recursive: true });
-  appendFileSync(join(dest, ".git", "info", "exclude"), linked.map((d) => `/${d}\n`).join(""));
-  if (!linked.some((d) => existsSync(join(dest, d, "typescript", "package.json")))) {
+  appendFileSync(join(dest, ".git", "info", "exclude"), provided.map((d) => `/${d}\n`).join(""));
+  if (!provided.some((d) => existsSync(join(dest, d, "typescript", "package.json")))) {
     refuse(`no node_modules/typescript is reachable from ${root}, so the map could not run in the prepared repository`,
       "install the repository's dependencies in this checkout, then prepare again; the run itself never installs");
   }
@@ -442,42 +442,50 @@ function cmdPrepare(root, ref, out, log) {
         `install the dependencies ${ref} declares in this checkout, so the compiler matches the committed index, then prepare again`);
     }
   }
-  log(`prepared ${dest} from ${ref} as a fresh one-commit repository; grading material excluded: ${removed.length ? removed.join(", ") : "none present"}; dependencies linked: ${linked.join(", ")}`);
+  log(`prepared ${dest} from ${ref} as a fresh one-commit repository; grading material excluded: ${removed.length ? removed.join(", ") : "none present"}; dependencies provided: ${provided.join(", ")}`);
   return 0;
 }
 
 /**
- * Link the source checkout's installed dependencies into a run repository.
- * Each node_modules directory beside a tracked package.json becomes a real
- * directory here, holding one link per installed entry, so `..` from it
- * stays inside the run repository. An entry that resolves into the source
- * tree outside any node_modules is a workspace package; it is linked
- * relatively to the run repository's own copy, never back to the source.
+ * Give a run repository its own copy of the source checkout's installed
+ * dependencies, with no path back into the source checkout, where the
+ * grading material is committed. Each node_modules directory beside a
+ * tracked package.json is materialised: directories are recreated, files
+ * hard-linked (copied across filesystems), and every symlink re-pointed by
+ * where it really resolves: into the source checkout, at the run
+ * repository's own copy of that path (a workspace package, a package
+ * manager's store, a self-link); anywhere else, at that place unchanged.
+ * The walk never follows a symlink, so it cannot copy the source tree in.
+ * Hard links share inodes; nothing in either arm writes into node_modules.
  */
-function linkDependencies(root, dest) {
+function provideDependencies(root, dest) {
   const dirs = new Set([""]);
   for (const f of listFiles(dest)) {
     if (/(^|\/)package\.json$/.test(f) && !f.split("/").includes("node_modules")) dirs.add(f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "");
   }
-  const linked = [];
+  const provided = [];
   for (const d of [...dirs].sort()) {
     const src = join(root, d, "node_modules");
     if (!existsSync(src)) continue;
-    mirrorModules(root, dest, src, join(dest, d, "node_modules"));
-    linked.push(d ? `${d}/node_modules` : "node_modules");
+    materialise(root, dest, src, join(dest, d, "node_modules"));
+    provided.push(d ? `${d}/node_modules` : "node_modules");
   }
-  return linked;
+  return provided;
 }
 
-function mirrorModules(root, dest, src, out) {
-  mkdirSync(out, { recursive: true });
-  for (const e of readdirSync(src)) {
-    const from = join(src, e), to = join(out, e);
-    let st, real;
-    try { st = lstatSync(from); real = realpathSync(from); } catch { continue; }
-    if (e.startsWith("@") && st.isDirectory()) { mirrorModules(root, dest, from, to); continue; }
-    const inTree = real.startsWith(root + sep) && !real.slice(root.length + 1).split(sep).includes("node_modules");
-    symlinkSync(inTree ? relative(dirname(to), join(dest, real.slice(root.length + 1))) : real, to);
+function materialise(root, dest, from, to) {
+  const st = lstatSync(from);
+  if (st.isSymbolicLink()) {
+    let real;
+    try { real = realpathSync(from); } catch { return; } // dangling: it reaches nothing
+    const inSource = real === root || real.startsWith(root + sep);
+    symlinkSync(inSource ? relative(dirname(to), join(dest, relative(root, real))) || "." : real, to);
+  } else if (st.isDirectory()) {
+    mkdirSync(to, { recursive: true });
+    for (const e of readdirSync(from)) materialise(root, dest, join(from, e), join(to, e));
+  } else if (st.isFile()) {
+    try { linkSync(from, to); }
+    catch (e) { if (e.code === "EXDEV" || e.code === "EPERM") copyFileSync(from, to); else throw e; }
   }
 }
 

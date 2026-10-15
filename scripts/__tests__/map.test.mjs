@@ -13,7 +13,7 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -635,6 +635,13 @@ function suite() {
     assert.match(s.err, /not yet verified/);
 
     commitAll(d, "eval tasks and keys");
+    // Packages installed physically under the checkout, as every real install is: a plain
+    // package, a scoped one with its own nested node_modules, a .bin link and a self-link.
+    write(d, "node_modules/physical/package.json", '{"name":"physical"}');
+    write(d, "node_modules/@scoped/pkg/node_modules/inner/package.json", '{"name":"inner"}');
+    mkdirSync(join(d, "node_modules/.bin"), { recursive: true });
+    symlinkSync(join("..", "physical", "package.json"), join(d, "node_modules/.bin/physical"));
+    symlinkSync("..", join(d, "node_modules/self"));
     const wt = join(mkdtempSync(join(tmpdir(), "map-arm-")), "arm");
     const p = run(d, "map-eval.mjs", ["prepare", "--ref", "HEAD", "--out", wt]);
     assert.equal(p.code, 0, p.all);
@@ -652,6 +659,24 @@ function suite() {
     assert.doesNotMatch(q.all, /STALE/, "from a fresh index, built by the compiler the committed index names");
     assert.ok(realpathSync(join(wt, "node_modules/@workspace/lib")).startsWith(realpathSync(wt) + "/"), "a workspace link resolves inside the run repository, never back into the source checkout");
     assert.ok(!realpathSync(join(wt, "node_modules")).startsWith(realpathSync(d)), "node_modules is the run repository's own directory, so .. from it never reaches the source checkout");
+    // No path in the run repository resolves into the source checkout, where the keys are committed.
+    const src = realpathSync(d);
+    const escapes = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isSymbolicLink()) {
+          let r = null;
+          try { r = realpathSync(p); } catch {}
+          if (r && (r === src || r.startsWith(src + "/"))) escapes.push(`${p.slice(wt.length + 1)} -> ${r}`);
+        } else if (e.isDirectory() && p !== join(wt, ".git")) walk(p);
+      }
+    };
+    walk(wt);
+    assert.deepEqual(escapes, [], "every dependency entry is the run repository's own, or lies outside the source checkout");
+    assert.ok(lstatSync(join(wt, "node_modules/physical")).isDirectory(), "a physical install is materialised, not linked");
+    assert.ok(existsSync(join(wt, "node_modules/@scoped/pkg/node_modules/inner/package.json")), "with its nested dependencies");
+    assert.ok(!existsSync(join(wt, "node_modules/physical/../../.agents/map/eval-keys.json")), "so .. through a package reaches no key");
     assert.equal(git(wt, "status", "--porcelain").trim(), "", "the linked dependencies are invisible to git");
 
     // No compiler to link: refused before any agent is dispatched into it.
