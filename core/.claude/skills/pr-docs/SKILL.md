@@ -104,9 +104,13 @@ the mandatory live check had no recorded command for close-out to run).
    [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)).
    A step is `human` only when no machine can answer it — taste, legibility,
    whether a result reads right, or something only his own account or device
-   can do. Everything else is `ci`, `scripted` or `live`, and **the check it
-   cites is written in this same PR**, so the UAT he runs is the human residue
-   and nothing more. **The lane is read from the `Expect`'s clauses and
+   can do — and it says which, in its `**Judgement:**` line. Everything else
+   is `ci`, `scripted`, `live` or `capture`, and **the check it cites is
+   written in this same PR**, so the UAT he runs is the human residue and
+   nothing more. `capture` is for an answer only pixels hold — the words
+   the product draws onto an image, a canvas preview, a real AI render's
+   content — with its `Expect` written as the screen it should show, never
+   "as before" (`uat-doc-format.md`, *Lanes*). **The lane is read from the `Expect`'s clauses and
    from who can perform the `Do`, never from the heading or the verb**
    (David, 2026-10-15; the rule's home is the `uat` skill, *Where the
    browser automation lives*, which also says what `/uat` does with a step
