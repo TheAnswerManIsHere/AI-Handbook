@@ -180,11 +180,23 @@ the doc-wrong case below, never a check to run early:
   commit under test, and quote what it printed. State a check needs is a
   Setup `[claude]` line with its `[restore]` (section 2); a probe whose
   refusal is the thing tested writes nothing and is not a write.
-- **`capture`** — I run the consumer's capture command (its
-  `overlay-declarations.md`, *UAT capture*) **at the commit under test**,
-  commit each shot to the evidence store that declaration names, then read
-  each image and record, on the step's own row, the shot name, the commit,
-  the evidence link and my reading clause by clause. The step's result is
+- **`capture`** — I produce the shot each step's `**Check:**` cites
+  **at the commit under test**: the citation says which shot answers the
+  step, and the capture command the consumer declares (its
+  `overlay-declarations.md`, *UAT capture*) says how to bring up the stack
+  and run the set that contains it. **I read each image before it is
+  published anywhere**, and the disclosure check (section 4, step 3) runs
+  on it first, whether or not its clauses pass: a shot it rejects goes to
+  *The private path* (section 4), never to the evidence store. Only then is
+  the shot committed to the evidence store the declaration names, which
+  holds test data alone — a throwaway test database and publishable
+  fixtures — on a dedicated branch that is only appended to. I record, on
+  the step's own row, the shot name, the commit, the evidence link pinned
+  to the evidence commit, and my reading clause by clause. A shot another
+  host has to publish before I can read it — a paid render made where the
+  vendor keys are — is published that way only while the consumer's
+  disclosure check is off; with it on, the shot reaches me privately first.
+  The step's result is
   that reading: a shot that was not produced, or that I cannot read, is
   Blocked, never Pass; a reading that contradicts the `Expect` is a Fail,
   filed before he sees anything (section 4). A capture that needs a paid
@@ -591,8 +603,8 @@ that is three places:
   time**, in the machine block above, and the step's lane is corrected.
 - **An answer only pixels hold is the `capture` lane** (David,
   2026-10-16): a script captures the named image at the commit under test,
-  the consumer's evidence store keeps it, and I read it — section 3's
-  machine block says how. The consumer declares the command, the evidence
+  I read it, and the consumer's evidence store keeps it once the disclosure
+  check has passed it — section 3's machine block says how. The consumer declares the command, the evidence
   store and any paid-render cap in its `overlay-declarations.md`
   (Overhype.me #631, increment 8, built the first).
 
