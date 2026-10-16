@@ -397,10 +397,14 @@ for evidence that cannot exist) or gets silently ignored, and the real gate
 goes undefined. **Avoid:** for every check in a workflow, ask *where does the
 thing being tested physically live at this moment, and can the tester reach
 it?* **Overhype:** the app runs from the Repl, and the Repl tracks `main`, so
-**everything that tests running behavior is post-merge** — David's UAT and
+**everything that tests the deployed build is post-merge** — David's UAT and
 Replit's `TEST_RUN` alike (the one later exception is a `prototype/<feature>`
 branch, tested on its own prototype environment with no merge at all —
 [`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
+Running behaviour itself is testable before the merge: the per-PR E2E job
+and a local stack at the commit under test both drive the app, which is
+where a UAT doc's screen facts are checked (the `uat` skill, *Where the
+browser automation lives*); only the deployed build waits for the sync.
 Merge + sync is what makes a build testable;
 production is the separate, deferred `publish_app` step. This misfired twice
 in one day on PR #413 (2026-08-11): Codex caught a `TEST_RUN`-as-merge-gate

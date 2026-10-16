@@ -1073,9 +1073,12 @@ design. Mechanics:
 
 ## Close-out is mine, end to end
 
-**Merging is not shipping — it is what makes the work testable.** The app runs
-from the Repl, which tracks `main`, so code on my branch exists nowhere David
-can click — with one exception, a `prototype/<feature>` branch, which its own
+**Merging is not shipping — it is what makes the work testable by David.**
+The app runs from the Repl, which tracks `main`, so code on my branch exists
+nowhere David can click (what I test before the merge — CI, and a browser
+against a local stack at the commit under test — is mine, and never his
+share; the `uat` skill, *Where the browser automation lives*) — with one
+exception, a `prototype/<feature>` branch, which its own
 prototype environment tracks and which never merges while in that phase.
 Production is a separate, explicitly-asked `publish_app`.
 
@@ -1162,8 +1165,11 @@ conversation resolution, so the Merge button is inert while a thread is open.
    product PRs; a prototype-phase PR posts none — its decisions are not made
    yet).
 6. **Merge report to David**: both SHAs, verification results, and the UAT
-   handoff naming what to go click — plus the reminder that `/uat` walks him
-   through it rather than leaving him to the doc; for a prototype-phase PR,
+   handoff naming what to go click — the judgement steps, since `/uat`
+   resolves the machine lanes itself, screen facts included (the `uat`
+   skill, *Where the browser automation lives*) — plus the
+   reminder that `/uat` walks him through it rather than leaving him to the
+   doc; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
    entries, restated in one line each; and, as its last line, the turn's
