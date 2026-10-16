@@ -389,17 +389,17 @@ have no reliable way to tell which is current.
 | --- | --- | --- |
 | 1 · Manual renders (ci) | Pass | `adminHelp.spec.ts` green on the commit under test |
 | 2 · Deep link (human, run in browser) | Fail | #903 — landed at chapter top, not the heading; a screen fact, read by me at 1440 px, so the lane fix rides the next PR touching the doc |
-| 3 · Search reads right (human) | Pass | |
-| 4 · Deliberate absences (human) | — | not yet run |
+| 3 · Search results read as the right answers (human) | Pass | |
+| 4 · Nothing feels missing from the chapter list (human) | — | not yet run |
 | R1 · Sidebar unchanged (ci) | Pass | `adminHelp.spec.ts` green on the commit under test |
-| R2 · Admin on a phone (human) | — | not yet run |
+| R2 · Readable on his own phone (human, his device) | — | not yet run |
 
 **Setup owed on resume:** `budget_limit_legendary_usd` → 0.01 (real value
 2500.00 captured, restored at pause)
 **Bugs filed:** #903 (major)
 **Product notes:** none
 **Spend so far:** 23 min · 41,200 tokens (Opus, $6/M proxy, $0.25) over 5 walkthrough turns
-**Resume at:** step 4 (2 of his 4 remaining, R2 included; the 2 machine-lane checks are resolved at this commit)
+**Resume at:** step 4 (2 judgement steps remaining, 4 and R2; step 2's screen fact was mine and is recorded; the 2 machine-lane checks are resolved at this commit)
 ```
 
 **Write it on the moments that matter, not every turn:** once after setup
