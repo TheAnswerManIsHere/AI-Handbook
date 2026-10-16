@@ -435,7 +435,7 @@ have no reliable way to tell which is current.
 **Bugs filed:** #903 (major)
 **Product notes:** none
 **Spend so far:** 23 min · 41,200 tokens (Opus, $6/M proxy, $0.25) over 5 walkthrough turns
-**Resume at:** step 4 (2 judgement steps remaining, 4 and R2; step 2's screen fact was mine and is recorded; the 2 machine-lane checks are resolved at this commit)
+**Resume at:** step 4 (2 judgement steps remaining, 4 and R3; step 2's screen fact was mine and is recorded; the 3 machine-lane checks are resolved at this commit)
 ```
 
 **Write it on the moments that matter, not every turn:** once after setup

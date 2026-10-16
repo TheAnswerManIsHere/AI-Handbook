@@ -134,8 +134,9 @@ the mandatory live check had no recorded command for close-out to run).
    The deferred step is **never** turned into a `human` step to get past
    the wait: David's share is judgement only. Such a run is Blocked until #N
    lands, which is the honest state of a behaviour nothing has yet checked.
-   `node scripts/check-uat-format.mjs` refuses a step without a lane and a
-   machine-lane step whose cited check does not exist.
+   `node scripts/check-uat-format.mjs` refuses a step without a lane, a
+   machine-lane step whose cited check does not exist, a `human` step
+   without its `**Judgement:**` line, and that line on any other lane.
 
    **No Artifact page (David, 2026-08-21 — retiring the 2026-07-22 rule).**
    The Artifact existed as a reading surface for working through the doc
