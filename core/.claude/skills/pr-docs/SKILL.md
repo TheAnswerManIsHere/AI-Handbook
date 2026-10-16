@@ -93,8 +93,10 @@ the mandatory live check had no recorded command for close-out to run).
    in the format — and `[david]` is reserved for what only his own session or
    device can do, admin-gated setup on the deployed build included (there
    the connector reads and does not click; on a local stack at the commit
-   under test the dev-admin login is mine — `/uat` section 2 and *Where the
-   browser automation lives*). The doc is still the canonical script;
+   under test the test identity the consumer's per-PR browser job signs in
+   with is mine, Overhype.me's dev-admin login for one — `/uat` section 2
+   and *Where the browser automation lives*). The doc is still the
+   canonical script;
    **I delete it once he confirms the run complete** (David, 2026-08-22).
 
    **Every step gets a lane, and the default is a machine** (David,
@@ -104,14 +106,16 @@ the mandatory live check had no recorded command for close-out to run).
    whether a result reads right, or something only his own account or device
    can do. Everything else is `ci`, `scripted` or `live`, and **the check it
    cites is written in this same PR**, so the UAT he runs is the human residue
-   and nothing more. **The lane is read from the `Expect`'s clauses, never
-   from the heading or the verb** (David, 2026-10-15; the rule's home is
-   the `uat` skill, *Where the browser automation lives*, which also says
-   what `/uat` does with a step labelled wrong): "the refusal reads well"
-   over an `Expect` naming the sentence, the status and that nothing
-   overflows is a machine-lane step with a Playwright or component
-   assertion for those clauses, plus a one-clause `human` step for "it is
-   readable" — never one `human` step carrying both. **A behaviour a later PR delivers has no step
+   and nothing more. **The lane is read from the `Expect`'s clauses and
+   from who can perform the `Do`, never from the heading or the verb**
+   (David, 2026-10-15; the rule's home is the `uat` skill, *Where the
+   browser automation lives*, which also says what `/uat` does with a step
+   labelled wrong): "the refusal reads well" over an `Expect` naming the
+   sentence, the status and that nothing overflows is a machine-lane step
+   with a browser or component assertion for those clauses, plus a
+   one-clause `human` step for "it is readable" — never one `human` step
+   carrying both; a `Do` only his own account or device can perform keeps
+   its step `human`, screen facts and all. **A behaviour a later PR delivers has no step
    here** — it belongs in the oracle's scope line (below). A behaviour
    **this** PR claims
    whose machine check cannot exist yet, because the double or fixture it
