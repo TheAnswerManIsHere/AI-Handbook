@@ -15,8 +15,9 @@ record, the bug intake, and the way back.
 
 **What has not changed:** the doc is still written per
 [`pr-docs`](../pr-docs/SKILL.md), still lands on its PR before merge, still
-David's own to-do list, and **I delete it once he confirms the run
-complete** (David, 2026-08-22) — see section 6.
+the script his judgement steps come from (the machine-lane steps in it are
+mine, section 3), and **I delete it once he confirms the run complete**
+(David, 2026-08-22) — see section 6.
 
 **The UAT doc is no longer published as an Artifact page (David,
 2026-08-21).** That reading surface existed because he was reading alone; the
