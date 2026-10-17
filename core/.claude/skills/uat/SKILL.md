@@ -146,8 +146,8 @@ Hence one format, one rule (David, 2026-08-22; #554, #560).
 **Lanes decide who verifies each step, and only `human` reaches David**
 (David, 2026-10-07; [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07))
 — and a `human` step whose `Expect` a screen can answer is read as a
-machine step, whatever its label (the bullet below; *Where the browser
-automation lives*).
+machine step, whatever its label, except what an AI-generated image shows,
+which stays his (the bullet below; *Where the browser automation lives*).
 **The commit under test** is the commit the run verifies: **the Repl's
 checked-out commit when the run starts** — the same SHA close-out's sync
 check reads — and it must **contain the PR's merge commit** (an ancestor

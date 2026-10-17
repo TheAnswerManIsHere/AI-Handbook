@@ -99,9 +99,12 @@ it is funny or good, and whether its content is acceptable or safe — unless
 the answer is as plain and checkable as the text in a bubble. These steps
 are `human` by this rule even though a model could offer an answer, and in
 doubt about such a clause the step is `human`; their `**Judgement:**` line
-names the content judgement. This narrows the lane for AI-generated content
-only; text, placement, typography and framing the product's own code draws
-stay `capture`.
+names the content judgement. The rule binds every check that looks at
+generated content, whatever its lane — a `capture` reading, a `live` check
+against a real vendor, a `scripted` journey, and a prototype's scaled machine
+lanes — since David's words cover *"any tests"*: none of them judges what a
+generated image shows. It narrows nothing else; text, placement, typography
+and framing the product's own code draws stay `capture`.
 
 **A step is `human` only when no machine can answer it** — or when it
 judges what an image an AI model generated shows, which is always David's
@@ -186,7 +189,7 @@ his decision rather than a gap.>
 
 **Do:** <…>
 
-**Expect:** <the exact observable result — a screen fact is this lane's, never his>
+**Expect:** <the exact observable result — a screen fact is this lane's, never his (what an AI-generated image shows is not a screen fact: *Lanes*)>
 
 **Lane:** ci
 
