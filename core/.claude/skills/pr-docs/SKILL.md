@@ -103,8 +103,9 @@ the mandatory live check had no recorded command for close-out to run).
    2026-10-07; the lanes are defined in
    [`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)).
    A step is `human` only when no machine can answer it — taste, legibility,
-   whether a result reads right, or something only his own account or device
-   can do — and it says which, in its `**Judgement:**` line. Everything else
+   whether a result reads right, what an AI-generated image shows beyond what
+   anyone would verify the same way, or something only his own account or
+   device can do — and it says which, in its `**Judgement:**` line. Everything else
    is `ci`, `scripted`, `live` or `capture`, and **the check it cites is
    written in this same PR**, so the UAT he runs is the human residue and
    nothing more. `capture` is for an answer only pixels hold — the words

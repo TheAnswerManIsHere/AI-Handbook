@@ -57,7 +57,7 @@ David's (*An image an AI model generated*, below).
 | `scripted` | a scripted proof, re-runnable on demand — an acceptance journey, a script with recorded evidence | on demand, and before the run is accepted | `**Check:**` citing the spec, script or command |
 | `live` | a **read-only** check against the deployed environment or a real vendor, through the live-environment connector | at run time | `**Check:**` citing the command or procedure; any state it needs is a Setup `[claude]` line with its `[restore]` |
 | `capture` | Claude, reading an image a script captured at the commit under test — the step's result is that reading, never the script's exit status | at run time, before David starts | `**Check:**` citing the capture script, optionally `file:shot name`; an `Expect` describing the screen so it can be answered yes or no from the image alone — for an AI render, only what anyone would verify the same way (below) |
-| `human` | David's judgement: taste, legibility, whether it reads right, or something only his own account or device can do | in the `/uat` session | `**Judgement:**` saying what only he can judge or do, and why no machine can |
+| `human` | David's judgement: taste, legibility, whether it reads right, what an image an AI model generated shows beyond what anyone would verify the same way (below), or something only his own account or device can do | in the `/uat` session | `**Judgement:**` saying what only he can judge or do, and why no machine can |
 
 **A machine-lane check is self-contained.** It never depends on state a
 human step produces, so every machine step can be resolved before David
@@ -69,7 +69,7 @@ step created is a rule for human steps.
 **A step is `capture` when its answer is only in pixels** (David,
 2026-10-16, Overhype.me #631 increment 8): text, placement, typography or
 framing the product's own code draws into an image, a canvas preview, or
-what a real AI render verifiably contains (limited below). No DOM assertion can read those, and they are
+what anyone would verify the same way in a real AI render (limited below). No DOM assertion can read those, and they are
 not taste, so they are neither `ci` nor `human`. The capture script proves
 only that the image exists; the step passes or fails on Claude's reading of
 it, clause by clause. There is no baseline image to compare against: an
@@ -85,20 +85,27 @@ fully deterministic testing such as 'does a speech bubble appear and does it
 say "hello world"' … You shouldn't be making any judgements about the quality
 of the content, is it funny, does it capture the essence of the joke … I'll do
 all of the checking of generated imagery"*). For a real AI render, a
-`capture` step's `Expect` carries only those clauses: the render completed,
-the image decodes at the size asked for, a speech bubble appears and reads a
-given text. Everything interpretive about generated content is a `human`
-step with its `**Judgement:**` line, never a capture reading: whether it
-shows a person or the right person, whether the scene fits, whether it is
-funny or good, and whether its content is acceptable — unless the answer is
-as plain and checkable as the text in a bubble. This narrows the lane
-for AI-generated content only; text, placement, typography and framing the
-product's own code draws stay `capture`.
+`capture` step's reading carries only those clauses — a speech bubble
+appears and reads a given text — beside what its script asserts without
+looking (the render completed, the image decodes at the size asked for).
+Everything interpretive about generated content is a `human` step with its
+`**Judgement:**` line, never a capture reading: whether it shows a person,
+the right person or any particular thing, whether the scene fits, whether
+it is funny or good, and whether its content is acceptable or safe — unless
+the answer is as plain and checkable as the text in a bubble. These steps
+are `human` by this rule even though a model could offer an answer, and in
+doubt about such a clause the step is `human`; their `**Judgement:**` line
+names the content judgement. This narrows the lane for AI-generated content
+only; text, placement, typography and framing the product's own code draws
+stay `capture`.
 
-**A step is `human` only when no machine can answer it.** "The banner reads
-'4 of 4 done'" is not judgement; it is an assertion a test can make.
-"The meme is funny and the caption is legible" is judgement. When in doubt,
-the step is machine-lane and its check is written in the same PR.
+**A step is `human` only when no machine can answer it** — or when it
+judges what an image an AI model generated shows, which is always David's
+(above). "The banner reads '4 of 4 done'" is not judgement; it is an
+assertion a test can make. "The meme is funny and the caption is legible"
+is judgement. When in doubt, the step is machine-lane and its check is
+written in the same PR, except about generated content, where doubt makes
+it `human`.
 **The lane is read from the `Expect`'s clauses and from who can perform the
 `Do`, never from the heading or the verb** (David, 2026-10-15). "Reads
 well", "looks right" and "renders correctly" name the author's hope, not who
@@ -119,7 +126,9 @@ lives*; this paragraph is the authoring half.
 2026-10-16): what only David can judge or do, and why no machine can — "his
 own Google account on his own iPad", "whether the message is readable".
 Only a `human` step carries the line. It records a claim review can test;
-the guard checks it is there, never that it is true. A step whose honest
+the guard checks it is there, never that it is true. A judgement about what an
+image an AI model generated shows is never an empty `Judgement`, whatever a
+model could say about it (above). A step whose honest
 `Judgement` would be empty is not `human`: it moves to the machine lane its
 `Expect` belongs to, rather than gaining a line written to satisfy the
 guard.
@@ -163,7 +172,7 @@ his decision rather than a gap.>
 
 **Do:** <the exact action — where to click, what to type>
 
-**Expect:** <the judgement only he can make — taste, legibility, whether it reads right>
+**Expect:** <the judgement only he can make — taste, legibility, whether it reads right, what an AI-generated image shows>
 
 **Lane:** human
 
@@ -183,7 +192,7 @@ his decision rather than a gap.>
 
 **Do:** <…>
 
-**Expect:** <the screen described, answerable from the image alone — the words drawn on the picture, where they sit; for an AI render, only what anyone would verify the same way, never likeness, scene, humour, quality or acceptability>
+**Expect:** <the screen described, answerable from the image alone — the words drawn on the picture, where they sit; for an AI render, only what anyone would verify the same way (*Lanes*, *An image an AI model generated*)>
 
 **Lane:** capture
 

@@ -602,7 +602,8 @@ reads a given sentence, a status or an error shows, a layout holds — is
 machine-lane; a `Do` only David's own account or device can perform keeps
 the step `human`; the clause that is judgement is a `human` step of its
 own, and what an image an AI model generated shows, beyond what anyone
-would verify the same way, is always judgement (David, 2026-10-17); and a screen fact that reaches a run labelled `human` is run by me, in
+would verify the same way, is always judgement (David, 2026-10-17;
+`uat-doc-format.md`, *Lanes*, *An image an AI model generated*); and a screen fact that reaches a run labelled `human` is run by me, in
 a real browser at the commit under test, before he sees anything (section
 3's machine block says how).** What remains is where each check lives, and
 that is three places:
