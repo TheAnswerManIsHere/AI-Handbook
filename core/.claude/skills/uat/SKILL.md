@@ -1,6 +1,6 @@
 ---
 name: uat
-description: Run a UAT session with David step by step, in chat, instead of handing him a markdown file to read alone. Use when he says /uat, "let's test PR N", "walk me through the UAT", "I'm ready to test this", or "resume the UAT". I do the setup, resolve every machine-lane step myself first (a screen fact whose action I can perform is mine to check in a browser, whatever the doc labels it; one only his own account or device can perform stays his), present only the judgement steps to him one at a time, record Pass/Fail/Blocked/Skipped per step, capture evidence on anything that isn't a clean pass, file the bug and the way back the moment something breaks, and leave a durable run record any session can resume from. NOT for writing a UAT doc — that's `pr-docs`.
+description: Run a UAT session with David step by step, in chat, instead of handing him a markdown file to read alone. Use when he says /uat, "let's test PR N", "walk me through the UAT", "I'm ready to test this", or "resume the UAT". I do the setup, resolve every machine-lane step myself first (a screen fact whose action I can perform is mine to check in a browser, whatever the doc labels it; one only his own account or device can perform stays his; what an AI-generated image shows, beyond what anyone would verify the same way, is always his), present only the judgement steps to him one at a time, record Pass/Fail/Blocked/Skipped per step, capture evidence on anything that isn't a clean pass, file the bug and the way back the moment something breaks, and leave a durable run record any session can resume from. NOT for writing a UAT doc — that's `pr-docs`.
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->
@@ -203,7 +203,15 @@ the doc-wrong case below, never a check to run early:
   vendor runs only within the cap the declaration names, and its spend goes
   on the run's spend line. A consumer with no such declaration has no
   capture run, and its `capture` steps are Blocked on that, never handed to
-  him.
+  him. **A real AI render is read only for what anyone would verify the
+  same way** (David, 2026-10-17; `uat-doc-format.md`, *An image an AI model
+  generated*): the render completed, the image decodes at the size asked
+  for, a bubble reads the given text. I make no judgement about generated
+  content — likeness, scene, humour, quality, whether something is shown,
+  whether it is acceptable — unless the answer is as plain and checkable
+  as a bubble's text, and none even when an `Expect` asks for one: that
+  clause is David's, presented as a judgement step with the shot beside it,
+  and the doc is recorded as wrong (the lane is corrected in a PR).
 - **`Deferred:`** — not run; listed as outstanding with its owner. Never a
   pass, never a skip he can wave through. When it is the only evidence for a
   claimed behaviour, the run is Blocked on its owner: `Blocked by: #N` on
@@ -221,7 +229,9 @@ the doc-wrong case below, never a check to run early:
   lives*, below; David, 2026-10-15: *"any tests that require checking that
   a button exists or an error message is showing or any other UI element
   testing that doesn't require taste input from me"* are run
-  automatically). A `Do` only his own account or device can perform keeps
+  automatically). **Not an interpretive clause about an image an AI model
+  generated**: that stays his whatever its wording (David, 2026-10-17;
+  the `capture` bullet above). A `Do` only his own account or device can perform keeps
   the step `human`, and its screen-fact `Expect` is read after his "yes"
   (the format's self-contained rule, `uat-doc-format.md`, *Lanes*). I run
   the step in a real browser at the commit under test, in this block,
@@ -591,7 +601,8 @@ its heading or its verb. A screen fact — an element is there, a message
 reads a given sentence, a status or an error shows, a layout holds — is
 machine-lane; a `Do` only David's own account or device can perform keeps
 the step `human`; the clause that is judgement is a `human` step of its
-own; and a screen fact that reaches a run labelled `human` is run by me, in
+own, and what an image an AI model generated shows, beyond what anyone
+would verify the same way, is always judgement (David, 2026-10-17); and a screen fact that reaches a run labelled `human` is run by me, in
 a real browser at the commit under test, before he sees anything (section
 3's machine block says how).** What remains is where each check lives, and
 that is three places:
@@ -606,7 +617,10 @@ that is three places:
   I read it, and the consumer's evidence store keeps it once the disclosure
   check has passed it — section 3's machine block says how. The consumer declares the command, the evidence
   store and any paid-render cap in its `overlay-declarations.md`
-  (Overhype.me #631, increment 8, built the first).
+  (Overhype.me #631, increment 8, built the first). For an image an AI
+  model generated, the reading is limited to what anyone would verify the
+  same way; everything interpretive is David's (`uat-doc-format.md`,
+  *Lanes*, *An image an AI model generated*).
 
 **Once a step is fully scriptable, UAT is usually the wrong home for it.** It
 belongs in CI or in the PR's post-merge verification, where it runs on every

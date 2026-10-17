@@ -108,8 +108,11 @@ the mandatory live check had no recorded command for close-out to run).
    is `ci`, `scripted`, `live` or `capture`, and **the check it cites is
    written in this same PR**, so the UAT he runs is the human residue and
    nothing more. `capture` is for an answer only pixels hold — the words
-   the product draws onto an image, a canvas preview, a real AI render's
-   content — with its `Expect` written as the screen it should show, never
+   the product draws onto an image, a canvas preview, the verifiable facts
+   of a real AI render (a bubble's text; never likeness, scene, humour,
+   quality, whether something is shown or whether it is acceptable, which
+   are a `human` step's: `uat-doc-format.md`, *Lanes*, *An image an AI
+   model generated*) — with its `Expect` written as the screen it should show, never
    "as before" (`uat-doc-format.md`, *Lanes*). **The lane is read from the `Expect`'s clauses and
    from who can perform the `Do`, never from the heading or the verb**
    (David, 2026-10-15; the rule's home is the `uat` skill, *Where the
