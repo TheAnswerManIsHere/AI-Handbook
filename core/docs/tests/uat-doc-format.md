@@ -74,9 +74,13 @@ not taste, so they are neither `ci` nor `human`. The capture script proves
 only that the image exists; the step passes or fails on Claude's reading of
 it, clause by clause. There is no baseline image to compare against: an
 `Expect` that would say "looks as it did before" is written as the screen it
-should show. A capture that needs a paid vendor runs only under the spending
-cap the consumer declares, and is never the `live` lane, which stays
-read-only. (The run-time mechanics are the `uat` skill's, *Where the browser
+should show. A capture that needs a paid vendor runs only on David's
+go-ahead in words for that run (David, 2026-10-17: *"There's no point in
+capping the cost to a few dollars if you're going to be running the tests
+hundreds of times"*): nothing starts one by itself, no approval covers a
+series of runs, and the ask names the paid calls and the worst-case cost.
+It runs under the spending cap the consumer declares, which bounds the run
+and authorizes none, and is never the `live` lane, which stays read-only. (The run-time mechanics are the `uat` skill's, *Where the browser
 automation lives*.)
 
 **An image an AI model generated is read only for what anyone would verify

@@ -199,9 +199,14 @@ the doc-wrong case below, never a check to run early:
   The step's result is
   that reading: a shot that was not produced, or that I cannot read, is
   Blocked, never Pass; a reading that contradicts the `Expect` is a Fail,
-  filed before he sees anything (section 4). A capture that needs a paid
-  vendor runs only within the cap the declaration names, and its spend goes
-  on the run's spend line. A consumer with no such declaration has no
+  filed before he sees anything (section 4). **A capture that needs a paid
+  vendor runs only on his go-ahead in words for that run** (David,
+  2026-10-17; `uat-doc-format.md`, *Lanes*): I ask, naming the doc, the
+  paid calls and the worst-case cost, and nothing in a run, a resume or a
+  standing approval starts one without that. It runs within the cap the
+  declaration names, and its spend goes on the run's spend line. Without
+  the go-ahead its steps are Blocked on him, or he answers the judgement
+  steps from an image he makes himself in the product. A consumer with no such declaration has no
   capture run, and its `capture` steps are Blocked on that, never handed to
   him. **A real AI render is read only for what anyone would verify the
   same way** (David, 2026-10-17; `uat-doc-format.md`, *An image an AI model
