@@ -174,10 +174,13 @@ the doc-wrong case below, never a check to run early:
   worktree at the commit under test** (or dispatch the on-demand workflow on
   that commit), or read evidence recorded for that commit, and keep the
   output with the commit it ran at. Output from any other checkout is not
-  evidence, however recent.
+  evidence, however recent. One that would start a paid AI run waits for
+  his go-ahead for that run, as a paid capture does (below).
 - **`live`** — I run the cited check through the live-environment connector,
   **read-only, always**, after confirming the Repl's synced commit is the
-  commit under test, and quote what it printed. State a check needs is a
+  commit under test, and quote what it printed. A check that would start a
+  paid AI run is not read-only: it waits for his go-ahead for that run, as a
+  paid capture does (below). State a check needs is a
   Setup `[claude]` line with its `[restore]` (section 2); a probe whose
   refusal is the thing tested writes nothing and is not a write.
 - **`capture`** — I produce the shot each step's `**Check:**` cites
@@ -200,8 +203,9 @@ the doc-wrong case below, never a check to run early:
   that reading: a shot that was not produced, or that I cannot read, is
   Blocked, never Pass; a reading that contradicts the `Expect` is a Fail,
   filed before he sees anything (section 4). **A capture that needs a paid
-  vendor runs only on his go-ahead in words for that run** (David,
-  2026-10-17; `uat-doc-format.md`, *Lanes*): I ask, naming the doc, the
+  vendor runs only on his go-ahead in words for that run** — as does any
+  check, in any lane, that would start a paid AI run (David, 2026-10-17;
+  `uat-doc-format.md`, *Lanes*): I ask, naming the doc, the
   paid calls and the worst-case cost, and nothing in a run, a resume or a
   standing approval starts one without that. It runs within the cap the
   declaration names, and its spend goes on the run's spend line. Without
@@ -630,7 +634,8 @@ that is three places:
 
 **Once a step is fully scriptable, UAT is usually the wrong home for it.** It
 belongs in CI or in the PR's post-merge verification, where it runs on every
-change forever instead of once. Automation is mostly *draining* mechanical
+change forever instead of once — unless it calls a paid AI vendor, which
+never runs without David's go-ahead for that run (`uat-doc-format.md`, *Lanes*). Automation is mostly *draining* mechanical
 steps out of UAT into the layers that already exist — and scripting whatever
 live-app checks are left over.
 

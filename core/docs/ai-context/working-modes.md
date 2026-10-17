@@ -795,7 +795,10 @@ in the branch regime, after the push, against the prototype environment that
 tracks the branch; in the `main` regime, after the merge's sync, in the
 close-out slot post-merge verification already holds — in both, **before the
 owner is asked for feedback**, so a failing one is a version that is not yet
-ready, said so in the report, and the owner is not yet asked. **A failing
+ready, said so in the report, and the owner is not yet asked. A check in any
+of the three lanes that would start a paid AI run is not read-only and runs
+only on David's go-ahead for that run, never automatically at a version's
+close-out ([`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07)). **A failing
 machine check is repaired by the agent, before the owner is asked**: a
 further commit of the same version at prototype depth — a `ci` or `scripted`
 failure before the merge on the same PR, since that PR merges only on green;

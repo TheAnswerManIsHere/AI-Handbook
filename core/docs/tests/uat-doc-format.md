@@ -55,7 +55,7 @@ David's (*An image an AI model generated*, below).
 |---|---|---|---|
 | `ci` | an automated test in the per-PR gate | every PR | `**Check:**` citing the test file (optionally `file:test name`) |
 | `scripted` | a scripted proof, re-runnable on demand — an acceptance journey, a script with recorded evidence | on demand, and before the run is accepted | `**Check:**` citing the spec, script or command |
-| `live` | a **read-only** check against the deployed environment or a real vendor, through the live-environment connector | at run time | `**Check:**` citing the command or procedure; any state it needs is a Setup `[claude]` line with its `[restore]` |
+| `live` | a **read-only** check against the deployed environment or a real vendor, through the live-environment connector — one that would start a paid AI run is not read-only (below) | at run time | `**Check:**` citing the command or procedure; any state it needs is a Setup `[claude]` line with its `[restore]` |
 | `capture` | Claude, reading an image a script captured at the commit under test — the step's result is that reading, never the script's exit status | at run time, before David starts | `**Check:**` citing the capture script, optionally `file:shot name`; an `Expect` describing the screen so it can be answered yes or no from the image alone — for an AI render, only what anyone would verify the same way (below) |
 | `human` | David's judgement: taste, legibility, whether it reads right, what an image an AI model generated shows beyond what anyone would verify the same way (below), or something only his own account or device can do | in the `/uat` session | `**Judgement:**` saying what only he can judge or do, and why no machine can |
 
@@ -75,12 +75,9 @@ only that the image exists; the step passes or fails on Claude's reading of
 it, clause by clause. There is no baseline image to compare against: an
 `Expect` that would say "looks as it did before" is written as the screen it
 should show. A capture that needs a paid vendor runs only on David's
-go-ahead in words for that run (David, 2026-10-17: *"There's no point in
-capping the cost to a few dollars if you're going to be running the tests
-hundreds of times"*): nothing starts one by itself, no approval covers a
-series of runs, and the ask names the paid calls and the worst-case cost.
-It runs under the spending cap the consumer declares, which bounds the run
-and authorizes none, and is never the `live` lane, which stays read-only. (The run-time mechanics are the `uat` skill's, *Where the browser
+go-ahead for that run (the paragraph after next), under the spending cap
+the consumer declares, and is never the `live` lane, which stays
+read-only. (The run-time mechanics are the `uat` skill's, *Where the browser
 automation lives*.)
 
 **An image an AI model generated is read only for what anyone would verify
@@ -105,6 +102,21 @@ against a real vendor, a `scripted` journey, and a prototype's scaled machine
 lanes — since David's words cover *"any tests"*: none of them judges what a
 generated image shows. It narrows nothing else; text, placement, typography
 and framing the product's own code draws stay `capture`.
+
+**No check starts a paid AI run without David's go-ahead in words for that
+run** (David, 2026-10-17: *"There's no point in capping the cost to a few
+dollars if you're going to be running the tests hundreds of times … I don't
+think there's any need for you to automatically be rendering anything
+else"*), whatever its lane — a `capture`, a `scripted` journey, a `live`
+check, a prototype's scaled machine lanes, a Post-merge verification step,
+a diagnostic reproduction on the live system. A paid AI run is a call the
+check makes to a paid AI vendor (a real render, a real model call); the
+review loop's own assessors are not checks and keep their own rules.
+Nothing starts one by itself, no approval covers a series of runs, a re-run
+needs its own, and the ask names the paid calls and the worst-case cost. A
+spending cap the consumer declares bounds a run and authorizes none, and a
+check that would start a paid run is never read-only. Checks that start no
+paid run carry on as their lane says.
 
 **A step is `human` only when no machine can answer it** — or when it
 judges what an image an AI model generated shows, which is always David's
