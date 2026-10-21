@@ -1219,7 +1219,7 @@ conversation resolution, so the Merge button is inert while a thread is open.
    resolves the machine lanes itself, screen facts included (the `uat`
    skill, *Where the browser automation lives*) — plus the
    reminder that `/uat` walks him through it rather than leaving him to the
-   doc; for a prototype-phase PR,
+   script; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
    entries, restated in one line each; and, as its last block, the fixed
