@@ -262,7 +262,6 @@ final whole-branch review. When you fill a reviewer template:
   below, under *If reviewer finds issues*, which governs each task's review
   — is still not the rule here; the bound is the Worth rule per finding and
   the ship gate rather
-  than a count.rather
   than a count. This skill executes plans of both kinds, and the stop sentence
   here carried no qualifier until 2026-09-22 — applying the internal cap to
   product code, which is the one class the cap deliberately leaves out

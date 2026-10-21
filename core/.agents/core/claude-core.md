@@ -380,8 +380,10 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   the overlay marks sensitive add the specialist review (a prototype-phase
   feature touching one is still in prototype phase, and the branch regime is
   what protects production's process and data).
-  If the class is unclear I ask one numbered question, and I do **not** default
-  upward: the expensive mistake in this repo has been over-ceremony.
+  If the class is unclear I take the lighter one on my recommendation and
+  say so — the one-line announcement is his veto surface — and I do **not**
+  default upward: the expensive mistake in this repo has been over-ceremony
+  (David, 2026-10-21; until then this asked one numbered question).
 - **Bug-fixing drops the planning ceremony, not the verification.**
   Diagnose-classify-fix-ship on a fresh branch off `origin/main`, **one bug per
   branch per PR**, opened as soon as the fix is verified. No plan file, no plan
@@ -496,7 +498,8 @@ enactment is `.claude/skills/document/`.
    delivery; the file committed at approval (rule 3) is the durable copy, and
    neither replaces the other. **v1 is shown and the loop proceeds without waiting** —
    it changes anyway.
-7. **Choices that change intended behaviour, scope, or an accepted user-facing
+7. **Choices that change intended behaviour, the plan's scope (a mid-flight
+   addition is rule 5's, taken as *next*), or an accepted user-facing
    consequence escalate to David** as numbered questions carrying Astra's view
    and mine side by side — never absorbed into a revision. **A purely technical
    design fork is not one of them**: two approaches serving the same agreed
@@ -742,8 +745,8 @@ nearly all of it — stays internal:
   only the sanitized oracle, so its clean pass says nothing about the
   restricted requirements, and Astra and the Fable assessor read the change
   against the full text once before merge, clean pass or not (`pr-watch`;
-  until its script mode exists, AI-Handbook #206, that round is a 🛑 to
-  David instead).
+  until its script mode exists, AI-Handbook #206, that round is a 👀 FYI
+  and my own decision, reported — David, 2026-10-21).
 - **Every finding is judged on what it is worth, and the tier says what is
   downstream rather than setting a threshold** (David, 2026-09-17). The old
   rubric here reserved a write for "a very high chance of a critical flaw" and

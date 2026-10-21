@@ -120,9 +120,10 @@ Read [`docs/engineering/deferred-work.md`](../../../docs/engineering/deferred-wo
 and re-check **each entry's revisit trigger**:
 
 - **Any trigger that has fired** (a dated cutoff reached, a dependency shipped
-  its fix, a recurrence count hit, a security advisory landed) → surface it to
-  David as a numbered decision item in the report. Don't act on the underlying
-  bump/change here — see Boundaries.
+  its fix, a recurrence count hit, a security advisory landed) → decide on my
+  recommendation and report it (*A reversible choice proceeds*); the
+  underlying bump or change lands through its own PR, never from inside this
+  pass — see Boundaries.
 - **Newly parked items** discovered this pass (a major bump held in step 1, a
   deprecation spotted in a lockfile or CI log) → add them to the doc with the
   four-field entry template, and commit that doc change directly (docs-only,
@@ -278,9 +279,9 @@ contract, not a handoff, and is expected to sit there indefinitely; only
 dated handoff files (`<date>-<from>-to-<to>-<topic>.md`) count. Anything
 older than ~7 days (`git log -1 --format=%cd <file>` per file, or
 `git log --diff-filter=A` for when it was added) is a handoff nobody
-addressed and deleted per its contract. Flag each one by name in the
-report as a numbered decision item rather than deleting it yourself — a
-stale handoff usually means the finding inside it needs David's eyes, not
+addressed and deleted per its contract. Delete it on my recommendation and
+name it in the report with what it held (a corrective commit restores it) —
+a stale handoff usually means the finding inside it needs David's eyes, not
 just cleanup.
 
 ## 8. Branch hygiene sweep
@@ -440,10 +441,12 @@ approve or amend, never an open-ended "is the backlog still right?"
 6. **Deliver as a numbered proposed diff**, e.g. "close #431 (superseded by
    #440); drop #418 `queue:now` → `queue:later`; open a backlog issue for
    *Record the Stripe mode on every entitlement source*; remove the stale
-   `Blocked by: #405` from #422." David approves, amends, or declines each
-   line — **then I apply the approved ones in that same session.** Same
-   posture as `/status`: proposed, confirmed, then written, never
-   unattended.
+   `Blocked by: #405` from #422." **I apply it on my recommendation in the
+   same session and the report carries every line applied** (David,
+   2026-10-21; until then each line waited for his approval): every edit is
+   a label, a body or a closure, and a corrective edit undoes any of them.
+   A line that is a product priority call — which gap is wanted at all — is
+   the one kind that stays proposed, since product priority is his.
 7. If nothing's drifted, one line: "backlog hygiene: N queued items, M
    blocked, 0 unlabelled, G gaps revisited, no drift."
 
@@ -479,8 +482,10 @@ How to run it:
    a legitimate outcome, not a failure to find a check** — an unenforceable
    rule that stays in the file is worse than no rule, because it reads as
    coverage.
-3. **Propose, don't apply.** This is a `CLAUDE.md` edit, so it goes in the
-   numbered decision list for David and lands through the normal PR path.
+3. **Apply through a PR, and name it in the report.** This is a `CLAUDE.md`
+   edit, so it lands through the normal PR path on my recommendation, with
+   its latitude line (David, 2026-10-21; until then it was proposed as a
+   decision item).
    Permission and ruleset changes take the same path; their PR body names the
    latitude they grant (David, 2026-09-14).
 4. **Say which rule you picked and why, every pass** — including a pass where
@@ -534,9 +539,8 @@ This is now a standalone maintenance-skill rule.)
   (dependency or Action) still only ever becomes a reported decision item,
   never a direct action, per step 4 above. **Step 9's backlog hygiene is
   not an exception** — it writes only issue labels, bodies, and
-  closures, never code, and only the specific lines David approved from
-  its numbered diff. An unapproved line is not applied, and "I was already
-  in there" is not approval.
+  closures, never code, each named in the report (David, 2026-10-21; until
+  then only lines he approved from the numbered diff were applied).
 - **No scheduled self-wakeups — same conclusion, different reason as of
   2026-08-15.** This used to rest on the blanket no-background-check-ins
   rule. That rule is gone, replaced by the bounded contract in `CLAUDE.md`'s

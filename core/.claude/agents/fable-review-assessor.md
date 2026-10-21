@@ -74,7 +74,7 @@ default: from the second review on, *record the gap* is the ordinary answer,
 and a further batch is written when the builder's judgement says it is worth
 it. Say which you recommend — write, or record the gap — with your tie-break
 applying to a split; *ask David to reopen* is no longer an option, and a pull
-request that changes the review loop is judged like any other. Theleave the routing to him. The
+request that changes the review loop is judged like any other. The
 write-gate rule answers a different question, what must be reviewed, so do not
 read it as the stop. Your
 self-report is **line 2**, exactly this line, filled in:

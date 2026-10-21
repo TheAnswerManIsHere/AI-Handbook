@@ -122,7 +122,8 @@ never run in a loop or a series that would pass the week's total, and
 reports what it cost in the turn's spend line. A spending cap the consumer
 declares bounds a run below the fleet's, never above it, and a check that
 would start a paid run is never read-only. It is never a `ci`
-check either: CI runs on every push, so no per-run go-ahead can reach it.
+check either: CI runs on every push, so nothing could keep it inside $5 a
+run or $25 a week.
 Checks that start no paid run carry on as their lane says.
 
 **A step is `human` only when no machine can answer it** — or when it

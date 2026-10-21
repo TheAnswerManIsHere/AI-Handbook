@@ -72,9 +72,9 @@ to review.
 **What this table selects is planning ceremony and review depth. It does not
 select how long a review loop runs** — that is the builder's judgement
 under the write-gate and the ship gate, whatever the row (the two-review
-limit is retired, below) — **and which asks
-"internal" of the change, by its consequences and recoverability, rather than
-by row or directory**, so a change to a skill, contract or script governing
+limit is retired, below) — **and what is downstream of a change is asked of
+the change, by its consequences and recoverability, rather than read off its
+row or directory**, so a change to a skill, contract or script governing
 approvals, publication, credentials or destructive operations is weighed on
 that wherever it appears in this table.
 

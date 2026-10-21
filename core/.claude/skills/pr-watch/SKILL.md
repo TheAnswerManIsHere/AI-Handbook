@@ -123,9 +123,9 @@ requires it.
    *Internal tooling: what is downstream*). **No script mode runs that
    assessment yet** (AI-Handbook #206), and the documentation mode is not a
    substitute: it declares the Documentation class and applies its rubric to
-   code. Until the mode exists, such a PR's clean round is a 🛑 to David,
-   saying the assessment it is owed cannot run, and he decides how it
-   proceeds.
+   code. Until the mode exists, such a PR's clean round is a 👀 FYI to David
+   saying the assessment it is owed cannot run, and I decide how it proceeds
+   on my recommendation and report it (David, 2026-10-21).
    `assessmentBrief` refuses
    without one. **Reaching round 1 with no agreed oracle is a 🛑 to David, not
    a package I write myself.**
@@ -386,7 +386,6 @@ requires it.
      the looping overhead was slowing him down.)
 
    - **Everything being written for goes in one push**, with
-in one push, with
      the repo's own fast checks run first: lint, format, typecheck, the
      changed suites. One validated push beats three speculative ones, because
      each push costs a full round.

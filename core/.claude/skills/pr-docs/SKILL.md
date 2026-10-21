@@ -27,7 +27,7 @@ ships no UAT doc — that is the documentation bar the phase removes — and its
 vendor, as the command and pass criterion I run after the merge's sync and
 before the owner is asked — one that would start a paid AI run runs within David's paid-run budget — $5 a run, $25 a week — and on his go-ahead only above it (`uat-doc-format.md`, *Lanes*); otherwise
 "none needed". Its scaled `ci` and
-`scripted` lanes run before the merge (a check that would start a paid AI run is never `ci`; as `scripted` it runs on his go-ahead, as above) and its feedback rail is the only human
+`scripted` lanes run before the merge (a check that would start a paid AI run is never `ci`; as `scripted` it runs within his paid-run budget and asks above it, as above) and its feedback rail is the only human
 lane (working-modes.md, *The prototype phase, per feature*, and *What
 prototype phase keeps of verification*; Codex, DojoOS #8: without that record
 the mandatory live check had no recorded command for close-out to run).
