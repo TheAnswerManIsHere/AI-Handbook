@@ -22,8 +22,9 @@ risk. So:
 
 - **Blast radius is the fleet, not the diff.** A one-line edit to
   `claude-core.md` changes how I behave in every repo, on every future session.
-  Weigh it as such. The internal tier says only what is downstream, and the
-  two-review limit says how long iteration runs; **neither is about care**, and
+  Weigh it as such. The internal tier says only what is downstream, and how long iteration
+  runs is my judgement under the ship gate (the two-review limit is retired,
+  2026-10-21); **neither is about care**, and
   this line used to read as though a lighter tier bought fewer rounds.
 - **The payload is data, with two named exceptions.** Editing
   `core/.claude/settings.template.json` does not change this repo's settings; it
@@ -62,17 +63,18 @@ risk. So:
 pass is the whole ceremony (save a PR whose plan took the private path,
 assessed against the full text once regardless), and a round that returns findings gets two
 independent assessments before anything is written for it. How long iteration
-runs is not the tier's to say — it is the **two-review limit**
-([`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)),
-which this section stated nowhere until 2026-09-20 while being the section a
-reader consults to learn how much loop a PR here gets. **Nor is "internal"
-settled once for this repository.** The limit is scoped by consequence and
-recoverability and asked per change, and this repository's payload contains the machinery that
+runs is not the tier's to say — it is my judgement under the write-gate and
+the ship gate, and no count (the two-review limit stood here from 2026-09-20
+to 2026-10-21;
+[`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+keeps the record). **Nor is "internal" settled once for this repository.**
+What is downstream is asked per change, by consequence and recoverability,
+and this repository's payload contains the machinery that
 publishes to every consumer and the settings template carrying
 `permissions.deny`. A change to either is weighed on what it actually does:
 changing what gets published, or what is denied, in a way that could not be
-trivially undone is outside the limit; fixing a message it prints, or the
-formatting of what it publishes, is not. What each finding is
+trivially undone earns the tier its consequence names; fixing a message it
+prints, or the formatting of what it publishes, stays internal. What each finding is
 worth is decided by
 [`review-judgment.md`](core/docs/ai-context/review-judgment.md), which sets no
 target rate in either direction; the tier says only that nobody's money or data
