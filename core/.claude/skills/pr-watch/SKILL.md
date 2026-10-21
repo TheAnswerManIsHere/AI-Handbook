@@ -456,9 +456,9 @@ requires it.
      the findings**: two assessments at roughly a hundred and fifty thousand
      tokens each **only if the round returns findings**, since step 3
      dispatches neither on a clean round — save the one clean round of a PR
-     whose plan took the private path, which step 3 assesses anyway; a translation when one is owed,
-     which the last round before a merge always is, so a clean terminal round
-     is not free; and my own turns either way. Then what is downstream if this
+     whose plan took the private path, which step 3 assesses anyway; the
+     build report the close-out owes, once per unit of work; and my own
+     turns either way. Then what is downstream if this
      round finds nothing. When that reads "a sentence in a
      comment two agents read", the disproportion is legible to both of us
      *before* it is spent rather than after. The token counts are already
@@ -746,8 +746,9 @@ requires it.
    within David's paid-run budget — $5 a run, $25 a week — and on his go-ahead only above it (`uat-doc-format.md`, *Lanes*)), post the harvest-notes comment, and send
    the merge report with both SHAs, the latitude line, the PR's **Decisions
    taken on my recommendation** entries, the UAT handoff and, as its last
-   line, the turn's spend (`claude-core.md`, *A reversible choice proceeds,
-   and every turn reports its spend*).
+   block, the fixed footer — Done / Next / Needs you / Spend (`claude-core.md`,
+   *A reversible choice proceeds, and every turn reports its spend*) — then
+   dispatch the build report (step 7).
    **No readiness receipt is minted or quoted**: `pr-ready.mjs` is gone, and
    the four-item bar is read by eye.
 
@@ -919,6 +920,7 @@ this is the UAT-descent shape:
 
 **Every transition above lands with a State of Play update in the same
 edit** — the block's `Stage`/`Waiting on`/`Last movement` fields at minimum,
+`Spend so far` whenever the turn's spend changed it,
 and `Where it actually stands`/`What's blocking` whenever there's real
 narrative to add (a round's findings, an escalation's actual question, what
 shipped at merge), all of it under the canonical disclosure check — on a
