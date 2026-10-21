@@ -77,6 +77,18 @@ export const answerPath = (root, unit) => {
 };
 
 /**
+ * Where `brief` records the unit's coordinates for `report` to read, so the
+ * posted report names the evidence it covered from the values the brief
+ * carried rather than from a second typing (#224 round 1: a branch unit's
+ * range ends must survive into the issue comment, where the next version's
+ * dispatch reads its lower bound).
+ */
+export const unitPath = (root, unit) => {
+  assertUnit(unit);
+  return path.join(root, REVIEWS_DIR, `build-${unit}.unit.json`);
+};
+
+/**
  * Keep the answer directory ignored: an answer file is a session artifact and
  * must never be committed. `review-proxy.mjs` writes its packages here too.
  */
@@ -100,6 +112,7 @@ export function prepareAnswerPath(root, unit) {
   ensureReviewsIgnored(root);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.rmSync(file, { force: true });
+  fs.rmSync(unitPath(root, unit), { force: true });
   return file;
 }
 
@@ -135,16 +148,37 @@ export function dispatchModel(io = undefined) {
  * the translation this replaced could not report on one for exactly that
  * reason (Codex, #222 round 1).
  */
-export function buildBrief({ root, unit, issue, prs = [], branch = null, io = undefined, now = () => new Date() }) {
+export function buildBrief({ root, unit, issue, prs = [], branch = null, privatePath = false, io = undefined, now = () => new Date() }) {
   assertUnit(unit);
+  if (issue === undefined || issue === null || Number.isNaN(issue)) {
+    // A WORKSTREAM WITH NO PUBLIC ISSUE IS A REAL CASE, NOT A TYPO: one that
+    // is sensitive from the start lives on a private draft Project item the
+    // role cannot read (workstream-tracking.md, *Sensitive /
+    // disclosure-carve-out workstreams*). Its report has no route yet, so the
+    // refusal says so and names the fallback (#224 round 1, recorded gap).
+    throw new Error(
+      "build-report: no workstream issue was given. A workstream with no public issue (one on the private path " +
+        "from the start) has no build report yet: write the unit up yourself, labelled as your own account, in " +
+        "chat only. If this workstream does have an issue, pass --issue <n>.",
+    );
+  }
   assertPositiveInt("issue", issue);
   if (!Array.isArray(prs)) throw new Error("build-report: prs must be an array of pull request numbers.");
   for (const n of prs) assertPositiveInt("each pull request number", n);
   if (branch !== null) {
-    if (!branch || typeof branch.name !== "string" || !branch.name.trim() || typeof branch.head !== "string" || !branch.head.trim()) {
+    const ok = (v) => typeof v === "string" && v.trim() !== "";
+    if (!branch || !ok(branch.name) || !ok(branch.head) || !ok(branch.since)) {
+      // BOTH ENDS OF THE RANGE ARE PINNED. The head is where the evidence
+      // stops; `since` is where it starts -- the previous version's head, or
+      // the branch's base for the first version. Neither is derivable by the
+      // role (it holds no compare, and `list_commits` on the branch walks back
+      // through all of main's history), and an absent one asks for an
+      // unbounded range: the next version re-reported as new work, under an
+      // "agrees" headline (#224 round 1).
       throw new Error(
-        "build-report: branch must be { name, head } with both non-empty -- the head is where the evidence stops, " +
-          "and an empty one asks for an unbounded range.",
+        "build-report: branch must be { name, since, head }, all non-empty -- `since` is the previous version's " +
+          "head (or the branch's base for the first version) and `head` is where the evidence stops. An absent end " +
+          "asks for an unbounded range.",
       );
     }
   }
@@ -156,6 +190,10 @@ export function buildBrief({ root, unit, issue, prs = [], branch = null, io = un
   }
   const repo = repoSlug(io);
   const file = answerPath(root, unit);
+  // THE COORDINATES ARE RECORDED HERE, where they are validated, for `report`
+  // to print. Written beside the answer, in the ignored directory.
+  ensureReviewsIgnored(root);
+  fs.writeFileSync(unitPath(root, unit), JSON.stringify({ issue, prs, branch, private: privatePath === true }) + "\n");
   const until = now().toISOString();
   const schema = loadSchema();
   const lines = [
@@ -171,7 +209,7 @@ export function buildBrief({ root, unit, issue, prs = [], branch = null, io = un
   }
   if (branch) {
     lines.push(
-      `- **Prototype branch:** \`${branch.name}\`, evidence through \`${branch.head}\` — it opens no pull request, so read its commits (\`list_commits\` on that branch) and the full patch of each since the issue's previous build report, or since the branch began if there is none.`,
+      `- **Prototype branch:** \`${branch.name}\`, evidence from after \`${branch.since}\` through \`${branch.head}\` — it opens no pull request, so read its commits (\`list_commits\` on that branch from the head back to \`${branch.since}\`, exclusive) and the full patch of each. \`main\` is merged into the branch from time to time; commits that arrived by such a merge are not this version's work.`,
     );
   }
   lines.push(
@@ -229,6 +267,31 @@ export function readAnswer(root, unit) {
   return { unit, answer };
 }
 
+/**
+ * The coordinates `brief` recorded for this unit, or null when it recorded
+ * none -- a report read without its brief is still printed, and says so.
+ */
+export function readUnit(root, unit) {
+  try {
+    return JSON.parse(fs.readFileSync(unitPath(root, unit), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The evidence line, from the brief's own coordinates. For a branch unit it
+ * names both ends of the range, which is what the next version's dispatch
+ * reads its `since` from.
+ */
+export function evidenceLine(coords) {
+  if (!coords) return "*Evidence:* *not recorded — this report was read without its brief's coordinates.*";
+  const parts = [`workstream #${coords.issue}`];
+  if (Array.isArray(coords.prs) && coords.prs.length) parts.push(`PRs ${coords.prs.map((n) => `#${n}`).join(", ")}`);
+  if (coords.branch) parts.push(`branch \`${coords.branch.name}\` from after \`${coords.branch.since}\` through \`${coords.branch.head}\``);
+  return `*Evidence:* ${parts.join(" · ")}`;
+}
+
 /** The facts the verdict, the headings and the empty labels all read. */
 export function facts(report) {
   if (report.failed) return { failed: true, reason: report.reason ?? "the report could not be produced" };
@@ -272,9 +335,17 @@ const SESSION_VERDICTS = ["continue", "hand off"];
  * 2026-10-21). Every word is the role's except the labels and `session`, the
  * builder's own call, printed under a label saying so.
  */
-export function chatReport(report, { askedModel = null, session = null } = {}) {
+export function chatReport(report, { askedModel = null, session = null, coords = undefined } = {}) {
   const f = facts(report);
   const out = [`**Build report — ${chatLine(report)}**`, ""];
+  // A PRIVATE-PATH UNIT IS DELIVERED IN CHAT ONLY. The role writes a plain
+  // account of the diff, and on a workstream whose plan took the private path
+  // that is the content the canonical disclosure check keeps off GitHub
+  // wherever it appears (workstream-tracking.md). So the report says so at its
+  // top, where the builder pasting it cannot miss it (#224 round 1).
+  if (coords && coords.private === true) {
+    out.push("*Private-path workstream: deliver this report in chat only, never as an issue comment.*", "");
+  }
   if (f.failed) {
     out.push(
       `No independent account of this unit exists. The role was dispatched and produced nothing usable — ${f.reason}. This is a failure of the report, not a sign that the work was quiet.`,
@@ -282,7 +353,9 @@ export function chatReport(report, { askedModel = null, session = null } = {}) {
     return out.join("\n");
   }
   const a = report.answer;
-  out.push(`*${a.about}*`, "", `**Needs you:** ${a.needs_you}`, "", "**What was built**", "", a.what_was_built);
+  out.push(`*${a.about}*`, "");
+  if (coords !== undefined) out.push(evidenceLine(coords), "");
+  out.push(`**Needs you:** ${a.needs_you}`, "", "**What was built**", "", a.what_was_built);
 
   out.push("", "**Decisions taken on my recommendation**", "");
   if (a.decisions.length) {
@@ -355,7 +428,7 @@ export function chatReport(report, { askedModel = null, session = null } = {}) {
 /**
  * The command line.
  *
- *   node build-report.mjs brief  --unit <slug> --issue <n> [--pr <n> ...] [--branch <name> --head <sha>]
+ *   node build-report.mjs brief  --unit <slug> --issue <n> [--pr <n> ...] [--branch <name> --since <sha> --head <sha>] [--private yes]
  *   node build-report.mjs prepare --unit <slug>
  *   node build-report.mjs report --unit <slug> [--session continue|"hand off"] [--session-why <text>]
  *
@@ -376,8 +449,9 @@ export function main({ argv = process.argv.slice(2), root = process.cwd(), io = 
   }
   if (cmd === "brief") {
     prepareAnswerPath(root, opts.unit);
-    const branch = opts.branch ? { name: opts.branch, head: opts.head } : null;
-    stdout.write(buildBrief({ root, unit: opts.unit, issue: Number(opts.issue), prs: opts.pr, branch, io }) + "\n");
+    const branch = opts.branch ? { name: opts.branch, since: opts.since, head: opts.head } : null;
+    const issue = opts.issue === undefined ? undefined : Number(opts.issue);
+    stdout.write(buildBrief({ root, unit: opts.unit, issue, prs: opts.pr, branch, privatePath: opts.private === "yes", io }) + "\n");
     return 0;
   }
   if (cmd === "prepare") {
@@ -386,7 +460,7 @@ export function main({ argv = process.argv.slice(2), root = process.cwd(), io = 
   }
   if (cmd === "report") {
     const session = opts.session ? { verdict: opts.session, why: opts["session-why"] ?? null } : null;
-    stdout.write(chatReport(readAnswer(root, opts.unit), { askedModel: dispatchModel(io).id, session }) + "\n");
+    stdout.write(chatReport(readAnswer(root, opts.unit), { askedModel: dispatchModel(io).id, session, coords: readUnit(root, opts.unit) }) + "\n");
     return 0;
   }
   throw new Error(`build-report: unknown command ${JSON.stringify(cmd)}; expected brief, prepare or report.`);

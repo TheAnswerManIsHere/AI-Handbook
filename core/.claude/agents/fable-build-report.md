@@ -151,9 +151,11 @@ Load your tools first if they are not already available: `ToolSearch` with
      list ended at, build the cumulative view from the commits' patches
      instead and say in `could_not_assess` that it moved while you read.
 3. **A prototype branch**, when the brief names one: `list_commits` on that
-   branch, from the head in your brief back to the previous build report's
-   head named in the issue (or the branch's start), then each commit's full
-   patch. Nothing after the head in your brief is in reach.
+   branch, from the head in your brief back to the `since` commit your brief
+   names (exclusive), then each commit's full patch. Both ends are the
+   brief's: nothing after the head is in reach, and nothing at or before
+   `since` is this version's. `main` is merged into the branch from time to
+   time; commits that arrived by such a merge are not this version's work.
 4. **The paid-run ledger**: `list_issues` with label `paid-ai-ledger`, state
    open; then `issue_read` `get_comments` on it.
 

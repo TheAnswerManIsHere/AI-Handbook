@@ -25,6 +25,8 @@ import {
   readAnswer,
   chatLine,
   chatReport,
+  readUnit,
+  unitPath,
   main,
 } from "../build-report.mjs";
 
@@ -88,17 +90,21 @@ test("the brief carries the coordinates, the answer path and the whole schema in
 });
 
 test("a branch-regime prototype version is a unit with no pull request", () => {
-  const brief = buildBrief({ root: tmp(), unit: "proto-v2", issue: 4, branch: { name: "prototype/ingest", head: "abc1234" }, io });
+  const brief = buildBrief({ root: tmp(), unit: "proto-v2", issue: 4, branch: { name: "prototype/ingest", since: "0ld0001", head: "abc1234" }, io });
   assert.match(brief, /prototype\/ingest/);
-  assert.match(brief, /abc1234/);
+  assert.match(brief, /from after `0ld0001` through `abc1234`/);
+  assert.match(brief, /merged into the branch/, "merged-in main commits are named as not this version's work");
+  assert.doesNotMatch(brief, /previous build report|branch began/, "the role is never sent looking for an unrecorded boundary");
   assert.doesNotMatch(brief, /Pull requests:/);
 });
 
 test("a unit with no evidence, no issue, or a half-stated branch is refused", () => {
   const root = tmp();
   assert.throws(() => buildBrief({ root, unit: "x", issue: 1, io }), /needs its evidence/);
-  assert.throws(() => buildBrief({ root, unit: "x", prs: [1], io }), /issue must be/);
+  assert.throws(() => buildBrief({ root, unit: "x", prs: [1], io }), /no public issue .* has no build report yet: write the unit up yourself/);
+  assert.throws(() => buildBrief({ root, unit: "x", issue: 0, prs: [1], io }), /issue must be/);
   assert.throws(() => buildBrief({ root, unit: "x", issue: 1, branch: { name: "p" }, io }), /branch must be/);
+  assert.throws(() => buildBrief({ root, unit: "x", issue: 1, branch: { name: "p", head: "h" }, io }), /since/, "a branch unit without its lower bound is refused");
   assert.throws(() => buildBrief({ root, unit: "x", issue: 1, prs: ["7"], io }), /pull request number/);
 });
 
@@ -194,4 +200,36 @@ test("the command line prints a brief after preparing, and a report from what wa
   assert.match(out, /^\*\*Build report — f: agrees/);
   assert.match(out, /\(the builder's call\): continue/);
   assert.throws(() => main({ argv: ["nope"], root, io, stdout }), /unknown command/);
+});
+
+test("the report names the evidence the brief carried, both ends of a branch range included", () => {
+  const root = tmp();
+  let out = "";
+  const stdout = { write: (s) => (out += s) };
+  main({ argv: ["brief", "--unit", "v3", "--issue", "4", "--branch", "prototype/ingest", "--since", "0ld0001", "--head", "abc1234"], root, io, stdout });
+  assert.deepEqual(readUnit(root, "v3").branch, { name: "prototype/ingest", since: "0ld0001", head: "abc1234" });
+  fs.writeFileSync(answerPath(root, "v3"), JSON.stringify(answer()));
+  out = "";
+  main({ argv: ["report", "--unit", "v3"], root, io, stdout });
+  assert.match(out, /\*Evidence:\* workstream #4 · branch `prototype\/ingest` from after `0ld0001` through `abc1234`/);
+  assert.doesNotMatch(out, /chat only/);
+});
+
+test("a private-path unit is marked for chat-only delivery, and preparing clears stale coordinates", () => {
+  const root = tmp();
+  const stdout = { write: () => {} };
+  main({ argv: ["brief", "--unit", "p1", "--issue", "5", "--pr", "12", "--private", "yes"], root, io, stdout });
+  assert.equal(readUnit(root, "p1").private, true);
+  fs.writeFileSync(answerPath(root, "p1"), JSON.stringify(answer()));
+  const text = chatReport(readAnswer(root, "p1"), { coords: readUnit(root, "p1") });
+  assert.ok(text.indexOf("chat only, never as an issue comment") < text.indexOf("**Needs you:**"), "the delivery warning leads");
+  prepareAnswerPath(root, "p1");
+  assert.equal(fs.existsSync(unitPath(root, "p1")), false);
+  assert.match(chatReport(readAnswer(root, "p1"), { coords: null }), /report failed/);
+});
+
+test("a report read without its brief's coordinates says so", () => {
+  const root = tmp();
+  write(root, "q", answer());
+  assert.match(chatReport(readAnswer(root, "q"), { coords: null }), /Evidence:\* \*not recorded/);
 });

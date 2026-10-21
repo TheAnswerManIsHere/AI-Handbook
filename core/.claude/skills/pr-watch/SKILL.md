@@ -504,10 +504,17 @@ requires it.
    1. **Write the brief and prepare the answer path in one call**:
       `node <dir>/build-report.mjs brief --unit <slug> --issue <n> --pr <n> [--pr <n> …]`,
       or for a branch-regime prototype version
-      `--branch prototype/<feature> --head <sha>` in place of the PRs. The
-      unit's slug names the answer file (`pr-231`, `ingest-v2`). Preparing
-      clears any earlier attempt's answer, so a re-dispatch that writes
-      nothing reads as a failure, never as its predecessor.
+      `--branch prototype/<feature> --since <sha> --head <sha>` in place of
+      the PRs: `--since` is the previous version's head, read off the
+      *Evidence* line of that version's build report on the issue, or the
+      branch's base for the first version. Add `--private yes` when the
+      workstream's plan took the private path. The unit's slug names the
+      answer file (`pr-231`, `ingest-v2`). Preparing clears any earlier
+      attempt's answer and coordinates, so a re-dispatch that writes nothing
+      reads as a failure, never as its predecessor. **A workstream with no
+      public issue** — on the private path from the start — has no build
+      report yet, and `brief` refuses it by name: write the unit up myself,
+      labelled as my own account, in chat only (a recorded gap, #227).
    2. **Dispatch `fable-build-report`** with `model:` set to the pin's alias
       (`dispatchModel().agentModel`, which is `fable` today), and **the
       printed brief as the whole prompt**. The role holds no file-reading
@@ -527,7 +534,14 @@ requires it.
    4. **Paste the report verbatim**:
       `node <dir>/build-report.mjs report --unit <slug> --session continue|"hand off" --session-why "<one clause>"`,
       in chat and as a comment on the workstream issue, and say nothing else
-      about the unit. The **session** line is mine and printed under a label
+      about the unit. **A private-path unit's report goes in chat only**,
+      never as an issue comment, and the report says so at its top: the
+      role writes a plain account of the diff, which is what the canonical
+      disclosure check keeps off GitHub (`workstream-tracking.md`,
+      *Sensitive / disclosure-carve-out workstreams*). The report's
+      *Evidence* line names what it covered from the brief's own
+      coordinates, and for a branch unit both ends of the range — the next
+      version's `--since`. The **session** line is mine and printed under a label
       saying so, because only this session can see its own context: the
       `handoff` skill's Step 1 judgement, run here without being asked, and
       when it says hand off, the hand-off prompt follows the report.
