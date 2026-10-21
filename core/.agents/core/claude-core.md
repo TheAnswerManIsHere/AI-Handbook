@@ -453,8 +453,9 @@ enactment is `.claude/skills/document/`.
 - **The bridge:** at close-out of a production-phase product feature I post
   a **harvest-notes comment on the workstream issue** — decisions made and
   why, alternatives rejected, gotcha candidates. Cheap, always there, no PR;
-  a prototype-phase PR's close-out is the sync and the merge report alone,
-  since it has no decisions to harvest yet (*Close-out*, below). The batched pass reads
+  a prototype-phase PR's close-out posts none, since it has no decisions to
+  harvest yet — its close-out is the sync, the merge report and the build
+  report (*Close-out*, below). The batched pass reads
   those comments plus the diffs, so session context survives without a ceremony
   per merge.
 
@@ -1502,7 +1503,7 @@ shows the true delta.
 
 - **Fable dispatches as a subagent whose instructions I do not write.** The
   role is an agent definition under `core/.claude/agents/`, loaded by the
-  harness; I pass only the round's coordinates. **A `tools:` list there is a
+  harness; I pass only the round's package or the unit's brief. **A `tools:` list there is a
   hard upper bound** — measured 2026-09-16: an agent declaring four tools held
   exactly those plus the injected `SubagentHandback`, with no `Write`, no MCP
   and no `ToolSearch`. That makes **which** tools a role holds a real boundary
