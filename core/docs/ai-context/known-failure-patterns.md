@@ -2959,7 +2959,7 @@ after the builder recorded the class-not-example rule against himself.
    in one pull request the destination survived a bad reading by luck; that is
    not a record to build on.
 4. **Have someone else evaluate it.** Every one of these was surfaced by an
-   independent assessor or a translator reading the same words, never by the
+   independent assessor or the round translator of the day (retired 2026-10-21) reading the same words, never by the
    person who wrote them. The author of a condition is its worst reader.
 
 **Related:** *A guard that encodes the shape that occurred, and calls it a class*

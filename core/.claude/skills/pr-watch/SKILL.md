@@ -605,7 +605,7 @@ tracking*), so it has no labels to keep):
   (step 3.5 above — a purely technical fork is settled in the loop, never
   escalated) → `waiting:david`; `stage:code-review` stays put — the stage
   hasn't moved, but the turn has.
-- **The close-out bar is met** (CLAUDE.md's *Close-out*, all four items) →
+- **The close-out bar is met** (CLAUDE.md's *Close-out*, all three items) →
   the ready bar is met and **I merge it myself per CLAUDE.md's close-out
   contract (David, 2026-08-15)** — re-verify live state, squash-merge, check and sync the Repl, verify, report — so `stage:merge` is normally a moment, not a resting
   state. There is no carve-out exception any more (David, 2026-09-14): a
