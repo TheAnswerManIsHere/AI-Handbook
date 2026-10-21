@@ -535,7 +535,10 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   2026-09-28; the phase bullet below). I request no review of any kind and
   merge on green CI. Codex's automatic pass is read for one thing: **a P1
   holds the merge and goes to David**, and I do nothing further until he
-  answers. Each Codex thread is resolved with one line citing his ruling.
+  answers — **except on a phase registry PR, where it is read for nothing**,
+  P1s included, as on any prototype-phase PR (David, 2026-10-20: *"I'm not
+  sure why you keep listening to Codex during prototyping."*). Each Codex
+  thread is resolved with one line citing his ruling.
 - **Documentation: one Astra and Fable pass, with Codex's automatic pass as
   one input** (David, 2026-10-04, after a seven-PR trial without it). For
   prose: contracts, skills, memory notes, docs sweeps, harvests, Manual

@@ -652,7 +652,9 @@ phase, per feature*, below; David, 2026-09-28). No
 review of any kind is requested: no Codex round, no assessment, no
 translation. The change merges on green CI. Codex's automatic pass on PR-open
 still runs; it is read for one thing, **a P1, which holds the merge until
-David answers**, and nothing else in it is acted on. Each Codex thread is
+David answers**, and nothing else in it is acted on — save on a phase
+registry PR, where it is read for nothing, P1s included (*The prototype
+phase, per feature*, below; David, 2026-10-20). Each Codex thread is
 resolved with one line citing his ruling, because the `main` ruleset will not
 merge with a thread open. His reason: *"I might be wrong but I need that lever
 to pull when I want quick changes."*
@@ -763,7 +765,16 @@ prototype follows them where they cost nothing, and a miss is a ledger line
 for the flip, never a finding that starts a fix. The PR is opened and merged
 by the same agent in the same turn, on green CI. Codex's automatic pass on PR-open still runs and is
 **read for nothing**: each of its threads is resolved with one line naming
-this phase, and no finding on a prototype-phase feature starts a fix. **Once
+this phase, and no finding on a prototype-phase feature starts a fix.
+**The one fix a prototype owes regardless of who finds it** is a defect that
+stops the built feature running and producing reasonable output (David,
+2026-10-20: *"the only bug fixes that you need to do during prototyping are
+bug fixes that prevent the functionality that you've built from working. We
+don't need to worry about edge cases, security, load handling, race
+conditions, etc. unless they are directly going to prevent the code from
+running and producing reasonable output that proves the system 'works'."*).
+That is the test for a Codex finding, a reviewer's note or the agent's own reading
+alike; anything short of it is a ledger line at most. **Once
 the first version is approved, the only feedback that changes a prototype is
 the product owner's** — once a version has reached him; before that, the
 agent's own failing machine check is repaired by the agent (*What prototype
@@ -872,7 +883,10 @@ uses — at the start under the branch regime, at the flip, at abandonment —
 is Trivial by David's phase declaration** (David, 2026-09-28: *"Yes,
 trivial"*): the declaration is the one the Trivial class requires, in his
 words, for that change, so the PR quotes it and merges on green CI with no
-review of any kind — and `pr-watch` never subscribes to it: it carries
+review of any kind, Codex's automatic pass on it read for nothing as on any
+prototype-phase PR, P1s included (David, 2026-10-20: *"We're in prototype
+mode. We don't fix any issues that don't prevent us from moving
+forward."*) — and `pr-watch` never subscribes to it: it carries
 `Refs #N`, owns no lifecycle and moves no label (Codex, #168 round 7). At the
 flip under the branch regime the hardening PR's
 close-out also **retires the prototype environment**: the deployment is
