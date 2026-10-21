@@ -192,7 +192,7 @@ where I put it and treat it as binding.
     (product, design, correctness) are weighed on the merits — and **Codex
     code-review findings keep their full fix-or-decline force** on
     production-phase code; on a prototype-phase feature its automatic pass is
-    read for nothing (*Two classes and a phase that leave the loop*).
+    read for one thing, a defect that stops the feature working (*Two classes and a phase that leave the loop*).
 13. **Every reply to a message of his opens by quoting it.** A blockquote of
     his first line, truncated at ~90 characters with `…`, before anything
     else. His messages and my answers are routinely separated by a dozen tool
@@ -535,7 +535,10 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   2026-09-28; the phase bullet below). I request no review of any kind and
   merge on green CI. Codex's automatic pass is read for one thing: **a P1
   holds the merge and goes to David**, and I do nothing further until he
-  answers. Each Codex thread is resolved with one line citing his ruling.
+  answers — **except on a phase registry PR, where it is read for nothing**,
+  P1s included (David, 2026-10-20: *"I'm not
+  sure why you keep listening to Codex during prototyping."*). Each Codex
+  thread is resolved with one line citing his ruling.
 - **Documentation: one Astra and Fable pass, with Codex's automatic pass as
   one input** (David, 2026-10-04, after a seven-PR trial without it). For
   prose: contracts, skills, memory notes, docs sweeps, harvests, Manual
@@ -564,7 +567,9 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   (David, 2026-09-28: *"What we're cutting out is the code review loop once
   we've built it."*). Where nothing is
   downstream of `main` it lives on `main` and its PR merges in the same turn,
-  Codex's automatic pass read for nothing; where users are, it lives on a
+  Codex's automatic pass read for one thing — the one fix a prototype owes,
+  whoever finds it, is a defect that stops the built feature running and
+  producing reasonable output (David, 2026-10-20); where users are, it lives on a
   `prototype/<feature>` branch with its own environment and database, and
   opens no PR at all. Any production-phase feature in the same PR puts the
   whole PR in the standard loop. The rule is
@@ -1091,12 +1096,14 @@ private path, the one assessment against the full text (*Internal tooling:
 what is downstream*). That is the whole bar, for
 product and internal PRs alike — except the two classes and the phase that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
-threads unless Codex's automatic pass posts a P1, and a **Documentation** PR
+threads unless Codex's automatic pass posts a P1 (a phase registry PR not
+even then), and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch — assessed once
 Codex's automatic pass reports Completed — with no Codex round requested and
 no translation owed — and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
-automatic pass read for nothing and no translation owed. CI and Codex catch
+automatic pass read only for a defect that stops the feature working and no
+translation owed. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
 
 **No receipt proves any of the four now** — `pr-ready.mjs` went with the #89
@@ -1106,7 +1113,8 @@ GitHub itself enforces is *every thread resolved*: the `main` ruleset requires
 conversation resolution, so the Merge button is inert while a thread is open.
 
 - **Every PR in the standard loop gets a Codex review and none merges before
-  it returns** (Trivial waits only for the automatic pass, to catch a P1;
+  it returns** (Trivial waits only for the automatic pass, to catch a P1 —
+  a phase registry PR not even for that;
   Documentation waits only for the automatic pass, as an input to its one
   assessed batch; a prototype-phase PR is outside the standard
   loop and waits for none). A round I
@@ -1190,7 +1198,8 @@ permissions, a CI check that constrains me, or a working-contract line granting
 me new autonomy merges under the same bar as everything else. Where a merge
 does wait on him, a rule above says so — among them a pull request that changes the review
 loop and still carries findings after its second review (the ship gate), a
-Trivial PR whose automatic Codex pass posts a P1, a corrected head still
+Trivial PR other than a phase registry PR whose automatic Codex pass posts
+a P1, a corrected head still
 short of what was agreed (the write-gate rule), and a second-review finding
 the shared judgement has concluded is worth his reopening
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19),

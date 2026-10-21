@@ -47,7 +47,9 @@ requires it.
 
 - **Trivial**, declared by David alone: no review requested of anyone. Read
   Codex's automatic pass for a P1 only; a P1 holds the merge and goes to
-  David. Resolve each thread with one line citing his ruling, then merge on
+  David — except on a phase registry PR, where the pass is read for nothing,
+  P1s included (David, 2026-10-20; `working-modes.md`, *The prototype phase,
+  per feature*). Resolve each thread with one line citing his ruling, then merge on
   green CI.
 - **Documentation**: one pass, `review-proxy.mjs --documentation --round 1`,
   with the Fable assessor dispatched on the same package (`--prompt-only

@@ -652,7 +652,9 @@ phase, per feature*, below; David, 2026-09-28). No
 review of any kind is requested: no Codex round, no assessment, no
 translation. The change merges on green CI. Codex's automatic pass on PR-open
 still runs; it is read for one thing, **a P1, which holds the merge until
-David answers**, and nothing else in it is acted on. Each Codex thread is
+David answers**, and nothing else in it is acted on — save on a phase
+registry PR, where it is read for nothing, P1s included (*The prototype
+phase, per feature*, below; David, 2026-10-20). Each Codex thread is
 resolved with one line citing his ruling, because the `main` ruleset will not
 merge with a thread open. His reason: *"I might be wrong but I need that lever
 to pull when I want quick changes."*
@@ -762,12 +764,24 @@ it covered one.) His "etc." covers the product-design principles too
 prototype follows them where they cost nothing, and a miss is a ledger line
 for the flip, never a finding that starts a fix. The PR is opened and merged
 by the same agent in the same turn, on green CI. Codex's automatic pass on PR-open still runs and is
-**read for nothing**: each of its threads is resolved with one line naming
-this phase, and no finding on a prototype-phase feature starts a fix. **Once
+**read for one thing**: a finding that reports the built feature failing to
+run or produce reasonable output, which is fixed at prototype depth as a
+further commit of the version (David, 2026-10-21: *"Yes skim."*). Every
+other thread is resolved with one line naming this phase and starts no fix.
+**The one fix a prototype owes regardless of who finds it** is a defect that
+stops the built feature running and producing reasonable output (David,
+2026-10-20: *"the only bug fixes that you need to do during prototyping are
+bug fixes that prevent the functionality that you've built from working. We
+don't need to worry about edge cases, security, load handling, race
+conditions, etc. unless they are directly going to prevent the code from
+running and producing reasonable output that proves the system 'works'."*).
+That is the test for a Codex finding, a reviewer's note or the agent's own reading
+alike; anything short of it is a ledger line at most. **Once
 the first version is approved, the only feedback that changes a prototype is
 the product owner's** — once a version has reached him; before that, the
 agent's own failing machine check is repaired by the agent (*What prototype
-phase keeps of verification*, below) — about how it feels to use, gathered the way the
+phase keeps of verification*, below), and a defect that stops the feature
+working is fixed whenever it is found (above) — about how it feels to use, gathered the way the
 `prototype` skill describes — and a defect he reports on it, a UI or UX fix
 included, is the next version through that skill, never a bugfix and never
 code-reviewed: bugfix mode is for already-agreed behaviour, and nothing about
@@ -806,10 +820,12 @@ failure before the merge on the same PR, since that PR merges only on green;
 a `live` failure found after the merge's sync, in the `main` regime, as a
 further same-turn PR, merged the same way and synced; in the branch regime
 always a further push — then the lanes run again, and the owner is asked
-only when they pass (Codex, DojoOS #8). That repair is the one change to a prototype that is not the
-owner's feedback, and it is authorised because the version has not reached
-him yet: *only the owner's feedback changes a prototype* (above) is about a
-version he has been asked about. They are the
+only when they pass (Codex, DojoOS #8). That repair and the fix of a
+defect that stops the feature working (above) are the only changes to a
+prototype that are not the owner's feedback: the repair because the version
+has not reached him yet — *only the owner's feedback changes a prototype*
+(above) is about a version he has been asked about — and the blocking
+defect whenever it is found (David, 2026-10-20). They are the
 agent's proof that the version works; they are not a review bar, and no
 failing check starts a hardening fix — the repair is to the prototype, at
 its depth, never a production-bar fix. **The human lane is the owner's feedback through the rail,
@@ -872,7 +888,9 @@ uses — at the start under the branch regime, at the flip, at abandonment —
 is Trivial by David's phase declaration** (David, 2026-09-28: *"Yes,
 trivial"*): the declaration is the one the Trivial class requires, in his
 words, for that change, so the PR quotes it and merges on green CI with no
-review of any kind — and `pr-watch` never subscribes to it: it carries
+review of any kind, Codex's automatic pass on it read for nothing, P1s included (David, 2026-10-20: *"We're in prototype
+mode. We don't fix any issues that don't prevent us from moving
+forward."*) — and `pr-watch` never subscribes to it: it carries
 `Refs #N`, owns no lifecycle and moves no label (Codex, #168 round 7). At the
 flip under the branch regime the hardening PR's
 close-out also **retires the prototype environment**: the deployment is
@@ -1205,8 +1223,8 @@ prototype phase, per feature*, above).
   reading. **Any changed head gets review before merge** — documentation-only
   changes and base-branch merges included — in the standard loop; a Trivial
   change gets none, a Documentation change's one batch of corrections merges without a second review, and a
-  prototype-phase PR merges on green CI with the automatic pass read for
-  nothing, by design (above). What is refused is a round requested
+  prototype-phase PR merges on green CI with the automatic pass read only
+  for a defect that stops the feature working, by design (above). What is refused is a round requested
   merely to get a different answer on a head already reviewed as it stands.
   (Astra, 2026-09-19.)
 - **The two-review limit bounds how long iteration runs**, above. These bound
