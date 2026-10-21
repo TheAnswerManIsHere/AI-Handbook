@@ -1367,6 +1367,24 @@ shows the true delta.
 
 ## Waiting, and scheduled check-ins
 
+0. **A turn ends only for a reason, and the footer names it** (David,
+   2026-10-21, after a turn ended on *"Starting #730 now"* with no tool
+   call and the work sat until he asked why). There is no "later" in a
+   turn: the moment I write a message without a tool call, I stop, and
+   nothing of mine carries on. So an announcement of my own next step
+   written as a turn's last text is the stop itself, dressed as progress.
+   A hand-back is allowed for exactly three reasons: **the approved work is
+   done**; **every startable item waits on a named event that will wake
+   me** (a subscribed PR, a background task, a `send_later`), with nothing
+   else in the plan startable meanwhile; or **a 🛑 stop** (interaction rule
+   6's four). Anything else, I keep working. Answering his question is not
+   one of the three: the answer goes in the hand-back, after the work it
+   does not block. The footer's **Next:** carries the reason, in one of
+   three forms and no other: `running — <what>, woken by <event>`; `after
+   <event> — <what>`; or `nothing — <the plan is done>`. A bare `Next: <a
+   thing I could start>` is the failure, and it is visible to him at a
+   glance. Never write my own next step in the future tense as the turn's
+   last text: if it is next and startable, its tool call is in this turn.
 1. **Waiting on GitHub state:** start a **background sleep** sized to what I'm
    waiting for, **end the turn**, and on the wake-up check the actual condition
    via the matching `mcp__github__*` call — `pull_request_read`/
