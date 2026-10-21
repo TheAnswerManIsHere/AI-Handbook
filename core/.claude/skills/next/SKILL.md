@@ -153,19 +153,31 @@ scoped to the active repository (see *Scope* above):
     PRs' `Oracle source:` line, or in its State of Play's **Artifacts** —
     `docs/plans/PLAN_<SLUG>.md` on a named branch (Planning rule 3: committed
     on the feature branch at approval, on `main` once the first increment
-    merges). Read it with `git fetch origin <branch>` and `git show
-    origin/<branch>:<path>`; a branch only collaborators can push to is the
-    same trust boundary as a label. Where the `Oracle source:` line carries
-    a sha256, check `git show … | sha256sum` against it — a mismatch means
-    the text is not the one David approved, and is reported, never ranked
-    from.
-  - **Then sweep for plans nothing tracks**: every `docs/plans/PLAN_*.md`
-    on `main` and on every remote branch ahead of it (`git diff
-    --name-only origin/main...origin/<branch> -- docs/plans/`) that no open
-    workstream named. On a branch with no open PR it is an approved build
-    nothing is tracking — a candidate (Step 2), ranked at `coding`, and the
-    missing workstream named as drift. On `main` it is usually finished —
-    count it in one line, never rank it.
+    merges). A workstream claims a plan by its path in a PR's `Oracle
+    source:` line, or by the plan's path **or its branch name** in the State
+    of Play's Artifacts. Read it with `git fetch origin <branch>` and `git
+    show origin/<branch>:<path>`; a branch only collaborators can push to is
+    the same trust boundary as a label. Where the `Oracle source:` line
+    carries a sha256, check `git show … | sha256sum` against it — a mismatch
+    shows the file differs from the text that PR pinned, which is either an
+    amendment the PR predates or a text David did not approve; `/next`
+    cannot tell which, so it is reported, never ranked from.
+  - **Then sweep for plans nothing tracks — reported, never ranked.** A
+    plan ranks only through the open workstream that claims it; a plan found
+    the other way round is the reverse of the rule above. Look at every
+    `docs/plans/PLAN_*.md` on `main` and on every remote branch ahead of it
+    (`git diff --name-only origin/main...origin/<branch> -- docs/plans/`)
+    that no open workstream claims, skipping what `/maintenance` §8 skips —
+    `plan-review/<slug>-combined` — and any `prototype/<feature>` branch the
+    *Feature phases* registry names, which Step 3 already ranks. On `main`
+    it is usually finished: count it in one line. On a branch it gets one
+    line each: branch, file, and that head's PR history (`list_pull_requests`,
+    `head: <owner>:<branch>`, `state: all` — §8's lookup). A PR closed
+    unmerged or a closed workstream is a stopped build, and is said to be
+    one; no PR and no issue ever is the one shape that may be an approved
+    build nothing tracks, and is said to be that — tracking drift, its
+    disposition left to `/maintenance` §8. Where the history does not settle
+    which, say so. A stopped build is never offered as work to restart.
   - **The plan gives the sequence; the record gives the position.** The
     sequence is the plan's increments in order (its phases, where it has
     them) and, inside the current one, its *Implementation Steps*. The
@@ -424,8 +436,8 @@ looks thin:
 
 - **Work with no issue** — a Discovery conversation that never opened one
   is invisible. If the picture looks emptier than David expects, say this.
-  An *approved plan* with no issue is not in this gap: Step 1's plan sweep
-  finds it on its branch.
+  An *approved plan* with no issue is not wholly in this gap: Step 1's plan
+  sweep finds it on its branch and reports it, though it does not rank it.
 - **A plan that is not on GitHub** — one that took the private path
   (Planning rule 3) or, against the rule, exists only in a working tree.
   Its workstream ranks by labels alone, and the report says the plan could
