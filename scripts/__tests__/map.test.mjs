@@ -111,6 +111,8 @@ function suite() {
       'import { Router } from "express";\nimport { getFact } from "../lib/handlers";\n' +
       "const router = Router();\n" +
       'router.get("/facts/:id", getFact);\n' +
+      // An Express 5 named wildcard (#212): one or more segments.
+      'router.get("/files/*filePath", getFact);\n' +
       "const computed = String(Date.now());\nrouter.get(computed, getFact);\n" +
       "export default router;\n",
     "packages/server/src/lib/handlers.ts": H("Request handlers for facts.", "http") +
@@ -127,13 +129,19 @@ function suite() {
       "const STATEMENT = `SELECT id FROM facts WHERE body = $1`;\n" +
       'export async function locallyBound() { return source.query(STATEMENT, ["x"]); }\n' +
       'export async function external() { return source.query("SELECT * FROM stripe.products"); }\n' +
+      // DDL naming a relation only after INDEX … ON and REFERENCES (#212).
+      'export async function ddl() { await source.query("CREATE INDEX idx_reports_user ON reports (user_id)"); return source.query("ALTER TABLE audits ADD FOREIGN KEY (report_id) REFERENCES appeals(id)"); }\n' +
       "export async function dynamic(tableName: string) { return source.query(`SELECT * FROM ${tableName}`); }\n" +
       'export async function unresolvedReceiver(thing: any) { return thing.query("SELECT * FROM users"); }\n',
     "packages/web/package.json": JSON.stringify({ name: "@workspace/web", type: "module" }),
     "packages/web/tsconfig.json": JSON.stringify({ extends: "../../tsconfig.base.json", compilerOptions: { baseUrl: ".", paths: { "@/*": ["./src/*"] } }, include: ["src"], exclude: ["**/*.test.ts"] }),
     "packages/web/src/App.tsx": H("Client routes.", "web") +
-      'import { Route, Switch } from "wouter";\nimport Profile from "@/pages/Profile";\n' +
-      'export function App() { return (<Switch><Route path="/profile" component={Profile} /></Switch>); }\n',
+      'import { Route, Switch } from "wouter";\nimport Profile from "@/pages/Profile";\nimport HallRedirect from "@/pages/HallRedirect";\n' +
+      'export function App() { return (<Switch><Route path="/profile" component={Profile} />' +
+      // The child forms (#212): a single element child is the page; a render function is reported.
+      '<Route path="/hall-of-fame">\n  <HallRedirect />\n</Route><Route path="/legacy">{() => <Profile />}</Route></Switch>); }\n',
+    "packages/web/src/pages/HallRedirect.tsx": H("Redirects the old hall-of-fame path.", "web") +
+      'export default function HallRedirect() { return null; }\n',
     "packages/web/src/pages/Profile.tsx": H("The profile page.", "web") +
       'import { BRAND_ORANGE } from "@workspace/lib";\nimport { shout } from "@/lib/util";\n' +
       'export default function Profile() { return <div style={{ color: BRAND_ORANGE }}>{shout("hi")}</div>; }\n',
@@ -286,6 +294,13 @@ function suite() {
     const paths = worker.resolved.map((r) => r.path).sort();
     assert.deepEqual(paths, ["prefix:/share/", "regex:/^\\/og\\/(\\w+)$/"]);
     assert.equal(mapJson(d, "route", "ANY", "/og/abc").resolved.length, 1);
+    // #212: an Express 5 named wildcard matches, and a wouter route's single child is its page.
+    const file = mapJson(d, "route", "GET", "/api/files/a/b.png");
+    assert.deepEqual(file.resolved.map((r) => r.path), ["/api/files/*filePath"]);
+    const hall = mapJson(d, "route", "PAGE", "/hall-of-fame");
+    assert.deepEqual([hall.resolved[0].handler.file, hall.resolved[0].handler.name], ["packages/web/src/pages/HallRedirect.tsx", "HallRedirect"]);
+    const legacy = mapJson(d, "routes", "packages/web/src/App.tsx");
+    assert.ok(legacy.unresolved.some((u) => u.reason === "unsupported-form" && /\/legacy/.test(u.detail)), "a render-function child is reported, never dropped");
   });
 
   test("answers: every exported name of one declaration finds the same users; computed loads and computed mounts are unresolved, never dropped", () => {
@@ -330,6 +345,10 @@ function suite() {
     assert.match(stripe.out, /pg-query\s+packages\/server\/src\/lib\/db\.ts/);
     const dyn = mapJson(d, "unresolved", "sql");
     assert.ok(dyn.unresolved.some((u) => u.reason === "dynamic-target" && u.file === "packages/server/src/lib/db.ts"));
+    // #212: a relation named only after INDEX … ON, or only after REFERENCES, is found.
+    for (const rel of ["reports", "appeals", "audits"]) {
+      assert.ok(mapJson(d, "table", rel).resolved.some((r) => r.kind === "pg-query" && r.file === "packages/server/src/lib/db.ts"), `${rel} from DDL`);
+    }
     const none = map(d, "table", "nothing_here");
     assert.match(none.out, /resolved \(0\):\n  \(none found\)\nunresolved/, "an empty answer still prints what could not be resolved");
   });
