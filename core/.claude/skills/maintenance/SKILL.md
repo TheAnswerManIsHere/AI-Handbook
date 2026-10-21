@@ -52,9 +52,11 @@ PRs") — the discipline stays visible, the report stays short.
    2026-08-15 subsumed by the general self-merge rule in CLAUDE.md's
    close-out contract). If CI is red, diagnose briefly: a flaky run gets
    one re-trigger; a real incompatibility gets flagged, not merged.
-4. **Major-version bumps are never auto-merged.** For each, one line in
+4. **Major-version bumps are merged on my recommendation, never silently.** For each, one line in
    the report: package, old → new, why it matters (or doesn't), and my
-   merge/hold recommendation. David decides.
+   merge/hold recommendation. A merge is reversible, so I proceed on the
+   recommendation and report it (*A reversible choice proceeds*); David
+   decides only what that rule's irreversible list names.
 
 ## 2. Production errors (Sentry)
 
@@ -487,9 +489,11 @@ How to run it:
 
 ## Report delivery
 
-Single message, ten short sections, worst news first. When something needs
-David's decision (major bump, alarming Sentry issue, recurring flake), it
-goes in a numbered question list at the end per the numbered-questions rule,
+Single message, ten short sections, worst news first. A major bump is a
+reversible merge, so I proceed on my recommendation and report it; an alarming
+Sentry issue and a recurring flake are reported, not asked. Only what the
+irreversible list names, or a product decision, goes in a numbered question
+list at the end per the numbered-questions rule,
 with the turn's spend line directly above that list (`claude-core.md`, *A
 reversible choice proceeds, and every turn reports its spend*).
 If the report is substantial, also publish it as an Artifact page — the chat

@@ -118,12 +118,11 @@ reaches a pull request; it does not cap the per-task reviews here.*
 - Skip review because "it's simple"
 - Ignore Critical issues
 - Proceed with unfixed Important issues — *except an **acceptable
-  imperfection** left after the pull-request loop's cap, which is a recorded
-  gap — the shared judgement decides record-the-gap or ask-David-to-reopen,
-  per the limit's step 3 in the section the calibration block cites. A head
-  that still violates an agreed requirement, fails a required check, or
-  carries consequential harm David has not accepted does not merge: it goes
-  to him with the shortfall and a choice*
+  imperfection**, which is a recorded gap by the builder's judgement under the
+  ship gate. A head that still violates an agreed requirement or fails a
+  required check does not merge: the builder fixes or cuts it. Only a product
+  decision (intended behaviour, an accepted user-facing shortfall or a harm
+  David has not accepted) goes to him*
 - Argue with valid technical feedback
 
 **If reviewer wrong:**

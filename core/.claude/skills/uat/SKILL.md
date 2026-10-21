@@ -202,13 +202,13 @@ the doc-wrong case below, never a check to run early:
   that reading: a shot that was not produced, or that I cannot read, is
   Blocked, never Pass; a reading that contradicts the `Expect` is a Fail,
   filed before he sees anything (section 4). **A capture that needs a paid
-  vendor runs within David's paid-run budget — $5 a run, $25 a week — and on his go-ahead only above it** — as does any
-  check, in any lane, that would start a paid AI run (David, 2026-10-17;
-  `uat-doc-format.md`, *Lanes*): I ask, naming the doc, the
-  paid calls and the worst-case cost, and nothing in a run, a resume or a
-  standing approval starts one without that. It runs within the cap the
-  declaration names, and its spend goes on the run's spend line. Without
-  the go-ahead its steps are Blocked on him, or he answers the judgement
+  vendor runs within David's paid-run budget — $5 a run, $25 a week** — as
+  does any check, in any lane, that would start a paid AI run (David,
+  2026-10-17, who set the budget small for that reason; `uat-doc-format.md`,
+  *Lanes*): within it the capture runs, inside the cap the declaration names,
+  and its cost goes in the run record and on the run's spend line. One above
+  it asks, naming the doc, the paid calls and the worst-case cost, and its
+  steps are Blocked on him until he answers, or he answers the judgement
   steps from an image he makes himself in the product. A consumer with no such declaration has no
   capture run, and its `capture` steps are Blocked on that, never handed to
   him. **A real AI render is read only for what anyone would verify the
@@ -634,7 +634,7 @@ that is three places:
 **Once a step is fully scriptable, UAT is usually the wrong home for it.** It
 belongs in CI or in the PR's post-merge verification, where it runs on every
 change forever instead of once — unless it calls a paid AI vendor, which
-runs within David's paid-run budget — $5 a run, $25 a week — and on his go-ahead only above it (`uat-doc-format.md`, *Lanes*). Automation is mostly *draining* mechanical
+runs within David's paid-run budget — $5 a run, $25 a week — and asks him only above it (`uat-doc-format.md`, *Lanes*). Automation is mostly *draining* mechanical
 steps out of UAT into the layers that already exist — and scripting whatever
 live-app checks are left over.
 
