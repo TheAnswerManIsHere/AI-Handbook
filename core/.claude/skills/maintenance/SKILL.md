@@ -378,8 +378,8 @@ reported** (item 6, below), never an open-ended "is the backlog still right?"
    "unlabelled" would miss it, and the revisit David asked for would never
    be asked of it by name. **A gap with no `queue:` label has never been
    triaged**: `pr-watch` files every gap without one so that `/next`
-   cannot recommend it before David has decided (David, 2026-09-28), and
-   this step is where it gets one. **An unlabelled issue's body is read only when
+   cannot recommend it before it has been triaged (David, 2026-09-28), and
+   this step is where it gets one, on my recommendation, reported. **An unlabelled issue's body is read only when
    its author is the repository's owner** — its `user.login` equals, ignoring
    case, the owner in the coordinates this pass already uses, the account
    this session also pushes as; under an organisation owner nothing matches,

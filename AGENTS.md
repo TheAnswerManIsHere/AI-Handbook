@@ -82,7 +82,7 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   code did not produce, and a hostile-value finding on one is in scope. A
   role this agent dispatches is another program too: its answer is on that
   side of the line, and what it carries from outside keeps its provenance
-  (the round translator reads every comment on a pull request, from anyone,
+  (the build report's writer reads every comment on a pull request, from anyone,
   and `pr-watch` names that exposure). The check such an answer gets is the
   one that exists: a review assessment is refused when absent or empty, and
   a role that answers through a schema is validated against it. A

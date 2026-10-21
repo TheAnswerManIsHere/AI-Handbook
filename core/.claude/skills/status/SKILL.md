@@ -12,13 +12,17 @@ what's next, and how does it fit.** For "across everything, what needs me?"
 that's [`/status-all`](../status-all/SKILL.md) — a different job with a
 different cost.
 
-**This skill reports. It does not write unattended** (David, 2026-08-05). When
-the workstream issue's stored state disagrees with what GitHub actually shows,
-say so and **offer** to correct it; David confirms. That confirmation is what
-makes the write safe — an unattended write would need conflict-detection and
-write-target authentication GitHub's API can't cleanly provide, and it isn't
-worth building for a status check. See the
-[decision entry](../../../docs/ai-context/decisions.md).
+**This skill reports, and corrects stored state on its own recommendation**
+(David, 2026-10-21; from 2026-08-05 until then it offered and he confirmed).
+When the workstream issue's stored state disagrees with what GitHub actually
+shows, say so, correct it, and report the correction in the same message. A
+fresh read of the issue immediately before the write is what makes the
+write safe enough for a label and a status block, both of which a corrective
+edit undoes; the 2026-08-05 reasoning that an unattended write needed
+conflict-detection GitHub's API can't provide is in the
+[decision entry](../../../docs/ai-context/decisions.md), and the 2026-10-21
+rule that a reversible choice proceeds on the recommendation is what
+retired the confirmation.
 
 ## The five states
 
@@ -76,8 +80,8 @@ Two rules that matter more than the table:
 3. **Report.** The state, what's next, and how it fits the current roadmap.
    Sparse — David is re-orienting, not reading a document.
 
-4. **Offer the fix when stored state is wrong.** Name what's stale and what it
-   should be. On confirmation: refresh the `## State of Play` block (replace
+4. **Apply the fix when stored state is wrong, and say so.** Name what was
+   stale and what it now says. Then: refresh the `## State of Play` block (replace
    that section only, preserve everything else in the body; if there's no such
    heading, add one at the top; if there are two, stop and say so) and set the
    `stage:`/`waiting:` labels in a single set-labels call. Re-read

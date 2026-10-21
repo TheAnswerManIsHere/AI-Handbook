@@ -1126,11 +1126,12 @@ on green CI, resolved threads and its one assessed batch — assessed once
 Codex's automatic pass reports Completed — with no Codex round requested —
 and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
-automatic pass read only for a defect that stops the feature working; each
-still gets its build report at close-out. CI and Codex catch
+automatic pass read only for a defect that stops the feature working; a
+Documentation or prototype-phase PR still gets its build report at close-out,
+a Trivial PR none. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
 
-**No receipt proves any of the four now** — `pr-ready.mjs` went with the #89
+**No receipt proves any of the three now** — `pr-ready.mjs` went with the #89
 cut, having never run once in the loop it was built for (David merged from the
 GitHub UI and checked the bar by eye). All four are reads I do. The one item
 GitHub itself enforces is *every thread resolved*: the `main` ruleset requires
@@ -1153,8 +1154,10 @@ conversation resolution, so the Merge button is inert while a thread is open.
   reads the same before and after a push. The connector has emitted at least
   three clean-pass shapes carrying no announcement, so a pass I cannot read is
   a parser that has fallen behind the source, not proof no review ran — I read
-  the PR before saying the loop never started, and a genuinely new shape goes
-  to David rather than into a guess.
+  the PR before saying the loop never started, and a genuinely new shape is
+  read on the PR itself, judged on my recommendation and reported as a 👀
+  FYI naming the shape, never guessed at (David, 2026-10-21; until then it
+  went to him).
 - **A Codex code-review outage is a FULL STOP.** Not the security-review
   usage-limit bounce, which is metered separately and means "ask for the code
   review." A genuine code-review outage means: stop building production-phase

@@ -364,10 +364,11 @@ requires it.
    **recorded gaps and follow-up issues**, and the pull request goes to
    close-out like any other. **A follow-up issue is filed with its labels**:
      `gap` and the workstream's `mode:`, and **no `queue:` label** — so it
-     stays out of `/next` until David has triaged it (David, 2026-09-28: a
-     recorded gap is not a candidate for work before he has said it is).
-     The triage call is his, made through `/maintenance` step 9's proposed
-     diff, never applied unattended; that step finds every gap by its `gap`
+     stays out of `/next` until it has been triaged (David, 2026-09-28: a
+     recorded gap is not a candidate for work before that).
+     The triage is `/maintenance` step 9's, applied on my recommendation
+     and reported there (2026-10-21; until then each line waited for his
+     approval); that step finds every gap by its `gap`
      label, which is why the missing `queue:` label cannot lose one. If the
      finding's consequence argues for sooner, that case goes in the body for
      step 9 to propose; a user-facing consequence he has not accepted is his under step 3.5 and

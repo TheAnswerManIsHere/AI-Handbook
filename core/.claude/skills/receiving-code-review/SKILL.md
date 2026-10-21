@@ -13,8 +13,9 @@ Code review requires technical evaluation, not emotional performance.
 
 **Core principle:** Verify before implementing. Ask before assuming. Technical correctness over social comfort.
 
-**Local calibration (fleet, 2026-09-20): this skill sets no bound, and the
-fleet does — and on a PR touching only a feature David has declared
+**Local calibration (fleet, 2026-09-20; the bound retired 2026-10-21): this
+skill sets no bound, and neither does the fleet any more — and on a PR
+touching only a feature David has declared
 prototype phase, nothing below runs: Codex's automatic pass is read for one thing — a finding that reports a
 defect stopping the built feature running and producing reasonable output,
 which is fixed — and no other finding starts a fix
