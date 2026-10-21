@@ -40,9 +40,9 @@ glyph used for the mid-task interruption banner in chat, deliberately: one
 symbol means "David," everywhere, not only in conversation. **Merge stopped
 being a David-gate on 2026-08-15** (the agent driving the PR merges it once
 the close-out bar in CLAUDE.md is met — for the standard loop, CI green, the
-reviewer's pass returned for the head commit, every thread resolved, the owed
-translations delivered; the two classes and the prototype phase carry their
-own bars there),
+reviewer's pass returned for the head commit, every thread resolved, with the
+build report dispatched at close-out; the two classes and the prototype phase
+carry their own bars there),
 and the **scope-of-work gate** was added
 the same day at the front of Planning (see
 [`working-modes.md`](./working-modes.md#the-scope-of-work-gate-david-2026-08-15)).

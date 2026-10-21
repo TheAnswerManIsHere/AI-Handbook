@@ -1675,8 +1675,8 @@ carry pre-registered flip conditions naming an observable read off the round; an
 triage every finding into **fix / accept-and-document / escalate** rather than
 reading "Required Revision" as automatically meaning fix. **And the sequence is
 bounded** by the builder's judgement under the ship
-gate and the Worth rule, with "record the gap" the ordinary answer from the
-second review on; a two-review limit did that from 2026-09-20 to 2026-10-21
+gate and the Worth rule, with "record the gap" the ordinary answer once both
+assessors say the oracle is met; a two-review limit did that from 2026-09-20 to 2026-10-21
 ([`working-modes.md`](./working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
 keeps the record) — this entry's remedies
 were ceremony-sizing, an in-round bound and a per-finding test until
