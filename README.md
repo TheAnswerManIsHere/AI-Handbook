@@ -103,15 +103,14 @@ its own. They and the rest of the consumer-owned set are listed in
 
 Changes here reach every product, so this repo runs the **internal** review
 tier, which says what is downstream and nothing about how long a review loop
-runs. How long it runs is the **two-review limit**
-([`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)):
-the automatic pass, one coherent batch of corrections if any are warranted, a
-review of that corrected head, and autonomous iteration ends there. **That is
-not a property of this repository, and it is asked per change**: the limit is
-scoped by consequence and recoverability, so a change that alters what the
-sync publishes to every consumer, or that touches approvals, credentials or destructive
-operations, is weighed on that and can sit outside the limit — while a
-recoverable tweak to the same file does not. A clean automatic pass is the whole ceremony,
+runs. How long it runs is the builder's judgement under the write-gate and the
+ship gate — no count ends a loop (the two-review limit is retired,
+2026-10-21;
+[`working-modes.md`](core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+keeps the record). **What is downstream is asked per change**, by consequence
+and recoverability: a change that alters what the sync publishes to every
+consumer, or that touches approvals, credentials or destructive operations,
+is weighed on that, while a recoverable tweak to the same file is routine. A clean automatic pass is the whole ceremony,
 save a PR whose plan took the private path, which is assessed once regardless;
 a round that returns findings gets two independent assessments before anything
 is written for it; and anything written gets reviewed before it merges — that

@@ -74,9 +74,9 @@ not taste, so they are neither `ci` nor `human`. The capture script proves
 only that the image exists; the step passes or fails on Claude's reading of
 it, clause by clause. There is no baseline image to compare against: an
 `Expect` that would say "looks as it did before" is written as the screen it
-should show. A capture that needs a paid vendor runs only on David's
-go-ahead for that run (the paragraph after next), under the spending cap
-the consumer declares, and is never the `live` lane, which stays
+should show. A capture that needs a paid vendor runs within David's
+paid-run budget and asks above it (the paragraph after next), under any
+tighter cap the consumer declares, and is never the `live` lane, which stays
 read-only. (The run-time mechanics are the `uat` skill's, *Where the browser
 automation lives*.)
 

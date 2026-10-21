@@ -44,8 +44,9 @@ infra/refactor/perf/security changes with no visible behavior ship as code + a
 written verification note ("run X, observe Y"). A prototype-phase feature
 keeps this rule — its surface is the thing the owner uses — with the machine
 lanes proving what a machine can check (never what an AI-generated image
-shows beyond what anyone would verify the same way, which is his, and never
-a paid AI run without his go-ahead for that run: [`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07))
+shows beyond what anyone would verify the same way, which is his, and a
+paid AI run within his budget, $5 a run and $25 a week, on his go-ahead only
+above it: [`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07))
 and the owner's feedback, not a note, standing as the acceptance script for
 the rest
 ([`working-modes.md`](working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
@@ -93,22 +94,24 @@ discipline (`docs/engineering/migrations-and-backfills.md`) reapplies in full.
 - **Decide silently:** naming, file layout, code structure, test approach,
   error-handling patterns, library choices, helper functions, refactor scope — the
   small stuff. The bot reviewers backstop these.
-- **Ask by default:** anything where a *wrong choice could meaningfully damage the
-  product* — schema shapes that affect behavior, irreversible migrations, choices
-  that lock in UX, real trade-offs, anything you're only ~70% sure about. David
-  *likes* answering trade-off questions — it's how he steers. **Inside an
-  approved plan, when the choice is yours to recommend and a corrective commit
-  would undo it, proceed on the recommendation and report it** (*A reversible choice proceeds on the recommendation*, below);
-  what still asks here is what that rule's irreversible list names, and what is
+- **Decide by default, and report** (David, 2026-10-21, replacing "ask by
+  default" for anything a wrong choice could damage): schema shapes that
+  affect behaviour, choices that lock in UX, real trade-offs, the ~70%-sure
+  call — when the choice is yours to recommend and not on the irreversible
+  list, proceed on the recommendation and report it (*A reversible choice
+  proceeds on the recommendation*, below). He used to like answering
+  trade-off questions; he measured that he takes the recommendation nine
+  times in ten and retired the ask. What still asks here is what that rule's
+  irreversible list names (an irreversible migration among them), and what is
   his.
 - **Ask always:** anything about what the product *should do* — product behavior,
   spec ambiguity, UX details, feature scope.
 - **Do not** ask David questions the repo can answer; resolve those yourself and
   record the resolution in the plan.
 
-When in doubt about **whether a choice is his**, lean toward asking — the cost of
-David finding the wrong thing in acceptance testing is high. When it is yours
-and reversible, proceed and report it (*A reversible choice proceeds on the recommendation*, below): a question he would have
+When in doubt about **whether a choice is his**, the test is the irreversible
+list and the plan: on the list, or a change to the plan, ask; otherwise it is
+yours. When it is yours, proceed and report it (*A reversible choice proceeds on the recommendation*, below): a question he would have
 waved through costs him a round trip, which is the cost that rule exists to
 stop paying. Give enough context to answer without scrolling back.
 
@@ -391,13 +394,13 @@ and applying it uniformly is a bug in judgment, not diligence. **Before
 designing, state what tier the thing is and let that set the bar:**
 
 **These tiers set engineering depth and nothing else.** They are not the
-review loop's scope: how long a loop runs is the two-review limit's.
-**Product code is outside that limit outright** — the limit bounds internal
-tooling, and no weighing of a product change's consequence or recoverability
-brings it under the cap. *Within* internal tooling, the limit asks
-"internal?" of **the change** by its consequence and recoverability rather
-than of the artifact it lands in
-([`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)). Editing a
+review loop's scope: how long a loop runs is the builder's judgement under
+the write-gate and the ship gate, never a count (the two-review limit that
+bounded internal tooling is retired, David, 2026-10-21;
+[`working-modes.md`](working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+keeps the record). What the tier still asks of **the change**, by its
+consequence and recoverability rather than the artifact it lands in, is what
+is downstream of it. Editing a
 credential-rotation script to change which credential it rotates is not
 internal by that test; editing the message it prints is, though both land in
 a file this list calls internal tooling. (Codex, #153 round 1, on an earlier
@@ -509,10 +512,11 @@ in the product.
   ([`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
   — and the push owes a
   round, as every write in the standard loop does ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)). **Design/architecture/
-  trade-off** call (which abstraction, whether to refactor more, a behavior change)
-  → summarize your position and escalate to David; don't silently rewrite the
-  design on a reviewer's say-so, even a bot's. David doesn't need to triage every
-  nit, but he weighs in on anything that's a real decision.
+  trade-off** call (which abstraction, whether to refactor more) → decide on
+  your own recommendation and report it; a **behaviour change** → summarize
+  your position and escalate to David. Don't silently rewrite the design on a
+  reviewer's say-so, even a bot's; David weighs in on what the product should
+  do, not on every real decision (2026-10-21).
   **On either loop this bullet stops at the word "behavior"** (2026-09-18):
   two approaches serving the same agreed behaviour, scope and explicit
   constraints are the loop's own to settle — through investigation and
@@ -522,7 +526,7 @@ in the product.
   ([`planning-contract.md`](./planning-contract.md)), the Fable assessor on a
   **code** round (`claude-core.md`'s *Shared judgement on a review round*).
   A purely technical choice a corrective commit would undo proceeds on the
-  recommendation and is reported, inside an approved plan or a bugfix's tier oracle — a bugfix's regression test never among them (*A reversible choice proceeds on the recommendation*, above).
+  recommendation and is reported, wherever it arises — a bugfix's regression test never among them (*A reversible choice proceeds on the recommendation*, above).
   What still reaches David on either is intended behaviour, scope, a knowingly
   accepted user-facing shortfall, and approval; and a constraint he required
   explicitly does not become negotiable for being technical.

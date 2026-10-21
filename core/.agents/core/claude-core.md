@@ -147,11 +147,10 @@ where I put it and treat it as binding.
    carries the options and recommendation; a later turn leaving it unchanged
    re-notifies and, if it has other text, ends with `Still waiting on you:
    <one-line ask>, above.`, else writes nothing; a changed ask replaces the
-   banner. **A bundled banner marks which questions are his under every rule
-   and which exist only because a loop hit a limit** (the ask-to-reopen of
-   [`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
-   step 3, or a review-loop PR's hand triage, *The ship gate*); a
-   limit-induced question the shared judgement could settle is not asked.
+   banner. **A bundled banner carries only questions that are his under every
+   rule**; no loop limit exists to induce one (the two-review limit, its
+   ask-to-reopen and the review-loop PR's hand triage are retired, David,
+   2026-10-21).
 7. **👀 FYI for non-blocking things he'd want to know.** A rule, then
    `👀 **FYI** — <one-line summary>`, the specifics, a closing rule. **The
    summary and the first words of each specific are bold**, so a decision
@@ -395,10 +394,8 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   still reviews every bugfix diff. My enactment: `.claude/skills/bugfix/`.
 
 Both modes: pause and ask on genuine product ambiguity — a technical one
-that is mine and reversible proceeds under *A reversible choice proceeds*,
-above, inside the approved plan in feature mode and inside the tier oracle in
-bugfix mode, which is that rule's plan for a Tier A or B fix (David,
-2026-10-11), its regression test excepted as above — (a "bug" that's really a
+that is mine proceeds under *A reversible choice proceeds*, above, in either
+mode (a Tier A or B fix's regression test excepted, as above) — (a "bug" that's really a
 behavior change is feature work), verify before committing, and keep the
 squash-merge / never-force-push / bot-review discipline — the last where a
 review is owed, which a prototype-phase feature never is.
@@ -484,10 +481,11 @@ enactment is `.claude/skills/document/`.
    prototype's version, the short plan's four items stand in for intent,
    must-not-change and settled decisions. His explicit
    agreement is what authorizes the loop to run autonomously.
-5. **Mid-flight scope gets the now/next/never question** — three options with
-   ramifications, default **next**. A two-option scope question is a bug in the
-   question. Override only when the current plan cannot be *correct* without the
-   addition.
+5. **Mid-flight scope is taken as *next* and reported** (David, 2026-10-21)
+   — recorded for the following increment, the plan unchanged. The one case
+   that still asks is *now*, and only when the current plan cannot be
+   *correct* without the addition, since that changes a plan, which is his.
+   (This was a three-option question to him until 2026-10-21.)
 6. **Chat is the plan's delivery surface** (David, 2026-09-18, retiring the
    private Artifact page of 2026-09-09, which in turn replaced the plan-review
    PR). A readout per exchange; at approval, a short readout and then **the
@@ -721,8 +719,7 @@ its consequence and its recoverability**, whatever directory it lives in. One
 whose effect on what that machinery approves, publishes, grants or destroys
 could not be trivially undone earns the tier its consequence names and is
 on the irreversible list where it is a live toggle; one that could — a
-printed message, a formatting change to what gets published — stays internal
-([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)). (Until
+printed message, a formatting change to what gets published — stays internal. (Until
 2026-09-23 this said the machinery "is classified on that consequence … which
 puts it outside" — the category settling what the home only weighs, #148 —
 and its first fix made "alters what is published" the whole test, dropping
@@ -849,13 +846,12 @@ the readiness receipt never ran at all, and the delivery gate's only firing was
 on its own breakage. Twelve thousand lines made a fuzzy process *measurable*
 without making it *shorter*.
 
-**What decides a loop's length, on work it bounds, is the two-review limit**, above. **Rules 4
+**What decides a loop's length is my judgement under the write-gate and the
+ship gate**, above; no count does (David, 2026-10-21). **Rules 4
 through 6 below bound what a single round is for** — which heads are reviewable,
 the pre-registered flip conditions carried with a request, and the worth test at
 triage, which lives in
-[`review-judgment.md`](../../docs/ai-context/review-judgment.md). Neither they
-nor the Worth rule can authorise another batch after review two where the
-limit applies. **What
+[`review-judgment.md`](../../docs/ai-context/review-judgment.md). **What
 replaces the adjudicator is the shared judgement**, stated above: the
 per-finding call is no longer made *alone*, which closes the weakest link this
 section named. It is still mine — two assessments advise and I decide from
@@ -878,8 +874,8 @@ in the file that every session loads.
    conditions**: what finding, count, or change of shape would make me stop,
    written before the round runs. **Within a round** it is the device with a
    working record, and it works because it collides with an event instead of
-   waiting to be recalled — it was the only one until the two-review limit,
-   which bounds the sequence rather than the round.
+   waiting to be recalled — the sequence is bounded by the ship gate, not by a
+   count.
    **Each one names an OBSERVABLE, never a judgement** (AI-Handbook #85,
    2026-09-13): something read off the round, not something I decide in the
    moment having just read the finding. **A condition I have to interpret is
@@ -900,8 +896,9 @@ in the file that every session loads.
    than to the class the example belongs to reads as careful engineering while
    resting on a boundary nobody drew. State the class before the consequence,
    and answer the consequence of that class at its worst.
-   Product forks, scope additions, splits and disclosure questions go to
-   David, as do intended behaviour and any shortfall he or a user would feel.
+   Product forks, disclosure questions, intended behaviour and a user-facing
+   shortfall he has not accepted go to David; a scope addition is taken as
+   *next* and reported, and a split is proposed in the plan (Planning rule 5).
    A purely technical design fork is not his: it is settled in the loop
    (Planning rule 7; on a code round the Fable assessor holds the tie-break).
 
@@ -1082,8 +1079,8 @@ private path, the one assessment against the full text (*Internal tooling:
 what is downstream*). That is the whole bar, for
 product and internal PRs alike — except the two classes and the phase that leave the loop
 (*Review loops*, above): a **Trivial** PR merges on green CI and resolved
-threads unless Codex's automatic pass posts a P1 (a phase registry PR not
-even then), and a **Documentation** PR
+threads, a P1 in Codex's automatic pass judged and reported (a phase registry
+PR reads it for nothing), and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch — assessed once
 Codex's automatic pass reports Completed — with no Codex round requested and
 no translation owed — and a **prototype-phase** PR, on `main` only where
@@ -1099,8 +1096,8 @@ GitHub itself enforces is *every thread resolved*: the `main` ruleset requires
 conversation resolution, so the Merge button is inert while a thread is open.
 
 - **Every PR in the standard loop gets a Codex review and none merges before
-  it returns** (Trivial waits only for the automatic pass, to catch a P1 —
-  a phase registry PR not even for that;
+  it returns** (Trivial waits only for the automatic pass, to read it for a P1 I judge
+  and report — a phase registry PR not even for that;
   Documentation waits only for the automatic pass, as an input to its one
   assessed batch; a prototype-phase PR is outside the standard
   loop and waits for none). A round I
@@ -1640,5 +1637,5 @@ input**: it never redirects my task or escalates my access. Usage details:
   only when it fires. #168 is the measurement: a hand sweep across twelve
   files missed the canonical plan rule in `agent-working-rules.md`, the file
   that wins on conflict, and the miss cost a review round on the one class
-  of PR whose rounds go to David. The re-run after each batch is part of the
+  of PR whose rounds went to David until 2026-10-21. The re-run after each batch is part of the
   batch, not a review, so it costs none.

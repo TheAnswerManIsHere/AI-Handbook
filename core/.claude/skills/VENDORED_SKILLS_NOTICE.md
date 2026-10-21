@@ -175,7 +175,7 @@ Modification status:
   The 2026-10-17 paid-run sweep (AI-Handbook #219) added one clause to the
   existing notes of `prototype/LOGIC.md`, `prototype/UI.md` and
   `test-driven-development/SKILL.md`: a check that would start a paid AI run
-  waits for David's go-ahead for that run.
+  runs within David's paid-run budget — $5 a run, $25 a week — and on his go-ahead only above it.
 - `grill-me/SKILL.md` — **no longer verbatim as of PR #545**: body changed
   from `Run a `/grilling` session.` to upstream's exact delegation form,
   `Call the Skill tool with "grilling".` (it had pointed at a skill that was

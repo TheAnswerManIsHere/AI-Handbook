@@ -15,17 +15,11 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 fleet does — and "before merge to main" below reads "in the standard loop": a
 feature David has declared prototype phase gets no code review of any kind
 (its first version's plan is still reviewed, in the planning loop)
-([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).** Upstream says review early and often, fix and continue. On
-work that is internal **by consequence** — not by directory — autonomous
-iteration here is bounded at two reviews by the
-**two-review limit** ([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)):
-review the head, make **one coherent batch** of corrections, review that
-corrected head, and stop — only David reopens a loop beyond it. **A change
-that governs approvals, publication, credentials or destructive operations is
-weighed on those consequences and its recoverability, whatever directory it
-sits in**, and that can put it outside the limit — the question is what this
-change does, not what the file is for. Outside it, the loop is bounded by the
-Worth rule per finding instead. This block said "on internal
+([`working-modes.md`](../../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).** Upstream says review early and often, fix and continue. No count bounds iteration here — the two-review limit is retired (David,
+2026-10-21; [`working-modes.md`](../../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)
+keeps the record): the loop is bounded by the Worth rule per finding and the
+ship gate, with record-the-gap the ordinary answer from the second review on,
+and the builder decides when to stop. This block said "on internal
 tooling" flat until 2026-09-23, which is the limit's convenient default read
 as its scope. Two upstream
 habits are therefore wrong here: fixing findings one at a time as they arrive
