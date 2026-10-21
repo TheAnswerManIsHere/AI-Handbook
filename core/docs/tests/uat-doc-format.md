@@ -366,7 +366,10 @@ scaled machine lanes and the owner's feedback are its verification —
 *What prototype phase keeps of verification*), in the PR body before the
 PR opens, with the checks for its machine-lane steps written in that same
 PR; a Tier B bugfix with product-visible behaviour writes one the same way
-(`bugfix`, step 3). See [`pr-docs`](../../.claude/skills/pr-docs/SKILL.md).
+(`bugfix`, step 3). The workstream issue's State of Play names the PR as
+carrying the UAT, which is where `/uat` reads the script from once the
+`stage:uat` label says a run is owed — the label discovers the run, the
+field locates the script. See [`pr-docs`](../../.claude/skills/pr-docs/SKILL.md).
 `/uat` **consumes** this format and never authors it.
 
 ## The guard

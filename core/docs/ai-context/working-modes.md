@@ -1549,7 +1549,8 @@ the miniature UAT. No `## UAT` section.
 
 Everything in Tier A, plus:
 
-- **A real UAT section** (the PR body's `## UAT`; a file under
+- **A real UAT section** (the PR body's `## UAT`,
+  [`uat-doc-format.md`](../tests/uat-doc-format.md); a file under
   `docs/tests/UAT/` until 2026-10-21) — the acceptance script, written to
   the lane rules
   ([`uat-doc-format.md`](../tests/uat-doc-format.md#lanes-where-each-step-is-verified-david-2026-10-07):
