@@ -3129,9 +3129,10 @@ stopped it. None had: the contract listed when to stop for him and said
 nothing about when *not* to stop, so a natural pause in the conversation
 defaulted to a hand-back.
 
-**Avoid:** a hand-back needs one of three reasons, named in the footer's
-**Next:** (`claude-core.md`, *Waiting, and scheduled check-ins*, item 0):
-the work is done, every startable item waits on an event that will wake me,
-or a 🛑 stop. If this recurs with that rule in place, the response is a
+**Avoid:** a hand-back needs one of the reasons item 0 of `claude-core.md`,
+*Waiting, and scheduled check-ins*, lists, named in the footer's **Next:**:
+the work is done; every startable item waits on an event that will wake me;
+a 🛑 stop; a report the contract makes a turn's last text, with the next
+item's resume armed before it is written; or a check-in that tripped its cap. If this recurs with that rule in place, the response is a
 deterministic check on the footer's **Next:** form (a Stop hook), not a
 better note (*Recurring failure patterns become CI guards*).
