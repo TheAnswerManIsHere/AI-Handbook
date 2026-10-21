@@ -47,12 +47,16 @@ An invocation may name a PR, an issue, or nothing.
    `origin/main` — `git fetch origin main`, then `docs/tests/UAT/PR<N>_*_UAT.md`
    as of `origin/main`, never my checkout, which can carry a doc he already
    deleted or miss one that just merged — and driven from that file; one
-   with neither is listed as "no script found", never run from memory. A
-   workstream held at another stage is listed as "not ready — held at
-   <stage>", never offered as startable; David can override explicitly, and
-   that override goes in the run record. (Until 2026-10-21 discovery
-   globbed the directory first and filtered by label second; the file is
-   gone from new PRs and the label was already the oracle.)
+   with neither is listed as "no script found", never run from memory.
+   **Then list what the lifecycle is holding**: the open workstreams at
+   `stage:merge` or `stage:test-run` whose merged PR body carries a `## UAT`
+   section, each as "not ready — held at <stage>", never offered as
+   startable — so a close-out interrupted before the label moved still
+   shows its run rather than hiding it. David can override explicitly, and
+   that override goes in the run record. (Until 2026-10-21 discovery globbed
+   the directory first and filtered by label second, so a merged but
+   unlabelled run still surfaced as held; this second query is what keeps
+   that net now the file is gone.)
 2. **Check for an interrupted run first.** Read the workstream issue body for
    a `## UAT run` section (section 5) whose verdict is `in progress`. If one
    exists, offer to **resume at its recorded step** — and re-do any setup it
