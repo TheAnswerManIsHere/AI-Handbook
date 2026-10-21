@@ -817,10 +817,12 @@ failure before the merge on the same PR, since that PR merges only on green;
 a `live` failure found after the merge's sync, in the `main` regime, as a
 further same-turn PR, merged the same way and synced; in the branch regime
 always a further push — then the lanes run again, and the owner is asked
-only when they pass (Codex, DojoOS #8). That repair is the one change to a prototype that is not the
-owner's feedback, and it is authorised because the version has not reached
-him yet: *only the owner's feedback changes a prototype* (above) is about a
-version he has been asked about. They are the
+only when they pass (Codex, DojoOS #8). That repair and the fix of a
+defect that stops the feature working (above) are the only changes to a
+prototype that are not the owner's feedback: the repair because the version
+has not reached him yet — *only the owner's feedback changes a prototype*
+(above) is about a version he has been asked about — and the blocking
+defect whenever it is found (David, 2026-10-20). They are the
 agent's proof that the version works; they are not a review bar, and no
 failing check starts a hardening fix — the repair is to the prototype, at
 its depth, never a production-bar fix. **The human lane is the owner's feedback through the rail,
