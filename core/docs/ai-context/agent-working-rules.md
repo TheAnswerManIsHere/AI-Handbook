@@ -483,8 +483,9 @@ in the product.
 - **Clear mechanical issue** (off-by-one, missing await, dead import, obvious lint,
   a clear logic bug) → fix it, push, mention briefly — on a PR in the
   standard loop; on a prototype-phase PR Codex's automatic pass is read for one
-  thing and no other finding starts a fix: a defect that stops the built
-  feature running and producing reasonable output
+  thing — a finding that reports a defect stopping the built feature running
+  and producing reasonable output, which is fixed — and no other finding
+  starts a fix
   ([`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
   — and the push owes a
   round, as every write in the standard loop does ([`working-modes.md`](./working-modes.md#the-write-gate-rule-code-written-is-code-reviewed-david-2026-08-22)). **Design/architecture/
