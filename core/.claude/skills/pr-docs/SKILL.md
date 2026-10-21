@@ -1,6 +1,6 @@
 ---
 name: pr-docs
-description: Use right after opening a feature-mode PR with product-visible or testable behavior, before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier — and a prototype-phase PR ships no UAT section — its Post-merge verification section carries only its version's `live` check, or "none needed".
+description: Use while composing the body of a feature-mode PR with product-visible or testable behavior — its Post-merge verification and `## UAT` sections are in the body when the PR opens — and before calling that PR done. Bugfix-mode PRs do NOT inherit this pairing — their docs are conditional per tier — and a prototype-phase PR ships no UAT section — its Post-merge verification section carries only its version's `live` check, or "none needed".
 ---
 
 <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead. -->

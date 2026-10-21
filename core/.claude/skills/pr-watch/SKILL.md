@@ -26,9 +26,11 @@ along with the scripts it drove.
 **What is here is what survived the deletion, plus the shared judgement.** The
 two assessments are step 3 and are live (#96); neither of them binds, and what
 happens next is the action step 6 states. What is still deliberately absent —
-the draft-first flow and the shared-vocabulary references — lands with the
-rulebook rewrite, beside #92, so a step below that reads thin is thin on
-purpose.
+the shared-vocabulary references — lands with the rulebook rewrite, beside
+#92, so a step below that reads thin is thin on purpose. (The draft-first
+flow used to be on that list; it is retired with the UAT file it existed to
+name, 2026-10-21 — every PR opens non-draft with its `## UAT` section in the
+body, `uat-doc-format.md`.)
 
 **The restoration, because a strip that overshoots is a deletion nobody
 approved.** Most of the old reply section was a second statement of
