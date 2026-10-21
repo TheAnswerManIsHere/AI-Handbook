@@ -140,7 +140,9 @@ His override is explicit, in words, and ends the argument. How an agent
 records a durable override is that agent's own enactment (Claude Code:
 `CLAUDE.md`, *Advice is independent*).
 
-### A reversible choice proceeds on the recommendation (David, 2026-10-10; widened 2026-10-21)
+### A reversible choice proceeds on the recommendation (David, 2026-10-10)
+
+**Widened 2026-10-21** to every decision the agent would otherwise bring David (below).
 
 David takes the agent's recommendation about nine times in ten (*"90% of the
 time I go with your recommendation so it makes sense that we default to you
