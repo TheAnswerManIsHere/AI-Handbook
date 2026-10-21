@@ -572,7 +572,8 @@ Then, in one edit:
   later" is not a reason; a re-run of a merged PR's UAT is written fresh
   from current behavior, not resurrected.
 - **Tell him what he's holding**: verdict, bugs filed with severities, what
-  he can do next, that the doc is gone — and, last, the run's spend across its
+  he can do next, that the doc is gone — and, last, the hand-back footer
+  (Done / Next / Needs you / Spend), whose spend is the run's across its
   walkthrough turns, which carried none of their own: the record's `Spend so
   far` plus the turns since its last write, so a run resumed in a fresh
   session reports the whole run, not the segment the current counter saw.

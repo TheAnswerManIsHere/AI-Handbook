@@ -653,8 +653,8 @@ specific change; no agent assigns it, and the PR body quotes his words. One
 standing declaration exists: a feature's phase declaration is the Trivial
 declaration for the one-line registry PR that records it (*The prototype
 phase, per feature*, below; David, 2026-09-28). No
-review of any kind is requested: no Codex round, no assessment, no
-translation. The change merges on green CI. Codex's automatic pass on PR-open
+review of any kind is requested: no Codex round, no assessment, and no
+build report at close-out. The change merges on green CI. Codex's automatic pass on PR-open
 still runs; it is read for one thing, **a P1, which the builder judges and reports** —
 fixed in a named commit, or merged with the reason in the merge report
 (David, 2026-10-21; until then it held the merge for him) — and nothing else
@@ -758,7 +758,7 @@ never infers the ask. A UI or UX fix on a prototype is one of those versions.
 
 **What prototype phase removes.** For a PR that touches only prototype-phase
 features: no code-review loop of any kind (no requested Codex round, no
-shared judgement, no translation), no `/simplify`, no UAT doc, and none of
+shared judgement), no `/simplify`, no UAT doc, and none of
 security, performance, observability or documentation as a bar — *"We must
 not care about security, performance, observability, documentation, etc.
 until we've locked a design and the feature spec."* and *"I don't care about
@@ -1794,7 +1794,10 @@ was entered. Rationale in [`decisions.md`](./decisions.md).)
   the bugfix workflow, entered with a **one-line announcement** that is
   David's veto surface; clearly feature-shaped ("let's build / add /
   change X") → feature mode, as that phrasing always has; genuinely
-  ambiguous → one numbered question. Before either, the consumer's
+  ambiguous → the lighter mode on the recommendation, announced in the one
+  line that is his veto surface (David, 2026-10-21; until then one numbered
+  question) — unless the ambiguity is whether behaviour changes, which is
+  product intent and still asks. Before either, the consumer's
   *Feature phases* registry: a request about a feature David has declared
   prototype phase, bug-shaped or not, goes to the `prototype` skill — a
   first version through the planning loop, a later one with none unless
@@ -1846,4 +1849,5 @@ use bugfix mode to sneak a feature through the lightweight path. **And a
 "clean up the review findings" batch is not a bug fix (David, 2026-08-09):**
 N leftover findings are N defects, and batching them recreates exactly what
 one-bug-per-PR banned — PR #334 above is the measured cost. When unsure
-which it is, **ask.**
+which it is, **treat them as N bugs and say so** (David, 2026-10-21; until
+then, ask).

@@ -558,8 +558,9 @@ for the two classes and in
 [its phase section](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26) for the third exemption;
 this is my enactment. Everything else in this section is the **standard**
 loop, and each of its rules below — the write-gate, shared judgement, review
-rule 4's "any changed head gets its review", translation and the close-out bar
-— applies to the standard loop only.
+rule 4's "any changed head gets its review" and the close-out bar
+— applies to the standard loop only; the build report at close-out applies
+to every unit of work but a Trivial PR.
 
 - **Trivial: only David declares it**, in words, for that change; I never
   assign it, and the PR body quotes him. His phase declaration for a feature
@@ -983,7 +984,9 @@ translations on #131 were the loop's single largest token line.)
 
 **The delivery is a message in chat, and there is nothing else** (David,
 2026-09-16). `chatReport` composes it from the answer's own fields and I paste
-that verbatim, saying nothing else about the round. **No page, no Artifact, no
+that verbatim, saying nothing else about the build (these delivery and
+independence rules carried over from the round translation to the build
+report unchanged, 2026-10-21). **No page, no Artifact, no
 HTML, no link, no receipt store** — and rebuilding any of them is forbidden
 rather than merely unnecessary. There *was* a page, and #109 round 3 found what
 it actually was: HTML written to a gitignored path, so the delivery was a file
@@ -1205,11 +1208,14 @@ conversation resolution, so the Merge button is inert while a thread is open.
    doc; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
-   entries, restated in one line each; and, as its last line, the turn's
-   spend (*A reversible choice proceeds, and every turn reports its spend*).
-   Push notification. **Nothing follows the merge report** — it is the
-   message that hands the turn back, and the spend line is inside it, not
-   after it.
+   entries, restated in one line each; and, as its last block, the fixed
+   footer — Done / Next / Needs you / Spend (*A reversible choice proceeds,
+   and every turn reports its spend*). Push notification. **Nothing of mine
+   follows the merge report** — it is the message that hands the turn back,
+   and the footer is inside it, not after it; the build report that lands
+   after it is the Fable role's account, dispatched by the merge report's
+   turn and delivered as its own message when it arrives (*Watching the PRs
+   I open*).
 
 **No PR waits for David's click** (David, 2026-09-14, retiring the
 guardrail-and-authority carve-out: the click was never once withheld and cost
@@ -1603,8 +1609,8 @@ contradict each other means either can fire** — which is why an obsolete
 description is a defect rather than archaeology (Codex, #124 round 8
 `4045616295`; both assessors concurred).
 On a code round Astra's assessment is one of two, beside the Fable assessor's
-(*Shared judgement on a review round*), and the translation still accounts for
-the round
+(*Shared judgement on a review round*), and the build report still accounts for
+the build
 afterwards.
 
 - **Sign-in comes first, every session, and it is David's phone step.**

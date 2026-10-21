@@ -197,21 +197,22 @@ stored records. From the merged-PR list for the window:
   incidents that needed David. Do not substitute a proxy for either; say the
   mechanism is gone if anyone asks for the trend.
 
-- **The round translation, two numbers and no more** (David, 2026-09-12). How many round
-  translations ran, and how many flagged a disagreement with the builder's
-  account. **Read them from the close-out harvest comments**, the same source
+- **The build report, two numbers and no more** (David, 2026-09-12, for the
+  round translation it replaced on 2026-10-21). How many build reports ran,
+  and how many flagged a disagreement with the builder's
+  account. **Read them from the workstream issues' build-report comments**, the same source
   plan-loop rounds come from: its receipts are gitignored evidence that dies
   with its session, deliberately — making a gut-level count exact is the
   accounting-precision class the worth rule
   ([`review-judgment.md`](../../../docs/ai-context/review-judgment.md))
   declines. **Say so when a
-  merged loop's harvest comment carries no translation line**, rather than reporting a
+  merged unit of work has no build report comment**, rather than reporting a
   figure that silently omits it.
 
-  The shape to watch is the same one B1 has: a run of loops where the translation never
+  The shape to watch is the same one B1 has: a run of builds where the report never
   disagrees means it is agreeing with every account, which is what the
   zero-for-fifteen retirement rule catches. The opposite shape counts too — a
-  translation disagreeing on every round is not obviously working either, and
+  report disagreeing on every build is not obviously working either, and
   either extreme is worth a sentence to David rather than a number.
 - **Recorded dissents** (David, 2026-09-03). Override entries in the repo's
   `decisions.md` dated inside the window — the entries the advice rule writes
@@ -501,8 +502,9 @@ reversible merge, so I proceed on my recommendation and report it; an alarming
 Sentry issue and a recurring flake are reported, not asked. Only what the
 irreversible list names, or a product decision, goes in a numbered question
 list at the end per the numbered-questions rule,
-with the turn's spend line directly above that list (`claude-core.md`, *A
-reversible choice proceeds, and every turn reports its spend*).
+with the hand-back footer — Done / Next / Needs you / Spend — directly above
+that list (`claude-core.md`, *A reversible choice proceeds, and every turn
+reports its spend*).
 If the report is substantial, also publish it as an Artifact page — the chat
 message remains the canonical copy. (CLAUDE.md's combined Artifact-delivery
 paragraph this used to cite was retired; only its UAT-specific rule survives,
