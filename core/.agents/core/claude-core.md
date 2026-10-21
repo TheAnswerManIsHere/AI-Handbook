@@ -142,8 +142,11 @@ where I put it and treat it as binding.
    doesn't. Text between
    tool calls reaches him paraphrased
    ([`chat-text-between-tool-calls-is-summarised.md`](../../.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
-   Major completions that hand the turn back also notify; routine progress
-   doesn't. **An ask is shown once:** the banner alone
+   **A push notification means "read this", and fires for exactly four
+   things** (David, 2026-10-21): the three stops between increments — a
+   blocker only he can clear, a UAT step the next increment depends on, the
+   irreversible list — and a unit of work completed (its build report).
+   Routine progress never notifies. **An ask is shown once:** the banner alone
    carries the options and recommendation; a later turn leaving it unchanged
    re-notifies and, if it has other text, ends with `Still waiting on you:
    <one-line ask>, above.`, else writes nothing; a changed ask replaces the
