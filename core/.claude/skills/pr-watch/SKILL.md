@@ -26,9 +26,11 @@ along with the scripts it drove.
 **What is here is what survived the deletion, plus the shared judgement.** The
 two assessments are step 3 and are live (#96); neither of them binds, and what
 happens next is the action step 6 states. What is still deliberately absent —
-the draft-first flow and the shared-vocabulary references — lands with the
-rulebook rewrite, beside #92, so a step below that reads thin is thin on
-purpose.
+the shared-vocabulary references — lands with the rulebook rewrite, beside
+#92, so a step below that reads thin is thin on purpose. (The draft-first
+flow used to be on that list; it is retired with the UAT file it existed to
+name, 2026-10-21 — every PR opens non-draft with its `## UAT` section in the
+body, `uat-doc-format.md`.)
 
 **The restoration, because a strip that overshoots is a deletion nobody
 approved.** Most of the old reply section was a second statement of
@@ -818,28 +820,30 @@ tracking*), so it has no labels to keep):
   PR, self-merged; the label move is likewise mine, since the Action is
   gone.)
 - **The PR merges with "none needed" verification** → `stage:uat` **only
-  after the close-out sync checks pass, and only if a UAT doc
-  exists or is actually due**. The transition moment is the verified Repl
+  after the close-out sync checks pass, and only if the PR body carries a
+  `## UAT` section ([`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md);
+  or a legacy UAT doc still under `docs/tests/UAT/` on `main`) or one is
+  actually due**. The transition moment is the verified Repl
   sync (matching SHA + clean worktree, per CLAUDE.md's close-out
   sequence), not the merge click — a failed sync would otherwise put a
   David-held UAT gate on the board for a build he can't actually reach;
   until the checks pass the workstream stays agent-held in close-out.
-  On the UAT-doc test: pure-docs/pure-devops PRs never have one,
+  On the UAT-section test: pure-docs/pure-devops PRs never have one,
   and neither does a Tier A bugfix or a Tier B bugfix whose only surface is
   internal (per `working-modes.md`'s Tier B exception): all three go
   straight to `stage:close-out` instead, since holding them at `uat` would
   be a gate with nothing to run against it (a prototype-phase PR ships none
   either, and never reaches this step — top of this file). "Has product-visible behavior"
   is *not* the test by itself — a Tier A fix can be product-visible and
-  still ship no UAT doc, which is what makes checking for the doc the right
-  test, not the behavior. **The straight-to-close-out case does not stop
+  still ship no UAT section, which is what makes checking for the section
+  the right test, not the behavior. **The straight-to-close-out case does not stop
   at close-out** (David, 2026-09-25): with no UAT owed there is nothing
   left to verify, so in the same pass I finish whatever close-out items
   remain, set `stage:done`, and close the issue as completed with a comment
   naming the PR, per
   [`workstream-tracking.md`](../../../docs/ai-context/workstream-tracking.md#closing-an-issue)'s
   *Closing an issue*. **When it is a product-visible fix that shipped no
-  UAT doc (the Tier A case), the closing comment aims David** (David,
+  UAT section (the Tier A case), the closing comment aims David** (David,
   2026-08-09, moved from the State of Play): one line — where in the app to
   glance next time he's there, and to reopen the issue if the symptom
   persists. Still never `stage:done` at the merge click: the verified sync

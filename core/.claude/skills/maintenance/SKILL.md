@@ -512,7 +512,7 @@ reports its spend*).
 If the report is substantial, also publish it as an Artifact page — the chat
 message remains the canonical copy. (CLAUDE.md's combined Artifact-delivery
 paragraph this used to cite was retired; only its UAT-specific rule survives,
-as `claude-core.md` Pull requests rule 5 — a UAT doc for product-visible
+as `claude-core.md` Pull requests rule 5 — a UAT section for product-visible
 feature PRs in production phase — and it doesn't cover maintenance reports.
 This is now a standalone maintenance-skill rule.)
 

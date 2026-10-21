@@ -103,8 +103,8 @@ other payload file. Each set has its own test suite, and both suites run in CI.
   own GitHub Action.
 - **`check-docs-accuracy.mjs`** and **`check-uat-format.mjs`** — guards a
   product's CI runs: every relative link and repository path in the shared
-  docs must resolve, and every [UAT](./glossary.md#uat) document must have the
-  shape the `/uat` skill drives.
+  docs must resolve, and a pull request's [UAT](./glossary.md#uat) section
+  must have the shape the `/uat` skill drives.
 - **`retry-on-eagain.sh`** — reruns a command only when it failed because the
   machine ran out of process slots, never on a real test failure.
 

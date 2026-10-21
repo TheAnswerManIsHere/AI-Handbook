@@ -378,7 +378,7 @@ Otherwise entry is routed by request shape and announced in one line (the
 announcement is David's veto surface); `/bugfix` is the explicit override.
 
 - **Feature-building is the default** — pre-plan conversation, plan, plan
-  review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
+  review, build, post-merge verification, UAT section, ship-the-UI-surface gate —
   for a feature in **production phase**; one David has declared prototype
   phase keeps the pre-plan conversation, the plan and the plan review for its
   **first version** (and for a later one only when he asks in words), then
@@ -402,7 +402,7 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   branch per PR**, opened as soon as the fix is verified. No plan file, no plan
   review. **Tier A** ships a regression test, a blast-radius note, and the
   bugfix oracle in the PR body; **Tier B** (sensitive subsystem or structurally
-  risky fix) I write myself — not routable to a subagent — and adds a UAT doc
+  risky fix) I write myself — not routable to a subagent — and adds a UAT section
   if behavior is product-visible; **Tier C** means it isn't a bug fix: it
   stops and goes to David, and the one path that continues is a trivial
   database schema fix he green-lights, straight to migration ceremony. Codex
@@ -597,7 +597,7 @@ to every unit of work but a Trivial PR.
   `overlay-declarations.md`, gets the planning loop for its first version —
   pre-plan conversation, a short plan, Astra's review, his approval — and for
   a later version only when he asks in words; it gets no code-review loop, no
-  UAT doc and no hardening bar until David declares it production — and it
+  UAT section and no hardening bar until David declares it production — and it
   keeps the machine lanes, scaled to a prototype, as my proof that a version
   works before the owner is asked — a check that would start a paid AI run within
   his per-run and weekly budget (`uat-doc-format.md`, *Lanes*) (David, 2026-10-10;
@@ -1093,23 +1093,23 @@ design. Mechanics:
    format document are retired. Nothing had read the block at runtime since
    the #89 cut, and its fixed grammar forced a false declaration on work
    agreed in conversation with no plan file, #110.)
-5. **Post-merge verification + UAT doc** for product-visible feature PRs in
-   production phase — a prototype-phase PR ships no UAT doc, its Post-merge
+5. **Post-merge verification + UAT section** for product-visible feature PRs in
+   production phase — a prototype-phase PR ships no UAT section, its Post-merge
    verification section carries only its version's `live` check, and its
    scaled machine lanes and feedback rail are its verification — per the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). A production-phase PR is not done
    until the verification section has real content (or an explicit "none
-   needed") and `docs/tests/UAT/PR<N>_<FEATURE>_UAT.md` exists and is linked —
-   PR-first, added to the same PR before merge, never a later PR; a
-   prototype-phase PR is done on green CI with its verification section
-   filled, and never carries that doc. **David
-   confirms a run complete and I delete the doc in that same close-out**
-   (David, 2026-08-22) — unless it carries behavior recorded nowhere else, in
-   which case that content is harvested into the Manual first. Bugfix mode does not
-   inherit this pairing. **Running** a UAT is the `uat` skill (David,
-   2026-08-21): the doc is a script I drive step by step in chat — I own the
+   needed") and the body carries its `## UAT` section, written to
+   `uat-doc-format.md` before the PR opens, never a later PR (David,
+   2026-10-21: the section replaces the `docs/tests/UAT/` file, its PR-first
+   naming dance and its deletion PR; the `stage:uat` label alone says a run
+   is owed, and a legacy file still on a consumer's `main` runs out under
+   the `uat` skill's old rule); a prototype-phase PR is done on green CI
+   with its verification section filled, and never carries that section.
+   Bugfix mode does not inherit this pairing. **Running** a UAT is the `uat` skill (David,
+   2026-08-21): the script is one I drive step by step in chat — I own the
    setup, the per-step record, and filing any bug the moment it's found — not
-   a file he reads alone, and no longer an Artifact page.
+   a page he reads alone, and no longer an Artifact page.
 
 ## Close-out is mine, end to end
 
@@ -1220,7 +1220,7 @@ conversation resolution, so the Merge button is inert while a thread is open.
    resolves the machine lanes itself, screen facts included (the `uat`
    skill, *Where the browser automation lives*) — plus the
    reminder that `/uat` walks him through it rather than leaving him to the
-   doc; for a prototype-phase PR,
+   script; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
    entries, restated in one line each; and, as its last block, the fixed

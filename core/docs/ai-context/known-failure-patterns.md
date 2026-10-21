@@ -403,7 +403,7 @@ branch, tested on its own prototype environment with no merge at all —
 [`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 Running behaviour itself is testable before the merge: the per-PR E2E job
 and a local stack at the commit under test both drive the app, which is
-where a UAT doc's screen facts are checked (the `uat` skill, *Where the
+where a UAT script's screen facts are checked (the `uat` skill, *Where the
 browser automation lives*); only the deployed build waits for the sync.
 Merge + sync is what makes a build testable;
 production is the separate, deferred `publish_app` step. This misfired twice
