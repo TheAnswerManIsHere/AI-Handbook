@@ -764,8 +764,10 @@ it covered one.) His "etc." covers the product-design principles too
 prototype follows them where they cost nothing, and a miss is a ledger line
 for the flip, never a finding that starts a fix. The PR is opened and merged
 by the same agent in the same turn, on green CI. Codex's automatic pass on PR-open still runs and is
-**read for nothing**: each of its threads is resolved with one line naming
-this phase, and no finding on a prototype-phase feature starts a fix.
+**read for one thing**: a finding that reports the built feature failing to
+run or produce reasonable output, which is fixed at prototype depth as a
+further commit of the version (David, 2026-10-21: *"Yes skim."*). Every
+other thread is resolved with one line naming this phase and starts no fix.
 **The one fix a prototype owes regardless of who finds it** is a defect that
 stops the built feature running and producing reasonable output (David,
 2026-10-20: *"the only bug fixes that you need to do during prototyping are
@@ -778,7 +780,8 @@ alike; anything short of it is a ledger line at most. **Once
 the first version is approved, the only feedback that changes a prototype is
 the product owner's** — once a version has reached him; before that, the
 agent's own failing machine check is repaired by the agent (*What prototype
-phase keeps of verification*, below) — about how it feels to use, gathered the way the
+phase keeps of verification*, below), and a defect that stops the feature
+working is fixed whenever it is found (above) — about how it feels to use, gathered the way the
 `prototype` skill describes — and a defect he reports on it, a UI or UX fix
 included, is the next version through that skill, never a bugfix and never
 code-reviewed: bugfix mode is for already-agreed behaviour, and nothing about
