@@ -140,16 +140,25 @@ His override is explicit, in words, and ends the argument. How an agent
 records a durable override is that agent's own enactment (Claude Code:
 `CLAUDE.md`, *Advice is independent*).
 
-### A reversible choice proceeds on the recommendation (David, 2026-10-10)
+### A reversible choice proceeds on the recommendation (David, 2026-10-10; widened 2026-10-21)
 
 David takes the agent's recommendation about nine times in ten (*"90% of the
 time I go with your recommendation so it makes sense that we default to you
 going with it and just letting me know that you did, assuming that the build
-is reversible"*), and every ask still costs him a round trip. So inside an
-approved plan the default flips: **when a choice is the agent's to recommend
-and the build is reversible, the agent proceeds on its own recommendation and
-tells him it did.** *"I'd rather you build a bit too much and then we have to
-pivot or undo some of it than constantly stop building while waiting for me."*
+is reversible"*), and every ask still costs him a round trip. So the default flips: **when a choice is the agent's to recommend and it is
+not on the irreversible list, the agent proceeds on its own recommendation
+and tells him it did.** *"I'd rather you build a bit too much and then we
+have to pivot or undo some of it than constantly stop building while waiting
+for me."* Until 2026-10-21 this held only inside an approved plan; David
+widened it to every decision the agent would otherwise bring him (*"9/10
+times you ask me a question and give me a recommendation, I go with your
+recommendation. That means that asking me is futile. Instead, I want you to
+proceed with your recommendation and tell me what you decided. The only
+exception is if the choice is irreversible"*). What still asks: the
+irreversible list below, a plan before it is enacted (below), and what only
+he can supply — information the repository does not hold, an action only he
+can take. A question the agent would answer with a recommendation is not
+asked; the recommendation is taken and reported.
 
 - **Reversible is an observable, not a feeling.** A choice is reversible when
   undoing it is a corrective commit in the same repository and nothing outside
@@ -165,14 +174,23 @@ pivot or undo some of it than constantly stop building while waiting for me."*
   but a reviewed pull request (one landed by PR takes the ordinary bar, with
   its latitude line, as the Claude core's *No PR waits for David's click*
   already says — the list names the live toggle, not the reviewed diff);
-  spend above a per-turn cap once David sets one. The list is closed and
-  grows only by his word.
+  spend above a per-turn cap once David sets one; **a paid AI run, or any
+  cost beyond the session's own tokens, above $5 for one run, and any such
+  spend once the week's total would pass $25** (David, 2026-10-21: *"Include
+  paid AI runs or anything that incurs cost above just the tokens in my
+  plan. Limit it to $5/run and set a weekly budget of $25 just in case."*) —
+  below both, a paid run proceeds and its cost is reported. The list is
+  closed and grows only by his word.
 - **Plans are his, every time** (David, 2026-10-10: *"Don't do anything that's
   not in a plan and don't build new plans and start executing against them
   without me."*). A reversible choice *inside* an approved plan proceeds; new
   scope, a new increment, a new feature, a new test plan or a new plan never
   does, in either phase — that is where his judgement bites, and it is almost
-  always product-facing. Mid-flight scope keeps the now/next/never question.
+  always product-facing. Mid-flight scope is taken as **next** — recorded for
+  the following increment, the plan unchanged — and reported; **now** is the
+  one case that still asks, since it changes the plan, and it is asked only
+  when the current plan cannot be correct without the addition (David,
+  2026-10-21: *"Yes, I need to review plans before they're enacted."*).
   A prototype's later versions are already built on his feedback alone —
   with the agent's own repair of a failing machine check before each version
   reaches him (`working-modes.md`, *What prototype phase keeps of

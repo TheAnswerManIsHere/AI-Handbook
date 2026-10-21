@@ -624,14 +624,14 @@ will keep finding things, and each fix adds surface for the next round.
 trend, a plan-growth tripwire and an oscillation diagnosis, all self-policed by
 the agent driving the loop — was deleted on 2026-08-20.** Its measured record
 was 0-for-15 at stopping a loop, on product and meta loops alike. What replaces
-it, on internal tooling, is **the two-review limit below** — the one rule here
-that bounds the *sequence*. Around it sit three that bound something else and
-are not stops: the write-gate rule below (which heads must be reviewed),
-pre-registered flip conditions (a bound within a round) and, since #96, a
-judgement made from two independent assessments rather than alone (what is
-written for). This paragraph listed only those three until 2026-09-20, which
-is how a section headed *what stops a loop* came to answer with three rules
-that do not stop one. (An external adjudicator whose verdict decided stood here
+it is the write-gate rule below (the loop ends when the judgement is that
+nothing more is worth writing) and the ship gate (`claude-core.md`, *The
+ship gate*: once both assessors say the oracle is met, a further finding is
+a recorded gap unless it is a regression or reaches outside the pull
+request), applied by the builder from two independent assessments (#96) —
+never a count. The two-review limit stood here from 2026-09-20 to 2026-10-21
+as the count that bounded the sequence; David retired it (below) because
+what stops the builder stops the build. (An external adjudicator whose verdict decided stood here
 until the #89 cut removed it; nothing dispatched now decides anything.)
 
 #### Two classes outside the review loop: Trivial and Documentation (David, 2026-09-25)
@@ -766,7 +766,10 @@ for the flip, never a finding that starts a fix. The PR is opened and merged
 by the same agent in the same turn, on green CI. Codex's automatic pass on PR-open still runs and is
 **read for one thing**: a finding that reports the built feature failing to
 run or produce reasonable output, which is fixed at prototype depth as a
-further commit of the version (David, 2026-10-21: *"Yes skim."*). Every
+further commit of the version — or, since the PR merges on green CI without
+waiting for the pass, as a same-day follow-up PR on `main` when the pass
+lands after the merge (David, 2026-10-21: *"Yes skim."*; Codex, AI-Handbook
+#221 round 2, named the timing gap). Every
 other thread is resolved with one line naming this phase and starts no fix.
 **The one fix a prototype owes regardless of who finds it** is a defect that
 stops the built feature running and producing reasonable output (David,
@@ -1061,83 +1064,44 @@ fix), so the shape is a property of the loop, not of the artifact.
 
 #### The two-review limit on autonomous iteration (David, 2026-09-19)
 
-**For internal tooling, autonomous iteration is bounded at two reviews.** Not a
-round budget — a limit on how long the builder may keep *editing* without
-David. The sequence:
+**Retired 2026-10-21.**
 
-1. **Review the head.** Meets the agreed requirements → ship it.
-2. **If corrections are warranted, make ONE coherent batch** — every finding
-   worth acting on, together, with targeted verification of the failure classes
-   involved rather than of the reviewer's examples.
-3. **Review the corrected head.** Acceptable imperfections become recorded
-   gaps; worthwhile deferred work becomes an issue. **A recommendation to
-   write at this step is not itself a question for David** (David,
-   2026-10-10): the shared judgement — both assessors, with the Fable
-   assessor's tie-break on a technical split that survives — decides between
-   recording the gap and asking David to reopen, and only the three
-   shortfalls named below, or that judgement concluding a write is worth his
-   reopening, bring it to him. A gap reachable nowhere the work runs today
-   is ordinarily a recorded gap; whether it would be consequential harm once
-   the work does run there is the third shortfall's question, and that one
-   is still his. (Overhype.me #637 is the measurement: round two's one real
-   finding was reachable nowhere the journey ran, both assessors said so, and
-   their split on *when* to fix it — a timing judgement the tie-break exists
-   for — went to David as a question beside the one that was his.)
-4. **Autonomous iteration ends there.**
+**Retired** (David, 2026-10-21: *"This two review limit needs to go and you
+need to start taking a much more autonomous role in development."* and
+*"everything that stops you from working is a problem for me. The backstop
+was always to keep you from going off the rails but we seem to have solved
+that problem and I'd much rather have you use up too many tokens accidentally
+occasionally than keep delaying our ability to build. We can always go back
+and revisit the decision if need be."*). The heading stays because the rest
+of the payload links to it; what it named no longer exists, and neither does
+the rule that sent a review-loop-changing pull request to David after its
+second review, nor the six-hour clock.
 
-**A cap on further EDITING is not an exemption from REVIEWING what was edited**
-(Astra, 2026-09-19, and this is the sentence the whole rule turns on). Step 3
-is not optional and there is no second batch of fixes merged behind it. Both of
-the write-gate's invariants survive intact: no commit merges unreviewed, and
-the loop ends on a reviewed head.
+**What bounds a loop now is judgement, not a count.** The write-gate (code
+written is code reviewed; the loop ends when the judgement is that nothing
+more is worth writing) and the ship gate (`claude-core.md`, *The ship gate*:
+once both assessors say the oracle is met, a further finding is a recorded
+gap unless it is a regression or reaches outside the pull request) are the
+stopping rules, and the Worth rule (`review-judgment.md`) decides each
+finding. The builder decides when to stop, on every round, from the two
+assessments, and says in the merge report what was recorded as a gap and
+why. No round number brings findings to David. A corrected head that still
+violates an agreed requirement or fails a required check is still not
+mergeable: the builder fixes it or cuts it, and reports. What still goes to
+David is what always did — a product decision (what the product should do,
+an accepted user-facing consequence), a plan, and the irreversible list
+(`agent-working-rules.md`, *A reversible choice proceeds on the
+recommendation*).
 
-**What ending iteration does NOT mean is "merge regardless."** If the corrected
-head still violates an agreed requirement, a required check fails, or a finding
-establishes consequential harm David has not accepted, **it does not merge —
-it goes to David with the concrete shortfall and a choice**: continue, cut the
-scope, or stop the work. Ending the loop and declaring the work ready are two
-different things, and conflating them is how a cap turns into a hole.
-
-**The builder cannot award itself a third review.** That is the operational
-difference between this and the round budget the #89 cut deleted: "another
-correction seems worthwhile" is exactly the reasoning the limit exists to
-refuse. A third review requires David reopening the work deliberately.
-
-**Two is an explicit operating trade-off, not a measured optimum.** The
-retrospective establishes that the sequence is too long and too self-referential;
-it does not establish that two is the right number. It buys independent
-inspection of the implementation and of its first corrections, which is the
-least that is worth having.
-
-**Scope it by consequence and recoverability**, with "internal tooling" as the
-convenient default rather than a universal exemption. Machinery that governs
-approvals, publication, credentials or destructive operations is weighed on
-both whatever directory it lives in: a change whose effect on what it
-approves, publishes, grants or destroys could not be trivially undone is
-outside the limit, and one that could — a printed message, a formatting change
-to what gets published — is not. Product code is outside because the limit
-bounds internal tooling, not because of that weighing. And **"this changes how
-future agents work" does not by itself disqualify anything here** — reach is
-not consequence, or every line in this repository would be exempt from every
-limit.
-
-**The failure signal, named in advance:** if this boundary routinely produces
-requests to reopen, it has not relieved the problem. The answer then is smaller
-increments or simpler machinery — never another layer of exceptions on top of
-the limit.
-
-**What capping costs, concretely, because it is not free.** At #124's round-two
-head the concern ledger accepted an entry carrying no original reasoning and
-rendered an empty box where the argument should have been; it was found at
-round 7. At that same head, the private-plan ignore file did not ship to
-consumers, so a plan could sit unignored and an intervening `git add -A` could
-publish it. Both are real defects that a two-review limit would not have
-surfaced inside that loop. Neither is an argument against the limit — the
-second is an argument for the *shortfall* branch ("What ending iteration does
-NOT mean", above), which is what a
-disclosure failure is — but the trade is real and is recorded here rather than
-discovered later. (Astra reproduced both against the historical code,
-2026-09-19.)
+**The measurement that built the limit stands, as a reason to stop early
+rather than as a rule.** On 2026-09-19, across five loops, 57% of findings
+from round two onward landed on lines an earlier round's fix had just
+changed, and 67% were written for: the sequence, not the finding, is what
+costs. The builder reads that as a prior — a second batch is usually chasing
+the first, and the ship gate's default, record the gap, is the ordinary
+answer from the second review on — and may still write a third batch when
+the judgement says it is worth it. The 2026-09-19 text, with its #124 cost
+record and its shortfall rule, is in git history at this heading.
 
 #### There is no budget any more (#89 cut, 2026-09-16)
 
@@ -1227,15 +1191,16 @@ prototype phase, per feature*, above).
   for a defect that stops the feature working, by design (above). What is refused is a round requested
   merely to get a different answer on a head already reviewed as it stands.
   (Astra, 2026-09-19.)
-- **The two-review limit bounds how long iteration runs**, above. These bound
-  what a single round is for.
+- **No count bounds how long iteration runs** (the two-review limit is
+  retired, above); the write-gate and the ship gate do, by judgement. These
+  bound what a single round is for.
 - **Every review request carries pre-registered flip conditions** — what
   finding, what count, what change of shape would end the loop, written before
   the round runs, **each naming an observable read off the round rather than a
   judgement made in the moment**. **Within a round** it is the device with a
   working record (6-for-6), and it works because a condition written in
-  advance collides with an event instead of waiting to be recalled. It was the
-  only one until the two-review limit, which bounds the sequence instead.
+  advance collides with an event instead of waiting to be recalled. The
+  sequence is bounded by the ship gate, not by a count.
 - **A product decision goes to David immediately**, at any round, and is never
   ground through mechanically.
 

@@ -222,10 +222,13 @@ For non-trivial implementation work, create or update a plan using
 approves the plan.** A feature in **prototype phase** meets this standard
 once, for its first version — a short plan, Astra's review, David's
 approval — and is outside it for later versions unless he asks; no version
-gets a code review, and after the first the only reviewer is the product
-owner using it — after the version's scaled machine lanes have passed, any
-failing one repaired by the agent first, and any that would start a paid AI
-run only on David's go-ahead for that run (`uat-doc-format.md`, *Lanes*)
+gets a code-review loop, and after the first the only feedback that changes
+it is the product owner's — after the version's scaled machine lanes have
+passed, any failing one repaired by the agent first, any that would start a
+paid AI run within David's per-run and weekly budget (`uat-doc-format.md`,
+*Lanes*), and with one fix owed whoever finds it, Codex's automatic pass
+included: a defect that stops the built feature running and producing
+reasonable output (David, 2026-10-20)
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 
 **Planning (not code review).** A planning loop does not run on a pull request

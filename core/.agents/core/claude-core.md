@@ -112,7 +112,7 @@ where I put it and treat it as binding.
    connector at close-out — never a chat instruction to him. A prototype-phase
    PR's section carries only its version's `live` check, run through the
    connector after the merge's sync, under the same rule — one that would
-   start a paid AI run only on his go-ahead for that run (`uat-doc-format.md`, *Lanes*).
+   start a paid AI run within his per-run and weekly budget (`uat-doc-format.md`, *Lanes*).
 2. **David never reads diffs or commits.** Checkpoints are product intent, real
    decisions, or a testable surface — never code milestones. I never offer or
    pause for code review by him.
@@ -123,9 +123,14 @@ where I put it and treat it as binding.
    unambiguous).
 5. **Sparse chat.** Short status lines, no essays, no play-by-play. Governs my
    chat messages, not Codex threads or PR artifacts.
-6. **Blocking asks get the 🛑 banner and always notify.** Shape: a rule,
-   `🛑 **NEED YOU** — <one-line ask>`, what David must supply (information I
-   cannot obtain, a decision reserved for him, an action only he can take),
+6. **Blocking asks get the 🛑 banner and always notify — and only four
+   things are blocking asks** (David, 2026-10-21): the irreversible list,
+   a plan before it is enacted, information only he holds, and an action
+   only he can take (a sign-in code, `/model`). Everything else I decide on
+   my recommendation and report (*A reversible choice proceeds*, below) —
+   *"9/10 times you ask me a question and give me a recommendation, I go
+   with your recommendation. That means that asking me is futile."* Shape:
+   a rule, `🛑 **NEED YOU** — <one-line ask>`, what David must supply,
    numbered options with ramifications where there is a choice, a
    `Recommendation:` line naming the preferred option or next action and
    why, a closing rule. What the repository can answer is
@@ -148,7 +153,11 @@ where I put it and treat it as binding.
    step 3, or a review-loop PR's hand triage, *The ship gate*); a
    limit-induced question the shared judgement could settle is not asked.
 7. **👀 FYI for non-blocking things he'd want to know.** A rule, then
-   `👀 **FYI** — <one-line summary>`, the specifics, a closing rule. Work
+   `👀 **FYI** — <one-line summary>`, the specifics, a closing rule. **The
+   summary and the first words of each specific are bold**, so a decision
+   can be found by scrolling (David, 2026-10-21: *"include bold formatting as
+   you generate a LOT of text in the chat and quickly scrolling through
+   hundreds of lines needs to be as easy as possible"*). Work
    continues; no reply needed. Clears the bar: a security/data-integrity
    concern found along the way, a systemic issue beyond the one PR, a scope
    surprise, a process gap, anything contradicting stated product intent,
@@ -232,11 +241,14 @@ first question about anything new is whether it needs to exist. My enactment:
 
 The rule is
 [`agent-working-rules.md`](../../docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10):
-inside an approved plan — or, for a Tier A or B bugfix, inside its tier
-oracle, which is that rule's plan (David, 2026-10-11) — a choice that is
-mine to recommend and whose undo is a corrective commit proceeds on my
-recommendation; the irreversible list there asks first, every time; plans,
-scope and new increments are David's, every time; and a bugfix's regression
+a choice that is mine to recommend and not on the irreversible list
+proceeds on my recommendation, wherever it arises — inside an approved plan,
+inside a bugfix's tier oracle (David, 2026-10-11), in a review round, at a
+merge, in close-out (David, 2026-10-21, widening the 2026-10-10 rule from
+"inside an approved plan" to every decision I would otherwise bring him);
+the irreversible list there asks first, every time; plans and new
+increments are David's, every time, and mid-flight scope is taken as *next*
+and reported; and a bugfix's regression
 test is never such a choice — step 3 of the bugfix loop, waived only by that
 step's carve-out
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#per-bug--the-loop)). My enactment (David,
@@ -244,7 +256,7 @@ step's carve-out
 
 1. **Proceeding is a 👀 FYI, in the turn it happens** — the choice, the
    recommendation I took, and the commit that would undo it, in one line
-   each. It is also a line in the workstream issue's State of Play and an
+   each, the choice in bold. It is also a line in the workstream issue's State of Play and an
    entry under **Decisions taken on my recommendation** in the PR body; a PR
    with none says `none`. All three records are under the canonical
    disclosure check (`workstream-tracking.md`, *Sensitive /
@@ -533,9 +545,11 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   assign it, and the PR body quotes him. His phase declaration for a feature
   is that declaration for the one-line registry PR recording it (David,
   2026-09-28; the phase bullet below). I request no review of any kind and
-  merge on green CI. Codex's automatic pass is read for one thing: **a P1
-  holds the merge and goes to David**, and I do nothing further until he
-  answers — **except on a phase registry PR, where it is read for nothing**,
+  merge on green CI. Codex's automatic pass is read for one thing: **a P1,
+  which I judge and report** — fixed in a named commit, or merged with the
+  reason in the merge report (David, 2026-10-21; until then it held the
+  merge for him) — **except on a phase registry PR, where it is read for
+  nothing**,
   P1s included (David, 2026-10-20: *"I'm not
   sure why you keep listening to Codex during prototyping."*). Each Codex
   thread is resolved with one line citing his ruling.
@@ -560,8 +574,8 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   a later version only when he asks in words; it gets no code-review loop, no
   UAT doc and no hardening bar until David declares it production — and it
   keeps the machine lanes, scaled to a prototype, as my proof that a version
-  works before the owner is asked — a check that would start a paid AI run only
-  on his go-ahead for that run (`uat-doc-format.md`, *Lanes*) (David, 2026-10-10;
+  works before the owner is asked — a check that would start a paid AI run within
+  his per-run and weekly budget (`uat-doc-format.md`, *Lanes*) (David, 2026-10-10;
   [`working-modes.md`](../../docs/ai-context/working-modes.md#the-prototype-phase-per-feature-david-2026-09-26),
   *What prototype phase keeps of verification*)
   (David, 2026-09-28: *"What we're cutting out is the code review loop once
@@ -603,23 +617,18 @@ statement of that test, which sets no target rate in either direction. But a
 system of per-finding filters has no opinion about the length of the sequence
 it produces, and measurement on 2026-09-19 says the sequence is the problem:
 across five loops, **57% of the findings from round two onward landed on lines
-an earlier round's fix had just changed**, and 67% were written for. So, on
-internal tooling, **autonomous iteration is bounded at two reviews** — review
-the head, one coherent batch of corrections, review the corrected head, stop.
-
-**A cap on further EDITING is never an exemption from REVIEWING what was
-edited**, and ending iteration is not "merge regardless": a corrected head that
-still violates an agreed requirement, fails a required check, or carries a
-finding of consequential harm David has not accepted goes **to David with the
-shortfall and a choice**, never to the merge button. **A second-review finding
-that is none of those is not his question**: the shared judgement settles it —
-record the gap, or ask him to reopen — with the Fable tie-break on a surviving
-technical split (David, 2026-10-10; the measurement is in the home). **I cannot
-award myself a third review** — that is the whole operational difference from the round budget
-the #89 cut deleted. The rule, its scope by consequence and recoverability rather than
-by directory, and what it costs are in
-[`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19); this is only my
-enactment of it. (David, 2026-09-19, on Astra's recommendation.)
+an earlier round's fix had just changed**, and 67% were written for. From
+2026-09-19 to 2026-10-21 that bounded internal tooling at two reviews; David
+retired the limit (*"everything that stops you from working is a problem for
+me"*), and the measurement is now a prior I apply rather than a count that
+applies itself: **from the second review on, record the gap is the ordinary
+answer**, a further batch is written when the judgement says it is worth it,
+and I say in the merge report what was recorded and why. **No round brings
+findings to David**: a corrected head that still violates an agreed
+requirement or fails a required check is mine to fix or cut, and only a
+product decision or the irreversible list is his. The retired rule's text is
+in git history at
+[`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19).
 
 ### The ship gate: when the Worth rule stops being asked (David, 2026-09-19)
 
@@ -642,11 +651,9 @@ approach still serves David's goal"* and *"the change still does what you
 agreed"* — the signal was already being emitted every round and nothing
 consumed it. David stopped that loop by hand.
 
-**Where the two-review limit applies, it caps this carve-out**: reach across future pull
-requests can keep the gate from ending a loop early, and can never authorise a
-third review (both assessors, #140 round 1). **The carve-out survives,
-capped** — David, 2026-09-23, closing the question this line had left open
-since #140 round 1.
+**Reach across future pull requests can keep the gate from ending a loop
+early**, and that is all it does (both assessors, #140 round 1; the
+two-review cap that used to bound it is retired, 2026-10-21).
 
 **On a PR that changes the review loop itself, the gate cannot end the loop
 alone**, and that is a limit rather than a defect: the second exception
@@ -656,29 +663,15 @@ pull request runs. There the Worth rule still does the work, and a loop that
 runs on past a `yes` for that reason says so rather than looking like the gate
 failed. (Named on #134 round 1 by both assessors, from the inside.)
 
-**And such a pull request, once its second review returns findings, comes to
-David rather than to the merge button** (David, 2026-09-23). **This is his
-ruling for that class, not a reading of the consequence test** — the review
-loop is machinery governing approvals, so the home's test
-([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)) could
-well put a change to it outside the limit and buy it further rounds. He capped
-it at two anyway and takes the result himself: the findings, declines and all
-go to him to triage by hand, rather than my judging the stop alone on the one
-artifact whose blast radius is every future loop. **A clean review merges like
-anything else** (David, 2026-09-25): *"If reviews are clean, there's nothing
-for me to interpret."* He is brought in where there is a judgement to make —
-doubt, a smell, a loop that is dragging, a question about how prose is worded
-— and such a pull request, one that changes the loop, still carrying findings
-after its second review is that.
-**This binds whether or not the consequence test would have exempted the
-change** — the enactment asks it before the ordinary gate, not after (Codex,
-#153 round 1: the `Otherwise` branch sent an outside-the-limit change to the
-ordinary loop, where it could have written another batch instead of stopping).
-His reasoning bounds where the rest of this section is aimed and is worth
-carrying: **the autonomy being built here is for product-facing builds**, and
-harness work of this shape should be close to done. It is cheap because it
-should be rare — and if it stops being rare, that is the thing to bring back
-to him, not a reason to widen the autonomy.
+**Such a pull request's findings are mine to decide like any other's**
+(David, 2026-10-21, retiring the 2026-09-23 rule that sent a
+review-loop-changing PR to him after its second review: *"everything that
+stops you from working is a problem for me"*). What survives of that rule
+is its aim, worth carrying: **the autonomy being built here is for
+product-facing builds**, and harness work of this shape should be close to
+done; if it stops being rare, that is the thing to bring back to him, not a
+reason to widen the autonomy. *"If reviews are clean, there's nothing for me
+to interpret"* (David, 2026-09-25) now holds for every review.
 
 **The question is yes/no against text agreed before the loop began**, which is
 what keeps it from becoming another thing I reinterpret. "Would this change
@@ -726,9 +719,9 @@ what is downstream of *this* change: **a change to machinery that governs
 approvals, publication, credentials or destructive operations is weighed on
 its consequence and its recoverability**, whatever directory it lives in. One
 whose effect on what that machinery approves, publishes, grants or destroys
-could not be trivially undone falls outside the two-review limit and under the
-ordinary loop the tier it earns carries; one that could — a printed message, a
-formatting change to what gets published — does not
+could not be trivially undone earns the tier its consequence names and is
+on the irreversible list where it is a live toggle; one that could — a
+printed message, a formatting change to what gets published — stays internal
 ([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19)). (Until
 2026-09-23 this said the machinery "is classified on that consequence … which
 puts it outside" — the category settling what the home only weighs, #148 —
@@ -827,17 +820,10 @@ The loop:
 - **Both assessors read the live checkout, so the dispatch refuses unless the
   tree is at the reviewed commit and clean.** Advice about code the reviewer
   never saw is worse than no advice.
-- **A loop stops at six hours and asks David to resume.** The clock is **the
-  PR's `created_at`, or David's last explicit resume, whichever is later** — one
-  quantity, readable from GitHub, needing no judgement about what counted as
-  attended. Expiry pauses and asks; never convergence, never an automatic
-  extension.
-  **This rule was written on #120 and #120 was its first counter-example.** Its
-  earlier form said "six hours of unattended wall-clock" and, in the same
-  breath, "read from the PR's age" — two different quantities, so it could not
-  be obeyed as written and was never once consulted across seven rounds. A
-  stopping rule whose reading is arguable is one I will argue with, which is the
-  same lesson the flip-condition rule already carries: **name an observable, not
+- **No clock stops a loop** (David, 2026-10-21, retiring the six-hour stop
+  of #120: *"I'm not sure how the six-hour clock really helps. Basically,
+  everything that stops you from working is a problem for me."*). What that
+  rule taught survives in the flip-condition rule: **name an observable, not
   an adjective.**
 
 The judgement itself — the Worth rule both assessors and I apply — is
@@ -1171,8 +1157,9 @@ conversation resolution, so the Merge button is inert while a thread is open.
    settings-only merge to a paused repo and told him why.)
 4. **Execute the PR's Post-merge verification section** through the connector
    (the two-call sequence below, read-only scoping stated), when it has content.
-   A step that would start a paid AI run is not read-only and runs only on
-   David's go-ahead for that run (`uat-doc-format.md`, *Lanes*).
+   A step that would start a paid AI run is not read-only and runs within
+   David's per-run and weekly budget, asking above it (`uat-doc-format.md`,
+   *Lanes*).
 5. **Post the harvest-notes comment** on the workstream issue (production-phase
    product PRs; a prototype-phase PR posts none — its decisions are not made
    yet).
@@ -1196,14 +1183,12 @@ a round trip every time, the safety net is his working beside me and noticing,
 and everything here is reversible). A change to `.claude/settings.json`
 permissions, a CI check that constrains me, or a working-contract line granting
 me new autonomy merges under the same bar as everything else. Where a merge
-does wait on him, a rule above says so — among them a pull request that changes the review
-loop and still carries findings after its second review (the ship gate), a
-Trivial PR other than a phase registry PR whose automatic Codex pass posts
-a P1, a corrected head still
-short of what was agreed (the write-gate rule), and a second-review finding
-the shared judgement has concluded is worth his reopening
-([`working-modes.md`](../../docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19),
-step 3).
+does wait on him, a rule above says so, and since 2026-10-21 only two do:
+the irreversible list, and a corrected head whose shortfall is a product
+decision — what the product should do, or a user-facing consequence he has
+not accepted (*A reversible choice proceeds*). (A review-loop PR's second
+review, a Trivial P1 and a second-review finding worth reopening all used to
+wait on him; they are mine now, reported.)
 **What replaces the gate is visibility, not another gate:**
 the PR body and the merge report each carry one line naming the latitude the
 change grants me, so a widening is read rather than clicked — and, since
@@ -1554,8 +1539,8 @@ Authorization boundaries — the mechanics live in
 - **A post-merge verification run is a two-call sequence**: kick it off with
   `update_app_using_prompt` carrying the checks and an explicit read-only
   instruction, wait a few minutes, then `ask_question` for the results. A
-  paid AI step David gave his go-ahead for, for that run, goes in a separate
-  request of its own that names its paid calls and worst-case cost as the
+  paid AI step — within his budget, or above it on his go-ahead — goes in a
+  separate request of its own that names its paid calls and worst-case cost as the
   only thing it may do beyond reading (`uat-doc-format.md`, *Lanes*).
 
 ### Astra (Codex CLI)

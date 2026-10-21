@@ -103,19 +103,25 @@ lanes — since David's words cover *"any tests"*: none of them judges what a
 generated image shows. It narrows nothing else; text, placement, typography
 and framing the product's own code draws stay `capture`.
 
-**No check starts a paid AI run without David's go-ahead in words for that
-run** (David, 2026-10-17: *"There's no point in capping the cost to a few
-dollars if you're going to be running the tests hundreds of times … I don't
-think there's any need for you to automatically be rendering anything
-else"*), whatever its lane — a `capture`, a `scripted` journey, a `live`
+**A paid AI run proceeds within David's budget and is reported with its
+cost; above it, the run asks first** (David, 2026-10-21: *"Limit it to
+$5/run and set a weekly budget of $25 just in case."*, on the irreversible
+list in `agent-working-rules.md`, *A reversible choice proceeds on the
+recommendation*; until then every paid run needed his go-ahead in words —
+David, 2026-10-17: *"There's no point in capping the cost to a few dollars
+if you're going to be running the tests hundreds of times"* — and that
+sentence is why the budget is small and the week's total is counted),
+whatever its lane — a `capture`, a `scripted` journey, a `live`
 check, a prototype's scaled machine lanes, a Post-merge verification step,
 a diagnostic reproduction on the live system. A paid AI run is a call the
 check makes to a paid AI vendor (a real render, a real model call); the
 review loop's own assessors are not checks and keep their own rules.
-Nothing starts one by itself, no approval covers a series of runs, a re-run
-needs its own, and the ask names the paid calls and the worst-case cost. A
-spending cap the consumer declares bounds a run and authorizes none, and a
-check that would start a paid run is never read-only. It is never a `ci`
+A run that would cost more than $5, or take the week past $25, asks first,
+naming the paid calls and the worst-case cost; one within both proceeds, is
+never run in a loop or a series that would pass the week's total, and
+reports what it cost in the turn's spend line. A spending cap the consumer
+declares bounds a run below the fleet's, never above it, and a check that
+would start a paid run is never read-only. It is never a `ci`
 check either: CI runs on every push, so no per-run go-ahead can reach it.
 Checks that start no paid run carry on as their lane says.
 
