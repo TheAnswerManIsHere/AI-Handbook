@@ -4,7 +4,7 @@
  *
  * WHAT THIS REFUSES, AND WHY IT IS A CHECK RATHER THAN A HABIT. Two roles in
  * this payload are named for the model they are supposed to run as --
- * `fable-review-assessor` and `fable-round-translation`. Until #126 neither
+ * `fable-review-assessor` and `fable-build-report` (`fable-round-translation` until 2026-10-21). Until #126 neither
  * declared one. The Agent tool's resolution order is per-invocation argument,
  * then the definition's frontmatter, then the session; with no frontmatter and
  * a forgotten argument, a "Fable" role runs on whatever the parent session is.
@@ -50,7 +50,7 @@
  *     rename. It is a platform token from a fixed set, and replacing it breaks
  *     every dispatch;
  *   - as our role and source names (`fable-review-assessor`,
- *     `fable-round-translation`, `SOURCES`) -- the only ones a rename touches.
+ *     `fable-build-report`, `SOURCES`) -- the only ones a rename touches.
  *
  * And the third is not a text edit at all. Those are agent TYPE names. The
  * harness takes the type from the `name:` field and enforces no relationship
