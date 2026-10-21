@@ -9,7 +9,9 @@ description: Use after opening or being re-engaged on any PR, and whenever a git
 
 **Not a prototype-phase PR.** It merges in the same turn it opens (or, on a
 `prototype/<feature>` branch, there is no PR), so nothing here fires for it:
-no subscription, no labels, no rounds. **Nor one of the phase's one-line
+no subscription, no labels, no rounds — save step 7's interim build report,
+which the `prototype` skill reaches through close-out step 6 for a `main`-regime
+PR, and which a branch-regime version cannot have (step 7). **Nor one of the phase's one-line
 registry PRs** — at a prototype's start under the branch regime, at its flip
 and at its abandonment — which are Trivial by David's phase declaration,
 carry `Refs #N` rather than `Workstream: #N`, and own no lifecycle: no
@@ -488,6 +490,12 @@ requires it.
    *Watching the PRs I open*). Nothing below runs per round any more. Until
    the build report's own brief and schema exist, the steps below run
    **once**, at close-out, with `finalRound: true`, as the interim account —
+   where a PR exists: `roundBrief` refuses without a PR and a round, and the
+   role reads Codex's markers on it, so a `prototype/<feature>` branch
+   version gets no interim account and its hand-back says so, and a PR
+   whose only pass is the unrequested one dispatches as round 1 with the
+   thin marker reported as a limitation (Codex and both assessors, #222
+   round 1) —
    dispatched after the merge report hands back, never before a merge, and
    its answer posted verbatim in chat and as a comment on the workstream
    issue. (From 2026-09-19 to 2026-10-21 a round was translated when I

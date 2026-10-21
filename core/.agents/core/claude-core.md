@@ -981,7 +981,15 @@ comment on the workstream issue, so one place per feature holds the record
 without the chat. A Trivial PR gets none. Until its brief and schema exist
 (the PR after this one), the close-out dispatches the final-round
 translation as the interim account, once per unit of work and never per
-round. (From 2026-09-19 to 2026-10-21 a round was translated when I
+round — **where a PR exists**: that role locates its evidence by Codex's
+review markers on a PR, so a prototype version on a `prototype/<feature>`
+branch, which opens none, gets no interim account, and its hand-back says
+so, my own labelled account being its only one until the brief lands (the
+brief must read such a version from the issue and its commits — the next
+PR's requirement, named here so it is not forgotten); a PR whose only pass
+is the unrequested one dispatches as round 1 and the role reports the
+thin marker as the limitation it is (Codex and both assessors, #222 round
+1). (From 2026-09-19 to 2026-10-21 a round was translated when I
 declined something, when it smelled wrong, and always before a merge; four
 translations on #131 were the loop's single largest token line.)
 
