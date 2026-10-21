@@ -319,7 +319,10 @@ of the workstream issue's body, with these fields:
 - **Spend so far** — the build's running total in dollars, updated at every
   hand-back that changes it, so the build report can state what the build
   cost (David, 2026-10-21; `claude-core.md`, *A reversible choice proceeds,
-  and every turn reports its spend*). The one ledger line the fleet keeps.
+  and every turn reports its spend*). The one ledger line a workstream
+  keeps; the other is the repository's `paid-ai-ledger` issue, one comment
+  per paid AI run, which the weekly paid-run budget is read from
+  (`uat-doc-format.md`, *Lanes*).
 - **Decisions taken on recommendation** — one line per reversible choice the
   agent proceeded on without asking, with the way back
   ([`agent-working-rules.md`](./agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)),

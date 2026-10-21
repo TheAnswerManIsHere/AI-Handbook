@@ -292,8 +292,10 @@ step's carve-out
    running count is the source, and **one line is kept from it**: the
    workstream issue's *Spend so far*, updated at every hand-back that
    changes it, so the build report can state the build's total (David,
-   2026-10-21). That is the one ledger line the #89 cut's "no ledger"
-   admits, at that size and no larger. **Every hand-back ends with a fixed
+   2026-10-21). That and the repository's `paid-ai-ledger` issue — one
+   comment per paid AI run, so the weekly paid-run budget is read rather
+   than remembered (`uat-doc-format.md`, *Lanes*) — are the two ledgers the
+   #89 cut's "no ledger" admits, at that size and no larger. **Every hand-back ends with a fixed
    footer** (David, 2026-10-21: *"here's what we planned, here's the unit
    of work that I've completed, here's what we should do next"*), four bold
    fields on one block: **Done:** the unit of work this turn advanced or
@@ -964,40 +966,35 @@ fires at all:
 an AI summary in plain english of exactly what happened from start to
 finish in the build ... what was built, what decisions were made, what the
 ramifications are, how much money was spent"*). One account per unit of
-work — a PR's merge, or a prototype version delivered — written at its
-close by the same independent Fable role, reading the whole build from
-GitHub (the plan or the prompt, the workstream issue, every PR and round,
-the decisions) rather than my account of it, in fixed sections in a fixed
-order so he can scan: **What was built**; **Decisions taken on my
-recommendation**, each with its undo, so a reversal is one line from him;
-**Ramifications and what ships unfixed**; **Spend**, the build's total, read
-from the issue's *Spend so far* line (*A reversible choice proceeds*, rule
-2); **Where we are** — what we planned, the unit just completed, what is
-next; **Session** — continue here, or archive and hand off, with the
-hand-off prompt ready when the answer is archive (the `handoff` skill's
-Step 1 judgement, run here without being asked); **Needs you** — nothing,
-or the one external thing. Delivered twice, verbatim: in chat, and as a
-comment on the workstream issue, so one place per feature holds the record
-without the chat. A Trivial PR gets none. Until its brief and schema exist
-(the PR after this one), the close-out dispatches the final-round
-translation as the interim account, once per unit of work and never per
-round — **where a PR exists**: that role locates its evidence by Codex's
-review markers on a PR, so a prototype version on a `prototype/<feature>`
-branch, which opens none, gets no interim account, and its hand-back says
-so, my own labelled account being its only one until the brief lands (the
-brief must read such a version from the issue and its commits — the next
-PR's requirement, named here so it is not forgotten); a PR whose only pass
-is the unrequested one dispatches as round 1 and the role reports the
-thin marker as the limitation it is (Codex and both assessors, #222 round
-1). (From 2026-09-19 to 2026-10-21 a round was translated when I
-declined something, when it smelled wrong, and always before a merge; four
-translations on #131 were the loop's single largest token line.)
+work — a PR's merge, or a prototype version delivered on its own branch —
+written at its close by the independent Fable role `fable-build-report`,
+reading the whole unit from GitHub (the workstream issue and the plan or
+scope it holds, every PR and round, or the prototype branch's commits)
+rather than my account of it, in fixed sections in a fixed order so he can
+scan: **Needs you** — nothing, or the one external thing; **What was
+built**; **Decisions taken on my recommendation**, each with its undo, so a
+reversal is one line from him; **Ramifications**; **Shipping unfixed**;
+**Where it disagrees with the builder**; **Spend** — the build's total from
+the issue's *Spend so far* line, and the week's paid AI runs from the
+repository's paid-run ledger (*A reversible choice proceeds*, rule 2;
+`uat-doc-format.md`, *Lanes*); **Where we are** — what we planned, the unit
+just completed, what is next; and **Session** — continue here, or archive
+and hand off. The session line is **mine, under a label saying so**: only
+this session can see its own context, so it is the `handoff` skill's Step 1
+judgement, run here without being asked, with the hand-off prompt following
+the report when the answer is hand off. Delivered twice, verbatim: in chat,
+and as a comment on the workstream issue, so one place per feature holds
+the record without the chat. A Trivial PR gets none. (From 2026-09-19 to
+2026-10-21 a round was translated when I declined something, when it
+smelled wrong, and always before a merge; four translations on #131 were
+the loop's single largest token line. From #222 to the PR that built the
+report, the final-round translation stood in, once per unit.)
 
 **The delivery is a message in chat, and there is nothing else** (David,
 2026-09-16). `chatReport` composes it from the answer's own fields and I paste
-that verbatim, saying nothing else about the build (these delivery and
-independence rules carried over from the round translation to the build
-report unchanged, 2026-10-21). **No page, no Artifact, no
+that verbatim, saying nothing else about the unit (these delivery and
+independence rules carried over from the round translation unchanged,
+2026-10-21). **No page, no Artifact, no
 HTML, no link, no receipt store** — and rebuilding any of them is forbidden
 rather than merely unnecessary. There *was* a page, and #109 round 3 found what
 it actually was: HTML written to a gitignored path, so the delivery was a file
@@ -1007,20 +1004,22 @@ uses it well; a page is something he would have to go and open, and building a
 delivery system for one agent telling him the answer is undoing the #89 cut by
 hand.
 
-**Fable fetches the build from GitHub itself** — the issue, the threads, the
-comments, the reviews and the diffs — and writes its answer to a file this module derives, so
-the account is neither assembled nor rewritten by me. That is the one property
-here worth machinery: **the translator's account reaches David unedited**. It
-is a second account, not a ban on mine — my own write-up of a round is welcome
+**Fable fetches the unit from GitHub itself** — the issue, the threads, the
+comments, the reviews and the diffs — from a brief passed inline in the
+dispatch (the role holds no file-reading tool), and writes its answer to a
+file the script derives, so the account is neither assembled nor rewritten
+by me. That is the one property here worth machinery: **the role's account
+reaches David unedited**. It
+is a second account, not a ban on mine — my own write-up of a unit is welcome
 beside it, labelled as mine (David, 2026-09-16: a builder-written account is
 *"not an issue at all"*; the earlier prohibition here was over-caution). **It is an independent assessment, and it is not a guarantee**: I launch
 the dispatch, choose the coordinates and paste the result, so it defends against
 my being *wrong*, never against my being deliberately misleading. The account
 says what it verified and what it took on trust, and that honesty is the value —
 not a claim of immunity. **A dispatch that fails is disclosed in plain English
-and never blocks the loop**: the translation is off the critical path by
-design. Mechanics:
-`pr-watch`.
+and never blocks the loop**: the report is off the critical path by
+design. Mechanics: `pr-watch`, step 7; `core/scripts/build-report.mjs`
+here, `scripts/build-report.mjs` in a consumer.
 
 ## Pull requests
 
@@ -1141,7 +1140,7 @@ a Trivial PR none. CI and Codex catch
 
 **No receipt proves any of the three now** — `pr-ready.mjs` went with the #89
 cut, having never run once in the loop it was built for (David merged from the
-GitHub UI and checked the bar by eye). All four are reads I do. The one item
+GitHub UI and checked the bar by eye). All three are reads I do. The one item
 GitHub itself enforces is *every thread resolved*: the `main` ruleset requires
 conversation resolution, so the Merge button is inert while a thread is open.
 
@@ -1419,7 +1418,7 @@ shows the true delta.
     "this looks small" is not: the repo's one-line-that-broke-everything is on
     file (#582), and cheap-looking is exactly when the tier matters.
   - The named judgements — the plan reviewer, the review proxy's two
-    assessors, the round translator and `/next`'s three judgement steps — run
+    assessors, the build report's role and `/next`'s three judgement steps — run
     at the strongest available tier regardless.
     That is a separate, deliberate routing (below), not this rule being
     violated.
@@ -1440,7 +1439,7 @@ shows the true delta.
   those** (David, 2026-10-04,
   narrowing the 2026-08-17 "every judgement, no exceptions"): the plan
   reviewer and Astra's code-round assessment, resolving `strongestCodex`; the
-  Fable assessor and the round translator, resolving `strongestClaude`; and
+  Fable assessor and the build report's role, resolving `strongestClaude`; and
   `/next`'s three judgement steps, which name Fable by alias rather than
   reading the pin, inline or dispatched. The four roles resolve their tier
   through `.agents/machinery.json`. Any other

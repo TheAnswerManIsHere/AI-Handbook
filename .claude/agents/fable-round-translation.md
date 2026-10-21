@@ -1,1 +1,0 @@
-../../core/.claude/agents/fable-round-translation.md
