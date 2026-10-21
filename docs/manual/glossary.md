@@ -506,7 +506,7 @@ bug fixes with product-visible behaviour) carry a UAT script as the `## UAT` sec
 description, and `/uat` walks David through it step by step in chat rather
 than leaving him to read it alone. Nothing is deleted when the run
 completes; the workstream's label says whether a run is still owed.
-Home: [`core/.claude/skills/uat/SKILL.md`](../../core/.claude/skills/uat/SKILL.md)
+Home: [`core/docs/tests/uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md) for where the script lives and its shape; [`core/.claude/skills/uat/SKILL.md`](../../core/.claude/skills/uat/SKILL.md) for the run
 
 ---
 

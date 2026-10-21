@@ -217,8 +217,9 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
 - **The UAT is a conversation, not a document.** David used to keep his own
   place in a markdown file in one window and the app in another. Now Claude
   owns setup, the place, the record and the bug intake, and David does only
-  the judging. Deleting a finished document keeps the folder honest: anything
-  left in it is a run still owed.
+  the judging. The script lives in the pull request's description rather
+  than in a file, so a finished run leaves nothing to delete; whether a run
+  is still owed is the workstream's label, not a folder's contents.
 - **A Codex outage stops work rather than being worked around.** Codex's
   review of product code is David's safety net. Continuing to build without
   it would mean either merging unreviewed code or piling up unreviewed work —

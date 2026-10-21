@@ -1106,9 +1106,9 @@ design. Mechanics:
    the `uat` skill's old rule); a prototype-phase PR is done on green CI
    with its verification section filled, and never carries that section.
    Bugfix mode does not inherit this pairing. **Running** a UAT is the `uat` skill (David,
-   2026-08-21): the doc is a script I drive step by step in chat — I own the
+   2026-08-21): the script is one I drive step by step in chat — I own the
    setup, the per-step record, and filing any bug the moment it's found — not
-   a file he reads alone, and no longer an Artifact page.
+   a page he reads alone, and no longer an Artifact page.
 
 ## Close-out is mine, end to end
 

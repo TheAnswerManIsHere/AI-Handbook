@@ -208,7 +208,7 @@ rewrite, which turns an unbounded parsing problem into a style rule the payload
 can simply obey. (David, 2026-09-09: *"You control everything so you don't have
 to worry about strange links."*)
 
-**`docs/tests/uat-doc-format.md` is no longer on this list** (2026-10-09, AI-Handbook #187): the UAT format now ships in the payload, and the sync replaces a consumer's own copy with it. A consumer that had adapted the format locally moves its product-specific notes into its UAT docs or its overlay before syncing.
+**`docs/tests/uat-doc-format.md` is no longer on this list** (2026-10-09, AI-Handbook #187): the UAT format now ships in the payload, and the sync replaces a consumer's own copy with it. A consumer that had adapted the format locally moves its product-specific notes into its overlay before syncing (the script itself lives in each PR's body since 2026-10-21, so there is no local doc to carry them).
 
 ## Enrolling a repo
 

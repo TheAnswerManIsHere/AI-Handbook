@@ -819,8 +819,9 @@ tracking*), so it has no labels to keep):
   gone.)
 - **The PR merges with "none needed" verification** → `stage:uat` **only
   after the close-out sync checks pass, and only if the PR body carries a
-  `## UAT` section (or, for a PR merged before 2026-10-21, a legacy UAT doc
-  under `docs/tests/UAT/`) or one is actually due**. The transition moment is the verified Repl
+  `## UAT` section ([`uat-doc-format.md`](../../../docs/tests/uat-doc-format.md);
+  or a legacy UAT doc still under `docs/tests/UAT/` on `main`) or one is
+  actually due**. The transition moment is the verified Repl
   sync (matching SHA + clean worktree, per CLAUDE.md's close-out
   sequence), not the merge click — a failed sync would otherwise put a
   David-held UAT gate on the board for a build he can't actually reach;

@@ -58,7 +58,7 @@ level up: `### ` inside `## Steps` or `## Regression`.)
 Two consequences worth stating, because they are what the rule buys:
 
 - **Coverage is countable.** "7 steps and 4 regression checks" is a fact the
-  driver reads off the file, not an estimate. The acceptance roll-up in
+  driver reads off the section, not an estimate. The acceptance roll-up in
   `/uat` quantifies over exactly this list.
 - **Regression checks cannot be silently dropped.** They are steps, in the
   same list, with the same statuses. The failure that motivated this format

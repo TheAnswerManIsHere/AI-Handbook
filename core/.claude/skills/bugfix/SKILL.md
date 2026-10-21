@@ -231,9 +231,10 @@ the PR back only delays the review that catches things.
    git constraints. If the branch later needs current `main`, **merge, don't
    rebase**.
 2. Open the PR with `mcp__github__create_pull_request` — base `main`
-   normally; **as a draft only when the Tier B draft-first flow in step 3
-   applies** (a plain non-draft open is the point for everything else —
-   round 1 fires immediately).
+   normally, **never as a draft**: a plain non-draft open is the point, since
+   round 1 fires immediately, and a Tier B fix's UAT section is already in
+   the body at open (step 3; the draft-first flow that once learned the PR
+   number for a file is retired, 2026-10-21).
    **Exception: a stacked fix bases against its parent's branch, not `main`**
    (per `working-modes.md`'s *Dependent bugs* note) — otherwise the new PR's
    diff carries both bugs' commits until the parent merges, defeating the
@@ -372,8 +373,8 @@ What is *bugfix-specific* about the loop:
   round; the light *planning* path must never shade into a light *review*
   path.
 - **Round 1 is automatic.** The Codex connector reviews on non-draft PR
-  open — or on marking a draft ready, in the Tier B draft-first flow
-  (step 3, with its first-use caveat) — so no `@codex review` on open.
+  open — every bugfix PR opens non-draft, Tier B included (step 2) — so no
+  `@codex review` on open.
 - **The artifact the fix touches picks the tier — never the fact that it's
   a fix.** A fix to product code is a product loop. But routed entry means a
   bug can be *in the docs*: when the whole diff is agent-facing markdown or

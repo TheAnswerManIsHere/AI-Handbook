@@ -62,7 +62,7 @@ An invocation may name a PR, an issue, or nothing.
 
 Then give him a **three-line preview before step 1**, never the whole script:
 how many machine-lane checks I resolved and how many steps are his, in
-`## Steps` and in `## Regression` (section 3), what I'm setting up for him
+`### Steps` and in `### Regression` (section 3), what I'm setting up for him
 (section 2), and anything he needs on hand — an admin login, a phone, a fresh browser tab. The script's
 narrative preamble is mine to have read, not his to sit through.
 
@@ -93,7 +93,8 @@ Four rules, because setup writes to the live app:
 - **Teardown runs before the run stops — at the end, and equally before a
   pause.** This is not a tidiness rule, it's a production-safety one: real
   UAT scripts put the live app into deliberately wrong states, and
-  `PR443_BUDGET_GATE_FAIL_CLOSED_UAT.md` is the worked example — it lowers
+  Overhype.me PR #443's script (the budget gate failing closed) is the
+  worked example — it lowers
   `budget_limit_legendary_usd`, the **real** Legendary spend limit, and puts
   it back at the end. A run paused mid-bugfix can sit for days, so a pause
   that skipped teardown would leave production mis-configured for exactly
