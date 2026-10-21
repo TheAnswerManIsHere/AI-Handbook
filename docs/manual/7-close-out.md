@@ -120,9 +120,12 @@ The format of the section and what earns a check are set by each product's
 ### The UAT: where David checks the change is *right*
 
 For a product-visible feature in production phase, the pull request also
-ships a UAT document — a click-through acceptance script — added to the same
-pull request before it merges. After the sync, David runs it, but not alone:
-`/uat` turns the document into a conversation. Claude does the setup (seeding
+carries a UAT script — a click-through acceptance script, written as the
+`## UAT` section of the pull request's own description, beside the oracle
+it is judged against (until 2026-10-21 it was a file under `docs/tests/UAT/`,
+with a naming dance and a deletion pull request the section needs none of).
+After the sync, David runs it, but not alone: `/uat` turns the script into
+a conversation. Claude does the setup (seeding
 data, putting configuration in a known state, confirming the app is up),
 presents one step at a time, records each result, and puts back everything it
 changed — including before a pause, since a paused run can sit for days.
@@ -135,7 +138,8 @@ time goes only to what needs a person: whether the change feels right. When
 each lane runs is the format's to say. The lanes and their records are
 defined in
 [`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), and a checker
-refuses a document that leaves a step without one.
+reads the pull request's description in CI and refuses a script that leaves
+a step without one.
 
 When a step fails, Claude captures the exact evidence, files the bug while the
 context is fresh, records the way back to this run on the workstream, and asks
@@ -143,11 +147,13 @@ David whether to continue or pause. It does not diagnose the bug inside the
 UAT session; diagnosis belongs to a bugfix session with a real branch and a
 real review.
 
-When David confirms a run complete, Claude deletes the UAT document in the
-same close-out — so a UAT file still present on `main` always means a run
-still owed. The one reason to keep one is that it is the only written
-description of some behaviour, and then that description is harvested into
-the product's manual first.
+When David confirms a run complete, nothing is deleted: the script stays in
+the merged pull request as history, the result lives in the run record on
+the workstream issue, and the workstream's `stage:uat` label leaving is what
+says the run is no longer owed. A behaviour the script is the only written
+description of is harvested into the product's manual at close-out. A
+legacy file still under `docs/tests/UAT/` from before the move is driven
+from the file and deleted when its run completes.
 
 ### Closing the workstream
 
