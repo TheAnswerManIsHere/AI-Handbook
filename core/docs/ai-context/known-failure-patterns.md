@@ -403,7 +403,7 @@ branch, tested on its own prototype environment with no merge at all —
 [`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26)).
 Running behaviour itself is testable before the merge: the per-PR E2E job
 and a local stack at the commit under test both drive the app, which is
-where a UAT doc's screen facts are checked (the `uat` skill, *Where the
+where a UAT script's screen facts are checked (the `uat` skill, *Where the
 browser automation lives*); only the deployed build waits for the sync.
 Merge + sync is what makes a build testable;
 production is the separate, deferred `publish_app` step. This misfired twice
@@ -3113,3 +3113,26 @@ time on its new evidence and scope, naming what the new instance shows that the
 first did not. **Repetition alone does not establish that the earlier judgement
 was wrong** (David, 2026-09-17): the rule used to say it did, which turned any
 persistent reviewer into an override.
+
+## Announcing the next step as the turn's last text
+
+**The pattern.** An agent whose turn ends whenever it writes a message without
+a tool call closes a turn with "starting X now" or "next I'll do X". The
+sentence reads as momentum and is the opposite: nothing runs after it, and
+the work waits until a person notices the silence and asks. Nobody decided to
+stop; the announcement was the stop.
+
+**The worked example (Overhype.me #631, 2026-10-21).** After David agreed to
+parallelise E2E Smoke, the hand-back said the work was starting, and no tool
+call followed. He came back to an idle session and asked which rule had
+stopped it. None had: the contract listed when to stop for him and said
+nothing about when *not* to stop, so a natural pause in the conversation
+defaulted to a hand-back.
+
+**Avoid:** a hand-back needs one of the reasons item 0 of `claude-core.md`,
+*Waiting, and scheduled check-ins*, lists, named in the footer's **Next:**:
+the work is done; every startable item waits on an event that will wake me;
+a 🛑 stop; a report the contract makes a turn's last text, with the next
+item's resume armed before it is written; or a check-in that tripped its cap. If this recurs with that rule in place, the response is a
+deterministic check on the footer's **Next:** form (a Stop hook), not a
+better note (*Recurring failure patterns become CI guards*).

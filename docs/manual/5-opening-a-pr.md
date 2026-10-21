@@ -122,10 +122,11 @@ that slips past.
 [`pr-docs`](../../core/.claude/skills/pr-docs/SKILL.md) skill adds a
 [*Post-merge verification*](./glossary.md#post-merge-verification) section — checks that only the live environment can
 answer, run through the Replit connector at close-out — and a
-[UAT](./glossary.md#uat) script David will be walked through. The UAT file is
-named after the pull request's number, so the PR opens first with a "docs
-pending" note, and the script is committed to the same pull request before it
-merges. Bugfixes and prototype-phase changes do not inherit this pairing.
+[UAT](./glossary.md#uat) script David will be walked through, written as
+the `## UAT` section of the same pull request's description, in the shape
+[`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md) gives, so
+it is there when the PR opens and is reviewed with the diff. Bugfixes and
+prototype-phase changes do not inherit this pairing.
 
 **Later additions.** A phase of a larger feature adds a line saying which
 parts of the parent plan this phase delivers and which it defers, so a

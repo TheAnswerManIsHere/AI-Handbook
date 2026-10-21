@@ -299,7 +299,8 @@ step's carve-out
    footer** (David, 2026-10-21: *"here's what we planned, here's the unit
    of work that I've completed, here's what we should do next"*), four bold
    fields on one block: **Done:** the unit of work this turn advanced or
-   finished · **Next:** what follows, against the plan · **Needs you:**
+   finished · **Next:** what follows, against the plan, in one of the forms
+   *Waiting, and scheduled check-ins* item 0 names · **Needs you:**
    nothing, or the one thing · **Spend:** the turn's line. **Where it sits**:
    inside the message that hands the turn back — last, except on a turn
    that ends with a 🛑 ask or an open-ask line, where interaction rule 6
@@ -379,7 +380,7 @@ Otherwise entry is routed by request shape and announced in one line (the
 announcement is David's veto surface); `/bugfix` is the explicit override.
 
 - **Feature-building is the default** — pre-plan conversation, plan, plan
-  review, build, post-merge verification, UAT doc, ship-the-UI-surface gate —
+  review, build, post-merge verification, UAT section, ship-the-UI-surface gate —
   for a feature in **production phase**; one David has declared prototype
   phase keeps the pre-plan conversation, the plan and the plan review for its
   **first version** (and for a later one only when he asks in words), then
@@ -403,7 +404,7 @@ announcement is David's veto surface); `/bugfix` is the explicit override.
   branch per PR**, opened as soon as the fix is verified. No plan file, no plan
   review. **Tier A** ships a regression test, a blast-radius note, and the
   bugfix oracle in the PR body; **Tier B** (sensitive subsystem or structurally
-  risky fix) I write myself — not routable to a subagent — and adds a UAT doc
+  risky fix) I write myself — not routable to a subagent — and adds a UAT section
   if behavior is product-visible; **Tier C** means it isn't a bug fix: it
   stops and goes to David, and the one path that continues is a trivial
   database schema fix he green-lights, straight to migration ceremony. Codex
@@ -599,7 +600,7 @@ to every unit of work but a Trivial PR.
   `overlay-declarations.md`, gets the planning loop for its first version —
   pre-plan conversation, a short plan, Astra's review, his approval — and for
   a later version only when he asks in words; it gets no code-review loop, no
-  UAT doc and no hardening bar until David declares it production — and it
+  UAT section and no hardening bar until David declares it production — and it
   keeps the machine lanes, scaled to a prototype, as my proof that a version
   works before the owner is asked — a check that would start a paid AI run within
   his per-run and weekly budget (`uat-doc-format.md`, *Lanes*) (David, 2026-10-10;
@@ -1096,23 +1097,23 @@ here, `scripts/build-report.mjs` in a consumer.
    format document are retired. Nothing had read the block at runtime since
    the #89 cut, and its fixed grammar forced a false declaration on work
    agreed in conversation with no plan file, #110.)
-5. **Post-merge verification + UAT doc** for product-visible feature PRs in
-   production phase — a prototype-phase PR ships no UAT doc, its Post-merge
+5. **Post-merge verification + UAT section** for product-visible feature PRs in
+   production phase — a prototype-phase PR ships no UAT section, its Post-merge
    verification section carries only its version's `live` check, and its
    scaled machine lanes and feedback rail are its verification — per the `pr-docs` skill and
    [`test-run-contract.md`](../../docs/tests/test-run-contract.md). A production-phase PR is not done
    until the verification section has real content (or an explicit "none
-   needed") and `docs/tests/UAT/PR<N>_<FEATURE>_UAT.md` exists and is linked —
-   PR-first, added to the same PR before merge, never a later PR; a
-   prototype-phase PR is done on green CI with its verification section
-   filled, and never carries that doc. **David
-   confirms a run complete and I delete the doc in that same close-out**
-   (David, 2026-08-22) — unless it carries behavior recorded nowhere else, in
-   which case that content is harvested into the Manual first. Bugfix mode does not
-   inherit this pairing. **Running** a UAT is the `uat` skill (David,
-   2026-08-21): the doc is a script I drive step by step in chat — I own the
+   needed") and the body carries its `## UAT` section, written to
+   `uat-doc-format.md` before the PR opens, never a later PR (David,
+   2026-10-21: the section replaces the `docs/tests/UAT/` file, its PR-first
+   naming dance and its deletion PR; the `stage:uat` label alone says a run
+   is owed, and a legacy file still on a consumer's `main` runs out under
+   the `uat` skill's old rule); a prototype-phase PR is done on green CI
+   with its verification section filled, and never carries that section.
+   Bugfix mode does not inherit this pairing. **Running** a UAT is the `uat` skill (David,
+   2026-08-21): the script is one I drive step by step in chat — I own the
    setup, the per-step record, and filing any bug the moment it's found — not
-   a file he reads alone, and no longer an Artifact page.
+   a page he reads alone, and no longer an Artifact page.
 
 ## Close-out is mine, end to end
 
@@ -1223,14 +1224,16 @@ conversation resolution, so the Merge button is inert while a thread is open.
    resolves the machine lanes itself, screen facts included (the `uat`
    skill, *Where the browser automation lives*) — plus the
    reminder that `/uat` walks him through it rather than leaving him to the
-   doc; for a prototype-phase PR,
+   script; for a prototype-phase PR,
    that the head is on `main` and unpublished, and which questions it asks
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
    entries, restated in one line each; and, as its last block, the fixed
    footer — Done / Next / Needs you / Spend (*A reversible choice proceeds,
    and every turn reports its spend*). Push notification. **Nothing of mine
    follows the merge report** — it is the message that hands the turn back,
-   and the footer is inside it, not after it; the build report that lands
+   and the footer is inside it, not after it; when more approved work is
+   startable, its resume is armed before the report is written
+   (*Waiting, and scheduled check-ins*, item 0); the build report that lands
    after it is the Fable role's account, dispatched by the merge report's
    turn and delivered as its own message when it arrives (*Watching the PRs
    I open*).
@@ -1371,6 +1374,36 @@ shows the true delta.
 
 ## Waiting, and scheduled check-ins
 
+0. **A turn ends only for a reason, and the footer names it** (David,
+   2026-10-21, after a turn ended on *"Starting #730 now"* with no tool
+   call and the work sat until he asked why). There is no "later" in a
+   turn: the moment I write a message without a tool call, I stop, and
+   nothing of mine carries on. So an announcement of my own next step
+   written as a turn's last text is the stop itself, dressed as progress.
+   A hand-back is allowed for exactly five reasons: **the approved work is
+   done**; **every startable item waits on a named event that will wake
+   me** (a subscribed PR, a background task, a `send_later`), with nothing
+   else in the plan startable meanwhile; **a 🛑 stop** (interaction rule
+   6's four); **a report this contract makes a turn's last text** — the
+   merge report (*Close-out*, step 6), a build report, an increment's
+   hand-back — whose continuation I arm *before* writing it, when more
+   approved work is startable: the build-report dispatch, a background
+   sleep (rule 1) or a `send_later` (rule 3) wakes me, and on that wake the
+   next item starts without David prompting it (rule 2's "never a
+   substitute for finishing now" does not forbid this resume — it exists
+   to make finishing happen); or **a check-in that trips its cap** (rule
+   2), which disarms and reports, inventing no blocker for David. Anything
+   else, I keep working. Answering his question is not one of the five:
+   the answer goes in the hand-back, after the work it does not block. The
+   footer's **Next:** carries the reason, in one of four forms and no
+   other: `running — <what>, woken by <event>`; `after <event> — <what>`
+   (a report's armed resume is this form, the event named); `stopped —
+   <what I was waiting for and where it stood>; the next event or a
+   message from David brings me back`; or `nothing — <the plan is done>`.
+   A bare `Next: <a thing I could start>` is the failure, and it is
+   visible to him at a glance. Never write my own next step in the future
+   tense as the turn's last text: if it is next and startable, its tool
+   call is in this turn, or its resume is armed and named.
 1. **Waiting on GitHub state:** start a **background sleep** sized to what I'm
    waiting for, **end the turn**, and on the wake-up check the actual condition
    via the matching `mcp__github__*` call — `pull_request_read`/

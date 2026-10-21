@@ -246,7 +246,7 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 
 A phase David declares **per feature**, in words, for work meant to answer a
 design question through his own feedback. Its first version keeps the
-planning loop; after that it has no code review, tests, UAT doc or hardening
+planning loop; after that it has no code review, tests, UAT section or hardening
 bar until he flips it to production. Each product records its features'
 phases in its own repository, and a feature not listed there is in
 production phase.
@@ -264,7 +264,7 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 ### Ceremony
 
 The process steps a change goes through — plan, plan review, code review
-rounds, UAT doc, harvest. It scales to the artifact and what is downstream
+rounds, UAT section, harvest. It scales to the artifact and what is downstream
 of it, not to how the request was phrased: agent-facing prose gets far less
 than product code. When the right level is unclear, the rule is to ask
 rather than default upward, because over-ceremony has been the expensive
@@ -502,10 +502,11 @@ Home: [`core/.claude/skills/pr-docs/SKILL.md`](../../core/.claude/skills/pr-docs
 User acceptance testing: David clicking through a change in the running
 product to confirm it does what was agreed — CI and Codex catch *broken*,
 UAT catches *wrong*. Product-visible production-phase features (and Tier B
-bug fixes with product-visible behaviour) ship a UAT doc in the same PR, and `/uat` walks David
-through it step by step in chat rather than leaving him to read it alone.
-The doc is deleted once he confirms the run complete.
-Home: [`core/.claude/skills/uat/SKILL.md`](../../core/.claude/skills/uat/SKILL.md)
+bug fixes with product-visible behaviour) carry a UAT script as the `## UAT` section of the PR's
+description, and `/uat` walks David through it step by step in chat rather
+than leaving him to read it alone. Nothing is deleted when the run
+completes; the workstream's label says whether a run is still owed.
+Home: [`core/docs/tests/uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md) for where the script lives and its shape; [`core/.claude/skills/uat/SKILL.md`](../../core/.claude/skills/uat/SKILL.md) for the run
 
 ---
 
