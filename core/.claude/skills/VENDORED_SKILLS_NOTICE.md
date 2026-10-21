@@ -95,8 +95,8 @@ a recorded gap the ordinary answer from the second review on; the 2026-09-20
 note above stays as the record of what they said until then.
 
 Rationale and the full policy for the 2026-07-24 delegation calibrations live
-in `CLAUDE.md` → *Model, cost, and routing*; the two-review limit's are in its
-home, linked above.
+in `CLAUDE.md` → *Model, cost, and routing*; the two-review limit's were in
+its home, linked above, which now records its retirement (2026-10-21).
 MIT permits modification; attribution above is unchanged.
 
 Not vendored: the plugin's `hooks/` (a SessionStart hook that auto-loads

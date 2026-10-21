@@ -482,13 +482,15 @@ requires it.
      at. `get_check_runs` returning `total_count: 0` means checks have not
      reported yet, which is not green and must never be reported as green.
 
-7. **Translate the round for David when I declined something in it, or when
-   something about it smells wrong — and always on the last round before a
-   merge** (David, 2026-09-19). Not every round: four translations on #131 were
-   the loop's single largest token line, and both of the translator's real
-   disagreements came on rounds carrying a decline. **After the trigger is
-   posted**, never before: a translation I could act on is an in-loop advisor
-   reading my own prose.
+7. **The per-round translation is retired; one build report per unit of
+   work replaces it, at close-out** (David, 2026-10-21; `claude-core.md`,
+   *Watching the PRs I open*). Nothing below runs per round any more. Until
+   the build report's own brief and schema exist, the steps below run
+   **once**, at close-out, with `finalRound: true`, as the interim account —
+   dispatched after the merge report hands back, never before a merge, and
+   its answer posted verbatim in chat and as a comment on the workstream
+   issue. (From 2026-09-19 to 2026-10-21 a round was translated when I
+   declined something, when it smelled wrong, and always before a merge.)
 
    **The deliverable is a message in chat. There is no page** (David,
    2026-09-16). There was one, and removing it is what #109 round 3 actually

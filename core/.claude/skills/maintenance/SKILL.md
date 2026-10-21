@@ -343,8 +343,8 @@ markers, and Phases checklists (see
 all of which decay silently. Nothing else re-checks them, and a stale queue
 produces a confidently wrong recommendation, which is worse than no
 recommendation. David's standing instruction is that he can react well but
-can't track state, so this step brings him a **concrete proposed diff** to
-approve or amend, never an open-ended "is the backlog still right?"
+can't track state, so this step brings him a **concrete diff, applied and
+reported** (item 6, below), never an open-ended "is the backlog still right?"
 
 1. **List every open issue, then sort it into three sets** — those
    carrying a `queue:` label, those carrying a `stage:` label, and **the
@@ -429,9 +429,11 @@ approve or amend, never an open-ended "is the backlog still right?"
    removed. Flag two shapes specifically, because both are the
    UAT-descent stack going wrong rather than working:
    - **A chain deeper than 2**, or **any blocker open longer than two
-     weeks** — surface it with the park-or-continue question. Pre-launch
-     the default is continue, but the call should be *prompted*, not
-     silently defaulted (`workstream-tracking.md`'s escape hatch).
+     weeks** — take *continue* on my recommendation and say so in the
+     report, naming the chain or the blocker, so the call is *visible*
+     rather than silently defaulted (`workstream-tracking.md`'s escape
+     hatch; David, 2026-10-21 — until then this was a park-or-continue
+     question to him).
    - **A cycle** (A blocked by B, B transitively blocked by A) — a real
      data error that would make every item in it permanently
      non-actionable. Report it; don't guess which edge to cut.

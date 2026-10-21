@@ -285,8 +285,17 @@ step's carve-out
    none; the line carries the label `through last tool call` rather
    than presenting a partial figure as the turn's total (Codex, DojoOS #8). **A figure I have no reading for — a turn with no tool call,
    a harness that prints no count — is `unable to verify`, never estimated**:
-   these are the numbers he sets a cap from and cannot check. No ledger; the
-   harness's running count is the source. **Where it sits**:
+   these are the numbers he sets a cap from and cannot check. The harness's
+   running count is the source, and **one line is kept from it**: the
+   workstream issue's *Spend so far*, updated at every hand-back that
+   changes it, so the build report can state the build's total (David,
+   2026-10-21). That is the one ledger line the #89 cut's "no ledger"
+   admits, at that size and no larger. **Every hand-back ends with a fixed
+   footer** (David, 2026-10-21: *"here's what we planned, here's the unit
+   of work that I've completed, here's what we should do next"*), four bold
+   fields on one block: **Done:** the unit of work this turn advanced or
+   finished · **Next:** what follows, against the plan · **Needs you:**
+   nothing, or the one thing · **Spend:** the turn's line. **Where it sits**:
    inside the message that hands the turn back — last, except on a turn
    that ends with a 🛑 ask or an open-ask line, where interaction rule 6
    keeps the ask last and the spend line sits directly above it; a turn that
@@ -482,7 +491,17 @@ enactment is `.claude/skills/document/`.
    boundaries, ceremony tier — goes to David as a 🛑 banner; for a
    prototype's version, the short plan's four items stand in for intent,
    must-not-change and settled decisions. His explicit
-   agreement is what authorizes the loop to run autonomously.
+   agreement is what authorizes the loop to run autonomously — **and his
+   approval of the plan authorizes every increment in it, end to end**
+   (David, 2026-10-21: *"once we've built and agreed on a plan, even if it
+   has many phases, you should be able to autonomously complete all the
+   steps in the plan from start to finish"*). Between increments I stop for
+   three things only, each with a push notification: a blocker only he can
+   clear (a key, a sign-in, a purchase), a UAT step that is his and that
+   the next increment depends on, and the irreversible list. A UAT the next
+   increment does not depend on never pauses the build: the machine lanes
+   run, the judgement steps are handed to him, and the next increment
+   starts; a failed UAT is a fix on a fresh branch, as *Close-out* says.
 5. **Mid-flight scope is taken as *next* and reported** (David, 2026-10-21)
    — recorded for the following increment, the plan unchanged. The one case
    that still asks is *now*, and only when the current plan cannot be
@@ -690,13 +709,13 @@ reason to write.
 
 **A round that returns findings is the unit of spend, and its cost does not
 vary with WHICH finding it returns.** Two assessments that each re-read the
-repository, a translation when one is owed, and my own turns to package, post,
+repository and my own turns to package, post,
 reply and resolve — the same bill for a label's wording as for a role running
 as the wrong model, and the Worth rule is applied only after it has been paid.
 **A clean round is not that bill** (save the one clean round of a PR whose
 plan took the private path, assessed regardless, below): neither assessor is dispatched when there
-is nothing to assess, so the cost is my turns plus the translation the last
-round before a merge always owes. Stating it otherwise overstates the
+is nothing to assess, so the cost is my turns plus the build report the
+close-out owes. Stating it otherwise overstates the
 commonest way a loop ends, which corrupts the very decision the disclosure
 exists to inform. My main loop is the larger half and the
 invisible one: every artifact I read into context is re-billed on every
@@ -936,18 +955,31 @@ fires at all:
   call) and decide from that. Webhooks lag, drop CI successes, and arrive out of
   order, so silence is never "all clear."
 
-**A round is translated for David when I declined something in it, or when
-something about it smells wrong** (David, 2026-09-19, narrowing the
-every-round rule of 2026-09-12). Those are the rounds where an independent
-reading has caught things — on #131 both of the translator's real
-disagreements came on rounds carrying a decline, and one was a defect no
-assessor had found. A round where I wrote for every finding has less to catch
-and costs the same, and four translations on #131 were the single largest
-token line in the loop. **In the standard loop, the last round before a merge is always translated**,
-whatever its shape, so nothing merges unaccounted. The translation reads the
-round itself — findings, my replies, the diff — not my account of it, and
-comes **after** the trigger is posted, never before: a translation I could act
-on is an in-loop advisor reading my own prose.
+**The round translation is retired; a build report replaces it** (David,
+2026-10-21: *"The translation of each loop should stop and be replaced with
+an AI summary in plain english of exactly what happened from start to
+finish in the build ... what was built, what decisions were made, what the
+ramifications are, how much money was spent"*). One account per unit of
+work — a PR's merge, or a prototype version delivered — written at its
+close by the same independent Fable role, reading the whole build from
+GitHub (the plan or the prompt, the workstream issue, every PR and round,
+the decisions) rather than my account of it, in fixed sections in a fixed
+order so he can scan: **What was built**; **Decisions taken on my
+recommendation**, each with its undo, so a reversal is one line from him;
+**Ramifications and what ships unfixed**; **Spend**, the build's total, read
+from the issue's *Spend so far* line (*A reversible choice proceeds*, rule
+2); **Where we are** — what we planned, the unit just completed, what is
+next; **Session** — continue here, or archive and hand off, with the
+hand-off prompt ready when the answer is archive (the `handoff` skill's
+Step 1 judgement, run here without being asked); **Needs you** — nothing,
+or the one external thing. Delivered twice, verbatim: in chat, and as a
+comment on the workstream issue, so one place per feature holds the record
+without the chat. A Trivial PR gets none. Until its brief and schema exist
+(the PR after this one), the close-out dispatches the final-round
+translation as the interim account, once per unit of work and never per
+round. (From 2026-09-19 to 2026-10-21 a round was translated when I
+declined something, when it smelled wrong, and always before a merge; four
+translations on #131 were the loop's single largest token line.)
 
 **The delivery is a message in chat, and there is nothing else** (David,
 2026-09-16). `chatReport` composes it from the answer's own fields and I paste
@@ -961,8 +993,8 @@ uses it well; a page is something he would have to go and open, and building a
 delivery system for one agent telling him the answer is undoing the #89 cut by
 hand.
 
-**Fable fetches the round from GitHub itself** — the threads, the comments, the
-reviews and the diff — and writes its answer to a file this module derives, so
+**Fable fetches the build from GitHub itself** — the issue, the threads, the
+comments, the reviews and the diffs — and writes its answer to a file this module derives, so
 the account is neither assembled nor rewritten by me. That is the one property
 here worth machinery: **the translator's account reaches David unedited**. It
 is a second account, not a ban on mine — my own write-up of a round is welcome
@@ -1076,8 +1108,8 @@ prototype environment tracks and which never merges while in that phase.
 Production is a separate, explicitly-asked `publish_app`.
 
 **The bar: CI green + Codex review returned for the head commit + every thread
-resolved + the translations that were owed delivered** (every decline round,
-plus the last round before the merge), and, for a PR whose plan took the
+resolved**, with the build report dispatched at close-out (*Watching the PRs
+I open*; it is off the critical path and never holds a merge), and, for a PR whose plan took the
 private path, the one assessment against the full text (*Internal tooling:
 what is downstream*). That is the whole bar, for
 product and internal PRs alike — except the two classes and the phase that leave the loop
@@ -1085,11 +1117,11 @@ product and internal PRs alike — except the two classes and the phase that lea
 threads, a P1 in Codex's automatic pass judged and reported (a phase registry
 PR reads it for nothing), and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch — assessed once
-Codex's automatic pass reports Completed — with no Codex round requested and
-no translation owed — and a **prototype-phase** PR, on `main` only where
+Codex's automatic pass reports Completed — with no Codex round requested —
+and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
-automatic pass read only for a defect that stops the feature working and no
-translation owed. CI and Codex catch
+automatic pass read only for a defect that stops the feature working; each
+still gets its build report at close-out. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
 
 **No receipt proves any of the four now** — `pr-ready.mjs` went with the #89
@@ -1163,7 +1195,9 @@ conversation resolution, so the Merge button is inert while a thread is open.
 5. **Post the harvest-notes comment** on the workstream issue (production-phase
    product PRs; a prototype-phase PR posts none — its decisions are not made
    yet).
-6. **Merge report to David**: both SHAs, verification results, and the UAT
+6. **Merge report to David, then the build report** (*Watching the PRs I
+   open*; the report is dispatched after the merge report hands back, and
+   lands as its own message and an issue comment): both SHAs, verification results, and the UAT
    handoff naming what to go click — the judgement steps, since `/uat`
    resolves the machine lanes itself, screen facts included (the `uat`
    skill, *Where the browser automation lives*) — plus the

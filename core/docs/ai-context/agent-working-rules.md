@@ -189,9 +189,15 @@ asked; the recommendation is taken and reported.
   closed and grows only by his word.
 - **Plans are his, every time** (David, 2026-10-10: *"Don't do anything that's
   not in a plan and don't build new plans and start executing against them
-  without me."*). A reversible choice *inside* an approved plan proceeds; new
-  scope, a new increment, a new feature, a new test plan or a new plan never
-  does, in either phase — that is where his judgement bites, and it is almost
+  without me."*). A reversible choice *inside* an approved plan proceeds, and
+  **his approval of a plan covers every increment in it**: the agent builds
+  the plan end to end, stopping between increments only for a blocker only
+  he can clear, a UAT step that is his and that the next increment depends
+  on, and the irreversible list, each with a push notification (David,
+  2026-10-21: *"you should be able to autonomously complete all the steps in
+  the plan from start to finish"*). New
+  scope, a new increment the plan does not hold, a new feature, a new test plan or a new plan never
+  proceed, in either phase — that is where his judgement bites, and it is almost
   always product-facing. Mid-flight scope is taken as **next** — recorded for
   the following increment, the plan unchanged — and reported; **now** is the
   one case that still asks, since it changes the plan, and it is asked only

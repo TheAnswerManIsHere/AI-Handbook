@@ -112,8 +112,10 @@ can't see from the result.** A skill file's approach is legible from the file
 itself, so the file *is* the plan — write it and review the real artifact
 rather than reviewing a description of it.
 
-**When the class is genuinely unclear, ask** — one numbered question at intake,
-before any plan is written. Do not default to the heavier path "to be safe":
+**When the class is genuinely unclear, take the lighter one on the
+recommendation and say so** — the one-line announcement at intake is David's
+veto surface (David, 2026-10-21; until then this was one numbered question).
+Do not default to the heavier path "to be safe":
 this failure mode has a real cost and it is the one that has actually happened.
 
 ### Directions and plans are different artifacts (David, 2026-08-11)
