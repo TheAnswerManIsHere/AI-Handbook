@@ -192,7 +192,7 @@ where I put it and treat it as binding.
     (product, design, correctness) are weighed on the merits — and **Codex
     code-review findings keep their full fix-or-decline force** on
     production-phase code; on a prototype-phase feature its automatic pass is
-    read for nothing (*Two classes and a phase that leave the loop*).
+    read for one thing, a defect that stops the feature working (*Two classes and a phase that leave the loop*).
 13. **Every reply to a message of his opens by quoting it.** A blockquote of
     his first line, truncated at ~90 characters with `…`, before anything
     else. His messages and my answers are routinely separated by a dozen tool
@@ -536,7 +536,7 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   merge on green CI. Codex's automatic pass is read for one thing: **a P1
   holds the merge and goes to David**, and I do nothing further until he
   answers — **except on a phase registry PR, where it is read for nothing**,
-  P1s included, as on any prototype-phase PR (David, 2026-10-20: *"I'm not
+  P1s included (David, 2026-10-20: *"I'm not
   sure why you keep listening to Codex during prototyping."*). Each Codex
   thread is resolved with one line citing his ruling.
 - **Documentation: one Astra and Fable pass, with Codex's automatic pass as
@@ -567,7 +567,7 @@ rule 4's "any changed head gets its review", translation and the close-out bar
   (David, 2026-09-28: *"What we're cutting out is the code review loop once
   we've built it."*). Where nothing is
   downstream of `main` it lives on `main` and its PR merges in the same turn,
-  Codex's automatic pass read for nothing — the one fix a prototype owes,
+  Codex's automatic pass read for one thing — the one fix a prototype owes,
   whoever finds it, is a defect that stops the built feature running and
   producing reasonable output (David, 2026-10-20); where users are, it lives on a
   `prototype/<feature>` branch with its own environment and database, and
@@ -1102,7 +1102,8 @@ on green CI, resolved threads and its one assessed batch — assessed once
 Codex's automatic pass reports Completed — with no Codex round requested and
 no translation owed — and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
-automatic pass read for nothing and no translation owed. CI and Codex catch
+automatic pass read only for a defect that stops the feature working and no
+translation owed. CI and Codex catch
 *broken*; David's UAT catches *wrong*, after the sync.
 
 **No receipt proves any of the four now** — `pr-ready.mjs` went with the #89

@@ -482,8 +482,8 @@ in the product.
   and [`planning-contract.md`](./planning-contract.md).
 - **Clear mechanical issue** (off-by-one, missing await, dead import, obvious lint,
   a clear logic bug) → fix it, push, mention briefly — on a PR in the
-  standard loop; on a prototype-phase PR Codex's automatic pass is read for
-  nothing and no finding starts a fix, save a defect that stops the built
+  standard loop; on a prototype-phase PR Codex's automatic pass is read for one
+  thing and no other finding starts a fix: a defect that stops the built
   feature running and producing reasonable output
   ([`working-modes.md`](./working-modes.md#the-prototype-phase-per-feature-david-2026-09-26))
   — and the push owes a

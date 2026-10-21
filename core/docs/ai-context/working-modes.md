@@ -888,8 +888,7 @@ uses — at the start under the branch regime, at the flip, at abandonment —
 is Trivial by David's phase declaration** (David, 2026-09-28: *"Yes,
 trivial"*): the declaration is the one the Trivial class requires, in his
 words, for that change, so the PR quotes it and merges on green CI with no
-review of any kind, Codex's automatic pass on it read for nothing as on any
-prototype-phase PR, P1s included (David, 2026-10-20: *"We're in prototype
+review of any kind, Codex's automatic pass on it read for nothing, P1s included (David, 2026-10-20: *"We're in prototype
 mode. We don't fix any issues that don't prevent us from moving
 forward."*) — and `pr-watch` never subscribes to it: it carries
 `Refs #N`, owns no lifecycle and moves no label (Codex, #168 round 7). At the
@@ -1224,8 +1223,8 @@ prototype phase, per feature*, above).
   reading. **Any changed head gets review before merge** — documentation-only
   changes and base-branch merges included — in the standard loop; a Trivial
   change gets none, a Documentation change's one batch of corrections merges without a second review, and a
-  prototype-phase PR merges on green CI with the automatic pass read for
-  nothing, by design (above). What is refused is a round requested
+  prototype-phase PR merges on green CI with the automatic pass read only
+  for a defect that stops the feature working, by design (above). What is refused is a round requested
   merely to get a different answer on a head already reviewed as it stands.
   (Astra, 2026-09-19.)
 - **The two-review limit bounds how long iteration runs**, above. These bound
