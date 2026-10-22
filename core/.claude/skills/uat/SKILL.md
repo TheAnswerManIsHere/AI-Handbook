@@ -226,7 +226,7 @@ is the script-wrong case below, never a check to run early:
   does any check, in any lane, that would start a paid AI run (David,
   2026-10-17, who set the budget small for that reason; `uat-doc-format.md`,
   *Lanes*): within it the capture runs, inside the cap the declaration names,
-  and its cost goes in the run record and on the run's spend line. One above
+  and its cost goes in the run record, on the run's spend line and as a comment on the fleet's paid-run ledger, which is read before the run. One above
   it asks, naming the PR, the paid calls and the worst-case cost, and its
   steps are Blocked on him until he answers, or he answers the judgement
   steps from an image he makes himself in the product. A consumer with no such declaration has no
