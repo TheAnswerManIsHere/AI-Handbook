@@ -457,4 +457,6 @@ and batching them recreates exactly what one-bug-per-PR banned — PR #334
 findings, 72% self-inflicted, no breaker fired) is the measured cost. Each
 real defect gets its own classification and its own PR.
 
-When unsure, ask.
+When unsure whether behaviour changes, ask; when unsure only which mode
+applies, take the lighter one and say so (`working-modes.md`, *How each
+agent enters / exits a mode*).

@@ -1847,7 +1847,9 @@ first version plans there, and after that no mode at all (*The prototype
 phase, per feature*, above). Guessing wrong is
 expensive in both directions (skipping a plan a feature or a non-trivial
 schema change needed, or piling ceremony onto a one-line fix), and the
-confirm costs one question.
+confirm costs one question — the ask here is Tier C's and the irreversible
+list's, a behaviour change or a schema change the diagnosis has found, not
+the mode choice, which the entry rule above takes on the recommendation.
 
 ## When NOT to use bugfix mode
 

@@ -236,7 +236,9 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
 
 - **The oracle is pinned** on the first exchange and checked on every one
   after, so the plan cannot be measured against an intent Claude quietly
-  rewrote. A deliberate change has to be stated, with what David agreed.
+  rewrote. A deliberate change has to be stated, naming which of two
+  things changed: a requirement, in David's words, or the method that
+  verifies one, with the property it still proves.
 - **The reviewer is pinned.** Overriding the model, effort or sandbox is
   refused unless a reason is given, and the reason is stamped on the record;
   full write access is refused outright.
