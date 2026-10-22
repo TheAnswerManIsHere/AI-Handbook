@@ -11,7 +11,8 @@
  * reasoning remains, and implement what is agreed. A purely technical
  * disagreement that survives that is settled by the Fable assessor, with its
  * reasoning recorded. Intended behaviour and accepted user-facing shortfalls
- * are David's.
+ * are David's where no settled decision already covers them (the identity
+ * block below cites the home).
  *
  * WHAT IT REPLACED, AND WHY THE SHAPE CHANGED. The first version had Astra
  * emit JSON whose per-finding disposition BOUND me, under a rubric that told

@@ -322,7 +322,7 @@ wrong. Do not use it to relitigate something I simply dislike.
    ```plan-action
    action: revise
    concerns: C1, C3
-   note: C2 goes to David; C4 withdrawn on the evidence
+   note: C2 for-david, named in the approval readout; C4 withdrawn on the evidence
    ```
    ````
 

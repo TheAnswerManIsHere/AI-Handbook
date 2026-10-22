@@ -1360,13 +1360,15 @@ does not make that call alone:
 self-policing is precisely what the 0-for-15 record measured, and
 eleven-for-eleven on #91 measured it again after the worth rule was written.
 
-What is David's whatever the assessors say, and reaches him in the approval
-readout rather than stopping the loop: a genuine product or behaviour fork,
-and any change to intended behaviour or knowingly accepted user-facing
-shortfall, where no settled decision already covers it
-([`agent-working-rules.md`](agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)); a disclosure question is his; a scope addition is taken as
-*next* and reported, and a split is proposed in the plan (David,
-2026-10-21). **A purely technical design fork is not among them** — it is
+What is David's whatever the assessors say: a genuine product or behaviour
+fork, and any change to intended behaviour or knowingly accepted user-facing
+shortfall, where no settled decision already covers it — on a code round a
+🛑 that stays open until he answers, since the plan is already approved and
+there is no readout to carry it (the Claude core's *Shared judgement on a
+review round*, rule 5; [`agent-working-rules.md`](agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)); a consequence a settled
+decision reaches is settled with it, and the reply names the decision; a
+disclosure question is his; a scope addition is taken as *next* and reported,
+and a split is proposed in the plan (David, 2026-10-21). **A purely technical design fork is not among them** — it is
 settled in the loop, with the Fable assessor holding the tie-break on a code
 round. This list read "a product or design fork" until 2026-09-20, which a
 technical fork also satisfies: the same defect, and the same sentence, that

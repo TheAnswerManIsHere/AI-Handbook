@@ -27,11 +27,10 @@ explicit-only invocation).** I classify each work request by its shape:
   otherwise hesitate. It is still a hypothesis, not a verdict: Tier C exits
   the workflow regardless of how it was entered.
 - **Ambiguous** — the "bug" could really be a behavior change ("fix the
-  ranking, it feels wrong") → I take the lighter reading, bugfix, on my
-  recommendation and say so in the one-line announcement, which is his veto
-  surface (`claude-core.md`, *Two modes*; David, 2026-10-21, until then one
-  numbered question). What the ranking *should* do stays his — *Ask always*
-  — and a diagnosis that finds a behavior change stops as Tier C.
+  ranking, it feels wrong") → one numbered question: whether behaviour
+  changes is product intent, the one ambiguity the lighter-mode rule keeps
+  as an ask (`working-modes.md`, *How each agent enters / exits a mode*). No
+  entry design settles these; they were always going to be asked.
 
 **Classification is per-request — there is no sticky mode state.** "Here's
 another one" is bugfix-shaped on its face and needs no re-invocation; a
@@ -421,12 +420,16 @@ classification announcement makes the switch visible. Two cases
 still deserve care:
 
 - **A request that could be either** — a "fix" that might really mean
-  re-designing the behavior — takes the lighter reading on my recommendation,
-  announced in one line (`claude-core.md`, *Two modes*; David, 2026-10-21):
-  a wrong guess is cheap in one direction and expensive in the other — the
-  diagnosis finds a behavior change and stops as Tier C, while a numbered
-  question up front piled ceremony onto every one-line fix, which is the
-  mistake this repo has actually paid for (until 2026-10-21 this asked one).
+  re-designing the behavior — gets one numbered question, not a guess:
+  whether behaviour changes is product intent, which still asks even where
+  the mode itself is taken on the lighter reading
+  ([`working-modes.md`](../../../docs/ai-context/working-modes.md#how-each-agent-enters--exits-a-mode),
+  *How each agent enters / exits a mode*; what the product should do is
+  *Ask always* in `agent-working-rules.md`, and a consequence a settled
+  decision already covers is not asked — *A reversible choice proceeds on
+  the recommendation* there):
+  guessing wrong is expensive in both directions — either I skip a plan the
+  work needed, or I pile ceremony onto a one-line fix.
 - **Tier C** is the same call arriving from the other direction: the request
   looked bugfix-shaped, and *diagnosis* revealed it's really
   feature/migration work. Same escalation, different trigger.
@@ -454,5 +457,4 @@ and batching them recreates exactly what one-bug-per-PR banned — PR #334
 findings, 72% self-inflicted, no breaker fired) is the measured cost. Each
 real defect gets its own classification and its own PR.
 
-When unsure, take the lighter reading and say so; Tier C is the stop that
-catches a wrong guess.
+When unsure, ask.
