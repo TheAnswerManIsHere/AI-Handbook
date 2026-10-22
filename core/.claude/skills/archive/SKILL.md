@@ -69,7 +69,7 @@ Exactly one, first match wins:
 | Verdict | When |
 | --- | --- |
 | **continue** | Any checklist hit, or approved work in this session's plan is still startable here. Name each hit and the action that clears it. |
-| **hand off** | No hit, the next work is in a different workstream, and this session holds context worth carrying (the `handoff` skill's Step 1 test). Recommend `/handoff`; do not run it. |
+| **hand off** | No hit, the next work is in a different workstream, and this session holds context worth carrying (the `handoff` skill's Step 1 test). Under `/archive`, recommend `/handoff` and do not run it; on a build report's **Session** line, the hand-off prompt follows the report instead (`claude-core.md`, *Watching the PRs I open*). |
 | **archive** | No hit, and nothing worth carrying: the work is done, or the next work starts cold just as well. |
 
 A *continue* whose every hit I can clear myself is not a verdict to stop on:
@@ -119,8 +119,9 @@ CONTINUE — two things die with this session.
 ```
 
 The hand-back footer applies (*Done / Next / Needs you / Spend*); on an
-*archive* verdict, **Next:** is `nothing — archiving at <time>, woken by a
-send_later`.
+*archive* verdict, **Next:** takes the core's `nothing —` form:
+`nothing — the work here is done; archiving at <time> unless you write
+first`.
 
 ## What this skill does not do
 
