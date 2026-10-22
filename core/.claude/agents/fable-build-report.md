@@ -110,9 +110,10 @@ one that has repeatedly caught what nobody else did.
   context. `null`, never prose, when you cannot tell: any string is relayed
   as a model name.
 
-**The session line is not yours.** Whether this session should continue or
-hand off depends on the builder's own context, which you cannot see; the
-builder states it under its own label. Do not write about it.
+**The session line is not yours.** Whether this session should continue,
+hand off or be archived depends on the builder's own context, which you
+cannot see; the builder states it under its own label. Do not write about
+it.
 
 **Write the answer to the path in your brief, as a single JSON object, and
 nothing else in that file.** Do not rely on your closing message reaching

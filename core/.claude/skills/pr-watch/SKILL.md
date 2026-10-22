@@ -550,7 +550,7 @@ requires it.
       signal ever arrives, read once at the next event: no file is a failed
       report, never a quiet one.
    4. **Paste the report verbatim**:
-      `node <dir>/build-report.mjs report --unit <slug> --session continue|"hand off" --session-why "<one clause>"`,
+      `node <dir>/build-report.mjs report --unit <slug> --session continue|"hand off"|archive --session-why "<one clause>"`,
       in chat and as a comment on the workstream issue, and say nothing else
       about the unit. **A private-path unit's report goes in chat only**,
       never as an issue comment, and the report says so at its top, asking
@@ -563,8 +563,9 @@ requires it.
       coordinates, and for a branch unit both ends of the range — the next
       version's `--since`. The **session** line is mine and printed under a label
       saying so, because only this session can see its own context: the
-      `handoff` skill's Step 1 judgement, run here without being asked, and
-      when it says hand off, the hand-off prompt follows the report.
+      `archive` skill's verdict, run here without being asked, and when it
+      says hand off, the hand-off prompt follows the report. An *archive*
+      line here archives nothing; only an explicit `/archive` does.
 
    - **The report is the role's words, not my summary of them.** `chatReport`
      composes it from the validated answer's own fields; the only text in it
