@@ -109,7 +109,7 @@ WATCHING — #334 /status skill split
 🛑 WAITING ON YOU — #328 Bash guard
   PR #329 merged. Stored state says code-review/codex — that's stale.
   Next: you — 🛑 UAT.
-  Want me to correct the issue to uat/david?
+  Corrected the issue to uat/david (it said code-review/codex).
 ```
 
 Not the `🛑 **NEED YOU**` banner ritual — this is a report, not a mid-task

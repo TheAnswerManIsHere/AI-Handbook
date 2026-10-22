@@ -189,8 +189,9 @@ requires it.
 
       The dispatch **refuses unless the checkout is at that commit and clean**,
       because both assessors read the live tree. Retry once on a transient
-      failure; a second failure goes to David, and one assessment alone is not
-      permission to proceed.
+      failure; a second failure is reported to David in plain English and the
+      round stops (a sign-in is his to supply), and one assessment alone is
+      not permission to proceed.
    4. **Post both on the PR verbatim**, each under the header `prComment`
       renders. Never summarise one away, and never drop the one I disagree
       with. Astra's comment is printed by the dispatch itself; the Fable
@@ -314,7 +315,10 @@ requires it.
       A purely
       technical disagreement that survives is the Fable assessor's to settle,
       with its reasoning recorded. **Intended behaviour and any accepted
-      user-facing shortfall go to David** as a 🛑 with a push notification, and
+      user-facing shortfall go to David** as a 🛑 with a push notification —
+      where no settled decision already covers them; a consequence a settled
+      decision reaches is settled with it, and the thread reply names the
+      decision (`agent-working-rules.md`, *A reversible choice proceeds on the recommendation*) — and
       stay open until he answers — a later clean round never clears them, and
       **neither does a default of mine.** A question of his that goes unanswered
       stays **open** — re-notified and pointed back to, reprinted only when
@@ -363,7 +367,8 @@ requires it.
    merge report saying what was recorded and why. A corrected head that still
    violates an agreed requirement or fails a required check does not merge:
    I fix it or cut it, and report. What goes to David is only what step 3.5
-   names — intended behaviour, an accepted user-facing shortfall — and a
+   names — intended behaviour, an accepted user-facing shortfall, where no
+   settled decision already covers them — and a
    change to the review loop is judged like any other. The usual outcome is
    **recorded gaps and follow-up issues**, and the pull request goes to
    close-out like any other. **A follow-up issue is filed with its labels**:

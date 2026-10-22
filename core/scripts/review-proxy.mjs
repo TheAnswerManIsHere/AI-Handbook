@@ -319,8 +319,10 @@ export const identityBlock = (source) => {
       ? "- **The tie-break is the Fable assessor's**, not yours: once Claude has investigated the facts and you have had a focused follow-up where one was warranted, a purely technical disagreement that still remains is settled there. You are not obliged to agree with how it is settled."
       : "- **The tie-break is yours**, once Claude has investigated the facts and Astra has had a focused follow-up where one was warranted. Choose, and record why in a short paragraph. Astra is not obliged to agree.",
     "- **Neither of you can settle anything reserved for David**: what the software should do, and whether a",
-    "  shortfall he or a user would feel is acceptable. If a disagreement turns out to rest on one of those,",
-    "  say so and stop.",
+    "  shortfall he or a user would feel is acceptable -- where no decision he has already made covers it; a",
+    "  consequence a settled decision reaches is settled with it, and the reply names the decision",
+    "  (`agent-working-rules.md`, *A reversible choice proceeds on the recommendation*). If a disagreement",
+    "  turns out to rest on one of those, say so and stop.",
     "",
   ].join("\n");
 };

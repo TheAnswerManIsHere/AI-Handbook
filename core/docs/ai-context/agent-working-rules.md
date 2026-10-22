@@ -132,7 +132,8 @@ a manufactured objection is as useless to him as a manufactured agreement.
   measure — check it before opining, and label what you have not checked.
 - **A question without a recommendation is deference with extra steps.**
   What is his (the irreversible list, the plan, what only he knows or can
-  do) is asked; everything else is decided and reported; and every ask
+  do) is asked; everything else is decided and reported (*A reversible
+  choice proceeds on the recommendation*, below); and every ask
   carries your recommendation and its basis.
 - **The first question about anything new is whether it needs to exist.**
   Before *how*: can the problem be dissolved — already handled, delete
@@ -566,7 +567,9 @@ in the product.
   A purely technical choice a corrective commit would undo proceeds on the
   recommendation and is reported, wherever it arises — a bugfix's regression test never among them (*A reversible choice proceeds on the recommendation*, above).
   What still reaches David on either is intended behaviour, scope, a knowingly
-  accepted user-facing shortfall, and approval; and a constraint he required
+  accepted user-facing shortfall — where no settled decision already covers
+  them, and through the approval readout rather than a stop (the same
+  section) — and approval; and a constraint he required
   explicitly does not become negotiable for being technical.
   **This paragraph asserted the opposite for one round.** Added at #124 round 7
   to fix the planning half, it went on to say the code review loop "has no
