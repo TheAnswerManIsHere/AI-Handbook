@@ -516,8 +516,7 @@ requires it.
       the PRs: `--since` is the previous version's head, read off the
       *Evidence* line of that version's build report — on the issue, or,
       on the private path, in the private item, which David relays — or
-      the branch's base for the first version. Add `--private yes` when the
-      workstream's plan took the private path. The unit's slug names the
+      the branch's base for the first version. The unit's slug names the
       answer file (`pr-231`, `ingest-v2`). Preparing clears any earlier
       attempt's answer and coordinates, so a re-dispatch that writes nothing
       reads as a failure, never as its predecessor. **A workstream whose
@@ -530,7 +529,8 @@ requires it.
       <file>` with `--private-ref <the item's reference>`, in place of
       `--issue` or beside a sanitized one. `brief` refuses a source inside
       the checkout, quotes it inline under its provenance, and marks the
-      unit private. The role still reads the PRs or branch from GitHub
+      unit private; `--private yes` without a source is refused, since the
+      flag alone would point the role at a sanitized issue for the plan. The role still reads the PRs or branch from GitHub
       itself; only the plan side is relayed. With no issue and no source,
       `brief` refuses by name and says to ask for the relay.
    2. **Dispatch `fable-build-report`** with `model:` set to the pin's alias
