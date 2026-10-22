@@ -290,8 +290,10 @@ step's carve-out
    a harness that prints no count — is `unable to verify`, never estimated**:
    these are the numbers he sets a cap from and cannot check. The harness's
    running count is the source, and **one line is kept from it**: the
-   workstream issue's *Spend so far*, updated at every hand-back that
-   changes it, so the build report can state the build's total (David,
+   workstream issue's *Spend so far* (on the private path, the private
+   item's, relayed to the build report like the rest of its text),
+   updated at every hand-back that changes it, so the build report can
+   state the build's total (David,
    2026-10-21). That and the repository's `paid-ai-ledger` issue — one
    comment per paid AI run, so the weekly paid-run budget is read rather
    than remembered (`uat-doc-format.md`, *Lanes*) — are the two ledgers the
@@ -1013,7 +1015,8 @@ delivery system for one agent telling him the answer is undoing the #89 cut by
 hand.
 
 **Fable fetches the unit from GitHub itself** — the issue, the threads, the
-comments, the reviews and the diffs — from a brief passed inline in the
+comments, the reviews and the diffs, with only a private item's text
+relayed in the brief — from a brief passed inline in the
 dispatch (the role holds no file-reading tool), and writes its answer to a
 file the script derives, so the account is neither assembled nor rewritten
 by me. That is the one property here worth machinery: **the role's account
@@ -1221,7 +1224,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
    yet).
 6. **Merge report to David, then the build report** (*Watching the PRs I
    open*; the report is dispatched after the merge report hands back, and
-   lands as its own message and an issue comment): both SHAs, verification results, and the UAT
+   lands as its own message and an issue comment, or in chat only on the
+   private path): both SHAs, verification results, and the UAT
    handoff naming what to go click — the judgement steps, since `/uat`
    resolves the machine lanes itself, screen facts included (the `uat`
    skill, *Where the browser automation lives*) — plus the

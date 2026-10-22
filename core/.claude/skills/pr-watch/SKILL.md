@@ -495,7 +495,8 @@ requires it.
    a merge, and never holds one: it is off the critical path by design.
 
    **The deliverable is a message in chat and the same text as a comment on
-   the workstream issue. There is no page** (David, 2026-09-16). There was
+   the workstream issue — chat only on the private path (step 4). There is
+   no page** (David, 2026-09-16). There was
    one, and #109 round 3 found it was HTML written to a gitignored path: a
    delivery nobody could open. **Do not rebuild it** — not an Artifact, not
    an HTML file, not a receipt store, not a link.
