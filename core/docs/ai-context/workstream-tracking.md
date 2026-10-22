@@ -323,8 +323,9 @@ of the workstream issue's body, with these fields:
   the build report can state what the build
   cost (David, 2026-10-21; `claude-core.md`, *A reversible choice proceeds,
   and every turn reports its spend*). The one ledger line a workstream
-  keeps; the other is the repository's `paid-ai-ledger` issue, one comment
-  per paid AI run, which the weekly paid-run budget is read from
+  keeps; the other is the fleet's `paid-ai-ledger` issue in the handbook's
+  repository, one comment per paid AI run in any product, which the weekly
+  paid-run budget — one total across every product — is read from
   (`uat-doc-format.md`, *Lanes*).
 - **Decisions taken on recommendation** — one line per reversible choice the
   agent proceeded on without asking, with the way back

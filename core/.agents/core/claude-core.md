@@ -294,9 +294,10 @@ step's carve-out
    item's, relayed to the build report like the rest of its text),
    updated at every hand-back that changes it, so the build report can
    state the build's total (David,
-   2026-10-21). That and the repository's `paid-ai-ledger` issue — one
-   comment per paid AI run, so the weekly paid-run budget is read rather
-   than remembered (`uat-doc-format.md`, *Lanes*) — are the two ledgers the
+   2026-10-21). That and the fleet's `paid-ai-ledger` issue, in the
+   handbook's repository — one comment per paid AI run in any product, so
+   the weekly paid-run budget, one total across every product, is read
+   rather than remembered (`uat-doc-format.md`, *Lanes*) — are the two ledgers the
    #89 cut's "no ledger" admits, at that size and no larger. **Every hand-back ends with a fixed
    footer** (David, 2026-10-21: *"here's what we planned, here's the unit
    of work that I've completed, here's what we should do next"*), four bold
@@ -994,8 +995,8 @@ scan: **Needs you** — nothing, or the one external thing; **What was
 built**; **Decisions taken on my recommendation**, each with its undo, so a
 reversal is one line from him; **Ramifications**; **Shipping unfixed**;
 **Where it disagrees with the builder**; **Spend** — the build's total from
-the issue's *Spend so far* line, and the week's paid AI runs from the
-repository's paid-run ledger (*A reversible choice proceeds*, rule 2;
+the issue's *Spend so far* line, and the week's paid AI runs, across every
+product, from the fleet's paid-run ledger (*A reversible choice proceeds*, rule 2;
 `uat-doc-format.md`, *Lanes*); **Where we are** — what we planned, the unit
 just completed, what is next; and **Session** — continue here, or archive
 and hand off. The session line is **mine, under a label saying so**: only
