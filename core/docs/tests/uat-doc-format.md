@@ -164,7 +164,7 @@ as one above the budget would. A spending cap the consumer
 declares bounds a run below the fleet's, never above it, and a check that
 would start a paid run is never read-only. It is never a `ci`
 check either: CI runs on every push, so nothing could keep it inside $5 a
-run or $25 a week.
+run or $25 a week across every product.
 Checks that start no paid run carry on as their lane says.
 
 **A step is `human` only when no machine can answer it** — or when it
