@@ -987,9 +987,11 @@ judgement, run here without being asked, with the hand-off prompt following
 the report when the answer is hand off. Delivered twice, verbatim: in chat,
 and as a comment on the workstream issue, so one place per feature holds
 the record without the chat — **except a workstream on the private path,
-whose report goes in chat only**, since an account of its diff is what the
-disclosure check keeps off GitHub; one with no public issue at all has no
-report yet, and gets my own labelled account (a recorded gap, #227). A
+whose report goes in chat only** and is kept by David pasting it into the
+private item, since an account of its diff is what the disclosure check
+keeps off GitHub; its plan, decisions and spend reach the role as the
+item's text David relays, quoted in the brief under its provenance, never
+as my summary of it (#227). A
 Trivial PR gets none. (From 2026-09-19 to
 2026-10-21 a round was translated when I declined something, when it
 smelled wrong, and always before a merge; four translations on #131 were
