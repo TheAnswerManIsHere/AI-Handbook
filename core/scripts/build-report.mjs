@@ -38,7 +38,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { claudeAlias, modelTier, validate, assertSchemaSupported, repoSlug } from "./machinery.mjs";
+import { claudeAlias, modelTier, validate, assertSchemaSupported, repoSlug, PAID_RUN_LEDGER_REPO } from "./machinery.mjs";
 
 export const REVIEWS_DIR = ".agents/reviews";
 export const ROLE = "fable-build-report";
@@ -273,7 +273,7 @@ export function buildBrief({
   }
   lines.push(
     `- **Until:** ${until} — activity after this moment belongs to a later report.`,
-    "- **Paid-run ledger:** the repository's open issue labelled `paid-ai-ledger`, one comment per paid AI run. Total the comments from the seven days before **Until**. If there is no such issue, `paid_runs_this_week` is null.",
+    `- **Paid-run ledger:** the open issue labelled \`paid-ai-ledger\` in \`${PAID_RUN_LEDGER_REPO}\` — the fleet's one ledger, one comment per paid AI run in any product, since the weekly budget is one total across every product. Total every comment from the seven days before **Until**, whichever product it names. If there is no such issue, \`paid_runs_this_week\` is null.`,
     "",
     "## Your answer",
     "",
@@ -459,7 +459,7 @@ export function chatReport(report, { askedModel = null, session = null, coords =
     "**Spend**",
     "",
     `- This build: ${a.spend.build_total ?? "*no Spend so far line on the issue*"}`,
-    `- Paid AI runs, last seven days: ${a.spend.paid_runs_this_week ?? "*no paid-run ledger in this repository*"}`,
+    `- Paid AI runs, last seven days: ${a.spend.paid_runs_this_week ?? "*no paid-run ledger in the handbook yet*"}`,
   );
 
   out.push(
