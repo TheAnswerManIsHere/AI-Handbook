@@ -431,6 +431,9 @@ versioned files don't. `/compact` is an in-session relief valve, not the memory.
   working-tree file as a resume point: a file the next session needs is
   pushed, or quoted into the issue, first (`handoff`, Step 2;
   Planning rule 3 for a plan).
+- **`/archive`** answers only whether this session is finished — what dies
+  with it, checked cheaply — and archives it when nothing does. Main loop,
+  like `/handoff`, which it recommends rather than runs.
 - **`/document`** is the batched harvest of durable learnings (see below).
 - [`docs/handoff/`](../../docs/handoff/README.md) is cross-*tool* transit, which a
   session handoff never writes to.
@@ -980,11 +983,13 @@ reversal is one line from him; **Ramifications**; **Shipping unfixed**;
 the issue's *Spend so far* line, and the week's paid AI runs from the
 repository's paid-run ledger (*A reversible choice proceeds*, rule 2;
 `uat-doc-format.md`, *Lanes*); **Where we are** — what we planned, the unit
-just completed, what is next; and **Session** — continue here, or archive
-and hand off. The session line is **mine, under a label saying so**: only
-this session can see its own context, so it is the `handoff` skill's Step 1
-judgement, run here without being asked, with the hand-off prompt following
-the report when the answer is hand off. Delivered twice, verbatim: in chat,
+just completed, what is next; and **Session** — continue, hand off, or
+archive. The session line is **mine, under a label saying so**: only
+this session can see its own context, so it is the `archive` skill's
+verdict, run here without being asked (that skill defers to the `handoff`
+skill's Step 1 for hand off), with the hand-off prompt following
+the report when the answer is hand off; only an explicit `/archive`
+archives. Delivered twice, verbatim: in chat,
 and as a comment on the workstream issue, so one place per feature holds
 the record without the chat — **except a workstream on the private path,
 whose report goes in chat only**, since an account of its diff is what the

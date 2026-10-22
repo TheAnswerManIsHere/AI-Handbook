@@ -327,7 +327,7 @@ export function chatLine(report) {
   return flags.length ? `${u}: ${flags.join("; ")}` : `${u}: agrees with the builder's account`;
 }
 
-const SESSION_VERDICTS = ["continue", "hand off"];
+const SESSION_VERDICTS = ["continue", "hand off", "archive"];
 
 /**
  * THE DELIVERABLE: what the builder pastes, in chat and on the issue, and the
@@ -399,9 +399,9 @@ export function chatReport(report, { askedModel = null, session = null, coords =
   out.push("", `*Does not do:* ${a.what_landed.does_not_do}`, "", `*You are now trusting:* ${a.what_landed.now_trusting}`);
 
   // THE SESSION LINE IS THE BUILDER'S, AND SAYS SO. Only the builder's session
-  // can see its own context, so the role cannot judge continue-or-hand-off;
-  // printing the builder's call under the role's voice would be the builder's
-  // words reaching David as the independent account.
+  // can see its own context, so the role cannot judge continue, hand off or
+  // archive; printing the builder's call under the role's voice would be the
+  // builder's words reaching David as the independent account.
   if (session && SESSION_VERDICTS.includes(session.verdict)) {
     out.push("", `**Session** (the builder's call): ${session.verdict}${session.why ? ` — ${session.why}` : ""}`);
   } else {
@@ -430,7 +430,7 @@ export function chatReport(report, { askedModel = null, session = null, coords =
  *
  *   node build-report.mjs brief  --unit <slug> --issue <n> [--pr <n> ...] [--branch <name> --since <sha> --head <sha>] [--private yes]
  *   node build-report.mjs prepare --unit <slug>
- *   node build-report.mjs report --unit <slug> [--session continue|"hand off"] [--session-why <text>]
+ *   node build-report.mjs report --unit <slug> [--session continue|"hand off"|archive] [--session-why <text>]
  *
  * `brief` prints the dispatch prompt (it also prepares the answer path, so the
  * two cannot be done out of order); `report` prints what is pasted.

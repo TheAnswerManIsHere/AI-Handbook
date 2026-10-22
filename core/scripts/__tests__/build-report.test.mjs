@@ -170,6 +170,7 @@ test("the session line is the builder's and is labelled so, or says it was not s
   write(root, "d", answer());
   const r = readAnswer(root, "d");
   assert.match(chatReport(r, { session: { verdict: "hand off", why: "the next unit is a different area" } }), /\*\*Session\*\* \(the builder's call\): hand off — the next unit is a different area/);
+  assert.match(chatReport(r, { session: { verdict: "archive", why: "nothing left here" } }), /\(the builder's call\): archive — nothing left here/);
   assert.match(chatReport(r), /\(the builder's call\): \*not stated\.\*/);
   assert.match(chatReport(r, { session: { verdict: "sure" } }), /not stated/);
 });
