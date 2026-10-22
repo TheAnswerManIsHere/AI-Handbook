@@ -509,8 +509,9 @@ requires it.
       or for a branch-regime prototype version
       `--branch prototype/<feature> --since <sha> --head <sha>` in place of
       the PRs: `--since` is the previous version's head, read off the
-      *Evidence* line of that version's build report on the issue, or the
-      branch's base for the first version. Add `--private yes` when the
+      *Evidence* line of that version's build report — on the issue, or,
+      on the private path, in the private item, which David relays — or
+      the branch's base for the first version. Add `--private yes` when the
       workstream's plan took the private path. The unit's slug names the
       answer file (`pr-231`, `ingest-v2`). Preparing clears any earlier
       attempt's answer and coordinates, so a re-dispatch that writes nothing
