@@ -75,7 +75,8 @@ first words of each line, since he scans (interaction rule 7's reason).
    the stage name.
 
 One more line, **only when it fired**: `Fixed the tracker: it said <X>, now
-says <Y>.` (the repair under *Side effect*, below).
+says <Y>.` (the repair under *Side effect*, below) — X and Y in plain words,
+`it said this was waiting on you; it is in review`, never a label's value.
 
 **Vocabulary.** Never *workstream*, *stage*, *label*, *waiting:*, or
 *increment* in the output — *plan*, *phase*, *step*, *PR*, *issue* are his
