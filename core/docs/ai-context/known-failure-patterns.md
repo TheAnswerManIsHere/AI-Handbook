@@ -506,8 +506,9 @@ fold every condition the repair depends on into **one atomic UPDATE** — the
 state is still what you last wrote AND no non-terminal row exists for the
 dedupe key — evaluated in the same statement's `WHERE` clause (a `NOT EXISTS`
 subquery), not a prior read. **Overhype:** `enqueueFactPexels`/
-`enqueueFactAiMemeBackfill` (`artifacts/api-server/src/lib/factPexelsJobs.ts`,
-`aiMemeBackfillJobs.ts`, PR #256) took three rounds of review to converge on
+`enqueueFactAiMemeBackfill` (`factPexelsJobs.ts`, deleted with Pexels in
+launch Phase 4 and at the tag `pre-cut/stock-pexels`, and
+`artifacts/api-server/src/lib/aiMemeBackfillJobs.ts`, PR #256) took three rounds of review to converge on
 this: round 1 added an unconditional repair (wrong — clobbers a concurrent
 success), round 2 added a SELECT-then-UPDATE (still racy), round 3 replaced
 both with a single `UPDATE ... WHERE status = 'pending' AND NOT EXISTS
@@ -779,8 +780,9 @@ the point visibility is *known* — one shared choke point that runs after the A
 resolves — and derive any storage key from a sanitized/hashed form, never the raw
 input. **Overhype:** cross-origin CORP is set in `setPublicCors()`
 (`cacheHeaders.ts`), called *only* on confirmed-public responses; private
-responses call `setNoStore` and stay `same-origin`. The style preview key goes
-through `safeStylePreviewKey()`. See
+responses call `setNoStore` and stay `same-origin`. The style preview key went
+through `safeStylePreviewKey()` until that surface went with video in launch
+Phase 4 (Overhype.me's ledger, `docs/retired/README.md`). See
 `security-model.md` (C5/C9).
 
 ## Trusting self-set mutable metadata as a security assertion across a deploy
