@@ -80,7 +80,12 @@ says <Y>.` (the repair under *Side effect*, below) — X and Y in plain words,
 
 **Vocabulary.** Never *workstream*, *stage*, *label*, *waiting:*, or
 *increment* in the output — *plan*, *phase*, *step*, *PR*, *issue* are his
-words. The tracker's vocabulary is for collecting, below.
+words. The tracker's vocabulary is for collecting, below. **Every PR and
+issue is named by number and title, on every mention** (interaction rule
+14; David, 2026-10-23: *"The number alone is never helpful or
+sufficient."*) — `PR #212 — Remove the legacy ingest path`, never `PR
+#212` alone, and a title not yet held is fetched before the line is
+written.
 
 **Length.** Easy to read quickly, the whole point; when nothing is waiting
 on him it should fit on one phone screen. Section 6 is exempt: an ask is
@@ -92,10 +97,12 @@ reproduced whole or not at all.
 📍 DojoOS — building the audio-transcription prototype
 Plan: "Get to launch" · Phase 4 of 6, "Delete old dead code"
 Progress: 11 of 17 steps merged · Phase 4: 2 of 4 done · $142 so far · about 3 hours left, a guess
-Right now: PR #212 (remove legacy ingest) is in Codex review, CI green.
+Right now: PR #212 — Remove the legacy ingest path — is in Codex review, CI green.
 
 Since your last message (yesterday 14:10):
-  ✅ Finished: Phase 3 — PRs #205 and #208 merged (build reports on #190)
+  ✅ Finished: Phase 3 — PR #205 — Transcription worker: chunked upload — and
+     PR #208 — Transcription worker: retry on a dropped stream — merged;
+     build reports on issue #190 — Audio transcription prototype
   👀 Decisions I took (2)
      • Kept the old job table rather than migrating it — one less schema change for the prototype
      • Capped transcript length at 4 hours — the longest file in the sample set is 2h50
