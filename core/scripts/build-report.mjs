@@ -422,21 +422,42 @@ export function facts(report) {
 const plural = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /**
+ * How the unit is named to David at the head of the report. The slug the
+ * builder chose (`pr-243`) is a PR number with no title -- the one bare number
+ * left in the first words of every report after #243 fixed the Evidence line
+ * (its own build report named it). So the unit is named from the coordinates
+ * the brief recorded, in interaction rule 14's form: each PR by number and
+ * title, or the branch for a branch unit; the slug only when no coordinates
+ * were recorded, where the report already says so.
+ */
+export function unitLabel(unit, coords) {
+  if (!coords) return unit;
+  if (Array.isArray(coords.prs) && coords.prs.length) {
+    return coords.prs.map((n, i) => prRef(n, Array.isArray(coords.prTitles) ? coords.prTitles[i] : undefined)).join(" · ");
+  }
+  if (coords.branch) return `branch \`${coords.branch.name}\` through \`${coords.branch.head}\``;
+  return unit;
+}
+
+/**
  * The verdict line. "Agrees" is last and only reachable when nothing differs,
  * nothing shipping unfixed is called unreasonable, no decision drew a concern
- * and everything reachable was assessed.
+ * and everything reachable was assessed. With coordinates the unit is named in
+ * its titled form and the verdict follows a middle dot, since a title may
+ * itself carry a colon; without them the slug keeps the colon.
  */
-export function chatLine(report) {
+export function chatLine(report, coords = undefined) {
   const f = facts(report);
-  const u = report.unit;
-  if (f.failed) return `${u}: report failed — ${f.reason}`;
+  const u = unitLabel(report.unit, coords);
+  const sep = coords ? " · " : ": ";
+  if (f.failed) return `${u}${sep}report failed — ${f.reason}`;
   const flags = [];
   if (f.disagreements) flags.push(`differs on ${plural(f.disagreements, "point")}`);
   if (f.notReasonable) flags.push(`${f.notReasonable} not reasonable to ship`);
   if (f.concerns) flags.push(`${plural(f.concerns, "decision")} questioned`);
   if (f.overbuilt) flags.push(`${f.overbuilt} overbuilt`);
   if (f.unassessed) flags.push("partial — something could not be assessed");
-  return flags.length ? `${u}: ${flags.join("; ")}` : `${u}: agrees with the builder's account`;
+  return flags.length ? `${u}${sep}${flags.join("; ")}` : `${u}${sep}agrees with the builder's account`;
 }
 
 const SESSION_VERDICTS = ["continue", "hand off", "archive"];
@@ -449,7 +470,7 @@ const SESSION_VERDICTS = ["continue", "hand off", "archive"];
  */
 export function chatReport(report, { askedModel = null, session = null, coords = undefined } = {}) {
   const f = facts(report);
-  const out = [`**Build report — ${chatLine(report)}**`, ""];
+  const out = [`**Build report — ${chatLine(report, coords ?? undefined)}**`, ""];
   // A PRIVATE-PATH UNIT IS DELIVERED IN CHAT ONLY. The role writes a plain
   // account of the diff, and on a workstream whose plan took the private path
   // that is the content the canonical disclosure check keeps off GitHub

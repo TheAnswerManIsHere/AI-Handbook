@@ -223,10 +223,11 @@ test("the command line prints a brief after preparing, and a report from what wa
   main({ argv: ["brief", "--unit", "f", "--issue", "2", "--issue-title", "The workstream", "--pr", "9", "--pr-title", "The change"], root, io, stdout });
   assert.equal(fs.existsSync(answerPath(root, "f")), false, "brief prepares the path, clearing a stale answer");
   assert.match(out, /PR #9 — The change/);
-  write(root, "f", answer());
+  // Written where the brief prepared it, not through `write`, whose prepare step would clear the coordinates.
+  fs.writeFileSync(answerPath(root, "f"), JSON.stringify(answer()));
   out = "";
   main({ argv: ["report", "--unit", "f", "--session", "continue"], root, io, stdout });
-  assert.match(out, /^\*\*Build report — f: agrees/);
+  assert.match(out, /^\*\*Build report — PR #9 — The change · agrees with the builder's account\*\*/, "the header names the unit by number and title, from the brief's coordinates");
   assert.match(out, /\(the builder's call\): continue/);
   assert.throws(() => main({ argv: ["nope"], root, io, stdout }), /unknown command/);
 });
@@ -241,6 +242,7 @@ test("the report names the evidence the brief carried, both ends of a branch ran
   out = "";
   main({ argv: ["report", "--unit", "v3"], root, io, stdout });
   assert.match(out, /\*Evidence:\* workstream Issue #4 — Ingest prototype · branch `prototype\/ingest` from after `0ld0001` through `abc1234`/);
+  assert.match(out, /^\*\*Build report — branch `prototype\/ingest` through `abc1234` · agrees/, "a branch unit is named by its branch, which has no number to leave bare");
   assert.doesNotMatch(out, /chat only/);
 });
 
@@ -270,7 +272,9 @@ test("a private-path unit is marked for chat-only delivery, and preparing clears
 test("a report read without its brief's coordinates says so", () => {
   const root = tmp();
   write(root, "q", answer());
-  assert.match(chatReport(readAnswer(root, "q"), { coords: null }), /Evidence:\* \*not recorded/);
+  const text = chatReport(readAnswer(root, "q"), { coords: null });
+  assert.match(text, /Evidence:\* \*not recorded/);
+  assert.match(text, /^\*\*Build report — q: agrees/, "with no coordinates the slug is all there is, and the Evidence line says why");
 });
 
 test("a workstream private from the start is reported from the relayed source, delivered in chat only", () => {
@@ -289,6 +293,7 @@ test("a workstream private from the start is reported from the relayed source, d
   const text = chatReport(readAnswer(root, "priv"), { coords });
   assert.match(text, /chat only, never as an issue comment\. David: paste it into the workstream's private item/);
   assert.match(text, /\*Evidence:\* private workstream \(SEC-7\) · plan, decisions and spend from the private source David relayed · PR #31 — Rotate the keys/);
+  assert.match(text, /^\*\*Build report — PR #31 — Rotate the keys · agrees/);
 });
 
 test("a workstream that turned sensitive keeps its sanitized issue and reads the plan from the relay", () => {
