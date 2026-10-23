@@ -2577,9 +2577,11 @@ above — there's still one canonical lifecycle source of truth (the label,
 per `workstream-tracking.md`), and the fix didn't relocate that; it added a
 narrow, explicitly-scoped override for one consumer's ranking decision, on
 the object (the PR) whose live state that consumer actually needed.
-**Not yet audited**: the sibling skills `/status` and `/status-all` derive
-their state from the same stored `stage:`/`waiting:` label pattern and have
-not been checked for the same discovery gap (tracked in #523).
+**Not yet audited**: the sibling skill `/status-all` derives its state from
+the same stored `stage:`/`waiting:` label pattern and has not been checked
+for the same discovery gap (tracked in #523). (`/status` did too until
+2026-10-23; it is now a briefing for David that reads the labels only to
+repair them — the `status` skill, *Side effect*.)
 
 ## An unrelated content change trips a heavy, timing-sensitive test suite because CI classifies by path, not by risk
 
