@@ -175,9 +175,14 @@ where I put it and treat it as binding.
    briefing* item 5 and *The anchor*).
    The comment is the time-ordered log; the State of Play block stays the
    current state, so a decision lands in both (*A reversible choice
-   proceeds*, rule 1). A workstream on the private path keeps its FYIs in
-   chat only, like its build report (`workstream-tracking.md`, *Sensitive /
-   disclosure-carve-out workstreams*).
+   proceeds*, rule 1). **The comment is under the canonical disclosure
+   check like every record** (`workstream-tracking.md`, *Sensitive /
+   disclosure-carve-out workstreams*): an FYI that fails it — a security
+   finding on a public workstream, say — goes on the issue sanitized, its
+   specifics in chat; and a workstream on the private path keeps its FYIs
+   in chat only, like its build report, reaching the private item the way
+   the report does — David pastes them there — so each is written as one
+   line he can paste.
 8. **Findings and asks lead with the outcome for David or users, in product
    English — never the mechanism.** "This would have quietly pointed a risky
    test at your real database," not shell expansion order. Test: a good

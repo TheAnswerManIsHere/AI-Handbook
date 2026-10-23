@@ -137,10 +137,13 @@ method, so when it over-reports it does so the way he would.
   so the chat and the issue are read together, and the briefing says
   `from the issue record` where the chat no longer holds the detail.
 - **A unit on the private path has no issue comments** (rule 7's carve-out:
-  its FYIs stay in chat, like its build report), so its briefing rests on
-  the chat and on the private item's text as David relays it; where the
-  chat has compacted it says so — `chat compacted; earlier flags are in the
-  private item` — rather than claiming completeness it cannot have.
+  its FYIs stay in chat, like its build report, and reach the private item
+  only by David pasting them there), so its briefing rests on the chat and
+  on the private item's text as David relays it. Where the chat has
+  compacted, the briefing names the gap and asks, never asserting a record
+  it cannot read: `chat compacted before <time>; flags before then are
+  only what you pasted into the private item — paste them here and I fold
+  them in`.
 
 ## Where it is collected from
 

@@ -563,8 +563,11 @@ set" `stage:done`, and nothing ever asked him to.)
   chat**, like its build report: the one-line FYI comment every other
   workstream's issue receives (`claude-core.md` interaction rule 7, David,
   2026-10-23) is an account of the work, which is what the check keeps off
-  GitHub, so `/status` on such a unit reads the chat and the relayed
-  private item instead (the `status` skill, *The anchor*).
+  GitHub. They reach the private item the way the report does — David
+  pastes them in — so `/status` on such a unit reads the chat and what he
+  has relayed, and names the gap when the chat has compacted rather than
+  asserting the item holds what he never pasted (the `status` skill, *The
+  anchor*).
 - **No hand-typed GitHub UI name (a field, an option) gets matched by exact
   string in code.** The sync script's first live run against the real board
   failed all 9 workstream syncs because the real `Waiting On` field
