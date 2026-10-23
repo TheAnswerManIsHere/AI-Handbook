@@ -352,6 +352,9 @@ separate maintainer beyond those six **for label-driven updates**.
 `/uat`, and whichever skill is building, for the *Decisions taken on
 recommendation* line, written at the moment the choice is taken
 ([`agent-working-rules.md`](./agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)).**
+A fourth, `/status`, rewrites the block and the labels together only when
+it finds them stale, as a repair rather than a transition (the `status`
+skill, *Side effect*).
 `/handoff`
 (`.claude/skills/handoff/SKILL.md`, Claude-only): when a session's context is
 moved to a fresh session, the narrative changes while `stage:` and `waiting:`
