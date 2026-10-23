@@ -223,7 +223,8 @@ test("the command line prints a brief after preparing, and a report from what wa
   main({ argv: ["brief", "--unit", "f", "--issue", "2", "--issue-title", "The workstream", "--pr", "9", "--pr-title", "The change"], root, io, stdout });
   assert.equal(fs.existsSync(answerPath(root, "f")), false, "brief prepares the path, clearing a stale answer");
   assert.match(out, /PR #9 — The change/);
-  fs.writeFileSync(answerPath(root, "f"), JSON.stringify(answer()), "the answer is written where the brief prepared it; preparing again would clear the coordinates");
+  // Written where the brief prepared it, not through `write`, whose prepare step would clear the coordinates.
+  fs.writeFileSync(answerPath(root, "f"), JSON.stringify(answer()));
   out = "";
   main({ argv: ["report", "--unit", "f", "--session", "continue"], root, io, stdout });
   assert.match(out, /^\*\*Build report — PR #9 — The change · agrees with the builder's account\*\*/, "the header names the unit by number and title, from the brief's coordinates");
