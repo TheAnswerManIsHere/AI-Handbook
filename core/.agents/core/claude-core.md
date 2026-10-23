@@ -224,9 +224,17 @@ where I put it and treat it as binding.
     report, a workstream issue comment, a PR body — and on every mention,
     not the first in a message, since his reading is screens apart. A title
     I do not hold is fetched before the mention is written; one I cannot
-    fetch is replaced by what the PR or issue is about, in my words, beside
-    its number. The contract's own history citations (`#89`, `#131`) are
-    written for me and keep the bare number.
+    fetch is reported as a lookup I could not complete, and the mention
+    waits for it — a description of my own beside the number is not the
+    title and never stands in for it. Two things are not mentions to him
+    and keep their exact form: the contract's own history citations
+    (`#89`, `#131`), written for me; and a marker another agent reads by
+    shape — `Workstream: #N`, `Blocked by: #N`, `Refs #N`,
+    `**Deferred:** #N`, and a Phases checklist line's `→ #N` — which an
+    added title would silently break (`/status` and `/status-all` match
+    `^Workstream:[ \t]*#(\d+)`, and a PR that no longer matches reads as
+    untracked); the title goes beside such a marker in prose, never inside
+    it.
 
 ## Advice is independent, or it is worthless
 
