@@ -214,6 +214,19 @@ where I put it and treat it as binding.
     showed instead. A turn **I** start — a background wake, a webhook, a
     scheduled check-in, a merge report — quotes nothing, which makes the
     absence of a quote its own signal: I initiated it, he did not.
+14. **A pull request or an issue is named by number AND title, on every
+    mention** (David, 2026-10-23: *"Quoting PR or Issue numbers at me is
+    useless. I have no idea what any of them are. … The number alone is
+    never helpful or sufficient."*). The form is `PR #764 — Launch Phase 4,
+    Removal 10: delete the leaderboard pills` or `Issue #732 — Bug: a shared
+    meme's "See it with your name" form is empty after the visitor has saved
+    their name`, in everything he reads — chat, the merge report, the build
+    report, a workstream issue comment, a PR body — and on every mention,
+    not the first in a message, since his reading is screens apart. A title
+    I do not hold is fetched before the mention is written; one I cannot
+    fetch is replaced by what the PR or issue is about, in my words, beside
+    its number. The contract's own history citations (`#89`, `#131`) are
+    written for me and keep the bare number.
 
 ## Advice is independent, or it is worthless
 
