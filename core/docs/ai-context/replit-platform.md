@@ -21,6 +21,10 @@ Built 2026-10-29 from three sources, and each claim says which:
 - **Agent** — Replit Agent's own account, answering `ask_question`. That is a
   working assumption, never a fact, until a measurement or the docs back it
   (*Asking it well*, below, says why).
+- **screen** — what David's Replit screen showed, from his screenshots of the
+  DojoOS Repl's Publishing pages on 2026-10-29 (about 23:10 UTC). As good as a
+  measurement for what the interface offers; it says nothing about what a
+  control does until someone uses it.
 
 Anything still open is listed at the end under *Open*, with what would settle
 it.
@@ -60,7 +64,8 @@ snapshot does include the working tree, a leftover probe ships. Publishing
 covers *"every artifact"* in the project together (docs, *after-you-publish*).
 
 **Stages.** Provision → Security checks → Build → Bundle → Promote, *"usually
-a minute or two"*; a publish in progress can be cancelled (docs). A security
+a minute or two"*; a publish in progress can be cancelled (docs). Each past
+publish keeps that stage bar and its own build and runtime log (screen). A security
 scan always runs, and a setting decides whether a critical finding blocks the
 publish (docs, *publishing/overview*). Promote *"prepares the new version
 alongside the current one, then switches your URL"*, but *"Database changes
@@ -133,16 +138,61 @@ the Publishing pane's configuration), never infer it from one file.
   way new code reaches production (docs; the connector's `publish_app`:
   *"If the app has been published before, this republishes it, reusing the
   existing deployment's settings"*).
-- **Rollback of production is a redeploy of an earlier version**, from
-  Publishing → History (docs, help FAQ only; retention and exact UI are
-  *Open*). The Agent cannot read that list (Agent, 2026-10-29).
+- **Publish history** sits on Publishing → Overview, under *Current status*
+  (Live, who published, when): one row per past publish, newest first, by
+  deployment id — `3ff15af5`, `d49a6e77`, `115b5210`, `1eabe174`, and a
+  *"failed to publish"* row for `26144f9b`, four days back on DojoOS — each
+  with a ⋮ menu, and opening a row shows that publish's stages and log
+  (screen). **Rollback of production is a redeploy of an earlier version**
+  from that list (docs, help FAQ only); what the ⋮ menu offers and how far
+  back the list goes are *Open*. The Agent cannot read the list (Agent,
+  2026-10-29).
+- **The Logs tab** lists Time, Deployment (the id above), Source (`System` or
+  `User`) and Log, with Search, *Errors only* and Date filters (screen), so a
+  line can be tied to the publish that produced it. The list shows local time
+  while a publish's own log shows UTC (screen: `2026-10-28 20:52:36` in the
+  list against `2026-10-29T02:52:35Z` in the detail for the same lines).
 - **A workspace checkpoint rollback never touches production.** Code and the
   development database roll back (the database only if ticked under
   *Additional rollback options*); production stays as published. To bring
   production back too: restore its database, roll back to the matching
   checkpoint, and republish (docs, *data-recovery*).
 - **Changing who can reach the app requires unpublishing first** (docs,
-  *private-deployments*) — an outage, so it is David's call each time.
+  *private-deployments*) — an outage, so it is David's call each time. **So
+  does changing the deployment type**: *"To change your deployment type, you
+  will need to unpublish and publish again"* (screen).
+- **Manage your app** offers three controls at the foot of the Republish
+  page (screen), all David's: **Pause** — *"Your billing will continue, but
+  all users will lose access to your app"*; **Change deployment type**
+  (above); **Unpublish** — *"Your published app billing will be canceled, and
+  it will cease to exist"*.
+
+### What the Republish page holds
+
+Publishing → the top-right **Republish** button opens a popover first —
+status, visibility, how many artifacts are published, domains, a feedback
+widget toggle, and **Review security** beside **Republish** (screen). The
+full page, top to bottom (screen, DojoOS):
+
+- **Sharing** — Public, or the private options under *Domains and access*.
+- **Suggested add-ons** — a deep security scan (*Run scan*), uptime email
+  notifications, monitoring alerts, **Block publishing of critical
+  vulnerabilities** (a toggle: the security scan always runs, and this decides
+  whether a critical finding stops the publish), analytics, a feedback widget,
+  and the "Made with Replit" badge.
+- **Production app secrets** — *Secrets and environment*, below.
+- **Resource usage / Machine configuration** — the machine size and its price
+  (DojoOS: *Dedicated 2 vCPU / 8 GiB RAM*, *"$50 per month ($0.0694/hour)"*).
+  The Overview's *Infrastructure* panel adds the region (North America) and a
+  *See usage logs* link.
+- **Database settings** — one checkbox, **Copy your development database to
+  production database**, labelled *"This is a destructive action. This will
+  replace your production database with your development database,
+  overwriting any existing production data. You can always restore your
+  production database via Point-in-time recovery or snapshots."* It is on
+  the irreversible list by its own description: never ticked except on
+  David's explicit word for that publish.
+- **Manage your app** — above.
 
 ## The two databases, and what a publish does to production's
 
@@ -184,14 +234,18 @@ the Publishing pane's configuration), never infer it from one file.
 
 ## Secrets and environment
 
-**The docs contradict themselves on whether workspace secrets reach
-production**: *publishing/overview* says they *"sync automatically ... when
-you publish or republish"*; *troubleshooting* says they *"do not
-automatically carry over"*; a 2025 changelog describes sync with per-secret
-*unsync*. The Agent picked the second. **Until a screenshot of the Production
-app secrets pane settles it, treat every production secret as something to
-check there by name, never as inherited** — a secret added in the workspace
-and assumed live is the failure this rule exists to prevent. Secrets are
+**Workspace secrets are synced to production by default, one by one, and
+each can be unsynced** (screen). The Republish page's *Production app
+secrets* lists *Deployment secrets*: every workspace secret carries a link
+icon, and its ⋮ menu offers **Edit**, **Unsync from workspace value** and
+**Delete**; `DATABASE_URL`, the `PG*` variables and the connector hostnames
+carry a globe icon instead, which reads as platform-provided; *Add deployment
+secret* adds a production-only one. So *publishing/overview* and the 2025
+changelog are right and *troubleshooting*'s *"do not automatically carry
+over"* is stale; the Agent picked the stale page. **A production secret is
+still checked by name in that list before anything depends on it** — an
+unsynced secret keeps its old production value whatever the workspace
+holds. Secrets are
 unavailable to Static deployments, and an organisation member who cannot see
 a value can still print it from the environment (docs, *secrets*).
 
@@ -241,9 +295,14 @@ a value can still print it from the environment (docs, *secrets*).
   tool descriptions say it follows David's dropdown, and the Agent cannot see
   which mode it ran in (Agent, 2026-10-29: *"I can't see which Free, Power, or
   Max tier or exact model handled this request"*). What is known is the
-  outcome: every connector request to date has run free (David, 2026-10-29).
-  So never tell David a dropdown change will change a connector request's
-  cost or capability until *Open* 4 is settled.
+  outcome, now on screen: **connector questions appear in the Repl's own
+  Agent chat, each footed *"Free · No credits used"***, while the chat's mode
+  dropdown reads *Free* (screen, DojoOS). They ran in Free and cost nothing;
+  they match the dropdown, which is consistent with inheriting it but does not
+  prove it. So never tell David a dropdown change will change a connector
+  request's cost or capability until someone has seen a connector request run
+  under a different setting. And every question sent is visible to anyone who
+  opens that Repl's Agent chat, which the tool's own description warns.
 - **Billing**: paid modes are effort-priced per request, one checkpoint per
   request, and Replit asks for confirmation before a paid action starts;
   Plan Mode bills reasoning even when nothing changes; usage takes up to 30
@@ -294,7 +353,7 @@ Tools, as the MCP server exposes them: `list_apps`, `search_apps`,
   it answered for Overhype.me while that Repl's Agent was still busy on a
   lost question, which every `ask_question` at that moment bounced (measured
   2026-10-29). Whether it
-  is ever billed is not stated anywhere (*Open* 6); it is the cheap way to
+  is ever billed is not stated anywhere (*Open* 5); it is the cheap way to
   learn an app's live URL and whether its last publish landed.
 - **`suspended`** is not a state the docs define for a deployment; they only
   describe suspension for continued payment failure and a reached spend
@@ -316,7 +375,7 @@ measurement before recording it anywhere.
 ## Contradictions inside Replit's docs
 
 Recorded so nobody resolves them by picking the page they found first: the
-secrets sync (above); the Autoscale base fee ($2 on the pricing page, $1 on
+secrets sync (settled on screen in favour of sync, above); the Autoscale base fee ($2 on the pricing page, $1 on
 the August 2026 update); whether access controls need Pro (one older page
 says so, the access page does not); US-only hosting versus selectable
 regions; downtime at publish; `localPort` versus `internalPort` in the ports
@@ -329,16 +388,20 @@ of truth — the dropdown is.
 Each needs David's screen; the Agent cannot see them and the docs do not
 say.
 
-1. **Production app secrets** — whether it lists workspace secrets as synced,
-   and whether a per-secret unsync exists.
-2. **Publishing → History** — what it lists, how far back, and what
-   redeploying an old version does to the production database's schema.
-3. **Create preview deploy** — what it creates: a URL, a database, a
-   lifetime, a cost.
-4. **Agent settings dropdown and usage page** — which mode connector requests
-   run in today, and whether they appear on the usage dashboard.
-5. **Whether a publish includes uncommitted files** — settled for practice by
+Settled by David's screenshots on 2026-10-29: production secrets (synced by
+default, per-secret unsync), what the history lists, and that today's
+connector questions ran Free at no cost. Still open:
+
+1. **A history row's ⋮ menu** — whether it offers a redeploy, what that does
+   to the production database's schema, and how far back the list goes.
+2. **Create preview deploy** — what it creates: a URL, a database, a
+   lifetime, a cost. It appears only when a publish finds a schema
+   difference.
+3. **Whether connector requests follow the mode dropdown**, or have their own
+   default — settled only by a connector request run while the dropdown is
+   set to something other than Free.
+4. **Whether a publish includes uncommitted files** — settled for practice by
    the clean-tree rule above, but not as a fact.
-6. **Whether `get_publish_status` or `ask_question` ever bills**, read from
-   the usage page against a known time window (item 4's screenshot answers
-   it for today's questions).
+5. **Whether `get_publish_status` ever bills** — it never reaches the Agent
+   chat, so the per-request footer cannot show it; the usage page against a
+   known time window would.
