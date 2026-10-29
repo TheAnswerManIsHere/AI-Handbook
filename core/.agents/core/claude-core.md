@@ -631,7 +631,8 @@ to every unit of work but a Trivial PR.
   assign it, and the PR body quotes him. His phase declaration for a feature
   is that declaration for the one-line registry PR recording it (David,
   2026-09-28; the phase bullet below). I request no review of any kind and
-  merge on green CI. Codex's automatic pass is read for one thing: **a P1,
+  merge on green CI; a stalled automatic pass still gets its one bare
+  re-request (*Waiting, and scheduled check-ins*, item 4). Codex's automatic pass is read for one thing: **a P1,
   which I judge and report** — fixed in a named commit, or merged with the
   reason in the merge report (David, 2026-10-21; until then it held the
   merge for him) — **except on a phase registry PR, where it is read for
@@ -645,8 +646,9 @@ to every unit of work but a Trivial PR.
   chapters. `review-proxy.mjs --documentation`, with the oracle being **the
   decision the prose records, quoted**, and Codex's automatic findings passed
   as `--findings-file` (or `--codex-clean`) once that pass reports Completed,
-  with no timeout.
-  I request no Codex round. One batch, merge on green CI, and the merge report
+  and never without it: a pass still Running at its 15-minute check-in gets
+  one bare re-request, and a second stall is an outage (*Waiting, and scheduled check-ins*, item 4).
+  Beyond that re-request I request no Codex round. One batch, merge on green CI, and the merge report
   says in my words what the batch changed. Each Codex thread is answered like
   any finding — fixed in a named commit, or declined with the reason — and
   resolved.
@@ -959,7 +961,8 @@ in the file that every session loads.
    base-branch merges included — in the standard loop; a Trivial change gets
    none, a Documentation change's one batch of corrections merges without a second review, and a prototype-phase PR
    merges on green CI, by design (*Two classes and a phase that leave the loop*, above). What is refused is asking again on a head
-   already reviewed as it stands, to get a different answer. The mechanical
+   already reviewed as it stands, to get a different answer; a stalled pass
+   reviewed nothing, so its re-request is not one (*Waiting, and scheduled check-ins*, item 4). The mechanical
    round needs no exception now, because it was never the anomaly — the old
    rule was. (Astra, 2026-09-19.) **Every review request carries pre-registered flip
    conditions**: what finding, count, or change of shape would make me stop,
@@ -1203,7 +1206,8 @@ product and internal PRs alike — except the two classes and the phase that lea
 threads, a P1 in Codex's automatic pass judged and reported (a phase registry
 PR reads it for nothing), and a **Documentation** PR
 on green CI, resolved threads and its one assessed batch — assessed once
-Codex's automatic pass reports Completed — with no Codex round requested —
+Codex's automatic pass reports Completed — with no Codex round requested
+beyond a stalled pass's one re-request (*Waiting, and scheduled check-ins*, item 4) —
 and a **prototype-phase** PR, on `main` only where
 nothing is downstream of it, waits for nothing but green CI, with Codex's
 automatic pass read only for a defect that stops the feature working; a
@@ -1223,7 +1227,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
   Documentation waits only for the automatic pass, as an input to its one
   assessed batch; a prototype-phase PR is outside the standard
   loop and waits for none). A round I
-  requested but haven't received is not convergence. A pass on a commit I have
+  requested but haven't received is not convergence, and one still Running
+  15 minutes on is a stall (*Waiting, and scheduled check-ins*, item 4). A pass on a commit I have
   since pushed past has not reviewed the diff that would merge. What counts as
   the review returning is the `**Reviewed commit:**` announcement — or, on a
   round nobody requested, the connector's review-summary row reading
@@ -1246,8 +1251,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
   to restart. A prototype-phase feature owes no Codex review, so an outage
   blocks nothing there and that work continues. A Documentation PR is among
   the blocked ones: its one pass waits for Codex's automatic review as an
-  input, with no timeout (*Two classes and a phase that leave the loop*,
-  above). **When a stall becomes an outage** (David, 2026-10-29): a Codex
+  input and never proceeds without it (*Two classes and a phase that leave
+  the loop*, above). **When a stall becomes an outage** (David, 2026-10-29): a Codex
   code review that stalls twice on the same head commit — no `**Reviewed
   commit:**` review and no review-summary row reading Completed against it,
   15 minutes after the request and again 15 minutes after the one bare
