@@ -1247,7 +1247,13 @@ conversation resolution, so the Merge button is inert while a thread is open.
   blocks nothing there and that work continues. A Documentation PR is among
   the blocked ones: its one pass waits for Codex's automatic review as an
   input, with no timeout (*Two classes and a phase that leave the loop*,
-  above).
+  above). **When a stall becomes an outage** (David, 2026-10-29): a Codex
+  code review that stalls twice on the same head commit — no `**Reviewed
+  commit:**` review and no review-summary row reading Completed against it,
+  15 minutes after the request and again 15 minutes after the one bare
+  re-request (*Waiting, and scheduled check-ins*, item 4) — is an outage,
+  and this bullet applies from that wake. A security review left Running
+  is not one: the merge bar is the code review.
 - **Two things no gate ever proved, and they are still mine to check by eye.**
   That every requested round came back — a permitted retry needs no push, so
   two requests can name one commit and a single pass satisfies both — and that
@@ -1496,6 +1502,30 @@ shows the true delta.
    the permission classifier. Re-arming is a fresh `send_later`. An obsolete
    one-shot is left alone: it fires once, no-ops, and self-disables. If a
    `send_later` ever prompts, that's new information for the workstream issue.
+4. **A requested Codex review gets its own check-in at 15 minutes, sized to
+   the machine, not to reviewers** (David, 2026-10-29, after Overhype.me
+   #781's code review read Running for 78 minutes behind the platform's
+   50-minute safety net, and a bare re-request finished it in under four). Every
+   Codex review request — the automatic one at PR open or ready-for-review
+   included — arms a `send_later` 15 minutes out in the same turn, on any PR
+   whose merge waits on that pass (the standard loop, Documentation,
+   Trivial; never a prototype-phase PR or a phase registry PR, which wait on
+   none). The figure is measured: 56 request-to-completion pairs across
+   Overhype.me and DojoOS, 2026-10-20 to 2026-10-29 — median 1.5 minutes,
+   95th percentile 6.0, longest 7.8 — so 15 is about twice the longest pass
+   seen. **On the wake, a pass with neither a `**Reviewed commit:**` review
+   nor a review-summary row reading Completed against the head is stalled**:
+   one bare re-request, posted at once — the trigger and nothing I wrote
+   (interaction rule 11), with no round-context comment, since the stalled
+   request's still stands — and a fresh 15-minute check-in. The re-request
+   restarts the stalled pass rather than asking for a round, so it is not a
+   second review of an unchanged head (review rule 4: nothing reviewed it),
+   and the Documentation and Trivial classes' "no round requested" does not
+   forbid it. **A second stall on the same head is an outage** (*Close-out*).
+   A pass that has returned makes the wake a silent no-op, and a 👍 never
+   counts as one returning. While a Codex pass is pending this is the
+   cadence, not the platform's safety net, which resumes once the pass is
+   in; the wakes count toward rule 2's caps.
 
 ## Model, cost, and routing
 
