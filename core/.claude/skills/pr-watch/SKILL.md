@@ -448,7 +448,9 @@ requires it.
      round", which under the write-gate meant a documentation correction with
      nothing behavioural behind it could never merge at all (#125 waited a week
      on that reading). What is refused is re-requesting on a head already
-     reviewed as it stands, to get a different answer. (Astra, 2026-09-19.)
+     reviewed as it stands, to get a different answer; a stalled pass
+     reviewed nothing, so its re-request is not one (*A stalled pass*,
+     below). (Astra, 2026-09-19.)
    - **No review is the last one by number** (David, 2026-10-21, retiring the
      two-review limit): the second review is where record-the-gap becomes the
      ordinary answer, and a further batch is written when the judgement says
