@@ -95,6 +95,8 @@ the PID when you launch it and kill that.
 Both signals are available and both are worth reading — an exit code is a thin
 thing to hang a refusal on. Sign-in in a cloud session is **per session, by
 device code, and never stored**; see
-[`web-research.md`](../../docs/ai-context/web-research.md). The device code
-expires in about 15 minutes, so issue it and ask for approval in the same turn
-rather than preparing work first.
+[`web-research.md`](../../docs/ai-context/web-research.md). It is the first
+thing a session does, before any other work
+([`claude-core.md`](../core/claude-core.md), *Astra*, David 2026-10-29). The
+device code expires in about 15 minutes, so issue it and ask for approval in
+the same turn rather than preparing work first.
