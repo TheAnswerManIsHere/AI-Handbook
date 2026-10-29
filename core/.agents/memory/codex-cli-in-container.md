@@ -100,3 +100,9 @@ thing a session does, before any other work
 ([`claude-core.md`](../core/claude-core.md), *Astra*, David 2026-10-29). The
 device code expires in about 15 minutes, so issue it and ask for approval in
 the same turn rather than preparing work first.
+
+A background waiter for the sign-in (or for any detached `codex` run) polls
+`login status` or a file the run writes — never `pgrep -f '<pattern>'`, whose
+pattern is in the waiter's own command line, so it matches itself and the loop
+never exits (measured 2026-10-29: a 30-minute background wait on AI-Handbook
+#252 ran to its time limit after the run it watched had finished).
