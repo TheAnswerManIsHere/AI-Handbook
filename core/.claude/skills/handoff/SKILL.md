@@ -209,7 +209,7 @@ The block carries these seven, in order:
    repository other than the new session's primary one** — the attach step,
    named as the first action after that sign-in, and by its full tool name:
 
-   > Attach the repo before anything else: call
+   > Right after the Astra sign-in, before anything else, attach the repo: call
    > `mcp__Claude_Code_Remote__add_repo` with owner `<owner>`, repo `<repo>`,
    > access `<read|push>`. Run the clone command it returns, then call
    > `mcp__Claude_Code_Remote__register_repo_root` with the clone path. If that
