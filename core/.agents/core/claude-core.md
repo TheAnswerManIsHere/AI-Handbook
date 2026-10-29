@@ -1254,7 +1254,7 @@ conversation resolution, so the Merge button is inert while a thread is open.
   input and never proceeds without it (*Two classes and a phase that leave
   the loop*, above). **When a stall becomes an outage** (David, 2026-10-29): a Codex
   code review that stalls twice on the same head commit — no `**Reviewed
-  commit:**` review and no review-summary row reading Completed against it,
+  commit:**` review or comment and no review-summary row reading Completed against it,
   15 minutes after the request and again 15 minutes after the one bare
   re-request (*Waiting, and scheduled check-ins*, item 4) — is an outage,
   and this bullet applies from that wake. A security review left Running
@@ -1519,7 +1519,7 @@ shows the true delta.
    Overhype.me and DojoOS, 2026-10-20 to 2026-10-29 — median 1.5 minutes,
    95th percentile 6.0, longest 7.8 — so 15 is about twice the longest pass
    seen. **On the wake, a pass with neither a `**Reviewed commit:**` review
-   nor a review-summary row reading Completed against the head is stalled**:
+   or comment nor a review-summary row reading Completed against the head is stalled**:
    one bare re-request, posted at once — the trigger and nothing I wrote
    (interaction rule 11), with no round-context comment, since the stalled
    request's still stands — and a fresh 15-minute check-in. The re-request
@@ -1527,10 +1527,13 @@ shows the true delta.
    second review of an unchanged head (review rule 4: nothing reviewed it),
    and the Documentation and Trivial classes' "no round requested" does not
    forbid it. **A second stall on the same head is an outage** (*Close-out*).
-   A pass that has returned makes the wake a silent no-op, and a 👍 never
-   counts as one returning. While a Codex pass is pending this is the
+   A pass that has returned, or a wake whose head has been pushed past (the
+   push's request armed its own), makes the wake a silent no-op, and a 👍
+   never counts as one returning. While a Codex pass is pending this is the
    cadence, not the platform's safety net, which resumes once the pass is
-   in; the wakes count toward rule 2's caps.
+   in. These wakes are their own bound — at most two per head, ending when
+   the pass returns or at the outage — so rule 2's caps, written for an
+   open-ended wait, do not count them.
 
 ## Model, cost, and routing
 

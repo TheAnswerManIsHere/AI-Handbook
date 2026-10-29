@@ -498,10 +498,13 @@ requires it.
      and scheduled check-ins* item 4). In the turn a review is requested —
      the trigger posted, or the PR opened or marked ready, which requests
      the automatic pass — arm `send_later` with `delay_minutes: 15`, naming
-     the PR, the head SHA and "Codex code review pending". On the wake, one
-     `get_comments` and one `get_reviews`: the pass has returned if a
-     `chatgpt-codex-connector[bot]` review carries `**Reviewed commit:**`
-     for the head, or the review-summary comment (`<!--
+     the PR, the head SHA and "Codex code review pending". On the wake, a
+     named SHA that is no longer the head is a silent no-op — the push's
+     request armed the head's own wake. Otherwise one `get_comments` and one
+     `get_reviews`: the pass has returned if a `chatgpt-codex-connector[bot]`
+     review or PR comment carries `**Reviewed commit:**` for the head (a
+     clean pass arrives as a comment, *"Didn't find any major issues"*,
+     measured on AI-Handbook #253), or the review-summary comment (`<!--
      codex-pull-request-review-summary -->`) has its 📝 **Code Review** row
      reading **Completed** against the head's short SHA — the hidden
      `codex-review-state:v1` block says the same as `"status":"completed"`.
