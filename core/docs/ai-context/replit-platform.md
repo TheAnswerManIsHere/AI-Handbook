@@ -11,7 +11,7 @@
 > only on David's word — is `claude-core.md`, *Connectors → Replit*; this file
 > says how things work, not what is authorised.
 
-Built 2026-10-29 from three sources, and each claim says which:
+Built 2026-10-29 from four sources, and each claim says which:
 
 - **docs** — docs.replit.com, read 2026-10-29. Its reference pages carry no
   dates; only the changelog is dated (newest read: 2026-10-23). Where two
@@ -37,7 +37,7 @@ Every Repl is two environments that share nothing at runtime:
 |---|---|---|
 | Code | the Repl's working tree, tracking `main` | a snapshot taken at the last publish |
 | Database | development database (Replit's Helium, PostgreSQL 16) | production database (Neon), created at first publish |
-| Secrets | the Secrets pane | Publishing → Adjust settings → *Production app secrets* (see *Secrets*) |
+| Secrets | the Secrets pane | Publishing → Republish page → *Production app secrets* (see *Secrets*) |
 | Tells code which it is | `REPLIT_DEPLOYMENT` unset; `REPLIT_DEV_DOMAIN` set | `REPLIT_DEPLOYMENT=1`; `REPLIT_DEV_DOMAIN` absent |
 | URL | private `*.replit.dev` preview | `<name>.replit.app`, or a custom domain |
 
@@ -151,7 +151,7 @@ the Publishing pane's configuration), never infer it from one file.
   `User`) and Log, with Search, *Errors only* and Date filters (screen), so a
   line can be tied to the publish that produced it. The list shows local time
   while a publish's own log shows UTC (screen: `2026-10-28 20:52:36` in the
-  list against `2026-10-29T02:52:35Z` in the detail for the same lines).
+  list against `2026-10-29T02:52:35Z` in the detail, for the same startup).
 - **A workspace checkpoint rollback never touches production.** Code and the
   development database roll back (the database only if ticked under
   *Additional rollback options*); production stays as published. To bring
@@ -211,7 +211,10 @@ full page, top to bottom (screen, DojoOS):
 - **At publish, production's schema is brought to the development
   database's.** *"any changes you've made with Agent to the structure of
   your development database ... are applied to your production database"*
-  (docs). Data is never copied, except once at creation if asked. **What the
+  (docs). Data is not copied by the schema step. It can be copied wholesale
+  by the Republish page's **Copy your development database to production
+  database** checkbox, on any publish of a live app, not only the first
+  (screen; *What the Republish page holds*). **What the
   docs do not describe and David has measured** (Overhype.me, 2026-10-28):
   when the two schemas differ, Replit generates one migration and offers
   **Approve and publish**, **Create preview deploy** or **Cancel**, asking per
@@ -242,10 +245,11 @@ icon, and its ⋮ menu offers **Edit**, **Unsync from workspace value** and
 carry a globe icon instead, which reads as platform-provided; *Add deployment
 secret* adds a production-only one. So *publishing/overview* and the 2025
 changelog are right and *troubleshooting*'s *"do not automatically carry
-over"* is stale; the Agent picked the stale page. **A production secret is
-still checked by name in that list before anything depends on it** — an
-unsynced secret keeps its old production value whatever the workspace
-holds. Secrets are
+over"* is stale; the Agent picked the stale page. Synced values reach production *"when you publish or republish"* (docs,
+*publishing/overview*); whether a workspace change reaches the running
+deployment between publishes was not shown. **A production secret is still
+checked by name in that list before anything depends on it**, since one
+unsynced there no longer follows the workspace. Secrets are
 unavailable to Static deployments, and an organisation member who cannot see
 a value can still print it from the environment (docs, *secrets*).
 
@@ -402,6 +406,13 @@ connector questions ran Free at no cost. Still open:
    set to something other than Free.
 4. **Whether a publish includes uncommitted files** — settled for practice by
    the clean-tree rule above, but not as a fact.
-5. **Whether `get_publish_status` ever bills** — it never reaches the Agent
-   chat, so the per-request footer cannot show it; the usage page against a
-   known time window would.
+5. **Whether connector activity shows on the usage dashboard** — each
+   `ask_question` is footed *"Free · No credits used"* in the Agent chat, but
+   nobody has looked at the usage page; and whether `get_publish_status` ever
+   bills, which never reaches the Agent chat at all. The usage page against a
+   known time window settles both.
+6. **Whether the database-copy checkbox persists across publishes** — a
+   republish *"reuses the existing deployment's settings"* (the connector's
+   `publish_app` description), so a tick that persisted would overwrite
+   production again on the next routine republish. Until settled, look at
+   that checkbox on the Republish page before every publish.
