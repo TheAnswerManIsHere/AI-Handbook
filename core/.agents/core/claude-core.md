@@ -1495,8 +1495,8 @@ shows the true delta.
    [`github-rest-api-blocked-from-bash.md`](../../.agents/memory/github-rest-api-blocked-from-bash.md)).
    Short foreground sleeps run; long ones are blocked.
 2. **Scheduled check-ins** are allowed only while waiting on a **named external
-   condition that won't wake me** (stalled CI, a quiet PR before close-out, a
-   long Replit operation) — never a general heartbeat, never a substitute for
+   condition that won't wake me** (stalled CI, a pending Codex review (item 4), a quiet PR before
+   close-out, a long Replit operation) — never a general heartbeat, never a substitute for
    finishing now. Each carries the condition in one sentence, a cadence matched
    to it, and an exit condition. Caps: **3 consecutive no-op wakes**, or **6
    wakes / 24 hours**, whichever hits first — then stop, disarm, and tell David
