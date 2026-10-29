@@ -94,9 +94,10 @@ Four, and only four (docs, *deployment-types*):
 | **Scheduled** | a command on a cron, then stops; no URL | per run | — |
 
 Autoscale's *Max machines* caps the server count and so the maximum cost. A
-Reserved VM restarts a program that exits, which is why a supervisor that
-exits non-zero when a child dies is the right shape there (DojoOS's production
-supervisor).
+published app *"expect[s] your program to keep running. If your program runs
+once and exits, the platform restarts it automatically"* (docs,
+*troubleshooting*), which is why a supervisor that exits non-zero when a child
+dies is the right shape on a Reserved VM (DojoOS's production supervisor).
 
 ### Where the publish configuration lives
 
@@ -117,9 +118,14 @@ Two layers, and the second is the one an Agent-built pnpm monorepo uses:
   `/__mockup` → the design artifact, which declares no production service and
   so serves nothing when published.
 
-**`NODE_ENV` is set by this config, not by Replit**: the docs never say
-Replit sets it, and Overhype.me's API sets it in its artifact's production
-env (measured). A service with no such line runs without it.
+**`NODE_ENV` is not a platform default anyone has established**: the docs
+never say Replit sets it, and Overhype.me's API sets it in its artifact's
+production env (measured). That is one place it can come from, not the only
+one — a published-app configuration in the Secrets tool or the run command
+itself can supply it too (docs, *secrets*, *configuration*). So a missing
+`artifact.toml` line does not mean the variable is unset: when the value
+matters, read the service's effective environment (a production log line, or
+the Publishing pane's configuration), never infer it from one file.
 
 ### Republishing, history, rollback
 
@@ -140,11 +146,15 @@ env (measured). A service with no such line runs without it.
 
 ## The two databases, and what a publish does to production's
 
-- **The development database is the Agent's; production is not.** *"Agent
-  can't touch it"* — for writes (docs). The Agent **can run read-only queries
-  against production** through a tool of its own (Agent; measured
+- **The development database is the Agent's; production is not.** The docs
+  say *"Agent is not able to modify the production database"* — Replit's
+  claim, never measured, since a write is not a test anyone should run. What
+  is measured is the other half: the Agent **can read production** through a
+  query tool of its own, which it describes as read-only (measured
   2026-10-29: `SELECT current_database(), now();` against production →
-  `neondb,2026-10-29 21:58:06.18808+00`). That is a live read of user data,
+  `neondb,2026-10-29 21:58:06.18808+00`). So a request that touches
+  production says read-only and names what it must not change, whatever the
+  docs promise. That is a live read of user data,
   under the disclosure rules of
   [`live-diagnosis`](../../.claude/skills/bugfix/live-diagnosis.md) like any
   other: aggregate or redact in the request itself.
@@ -224,14 +234,16 @@ a value can still print it from the environment (docs, *secrets*).
   **The mode is a setting of David's account, per message** — *"Your Agent
   settings are tied to you, not to the project"*, and they apply *"when you
   send the next message"* (docs, *agent-modes*, *model-selector*).
-- **The connector cannot choose the mode.** Its `ask_question` and
-  `update_app_using_prompt` both take a `policy` argument whose own schema
-  reads *"Ignored. Don't waste tokens sending this."* So a connector request
-  runs in whatever mode David's dropdown holds; the Agent itself cannot see
-  which (Agent, 2026-10-29: *"I can't see which Free, Power, or Max tier or
-  exact model handled this request"*). Every request through the connector to
-  date has run free (David, 2026-10-29) — that is a property of his dropdown,
-  and it changes if he changes it.
+- **The connector exposes no way to choose the mode.** Its `ask_question`
+  and `update_app_using_prompt` both take a `policy` argument whose own schema
+  reads *"Ignored. Don't waste tokens sending this."* **How the server picks
+  the mode for a connector request is unknown**: neither the docs nor the
+  tool descriptions say it follows David's dropdown, and the Agent cannot see
+  which mode it ran in (Agent, 2026-10-29: *"I can't see which Free, Power, or
+  Max tier or exact model handled this request"*). What is known is the
+  outcome: every connector request to date has run free (David, 2026-10-29).
+  So never tell David a dropdown change will change a connector request's
+  cost or capability until *Open* 4 is settled.
 - **Billing**: paid modes are effort-priced per request, one checkpoint per
   request, and Replit asks for confirmation before a paid action starts;
   Plan Mode bills reasoning even when nothing changes; usage takes up to 30
@@ -278,9 +290,12 @@ Tools, as the MCP server exposes them: `list_apps`, `search_apps`,
   publish is scheduled: poll `get_publish_status` every 30 seconds until it
   reads `success`, `failed` or `suspended`. `found: false` means never
   published.
-- **`get_publish_status` is free and safe**: no Agent turn, no checkpoint.
-  It is the cheap way to learn an app's live URL and whether its last publish
-  landed.
+- **`get_publish_status` reads deployment state without asking the Agent**:
+  it answered for Overhype.me while that Repl's Agent was still busy on a
+  lost question, which every `ask_question` at that moment bounced (measured
+  2026-10-29). Whether it
+  is ever billed is not stated anywhere (*Open* 6); it is the cheap way to
+  learn an app's live URL and whether its last publish landed.
 - **`suspended`** is not a state the docs define for a deployment; they only
   describe suspension for continued payment failure and a reached spend
   limit (docs, *about-usage-based-billing*, *managing-spend*). Read it as a
@@ -324,3 +339,6 @@ say.
    run in today, and whether they appear on the usage dashboard.
 5. **Whether a publish includes uncommitted files** — settled for practice by
    the clean-tree rule above, but not as a fact.
+6. **Whether `get_publish_status` or `ask_question` ever bills**, read from
+   the usage page against a known time window (item 4's screenshot answers
+   it for today's questions).
