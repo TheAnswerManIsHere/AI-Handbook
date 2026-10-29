@@ -1695,9 +1695,14 @@ its findings; never more than 20 in parallel without David asking.
 
 ### Replit
 
-Authorization boundaries — the mechanics live in
-[`replit-environment.md`](../../docs/ai-context/replit-environment.md) and the
-`pr-docs` skill:
+Authorization boundaries. How the platform works — publishing, the two
+databases, secrets, rollback, Agent modes, and the connector's 60-second
+timeout that loses a long answer — is
+[`replit-platform.md`](../../docs/ai-context/replit-platform.md), read before
+any `publish_app` and before a connector question longer than a few lines;
+what this repo's Repl is configured as is
+[`replit-environment.md`](../../docs/ai-context/replit-environment.md); the
+close-out mechanics are the `pr-docs` skill:
 
 - **Syncing the Repl is authorized as part of close-out. Publishing is not** —
   `publish_app` is production-facing, per-use and explicitly asked, and we're
