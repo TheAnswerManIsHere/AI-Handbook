@@ -296,7 +296,7 @@ test("as a hook: nothing owed prints nothing, and bad input never blocks a stop 
     JSON.stringify({ hook_event_name: "Notification", notification_type: "idle_prompt" }),
     "not json",
   ]) {
-    const r = spawnSync("node", [SCRIPT], { input, env: { PATH: process.env.PATH }, encoding: "utf8" });
+    const r = spawnSync("node", [SCRIPT], { input, env: { PATH: process.env.PATH, NEEDS_YOU_ALERT_STATE_DIR: mkdtempSync(join(tmpdir(), "nya-")) }, encoding: "utf8" });
     assert.equal(r.status, 0, input);
     assert.equal(r.stdout, "", input);
   }
