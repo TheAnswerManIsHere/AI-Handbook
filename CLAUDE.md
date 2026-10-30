@@ -8,7 +8,7 @@ The shared working contract for every product David builds with AI agents. It
 ships no product. Its payload — `core/` — is vendored into each consumer repo
 by the sync described in [`docs/consuming-repos.md`](docs/consuming-repos.md),
 and `scripts/sync.mjs` copies `core/**` into place, one rule with one
-exception for seeded files, and deletes a consumer's copy of anything the
+exception for seeded files (two of which it tops up with absent keys), and deletes a consumer's copy of anything the
 payload has stopped shipping.
 
 This repo governs itself with the same file it ships: the import above is the
@@ -32,15 +32,14 @@ risk. So:
   `.claude/settings.json` is a separate file. But `core/` is not inert here,
   and the activation model has to be stated exactly or a reviewer will judge a
   change to it as consumer-only when it also changes this repo: **skills** and
-  **agents** are live here, reached by per-entry symlink from `.claude/`.
-  Everything else under `core/` reaches this repo only by import — the
-  `@core/.agents/core/claude-core.md` line at the top of this file. See *How
-  this repo reaches its own payload* below. The third is
-  `core/scripts/needs-you-alert.mjs`, named directly by this repo's `Stop`,
-  `StopFailure` and `Notification` hooks (David, 2026-10-30), so an edit to it
-  changes how this session alerts David as well as every consumer's. (A
-  previous third exception, `guard.sh` and its `PreToolUse` hooks, went in the
-  #89 cut, #94.)
+  **agents** are live here, reached by per-entry symlink from `.claude/`;
+  and `core/scripts/needs-you-alert.mjs` is live here, named directly by this
+  repo's `Stop`, `StopFailure` and `Notification` hooks (David, 2026-10-30),
+  so an edit to it changes how this session alerts David as well as every
+  consumer's. Everything else under `core/` reaches this repo only by import —
+  the `@core/.agents/core/claude-core.md` line at the top of this file. See
+  *How this repo reaches its own payload* below. (A previous third exception,
+  `guard.sh` and its `PreToolUse` hooks, went in the #89 cut, #94.)
 - **Adding a file to `core/` ships it.** The sync routes `core/**` by
   construction, so there is no routing table a new file can fall out of — this
   used to be a real hazard guarded by a 1,176-line checker, and it is now

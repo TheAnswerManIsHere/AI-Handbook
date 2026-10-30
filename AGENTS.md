@@ -22,7 +22,7 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
 - **Every change is a fleet change.** A diff to `core/` alters how agents
   behave in every consumer repository, on every future session. Judge it at
   that scope, not at the scope of the lines shown.
-- **`core/` is data, with two deliberate exceptions.** Files under it are what
+- **`core/` is data, with three deliberate exceptions.** Files under it are what
   other repositories will receive, so review them for what they will do
   *there*. The settings template still configures nothing here — it is a seed
   for the next consumer, and this repo's own `.claude/settings.json` is
@@ -30,9 +30,10 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   never by copy: the skills and agents, which `.claude/skills/<name>` and
   `.claude/agents/<name>.md` reach by per-entry symlink. So a diff to one of
   those is a change to this repository's own behaviour as well as to every
-  consumer's. (There was a second — `guard.sh`, named directly by this repo's
-  hooks — and the guard, the hooks and the exception all went in the #89 cut,
-  #94.) See *How this repo reaches its own payload* in
+  consumer's. The same holds for `core/scripts/needs-you-alert.mjs`, which
+  this repo's own `Stop`, `StopFailure` and `Notification` hooks name
+  directly (2026-10-30). (An earlier hook-named exception, `guard.sh`, went
+  with its `PreToolUse` hooks in the #89 cut, #94.) See *How this repo reaches its own payload* in
   [`CLAUDE.md`](CLAUDE.md).
 - **Coverage is automatic, and that is the point.** A file added under `core/`
   ships, because the sync routes `core/**` by construction — there is no
