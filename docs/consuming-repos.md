@@ -300,8 +300,9 @@ to worry about strange links."*)
 
 4. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
    `core/.claude/settings.template.json` and is **yours from the moment it
-   lands** — the sync never rewrites it, and no "do not edit this vendored
-   file" rule applies to it. Four fields need a decision, and the guidance
+   lands** — the sync never rewrites a key it holds (it adds one absent key,
+   `hooks`, below), and no "do not edit this vendored file" rule applies to
+   it. Four fields need a decision, and the guidance
    lives here rather than inside the file because **Claude Code refuses a
    settings file carrying an unrecognised top-level field**, so the template
    cannot document itself. (It once tried, with a `_comment` array, and that
@@ -309,8 +310,9 @@ to worry about strange links."*)
    scripts/check-settings-fields.mjs` now catches the class.)
 
    **When you do this depends on which repo you have.** A repo that *already*
-   had a settings file never receives the seed at all — `mode: seed` writes
-   only when the file is absent — so for that repo this table is a checklist
+   had a settings file never receives the seed as a whole — `mode: seed` writes
+   only when the file is absent, and the one exception is the `hooks` key the
+   sync adds when it is missing — so for that repo this table is a checklist
    for its EXISTING file, applied by hand, now. A repo that had *none* does not
    receive the file until the sync runs at **step 7**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
@@ -338,7 +340,8 @@ to worry about strange links."*)
    line, when the session parks on a permission prompt, and when a turn dies on
    an error, and it sends David a Pushover alert at emergency priority —
    repeating until he acknowledges it — because the harness's own push
-   withholds itself when it judges him active (David, 2026-10-30). It reads
+   withholds itself when it judges him active (David, 2026-10-30; the rule
+   is `claude-core.md`, interaction preference 6). It reads
    `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN` from the cloud environment's
    variables, set once per environment; without them every owed alert prints
    "David was NOT alerted" in the session rather than failing quietly.
@@ -545,7 +548,7 @@ always-on check would call a script the sync had already removed.
   `node scripts/check-settings-fields.mjs` now rejects. A seed does not need
   one: the delivered `.claude/settings.json` is **consumer-owned from the
   moment it lands**, so the rule this bullet states does not apply to it, and
-  the sync never deletes it. That ownership is stated in enrollment step 5
+  the sync never deletes it. That ownership is stated in enrollment step 4
   instead, where whoever adapts the file is already reading.
 - **A file removed from the payload leaves every consumer on the next sync.**
   The sync deletes a tracked consumer file that carries the header when
@@ -560,7 +563,7 @@ always-on check would call a script the sync had already removed.
   if a file is in the payload it reaches every consumer on the next sync. If it
   is not ready for that, it is not ready to merge here.
 - **Seeded files diverge on purpose.** A `*.template.*` file writes once and
-  never again; a consumer's `.claude/settings.json` is meant to differ. The cost is
+  never again, save the absent keys `TOPPED_UP_SEEDS` names (below); a consumer's `.claude/settings.json` is meant to differ. The cost is
   that seeding is a no-op in a repo that already has the file, so anything the
   template contributes which is *not* optional has to be merged by hand at
   enrollment. A seed cannot deliver a requirement; it can only offer a starting
