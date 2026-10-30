@@ -105,8 +105,9 @@ A payload file the consumer is meant to own after receiving it — marked by
 `.template` in its name and delivered under its real name **only when the
 consumer does not already have it**. The settings template and the
 [machinery pin](#machinery-pin) are seeds. After seeding, the file is the
-consumer's to edit; one seed can have missing keys topped up, but nothing in
-it is ever overwritten. Seeds carry no sync banner, since the sync must never
+consumer's to edit; two seeds have missing keys topped up — the machinery
+pin's, and the settings file's `hooks` key when absent — but nothing in them
+is ever overwritten. Seeds carry no sync banner, since the sync must never
 take them back.
 Home: [`scripts/sync.mjs`](../../scripts/sync.mjs)
 
@@ -614,8 +615,9 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 
 The 👀 banner for something David would want to know but need not answer —
 a security concern found along the way, a systemic issue beyond one PR, a
-scope surprise. Work continues without a reply. Routine correctness findings
-do not clear the bar.
+scope surprise. Work continues without a reply, and David's phone chimes
+once, the instant it is written. Routine correctness findings do not clear
+the bar.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
 ---

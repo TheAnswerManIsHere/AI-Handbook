@@ -50,9 +50,12 @@ other payload file. Each set has its own test suite, and both suites run in CI.
   the same path minus the `core/` prefix. That is the one rule, and there is
   one exception: a file named `*.template.*` is a [seed
   file](./glossary.md#seed-file), delivered once under its real name and then
-  owned by the product, never overwritten. (The machinery configuration is the
-  one seed that is *topped up*: keys the template has gained since the product
-  was seeded are added, and nothing the product set is changed.) The sync also
+  owned by the product, never overwritten. (Two seeds are *topped up*, and
+  nothing the product set is changed: the machinery configuration gains any
+  key the template has gained since the product was seeded, and the settings
+  file gains its `hooks` key, the needs-you alert, when it has none — a product
+  whose settings already carry `hooks` merges a later alert entry by hand,
+  named by the sync's `NOTE`.) The sync also
   **deletes** a product's copy of a file the payload has stopped shipping — but
   only a file the product's git tracks, whose own text carries the sync banner,
   and that nothing in this run routes to. It reads committed bytes rather than
