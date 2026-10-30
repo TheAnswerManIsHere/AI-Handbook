@@ -10,7 +10,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed, TOPPED_UP_SEEDS,
+  routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed, TOPPED_UP_SEEDS, withheldEntries,
   carriesBanner, staleFiles, uncommittedPaths,
 } from "../sync.mjs";
 import { missingBanners } from "../check-payload-banners.mjs";
@@ -277,6 +277,41 @@ test("an existing settings file gains the alert hooks and nothing else", () => {
   } finally {
     removeTree(dest);
   }
+});
+
+test("a consumer's own `hooks` without the alert is reported, never edited", () => {
+  // Overhype.me, 2026-10-30: its own SessionStart hook kept the needs-you
+  // alert out, and the sync said only "keep". The note makes that loud.
+  const dest = fresh();
+  try {
+    run(dest);
+    const owned = join(dest, ".claude/settings.json");
+    const settings = JSON.parse(readFileSync(owned, "utf8"));
+    settings.hooks = { SessionStart: [{ hooks: [{ type: "command", command: "true" }] }] };
+    const theirs = `${JSON.stringify(settings, null, 2)}\n`;
+    writeFileSync(owned, theirs);
+    commitAll(dest);
+    const lines = [];
+    sync(dest, { log: (l) => lines.push(l), payloadRoot: PAYLOAD });
+    assert.equal(readFileSync(owned, "utf8"), theirs, "the consumer's hooks are not edited");
+    const note = lines.find((l) => l.includes("NOTE") && l.includes(".claude/settings.json"));
+    assert.ok(note, `expected a NOTE line, got:\n${lines.join("\n")}`);
+    assert.match(note, /Notification, Stop, StopFailure|Stop/);
+  } finally {
+    removeTree(dest);
+  }
+});
+
+test("withheldEntries names only the template entries the consumer lacks", () => {
+  const dir = mkdtempSync(join(tmpdir(), "withheld-"));
+  const template = join(dir, "t.json");
+  const target = join(dir, "c.json");
+  writeFileSync(template, JSON.stringify({ hooks: { Stop: [], Notification: [] }, env: { A: 1 } }));
+  writeFileSync(target, JSON.stringify({ hooks: { Stop: [], SessionStart: [] }, env: {} }));
+  assert.deepEqual(withheldEntries(template, target, ["hooks"]), [{ key: "hooks", missing: ["Notification"] }]);
+  assert.deepEqual(withheldEntries(template, target, null), []);
+  writeFileSync(target, JSON.stringify({ env: {} }));
+  assert.deepEqual(withheldEntries(template, target, ["hooks"]), [], "an absent key is the top-up's job, not a note");
 });
 
 test("a consumer's own `hooks` key, even empty, is the opt-out", () => {
