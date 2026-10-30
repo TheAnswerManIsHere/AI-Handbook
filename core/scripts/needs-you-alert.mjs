@@ -64,11 +64,14 @@ export const PUSHOVER_URL = "https://api.pushover.net/1/messages.json";
  */
 export const EMERGENCY = { priority: 2, retry: 60, expire: 10800 };
 
-// Anchored to the start of a line: an ask is written as its own line, while a
-// message that merely quotes the shape (mid-sentence, in backticks, in a
-// blockquote) is not an ask and must not ring David's phone.
-const ASK_BANNER = /^[ \t]*🛑\s*\*\*NEED YOU\*\*\s*[—–-]\s*(.+)/m;
-const OPEN_ASK = /^[ \t]*Still waiting on you:\s*(.+)/m;
+// Anchored to the start of a line, after at most a heading mark, a bullet or
+// emphasis: an ask is written as its own line, while a message that merely
+// quotes the shape (mid-sentence, in backticks, in a blockquote) is not an ask
+// and must not ring David's phone. A missed ask costs more than a false alarm,
+// so the prefixes an ask is plausibly dressed in are allowed (PR #261 build report).
+const LINE_START = String.raw`^[ \t]*(?:#{1,6}[ \t]+|[-*+][ \t]+|\d+\.[ \t]+)?(?:\*\*|__|\*|_)?[ \t]*`;
+const ASK_BANNER = new RegExp(`${LINE_START}🛑\\s*\\*\\*NEED YOU\\*\\*\\s*[—–-]\\s*(.+)`, "m");
+const OPEN_ASK = new RegExp(`${LINE_START}Still waiting on you:\\s*(.+)`, "m");
 
 /** Notification types that park a session on David. `idle_prompt` is not one: it fires after every hand-back. */
 export const BLOCKING_NOTIFICATIONS = new Set([
