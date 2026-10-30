@@ -119,9 +119,11 @@ The routing has **one rule and one exception**:
   `.agents/machinery.json` — and only if the product does not already have
   one. From that moment the file belongs to the product: it holds the
   product's own permissions and identity, and overwriting it would clobber
-  them. (One seed, the machinery file, is additionally topped up with any new
-  setting the handbook's scripts have come to require, without changing a
-  value the product already holds — so a product seeded long ago does not have
+  them. (Two seeds are additionally topped up, without changing a value the
+  product already holds: the machinery file, with any new setting the
+  handbook's scripts have come to require; and the settings file, with its
+  `hooks` key alone when it has none, which is how the needs-you alert reaches
+  a product seeded before it existed — so a product seeded long ago does not have
   its review machinery silently disabled by a newer sync.)
 
 The sync copies what is **committed**, not whatever happens to be sitting in
