@@ -78,7 +78,8 @@ concern found along the way, a problem bigger than the one pull request, a
 surprise about scope, a gap in the process, anything that contradicts stated
 product intent — and every reversible choice Claude went ahead with on its own
 recommendation (chapter 2), with the commit that would undo it. Work
-continues. Routine correctness findings do not clear the bar.
+continues — and his phone chimes once the moment it is written (interaction
+preference 7, below). Routine correctness findings do not clear the bar.
 
 ### Notifications, and why the ask is the last thing written
 
@@ -87,8 +88,15 @@ with something I need from David that holds work up?** If yes, a push
 notification fires in that same turn — no exceptions, no size threshold, no
 "he's clearly active". An ask still unanswered on the next turn notifies
 again; the notification tool deduplicates, so Claude's judgement does not
-have to. Major completions that hand the turn back, such as the merge report
-(chapter 7), notify too; routine progress does not.
+have to. And since 2026-10-30 a second channel does not depend on Claude's
+judgement at all: a hook run by the harness rings David's phone through
+Pushover on **every** hand-back, tiered by the turn's footer — one that
+leaves the session idle until he acts repeats until he acknowledges it, a
+build report rings once loudly, a turn whose work continues rings once
+quietly — and on every FYI the instant it is written. Routine progress
+between tool calls still does not notify. The rule and the tiers are
+[`claude-core.md`](../../core/.agents/core/claude-core.md), interaction
+preferences 6 and 7; the hook is `scripts/needs-you-alert.mjs`.
 
 **And the ask is the last text of the turn, after every tool call —
 including the notification.** In the Claude app, text written *between* tool
@@ -127,8 +135,9 @@ that an open ask stays below it.
 One deliberate carve-out: during a live [UAT](./glossary.md#uat) walkthrough
 nearly every turn ends with a question by construction, and he is at the
 keyboard by premise, so ordinary step-by-step turns get no banner, no
-notification and no spend line — the run's total arrives in its end-of-run
-hand-back. The banner and the push return when the run ends needing him,
+`PushNotification` call and no spend line — the run's total arrives in its
+end-of-run hand-back — though the hook still chimes once per turn, as on
+every hand-back. The banner and the push return when the run ends needing him,
 or when he has walked away and something needs him. The carve-out is written
 down in the [`uat`](../../core/.claude/skills/uat/SKILL.md) skill so a later
 session does not "fix" it back.

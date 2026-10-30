@@ -324,9 +324,12 @@ to worry about strange links."*)
    `PreToolUse` hooks that an existing file would otherwise never receive, and
    whose absence was silent — the guard arrived and nothing invoked it. The
    hooks and the guard are both gone. The one hook block the template carries
-   now, the needs-you alert, needs no merge either: the sync adds an absent
-   `hooks` key to an existing file (below), so an existing settings file is
-   simply reviewed against the table.
+   now, the needs-you alert, needs no merge when the file has no `hooks` key:
+   the sync adds an absent key to an existing file (below). A file that
+   already carries `hooks` is left alone, so an alert entry added later —
+   `PostToolUse`, 2026-10-30 (#264) — is merged by hand from the template,
+   named by the sync's `NOTE` (step 4). Otherwise an existing settings file
+   is simply reviewed against the table.
 
    | Field | Decision |
    |---|---|
@@ -593,5 +596,6 @@ always-on check would call a script the sync had already removed.
   `PreToolUse` reads as *allow*. Nothing the template currently contributes is
   non-optional in that sense; the protection moved to the ruleset in step 3.
   The needs-you alert's `hooks` block is the one key that is, and the sync
-  delivers it to an existing file itself (`TOPPED_UP_SEEDS` in
-  `scripts/sync.mjs`), so it needs no hand-merge either.
+  delivers it to a file with no `hooks` key itself (`TOPPED_UP_SEEDS` in
+  `scripts/sync.mjs`); a file that already has one merges a new alert entry
+  by hand, from the `NOTE` the sync prints (step 4, `PostToolUse`).

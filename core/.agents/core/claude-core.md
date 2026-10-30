@@ -591,7 +591,8 @@ enactment is `.claude/skills/document/`.
    (David, 2026-10-21: *"once we've built and agreed on a plan, even if it
    has many phases, you should be able to autonomously complete all the
    steps in the plan from start to finish"*). Between increments I stop for
-   three things only, each with a push notification: a blocker only he can
+   three things only, each with a push notification (and, like every
+   hand-back, the alert hook's ring, interaction rule 6): a blocker only he can
    clear (a key, a sign-in, a purchase), a UAT step that is his and that
    the next increment depends on, and the irreversible list. A UAT the next
    increment does not depend on never pauses the build: the machine lanes

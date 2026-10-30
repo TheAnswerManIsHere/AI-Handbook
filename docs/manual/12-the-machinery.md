@@ -161,9 +161,11 @@ Two things are deliberately **not** links:
 The payload's `core/.claude/settings.template.json` is a seed: it lands once
 as a product's real `.claude/settings.json`, carrying the default model, a
 test database placeholder, the permission allow-list for the remote-session
-tools, and a **deny list** that refuses the command which can push a database
+tools, a **deny list** that refuses the command which can push a database
 schema straight at a live database and refuses reading environment secret
-files. This repository's own copy drops what does not apply here (no
+files, and the **hooks block** that runs the needs-you alert
+(`scripts/needs-you-alert.mjs`) at every turn's end, after every tool call,
+on a permission prompt and on an error stop (chapter 8). This repository's own copy drops what does not apply here (no
 database, no Drizzle) and keeps the rest.
 
 **Neither file may carry a field Claude Code does not recognise.** Claude
