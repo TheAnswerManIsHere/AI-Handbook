@@ -37,6 +37,19 @@ test("a message that only quotes the ask shapes owes nothing", () => {
   }
 });
 
+test("an ask dressed in a heading, bullet or emphasis still rings", () => {
+  for (const text of [
+    "## 🛑 **NEED YOU** — pick a channel",
+    "- 🛑 **NEED YOU** — pick a channel",
+    "1. Still waiting on you: pick a channel",
+    "**Still waiting on you:** pick a channel",
+  ]) {
+    const alert = decide({ hook_event_name: "Stop", last_assistant_message: text }, env);
+    assert.equal(alert?.priority, 2, text);
+    assert.match(alert.message, /pick a channel/, text);
+  }
+});
+
 test("the emergency alert repeats for Pushover's maximum of three hours", () => {
   assert.equal(EMERGENCY.expire, 10800);
 });
