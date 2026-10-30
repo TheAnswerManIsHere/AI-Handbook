@@ -31,7 +31,7 @@ Consumers as of this writing: `TheAnswerManIsHere/Overhypeme`,
   `.claude/agents/<name>.md` reach by per-entry symlink. So a diff to one of
   those is a change to this repository's own behaviour as well as to every
   consumer's. The same holds for `core/scripts/needs-you-alert.mjs`, which
-  this repo's own `Stop`, `StopFailure` and `Notification` hooks name
+  this repo's own `Stop`, `StopFailure`, `Notification` and `PostToolUse` hooks name
   directly (2026-10-30). (An earlier hook-named exception, `guard.sh`, went
   with its `PreToolUse` hooks in the #89 cut, #94.) See *How this repo reaches its own payload* in
   [`CLAUDE.md`](CLAUDE.md).

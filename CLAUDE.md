@@ -34,7 +34,7 @@ risk. So:
   change to it as consumer-only when it also changes this repo: **skills** and
   **agents** are live here, reached by per-entry symlink from `.claude/`;
   and `core/scripts/needs-you-alert.mjs` is live here, named directly by this
-  repo's `Stop`, `StopFailure` and `Notification` hooks (David, 2026-10-30),
+  repo's `Stop`, `StopFailure`, `Notification` and `PostToolUse` hooks (David, 2026-10-30),
   so an edit to it changes how this session alerts David as well as every
   consumer's. Everything else under `core/` reaches this repo only by import —
   the `@core/.agents/core/claude-core.md` line at the top of this file. See
