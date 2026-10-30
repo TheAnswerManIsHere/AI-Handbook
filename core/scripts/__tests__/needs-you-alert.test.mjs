@@ -20,9 +20,12 @@ import {
   fyisIn,
   scanTranscript,
   cursorPath,
+  deliver,
+  deliveryOrder,
   EMERGENCY,
   HIGH,
   NORMAL,
+  SEND_TIMEOUT_MS,
   withoutFences,
 } from "../needs-you-alert.mjs";
 
@@ -264,6 +267,46 @@ test("markdown is flattened to one line for a lock screen", () => {
   assert.equal(plain("**a** `b`\n[c](http://x)"), "a b c");
   assert.equal(plain("x".repeat(300)).length, 240);
 });
+
+test("delivery is concurrent and the event's own alert goes first: slow FYIs cannot delay the ask, and the batch takes one send window", async () => {
+  const creds = { PUSHOVER_APP_TOKEN: "a", PUSHOVER_USER_KEY: "u" };
+  const fyis = [fyiAlertFor("one"), fyiAlertFor("two"), fyiAlertFor("three")];
+  const ask = { ...EMERGENCY, title: "🛑 r: Claude needs you", message: "sign in" };
+  assert.deepEqual(deliveryOrder([...fyis, ask]).map((a) => a.title), [ask.title, ...fyis.map((a) => a.title)]);
+  assert.deepEqual(deliveryOrder([NORMAL, HIGH, EMERGENCY].map((t, i) => ({ ...t, title: String(i) }))).map((a) => a.title), ["2", "1", "0"]);
+
+  const started = [];
+  let resolvedFyis = 0;
+  // Every FYI request hangs until its abort; the ask's request answers at once.
+  const fetchImpl = (url, { body, signal }) =>
+    new Promise((resolve, reject) => {
+      const title = body.get("title");
+      started.push(title);
+      if (title === ask.title) return resolve({ ok: true, status: 200 });
+      signal.addEventListener("abort", () => {
+        resolvedFyis += 1;
+        reject(Object.assign(new Error("aborted"), { cause: { code: "ABORT_ERR" } }));
+      });
+    });
+  const window = 120;
+  // `AbortSignal.timeout` keeps no timer referenced, so hold the loop open for the window ourselves.
+  const keepAlive = setTimeout(() => {}, window * 4);
+  const t0 = Date.now();
+  const failures = await deliver([...fyis, ask], creds, fetchImpl, window);
+  const elapsed = Date.now() - t0;
+  clearTimeout(keepAlive);
+  assert.equal(started[0], ask.title, "the ask's request is the first one started");
+  assert.equal(started.length, 4, "every request is started");
+  assert.equal(resolvedFyis, 3, "every FYI request ran to its abort");
+  assert.ok(elapsed < window * 2, `the batch took ${elapsed}ms, more than one send window of ${window}ms`);
+  assert.equal(failures.length, 3, "the three FYIs failed and the ask did not");
+  assert.match(failures[0], /NOT alerted \(👀 r: FYI\): could not reach Pushover: ABORT_ERR/);
+  assert.ok(SEND_TIMEOUT_MS < 10_000, "one send window fits under the shortest hook budget, PostToolUse's 10 s");
+});
+
+function fyiAlertFor(summary) {
+  return { ...NORMAL, title: `👀 r: FYI`, message: summary };
+}
 
 test("missing credentials are a reason, never a silent success", async () => {
   assert.match(await send({ ...EMERGENCY, title: "t" }, {}), /PUSHOVER_USER_KEY/);

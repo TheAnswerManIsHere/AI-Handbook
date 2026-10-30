@@ -78,6 +78,32 @@
  * event regardless, so a harness that starts honouring it needs no change
  * here.
  *
+ * A FAILED SEND IS FINAL, FOR EVERY TIER — recorded rather than built for
+ * (PR #265 round 1, Codex finding 4428725274; the Fable assessor held the
+ * tie-break against a retry). An FYI's cursor entry is written before
+ * Pushover accepts it, so one request that fails in its window drops that
+ * ring for good. What remains: the FYI's text is in chat and, under
+ * interaction rule 7, on the workstream issue, so David misses the ring and
+ * not the fact; on `Stop` the failure prints the `systemMessage` above. A
+ * retry — holding the cursor back until acceptance — would turn a persistent
+ * failure (an invalid token, Pushover down) into a Pushover round-trip and a
+ * hang of up to one send window on every tool call for the rest of the
+ * session, and bounding that needs an attempt count or a transient-versus-
+ * permanent split in a script whose contract is "exit 0, never block". No
+ * transient Pushover failure is on record; if one is observed, the retry is
+ * worth revisiting with a bound.
+ *
+ * DELIVERY IS CONCURRENT, THE EVENT'S OWN ALERT FIRST (PR #265 round 1,
+ * Codex finding 4428725288, both assessors). One hook event can owe several
+ * alerts — FYIs found in the transcript, then the ask or hand-back the event
+ * itself owes. Sent one after another, two slow FYI requests could spend the
+ * hook's whole time budget (20 s on `Stop`, 10 s on `PostToolUse`) before the
+ * ask's request started — the one alert the budget exists to deliver, and
+ * the one that had the budget to itself before FYIs rang. So every request
+ * is started at once, the highest tier first, and the batch takes one send
+ * window (`SEND_TIMEOUT_MS`, under the shorter hook budget) however many
+ * alerts it holds.
+ *
  * THE TRANSCRIPT CURSOR. The FYI scan remembers how far into the transcript
  * it has read, and the text of every FYI it has rung for, in a small state
  * file under the OS temp directory keyed by session id, so one FYI rings once
@@ -99,6 +125,8 @@ import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const PUSHOVER_URL = "https://api.pushover.net/1/messages.json";
+/** One request's window. Under the shortest hook budget (10 s, `PostToolUse`) with room for the process itself. */
+export const SEND_TIMEOUT_MS = 8_000;
 
 /**
  * Emergency priority repeats every `retry` seconds until acknowledged or
@@ -423,7 +451,7 @@ export function pushoverBody(alert, env) {
 }
 
 /** Send one alert. Resolves to null on success, else the reason it was not sent. */
-export async function send(alert, env, fetchImpl = fetch) {
+export async function send(alert, env, fetchImpl = fetch, timeoutMs = SEND_TIMEOUT_MS) {
   if (!env.PUSHOVER_USER_KEY || !env.PUSHOVER_APP_TOKEN) {
     return "PUSHOVER_USER_KEY and PUSHOVER_APP_TOKEN are not set in this environment";
   }
@@ -431,7 +459,7 @@ export async function send(alert, env, fetchImpl = fetch) {
     const res = await fetchImpl(PUSHOVER_URL, {
       method: "POST",
       body: pushoverBody(alert, env),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (res.ok) return null;
     let detail = "";
@@ -444,6 +472,22 @@ export async function send(alert, env, fetchImpl = fetch) {
   }
 }
 
+/** The alerts in sending order: highest tier first, otherwise as given. */
+export function deliveryOrder(alerts) {
+  return alerts.map((a, i) => [a, i]).sort((x, y) => y[0].priority - x[0].priority || x[1] - y[1]).map(([a]) => a);
+}
+
+/**
+ * Send every alert at once, the highest tier first, so the batch takes one
+ * send window and the event's own alert never waits behind an FYI. Resolves
+ * to the failures, one line each, in that order.
+ */
+export async function deliver(alerts, env, fetchImpl = fetch, timeoutMs = SEND_TIMEOUT_MS) {
+  const ordered = deliveryOrder(alerts);
+  const results = await Promise.all(ordered.map((alert) => send(alert, env, fetchImpl, timeoutMs)));
+  return results.flatMap((failure, i) => (failure ? [`David was NOT alerted (${ordered[i].title}): ${failure}.`] : []));
+}
+
 async function main() {
   let raw = "";
   for await (const chunk of process.stdin) raw += chunk;
@@ -453,11 +497,7 @@ async function main() {
   } catch {
     return;
   }
-  const failures = [];
-  for (const alert of alertsFor(input, process.env)) {
-    const failure = await send(alert, process.env);
-    if (failure) failures.push(`David was NOT alerted (${alert.title}): ${failure}.`);
-  }
+  const failures = await deliver(alertsFor(input, process.env), process.env);
   if (failures.length) {
     process.stdout.write(`${JSON.stringify({ systemMessage: failures.join(" ") })}\n`);
   }

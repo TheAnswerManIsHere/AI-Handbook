@@ -499,7 +499,7 @@ step.** Three of the steps that stood here are gone with the #89 cut: merging
 the template's `PreToolUse` hooks into an existing settings file, the 🛑 hold
 on syncing to a `bypassPermissions` repo until #16 closed, and setting
 `HANDBOOK_ATTACHED_ROOTS` for a session holding more than one enrolled
-repository. There is no hook to merge, no allow path to put a sentinel on, and
+repository. There is no guard hook to merge, no allow path to put a sentinel on, and
 nothing that reads that variable — the guard that resolved attached checkouts
 is gone. What those steps were protecting is now a ruleset that cannot fail
 open, cannot be disarmed by a `cd`, and does not depend on a person honouring
