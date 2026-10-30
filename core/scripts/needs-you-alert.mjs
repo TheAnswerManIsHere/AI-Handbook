@@ -2,7 +2,7 @@
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
  * needs-you-alert — when a session stops because it needs David, his phone says so,
- * and it keeps saying so until he acknowledges it.
+ * and it keeps saying so until he acknowledges it, for up to three hours.
  *
  * WHY THIS EXISTS (David, 2026-10-30: "make it so that it is absolutely
  * impossible for me to miss a fact that you need me"). Three things stood
