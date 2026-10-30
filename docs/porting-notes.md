@@ -12,7 +12,9 @@ want the reasoning, not just the result.
 > It existed to sequence a gradual rollout to consumers, and no consumer is
 > live, so it was managing a risk that did not exist. The payload now ships
 > whole: `scripts/sync.mjs` copies `core/**` to the same path, with
-> `*.template.*` files seeded under their real name only when absent.
+> `*.template.*` files seeded under their real name only when absent (two
+> seeds are later topped up with absent keys: `TOPPED_UP_SEEDS` in
+> `scripts/sync.mjs`).
 >
 > The rest of this document — the split test, what was taken and left, what was
 > rewritten on the way — is unaffected and still the reasoning of record. The
