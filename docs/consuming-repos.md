@@ -321,8 +321,10 @@ to worry about strange links."*)
    from the template. Until the #89 cut this step also carried three
    `PreToolUse` hooks that an existing file would otherwise never receive, and
    whose absence was silent — the guard arrived and nothing invoked it. The
-   hooks and the guard are both gone, so an existing settings file is simply
-   reviewed against the table below.
+   hooks and the guard are both gone. The one hook block the template carries
+   now, the needs-you alert, needs no merge either: the sync adds an absent
+   `hooks` key to an existing file (below), so an existing settings file is
+   simply reviewed against the table.
 
    | Field | Decision |
    |---|---|
@@ -331,11 +333,21 @@ to worry about strange links."*)
    | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. The dotenv read-deny applies everywhere; keep it. **This block is why the unrecognised-field check still exists**: a refused settings file applies none of its contents, so a stray key here silently un-denies the command that can rewrite a live schema. |
    | `permissions.allow` | The remote server's name varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. The template seeds the **two** stable spellings (`mcp__Claude_Code_Remote__` and `mcp__claude-code-remote__`); a third, the per-environment server id, differs per environment and is the one a repo adds for itself. |
 
-   **There is no `hooks` block to adapt.** The template carried three
-   `PreToolUse` guard hooks until the #89 cut; they are gone, and `hooks` is no
-   longer an accepted top-level field here, so adding one back fails
-   `check-settings-fields.mjs` in the same diff. What they enforced is
-   now the ruleset in step 3, which is server-side and cannot fail open.
+   **The `hooks` block is the needs-you alert, and it is not adapted.** It runs
+   `scripts/needs-you-alert.mjs` when a turn ends on a 🛑 ask or an open-ask
+   line, when the session parks on a permission prompt, and when a turn dies on
+   an error, and it sends David a Pushover alert at emergency priority —
+   repeating until he acknowledges it — because the harness's own push
+   withholds itself when it judges him active (David, 2026-10-30). It reads
+   `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN` from the cloud environment's
+   variables, set once per environment; without them every owed alert prints
+   "David was NOT alerted" in the session rather than failing quietly.
+   **It is the one settings key the sync tops up**: a file with no `hooks` key
+   receives this block on the next sync, and one carrying a `hooks` key of its
+   own — `{}` is enough — is left alone, which is how a repo opts out.
+   `check-settings-fields.mjs` accepts `hooks` again, and its tests pin the
+   block to that one script, so a retired `PreToolUse` guard cannot ride back
+   in on the key.
 
 5. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Three values, all facts about the consumer that
@@ -560,3 +572,6 @@ always-on check would call a script the sync had already removed.
   does not ship — and a hook whose script is missing exits 127, which
   `PreToolUse` reads as *allow*. Nothing the template currently contributes is
   non-optional in that sense; the protection moved to the ruleset in step 3.
+  The needs-you alert's `hooks` block is the one key that is, and the sync
+  delivers it to an existing file itself (`TOPPED_UP_SEEDS` in
+  `scripts/sync.mjs`), so it needs no hand-merge either.
