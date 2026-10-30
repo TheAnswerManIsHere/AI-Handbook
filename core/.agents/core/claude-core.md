@@ -165,6 +165,9 @@ where I put it and treat it as binding.
    loudly; a `running —` or `after <event> —` hand-back, or any other text
    handed back, rings once, quietly, at the one Pushover priority his own
    quiet-hours window silences; a turn that writes nothing rings nothing.
+   Two harness events ring the repeating tier as well, since each leaves
+   the session idle on him: a permission or input prompt it parks on, and a
+   turn that dies on an error, which nothing will resume.
    So the footer's fields and the `Next:` forms are written exactly as
    *Waiting, and scheduled check-ins* item 0 fixes them — the hook, not only
    he, reads them — and an idle hand-back I dress as `running` rings him
@@ -1353,7 +1356,8 @@ conversation resolution, so the Merge button is inert while a thread is open.
    (the `prototype` skill); the PR's **Decisions taken on my recommendation**
    entries, restated in one line each; and, as its last block, the fixed
    footer — Done / Next / Needs you / Spend (*A reversible choice proceeds,
-   and every turn reports its spend*). Push notification. **Nothing of mine
+   and every turn reports its spend*). Push notification, and the alert
+   hook's ring like every hand-back (interaction rule 6). **Nothing of mine
    follows the merge report** — it is the message that hands the turn back,
    and the footer is inside it, not after it; when more approved work is
    startable, its resume is armed before the report is written
