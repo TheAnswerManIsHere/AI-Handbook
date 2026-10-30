@@ -247,6 +247,36 @@ export function topUpKeys(templatePath, targetPath, only = null) {
   return [...added, ...docs];
 }
 
+/**
+ * For a seed topped up with named keys only: each such key the consumer
+ * already holds, with the template's second-level entries it lacks.
+ *
+ * WHY. A consumer's own `hooks` key is left alone by the top-up, so a repo
+ * that already had a `SessionStart` hook silently never received the
+ * needs-you alert (Overhype.me, 2026-10-30). The sync still never edits that
+ * key; it says so, loudly, so the gap is merged by hand rather than missed.
+ */
+export function withheldEntries(templatePath, targetPath, only) {
+  if (!only) return [];
+  let template;
+  let current;
+  try {
+    template = JSON.parse(readFileSync(templatePath, "utf8"));
+    current = JSON.parse(readFileSync(targetPath, "utf8"));
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const key of only) {
+    const want = template?.[key];
+    const have = current?.[key];
+    if (!want || typeof want !== "object" || !have || typeof have !== "object") continue;
+    const missing = Object.keys(want).filter((k) => !Object.hasOwn(have, k));
+    if (missing.length) out.push({ key, missing });
+  }
+  return out;
+}
+
 /** Apply `topUpKeys`, preserving every value the consumer already declared. */
 export function topUpSeed(templatePath, targetPath, only = null) {
   const added = topUpKeys(templatePath, targetPath, only);
@@ -552,6 +582,12 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
         } else {
           counts.seedKept += 1;
           log(`  keep   ${to}  (seed, already present -- consumer owns it)`);
+        }
+        for (const { key, missing } of topUp ? withheldEntries(join(root, rel), target, only) : []) {
+          log(
+            `  NOTE   ${to}  has its own "${key}" without ${missing.join(", ")} -- the sync does not edit it, ` +
+              `so merge those entries by hand (docs/consuming-repos.md step 4), or keep them out on purpose`,
+          );
         }
         continue;
       }

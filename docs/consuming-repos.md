@@ -352,6 +352,10 @@ to worry about strange links."*)
    **It is the one settings key the sync tops up**: a file with no `hooks` key
    receives this block on the next sync, and one carrying a `hooks` key of its
    own — `{}` is enough — is left alone, which is how a repo opts out.
+   The sync never edits a `hooks` key a repo already has, but it prints a
+   `NOTE` naming each alert entry that key lacks, so a repo whose own hooks
+   keep the alert out is merged by hand rather than missed (Overhype.me's
+   `SessionStart` hook did exactly that, 2026-10-30).
    `check-settings-fields.mjs` accepts `hooks` again, and its tests pin the
    block to that one script, so a retired `PreToolUse` guard cannot ride back
    in on the key.
