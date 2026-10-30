@@ -145,8 +145,9 @@ where I put it and treat it as binding.
    until he acknowledges it (`scripts/needs-you-alert.mjs`), because 4 of 12
    sampled asks had no `PushNotification` call and the tool reports only
    *"Mobile push requested."*, never delivery. So both shapes are written
-   exactly as above, `🛑 **NEED YOU** —` and `Still waiting on you:`; a
-   paraphrase of either alerts nobody. Text between
+   exactly as above, `🛑 **NEED YOU** —` and `Still waiting on you:`, each
+   at the start of its own line; a paraphrase of either alerts nobody, and a
+   mid-line quotation of either is not an ask. Text between
    tool calls reaches him paraphrased
    ([`chat-text-between-tool-calls-is-summarised.md`](../../.agents/memory/chat-text-between-tool-calls-is-summarised.md)).
    **A push notification means "read this", and fires for exactly four

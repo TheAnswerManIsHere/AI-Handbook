@@ -57,11 +57,18 @@ import { pathToFileURL } from "node:url";
 
 export const PUSHOVER_URL = "https://api.pushover.net/1/messages.json";
 
-/** Emergency priority repeats every `retry` seconds until acknowledged or `expire` passes. */
-export const EMERGENCY = { priority: 2, retry: 60, expire: 3600 };
+/**
+ * Emergency priority repeats every `retry` seconds until acknowledged or
+ * `expire` passes. Three hours is Pushover's maximum; an hour stopped ringing
+ * while David was away for longer (PR #260 build report).
+ */
+export const EMERGENCY = { priority: 2, retry: 60, expire: 10800 };
 
-const ASK_BANNER = /🛑\s*\*\*NEED YOU\*\*\s*[—–-]\s*(.+)/;
-const OPEN_ASK = /Still waiting on you:\s*(.+)/;
+// Anchored to the start of a line: an ask is written as its own line, while a
+// message that merely quotes the shape (mid-sentence, in backticks, in a
+// blockquote) is not an ask and must not ring David's phone.
+const ASK_BANNER = /^[ \t]*🛑\s*\*\*NEED YOU\*\*\s*[—–-]\s*(.+)/m;
+const OPEN_ASK = /^[ \t]*Still waiting on you:\s*(.+)/m;
 
 /** Notification types that park a session on David. `idle_prompt` is not one: it fires after every hand-back. */
 export const BLOCKING_NOTIFICATIONS = new Set([

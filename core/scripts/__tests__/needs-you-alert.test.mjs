@@ -27,6 +27,20 @@ test("an unchanged ask's open-ask line re-alerts", () => {
   assert.equal(alert.message, "the Astra code, above.");
 });
 
+test("a message that only quotes the ask shapes owes nothing", () => {
+  for (const text of [
+    "It fires when a turn ends on a `🛑 **NEED YOU** —` ask or a `Still waiting on you:` line.",
+    "> 🛑 **NEED YOU** — quoted in a blockquote",
+    "- the exact `Still waiting on you:` line",
+  ]) {
+    assert.equal(decide({ hook_event_name: "Stop", last_assistant_message: text }, env), null, text);
+  }
+});
+
+test("the emergency alert repeats for Pushover's maximum of three hours", () => {
+  assert.equal(EMERGENCY.expire, 10800);
+});
+
 test("an ordinary hand-back owes nothing", () => {
   assert.equal(decide({ hook_event_name: "Stop", last_assistant_message: "**Needs you:** nothing" }, env), null);
   assert.equal(decide({ hook_event_name: "Stop" }, env), null);
