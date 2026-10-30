@@ -154,7 +154,7 @@ export function payloadFiles(root) {
 }
 
 /**
- * The one seed a sync may add absent keys to.
+ * The seeds a sync may add absent keys to, and which keys.
  *
  * NOT EVERY JSON SEED, which is where this landed first and was wrong.
  * `machinery.json` is a REGISTRY: the payload's own scripts read it, and a key
@@ -170,7 +170,16 @@ export function payloadFiles(root) {
  * So the list is a list, and a second entry needs the same argument made
  * again: absent means never-seeded, not deliberately-removed.
  */
-export const TOPPED_UP_SEEDS = new Set([".agents/machinery.json"]);
+export const TOPPED_UP_SEEDS = new Map([
+  [".agents/machinery.json", null],
+  // `hooks` ONLY, and the argument is made again as required: since the #89
+  // cut emptied every consumer's `hooks` block, absent means the fleet's
+  // alert hook (`scripts/needs-you-alert.mjs`, David 2026-10-30) has never
+  // arrived, not that a consumer refused it. A consumer that does refuse it
+  // keeps a `hooks` key of its own -- `{}` will do -- and the top-up never
+  // touches a key that is present. Every other settings key stays a decision.
+  [".claude/settings.json", ["hooks"]],
+]);
 
 /**
  * Where one payload file lands, whether it is a seed, and whether an existing
@@ -214,7 +223,7 @@ export function routeOf(rel) {
  * A copy that is not parseable JSON is left entirely alone and reported: the
  * sync does not get to guess at a file it cannot read.
  */
-export function topUpKeys(templatePath, targetPath) {
+export function topUpKeys(templatePath, targetPath, only = null) {
   let template;
   let current;
   try {
@@ -231,14 +240,16 @@ export function topUpKeys(templatePath, targetPath) {
   // editorialising in a file it does not own. But a field arriving for the
   // first time should arrive with its explanation, or a consumer meets a key
   // it has no way to understand.
-  const added = Object.keys(template).filter((k) => !k.startsWith("_") && !Object.hasOwn(current, k));
+  const added = Object.keys(template).filter(
+    (k) => !k.startsWith("_") && !Object.hasOwn(current, k) && (only === null || only.includes(k)),
+  );
   const docs = added.map((k) => `_${k}`).filter((k) => Object.hasOwn(template, k) && !Object.hasOwn(current, k));
   return [...added, ...docs];
 }
 
 /** Apply `topUpKeys`, preserving every value the consumer already declared. */
-export function topUpSeed(templatePath, targetPath) {
-  const added = topUpKeys(templatePath, targetPath);
+export function topUpSeed(templatePath, targetPath, only = null) {
+  const added = topUpKeys(templatePath, targetPath, only);
   if (!added.length) return added;
   const template = JSON.parse(readFileSync(templatePath, "utf8"));
   const current = JSON.parse(readFileSync(targetPath, "utf8"));
@@ -533,7 +544,8 @@ export function sync(dest, { dryRun = false, log = console.log, payloadRoot = nu
       let present = true;
       try { lstatSync(target); } catch { present = false; }
       if (seed && present) {
-        const added = !topUp ? [] : dryRun ? topUpKeys(join(root, rel), target) : topUpSeed(join(root, rel), target);
+        const only = TOPPED_UP_SEEDS.get(to) ?? null;
+        const added = !topUp ? [] : dryRun ? topUpKeys(join(root, rel), target, only) : topUpSeed(join(root, rel), target, only);
         if (added.length) {
           counts.toppedUp += 1;
           log(`  top up ${to}  (seed, consumer owns it -- added absent key(s): ${added.join(", ")})`);

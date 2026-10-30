@@ -300,8 +300,9 @@ to worry about strange links."*)
 
 4. **Adapt the seeded `.claude/settings.json`.** It arrives as a copy of
    `core/.claude/settings.template.json` and is **yours from the moment it
-   lands** — the sync never rewrites it, and no "do not edit this vendored
-   file" rule applies to it. Four fields need a decision, and the guidance
+   lands** — the sync never rewrites a key it holds (it adds one absent key,
+   `hooks`, below), and no "do not edit this vendored file" rule applies to
+   it. Four fields need a decision, and the guidance
    lives here rather than inside the file because **Claude Code refuses a
    settings file carrying an unrecognised top-level field**, so the template
    cannot document itself. (It once tried, with a `_comment` array, and that
@@ -309,8 +310,9 @@ to worry about strange links."*)
    scripts/check-settings-fields.mjs` now catches the class.)
 
    **When you do this depends on which repo you have.** A repo that *already*
-   had a settings file never receives the seed at all — `mode: seed` writes
-   only when the file is absent — so for that repo this table is a checklist
+   had a settings file never receives the seed as a whole — `mode: seed` writes
+   only when the file is absent, and the one exception is the `hooks` key the
+   sync adds when it is missing — so for that repo this table is a checklist
    for its EXISTING file, applied by hand, now. A repo that had *none* does not
    receive the file until the sync runs at **step 7**, so its adaptation
    happens while reviewing that sync pull request, before merging it. The
@@ -321,8 +323,10 @@ to worry about strange links."*)
    from the template. Until the #89 cut this step also carried three
    `PreToolUse` hooks that an existing file would otherwise never receive, and
    whose absence was silent — the guard arrived and nothing invoked it. The
-   hooks and the guard are both gone, so an existing settings file is simply
-   reviewed against the table below.
+   hooks and the guard are both gone. The one hook block the template carries
+   now, the needs-you alert, needs no merge either: the sync adds an absent
+   `hooks` key to an existing file (below), so an existing settings file is
+   simply reviewed against the table.
 
    | Field | Decision |
    |---|---|
@@ -331,11 +335,26 @@ to worry about strange links."*)
    | `permissions.deny` | The `drizzle-kit` entries assume Drizzle. **Keep the shape** — deny the command that can push schema straight at a live database — and swap the tool. The dotenv read-deny applies everywhere; keep it. **This block is why the unrecognised-field check still exists**: a refused settings file applies none of its contents, so a stray key here silently un-denies the command that can rewrite a live schema. |
    | `permissions.allow` | The remote server's name varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. The template seeds the **two** stable spellings (`mcp__Claude_Code_Remote__` and `mcp__claude-code-remote__`); a third, the per-environment server id, differs per environment and is the one a repo adds for itself. |
 
-   **There is no `hooks` block to adapt.** The template carried three
-   `PreToolUse` guard hooks until the #89 cut; they are gone, and `hooks` is no
-   longer an accepted top-level field here, so adding one back fails
-   `check-settings-fields.mjs` in the same diff. What they enforced is
-   now the ruleset in step 3, which is server-side and cannot fail open.
+   **The `hooks` block is the needs-you alert, and it is not adapted.** It runs
+   `scripts/needs-you-alert.mjs` when a turn ends on a 🛑 ask or an open-ask
+   line, when the session parks on a permission prompt, and when a turn dies on
+   an error, and it sends David a Pushover alert at emergency priority —
+   repeating until he acknowledges it — because the harness's own push
+   withholds itself when it judges him active (David, 2026-10-30; the rule
+   is `claude-core.md`, interaction preference 6). It reads
+   `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN` from the cloud environment's
+   variables, set once per environment. Without them, an owed alert prints
+   "David was NOT alerted" in the session on a turn that ends on an ask
+   (`Stop`) — but not when a turn dies on an error (`StopFailure`), whose hook
+   output the harness discards ("Fire-and-forget — hook output and exit codes
+   are ignored"). Missing keys therefore surface on the first ask in that
+   environment, not before.
+   **It is the one settings key the sync tops up**: a file with no `hooks` key
+   receives this block on the next sync, and one carrying a `hooks` key of its
+   own — `{}` is enough — is left alone, which is how a repo opts out.
+   `check-settings-fields.mjs` accepts `hooks` again, and its tests pin the
+   block to that one script, so a retired `PreToolUse` guard cannot ride back
+   in on the key.
 
 5. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Three values, all facts about the consumer that
@@ -533,7 +552,7 @@ always-on check would call a script the sync had already removed.
   `node scripts/check-settings-fields.mjs` now rejects. A seed does not need
   one: the delivered `.claude/settings.json` is **consumer-owned from the
   moment it lands**, so the rule this bullet states does not apply to it, and
-  the sync never deletes it. That ownership is stated in enrollment step 5
+  the sync never deletes it. That ownership is stated in enrollment step 4
   instead, where whoever adapts the file is already reading.
 - **A file removed from the payload leaves every consumer on the next sync.**
   The sync deletes a tracked consumer file that carries the header when
@@ -548,7 +567,7 @@ always-on check would call a script the sync had already removed.
   if a file is in the payload it reaches every consumer on the next sync. If it
   is not ready for that, it is not ready to merge here.
 - **Seeded files diverge on purpose.** A `*.template.*` file writes once and
-  never again; a consumer's `.claude/settings.json` is meant to differ. The cost is
+  never again, save the absent keys `TOPPED_UP_SEEDS` names (below); a consumer's `.claude/settings.json` is meant to differ. The cost is
   that seeding is a no-op in a repo that already has the file, so anything the
   template contributes which is *not* optional has to be merged by hand at
   enrollment. A seed cannot deliver a requirement; it can only offer a starting
@@ -560,3 +579,6 @@ always-on check would call a script the sync had already removed.
   does not ship — and a hook whose script is missing exits 127, which
   `PreToolUse` reads as *allow*. Nothing the template currently contributes is
   non-optional in that sense; the protection moved to the ruleset in step 3.
+  The needs-you alert's `hooks` block is the one key that is, and the sync
+  delivers it to an existing file itself (`TOPPED_UP_SEEDS` in
+  `scripts/sync.mjs`), so it needs no hand-merge either.

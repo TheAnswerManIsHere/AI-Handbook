@@ -8,7 +8,7 @@ The shared working contract for every product David builds with AI agents. It
 ships no product. Its payload — `core/` — is vendored into each consumer repo
 by the sync described in [`docs/consuming-repos.md`](docs/consuming-repos.md),
 and `scripts/sync.mjs` copies `core/**` into place, one rule with one
-exception for seeded files, and deletes a consumer's copy of anything the
+exception for seeded files (two of which it tops up with absent keys), and deletes a consumer's copy of anything the
 payload has stopped shipping.
 
 This repo governs itself with the same file it ships: the import above is the
@@ -26,18 +26,20 @@ risk. So:
   runs is my judgement under the ship gate (the two-review limit is retired,
   2026-10-21); **neither is about care**, and
   this line used to read as though a lighter tier bought fewer rounds.
-- **The payload is data, with two named exceptions.** Editing
+- **The payload is data, with three named exceptions.** Editing
   `core/.claude/settings.template.json` does not change this repo's settings; it
   changes what the next repo is seeded with, and this repo's own
   `.claude/settings.json` is a separate file. But `core/` is not inert here,
   and the activation model has to be stated exactly or a reviewer will judge a
   change to it as consumer-only when it also changes this repo: **skills** and
-  **agents** are live here, reached by per-entry symlink from `.claude/`.
-  Everything else under `core/` reaches this repo only by import — the
-  `@core/.agents/core/claude-core.md` line at the top of this file. See *How
-  this repo reaches its own payload* below. (There used to be a third
-  exception: `guard.sh`, named directly by this repo's `PreToolUse` hooks. The
-  guard, the hooks and the exception all went in the #89 cut, #94.)
+  **agents** are live here, reached by per-entry symlink from `.claude/`;
+  and `core/scripts/needs-you-alert.mjs` is live here, named directly by this
+  repo's `Stop`, `StopFailure` and `Notification` hooks (David, 2026-10-30),
+  so an edit to it changes how this session alerts David as well as every
+  consumer's. Everything else under `core/` reaches this repo only by import —
+  the `@core/.agents/core/claude-core.md` line at the top of this file. See
+  *How this repo reaches its own payload* below. (A previous third exception,
+  `guard.sh` and its `PreToolUse` hooks, went in the #89 cut, #94.)
 - **Adding a file to `core/` ships it.** The sync routes `core/**` by
   construction, so there is no routing table a new file can fall out of — this
   used to be a real hazard guarded by a 1,176-line checker, and it is now
@@ -161,8 +163,9 @@ Two things are deliberately NOT symlinks:
   `env.DATABASE_URL` dropped (no database), the `drizzle-kit` deny entries
   dropped (no Drizzle) while the dotenv read-deny is kept because it applies
   everywhere, and `model` kept as `opus` since this repo is almost entirely
-  payload code. The hook paths used to differ and had to; there are no hooks in
-  either file now, so the two differ only in the lines above.
+  payload code. The hooks differ in one thing, their path: here they name
+  `core/scripts/needs-you-alert.mjs`, in the template `scripts/needs-you-alert.mjs`,
+  where the sync delivers it.
 
   **Neither settings file may carry a field Claude Code does not recognise**,
   and that is stricter than the published schema — which declares
@@ -213,4 +216,4 @@ for this repo's scripts and `core/scripts/__tests__/entry-point-comparison.test.
 for the payload's, since neither can see the other's directory.
 
 **Enrollment is complete: `.claude/settings.json` exists**, which now means its
-permissions apply rather than that its hooks are installed.
+permissions apply and its one hook block, the needs-you alert, is installed.

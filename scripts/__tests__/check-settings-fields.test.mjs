@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   ACCEPTED_TOP_LEVEL,
@@ -150,20 +151,30 @@ test("the accepted set stays small and deliberate", () => {
   }
 });
 
-test("`hooks` is refused, so the retired guards cannot come back silently", () => {
-  // The three PreToolUse guards were removed in the #89 cut (#94) in favour of
-  // server-side rulesets, which no local file can switch off. Dropping `hooks`
-  // from the accepted set is what makes a reappearance a visible decision:
-  // a settings file that grows one fails here, in the same diff that adds it.
-  assert.ok(!ACCEPTED_TOP_LEVEL.has("hooks"));
-  assert.deepEqual(unrecognisedFields({ model: "opus", hooks: {} }), ["hooks"]);
+test("`hooks` carries the needs-you alert and nothing else", () => {
+  // `hooks` was refused from the #89 cut (#94) until 2026-10-30, so the retired
+  // PreToolUse guards could not come back silently. It is accepted again for
+  // one hook script only; pinning the block's contents here keeps the guard
+  // decision visible -- a new hook fails this test in the diff that adds it.
+  assert.ok(ACCEPTED_TOP_LEVEL.has("hooks"));
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+  for (const [file, scriptDir] of [[".claude/settings.json", "core/scripts"], ["core/.claude/settings.template.json", "scripts"]]) {
+    const { hooks } = JSON.parse(readFileSync(join(root, file), "utf8"));
+    assert.deepEqual(Object.keys(hooks).sort(), ["Notification", "Stop", "StopFailure"], `${file} hook events`);
+    for (const groups of Object.values(hooks)) {
+      for (const { hooks: entries } of groups) {
+        for (const { command } of entries) {
+          assert.equal(command, `node "$CLAUDE_PROJECT_DIR/${scriptDir}/needs-you-alert.mjs"`, `${file}: ${command}`);
+        }
+      }
+    }
+  }
 });
 
-test("neither real settings file still carries a hooks block", () => {
-  // The removal itself, asserted on the files that ship rather than on the
-  // rule. A template that kept its hooks would seed every future consumer with
-  // three PreToolUse entries pointing at a guard script that no longer exists
-  // -- and a hook whose script is missing exits 127, which PreToolUse reads as
-  // allow. Removing the guard and leaving the hook is worse than either.
-  for (const r of run()) assert.ok(!r.bad.includes("hooks"), `${r.file} still declares hooks`);
+test("the alert script every hook names exists", () => {
+  // A hook whose script is missing fails silently -- the lesson the removed
+  // guards left (a missing script exits 127). The template's path is the
+  // consumer's, which the sync fills from core/scripts/.
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+  assert.ok(existsSync(join(root, "core/scripts/needs-you-alert.mjs")));
 });
