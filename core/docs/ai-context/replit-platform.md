@@ -146,13 +146,17 @@ the Publishing pane's configuration), never infer it from one file.
   (Live, who published, when): one row per past publish, newest first, by
   deployment id — `3ff15af5`, `d49a6e77`, `115b5210`, `1eabe174`, and a
   *"failed to publish"* row for `26144f9b`, four days back on DojoOS.
-  Opening a row shows that publish's stages and log, and **nothing there
-  redeploys it**; the list holds only about the last four publishes (screen,
-  2026-10-29). The Agent cannot read the list (Agent, 2026-10-29).
-- **So rolling production back is a forward change**, whatever the help FAQ
-  says about redeploying an earlier version: revert on GitHub through a PR,
-  sync the Repl, republish. A schema change in the reverted code reaches
-  production the same way any schema change does (*The two databases*).
+  Opening a row showed that publish's stages and log and **no redeploy
+  control**; the row's ⋮ menu was not opened. The list showed only about the
+  last four publishes (screen, 2026-10-29). The Agent cannot read the list
+  (Agent, 2026-10-29).
+- **So the rollback route known to work is a forward change**: revert on
+  GitHub through a PR, sync the Repl, republish. The help FAQ's redeploy of
+  an earlier version is unconfirmed on screen. **A code revert does not undo
+  a schema change**: a publish diffs the development database against
+  production, not the code (*The two databases*), so the way back for schema
+  is a production restore or a forward migration, per the product's own
+  `migrations-and-backfills.md`.
 - **The Logs tab** lists Time, Deployment (the id above), Source (`System` or
   `User`) and Log, with Search, *Errors only* and Date filters (screen), so a
   line can be tied to the publish that produced it. The list shows local time
@@ -242,10 +246,13 @@ full page, top to bottom (screen, DojoOS):
   (expandable) and *Database migrations validated successfully*; **Create
   preview deploy** turns to *Building…*, then **View preview**, while the
   top-right button reads **Approve**, which continues to the real publish.
-  The preview runs **in development mode** at a temporary `*.replit.dev`
-  address under the banner *"This is a temporary development preview, and
-  these links are not for public use."* — so anything a product shows only
-  in development, such as a dev sign-in, is live in the preview too. **Cancel**
+  The preview opens at a temporary `*.replit.dev` address under the banner
+  *"This is a temporary development preview, and these links are not for
+  public use."* It served what DojoOS shows only in development: the
+  password-less *"I'm Jared / I'm David"* sign-in, which production hides
+  (screen, 2026-10-29). So a preview link is private — anyone holding it may
+  get development-only behaviour. Which database it ran against was not
+  shown. **Cancel**
   ends it as *Build canceled* with production untouched. How long a preview
   lives and what it costs were not shown.
 - **Recovery.** Development: checkpoint rollback, up to 7 days. Production:
@@ -324,7 +331,8 @@ a value can still print it from the environment (docs, *secrets*).
   Connector questions appear in the Repl's own Agent chat footed *"Free · No
   credits used"*; with DojoOS's dropdown switched to **Power**, a connector
   question still ran Free, while the same question typed by David ran Power
-  and cost **$0.27** (screen, 2026-10-29). The write channel showed the same.
+  and cost **$0.27** (screen, 2026-10-29). Only `ask_question` was tested
+  under Power; `update_app_using_prompt` was not.
   Replit documents none of this, so it is an observation that can change, not
   a promise: a connector request's cost is read off its footer, never assumed.
   And every question sent is visible to anyone who opens that Repl's Agent chat, which the tool's own description warns.
@@ -419,8 +427,9 @@ of truth — the dropdown is.
 
 Two things not yet seen, each settled only by David's screen:
 
-1. **How long a preview deploy lives and what it costs** — a preview left
-   running rather than cancelled, read against the Usage page.
+1. **A preview deploy's database, lifetime and cost** — which database it
+   reads, then a preview left running rather than cancelled, read against
+   the Usage page.
 2. **Whether the database-copy checkbox persists across publishes** — a
    republish *"reuses the existing deployment's settings"* (the connector's
    `publish_app` description), so a tick that persisted would overwrite
