@@ -68,17 +68,21 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * accepts it (the validator refuses the file otherwise, which is the whole
  * reason for this check) and that a settings file here genuinely needs it.
  *
- * `hooks` is NOT on the list, and its absence is the record of a decision.
- * The three `PreToolUse` guards were removed in the #89 cut (#94) in favour
- * of server-side rulesets; a `hooks` block reappearing here is a return to a
- * mechanism that was measured and dropped, so it fails this check and the
- * person adding it has to say why in the same diff.
+ * `hooks` came back on 2026-10-30 for ONE purpose, and the record of the
+ * decision it reverses stays here. The three `PreToolUse` guards were removed
+ * in the #89 cut (#94) in favour of server-side rulesets, and `hooks` left
+ * this list so a reappearance would be a visible decision. It is one: the
+ * needs-you alert (`core/scripts/needs-you-alert.mjs`), which only the
+ * harness can fire reliably, since its job is to not depend on my memory.
+ * The test file pins the block to that one script, so a guard cannot ride
+ * back in on the key.
  */
 export const ACCEPTED_TOP_LEVEL = new Set([
   "$schema",
   "model",
   "env",
   "permissions",
+  "hooks",
 ]);
 
 /** Settings files this repo ships or runs under. */

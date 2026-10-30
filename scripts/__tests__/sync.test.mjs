@@ -10,7 +10,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed,
+  routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed, TOPPED_UP_SEEDS,
   carriesBanner, staleFiles, uncommittedPaths,
 } from "../sync.mjs";
 import { missingBanners } from "../check-payload-banners.mjs";
@@ -87,7 +87,7 @@ test("a .template. file lands under its real name and is marked a seed", () => {
   // nothing, so the template shipped under its own name. Caught by an
   // equivalence oracle against the deleted manifest, not by review.
   assert.deepEqual(routeOf(".agents/machinery.template.json"), { to: ".agents/machinery.json", seed: true, topUp: true });
-  assert.deepEqual(routeOf(".claude/settings.template.json"), { to: ".claude/settings.json", seed: true, topUp: false });
+  assert.deepEqual(routeOf(".claude/settings.template.json"), { to: ".claude/settings.json", seed: true, topUp: true });
 });
 
 test("'template' elsewhere in a name is not a seed", () => {
@@ -205,12 +205,13 @@ test("a re-sync leaves every edited seed byte-for-byte as the consumer wrote it"
   // The general form of the test above, over EVERY seed the payload carries
   // rather than the one it was written for: the map tool (#208) added six,
   // and a seed is only consumer-owned if a second sync provably leaves it be.
-  // machinery.json is the one topped-up seed, so it keeps its own test above.
+  // machinery.json and settings.json are the topped-up seeds, so each keeps its
+  // own tests.
   const dest = fresh();
   try {
     run(dest);
     const seeds = payloadFiles(PAYLOAD).map((f) => routeOf(f)).filter((r) => r.seed && !r.topUp).map((r) => r.to);
-    assert.ok(seeds.length >= 7, `expected the full seed set, got ${seeds.join(", ")}`);
+    assert.ok(seeds.length >= 6, `expected the full seed set, got ${seeds.join(", ")}`);
     const edited = new Map(seeds.map((to) => [to, `consumer-owned ${to}\n`]));
     for (const [to, text] of edited) writeFileSync(join(dest, to), text);
     commitAll(dest);
@@ -247,11 +248,51 @@ test("a settings key the consumer DELETED stays deleted across a re-sync", () =>
   }
 });
 
-test("machinery.json is the only seed a sync tops up", () => {
-  // The restriction is a list, and a second entry is a decision rather than an
+test("two seeds are topped up, and settings only with `hooks`", () => {
+  // The restriction is a list, and each entry is a decision rather than an
   // accident -- so the list itself is asserted against the real payload.
-  const toppedUp = payloadFiles(PAYLOAD).filter((f) => routeOf(f).topUp).map((f) => routeOf(f).to);
-  assert.deepEqual(toppedUp, [".agents/machinery.json"]);
+  const toppedUp = payloadFiles(PAYLOAD).filter((f) => routeOf(f).topUp).map((f) => routeOf(f).to).sort();
+  assert.deepEqual(toppedUp, [".agents/machinery.json", ".claude/settings.json"]);
+  assert.equal(TOPPED_UP_SEEDS.get(".agents/machinery.json"), null);
+  assert.deepEqual(TOPPED_UP_SEEDS.get(".claude/settings.json"), ["hooks"]);
+});
+
+test("an existing settings file gains the alert hooks and nothing else", () => {
+  // The case the top-up exists for: a consumer seeded before the needs-you
+  // alert, its own permissions tuned and its env removed.
+  const dest = fresh();
+  try {
+    run(dest);
+    const owned = join(dest, ".claude/settings.json");
+    const settings = JSON.parse(readFileSync(owned, "utf8"));
+    delete settings.hooks;
+    delete settings.env;
+    settings.permissions.deny = ["Their(own)"];
+    writeFileSync(owned, `${JSON.stringify(settings, null, 2)}\n`);
+    run(dest);
+    const after = JSON.parse(readFileSync(owned, "utf8"));
+    assert.ok(after.hooks?.Stop, "the alert hook arrived");
+    assert.equal(after.env, undefined, "a removed env stays removed");
+    assert.deepEqual(after.permissions.deny, ["Their(own)"], "their permissions are untouched");
+  } finally {
+    removeTree(dest);
+  }
+});
+
+test("a consumer's own `hooks` key, even empty, is the opt-out", () => {
+  const dest = fresh();
+  try {
+    run(dest);
+    const owned = join(dest, ".claude/settings.json");
+    const settings = JSON.parse(readFileSync(owned, "utf8"));
+    settings.hooks = {};
+    const deliberate = `${JSON.stringify(settings, null, 2)}\n`;
+    writeFileSync(owned, deliberate);
+    run(dest);
+    assert.equal(readFileSync(owned, "utf8"), deliberate);
+  } finally {
+    removeTree(dest);
+  }
 });
 
 // ── deletion (#55): no ledger, so nothing stored can be wrong ─────────────
