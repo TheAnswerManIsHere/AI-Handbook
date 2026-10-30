@@ -22,7 +22,8 @@ Built 2026-10-29 from four sources, and each claim says which:
   working assumption, never a fact, until a measurement or the docs back it
   (*Asking it well*, below, says why).
 - **screen** — what David's Replit screen showed, from his screenshots of the
-  DojoOS Repl's Publishing pages on 2026-10-29 (about 23:10 UTC). As good as a
+  DojoOS Repl's Publishing pages, its preview-deploy flow and his account's
+  Usage page on 2026-10-29 (from about 22:10 UTC). As good as a
   measurement for what the interface offers; it says nothing about what a
   control does until someone uses it.
 
@@ -57,7 +58,10 @@ workspace to production.
 **What a publish takes.** *"a snapshot of your app's files and
 dependencies"* (docs, *replit-deployments*). **Whether uncommitted files are
 in it is not stated by the docs**; the Agent says they are and cites the docs,
-which say no such thing. So the rule stays the one the fleet already runs:
+which say no such thing. It stays unmeasured on purpose (David, 2026-10-29):
+the test costs two publishes and could not change what anyone does, since the
+rule below already assumes the worst. So the rule stays the one the fleet
+already runs:
 **publish only from a Repl whose checked-out SHA matches `main` and whose
 worktree is clean** — the close-out sync's two checks — because if the
 snapshot does include the working tree, a leftover probe ships. Publishing
@@ -141,12 +145,18 @@ the Publishing pane's configuration), never infer it from one file.
 - **Publish history** sits on Publishing → Overview, under *Current status*
   (Live, who published, when): one row per past publish, newest first, by
   deployment id — `3ff15af5`, `d49a6e77`, `115b5210`, `1eabe174`, and a
-  *"failed to publish"* row for `26144f9b`, four days back on DojoOS — each
-  with a ⋮ menu, and opening a row shows that publish's stages and log
-  (screen). **Rollback of production is a redeploy of an earlier version**
-  from that list (docs, help FAQ only); what the ⋮ menu offers and how far
-  back the list goes are *Open*. The Agent cannot read the list (Agent,
-  2026-10-29).
+  *"failed to publish"* row for `26144f9b`, four days back on DojoOS.
+  Opening a row showed that publish's stages and log and **no redeploy
+  control**; the row's ⋮ menu was not opened. The list showed only about the
+  last four publishes (screen, 2026-10-29). The Agent cannot read the list
+  (Agent, 2026-10-29).
+- **So the rollback route known to work is a forward change**: revert on
+  GitHub through a PR, sync the Repl, republish. The help FAQ's redeploy of
+  an earlier version is unconfirmed on screen. **A code revert does not undo
+  a schema change**: a publish diffs the development database against
+  production, not the code (*The two databases*), so the way back for schema
+  is a production restore or a forward migration, per the product's own
+  `migrations-and-backfills.md`.
 - **The Logs tab** lists Time, Deployment (the id above), Source (`System` or
   `User`) and Log, with Search, *Errors only* and Date filters (screen), so a
   line can be tied to the publish that produced it. The list shows local time
@@ -191,7 +201,11 @@ full page, top to bottom (screen, DojoOS):
   overwriting any existing production data. You can always restore your
   production database via Point-in-time recovery or snapshots."* It is on
   the irreversible list by its own description: never ticked except on
-  David's explicit word for that publish.
+  David's explicit word for that publish. It reads unticked on DojoOS
+  (screen, 2026-10-29). **Whether a tick persists to the next republish is
+  undocumented** — the *Learn more* link leads only to the restore tool — so
+  after any deliberate copy it is unticked again in the same visit, and it
+  is looked at before every publish.
 - **Manage your app** — above.
 
 ## The two databases, and what a publish does to production's
@@ -225,8 +239,22 @@ full page, top to bottom (screen, DojoOS):
   this is its own `migrations-and-backfills.md`.
 - **A preview deploy** is *"a temporary, isolated copy of your production
   environment where you can test database changes and application updates
-  before they affect real users"* (docs). How it is reached, how long it
-  lives and what database it uses are *Open*.
+  before they affect real users"* (docs). What it does on screen (DojoOS,
+  2026-10-29, a one-column throwaway table as the schema difference): the
+  publish stops at Provision showing *Development database changes
+  detected*, *Generated migrations to apply to production database*
+  (expandable) and *Database migrations validated successfully*; **Create
+  preview deploy** turns to *Building…*, then **View preview**, while the
+  top-right button reads **Approve**, which continues to the real publish.
+  The preview opens at a temporary `*.replit.dev` address under the banner
+  *"This is a temporary development preview, and these links are not for
+  public use."* It served what DojoOS shows only in development: the
+  password-less *"I'm Jared / I'm David"* sign-in, which production hides
+  (screen, 2026-10-29). So a preview link is private — anyone holding it may
+  get development-only behaviour. Which database it ran against was not
+  shown. **Cancel**
+  ends it as *Build canceled* with production untouched. How long a preview
+  lives and what it costs were not shown.
 - **Recovery.** Development: checkpoint rollback, up to 7 days. Production:
   point-in-time restore — 7 days on Core, up to 28 on Pro (docs,
   *data-recovery*). Production idles after five minutes without queries and
@@ -298,19 +326,28 @@ a value can still print it from the environment (docs, *secrets*).
   the mode for a connector request is unknown**: neither the docs nor the
   tool descriptions say it follows David's dropdown, and the Agent cannot see
   which mode it ran in (Agent, 2026-10-29: *"I can't see which Free, Power, or
-  Max tier or exact model handled this request"*). What is known is the
-  outcome, now on screen: **connector questions appear in the Repl's own
-  Agent chat, each footed *"Free · No credits used"***, while the chat's mode
-  dropdown reads *Free* (screen, DojoOS). They ran in Free and cost nothing;
-  they match the dropdown, which is consistent with inheriting it but does not
-  prove it. So never tell David a dropdown change will change a connector
-  request's cost or capability until someone has seen a connector request run
-  under a different setting. And every question sent is visible to anyone who
-  opens that Repl's Agent chat, which the tool's own description warns.
+  Max tier or exact model handled this request"*). What is measured is
+  the outcome: **a connector request runs Free whatever the dropdown says.**
+  Connector questions appear in the Repl's own Agent chat footed *"Free · No
+  credits used"*; with DojoOS's dropdown switched to **Power**, a connector
+  question still ran Free, while the same question typed by David ran Power
+  and cost **$0.27** (screen, 2026-10-29). Only `ask_question` was tested
+  under Power; `update_app_using_prompt` was not.
+  Replit documents none of this, so it is an observation that can change, not
+  a promise: a connector request's cost is read off its footer, never assumed.
+  And every question sent is visible to anyone who opens that Repl's Agent chat, which the tool's own description warns.
 - **Billing**: paid modes are effort-priced per request, one checkpoint per
   request, and Replit asks for confirmation before a paid action starts;
   Plan Mode bills reasoning even when nothing changes; usage takes up to 30
   minutes to show (docs, *ai-billing*). Routines never run in Free.
+- **The Usage page** (replit.com/settings/usage, by UTC day) confirms it from
+  the billing side (screen, 2026-10-29): after a day of some twenty connector
+  requests, **Free allowance read 0% used** and that day's *Agent* line held
+  one entry — **DojoOS $0.27**, David's typed question, billed to the
+  project it was asked in. Connector requests appear nowhere, not even at $0,
+  and neither does `get_publish_status`. Most of a month's spend need not be
+  AI at all: in that period production database compute was $25.08 of $42.75
+  (156.74 hours at $0.16/hour), against $13.37 of AI.
 - **Plans** that matter here: Starter allows one published app that expires
   after 30 days; Core and Pro publish without limit, run 1 and 10 background
   tasks, and Pro rolls credits over two months (docs).
@@ -356,8 +393,7 @@ Tools, as the MCP server exposes them: `list_apps`, `search_apps`,
 - **`get_publish_status` reads deployment state without asking the Agent**:
   it answered for Overhype.me while that Repl's Agent was still busy on a
   lost question, which every `ask_question` at that moment bounced (measured
-  2026-10-29). Whether it
-  is ever billed is not stated anywhere (*Open* 5); it is the cheap way to
+  2026-10-29). It shows no charge on the Usage page; it is the cheap way to
   learn an app's live URL and whether its last publish landed.
 - **`suspended`** is not a state the docs define for a deployment; they only
   describe suspension for continued payment failure and a reached spend
@@ -389,30 +425,20 @@ of truth — the dropdown is.
 
 ## Open
 
-Each needs David's screen; the Agent cannot see them and the docs do not
-say.
+Two things not yet seen, each settled only by David's screen:
 
-Settled by David's screenshots on 2026-10-29: production secrets (synced by
-default, per-secret unsync), what the history lists, and that today's
-connector questions ran Free at no cost. Still open:
-
-1. **A history row's ⋮ menu** — whether it offers a redeploy, what that does
-   to the production database's schema, and how far back the list goes.
-2. **Create preview deploy** — what it creates: a URL, a database, a
-   lifetime, a cost. It appears only when a publish finds a schema
-   difference.
-3. **Whether connector requests follow the mode dropdown**, or have their own
-   default — settled only by a connector request run while the dropdown is
-   set to something other than Free.
-4. **Whether a publish includes uncommitted files** — settled for practice by
-   the clean-tree rule above, but not as a fact.
-5. **Whether connector activity shows on the usage dashboard** — each
-   `ask_question` is footed *"Free · No credits used"* in the Agent chat, but
-   nobody has looked at the usage page; and whether `get_publish_status` ever
-   bills, which never reaches the Agent chat at all. The usage page against a
-   known time window settles both.
-6. **Whether the database-copy checkbox persists across publishes** — a
+1. **A preview deploy's database, lifetime and cost** — which database it
+   reads, then a preview left running rather than cancelled, read against
+   the Usage page.
+2. **Whether the database-copy checkbox persists across publishes** — a
    republish *"reuses the existing deployment's settings"* (the connector's
    `publish_app` description), so a tick that persisted would overwrite
-   production again on the next routine republish. Until settled, look at
-   that checkbox on the Republish page before every publish.
+   production again on the next routine republish. Settled only by a
+   deliberate copy, which is David's; until then the checkbox is looked at
+   before every publish.
+
+Settled on 2026-10-29 by his screenshots: production secrets, the history
+list and its reach, what a preview deploy is, that connector requests run
+Free regardless of the dropdown and never reach the Usage page. Left
+unmeasured by decision: whether a publish includes uncommitted files
+(*Publishing*).
