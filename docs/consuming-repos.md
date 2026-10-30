@@ -339,7 +339,7 @@ to worry about strange links."*)
    `scripts/needs-you-alert.mjs` when a turn ends on a 🛑 ask or an open-ask
    line, when the session parks on a permission prompt, and when a turn dies on
    an error, and it sends David a Pushover alert at emergency priority —
-   repeating until he acknowledges it — because the harness's own push
+   repeating until he acknowledges it, for up to three hours — because the harness's own push
    withholds itself when it judges him active (David, 2026-10-30; the rule
    is `claude-core.md`, interaction preference 6). It reads
    `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN` from the cloud environment's
