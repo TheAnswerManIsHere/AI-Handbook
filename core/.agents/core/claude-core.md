@@ -162,9 +162,12 @@ where I put it and treat it as binding.
    alert from it: a `**Next:**` in its `stopped —` or `nothing —` form, or a
    `**Needs you:**` naming anything but nothing, repeats like an ask; a build
    report landing (its first line, `**Build report — …**`) rings once,
-   loudly; a `running —` or `after <event> —` hand-back, or any other text
-   handed back, rings once, quietly, at the one Pushover priority his own
-   quiet-hours window silences; a turn that writes nothing rings nothing.
+   loudly; a footer whose `Next:` is in none of the four forms rings once,
+   loudly too, since a mis-written footer is a slip worth surfacing; a
+   `running —` or `after <event> —` hand-back, or any other text handed
+   back with no footer, rings once, quietly, at the one Pushover priority
+   his own quiet-hours window silences; a turn that writes nothing rings
+   nothing.
    Two harness events ring the repeating tier as well, since each leaves
    the session idle on him: a permission or input prompt it parks on, and a
    turn that dies on an error, which nothing will resume.
