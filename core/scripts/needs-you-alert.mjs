@@ -200,6 +200,13 @@ export function plain(text, max = 240) {
  * The hand-back footer's fields, or null when the message carries none.
  * Each value runs to the next field or a blank line, with a separating `·`
  * dropped, so the one-block form and the one-field-per-line form read alike.
+ * The LAST occurrence of a field wins: the footer is the message's last block
+ * (`claude-core.md`, *A reversible choice proceeds*, rule 2 — last, except
+ * before a 🛑 ask or an open-ask line, which `decide` reads first), and a
+ * build report opens with a `**Needs you:**` section of its own, the role's
+ * account of the unit rather than the session's state. Reading the first
+ * occurrence let that line shadow the footer's in both directions (PR #265
+ * round 2, Codex finding 4428858035; the Fable assessor measured the reverse).
  */
 export function footer(text) {
   const src = String(text);
@@ -214,7 +221,7 @@ export function footer(text) {
     if (para !== -1) value = value.slice(0, para);
     value = value.replace(/^[\s·]+|[\s·]+$/g, "");
     const key = m[1] === "Needs you" ? "needsYou" : m[1].toLowerCase();
-    if (!(key in out)) out[key] = value;
+    out[key] = value;
   });
   return out;
 }

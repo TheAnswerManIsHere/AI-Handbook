@@ -163,6 +163,23 @@ test("a build report landing rings once, loudly, naming the unit", () => {
   assert.match(idle.message, /^Build report — PR #1 — x · Done: the plan/);
 });
 
+test("the footer governs whatever precedes it: a build report's own Needs-you line never shadows the footer's, in either direction", () => {
+  const report = (needsYou) => `**Build report — PR #9 — x · merged**\n\n*About.*\n\n**Needs you:** ${needsYou}\n\n**What was built**\n\nA thing.\n\n`;
+  // A: the report says nothing is needed; the footer says something is. The footer's request rings and repeats.
+  const a = stop(`${report("nothing")}**Done:** merged. · **Next:** after CI — the next increment. · **Needs you:** approve the purchase. · **Spend:** $1.`);
+  assert.equal(a.priority, 2);
+  assert.equal(a.title, "🛑 Overhype.me: idle until you act");
+  assert.match(a.message, /Needs you: approve the purchase\./);
+  // B: the report names the one thing only David can do; the footer says the session carries on. No siren.
+  const b = stop(`${report("walk the UAT when you have a moment")}**Done:** merged. · **Next:** running — increment 3, woken by its CI. · **Needs you:** nothing. · **Spend:** $1.`);
+  assert.equal(b.priority, 1);
+  assert.equal(b.title, "📋 Overhype.me: build report ready");
+  // The one-field-per-line layout reads the same way.
+  const c = stop(`${report("nothing")}**Done:** merged.\n**Next:** running — CI.\n**Needs you:** the sign-in code\n**Spend:** $1.`);
+  assert.equal(c.priority, 2);
+  assert.deepEqual(footer(`${report("nothing")}**Done:** d · **Next:** n · **Needs you:** y · **Spend:** s`).needsYou, "y");
+});
+
 test("any other text handed back rings once, quietly; a turn that writes nothing owes nothing", () => {
   const alert = stop("Merged **both**, nothing else to say.");
   assert.equal(alert.priority, 0);
