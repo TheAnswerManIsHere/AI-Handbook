@@ -50,9 +50,12 @@ other payload file. Each set has its own test suite, and both suites run in CI.
   the same path minus the `core/` prefix. That is the one rule, and there is
   one exception: a file named `*.template.*` is a [seed
   file](./glossary.md#seed-file), delivered once under its real name and then
-  owned by the product, never overwritten. (The machinery configuration is the
-  one seed that is *topped up*: keys the template has gained since the product
-  was seeded are added, and nothing the product set is changed.) The sync also
+  owned by the product, never overwritten. (Two seeds are *topped up*, and
+  nothing the product set is changed: the machinery configuration gains any
+  key the template has gained since the product was seeded, and the settings
+  file gains its `hooks` key, the needs-you alert, when it has none — a product
+  whose settings already carry `hooks` merges a later alert entry by hand,
+  named by the sync's `NOTE`.) The sync also
   **deletes** a product's copy of a file the payload has stopped shipping — but
   only a file the product's git tracks, whose own text carries the sync banner,
   and that nothing in this run routes to. It reads committed bytes rather than
@@ -161,9 +164,11 @@ Two things are deliberately **not** links:
 The payload's `core/.claude/settings.template.json` is a seed: it lands once
 as a product's real `.claude/settings.json`, carrying the default model, a
 test database placeholder, the permission allow-list for the remote-session
-tools, and a **deny list** that refuses the command which can push a database
+tools, a **deny list** that refuses the command which can push a database
 schema straight at a live database and refuses reading environment secret
-files. This repository's own copy drops what does not apply here (no
+files, and the **hooks block** that runs the needs-you alert
+(`scripts/needs-you-alert.mjs`) at every turn's end, after every tool call,
+on a permission prompt and on an error stop (chapter 8). This repository's own copy drops what does not apply here (no
 database, no Drizzle) and keeps the rest.
 
 **Neither file may carry a field Claude Code does not recognise.** Claude

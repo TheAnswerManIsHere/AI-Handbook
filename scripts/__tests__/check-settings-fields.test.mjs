@@ -156,11 +156,15 @@ test("`hooks` carries the needs-you alert and nothing else", () => {
   // PreToolUse guards could not come back silently. It is accepted again for
   // one hook script only; pinning the block's contents here keeps the guard
   // decision visible -- a new hook fails this test in the diff that adds it.
+  // PostToolUse joined on 2026-10-30 (#264): the same script, scanning the
+  // transcript so an FYI rings when it is written. It is a reader, never a
+  // gate -- the script exits 0 on every event, and a PostToolUse hook could
+  // not block the call that already ran.
   assert.ok(ACCEPTED_TOP_LEVEL.has("hooks"));
   const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
   for (const [file, scriptDir] of [[".claude/settings.json", "core/scripts"], ["core/.claude/settings.template.json", "scripts"]]) {
     const { hooks } = JSON.parse(readFileSync(join(root, file), "utf8"));
-    assert.deepEqual(Object.keys(hooks).sort(), ["Notification", "Stop", "StopFailure"], `${file} hook events`);
+    assert.deepEqual(Object.keys(hooks).sort(), ["Notification", "PostToolUse", "Stop", "StopFailure"], `${file} hook events`);
     for (const groups of Object.values(hooks)) {
       for (const { hooks: entries } of groups) {
         for (const { command } of entries) {
