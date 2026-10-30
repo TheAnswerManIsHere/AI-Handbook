@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SYNCED FROM AI-Handbook — do not edit in a consumer repo. Local edits are overwritten by the next sync and their reasoning is lost; change the handbook instead.
 /**
- * needs-you-alert — when a session stops needing David, his phone says so,
+ * needs-you-alert — when a session stops because it needs David, his phone says so,
  * and it keeps saying so until he acknowledges it.
  *
  * WHY THIS EXISTS (David, 2026-10-30: "make it so that it is absolutely
@@ -31,11 +31,20 @@
  * here would feed its message back to me and keep the turn running, which
  * turns a missing credential into a loop.
  *
- * A CONTROL THAT CANNOT EVALUATE SAYS SO. When an alert is owed and cannot be
- * sent — no credentials, or Pushover refuses — the hook prints a
- * `systemMessage`, which the harness shows in the session. Silence on that
- * path would read as "alert sent" (CLAUDE.md, *The guard is gone*: a control
- * reporting success having evaluated nothing is the worst failure).
+ * A CONTROL THAT CANNOT EVALUATE SAYS SO — WHERE THE HARNESS LETS IT. When an
+ * alert is owed and cannot be sent — no credentials, or Pushover refuses —
+ * the hook prints a `systemMessage`. On `Stop` the harness shows it in the
+ * session. On `StopFailure` it does not: the harness describes that event as
+ * "Fire-and-forget — hook output and exit codes are ignored", so a failed
+ * error-stop alert goes unreported, and only one there. A persistent cause
+ * (keys unset, a refused token) still surfaces on the next `Stop` ask in the
+ * same environment; a transient one (Pushover unreachable at that moment)
+ * leaves no trace. That gap is recorded rather than built for (PR #260 round
+ * 1: a channel with no reader is the ledger #89 removed). Whether
+ * `Notification` shows it is unsettled: the bundled reference says
+ * `systemMessage` displays "(all hooks)", and the online one is read as
+ * discarding it there. The message is printed on every event regardless, so
+ * a harness that starts honouring it needs no change here.
  *
  * CREDENTIALS: `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN`, set as
  * environment variables in the cloud environment's settings. They can only

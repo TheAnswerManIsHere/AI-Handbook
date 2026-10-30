@@ -343,8 +343,12 @@ to worry about strange links."*)
    withholds itself when it judges him active (David, 2026-10-30; the rule
    is `claude-core.md`, interaction preference 6). It reads
    `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN` from the cloud environment's
-   variables, set once per environment; without them every owed alert prints
-   "David was NOT alerted" in the session rather than failing quietly.
+   variables, set once per environment. Without them, an owed alert prints
+   "David was NOT alerted" in the session on a turn that ends on an ask
+   (`Stop`) — but not when a turn dies on an error (`StopFailure`), whose hook
+   output the harness discards ("Fire-and-forget — hook output and exit codes
+   are ignored"). Missing keys therefore surface on the first ask in that
+   environment, not before.
    **It is the one settings key the sync tops up**: a file with no `hooks` key
    receives this block on the next sync, and one carrying a `hooks` key of its
    own — `{}` is enough — is left alone, which is how a repo opts out.
