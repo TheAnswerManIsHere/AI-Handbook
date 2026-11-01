@@ -178,7 +178,9 @@ is wrong everywhere.
 A few parts of the payload are live in this repository too, not just shipped
 from it. The skills and agent definitions are reached through symbolic links
 from this repository's own `.claude/` folder into `core/`, so there is still
-only one copy of each. Everything else in `core/` reaches this repository only
+only one copy of each. The needs-you alert script is run directly by this
+repository's own hooks, so changing it changes how this session reaches David
+too. Everything else in `core/` reaches this repository only
 through its instruction files: `CLAUDE.md` imports the Claude core, and the
 root `AGENTS.md` links the agents core and declares it binding here, which is
 how Codex and other agents are governed by the payload too. The settings template is the clearest example of
@@ -287,4 +289,4 @@ process changes no write-up at all. Both are stated in
 **Next:** chapter 2 — [`2-who-does-what.md`](./2-who-does-what.md), the cast:
 who builds, who reviews, who advises, and what only David decides.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

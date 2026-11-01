@@ -134,6 +134,18 @@ reviewer can tell a postponed requirement from a dropped one. And once review
 starts, any finding Claude decides not to fix is recorded in a *Recorded gaps*
 table in the body (chapter 6).
 
+**Every reversible choice Claude proceeded on** is listed under *Decisions
+taken on my recommendation* — `none` when there were none — each with how to
+undo it, so David reads a widening of what Claude decided for him rather than
+discovering it (chapter 2).
+
+**A pull request or issue is named by number and title, every time it is
+mentioned** (interaction rule 14, 2026-10-23), here and in everything else
+David reads: *"Quoting PR or Issue numbers at me is useless."* The exception
+is a marker another agent reads by its shape — `Workstream: #N`,
+`Blocked by: #N` — which keeps its bare form, with the title beside it in
+prose, because an added title would break the tools that match it.
+
 One piece of hygiene applies to every word in the body: reserved strings —
 the phrase that triggers a Codex review is the main one — are never written
 live in anything GitHub-facing. They appear in an agreed defanged spelling
@@ -143,8 +155,13 @@ live in anything GitHub-facing. They appear in an agreed defanged spelling
 
 The moment the pull request exists, Claude subscribes to its activity, so
 review comments and CI results arrive in the session as events. Codex's first
-review fires automatically when the pull request opens. From there the review
-loop of chapter 6 takes over.
+review fires automatically when the pull request opens, and Claude arms a
+check-in in the same turn, sized from measured pass times rather than from a
+guess about reviewers. A pass still running at the check-in has stalled: it
+gets one bare re-request, and a repeated stall on the same head is an
+outage, which stops the work and goes to David (2026-10-29). The timing and
+the measurement are in [`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and scheduled check-ins*, item 4. From there the review loop of
+chapter 6 takes over.
 
 ### What the server enforces
 
@@ -250,11 +267,12 @@ what it finds, and folds anything real into the feature's next version.
 
 ## Boundaries & known limitations
 
-- **The all-branches force-push block has not been separately tested.** The
-  refusal was measured on a `claude/` branch. A `prototype/<feature>` branch
-  lives outside that namespace for weeks with no pull request, so the
-  all-branches ruleset is its only mechanical protection; the contract
-  recommends probing it before a product's first branch-regime prototype.
+- **The all-branches force-push block was probed once, in one product.** On
+  DojoOS, 2026-10-03, a forced push was refused on both a `claude/` branch and
+  a branch outside that namespace. A `prototype/<feature>` branch lives
+  outside `claude/` for weeks with no pull request, so that ruleset is its
+  only mechanical protection, and each product's own ruleset is what binds
+  it.
 - **The PR body's oracle is a copy Claude wrote.** It is there for Codex. The
   authoritative version is wherever David agreed it, which is why the
   assessors are pointed there instead.
@@ -287,4 +305,4 @@ what it finds, and folds anything real into the feature's next version.
 happens between the pull request opening and the judgement that nothing more
 is worth writing.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

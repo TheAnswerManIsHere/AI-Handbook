@@ -94,9 +94,9 @@ available — the list lives in the core, and these are what it covers today:
   loop](./glossary.md#plan-review-loop) (chapter 4).
 - **The two assessors of a [review round](./glossary.md#review-round)** —
   Astra and the [Fable assessor](./glossary.md#fable-assessor), who advise on
-  Codex's findings (chapter 6). The [round
-  translation](./glossary.md#round-translation) that explains a round to David
-  runs on the same Claude tier.
+  Codex's findings (chapter 6).
+- **The [build report](./glossary.md#build-report)** that explains a finished
+  unit of work to David, on the same Claude tier.
 - **`/next`'s judgement steps** — whether a severe bug preempts the queue,
   whether two lanes are truly independent, and what to build when the queue is
   empty (chapter 10).
@@ -133,7 +133,10 @@ blocking. Nothing in KITT claims a match it measured.
 
 **Astra needs a sign-in each session, and that is David's phone step.** The
 Codex tool authenticates by device code: Claude starts the sign-in and sends
-David the code as a blocking ask, because it expires within minutes. Without a
+David the code as a blocking ask, because it expires within minutes. Since
+2026-10-29 it is the first thing every session does, in any repository,
+before any other work — so the code arrives while he is still at the screen
+that started the session, rather than when a review first needs it. Without a
 sign-in the Astra review is reported as not run — never replaced by Claude
 reading its own work.
 
@@ -186,8 +189,8 @@ and keeps a ceiling on how many run in parallel unless David asks for more.
 The [ship gate](./glossary.md#ship-gate) (chapter 6) carries KITT's
 cost model, and its central point is simple: **a review round that returns
 findings is the unit of spend, and its cost does not depend on which finding
-it returns.** Two assessments that each re-read the repository, a translation
-when one is owed, and Claude's own turns to package, post, reply and resolve —
+it returns.** Two assessments that each re-read the repository, and Claude's
+own turns to package, post, reply and resolve —
 the bill is the same for the wording of a label as for a real defect, and the
 question of whether a finding is worth fixing is only asked after the bill is
 paid. A clean round is much cheaper, because neither assessor is dispatched
@@ -213,9 +216,27 @@ Because the harness reports a single token count per turn — no split between
 input, output and cached reads — the table converts with a blended proxy rate
 per model, and says plainly that the blend is an assumption rather than a
 measurement. Each spend line names the rate it used, so the figure can be
-re-derived when prices move. The table has one source: only this
-repository's maintenance pass refreshes it, and each product reads the copy
-the sync delivers.
+re-derived when prices move. An Astra run is the exception: the Codex tool
+reports its own usage in five buckets, so it is priced bucket by bucket from
+the table, and a run that reported nothing usable is `unable to verify`
+rather than zero. The table has one source: only this repository's
+maintenance pass refreshes it, and each product reads the copy the sync
+delivers.
+
+Two figures are kept rather than recomputed. The workstream issue carries one
+*Spend so far* line, updated at each hand-back, so the build report can state
+a build's total. And KITT's repository holds one fleet-wide
+`paid-ai-ledger` issue, one comment per paid AI run in any product, because a
+paid run counts against one budget, per run and per week, across every
+product, and a weekly total has to be read rather than remembered
+(2026-10-22; [`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), *Lanes*).
+
+Whether the proxy rate tells David the truth is an open question. One
+session's spend lines summed to about $18 while the harness's own session
+record read $53, most likely because differencing the per-turn token count
+misses the context re-read on every model call. Issue #248 — Spend lines
+undercount: this session's proxy total was ≈$18 while the harness reports $53
+— carries the measurement and the likely fix.
 
 ## Why it works this way
 
@@ -257,10 +278,13 @@ the sync delivers.
   a wrong model here is small, easily recovered, and the self-report gives
   almost all of the tracking value. The rule that follows is about honesty in
   wording: no report says "ran on X" when all it knows is what was asked for.
-- **Cost is disclosed, not ledgered.** [The #89 cut](./glossary.md#the-89-cut)
+- **Cost is disclosed, and ledgered only twice.** [The #89 cut](./glossary.md#the-89-cut)
   removed round budgets, receipts and accounting that had made the loop
-  measurable without making it shorter. What replaced them is a single line of
-  disclosure per round, put where the decision to spend is made.
+  measurable without making it shorter. What replaced them is a line of
+  disclosure per round and per turn, put where the decision to spend is
+  made. The two ledgers it admits since 2026-10-21 — a build's *Spend so far*
+  and the fleet's paid-run ledger — exist because a total David sets a cap
+  from has to be read, not summed from memory.
 - **Read the schema, not the docs page.** The effort setting was once written
   into the contract as not existing, because the settings documentation page
   omitted it; the settings schema carried it all along. The lesson is kept
@@ -317,4 +341,4 @@ the sync delivers.
 **Next:** chapter 12 — [`12-the-machinery.md`](./12-the-machinery.md), the
 scripts, checks and settings files underneath everything described so far.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

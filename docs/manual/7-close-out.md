@@ -36,13 +36,15 @@ separate, explicitly requested action and never part of close-out.
 
 ### The merge bar
 
-Before anything merges, four things must be true for the
+Before anything merges, three things must be true for the
 [standard loop](./glossary.md#standard-loop): CI is green; a
 [Codex](./glossary.md#codex) review has come back for the exact commit that
-would merge; every review thread is resolved; and every
-[round translation](./glossary.md#round-translation) that was owed has been
-delivered to David. Chapter 6 explains why each of those exists; close-out is
-where they are read together, by eye, immediately before the merge.
+would merge; and every review thread is resolved. The
+[build report](./glossary.md#build-report) is dispatched at close-out but is
+off the critical path and never holds a merge; until 2026-10-21 a fourth item
+required every owed round translation to have been delivered. Chapter 6
+explains why each of those exists; close-out is where they are read
+together, by eye, immediately before the merge.
 
 Three exits from the standard loop carry their own, lighter bars — a
 [Trivial](./glossary.md#trivial) change David declared, a
@@ -89,12 +91,19 @@ Once the bar is met, Claude runs the same short sequence every time:
 6. **Send the merge report** to David, with a push notification.
 
 The merge report carries both commit identifiers, the verification results,
-the line naming any latitude the change grants Claude (chapter 5), and the UAT
-handoff — what to go and click, plus the reminder that `/uat` will walk him
-through it. For a prototype-phase change it says instead that the head is on
-`main` and unpublished, and which questions the version is meant to answer.
-**Nothing follows the merge report**: it is the message that hands the turn
-back.
+the line naming any latitude the change grants Claude (chapter 5), the pull
+request's *Decisions taken on my recommendation* restated in one line each,
+and the UAT handoff — only the steps that need David's judgement, since
+`/uat` resolves the machine checks itself, plus the reminder that `/uat` will
+walk him through them. For a prototype-phase change it says instead that the
+head is on `main` and unpublished, and which questions the version is meant
+to answer. It ends with the fixed footer every hand-back carries — *Done*,
+*Next*, *Needs you*, *Spend* (chapter 8). **Nothing of Claude's follows the
+merge report**: it is the message that hands the turn back. When more
+approved work is startable, its resume is armed *before* the report is
+written, so the next item starts without David prompting it. The build
+report then lands as its own message, and as a comment on the workstream
+issue.
 
 ### Post-merge verification: the checks only the live environment can run
 
@@ -110,7 +119,10 @@ David never runs commands, so this section is how any command a change needs
 reaches the environment. Claude runs it through the Replit connector at
 close-out in two calls — one that asks Replit to run the named checks under an
 explicit read-only instruction, then, a few minutes later, one that asks for
-the results — and reports pass or fail in the merge report. A failure keeps
+the results — and reports pass or fail in the merge report. A step that
+would start a paid AI run is never read-only: it goes in a request of its
+own that names its paid calls and worst-case cost, within the fleet's
+paid-run budget ([`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), *Lanes*). A failure keeps
 the workstream at its verification stage while the fix goes through the
 normal channel.
 
@@ -132,10 +144,14 @@ changed — including before a pause, since a paused run can sit for days.
 
 **Every step names the one lane it is verified in, and only the `human` lane
 reaches David.** A step a machine can check — a test in CI, a scripted check,
-a check against the live app — is written as a self-contained check in the
-same pull request and resolved by a machine before his first step, so his
-time goes only to what needs a person: whether the change feels right. When
-each lane runs is the format's to say. The lanes and their records are
+a check against the live app, or a capture Claude reads when only the pixels
+hold the answer — is written as a self-contained check in the same pull
+request and resolved by a machine before his first step, so his time goes
+only to what needs a person: whether the change feels right. A fact on the
+screen is never his; Claude checks it in a browser. What an AI-generated
+image shows is his, beyond what anyone would verify the same way. A `human`
+step states the judgement it asks of him, and a paid AI run is never a CI
+check. When each lane runs is the format's to say. The lanes and their records are
 defined in
 [`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), and a checker
 reads the pull request's description in CI and refuses a script that leaves
@@ -153,7 +169,9 @@ the workstream issue, and the workstream's `stage:uat` label leaving is what
 says the run is no longer owed. A behaviour the script is the only written
 description of is harvested into the product's manual at close-out. A
 legacy file still under `docs/tests/UAT/` from before the move is driven
-from the file and deleted when its run completes.
+from the file and deleted when its run completes. `/uat` also lists the runs
+the lifecycle is still holding, so a close-out interrupted halfway does not
+hide the UAT it owes.
 
 ### Closing the workstream
 
@@ -176,7 +194,11 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   [blocking ask](./glossary.md#blocking-ask) naming which pull requests are
   stuck and where, and waits. Noticing that Codex has recovered is not
   permission to restart. Prototype-phase work owes no Codex review, so it
-  carries on.
+  carries on. **A stall becomes an outage by a rule, not a feeling**
+  (2026-10-29): a review that stalls, and stalls again after its one bare
+  re-request on the same head, is an outage from that moment; the timing is
+  in [`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and scheduled check-ins*, item 4. A Documentation pull request is among those
+  blocked, because its one pass waits for Codex's automatic review.
 
 ## Why it works this way
 
@@ -192,8 +214,10 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   everything here is reversible. What replaced it is visibility rather than
   another gate: the pull request body and the merge report each name the
   latitude a change grants, so a widening is *read* rather than clicked
-  through. The one pull request that still comes to David is a change to the
-  review loop that still carries findings after its second review (chapter 6).
+  through. Since 2026-10-21 only two merges wait on David: one on the
+  irreversible list, and a corrected head whose shortfall is a product
+  decision. A review-loop change that used to come to him after its second
+  review is now Claude's to decide, and reported (chapter 6).
 - **The Repl syncs after every merge, with no exceptions Claude reasons its
   way into.** "The project is paused", "this change has no product surface",
   "it will catch up next time" — each is a reasonable judgement about one
@@ -212,7 +236,7 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   check, and Claude executes them at the moment they are meaningful.
 - **No receipt proves the bar.** A script that minted a merge-readiness
   receipt was removed in [the #89 cut](./glossary.md#the-89-cut) after it
-  never once ran in the loop it was built for. The four items are reads
+  never once ran in the loop it was built for. The three items are reads
   Claude does; the one that GitHub can enforce, it does.
 - **The UAT is a conversation, not a document.** David used to keep his own
   place in a markdown file in one window and the app in another. Now Claude
@@ -234,8 +258,9 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   both as Claude's to check, and that is the whole defence.
 - **Codex's clean-pass signals have changed shape before.** A review Claude
   cannot recognise is treated as a parser that has fallen behind, not as proof
-  no review ran — and a genuinely new shape goes to David rather than into a
-  guess.
+  no review ran. A genuinely new shape is read on the pull request itself,
+  judged on Claude's recommendation and reported as an FYI naming the shape,
+  never guessed at.
 - **Setup Claude cannot do falls to David.** Claude holds no admin session in
   a product, so admin-gated UAT setup is handed to David as exact click steps.
 - **Bugfix pull requests do not inherit the verification-plus-UAT pairing.**
@@ -266,9 +291,11 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   [`documentation-workflow.md`](../../core/docs/ai-context/documentation-workflow.md).
 - How a prototype-phase merge differs:
   [`prototype`](../../core/.claude/skills/prototype/SKILL.md).
+- How Replit syncs, publishes and bills:
+  [`replit-platform.md`](../../core/docs/ai-context/replit-platform.md).
 
 **Next:** chapter 8 — [`8-talking-to-david.md`](./8-talking-to-david.md), how
 Claude communicates at every step: banners, notifications, numbered questions
 and quoting.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

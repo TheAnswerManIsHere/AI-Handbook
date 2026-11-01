@@ -137,7 +137,7 @@ Home: [`core/.claude/skills/`](../../core/.claude/skills/)
 ### Agent definition
 
 A file under `core/.claude/agents/` that defines a subagent role Claude Code
-can dispatch — the Fable assessor and the round translator among them. It
+can dispatch — the Fable assessor and the build report among them. It
 fixes the role's instructions, the tools it may hold, and the model and
 effort it runs at, so Claude passes only a round's coordinates rather than
 writing the role's instructions itself. Its tool list is a real upper bound
@@ -179,7 +179,8 @@ the OpenAI Codex command-line tool inside the session, after David signs it
 in from his phone. It is the peer reviewer in the
 [plan review loop](#plan-review-loop) and one of the two assessors on a code
 [review round](#review-round). Both uses advise; neither decides, and
-neither is the merge bar.
+neither is the merge bar. Signing it in is the first thing every session
+does, in any repository (2026-10-29).
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
 ### Fable assessor
@@ -193,15 +194,18 @@ uses for exploratory conversation; this entry is the review role, not the
 model.
 Home: [`core/.claude/agents/fable-review-assessor.md`](../../core/.claude/agents/fable-review-assessor.md)
 
-### Round translation
+### Build report
 
-A plain-English account of one code review round, written for David by a
-separate Claude subagent that reads the round from GitHub itself and whose
-words reach him unedited. It is owed on the rounds where an
-independent reading is most likely to catch something, and before anything
-merges; the exact triggers live in its home's rules. It holds no authority: nothing in the review or merge path
-reads it.
-Home: [`core/.claude/agents/fable-round-translation.md`](../../core/.claude/agents/fable-round-translation.md)
+A plain-English account of one finished unit of work — a pull request's
+merge, or a prototype version — written for David by a separate Claude
+subagent that reads the unit from GitHub itself and whose words reach him
+unedited, in fixed sections: what needs him, what was built, the decisions
+taken on Claude's recommendation with their undo, ramifications, what ships
+unfixed, where it disagrees with Claude's account, spend, and where the plan
+stands. Delivered in chat and as a comment on the workstream issue. It holds
+no authority: nothing in the build or merge path reads it. It replaced the
+per-round *round translation* on 2026-10-21.
+Home: [`core/.claude/agents/fable-build-report.md`](../../core/.claude/agents/fable-build-report.md)
 
 ### Subagent
 
@@ -281,9 +285,9 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 The process steps a change goes through — plan, plan review, code review
 rounds, UAT section, harvest. It scales to the artifact and what is downstream
 of it, not to how the request was phrased: agent-facing prose gets far less
-than product code. When the right level is unclear, the rule is to ask
-rather than default upward, because over-ceremony has been the expensive
-mistake.
+than product code. When the right level is unclear, Claude takes the
+lighter one and announces it rather than defaulting upward, because
+over-ceremony has been the expensive mistake.
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
 
 ### Review class
@@ -301,7 +305,9 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 A review class **only David can assign**, in words, to one specific change —
 his lever for quick changes. No review is requested; the PR merges on green
 CI, and Codex's automatic pass is read only for a top-severity finding,
-which holds the merge until David answers. Here the word is a ruling, not a
+which Claude judges and reports — fixed in a named commit, or merged with the
+reason given. On a phase-registry pull request the pass is read for
+nothing. Here the word is a ruling, not a
 description, so Claude never calls a change "trivial" in this sense on its
 own judgement.
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
@@ -324,7 +330,7 @@ The ordinary code review loop every change runs unless it is Trivial,
 Documentation, or a prototype-phase feature: Codex reviews, two assessors
 advise on any findings, fixes are re-reviewed, and the merge waits for the
 full [merge bar](#merge-bar). Most review rules — the write-gate, shared
-judgement, translation — are rules of this loop specifically.
+judgement, the ship gate — are rules of this loop specifically.
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
 
 ### Internal tier
@@ -333,9 +339,8 @@ The label for changes to the agents' own tooling — scripts, skills,
 contracts, process docs — as opposed to `product` or `sensitive`
 (auth, payments, migrations). Since 2026-09-17 a tier says only **what is
 downstream** of a change, not how strictly to read a finding. Whether a
-change counts as internal for the [two-review limit](#two-review-limit) is
-asked of that change, by its consequence and recoverability, not read off
-its directory. Unrelated to the A/B/C [bugfix tier](#bugfix-tier).
+change counts as internal is asked of that change, by its consequence and
+recoverability, not read off its directory. Unrelated to the A/B/C [bugfix tier](#bugfix-tier).
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
 
 ---
@@ -373,11 +378,11 @@ Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/worki
 
 ### Now, next, never
 
-The shape of every mid-flight scope question: should this addition be done
-**now** in the current work, **next** as its own follow-up, or **never**.
-Always three options with their consequences, defaulting to next; a
-two-option scope question is treated as a badly framed question. The calls
-already made are part of the agreed scope of work.
+The three places a mid-flight scope addition can go: **now** in the current
+work, **next** as its own follow-up, or **never**. Since 2026-10-21 an
+addition is taken as *next* and reported, without asking; it is put to David
+only to join *now*, and only when the current plan cannot be correct
+without it. The calls already made are part of the agreed scope of work.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
 ### Settled over dissent
@@ -398,8 +403,8 @@ Home: [`core/.claude/skills/plan-review-loop/SKILL.md`](../../core/.claude/skill
 
 One pass of review over one head commit of a pull request, and everything
 done in response to it. A round that comes back clean costs little; a round
-that returns [findings](#finding) is the unit of spend — two assessments,
-Claude's replies, possibly a translation — whatever the finding is about.
+that returns [findings](#finding) is the unit of spend — two assessments
+and Claude's replies — whatever the finding is about.
 Never asked twice of an unchanged head, and always owed by a changed one in
 the standard loop.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
@@ -443,12 +448,13 @@ Home: [`core/docs/ai-context/review-judgment.md`](../../core/docs/ai-context/rev
 
 ### Two-review limit
 
-The bound on how long Claude may keep **editing** without David, where the
-limit applies: a small, fixed allowance of reviews and corrections, after
-which iteration stops — the allowance itself is stated only in its home. It caps editing, never reviewing, and
-ending iteration is not "merge regardless" — a head that still falls short
-goes to David with a choice. It exists because chains of individually
-sensible fixes kept producing the next round's findings.
+**Retired 2026-10-21.** From 2026-09-20 it bounded how long Claude could keep
+editing internal tooling without David: two reviews, then stop. David
+retired it with the six-hour clock (*"everything that stops you from working
+is a problem for me"*). Its measurement survives as a prior — from the
+second review on, recording a gap is the ordinary answer — and a loop's
+length is now Claude's judgement under the write-gate and the
+[ship gate](#ship-gate). Its home keeps the record.
 Home: [`core/docs/ai-context/working-modes.md`](../../core/docs/ai-context/working-modes.md)
 
 ### Ship gate
@@ -479,7 +485,9 @@ Home: [`core/.claude/skills/pr-watch/SKILL.md`](../../core/.claude/skills/pr-wat
 Everything from "ready to merge" to handing the turn back to David, and it
 is Claude's end to end: re-checking the live PR, squash-merging, syncing the
 running environment, running the post-merge checks, posting the harvest
-notes and sending the merge report. Merging is not shipping — it is what
+notes, sending the merge report — which ends with the hand-back
+[footer](#footer) — and dispatching the [build report](#build-report).
+Merging is not shipping — it is what
 makes the work testable; publishing to production is a separate, explicitly
 requested step.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
@@ -487,8 +495,9 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 ### Merge bar
 
 What must be true before a pull request merges. For the standard loop it is
-green CI, a Codex review returned for the exact head commit, every thread
-resolved, and the owed translations delivered; the Trivial and Documentation
+green CI, a Codex review returned for the exact head commit, and every
+thread resolved; the [build report](#build-report) is dispatched at
+close-out but never holds a merge. The Trivial and Documentation
 classes and prototype-phase work each carry a lighter bar of their own. No
 script proves it — Claude reads it off the PR — except thread resolution,
 which GitHub itself enforces.
@@ -585,6 +594,16 @@ durable learnings, and from the cross-tool handoff folder some products
 keep.
 Home: [`core/.claude/skills/handoff/SKILL.md`](../../core/.claude/skills/handoff/SKILL.md)
 
+### Archive
+
+The `/archive` check of whether a session is finished: it looks only at what
+would die with the session — unpushed work, a watched pull request, armed
+check-ins, running tasks, unpaid close-out, unwritten learnings, an open ask
+— and returns continue, hand off or archive, archiving itself shortly after
+the verdict when nothing would be lost. Its verdict also fills a build
+report's *Session* line.
+Home: [`core/.claude/skills/archive/SKILL.md`](../../core/.claude/skills/archive/SKILL.md)
+
 ### Maintenance pass
 
 The roughly weekly `/maintenance` ritual David invokes: dependency updates,
@@ -619,19 +638,62 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 
 ### Blocking ask
 
-A message saying Claude needs something from David before work can continue
-— information, a decision that is his, or an action only he can take. It
-takes a fixed 🛑 banner shape, with numbered options and a recommendation,
-is the last text of the turn, and always fires a push notification.
+A message saying Claude needs something from David before work can
+continue. Since 2026-10-21 only a short closed list qualifies, every item
+of it something only David can settle — the
+[irreversible list](#irreversible-list) and a plan before it is enacted
+among them. It takes a fixed
+🛑 banner shape, with numbered options and a recommendation, is the last
+text of the turn, and rings his phone until he acknowledges it, through the
+[needs-you alert](#needs-you-alert).
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
 ### FYI
 
 The 👀 banner for something David would want to know but need not answer —
 a security concern found along the way, a systemic issue beyond one PR, a
-scope surprise. Work continues without a reply, and David's phone chimes
-once, the instant it is written. Routine correctness findings do not clear
-the bar.
+scope surprise, and every reversible choice Claude proceeded on. Work
+continues without a reply, and David's phone chimes once, the instant it is
+written. Each is also posted in one line on the workstream issue. Routine
+correctness findings do not clear the bar.
+
+### Irreversible list
+
+The short, closed list of actions that always ask David first, whatever the
+phase: things that reach outside the repository and cannot be undone by a
+corrective commit — publishing, production data, sending or charging,
+credentials and paid AI runs past his fleet-wide budget are among them.
+Everything else that is Claude's to recommend proceeds on that
+recommendation and is reported. The list itself lives only in its home, and
+grows only by his word.
+Home: [`core/docs/ai-context/agent-working-rules.md`](../../core/docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)
+
+### Footer
+
+The four bold fields every hand-back ends with — **Done**, **Next**, **Needs
+you**, **Spend**. *Next* takes one of a few fixed forms, such as `running`
+or `stopped`, that name why the turn is ending, because a turn ends only for
+a reason. The fields are read by the needs-you alert as well as by
+David.
+Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
+
+### Needs-you alert
+
+The hook that rings David's phone through Pushover, independent of Claude
+remembering to: on a hand-back that leaves the session idle on him it repeats
+until he acknowledges; a build report rings once
+loudly; a turn whose work continues rings once quietly; an FYI chimes once
+the moment it is written.
+Home: [`core/scripts/needs-you-alert.mjs`](../../core/scripts/needs-you-alert.mjs)
+
+### Paid-run ledger
+
+One issue in KITT's repository, labelled `paid-ai-ledger`, with a
+comment for every paid AI run in any product, so the weekly paid-run budget —
+one total across every product — is read rather than remembered. One of
+the two small ledgers the #89 cut's "no ledger" now admits; the other is a
+workstream issue's *Spend so far* line.
+Home: [`core/docs/tests/uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md)
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
 ---

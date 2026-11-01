@@ -61,8 +61,9 @@ understand KITT as a system — chiefly David.
 
 ### Name the rule; don't restate its tuning
 
-Some rules carry a number in their name — the *two-review limit*, the
-*six-hour* stop on a review loop. A chapter may use the name, because that is
+Some rules carry a number in their name — the *two-review limit* and the
+*six-hour* stop on a review loop were two, both retired on 2026-10-21. A
+chapter may use the name, because that is
 what the rule is called. What a chapter does not do is restate the rule's
 exact thresholds, lists or conditions as though it were the source: those
 change by pull request, and a second copy is a copy that drifts. The test,
@@ -150,10 +151,10 @@ In reading order. A chapter file appears only once it holds real content, so
 | 3 | [`3-routing-a-request.md`](./3-routing-a-request.md) | **Route** — feature, bugfix or prototype; how much ceremony a change earns; the Trivial and Documentation classes | ✅ written |
 | 4 | [`4-planning.md`](./4-planning.md) | **Plan** — the pre-plan conversation, the plan, Astra's review, the scope gate and David's approval | ✅ written |
 | 5 | [`5-opening-a-pr.md`](./5-opening-a-pr.md) | **Build** — branches, the PR body and its oracle, the server-side rulesets | ✅ written |
-| 6 | [`6-the-review-loop.md`](./6-the-review-loop.md) | **Review** — Codex, shared judgement, the Worth rule, the two-review limit, the ship gate, translation | ✅ written |
+| 6 | [`6-the-review-loop.md`](./6-the-review-loop.md) | **Review** — Codex, shared judgement, the Worth rule, what bounds a loop, the ship gate, the build report | ✅ written |
 | 7 | [`7-close-out.md`](./7-close-out.md) | **Close out** — the merge bar, the Repl sync, post-merge verification, UAT | ✅ written |
-| 8 | [`8-talking-to-david.md`](./8-talking-to-david.md) | Banners, notifications, numbered questions, quoting — how Claude communicates | ✅ written |
-| 9 | [`9-memory-and-documentation.md`](./9-memory-and-documentation.md) | **Remember** — Type 1 and Type 2 documentation, memory notes, handoff, prose sweeps | ✅ written |
+| 8 | [`8-talking-to-david.md`](./8-talking-to-david.md) | Banners, notifications, the hand-back footer, naming PRs and issues — how Claude communicates | ✅ written |
+| 9 | [`9-memory-and-documentation.md`](./9-memory-and-documentation.md) | **Remember** — Type 1 and Type 2 documentation, memory notes, handoff, archive, prose sweeps | ✅ written |
 | 10 | [`10-tracking-work.md`](./10-tracking-work.md) | Workstream issues, `/status`, `/next`, `/maintenance` | ✅ written |
 | 11 | [`11-models-cost-and-routing.md`](./11-models-cost-and-routing.md) | Which model does what, subagent routing, and what a loop costs | ✅ written |
 | 12 | [`12-the-machinery.md`](./12-the-machinery.md) | The scripts, the CI checks, the settings template, and how skills and agents are wired | ✅ written |

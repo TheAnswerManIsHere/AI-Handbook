@@ -1,6 +1,6 @@
 # Deferred work — KITT
 
-Last maintenance pass: 2026-10-12
+Last maintenance pass: 2026-11-01
 
 The `maintenance` skill (step 4) reads this file every pass and re-checks each
 entry's revisit trigger; its `Last maintenance pass:` line is updated every
@@ -15,4 +15,4 @@ Each entry carries four fields: **What** was parked, **Why** it was parked,
 ## Entries
 
 None. KITT has no dependencies of its own to hold back, and nothing
-was parked at the 2026-10-12 pass.
+was parked at the 2026-10-12 or 2026-11-01 passes.

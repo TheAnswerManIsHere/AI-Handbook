@@ -4,7 +4,8 @@
 > copy the payload into a product and take back what it stops shipping, prove
 > this repository actually reaches its own payload, keep settings files
 > loadable, keep the pinned models consistent, and run the review and planning
-> dispatches. It is small on purpose, it has no dependencies on purpose, and
+> dispatches. It is small on purpose, it has no dependencies of its own on
+> purpose (the opt-in codebase map borrows the product's compiler), and
 > most of its design is about **refusing loudly rather than succeeding
 > quietly**.
 >
@@ -92,10 +93,30 @@ other payload file. Each set has its own test suite, and both suites run in CI.
   [Fable assessor](./glossary.md#fable-assessor), refusing to run without an
   agreed [oracle](./glossary.md#oracle) or on a working tree that is not the
   reviewed commit. Like the plan script, it decides nothing.
-- **`round-translation.mjs`** — supports the [round
-  translation](./glossary.md#round-translation): it composes the chat message
-  David receives from the translator's own answer, verbatim, so the account is
-  not Claude's rewriting of it.
+- **`build-report.mjs`** — supports the [build
+  report](./glossary.md#build-report). It prints the role's brief inline,
+  because the role holds no file-reading tool; derives where the answer is
+  written; and composes the chat message David receives from the role's own
+  answer, verbatim, so the account is not Claude's rewriting of it. A
+  workstream kept private has its own route, which refuses to run without the
+  private item's text relayed by David. It replaced `round-translation.mjs`
+  on 2026-10-21.
+- **`needs-you-alert.mjs`** — the alert hook (chapter 8). Run by the harness
+  at every turn's end, after every tool call and on its own error and prompt
+  events, it reads the turn's last message and footer and sends David a
+  Pushover alert, tiered: one that leaves the session idle on him repeats
+  until he acknowledges it; a build report rings once
+  loudly; a turn whose work continues rings once quietly.
+- **`map.mjs` and `map-eval.mjs`** — the agent-legible codebase map: an
+  index of a product's files, symbols, routes and tables that an agent can
+  query before it edits, plus the evaluation that decides whether adopting
+  it helps. It is opt-in per product, ships with a switch that turns it off,
+  and loads the product's own TypeScript compiler rather than carrying one.
+  Its contract is
+  [`agent-legible-codebase.md`](../../core/docs/ai-context/agent-legible-codebase.md).
+  Overhype.me's evaluation found it bought nothing there, because agents that
+  investigate through the shell never load the rule telling them to use it,
+  and that product switched it off (2026-10-22).
 - **`sweep-scope.mjs`** — the deterministic half of a prose sweep. It fixes
   the scope from git's tracked files and splits it across cold readers, each
   with the same brief. It deliberately does not search for phrases; the
@@ -136,8 +157,8 @@ KITT governs itself with the file it ships: its `CLAUDE.md` imports the
 portable [core](./glossary.md#core) straight from `core/`, and its root
 `AGENTS.md` links the agents core and declares it binding here, so Codex and
 other agents are governed by the payload too. Everything else under `core/`
-reaches this repository only through those two instruction files — except two
-kinds of entry:
+reaches this repository only through those two instruction files — except
+three:
 
 - **[Skills](./glossary.md#skill) and [agent
   definitions](./glossary.md#agent-definition) are live here**, through one
@@ -148,6 +169,9 @@ kinds of entry:
   and its failure would look silently like "no skills here". So **adding a
   skill to the payload is only half the change**; the root-wiring check refuses
   the other half being forgotten.
+- **The needs-you alert is live here**, named directly by this repository's
+  own hooks (2026-10-30), so an edit to it changes how this session alerts
+  David as well as every product's.
 
 Two things are deliberately **not** links:
 
@@ -248,7 +272,8 @@ gone. What they protected is now covered without a parser:
   either does real work or protects something that would otherwise fail
   silently.
 - **Dependency-free** keeps CI to "check out and run Node", with nothing to
-  install, pin or update.
+  install, pin or update — except the map tool's integration suite, which
+  needs a pinned compiler installed outside the checkout.
 
 ## Boundaries & known limitations
 
@@ -269,9 +294,10 @@ gone. What they protected is now covered without a parser:
 - **Not every payload script is exercised by this repository's CI.** The docs
   and UAT format guards are written for a product's own CI; here only their
   tests run.
-- **The all-branches force-push ruleset has not been separately probed**; the
-  refusal was measured on Claude's branch namespace. Nothing in Claude's own
-  flows depends on the difference.
+- **The all-branches force-push ruleset was probed in one product.** On
+  DojoOS, 2026-10-03, a forced push was refused both inside and outside
+  Claude's branch namespace. Nothing in Claude's own flows depends on the
+  difference.
 - **Required status checks are a repository setting**, not something the
   workflow file can declare — which is also why the `Manifest` job keeps its
   outdated name.
@@ -295,4 +321,4 @@ gone. What they protected is now covered without a parser:
 [manual's contents](./README.md#contents), or look a term up in the
 [glossary](./glossary.md).
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

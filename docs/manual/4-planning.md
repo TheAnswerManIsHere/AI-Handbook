@@ -7,8 +7,9 @@
 > work](./glossary.md#scope-of-work-gate)** that becomes the [oracle](./glossary.md#oracle) everything is judged
 > against, and at the back, by **approving the plan in words**. Between those
 > points the loop runs on its own, and every exchange is relayed to him in
-> plain English before Claude revises anything. It all happens in chat; no
-> plan is ever published.
+> plain English before Claude revises anything. The conversation happens in
+> chat, and the approved plan is committed on its feature branch as the
+> durable copy.
 >
 > Deep rules: [`planning-contract.md`](../../core/docs/ai-context/planning-contract.md)
 > (the one contract both parties read),
@@ -185,15 +186,19 @@ closed: any entry can be pulled back into a discussion.
 The loop has authority to develop the plan inside the agreed scope, and no
 further.
 
-- **David's, always:** anything that changes intended behaviour, the scope, or
-  a user-facing shortfall being knowingly accepted. These go to him as
-  numbered questions carrying Astra's view and Claude's side by side — never
-  absorbed into a revision.
+- **David's, always:** anything that changes intended behaviour, or a
+  user-facing shortfall being knowingly accepted, where no decision he has
+  already made covers it. These are written into the plan and named in the
+  approval readout as numbered items, carrying Astra's view and Claude's side
+  by side — never absorbed into a revision, and never a separate mid-loop
+  interrupt. A consequence a settled decision already covers is not asked:
+  the plan names the decision it follows. Overhype.me #744 measured why — two
+  interrupts on a plan whose settled decisions already answered them.
 - **A scope addition** — a new table, role, endpoint, configuration area — is
-  put to David as a **[now, next or never](./glossary.md#now-next-never)**
-  question, defaulting to *next*. It joins *now* only when the current plan
-  cannot be correct without it. A two-option scope question is a defect in
-  the question.
+  taken as *next* ([now, next or never](./glossary.md#now-next-never)):
+  recorded for the following increment, the plan unchanged, and reported. It
+  asks only to join *now*, and only when the current plan cannot be correct
+  without it. Until 2026-10-21 every addition was a question to David.
 - **A purely technical fork is not his.** Two approaches that serve the same
   agreed behaviour are for the loop to settle. If a technical disagreement
   survives investigation and discussion, Claude decides, records the
@@ -215,6 +220,15 @@ agreement, not an empty concern list, not a harness "continue" message after
 a tool error. When Claude is unsure whether it has been approved, it assumes
 it has not. The scope gate authorised the loop to *develop* the plan, never to
 build.
+
+**Approval authorises the whole plan, end to end** (David, 2026-10-21: *"once
+we've built and agreed on a plan, even if it has many phases, you should be
+able to autonomously complete all the steps in the plan from start to
+finish"*). Between increments Claude stops for three things only: a blocker
+only David can clear, a UAT step of his that the next increment depends on,
+and the irreversible list. A UAT the next increment does not depend on never
+pauses the build. The rule is
+[`claude-core.md`](../../core/.agents/core/claude-core.md), *Planning*, rule 4.
 
 At approval the plan gets a durable home. After a check that it discloses
 nothing sensitive, the plan file is committed on the feature branch and
@@ -243,7 +257,8 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
   refused unless a reason is given, and the reason is stamped on the record;
   full write access is refused outright.
 - **Astra must be signed in, every session.** Sign-in is a device code David
-  approves on his phone. Without it, the review is reported as not run — never
+  approves on his phone, and since 2026-10-29 it is the first thing a session
+  does, before planning or anything else. Without it, the review is reported as not run — never
   replaced by Claude reviewing its own plan. An exchange that produced no
   assessment did not happen and is never relayed as "nothing to report".
 
@@ -312,9 +327,10 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
 - **If Astra is unreachable**, Claude says so as a blocking ask and stops.
   A manual fallback — pasting the plan into ChatGPT by hand — exists, and
   Claude says plainly when it is on it.
-- **Planning does not end the questions.** If something ambiguous turns up
-  during the build that the plan did not cover, Claude stops and asks rather
-  than guessing and flagging it later.
+- **Planning does not end the questions, but it narrows them.** If a
+  genuine *product* ambiguity turns up during the build that the plan did not
+  cover, Claude stops and asks. A technical one proceeds on Claude's
+  recommendation and is reported.
 
 ## Going deeper
 
@@ -338,4 +354,4 @@ saves the Markdown answer. Its machinery protects things other than a verdict:
 **Next:** chapter 5 — [`5-opening-a-pr.md`](./5-opening-a-pr.md), how the
 approved work is built and shipped as a pull request.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

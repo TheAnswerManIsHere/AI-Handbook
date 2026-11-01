@@ -7,15 +7,15 @@
 > fixes, and the corrected code is reviewed again. The loop is built around
 > two promises — **nothing merges unreviewed, and a loop always ends on a
 > reviewed head** — and around one hard-won lesson: a chain of individually
-> sensible fixes can run on forever, so the length of the sequence is bounded
-> separately from the worth of each fix.
+> sensible fixes can run on forever, so the length of the sequence is watched
+> as well as the worth of each fix.
 >
 > Deep rules: [`claude-core.md`](../../core/.agents/core/claude-core.md) —
 > *Review loops* and all its subsections;
 > [`review-judgment.md`](../../core/docs/ai-context/review-judgment.md) (the
 > [Worth rule](./glossary.md#worth-rule), its only statement);
 > [`working-modes.md`](../../core/docs/ai-context/working-modes.md) (the
-> [write-gate](./glossary.md#write-gate) and the
+> [write-gate](./glossary.md#write-gate), and the record of the retired
 > [two-review limit](./glossary.md#two-review-limit)); the
 > [`pr-watch`](../../core/.claude/skills/pr-watch/SKILL.md) skill (how a round
 > actually runs).
@@ -36,8 +36,9 @@ nearly everything — declining takes a paragraph of justification, fixing takes
 a commit, so fixing wins. And a reviewer told to be strict about what is worth
 fixing becomes a decline machine. The design that survived those two
 experiments keeps the per-finding judgement honest by sharing it, and keeps the
-loop short by counting rounds rather than trusting anyone's sense that one
-more fix is worthwhile.
+loop short with a gate that flips the default once the agreed outcome is met,
+and a standing prior that, from the second review on, recording a gap is the
+ordinary answer.
 
 ## How it works
 
@@ -73,11 +74,10 @@ Read this first; every rule later in the chapter is one step of it.
    which costs no commit and no Codex round. Claude then states the next
    action in an explicit `review-action` block — nothing reads an assessment
    and acts on its wording.
-6. **Check the limit, then write one batch.** Before any code is written,
-   Claude checks whether this round is one the
-   two-review limit says must be the last
-   (below). If writing is allowed, every finding worth acting on is fixed
-   together, in one validated push.
+6. **Write one batch, or stop.** If the judgement is to write, every finding
+   worth acting on is fixed together, in one validated push, after a sweep
+   for every instance of each finding's class. If it is to stop, the loop
+   ends here, on a head the last round already reviewed.
 7. **Reply and resolve, thread by thread.** Each finding gets a reply saying
    in its first sentence what was done — fixed in this commit, or declined and
    why — and its thread is resolved immediately after. Declines are also
@@ -86,14 +86,15 @@ Read this first; every rule later in the chapter is one step of it.
    the round costs and protects, and carries pre-registered
    [flip conditions](./glossary.md#flip-condition). The trigger itself carries
    no prose; the context goes in a separate comment just before it.
-9. **Translate, when owed.** On the rounds where an independent reading is
-   most likely to catch something, and before anything merges, a separate
-   translator explains the round to David in plain English, in chat (below).
-10. **Loop or stop.** A changed head goes back to step 2. A round whose
-    findings warrant no code — or a limit that says iteration is over — ends
-    the loop, and the pull request goes to
-    [close-out](./glossary.md#close-out) (chapter 7) or, where
-    the rules require, to David.
+9. **Loop or stop.** A changed head goes back to step 2. A round whose
+   findings warrant no code ends the loop, and the pull request goes to
+   [close-out](./glossary.md#close-out) (chapter 7). Only a product decision,
+   or something on the [irreversible list](./glossary.md#irreversible-list),
+   goes to David instead.
+10. **One account at the end.** When the unit of work closes, a separate
+    agent writes the [build report](./glossary.md#build-report): one
+    plain-English account of the whole build, for David (below). It is
+    dispatched at close-out and never holds a merge.
 
 ### The write-gate: code written is code reviewed
 
@@ -135,11 +136,14 @@ judgement alone, which is exactly what the two assessments replace.
   by the Fable assessor, with its reasoning recorded. Unanimity is not
   required.
 - **Intended behaviour, and any shortfall David or a user would feel, are
-  David's** — as are product forks, scope additions, splits and disclosure
-  questions. These go to him as a [blocking ask](./glossary.md#blocking-ask)
-  and stay open until he answers. A later clean round does not close them, and
-  neither does a default Claude registered in advance: a default says what
-  Claude does while waiting, never what David decided.
+  David's** — as are product forks and disclosure questions — **unless a
+  decision he has already made covers the consequence.** Then it is not
+  asked again, and the reply names the decision it follows. What is his goes
+  to him as a [blocking ask](./glossary.md#blocking-ask) and stays open until
+  he answers. A later clean round does not close it, and neither does a
+  default Claude registered in advance: a default says what Claude does while
+  waiting, never what David decided. A scope addition is not asked: it is
+  taken as *next* and reported (chapter 4).
 
 A few rules protect the inputs. The assessors take the oracle from where it
 was agreed, never from the PR body Claude wrote. Both read the live checkout,
@@ -168,6 +172,14 @@ and, for a decline, to say plainly what remains possible and why that is
 acceptable. A decline that would knowingly accept a shortfall David would feel
 is his call, not the loop's.
 
+It also asks **who produced the value** a finding worries about. A value
+Claude could derive for itself is not an input at all. A choice Claude makes
+gets at most a cheap check that catches its own mistake. Neither gets a
+defence against a value Claude would have to construct on purpose — a guard
+against the builder sabotaging itself buys nothing. The principle's home is
+[`agents-core.md`](../../core/.agents/core/agents-core.md), *Important product
+principles*; the Worth rule carries its application for the assessors.
+
 **A fix owes the class, not the instance.** Reviewers cite lines; treating the
 cited lines as the scope of a fix is how loops grind, because the next round
 finds the siblings nobody looked for. So a fix sweeps for every instance of the
@@ -175,50 +187,37 @@ pattern, and a decline answers the worst consequence that class can reach.
 Where a command can settle a question, it runs before the reply is written and
 its real output goes in the reply.
 
-### The two-review limit
+### What bounds a loop now
 
-On internal tooling, **autonomous iteration is bounded by a small, fixed
-allowance of reviews and corrections**, after which it stops. Anything still
-worth doing then becomes a recorded gap or a follow-up issue — filed so that it
-does not enter the work queue until David has triaged it (chapter 10). The
-allowance itself, and the exact sequence it permits, are stated in
-[`working-modes.md`](../../core/docs/ai-context/working-modes.md) and nowhere
-else; this section explains why it exists.
+**No count and no clock.** From 2026-09-19 to 2026-10-21 internal tooling
+stopped after two reviews, and before that a six-hour clock paused a long
+loop. David retired both on 2026-10-21: *"everything that stops you from
+working is a problem for me"*. What decides a loop's length now is Claude's
+judgement under the write-gate and the ship gate (below).
 
-Three things make the limit what it is:
+The measurement behind the old limit survives as a **prior**, not a rule. From
+the second review on, recording a gap is the ordinary answer. A further batch
+is written when the judgement says it is worth its round, and the merge report
+says what was recorded and why. The record of the retired rule is kept in
+[`working-modes.md`](../../core/docs/ai-context/working-modes.md#the-two-review-limit-on-autonomous-iteration-david-2026-09-19).
 
-- **It caps editing, never reviewing.** The corrected head is always reviewed.
-  To make that structurally safe, the limit is checked *before* anything is
-  written in a round, so Claude never produces a head it would be forbidden to
-  have reviewed.
-- **Ending iteration is not "merge regardless".** A corrected head that still
-  falls short of what was agreed goes to David with the shortfall and a
-  choice, not to the Merge button.
-- **Claude cannot award itself a third review.** Only David can reopen the
-  work. "Another correction seems worthwhile" is precisely the reasoning the
-  limit exists to refuse.
-- **A second-review finding that is not a shortfall is not David's question.**
-  Unless it breaks what was agreed, fails a required check, or is harm he has
-  not accepted, the same two assessors decide between recording it as a gap
-  and asking him to reopen — with the Fable assessor breaking a technical
-  tie — so he is asked only when they conclude reopening is worth his time.
-  A bundled ask says which of its questions are his on the merits and which
-  exist only because a loop hit its limit.
+**No round brings findings to David.** A corrected head that still violates an
+agreed requirement or fails a required check is Claude's to fix or cut. Only a
+product decision — what the product should do, or a user-facing consequence
+he has not accepted — or the irreversible list is his. That includes a change
+to the review loop itself, which until 2026-10-21 went to David for hand
+triage after its second review; its findings are now decided like any
+other's, and the aim behind the old rule is carried as a warning instead:
+harness work of this shape should be rare, and if it stops being rare, that is
+what to bring back to him.
 
 **What counts as internal is asked of each change, by its consequence and how
 recoverable it is** — not read off the directory it lives in. A change to
 machinery that governs approvals, publishing, credentials or destructive
-operations, whose effect could not be trivially undone, falls outside the
-limit and runs the ordinary loop; changing a message that machinery prints
-does not. Product code is outside the limit altogether. And "this changes how
-future agents work" disqualifies nothing, or every line of this repository
-would escape every limit.
-
-One class of pull request has its own ending: **a change to the review loop
-itself that still carries findings after its second review goes to David**,
-findings, declines and all, for him to triage by hand. That is his ruling for
-that class (2026-09-23), not a reading of the consequence test. A review-loop
-change whose reviews come back clean merges like anything else.
+operations, whose effect could not be trivially undone, earns the tier its
+consequence names; changing a message that machinery prints does not. And
+"this changes how future agents work" disqualifies nothing, or every line of
+this repository would escape its tier.
 
 ### The ship gate: when "is it worth it?" stops being asked
 
@@ -230,9 +229,9 @@ or its blast radius reaches beyond this pull request. That is the
 judge it alone.
 
 The question is answered against text agreed before the loop began, which is
-what stops it becoming one more thing to reinterpret. Where the two-review
-limit applies, it caps the gate: reach beyond the pull request can stop the
-gate from ending a loop early, but never buys a third review. And on a pull
+what stops it becoming one more thing to reinterpret. Reach beyond the pull
+request can keep the gate from ending a loop early, and that is all it does.
+And on a pull
 request that changes the review loop, every finding reaches beyond the pull
 request by definition, so the gate cannot end that loop alone and says so.
 
@@ -251,8 +250,8 @@ interpreted gets reinterpreted; one that collides with an event fires.
 
 The same request states, in one line, **what the round will cost and what it
 protects**. A round that returns findings costs the same whatever the finding
-is — two assessments that each re-read the repository, a translation when one
-is owed, and Claude's own turns — and Claude's own turns grow more expensive as
+is — two assessments that each re-read the repository, and Claude's own
+turns — and Claude's own turns grow more expensive as
 the loop goes on, because everything read into context is paid for again on
 every later turn. Putting the bill beside what it buys makes a
 disproportionate round visible *before* it is spent. A clean round is cheaper:
@@ -274,46 +273,45 @@ Resolving threads is not only tidiness: the `main` ruleset requires every
 conversation to be resolved before the Merge button works — a
 [ruleset](./glossary.md#ruleset) GitHub enforces on the server.
 
-### The translation for David
+### The build report for David
 
-The [round translation](./glossary.md#round-translation) is a separate agent
-whose only job is to explain a round to David in plain English. It fetches the
-round itself from GitHub — the findings, Claude's replies, the diff — and its
-account reaches David unedited, pasted into chat exactly as composed. It
-decides nothing; nothing in the loop reads it.
+The [build report](./glossary.md#build-report) is a separate agent whose only
+job is to explain one finished unit of work to David in plain English — a
+pull request's merge, or a prototype version delivered on its own branch. It
+replaced the per-round translation on 2026-10-21, when David asked instead
+for *"an AI summary in plain english of exactly what happened from start to
+finish in the build"*.
 
-It is owed on **the rounds where an independent reading has actually caught
-things, and always before a merge** — the exact triggers are in
-[`claude-core.md`](../../core/.agents/core/claude-core.md), *Watching the PRs I
-open*. It runs only *after* the round it covers has been triggered, so Claude
-cannot act on it mid-round. Its report leads with what the round was about and any
-disagreement with Claude's account, then gives one line per finding, flagging
-any where Claude wrote more than the finding was worth.
+It fetches the unit itself from GitHub — the workstream issue and the plan it
+holds, every pull request and round, the diffs — and writes in fixed
+sections, in a fixed order, so David can scan: what needs him, what was
+built, the decisions taken on Claude's recommendation (each with its undo),
+the ramifications, what ships unfixed, where it disagrees with Claude's
+account, the spend, and where the plan stands. A last *Session* line —
+continue, hand off or archive — is Claude's, under a label saying so, since
+only this session can see its own context (chapter 9). The account reaches
+David unedited, in chat and as a comment on the workstream issue; on the
+private path it goes to chat only. It decides nothing; nothing in the build
+or merge path reads it. A Trivial pull request gets none.
 
 It is a second account, not a gag on Claude's: Claude's own write-up of a
-round is welcome beside it, labelled as Claude's. A translation that fails to
-arrive is reported in plain English and never blocks the loop.
-
-### The six-hour stop
-
-A loop that has run too long pauses and asks David to resume. Its clock is a
-quantity anyone can read off GitHub rather than a judgement about how much of
-the time was "unattended", because the earlier, arguable wording was never once
-consulted across the seven rounds of the pull request that wrote it. Expiry
-pauses and asks; it never counts as convergence and never extends itself. The
-duration and the exact clock are in
-[`claude-core.md`](../../core/.agents/core/claude-core.md), *Shared judgement on
-a review round*.
+build is welcome beside it, labelled as Claude's. A report that fails to
+arrive is reported in plain English and never blocks anything. The rules are
+in [`claude-core.md`](../../core/.agents/core/claude-core.md), *Watching the
+PRs I open*.
 
 ### Who skips the loop
 
 Not every pull request runs this loop. A change David declares
-[Trivial](./glossary.md#trivial) merges on green CI unless Codex's automatic
-pass raises a P1-severity finding, which holds the merge and goes to David; a
+[Trivial](./glossary.md#trivial) merges on green CI; Codex's automatic pass is
+read for a P1-severity finding, which Claude judges and reports — fixed in a
+named commit, or merged with the reason in the merge report — and a
+phase-registry pull request's pass is read for nothing. A
 [Documentation class](./glossary.md#documentation-class) change gets one pass
 from the two assessors, who also weigh Codex's automatic first pass as one
 input, and no Codex review round; and a [prototype-phase](./glossary.md#prototype-phase) feature gets
-no code-review loop at all. Chapter 3 explains each. On a Trivial change
+no code-review loop at all, its Codex pass read only for a defect that stops
+the feature working. Chapter 3 explains each. On a Trivial change
 Codex's threads are resolved with one line each, because the ruleset requires
 it; on a Documentation change each gets a real answer — fixed, or declined
 with the reason — like any finding.
@@ -336,14 +334,15 @@ with the reason — like any finding.
   trigger work, the assessment would be a command. The explicit
   `review-action` block keeps the decision Claude's and keeps agreement
   between agents from ever passing for David's approval.
-- **A count bounds the sequence, because per-finding filters cannot.**
+- **The sequence is watched, because per-finding filters cannot see it.**
   Measured across five loops on 2026-09-19, 57% of findings from round two
   onward landed on lines an earlier round's fix had just changed, and most of
   them were written for — each fix round produced the next. A filter applied
-  to each finding has no view of how long the chain is getting. Two is an
-  explicit trade-off rather than a measured optimum: it buys an independent
-  look at the work and at its first corrections, which is the least worth
-  having.
+  to each finding has no view of how long the chain is getting. For a month a
+  count of two reviews answered that; David retired it on 2026-10-21 because
+  a stop that waits on him costs more than the rounds it saves, and the
+  measurement now stands as the prior Claude applies from the second review
+  on.
 - **The ship gate consumes a signal that was already there.** On one loop,
   rounds four and five argued over the wording of a label in a comment, cost
   about a quarter of the loop's dispatched tokens, and changed nothing anyone
@@ -353,59 +352,54 @@ with the reason — like any finding.
 - **Observables, because judgements get reinterpreted.** Flip conditions
   phrased as judgements were crossed without Claude noticing (once it was the
   translation that caught it); conditions phrased as
-  observable events fired and decided without Claude's judgement entering. The
-  same lesson shaped the six-hour clock.
+  observable events fired and decided without Claude's judgement entering. It
+  is the one part of the retired six-hour clock worth keeping: name an
+  observable, not an adjective.
 - **The class, not the line.** One early loop fixed exactly the cited lines,
   and the next round found three more instances a single search would have
   caught. A round per sibling is the most expensive way to find siblings.
-- **A translation only where it earns its cost.** Translating every round was
-  the single largest token cost in one loop, and the translator's real
-  disagreements all came on rounds carrying a decline. Translating the last
-  round always means nothing merges unaccounted for.
-- **Chat, not a page.** The translation once rendered to a web page — which
+- **One account per build, not per round.** Translating rounds was the
+  single largest token cost in one loop — four translations on #131 — and
+  David wanted the whole build explained once, start to finish, with the
+  money it cost. One report per unit of work does that.
+- **Chat, not a page.** The account once rendered to a web page — which
   turned out to be a file written where nobody could open it. David reads
   chat; a page is something he would have to go and fetch.
 - **The [#89 cut](./glossary.md#the-89-cut) removed more than it added.** A
   declared round budget, an external adjudicator whose verdict decided, an
   extension arithmetic, receipts and a merge-readiness check all stood here
   once. Over one ten-round pull request, not one of them changed a decision.
-  What survives is small: the write-gate, the shared judgement, flip
-  conditions, and the two-review limit added afterwards for the one thing the
-  cut left uncounted.
+  What survives is small: the write-gate, the shared judgement, the ship
+  gate and flip conditions.
 
 ## Boundaries & known limitations
 
-- **The translation defends against Claude being wrong, not against Claude
-  being deliberately misleading.** Claude launches it, chooses what round it
-  reads and pastes the result. Its value is that it says what it checked and
+- **The build report defends against Claude being wrong, not against Claude
+  being deliberately misleading.** Claude launches it, chooses the
+  coordinates it reads and pastes the result. Its value is that it says what it checked and
   what it took on trust.
 - **Which model answered is self-reported, and only for the Claude roles.**
-  The Fable assessor and the translator state what they are running as; Astra
+  The Fable assessor and the build report state what they are running as; Astra
   cannot, so its header names only what was requested (chapter 11). A mismatch with what was requested is flagged to David as an
   [FYI](./glossary.md#fyi). The platform does record the serving model, so a
   real observation could be built; David judged it not worth building
   (2026-09-19).
-- **The two-review limit leaves real defects on the table sometimes.** The
-  rule's own home records two genuine defects a capped loop would not have
-  surfaced in time. The trade is deliberate and recorded rather than
-  discovered later; the shortfall path to David is what catches the serious
-  ones.
-- **If the limit routinely produces requests to reopen, it has failed**, and
-  the answer then is smaller changes or simpler machinery, not more
-  exceptions. That failure signal is named in advance.
+- **Without a count, a loop's length rests on judgement.** The prior that
+  recording a gap is the ordinary answer from the second review on is applied
+  by Claude, not enforced; the merge report saying what was recorded and why
+  is what makes a long loop visible.
 - **The ship gate cannot end a review-loop pull request by itself**, because
   every finding on such a change reaches beyond it. Those loops run on the
-  Worth rule and end with David.
-- **The translator can write files.** Its tool list includes a write tool
-  that cannot be narrowed to a path, and it reads comments from anyone on the
-  pull request. What bounds it is that its output directory is never
-  committed, the container is temporary, and Claude checks the working tree
-  after every translation.
+  Worth rule and end on Claude's judgement.
+- **The build report can write files.** Its tool list is GitHub read tools
+  plus a write tool that cannot be narrowed to a path, and it reads comments
+  from anyone on the pull request. It holds no file-reading tool, so its
+  brief arrives inline. What bounds it is that its output file is never
+  committed and the container is temporary.
 - **There is no checker for load-bearing claims in replies**, and none is to
   be built. Review noticing is the enforcement.
 - **In this repository**, almost every pull request is
-  [internal tier](./glossary.md#internal-tier), so the
-  two-review limit is the normal ending — weighed per change, since this
+  [internal tier](./glossary.md#internal-tier) — weighed per change, since this
   repository also holds the machinery that publishes to every product
   ([`CLAUDE.md`](../../CLAUDE.md), *Ceremony*).
 
@@ -417,21 +411,21 @@ with the reason — like any finding.
 - [`review-judgment.md`](../../core/docs/ai-context/review-judgment.md) — the
   Worth rule, in full.
 - [`working-modes.md`](../../core/docs/ai-context/working-modes.md) — the
-  write-gate, the two-review limit and its measured costs, and why findings
-  owe their class.
+  write-gate, the retired two-review limit and its measured costs, and why
+  findings owe their class.
 - [`pr-watch`](../../core/.claude/skills/pr-watch/SKILL.md) — the round as
-  Claude runs it, step by step, including the translation.
+  Claude runs it, step by step, including the build report's dispatch.
 - [`review-proxy.md`](../../core/.agents/roles/review-proxy.md) — the brief
   both assessors read.
 - [`fable-review-assessor.md`](../../core/.claude/agents/fable-review-assessor.md)
   and
-  [`fable-round-translation.md`](../../core/.claude/agents/fable-round-translation.md)
+  [`fable-build-report.md`](../../core/.claude/agents/fable-build-report.md)
   — the two Fable roles.
 - [`core/scripts/review-proxy.mjs`](../../core/scripts/review-proxy.mjs) and
-  [`core/scripts/round-translation.mjs`](../../core/scripts/round-translation.mjs)
+  [`core/scripts/build-report.mjs`](../../core/scripts/build-report.mjs)
   — the machinery; their opening comments explain the design.
 
 **Next:** chapter 7 — [`7-close-out.md`](./7-close-out.md), how a reviewed pull
 request becomes something David can click on.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

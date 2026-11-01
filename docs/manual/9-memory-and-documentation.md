@@ -82,8 +82,9 @@ The contract names three related behaviours and insists they stay separate:
 
 Which one a request triggers is decided by what "this" refers to: one item is
 targeted persistence, a feature's worth of learnings is the ceremony, and a
-bare "document this" with no clear referent gets one numbered question rather
-than a guess. The contract carries a small table of worked examples so a fresh
+bare "document this" with no clear referent is taken as targeted persistence,
+announced in one line David can veto — until 2026-10-21 it was one numbered
+question. The contract carries a small table of worked examples so a fresh
 agent sorts these the same way every time.
 
 ### The bridge: a harvest-notes comment at every close-out
@@ -156,8 +157,9 @@ every product with the [payload](./glossary.md#payload):
 rituals says that when a catalogued failure happens again, the response is a
 deterministic check in CI, not a better-worded entry. The maintenance pass
 runs the same idea in the other direction: each pass picks one
-judgement-shaped rule from Claude's contract and proposes either converting it
-into a mechanical check or deleting it.
+judgement-shaped rule from Claude's contract and either converts it into a
+mechanical check or deletes it, through a pull request on Claude's
+recommendation with its latitude line — reported, not proposed.
 
 ### Handoff: moving a session's context to a new session
 
@@ -176,7 +178,8 @@ all:
   moving it.
 
 When it does hand off, it first makes sure everything worth keeping is pushed
-(a new session gets a fresh container), lists what does not transfer (pull
+(a new session gets a fresh container) — a file the next session needs is
+pushed or quoted into the issue, never named as a working-tree resume point — lists what does not transfer (pull
 request subscriptions, scheduled check-ins), refreshes the workstream issue's
 *State of Play* block, adds a fixed-shape handoff comment, and gives David a
 copy-pasteable prompt for the new session. The two sections that earn their
@@ -185,6 +188,19 @@ session re-derives a closed decision and presents it as a fresh idea.
 
 What David sees: a one-line verdict, and, if the verdict is to move, an issue
 link and a prompt block to paste.
+
+### Archive: is this session finished?
+
+The [`archive` skill](../../core/.claude/skills/archive/SKILL.md) (2026-10-22)
+answers a cheaper question than a handoff: is everything this session had to
+do actually done? It checks only what would die with the session — unpushed
+work, a pull request it watches, armed check-ins, running tasks, close-out it
+still owes, learnings not yet written down, an open ask — and returns one of
+three verdicts: continue, hand off, or archive. On *archive* it schedules the
+session's own archiving shortly after the verdict is shown. It recommends a
+handoff rather than running one. The same verdict fills the *Session* line of
+every [build report](./glossary.md#build-report), under a label saying it is
+Claude's own, since only the session can see its own context.
 
 ### Prose sweep: keeping the rules consistent after one is retired
 
@@ -325,4 +341,4 @@ nothing about it ships to a product.
 every piece of work is tracked on GitHub so David can see what needs him
 without opening each session.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

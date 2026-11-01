@@ -3,7 +3,7 @@
 > Every product in the [fleet](./glossary.md#fleet) is built by the same cast: David decides, Claude
 > builds and owns the work end to end, [Codex](./glossary.md#codex) reviews code on GitHub, [Astra](./glossary.md#astra) and
 > a [Fable assessor](./glossary.md#fable-assessor) advise on what review [findings](./glossary.md#finding) are worth, a Fable
-> translator explains [review rounds](./glossary.md#review-round) to David in plain English, and Replit
+> [build report](./glossary.md#build-report) explains each finished piece of work to David in plain English, and Replit
 > hosts the running product. This chapter says what each is for, what each
 > may decide, and what is reserved for David alone.
 >
@@ -54,21 +54,22 @@ reporting back. "Done" means David can exercise the intended behaviour in the
 product, not that the code compiles.
 
 Within that ownership Claude decides the routine engineering silently —
-naming, file layout, structure, test approach, library choices — and asks
-about anything that could meaningfully damage the product or that concerns
-what it should do. It routes each request to the right amount of process,
-holds the plan during planning, runs the review loop, and decides from the
-assessors' advice what to do about each review finding. **Inside an approved
-plan — or, for a bugfix, inside its tier oracle, which stands in for the plan
-— a choice that is Claude's to recommend and that a corrective commit
-would undo proceeds on Claude's own recommendation** rather than waiting on
-David — he takes the recommendation about nine times in ten, and each ask
-costs him a round trip. He hears about it the same turn, as an FYI naming the
-choice and the commit that would undo it (chapter 8), and every pull request
-lists those choices. A short closed list of irreversible actions — things
-that reach outside the repository, such as publishing, production data,
-credentials, or spend past a cap once he sets one — still asks first, every
-time; the rule holds the list itself. Plans and scope stay his. The rule is
+naming, file layout, structure, test approach, library choices. It routes each
+request to the right amount of process, holds the plan during planning, runs
+the review loop, and decides from the assessors' advice what to do about each
+review finding. **A choice that is Claude's to recommend and that a corrective
+commit would undo proceeds on Claude's own recommendation**, wherever it
+arises — inside a plan, a bugfix, a review round, a merge or close-out —
+rather than waiting on David. He takes the recommendation about nine times in
+ten, and in his words *"asking me is futile"*: until 2026-10-21 this held only
+inside an approved plan, and he widened it to everything. He hears about each
+one the same turn, as an FYI naming the choice and how to undo it (chapter
+8), and every pull request lists those choices. What still asks is short: a
+closed [irreversible list](./glossary.md#irreversible-list) of actions that
+reach outside the repository — publishing and production data among them,
+and paid AI runs past a budget David set for the whole fleet — a plan before
+it is enacted, and what only David holds or can do. A bugfix's regression test is never such a
+choice; only the bugfix loop's own carve-out waives it. The rule is
 [`agent-working-rules.md`](../../core/docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10).
 Its own contract is
 [`claude-core.md`](../../core/.agents/core/claude-core.md); the rules it
@@ -127,8 +128,12 @@ Astra has two jobs:
   a pull request, Astra writes an independent assessment of what they mean
   and whether acting on them is worthwhile (below).
 
-Astra needs a sign-in each session, which is David's step: Claude starts it
-and sends him a short device code to approve on his phone. Without a sign-in,
+Astra needs a sign-in each session, which is David's step, and since
+2026-10-29 it is **the first thing every session does, in any repository**,
+before any other work — so the code goes out while he is still at the screen
+that started the session. Claude starts it and sends him a short device code,
+alone in a code block so it copies with one tap, to approve on his phone.
+Without a sign-in,
 the Astra review is reported as not run — never replaced by Claude reading its
 own work.
 
@@ -154,23 +159,27 @@ should check premises itself rather than take Claude's word — are in its
 [agent definition](./glossary.md#agent-definition),
 [`fable-review-assessor.md`](../../core/.claude/agents/fable-review-assessor.md).
 
-### The Fable round translator — a second account for David
+### The Fable build report — a second account for David
 
 David cannot read the technical exchange between Claude and Codex, so the only
-account of a review round he would otherwise get is the builder's own. The
-[round translation](./glossary.md#round-translation) is a second account: a
-Claude subagent that fetches the round's material from GitHub itself and
-explains it to David in plain English, including anywhere it disagrees with
-how Claude handled it. Its account reaches him unedited, alongside Claude's
-own if Claude writes one.
+account of a build he would otherwise get is the builder's own. The
+[build report](./glossary.md#build-report) is a second account: a Claude
+subagent that fetches one finished unit of work from GitHub itself — the
+workstream issue and its plan, every pull request and review round — and
+explains it to David in plain English, in fixed sections he can scan: what
+was built, the decisions taken on Claude's recommendation with their undo,
+the ramifications, what ships unfixed, where it disagrees with how Claude
+handled it, and what the build cost. Its account reaches him unedited, in chat
+and as a comment on the workstream issue, alongside Claude's own if Claude
+writes one.
 
-**It decides nothing.** Nothing in the review or merge path reads its answer;
+**It decides nothing.** Nothing in the build or merge path reads its answer;
 it writes to David, not to the loop. It is also honest about its limits:
 Claude launches it and relays its output, so it guards against Claude being
-*wrong*, not against Claude being deliberately misleading. It runs only on
-rounds where an independent reading is most likely to catch something, and on
-the last round before a merge (chapter 6). Its definition is
-[`fable-round-translation.md`](../../core/.claude/agents/fable-round-translation.md).
+*wrong*, not against Claude being deliberately misleading. It runs once per
+unit of work, at close-out, and replaced a per-round translation on
+2026-10-21 (chapter 6). Its definition is
+[`fable-build-report.md`](../../core/.claude/agents/fable-build-report.md).
 
 ### Replit — where the product runs
 
@@ -191,8 +200,14 @@ connector, and the rules for using it are narrow:
   like every other change to the main branch, and take whatever review their
   content earns.
 
-How each product's Replit environment is set up — its database, its deploy
-path — is product truth, kept in each product's repository rather than here.
+How Replit itself works — publishing, its two databases, secrets, rollback,
+and the Agent's billing modes — is fleet knowledge, recorded once in
+[`replit-platform.md`](../../core/docs/ai-context/replit-platform.md) and read
+before any publish (2026-10-29). One finding there shapes every connector
+call: an Agent request bills at the mode of the last message David typed in
+that Repl's Agent chat, not at whatever the dropdown shows. How each
+product's own Replit environment is set up — its database, its deploy path —
+is product truth, kept in each product's repository rather than here.
 
 ### Other subagents
 
@@ -210,17 +225,16 @@ No agent agreement substitutes for David on any of these:
 - **Approving a plan.** Only an explicit approval in words counts — not
   agreement between Claude and Astra, not an ambiguous nudge, and not an
   automated "continue".
-- **Intended behaviour, scope, and any shortfall a user (or David himself,
-  using the agents) would feel.** These go to him as numbered questions with a
-  recommendation, never absorbed silently into a revision.
+- **Intended behaviour, and any shortfall a user (or David himself, using
+  the agents) would feel**, where no decision he has already made covers it.
+  During planning these reach him as numbered items in the plan's approval
+  readout, never as a separate interrupt; a scope addition is taken as *next*
+  and reported, and asks only when the plan cannot be correct without it.
 - **Declaring a change [Trivial](./glossary.md#trivial), or a feature prototype phase.** Both remove
   review, and only he can grant that, in words, for that change or feature.
 - **Publishing to production.**
 - **Overrides.** He may overrule Claude's advice; the override is explicit,
   ends the argument, and is recorded when it settles something durable.
-- **Certain review-loop pull requests.** A change to the review loop itself
-  that still carries findings after its second review comes to him rather than
-  to the merge button.
 - **The session model and the Astra sign-in**, which only he can perform.
 
 ## Why it works this way
@@ -253,7 +267,7 @@ No agent agreement substitutes for David on any of these:
   external adjudicator's verdict decide; it went in the large simplification
   of September 2026 (the [#89 cut](./glossary.md#the-89-cut)), and the shared
   judgement replaced it as advice rather than a ruling.
-- **A translation exists because the builder should not be the only
+- **A build report exists because the builder should not be the only
   narrator.** It is a second account, not a guarantee, and saying so plainly
   is part of what makes it useful.
 - **Replit never builds, so every lasting change has one path.** A fix made
@@ -269,7 +283,7 @@ No agent agreement substitutes for David on any of these:
   nothing independently confirms which model actually answered; a mismatch is
   reported by the role itself. David ruled that building an independent check
   was not worth it.
-- **The translator cannot protect against a misleading builder.** It defends
+- **The build report cannot protect against a misleading builder.** It defends
   against error, not deceit, because the builder launches it.
 - **Astra depends on a per-session sign-in** that only David can complete,
   and the code expires quickly. A missed sign-in, like any failed dispatch,
@@ -297,10 +311,12 @@ No agent agreement substitutes for David on any of these:
   [`core/docs/ai-context/planning-contract.md`](../../core/docs/ai-context/planning-contract.md).
 - The Fable roles:
   [`core/.claude/agents/fable-review-assessor.md`](../../core/.claude/agents/fable-review-assessor.md)
-  and [`core/.claude/agents/fable-round-translation.md`](../../core/.claude/agents/fable-round-translation.md).
+  and [`core/.claude/agents/fable-build-report.md`](../../core/.claude/agents/fable-build-report.md).
+- How Replit works:
+  [`core/docs/ai-context/replit-platform.md`](../../core/docs/ai-context/replit-platform.md).
 
 **Next:** chapter 3 — [`3-routing-a-request.md`](./3-routing-a-request.md),
 how a request becomes a feature, a bugfix or a prototype, and how much process
 each earns.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*
