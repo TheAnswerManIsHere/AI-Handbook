@@ -21,7 +21,9 @@ under here, that is the cheapest possible signal that it is wrong everywhere.
 *Knight Rider* (David, 2026-11-01). It was AI-Handbook until that date; a
 citation written `KITT #N` is this repository's issue or pull request N,
 whichever name it was filed under, and the sync still recognises a copy
-whose header carries the old name.
+whose header carries the old name. Text that records something as it was —
+quoted output, a person's quoted words, an approved plan whose digest a
+pull request pins — keeps the old name: rewriting it falsifies the record.
 
 **New things built for KITT get names from the Knight Rider universe**
 (David, 2026-11-01: *"Whenever we build new stuff for KITT, let's try to keep
