@@ -281,11 +281,11 @@ for a merge to register. The rules for that are short:
 - **A turn ends only for a reason, and its footer names it** (chapter 8). A
   hand-back with startable work left is allowed only once that work's resume
   is armed and named.
-- **A requested Codex review gets its own check-in at 15 minutes**, sized to
-  the machine: measured passes take a median of 1.5 minutes. A stalled pass
-  gets one bare re-request, a second stall on the same head is an outage, and
-  these wakes — at most two per head — are their own bound rather than
-  counting against the caps above.
+- **A requested Codex review gets its own check-in**, sized to measured
+  pass times rather than to reviewers. A stalled pass gets one bare
+  re-request, a repeated stall on the same head is an outage, and these
+  wakes carry their own bound rather than counting against the caps above
+  ([`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and scheduled check-ins*, item 4).
 
 ## Why it works this way
 

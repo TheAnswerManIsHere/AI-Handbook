@@ -121,8 +121,8 @@ close-out in two calls — one that asks Replit to run the named checks under an
 explicit read-only instruction, then, a few minutes later, one that asks for
 the results — and reports pass or fail in the merge report. A step that
 would start a paid AI run is never read-only: it goes in a request of its
-own that names its paid calls and worst-case cost, within David's budget of
-$5 a run and $25 a week across every product. A failure keeps
+own that names its paid calls and worst-case cost, within the fleet's
+paid-run budget ([`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), *Lanes*). A failure keeps
 the workstream at its verification stage while the fix goes through the
 normal channel.
 
@@ -195,9 +195,9 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
   stuck and where, and waits. Noticing that Codex has recovered is not
   permission to restart. Prototype-phase work owes no Codex review, so it
   carries on. **A stall becomes an outage by a rule, not a feeling**
-  (2026-10-29): a review with no result 15 minutes after its request, and
-  again 15 minutes after its one bare re-request, on the same head, is an
-  outage from that moment. A Documentation pull request is among those
+  (2026-10-29): a review that stalls, and stalls again after its one bare
+  re-request on the same head, is an outage from that moment; the timing is
+  in [`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and scheduled check-ins*, item 4. A Documentation pull request is among those
   blocked, because its one pass waits for Codex's automatic review.
 
 ## Why it works this way

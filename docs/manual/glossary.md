@@ -585,7 +585,7 @@ Home: [`core/.claude/skills/handoff/SKILL.md`](../../core/.claude/skills/handoff
 The `/archive` check of whether a session is finished: it looks only at what
 would die with the session — unpushed work, a watched pull request, armed
 check-ins, running tasks, unpaid close-out, unwritten learnings, an open ask
-— and returns continue, hand off or archive, archiving itself a minute after
+— and returns continue, hand off or archive, archiving itself shortly after
 the verdict when nothing would be lost. Its verdict also fills a build
 report's *Session* line.
 Home: [`core/.claude/skills/archive/SKILL.md`](../../core/.claude/skills/archive/SKILL.md)
@@ -625,9 +625,10 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 ### Blocking ask
 
 A message saying Claude needs something from David before work can
-continue. Since 2026-10-21 only four things qualify: the
-[irreversible list](#irreversible-list), a plan before it is enacted,
-information only he holds, and an action only he can take. It takes a fixed
+continue. Since 2026-10-21 only a short closed list qualifies, every item
+of it something only David can settle — the
+[irreversible list](#irreversible-list) and a plan before it is enacted
+among them. It takes a fixed
 🛑 banner shape, with numbered options and a recommendation, is the last
 text of the turn, and rings his phone until he acknowledges it, through the
 [needs-you alert](#needs-you-alert).
@@ -645,21 +646,20 @@ correctness findings do not clear the bar.
 ### Irreversible list
 
 The short, closed list of actions that always ask David first, whatever the
-phase: publishing to anything a user reaches, writing to a production or
-shared database, anything that sends or charges, credentials, deleting a
-branch, environment or repository, a live change to a ruleset or permission,
-spend above a per-turn cap once he sets one, and a paid AI run above $5 or
-one that would take the week past $25 across every product. Everything else
-that is Claude's to recommend proceeds on that recommendation and is
-reported. The list grows only by his word.
+phase: things that reach outside the repository and cannot be undone by a
+corrective commit — publishing, production data, sending or charging,
+credentials and paid AI runs past his fleet-wide budget are among them.
+Everything else that is Claude's to recommend proceeds on that
+recommendation and is reported. The list itself lives only in its home, and
+grows only by his word.
 Home: [`core/docs/ai-context/agent-working-rules.md`](../../core/docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10)
 
 ### Footer
 
 The four bold fields every hand-back ends with — **Done**, **Next**, **Needs
-you**, **Spend**. *Next* takes one of four forms (`running`, `after <event>`,
-`stopped`, `nothing`) that name why the turn is ending, because a turn ends
-only for a reason. The fields are read by the needs-you alert as well as by
+you**, **Spend**. *Next* takes one of a few fixed forms, such as `running`
+or `stopped`, that name why the turn is ending, because a turn ends only for
+a reason. The fields are read by the needs-you alert as well as by
 David.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
@@ -667,7 +667,7 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 
 The hook that rings David's phone through Pushover, independent of Claude
 remembering to: on a hand-back that leaves the session idle on him it repeats
-until he acknowledges, for up to three hours; a build report rings once
+until he acknowledges; a build report rings once
 loudly; a turn whose work continues rings once quietly; an FYI chimes once
 the moment it is written.
 Home: [`core/scripts/needs-you-alert.mjs`](../../core/scripts/needs-you-alert.mjs)
@@ -676,7 +676,7 @@ Home: [`core/scripts/needs-you-alert.mjs`](../../core/scripts/needs-you-alert.mj
 
 One issue in the handbook's repository, labelled `paid-ai-ledger`, with a
 comment for every paid AI run in any product, so the weekly paid-run budget —
-one $25 total across every product — is read rather than remembered. One of
+one total across every product — is read rather than remembered. One of
 the two small ledgers the #89 cut's "no ledger" now admits; the other is a
 workstream issue's *Spend so far* line.
 Home: [`core/docs/tests/uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md)

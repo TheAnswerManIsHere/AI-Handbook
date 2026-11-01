@@ -156,11 +156,12 @@ live in anything GitHub-facing. They appear in an agreed defanged spelling
 The moment the pull request exists, Claude subscribes to its activity, so
 review comments and CI results arrive in the session as events. Codex's first
 review fires automatically when the pull request opens, and Claude arms a
-check-in for 15 minutes later in the same turn. Measured passes take a
-median of 1.5 minutes and at most 7.8, so a pass still running at 15 has
-stalled: it gets one bare re-request, and a second stall on the same head is
-an outage, which stops the work and goes to David (2026-10-29). From there the
-review loop of chapter 6 takes over.
+check-in in the same turn, sized from measured pass times rather than from a
+guess about reviewers. A pass still running at the check-in has stalled: it
+gets one bare re-request, and a repeated stall on the same head is an
+outage, which stops the work and goes to David (2026-10-29). The timing and
+the measurement are in [`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and scheduled check-ins*, item 4. From there the review loop of
+chapter 6 takes over.
 
 ### What the server enforces
 

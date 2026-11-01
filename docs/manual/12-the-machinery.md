@@ -105,7 +105,7 @@ other payload file. Each set has its own test suite, and both suites run in CI.
   at every turn's end, after every tool call and on its own error and prompt
   events, it reads the turn's last message and footer and sends David a
   Pushover alert, tiered: one that leaves the session idle on him repeats
-  until he acknowledges it, for up to three hours; a build report rings once
+  until he acknowledges it; a build report rings once
   loudly; a turn whose work continues rings once quietly.
 - **`map.mjs` and `map-eval.mjs`** — the agent-legible codebase map: an
   index of a product's files, symbols, routes and tables that an agent can

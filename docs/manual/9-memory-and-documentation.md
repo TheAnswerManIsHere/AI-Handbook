@@ -197,7 +197,7 @@ do actually done? It checks only what would die with the session — unpushed
 work, a pull request it watches, armed check-ins, running tasks, close-out it
 still owes, learnings not yet written down, an open ask — and returns one of
 three verdicts: continue, hand off, or archive. On *archive* it schedules the
-session's own archiving a minute after the verdict is shown. It recommends a
+session's own archiving shortly after the verdict is shown. It recommends a
 handoff rather than running one. The same verdict fills the *Session* line of
 every [build report](./glossary.md#build-report), under a label saying it is
 Claude's own, since only the session can see its own context.

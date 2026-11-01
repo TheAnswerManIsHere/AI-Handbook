@@ -61,8 +61,9 @@ understand the handbook as a system — chiefly David.
 
 ### Name the rule; don't restate its tuning
 
-Some rules carry a number in their name — the *15-minute* check-in on a
-stalled Codex review, the *$25* weekly paid-run budget. A chapter may use the name, because that is
+Some rules carry a number in their name — the *two-review limit* and the
+*six-hour* stop on a review loop were two, both retired on 2026-10-21. A
+chapter may use the name, because that is
 what the rule is called. What a chapter does not do is restate the rule's
 exact thresholds, lists or conditions as though it were the source: those
 change by pull request, and a second copy is a copy that drifts. The test,

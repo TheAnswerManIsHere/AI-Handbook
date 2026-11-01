@@ -66,9 +66,10 @@ fixed, recognisable form defined in the core.
 
 **The [blocking ask](./glossary.md#blocking-ask)** — the 🛑 banner — is for
 anything that holds work up until David answers, and since 2026-10-21 only
-four things qualify: something on the irreversible list, a plan before it is
-enacted, information only he holds, and an action only he can take (a
-sign-in code, a model switch). Everything else Claude decides on its
+a short closed list qualifies, every item of it something only he can
+settle — an irreversible action, a plan before it is enacted, or something
+only he holds or can do, such as a sign-in code. The list is interaction
+preference 6. Everything else Claude decides on its
 recommendation and reports. The banner says what he must supply, offers
 numbered options with their consequences where there is a choice, and always
 ends with Claude's recommendation and why. Its opening, `🛑 **NEED YOU** —`,
@@ -150,11 +151,11 @@ citations, written for agents, and markers other tools read by shape, such as
 here's what we should do next"*). Four bold fields:
 
 - **Done:** the unit of work this turn advanced or finished.
-- **Next:** what follows, in one of four forms — `running —` something
-  already under way that a named event will wake Claude for; `after <event> —`
-  something armed to start when that event arrives; `stopped —` what Claude
-  was waiting for, when nothing will bring it back but David or the next
-  event; or `nothing —` the plan is done.
+- **Next:** what follows, in one of a few fixed forms that say why the
+  turn is ending — for example `running —` for something already under way
+  that a named event will wake Claude for, `stopped —` when nothing will
+  bring it back but David or the next event, or `nothing —` when the plan is
+  done.
 - **Needs you:** nothing, or the one thing.
 - **Spend:** what the turn cost.
 
@@ -163,10 +164,12 @@ writes a message with no tool call, it stops, and nothing of its own carries
 on — so a last line announcing its own next step in the future tense was the
 stop itself, dressed as progress. That happened on 2026-10-21: a turn ended
 on *"Starting #730 now"* and the work sat until David asked why. A turn may
-now hand back only when the work is done, when everything startable waits on
-an event that will wake Claude, for a blocking ask, after a report the
-contract makes a turn's last text (with its continuation armed first), or
-when a check-in hits its cap. The footer's fields are also read by the alert
+now hand back only for one of a short list of reasons — the work is done,
+everything startable waits on an event that will wake Claude, or David is
+needed, among them — and a report whose continuation is startable has that
+continuation armed first. The list and the exact forms are
+[`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and
+scheduled check-ins*, item 0. The footer's fields are also read by the alert
 hook, which decides from them how hard to ring David's phone.
 
 **The spend** is wall-clock time, the tokens the harness reported, and a

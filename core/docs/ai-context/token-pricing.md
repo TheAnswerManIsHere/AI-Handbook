@@ -43,24 +43,32 @@ write, cache read, output.
 
 ## OpenAI — the Codex reviewer (Astra)
 
-Read 2026-11-01 from <https://developers.openai.com/api/docs/pricing>
-(`openai.com/api/pricing` answered 403 to this container's fetch on
-2026-10-12). Standard tab; USD per million tokens; "Short context: ≤272K
-input tokens. Long context: >272K input tokens." Header and row quoted as
-the page printed them:
+Read 2026-11-01 from <https://developers.openai.com/api/docs/pricing>, the
+rendered HTML fetched directly (`openai.com/api/pricing` answered 403 to this
+container's fetch on 2026-10-12). Standard tab; USD per million tokens.
+Header and row as the page's text-token table prints them:
 
 ```
-| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
-| gpt-6-astra | $10.00 | $50.00 | $1.00 | $12.50 | $25.00 | $20.00 | $75.00 | $2.00 | $25.00 | $50.00 |
+| Model | Input | Output | Cached input | 30m write | 12h write |
+| gpt-6-astra | $10.00 | $50.00 | $1.00 | $12.50 | $25.00 |
 ```
+
+The page no longer prints long-context figures for this model. The long-context
+row below is **derived, not quoted**, from the rule the `gpt-6-astra` model
+page (<https://developers.openai.com/api/docs/models/gpt-6-astra>) prints,
+read the same day: "Prompts with more than 272K input tokens are priced at 2x
+input and cache rates and 1.5x output for the full request." The derived
+figures for input, cached input, the 30-minute write and output match the
+long-context columns the pricing page printed on 2026-10-12.
 
 | Model | Input | Cached input | Cache write 30m | Cache write 12h | Output |
 |---|---|---|---|---|---|
 | `gpt-6-astra` (the `strongestCodex` pin), prompt ≤ 272K | $10 | $1 | $12.50 | $25 | $50 |
-| `gpt-6-astra`, prompt > 272K (the long-context columns) | $20 | $2 | $25 | $50 | $75 |
+| `gpt-6-astra`, prompt > 272K (derived: 2x input and cache, 1.5x output) | $20 | $2 | $25 | $50 | $75 |
 
 Until 2026-11-01 the page printed one cache-write column, at the figure it
-now prints as the 30-minute write; the 12-hour write is new, and every other
+now prints as the 30-minute write, and the model page still prints that
+single figure; the 12-hour write is new, and every other short-context
 figure is unchanged from the 2026-10-12 read. **The CLI's cache-write bucket
 does not say which retention it bought, so it is priced at the 12-hour rate**
 — the higher of the two, which overstates and never understates, the side
@@ -96,7 +104,7 @@ Three readings behind that formula, each settled rather than assumed:
 - **The usage is the turn's cumulative total, but the 272K threshold is per
   request** — "Prompts with more than 272K input tokens are priced at 2x input
   and cache rates and 1.5x output for the full request" (the `gpt-6-astra`
-  model page, read 2026-10-12), and the CLI's `turn.completed` is built from
+  model page, read 2026-10-12 and again, unchanged, 2026-11-01), and the CLI's `turn.completed` is built from
   the turn's running `total`. A turn of several tool-using requests can sum
   past 272K with every request short. So: **`input_tokens` at or under
   272,000 is priced exactly from the short row** — no single request can

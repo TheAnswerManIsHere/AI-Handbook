@@ -180,8 +180,9 @@ and every production bar: no requested Codex review, no UAT script, no
 hardening. What it keeps is Claude's own proof that a version works: the
 machine verification lanes, scaled down to a prototype, run before David is
 asked to try it, and a lane that fails is repaired before he sees anything.
-A check that would start a paid AI run stays within David's budget — $5 a
-run, $25 a week across every product — and asks him only above it. Codex's
+A check that would start a paid AI run stays within the paid-run budget
+David set for the whole fleet, and asks him whenever that budget's rule says
+to ([`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), *Lanes*). Codex's
 automatic pass still runs on a prototype's pull request, and is read for one
 thing: a defect that stops the built feature running and producing reasonable
 output. That is the one fix a prototype owes, whoever finds it; edge cases,
@@ -301,10 +302,9 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
   entry fails safe (production phase), but a stale entry pointing the wrong
   way would route work down the lighter path.
 - **The Documentation pass waits for Codex's automatic review to finish.**
-  A pass still running 15 minutes after its request gets one bare
-  re-request; a second stall on the same head is an outage, which stops the
-  pull request and goes to David. It is never assessed with Codex's input
-  missing.
+  A pass that stalls gets one bare re-request, and a repeated stall on the
+  same head is an outage, which stops the pull request and goes to David
+  ([`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and scheduled check-ins*, item 4). It is never assessed with Codex's input missing.
 - **The internal-tier question is asked per change**, so two changes to the
   same file can earn different treatment. That is intended, and it is also a
   judgement no script makes.

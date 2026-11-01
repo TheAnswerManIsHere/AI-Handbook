@@ -65,11 +65,10 @@ ten, and in his words *"asking me is futile"*: until 2026-10-21 this held only
 inside an approved plan, and he widened it to everything. He hears about each
 one the same turn, as an FYI naming the choice and how to undo it (chapter
 8), and every pull request lists those choices. What still asks is short: a
-closed [irreversible list](./glossary.md#irreversible-list) — publishing,
-production data, anything that sends or charges, credentials, deleting a
-branch or environment, and a paid AI run above $5 or one that would take the
-week past $25 across every product — a plan before it is enacted, and what
-only David holds or can do. A bugfix's regression test is never such a
+closed [irreversible list](./glossary.md#irreversible-list) of actions that
+reach outside the repository — publishing and production data among them,
+and paid AI runs past a budget David set for the whole fleet — a plan before
+it is enacted, and what only David holds or can do. A bugfix's regression test is never such a
 choice; only the bugfix loop's own carve-out waives it. The rule is
 [`agent-working-rules.md`](../../core/docs/ai-context/agent-working-rules.md#a-reversible-choice-proceeds-on-the-recommendation-david-2026-10-10).
 Its own contract is

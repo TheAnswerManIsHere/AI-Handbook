@@ -227,8 +227,9 @@ Two figures are kept rather than recomputed. The workstream issue carries one
 *Spend so far* line, updated at each hand-back, so the build report can state
 a build's total. And the handbook's repository holds one fleet-wide
 `paid-ai-ledger` issue, one comment per paid AI run in any product, because a
-paid run counts against one budget — $5 a run and $25 a week, across every
-product — that has to be read rather than remembered (2026-10-22).
+paid run counts against one budget, per run and per week, across every
+product, and a weekly total has to be read rather than remembered
+(2026-10-22; [`uat-doc-format.md`](../../core/docs/tests/uat-doc-format.md), *Lanes*).
 
 Whether the proxy rate tells David the truth is an open question. One
 session's spend lines summed to about $18 while the harness's own session
