@@ -1758,6 +1758,16 @@ what this repo's Repl is configured as is
 [`replit-environment.md`](../../docs/ai-context/replit-environment.md); the
 close-out mechanics are the `pr-docs` skill:
 
+- **Every Agent request bills at the mode of the last message David typed in
+  that Repl's Agent chat** — the dropdown alone changes nothing, and
+  `ask_question` and `update_app_using_prompt` behave alike (measured
+  2026-11-01, `replit-platform.md`, *Agent modes*). So a request is not free
+  because the last one was: when he has typed under Power or Max there, his
+  one short message typed under Free is the way back; I cannot see the mode,
+  so I go by the footers he reports.
+  `list_app_files` and `read_app_file` reach no Agent, and are the read path
+  whenever a file's contents answer the question.
+
 - **Syncing the Repl is authorized as part of close-out. Publishing is not** —
   `publish_app` is production-facing, per-use and explicitly asked, and we're
   deferring it until closer to launch. There is no auto-sync. Syncing a
