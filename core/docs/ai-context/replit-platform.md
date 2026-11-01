@@ -339,9 +339,10 @@ a value can still print it from the environment (docs, *secrets*).
 
   So the dropdown takes effect only with David's next typed message, and from
   then on every connector request to that Repl bills at that mode until he
-  types again under another. Three earlier connector requests to DojoOS,
-  sent while his last typed message there was Power, billed Power at $0.11,
-  $0.03 and $0.03 (screen, 2026-11-01). **The way back to Free is one short
+  types again under another. Three earlier connector requests to DojoOS
+  billed Power at $0.11, $0.03 and $0.03 (screen, 2026-11-01); the rule
+  explains them if his last typed message there was under Power, which
+  nobody read at the time. **The way back to Free is one short
   message he types with the dropdown on Free**; it costs nothing. Max was not
   tested, and whether the inheritance is per Repl or per account was not
   separated — each Repl was only ever observed after a message typed in it.
@@ -370,8 +371,8 @@ a value can still print it from the environment (docs, *secrets*).
   requests, **Free allowance read 0% used** and that day's *Agent* line held
   one entry — **DojoOS $0.27**, David's typed question, billed to the
   project it was asked in. Connector requests appear nowhere, not even at $0,
-  and neither does `get_publish_status` — that day every connector request
-  ran Free; whether a Power-billed one reaches the page was not read. Most of a month's spend need not be
+  and neither does `get_publish_status`. Whether a Power-billed connector
+  request reaches the page was not read. Most of a month's spend need not be
   AI at all: in that period production database compute was $25.08 of $42.75
   (156.74 hours at $0.16/hour), against $13.37 of AI.
 - **Plans** that matter here: Starter allows one published app that expires
