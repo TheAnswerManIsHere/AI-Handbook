@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 // The payload suite asserts this for core/scripts. This is the same assertion
-// for the handbook's OWN scripts, which the payload suite cannot see: its root
+// for KITT's OWN scripts, which the payload suite cannot see: its root
 // is core/, so `scripts/` there means the payload's copy.
 //
 // The defect (#11): comparing `import.meta.url` against a hand-built
@@ -15,7 +15,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 // encoding -- a space, a `#`. `main()` then never runs and the process exits
 // 0. For a hook, only exit 2 blocks, so exit 0 is "allow". A directory name
 // was enough to disarm every guard judgement at once.
-test("no handbook script reintroduces the raw-string entry-point comparison", () => {
+test("no KITT script reintroduces the raw-string entry-point comparison", () => {
   const dir = join(ROOT, "scripts");
   const offenders = readdirSync(dir)
     .filter((f) => f.endsWith(".mjs"))

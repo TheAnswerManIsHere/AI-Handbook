@@ -16,7 +16,7 @@
 
 ## What it does
 
-Most of the handbook is prose that agents read. A small part of it is code,
+Most of KITT is prose that agents read. A small part of it is code,
 and that code exists only where a rule has to be *made true* rather than
 *remembered*:
 
@@ -24,7 +24,7 @@ and that code exists only where a rule has to be *made true* rather than
   [consumer repo](./glossary.md#consumer-repo) and deletes what the payload no
   longer ships.
 - **Self-checks.** A few checks run on every pull request to this repository
-  and fail when the handbook would ship something broken — a file the
+  and fail when KITT would ship something broken — a file the
   [sync](./glossary.md#sync) could never take back, a settings file Claude
   Code would refuse, a role running on the wrong model, a payload skill this
   repository cannot itself load.
@@ -40,12 +40,12 @@ deploy.
 
 ### Two sets of scripts
 
-**`scripts/`** at the repository root belongs to the handbook alone and never
+**`scripts/`** at the repository root belongs to KITT alone and never
 ships. **`core/scripts/`** is payload: it lands in each product at
 `scripts/`, carrying the [sync banner](./glossary.md#sync-banner) like any
 other payload file. Each set has its own test suite, and both suites run in CI.
 
-### The handbook's own scripts
+### KITT's own scripts
 
 - **`sync.mjs` — delivery.** It copies `core/**` into a product, every file to
   the same path minus the `core/` prefix. That is the one rule, and there is
@@ -136,7 +136,7 @@ other payload file. Each set has its own test suite, and both suites run in CI.
 
 One workflow, two jobs, on every pull request to `main` and every push to it:
 
-- **Test** runs both suites — the handbook's scripts and the payload's.
+- **Test** runs both suites — KITT's scripts and the payload's.
 - **Manifest** runs the four checks above, plus a dry-run sync into a scratch
   repository (which must write nothing) to prove the sync's entry point still
   works. The job is named after a manifest that no longer exists; the name is
@@ -153,7 +153,7 @@ the `Test` job installs pinned versions outside the checkout and names them in
 
 ### How this repository reaches its own payload
 
-The handbook governs itself with the file it ships: its `CLAUDE.md` imports the
+KITT governs itself with the file it ships: its `CLAUDE.md` imports the
 portable [core](./glossary.md#core) straight from `core/`, and its root
 `AGENTS.md` links the agents core and declares it binding here, so Codex and
 other agents are governed by the payload too. Everything else under `core/`
@@ -200,7 +200,7 @@ Code's validator is stricter than its published schema, and a refused settings
 file applies *none* of its contents — including the deny list. Both files once
 documented themselves in a comment field, which is exactly what the validator
 rejects. The check reads the files instead of trusting memory, and fails on any
-field outside the small set the handbook actually uses; the prose that used to
+field outside the small set KITT actually uses; the prose that used to
 sit in those comments now lives in `CLAUDE.md` and in
 [`docs/consuming-repos.md`](../consuming-repos.md).
 
@@ -304,7 +304,7 @@ gone. What they protected is now covered without a parser:
 
 ## Going deeper
 
-- How the handbook verifies itself, and its wiring rules:
+- How KITT verifies itself, and its wiring rules:
   [`CLAUDE.md`](../../CLAUDE.md).
 - The CI workflow, with the reasoning for each step in its comments:
   [`.github/workflows/check.yml`](../../.github/workflows/check.yml).

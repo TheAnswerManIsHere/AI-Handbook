@@ -5,7 +5,7 @@
   "what_is_strong": [
     "The git-derived artifact design addresses the underlying split source of truth, including binary files, renames, endpoint failures, and record-file exclusions.",
     "Compatibility follows the cited record’s format rather than a date, avoiding a backdating bypass.",
-    "The resolver accounts for both handbook symlinks and consumer files without adding consumer configuration.",
+    "The resolver accounts for both KITT symlinks and consumer files without adding consumer configuration.",
     "The plan preserves the existing verdicts, budgets, David gate, and record-only input, while explicitly deferring the next workstream increments.",
     "The distinction between declared settings and the model actually served is appropriately acknowledged."
   ],

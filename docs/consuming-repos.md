@@ -1,20 +1,20 @@
-# Consuming the handbook
+# Consuming KITT
 
 How a product repo takes the shared contract, and what it keeps for itself.
 
 ## The composition model
 
-Each consumer has two layers at every level: a **vendored core** the handbook
+Each consumer has two layers at every level: a **vendored core** KITT
 owns, and an **overlay** the repo owns. The overlay is hand-written and never
 synced; the core is overwritten on every sync and never hand-edited.
 
 | Layer | Owned by | Path in consumer | Edited where |
 |---|---|---|---|
-| Claude core | handbook | `.agents/core/claude-core.md` | this repo |
+| Claude core | KITT | `.agents/core/claude-core.md` | this repo |
 | Claude overlay | consumer | `CLAUDE.md` | consumer repo |
-| Agents core | handbook | `.agents/core/agents-core.md` | this repo |
+| Agents core | KITT | `.agents/core/agents-core.md` | this repo |
 | Agents overlay | consumer | `AGENTS.md` | consumer repo |
-| Contracts, skills, memory, machinery | handbook | normal paths | this repo |
+| Contracts, skills, memory, machinery | KITT | normal paths | this repo |
 | Product docs, product skills | consumer | normal paths | consumer repo |
 
 ### Why the two files compose differently
@@ -115,9 +115,9 @@ to be able to reach them.>
 
 ## Required consumer documents
 
-Some synced files link to documents the handbook deliberately does **not**
+Some synced files link to documents KITT deliberately does **not**
 ship, because their content is per-repo. The links resolve in a consumer and
-dangle in the handbook, which is expected — payload is written for its
+dangle in KITT, which is expected — payload is written for its
 destination.
 
 | Document | Why it cannot be shared |
@@ -181,7 +181,7 @@ round 4, catching a table that still described the routes this PR deleted.)
 `docs/ai-context/overlay-declarations.md` is deliberately **not** in that
 category, and the difference is not arbitrary: the roadmap is product truth
 whose organisation belongs to the product, while this file answers questions
-the *handbook* asks, in a shape every repo instantiates the same way, and both
+*KITT* asks, in a shape every repo instantiates the same way, and both
 overlays route to it by the name given here.
 
 Enforcing the rule mechanically — resolving every link in a payload file and
@@ -208,7 +208,7 @@ rewrite, which turns an unbounded parsing problem into a style rule the payload
 can simply obey. (David, 2026-09-09: *"You control everything so you don't have
 to worry about strange links."*)
 
-**`docs/tests/uat-doc-format.md` is no longer on this list** (2026-10-09, AI-Handbook #187): the UAT format now ships in the payload, and the sync replaces a consumer's own copy with it. A consumer that had adapted the format locally moves its product-specific notes into its overlay before syncing (the script itself lives in each PR's body since 2026-10-21, so there is no local doc to carry them).
+**`docs/tests/uat-doc-format.md` is no longer on this list** (2026-10-09, KITT #187): the UAT format now ships in the payload, and the sync replaces a consumer's own copy with it. A consumer that had adapted the format locally moves its product-specific notes into its overlay before syncing (the script itself lives in each PR's body since 2026-10-21, so there is no local doc to carry them).
 
 ## Enrolling a repo
 
@@ -374,7 +374,7 @@ to worry about strange links."*)
 
 5. **Fill in `.agents/machinery.json`**, which the sync seeds from a
    self-documenting template. Three values, all facts about the consumer that
-   the handbook cannot know:
+   KITT cannot know:
 
    ```json
    {
@@ -408,9 +408,9 @@ to worry about strange links."*)
    halves of it arrive by different routes.
 
    The `fable-*` agent definitions are payload: the sync copies them here
-   carrying the handbook's `model:` and `effort:` in their frontmatter. That is
+   carrying KITT's `model:` and `effort:` in their frontmatter. That is
    the mechanism, and it works — this repository runs those roles at the same
-   tier the handbook does, because it is the same file. (A role declaring no
+   tier KITT does, because it is the same file. (A role declaring no
    model runs as whatever session dispatched it, which is the defect #126 was
    filed for.)
 
@@ -422,15 +422,15 @@ to worry about strange links."*)
    **`models.strongestClaude.effort` is the exception, and it is not a
    shortfall so much as a field with nothing to do here.** The Agent tool takes
    no effort argument at all — frontmatter is the only route — so a Claude
-   role's effort is whatever its synced definition declares, which is the
-   handbook's pinned value. Nothing reads this file's copy of it for a Claude
+   role's effort is whatever its synced definition declares, which is
+   KITT's pinned value. Nothing reads this file's copy of it for a Claude
    dispatch. It is not inert everywhere: `strongestCodex.effort` IS passed per
-   call, and `modelTier` validates both. The value here is the handbook's pin at
+   call, and `modelTier` validates both. The value here is KITT's pin at
    the time you were seeded (`scripts/check-agent-models.mjs` keeps the seed
    equal to it there), so it starts correct; editing it later changes nothing
    for Claude, and editing a synced definition instead is overwritten by the
-   next sync. If you ever genuinely need a different reasoning depth from the
-   handbook's, that is a change to what the sync writes, not a value you can set
+   next sync. If you ever genuinely need a different reasoning depth from
+   KITT's, that is a change to what the sync writes, not a value you can set
    here.
 
    **Leaving the placeholder is refused by name.** `OWNER/REPO` is shaped like
@@ -556,7 +556,7 @@ always-on check would call a script the sync had already removed.
 
 - **Never edit a vendored file in a consumer.** The next sync overwrites it and
   the reasoning is lost. **Every payload file says so in its own text** — the
-  `SYNCED FROM AI-Handbook` header, as a comment line in whatever syntax the
+  `SYNCED FROM KITT` header, as a comment line in whatever syntax the
   format has (after a shebang or front matter), or a `$comment` key in the one
   JSON schema. That header is also how the sync recognises a copy it may
   delete once the payload stops shipping it (#55), so it is not optional:
@@ -576,8 +576,8 @@ always-on check would call a script the sync had already removed.
   never a file with uncommitted edits, which refuses the whole run instead. It
   keeps no record of past syncs: the header is the record, so there is nothing
   stored to go stale. A consumer that has copied the header into a file of its
-  own has claimed that file is the handbook's, and a sync will treat it so.
-- **Change the handbook, let the sync carry it.** One edit, every repo, each
+  own has claimed that file is KITT's, and a sync will treat it so.
+- **Change KITT, let the sync carry it.** One edit, every repo, each
   through review.
 - **Everything in `core/` syncs.** There is no staging and no per-group status:
   if a file is in the payload it reaches every consumer on the next sync. If it

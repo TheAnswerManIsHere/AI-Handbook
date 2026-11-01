@@ -247,7 +247,7 @@ recoverability, whatever folder it lives in. If its effect could not be
 trivially undone, it earns the tier its consequence names (chapter 6).
 
 **In this repository**, almost everything is process, so almost everything is
-internal tier — but the handbook's own [`CLAUDE.md`](../../CLAUDE.md) singles
+internal tier — but KITT's own [`CLAUDE.md`](../../CLAUDE.md) singles
 out the two things that are not automatically so: the machinery that
 publishes to every product, and the settings template that carries the
 permission denials. A change to either that alters what gets published or

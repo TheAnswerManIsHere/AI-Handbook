@@ -17,14 +17,14 @@
 
 ## What it does
 
-Claude Code can run on several Claude models, and the handbook also calls on a
+Claude Code can run on several Claude models, and KITT also calls on a
 model from another family entirely — [Astra](./glossary.md#astra), OpenAI's
 strongest Codex model, reached through a command-line tool. These differ in
 strength and in price per token, and a session that used one model for
 everything would either overspend on chores or underspend on the moments that
 decide whether a change is right.
 
-So this part of the handbook answers four questions:
+So this part of KITT answers four questions:
 
 1. **Which model is the session itself on?** That depends on whether the work
    is thinking or building.
@@ -129,7 +129,7 @@ rewrite them from it (chapter 12).
 **What actually served a dispatch is disclosed, not observed.** The dispatch
 states what it asked for; the role states what it believes it is running as;
 the two sit side by side, and a mismatch prints as a loud warning rather than
-blocking. Nothing in the handbook claims a match it measured.
+blocking. Nothing in KITT claims a match it measured.
 
 **Astra needs a sign-in each session, and that is David's phone step.** The
 Codex tool authenticates by device code: Claude starts the sign-in and sends
@@ -186,7 +186,7 @@ and keeps a ceiling on how many run in parallel unless David asks for more.
 
 ### What a review round costs
 
-The [ship gate](./glossary.md#ship-gate) (chapter 6) carries the handbook's
+The [ship gate](./glossary.md#ship-gate) (chapter 6) carries KITT's
 cost model, and its central point is simple: **a review round that returns
 findings is the unit of spend, and its cost does not depend on which finding
 it returns.** Two assessments that each re-read the repository, and Claude's
@@ -225,7 +225,7 @@ delivers.
 
 Two figures are kept rather than recomputed. The workstream issue carries one
 *Spend so far* line, updated at each hand-back, so the build report can state
-a build's total. And the handbook's repository holds one fleet-wide
+a build's total. And KITT's repository holds one fleet-wide
 `paid-ai-ledger` issue, one comment per paid AI run in any product, because a
 paid run counts against one budget, per run and per week, across every
 product, and a weekly total has to be read rather than remembered
@@ -309,14 +309,14 @@ undercount: this session's proxy total was ≈$18 while the harness reports $53
   thing that would show it. On the Codex side there is no report at all: the
   tool exposes the model only on the request, so Astra's header claims nothing
   about what served it.
-- **The pin check runs only in the handbook.** A product receives the role
-  definitions carrying the handbook's pin and must not edit them, so a check
+- **The pin check runs only in KITT.** A product receives the role
+  definitions carrying KITT's pin and must not edit them, so a check
   shipped there would be permanently red for any product pinning differently.
   A product's own tier reaches its dispatches through the call argument; its
   effort for a Claude role is whatever the synced definition declares.
 - **A product's pin is seeded once.** The sync creates a product's
   `.agents/machinery.json` from a template and then leaves it alone, so a later
-  change to the handbook's pin does not reach an already-enrolled product
+  change to KITT's pin does not reach an already-enrolled product
   (see [`docs/consuming-repos.md`](../consuming-repos.md)).
 - **The advisor tool** — a stronger model Claude consults at decision points —
   accepts Fable (measured 2026-10-04), but nothing in the process uses it:

@@ -1,6 +1,6 @@
-# Chapter 1 · What the handbook is
+# Chapter 1 · What KITT is
 
-> The AI-Handbook is one shared rulebook for how David's products get built
+> KITT is one shared rulebook for how David's products get built
 > with AI agents — how work is planned, reviewed, shipped and remembered —
 > kept in one repository and copied into each product, so that a lesson paid
 > for on one product is not paid for again on the next. This chapter covers
@@ -24,7 +24,7 @@ the agents have already hit and paid for. Before this repository existed that
 process lived inside one product's repository, so the second product either
 started from nothing or from a copy that began drifting the day it was made.
 
-The handbook exists to end that. It ships no product of its own. Its whole
+KITT exists to end that. It ships no product of its own. Its whole
 output is a directory, `core/` — the [payload](./glossary.md#payload) — which
 is copied into each product's repository, where it sits beside that product's
 own code and documents and is read by every agent working there.
@@ -37,16 +37,16 @@ which one is current. One source and a mechanical copy is the cure.
 
 ### Two layers: the core and the overlay
 
-Every product repository that takes the handbook — a
+Every product repository that takes KITT — a
 [consumer repo](./glossary.md#consumer-repo) — holds two layers at every level:
 
-- **The [core](./glossary.md#core)**, owned by the handbook: how agents work,
+- **The [core](./glossary.md#core)**, owned by KITT: how agents work,
   true for every product. It arrives by copy and is never edited in the
   product.
 - **The [overlay](./glossary.md#overlay)**, owned by the product: what the
   product *is* — its brief, users, roadmap, architecture, subsystems,
-  environment, and settled decisions. It is hand-written there and the
-  handbook never touches it.
+  environment, and settled decisions. It is hand-written there and
+  KITT never touches it.
 
 The split shows up most visibly in the two files an agent reads first. A
 product's `CLAUDE.md` (Claude Code's instructions) is its overlay, and its
@@ -54,7 +54,7 @@ first line imports the vendored Claude core, so the [fleet](./glossary.md#fleet)
 automatically at the start of every session. A product's `AGENTS.md` (the
 instructions [Codex](./glossary.md#codex) and other agents read) is its other overlay; it cannot
 import anything, so it links to the vendored agents core instead. That
-difference has one practical consequence the handbook is careful about: a rule
+difference has one practical consequence KITT is careful about: a rule
 that must bind Codex has to live in the agents core, where the link leads, not
 only in the Claude core.
 
@@ -78,7 +78,7 @@ The payload refers to them, and each product supplies its own.
 The two-layer split exists so that this question always has one answer:
 
 - A rule about **how the agents work**, true for every product → the core,
-  edited here, in the handbook.
+  edited here, in KITT.
 - A rule about **one product** — its domain, its users, its environment → that
   product's overlay.
 - A settled decision and **why** it was made → that product's decision log,
@@ -107,7 +107,7 @@ own code gets. There is no schedule that runs it automatically today.
 The copies are **vendored, not linked**: they land as ordinary files at their
 normal paths, and the product carries them in its own history. Every agent and
 every person reads them exactly as if they had always been there, and nothing
-depends on the handbook being reachable while a product's session runs.
+depends on KITT being reachable while a product's session runs.
 
 The routing has **one rule and one exception**:
 
@@ -120,27 +120,27 @@ The routing has **one rule and one exception**:
   one. From that moment the file belongs to the product: it holds the
   product's own permissions and identity, and overwriting it would clobber
   them. (Two seeds are additionally topped up, without changing a value the
-  product already holds: the machinery file, with any new setting the
-  handbook's scripts have come to require; and the settings file, with its
+  product already holds: the machinery file, with any new setting
+  KITT's scripts have come to require; and the settings file, with its
   `hooks` key alone when it has none, which is how the needs-you alert reaches
   a product seeded before it existed — so a product seeded long ago does not have
   its review machinery silently disabled by a newer sync.)
 
 The sync copies what is **committed**, not whatever happens to be sitting in
-the handbook's working folder, and it refuses to run while the payload has
+KITT's working folder, and it refuses to run while the payload has
 uncommitted edits — so what a product receives is exactly what was reviewed
 here.
 
 ### Taking back what is no longer shipped
 
-Copying alone has a slow failure: a file renamed or removed from the handbook
+Copying alone has a slow failure: a file renamed or removed from KITT
 would stay in every product that had received it, still loaded and still
 obeyed — a second source of truth. So the sync also deletes, and it decides
 what to delete without keeping any record of past syncs.
 
 **Every payload file says, in its own text, that it is managed.** Each carries
 a [sync banner](./glossary.md#sync-banner) — a header reading `SYNCED FROM
-AI-Handbook` with a warning not to edit it in a product. When the sync runs,
+KITT` with a warning not to edit it in a product. When the sync runs,
 a file in the product is taken back when the product's git history tracks it,
 its own text carries that banner, and nothing in the current payload lands at
 its path. Seeds carry no banner and are never taken back. A file with
@@ -152,7 +152,7 @@ merge.
 
 ### The fleet of products
 
-The products that take the handbook are the fleet.
+The products that take KITT are the fleet.
 [`AGENTS.md`](../../AGENTS.md) names two consumers as of its writing,
 Overhype.me and DojoOS. Both have been synced: on 2026-10-04 Overhype.me's
 `main` carried 154 files with the sync banner and DojoOS's 191.
@@ -168,9 +168,9 @@ governed without being governed.
 
 ### How this repository governs itself
 
-The handbook lives under the same rules it ships. Its own
+KITT lives under the same rules it ships. Its own
 [`CLAUDE.md`](../../CLAUDE.md) imports the Claude core straight from the
-payload, so a session working on the handbook obeys the same file every
+payload, so a session working on KITT obeys the same file every
 product does. The intent is stated there in one line: if a rule is
 uncomfortable to work under here, that is the cheapest possible signal that it
 is wrong everywhere.
@@ -200,7 +200,7 @@ Two differences from a product are worth knowing. Changes here run under the
 data is downstream — though each change is still weighed on what it actually
 does, and one that alters what the sync publishes or what the settings
 template forbids is weighed accordingly. And because the process is this
-repository's product, it keeps its own documentation exception: the handbook's
+repository's product, it keeps its own documentation exception: KITT's
 weekly [maintenance pass](./glossary.md#maintenance-pass) updates this manual
 from the pull requests merged since the last pass, where a product would give
 process changes no write-up at all. Both are stated in
@@ -211,7 +211,7 @@ process changes no write-up at all. Both are stated in
 - **Vendored rather than linked, so nothing breaks at runtime.** A product's
   agents — including Codex and Replit, which run in their own environments —
   read the rules as files already in the repository. A link to a live
-  external source would make every product's session depend on the handbook
+  external source would make every product's session depend on KITT
   being reachable, and would let a rule change reach a product without that
   product's review.
 - **Two layers, so each rule has exactly one home.** The core owns *how we
@@ -237,19 +237,19 @@ process changes no write-up at all. Both are stated in
   product-owned seed. With no stored list, every input is read fresh in the
   same run, so there is nothing to go stale or disagree.
 - **Committed bytes only, because a product should receive what was
-  reviewed.** An unreviewed local edit in the handbook's folder must not reach
+  reviewed.** An unreviewed local edit in KITT's folder must not reach
   every product; refusing loudly when one is present is better than shipping
   it quietly or silently ignoring it.
-- **Self-governance, because it is the cheapest test.** A rule the handbook's
+- **Self-governance, because it is the cheapest test.** A rule KITT's
   own sessions find unworkable will be unworkable everywhere, and this
   repository is where that shows up first and costs least.
 
 ## Boundaries & known limitations
 
 - **The sync does not rewrite a product-owned file.** The one edit it makes
-  is additive: it tops up the machinery seed with any setting the handbook
+  is additive: it tops up the machinery seed with any setting KITT
   newly requires, never changing a value the product holds. That restraint is
-  deliberate, and it has a cost: when the handbook starts asking a product a new question, or
+  deliberate, and it has a cost: when KITT starts asking a product a new question, or
   retires a rule that a product's own documents restate, the sync cannot
   update the product's side. The enrollment procedure handles this with an
   explicit step before every re-sync rather than with machinery, and it is a
@@ -259,7 +259,7 @@ process changes no write-up at all. Both are stated in
   template's contents; anything genuinely required must be merged by hand. At
   present nothing in the settings template is non-optional in that sense.
 - **Nothing proves the payload's references all resolve in a product.** Some
-  payload files deliberately point at per-product documents the handbook does
+  payload files deliberately point at per-product documents KITT does
   not ship. A check that every such reference is either shipped or declared
   per-product does not exist yet; the list in
   [`docs/consuming-repos.md`](../consuming-repos.md) is explicitly not

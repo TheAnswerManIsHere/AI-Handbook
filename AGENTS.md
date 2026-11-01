@@ -1,4 +1,4 @@
-# AI-Handbook — Agent Instructions
+# KITT — Agent Instructions
 
 > Routing file for AI agents working in this repository. The cross-agent
 > working contract — how to behave, plan, review and ship — lives in

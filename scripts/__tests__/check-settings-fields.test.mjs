@@ -139,7 +139,7 @@ test("the check actually covers the file that ships", () => {
 });
 
 test("the accepted set stays small and deliberate", () => {
-  // It is a curated list of what the handbook uses, NOT a copy of Claude Code's
+  // It is a curated list of what KITT uses, NOT a copy of Claude Code's
   // ~100-key schema — a copy would drift into a second wrong answer. If this
   // grows past a handful, the design decision has been quietly reversed.
   assert.ok(

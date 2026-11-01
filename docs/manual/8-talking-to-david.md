@@ -20,7 +20,7 @@
 David is the product manager. He does not read diffs or commits and never runs
 a command; he steers by answering questions and by testing the product. So
 the chat is not a side channel to the work — for him it largely *is* the
-work's visible surface. This part of the handbook decides three things:
+work's visible surface. This part of KITT decides three things:
 
 - **What reaches him at all.** Product intent, real decisions and things he
   can test — never code milestones, never play-by-play, never noise.
@@ -76,7 +76,7 @@ ends with Claude's recommendation and why. Its opening, `🛑 **NEED YOU** —`,
 and the later reminder line, `Still waiting on you:`, are read by a machine
 as well as by David (below), so each is written exactly, at the start of its
 own line.
-The 🛑 glyph means "David" everywhere in the handbook — the same glyph marks
+The 🛑 glyph means "David" everywhere in KITT — the same glyph marks
 the stages only he can move past on the workstream board (chapter 10).
 
 **The [FYI](./glossary.md#fyi)** — the 👀 banner — is for something he would
@@ -247,8 +247,8 @@ until checked. And a fix Claude says it made is one it has read back.
 
 Some strings trigger machinery when they appear on GitHub — most importantly
 the comment that requests a Codex review. They are never written live in pull
-request bodies, issue bodies or comments, not even inside a quotation; the
-handbook uses one agreed, deliberately misspelled form of each so references
+request bodies, issue bodies or comments, not even inside a quotation;
+KITT uses one agreed, deliberately misspelled form of each so references
 stay searchable. A review request itself carries the trigger and nothing
 Claude wrote: Codex's connector sometimes reads trigger-plus-prose as a
 request to *write code* as well, so round context goes in a separate comment
@@ -302,7 +302,7 @@ product, the design or correctness are weighed on the merits.
   review loop and David noticing. The core names it as the one exception to
   turning recurring failures into CI checks.
 - **Paraphrasing between tool calls is a property of the app, not something
-  the handbook can fix.** The rule works around it by placement; anything
+  KITT can fix.** The rule works around it by placement; anything
   written mid-turn should be assumed unread.
 - **Delivery surfaces are chat, deliberately.** Plans (chapter 4) and build
   reports (chapter 6) arrive as chat messages, not as pages or links — a

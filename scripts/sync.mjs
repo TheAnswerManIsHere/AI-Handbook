@@ -12,7 +12,7 @@
  * and `flipsWith` sequenced a rollout to consumers that do not exist yet.
  *
  * IT DELETES WHAT THE PAYLOAD NO LONGER SHIPS, AND KEEPS NO RECORD TO DO IT
- * (#55). A file removed or renamed in the handbook used to stay in every
+ * (#55). A file removed or renamed in KITT used to stay in every
  * consumer that had received it -- still present, still loaded, still
  * obeyed, which is a second source of truth. A removing sync was written once
  * before and reverted after one review round found four ways it deleted the
@@ -23,7 +23,7 @@
  * and a file-to-directory transition aborted mid-copy.
  *
  * So there is no ledger. A payload file says in its own text that it is
- * managed -- the `SYNCED FROM AI-Handbook` header, which every non-seed
+ * managed -- the `SYNCED FROM KITT` header, which every non-seed
  * payload file carries and `check-payload-banners.mjs` refuses to let one
  * ship without -- and a file is stale exactly when:
  *
@@ -129,7 +129,7 @@ export function materializePayload(repoRoot = REPO_ROOT) {
         `Commit or stash them, so what a consumer receives is what was reviewed`,
     );
   }
-  const out = mkdtempSync(join(tmpdir(), "handbook-payload-"));
+  const out = mkdtempSync(join(tmpdir(), "KITT-payload-"));
   const tar = execFileSync("git", ["-C", repoRoot, "archive", "HEAD:core"], {
     maxBuffer: 256 * 1024 * 1024,
     encoding: "buffer",
@@ -161,7 +161,7 @@ export function payloadFiles(root) {
  * absent from it means the consumer was seeded before that key existed --
  * there is no other reading. `settings.json` is CONFIGURATION: its absent keys
  * are decisions. This very repository is the proof, and its `CLAUDE.md` says
- * so in as many words -- the handbook's own `.claude/settings.json` carries no
+ * so in as many words -- KITT's own `.claude/settings.json` carries no
  * `env` block because it has no database, and a top-up would have restored the
  * template's placeholder `DATABASE_URL` on the next sync, silently, in the
  * file that also carries permissions and hooks. (Codex, #79 round 2, on a
@@ -208,7 +208,7 @@ export function routeOf(rel) {
  * WHY A SEED IS NOT SIMPLY LEFT ALONE FOREVER. `machinery.json` is
  * consumer-owned from the moment it lands, and the sync has always respected
  * that by skipping it. But the payload's REQUIREMENTS grow: Phase 1 of
- * AI-Handbook #36 made a `models` block required, and every consumer seeded
+ * KITT #36 made a `models` block required, and every consumer seeded
  * before it would have received the new scripts and then refused every
  * dispatch and every plan-review round at `modelTier()` until a human edited
  * the file by hand -- the review machinery disabled fleet-wide by a sync that
@@ -323,7 +323,7 @@ export function assertNoSymlinkOnPath(destReal, to) {
  * within one filesystem, which is what makes it atomic.
  */
 function placeAtomically(src, target) {
-  const tmp = `${target}.handbook-sync-${process.pid}-${Math.random().toString(36).slice(2)}.tmp`;
+  const tmp = `${target}.KITT-sync-${process.pid}-${Math.random().toString(36).slice(2)}.tmp`;
   try {
     copyFileSync(src, tmp);
     renameSync(tmp, target);
@@ -343,7 +343,18 @@ function placeAtomically(src, target) {
  * claim to be managed, and a substring match would delete them. JSON has no
  * comment syntax, so its form is the schema's `$comment` key.
  */
-const BANNER_LINE = /^[ \t]*(?:<!--|\/\/|#|"\$comment":[ \t]*")[ \t]*SYNCED FROM AI-Handbook\b/;
+const BANNER_LINE = /^[ \t]*(?:<!--|\/\/|#|"\$comment":[ \t]*")[ \t]*SYNCED FROM (?:KITT|AI-Handbook)\b/;
+
+/**
+ * The header as the payload writes it today. KITT was named AI-Handbook until
+ * 2026-11-01, and BANNER_LINE above keeps recognising that older form for
+ * good: a consumer's copy of a file the payload stopped shipping before its
+ * next sync still says AI-Handbook, and a matcher that forgot the old name
+ * would leave it in place forever while reporting a clean sync. The payload
+ * check alone requires the current form, so nothing new is written in the old
+ * one.
+ */
+const CURRENT_BANNER_LINE = /^[ \t]*(?:<!--|\/\/|#|"\$comment":[ \t]*")[ \t]*SYNCED FROM KITT\b/;
 
 /**
  * How far into a file the header may sit. It follows a shebang or YAML front
@@ -356,6 +367,11 @@ export const BANNER_WINDOW = 40;
 /** Does this text carry the sync header within the window? */
 export function carriesBanner(text) {
   return text.split("\n", BANNER_WINDOW).some((line) => BANNER_LINE.test(line));
+}
+
+/** Does this text carry the header in its current form, the one the payload must write? */
+export function carriesCurrentBanner(text) {
+  return text.split("\n", BANNER_WINDOW).some((line) => CURRENT_BANNER_LINE.test(line));
 }
 
 /**
@@ -640,10 +656,10 @@ function main(argv) {
   if (!existsSync(dest)) throw new Error(`destination ${dest} does not exist`);
   // Canonical paths: `resolve` does not follow symlinks, so a symlinked
   // checkout reaches this repo under a different string and the equality
-  // fails -- writing core/ over the handbook's own root, which is the one
+  // fails -- writing core/ over KITT's own root, which is the one
   // destination this refusal exists to prevent.
   if (realpathSync(dest) === realpathSync(REPO_ROOT)) {
-    throw new Error("refusing to sync the handbook onto itself");
+    throw new Error("refusing to sync KITT onto itself");
   }
 
   console.log(`sync: ${REPO_ROOT}/core (committed) -> ${dest}${flags.dryRun ? "  (dry run)" : ""}`);
