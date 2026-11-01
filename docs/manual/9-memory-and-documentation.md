@@ -280,7 +280,7 @@ nothing about it ships to a product.
 ## Boundaries & known limitations
 
 - **Process pull requests get no Type 2 harvest in a product.** Anything
-  durable they produce is a Type 1 lesson and was persisted when learned. The
+  durable they produce is a Type 1 lesson and was persisted when learned.
   KITT's own manual is the one exception, described above.
 - **A prototype-phase feature waits for its harvest** until the hardening work
   after its promotion closes out; until then there is no settled behaviour to

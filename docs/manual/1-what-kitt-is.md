@@ -45,7 +45,7 @@ Every product repository that takes KITT — a
   product.
 - **The [overlay](./glossary.md#overlay)**, owned by the product: what the
   product *is* — its brief, users, roadmap, architecture, subsystems,
-  environment, and settled decisions. It is hand-written there and the
+  environment, and settled decisions. It is hand-written there and
   KITT never touches it.
 
 The split shows up most visibly in the two files an agent reads first. A
@@ -120,7 +120,7 @@ The routing has **one rule and one exception**:
   one. From that moment the file belongs to the product: it holds the
   product's own permissions and identity, and overwriting it would clobber
   them. (Two seeds are additionally topped up, without changing a value the
-  product already holds: the machinery file, with any new setting the
+  product already holds: the machinery file, with any new setting
   KITT's scripts have come to require; and the settings file, with its
   `hooks` key alone when it has none, which is how the needs-you alert reaches
   a product seeded before it existed — so a product seeded long ago does not have

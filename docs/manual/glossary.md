@@ -77,7 +77,7 @@ Home: [`docs/consuming-repos.md`](../consuming-repos.md)
 
 ### Consumer repo
 
-A product's repository that receives the payload through the sync — the
+A product's repository that receives the payload through the sync —
 KITT's "consumer". It owns its overlay, its product documents and the
 handful of documents the payload refers to but cannot share, and it never
 edits the vendored copies it receives. This repository is not a consumer; it

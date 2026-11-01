@@ -11,7 +11,7 @@ and `scripts/sync.mjs` copies `core/**` into place, one rule with one
 exception for seeded files (two of which it tops up with absent keys), and deletes a consumer's copy of anything the
 payload has stopped shipping.
 
-This repo governs itself with the same file it ships: the import above is the
+This repo governs itself with the same file it ships: the import above is
 KITT's own core, read from the payload. If a rule is uncomfortable to work
 under here, that is the cheapest possible signal that it is wrong everywhere.
 

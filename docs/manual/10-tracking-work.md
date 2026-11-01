@@ -290,7 +290,7 @@ for a merge to register. The rules for that are short:
   forgotten; a label change bundled into the step that caused it is not.
 - **Closing at close-out, because issues used to pile up.** Until 2026-09-25
   only an accepted UAT closed an issue, so every workstream with no UAT —
-  every docs, devops and simple bug fix, and nearly every pull request in the
+  every docs, devops and simple bug fix, and nearly every pull request in
   KITT itself — parked at close-out waiting for David to mark it done,
   and nothing ever asked him to. An open issue whose work is finished is not
   harmless: the reporting skills keep surfacing it, and it hides the issues
