@@ -36,8 +36,11 @@
 
 This repository: **Keeper of Intent, Tooling and Tempo**, named for the car
 in *Knight Rider*. It was called AI-Handbook until 2026-11-01; history
-citations were rewritten to the new name (`KITT #252`), and every use of
-"the handbook" as an ordinary noun became "KITT" too. Both of those were
+citations were rewritten to the new name, so an issue cited as
+`AI-Handbook #252` now reads `KITT #252`, and every use of "the handbook" as
+an ordinary noun became "KITT" too. Quoted output and approved plans kept
+the old spelling, since rewriting them would falsify the record (the rename
+is tracked on `KITT #271`). Both of those were
 David's choices over Claude's recommendation (2026-11-01). Claude
 recommended keeping "the handbook" as a description, since rewriting every
 use changes no behaviour and risks broken grammar. It recommended keeping
