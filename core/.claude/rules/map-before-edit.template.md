@@ -3,7 +3,7 @@ paths:
   - "__complete-during-adoption__/**"
 ---
 
-<!-- Seeded once by the AI-Handbook sync and owned by this repository from then on. At adoption, replace the path above with the globs of sets.indexed.include in .agents/map/config.json, so this rule loads whenever an agent touches an indexed file. -->
+<!-- Seeded once by the KITT sync and owned by this repository from then on. At adoption, replace the path above with the globs of sets.indexed.include in .agents/map/config.json, so this rule loads whenever an agent touches an indexed file. -->
 
 # Query the structure before you change it
 

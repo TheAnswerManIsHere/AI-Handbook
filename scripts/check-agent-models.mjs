@@ -88,7 +88,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // THE FRONTMATTER READER IS SHARED, NOT COPIED. `review-proxy.mjs` reads the
 // same `effort:` this check holds equal to the pin, and two readers of one
 // fact is the drift this file exists to prevent. Payload code cannot import
-// this handbook-only checker, so the shared copy lives in the payload and the
+// this KITT-only checker, so the shared copy lives in the payload and the
 // checker imports it. (Both assessors, #131 round 1.)
 import { modelTier, nodeIo, splitFrontmatter, frontmatterValue, MODEL_TIERS } from "../core/scripts/machinery.mjs";
 
@@ -139,7 +139,7 @@ export function agentDefinitions(root = REPO_ROOT) {
   if (!existsSync(dir)) {
     throw new Error(
       `check-agent-models: ${AGENTS_DIR} does not exist, so there are no agent definitions to check. ` +
-        `This check runs in the handbook, where the payload's roles are authored.`,
+        `This check runs in KITT, where the payload's roles are authored.`,
     );
   }
   return readdirSync(dir)

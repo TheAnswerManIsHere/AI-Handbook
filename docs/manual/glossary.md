@@ -1,6 +1,6 @@
 # Glossary
 
-> Fast lookup for the handbook's vocabulary — what each term means **here**,
+> Fast lookup for KITT's vocabulary — what each term means **here**,
 > with a pointer to the file where the rule or thing it names is defined. The
 > glossary defines; it does not restate rules. When a term's meaning changes,
 > the rule's home changes first and this entry follows.
@@ -18,7 +18,7 @@
 
 ## Contents
 
-- [The handbook and the sync](#the-handbook-and-the-sync)
+- [KITT and the sync](#kitt-and-the-sync)
 - [People and agents](#people-and-agents)
 - [Kinds of work](#kinds-of-work)
 - [Planning a change](#planning-a-change)
@@ -30,7 +30,21 @@
 
 ---
 
-## The handbook and the sync
+## KITT and the sync
+
+### KITT
+
+This repository: **Keeper of Intent, Tooling and Tempo**, named for the car
+in *Knight Rider*. It was called AI-Handbook until 2026-11-01; history
+citations were rewritten to the new name (`KITT #252`), and every use of
+"the handbook" as an ordinary noun became "KITT" too. Both of those were
+David's choices over Claude's recommendation (2026-11-01). Claude
+recommended keeping "the handbook" as a description, since rewriting every
+use changes no behaviour and risks broken grammar. It recommended keeping
+the old citations as history, since GitHub redirects their links. David
+chose the full rename for both, and the rename shipped that way. In-universe
+nicknames: **Bonnie** is the `/maintenance` pass, **KARR** a feature in
+prototype phase ([`CLAUDE.md`](../../CLAUDE.md), *The name*).
 
 ### Payload
 
@@ -48,7 +62,7 @@ Two related senses. Narrowly, **the two portable cores**: `claude-core.md`
 (rules for Claude Code) and `agents-core.md` (rules for every agent), the
 fleet-wide files a product's own instruction files import or link to. Loosely,
 the `core/` directory as a whole, which is the [payload](#payload). Either
-way, the core is owned by the handbook and is never hand-edited inside a
+way, the core is owned by KITT and is never hand-edited inside a
 product; its counterpart is the [overlay](#overlay).
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
@@ -64,7 +78,7 @@ Home: [`docs/consuming-repos.md`](../consuming-repos.md)
 ### Consumer repo
 
 A product's repository that receives the payload through the sync — the
-handbook's "consumer". It owns its overlay, its product documents and the
+KITT's "consumer". It owns its overlay, its product documents and the
 handful of documents the payload refers to but cannot share, and it never
 edits the vendored copies it receives. This repository is not a consumer; it
 reaches its own payload by import and symlink instead.
@@ -92,7 +106,7 @@ Home: [`scripts/sync.mjs`](../../scripts/sync.mjs)
 
 ### Sync banner
 
-The `SYNCED FROM AI-Handbook` header every non-seed payload file carries in
+The `SYNCED FROM KITT` header every non-seed payload file carries in
 its own text. It tells a reader in a consumer not to edit the file there, and
 it is how the sync knows a file is managed and may be taken back once the
 payload no longer ships it. A payload file without it could be delivered and
@@ -486,7 +500,7 @@ The close-out step that brings a product's running Replit environment up to
 the new `main` commit, then confirms both that the checked-out commit matches
 and that the working tree is clean. It runs after **every** merge, with no
 exception Claude reasons its way into, because drift is the sum of skipped
-syncs. Not the [sync](#sync), which copies the handbook into a product.
+syncs. Not the [sync](#sync), which copies KITT into a product.
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
 ### Post-merge verification

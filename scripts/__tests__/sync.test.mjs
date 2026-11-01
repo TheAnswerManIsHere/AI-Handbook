@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   routeOf, payloadFiles, sync, isInside, assertNoSymlinkOnPath, materializePayload, topUpKeys, topUpSeed, TOPPED_UP_SEEDS, withheldEntries,
-  carriesBanner, staleFiles, uncommittedPaths,
+  carriesBanner, carriesCurrentBanner, staleFiles, uncommittedPaths,
 } from "../sync.mjs";
 import { missingBanners } from "../check-payload-banners.mjs";
 
@@ -28,14 +28,14 @@ const fresh = () => {
   return dir;
 };
 // Teardown of a checkout a `git` child may still be releasing: `rmSync` with
-// no retries raced that release and died with ENOTEMPTY on `.git` (handbook
+// no retries raced that release and died with ENOTEMPTY on `.git` (KITT
 // #198's CI, one run of twelve), so every tree removal here retries briefly.
 const removeTree = (dir) => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 const commitAll = (dir) => {
   git(dir, "add", "-A");
   git(dir, "commit", "-q", "--allow-empty", "-m", "sync");
 };
-const BANNER = "<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. -->";
+const BANNER = "<!-- SYNCED FROM KITT — do not edit in a consumer repo. -->";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 // Materialize the committed payload ONCE and hand it to the tests, so the
@@ -349,12 +349,27 @@ function consumerWith(rel, content) {
 test("a tracked file carrying the header that the payload no longer ships is deleted", () => {
   // The shape of the first real instance: #160 deleted plan-provenance.mjs and
   // its format document from the payload, and Overhype kept both.
-  const dest = consumerWith("scripts/plan-provenance.mjs", `#!/usr/bin/env node\n// SYNCED FROM AI-Handbook — do not edit.\nexport {};\n`);
+  const dest = consumerWith("scripts/plan-provenance.mjs", `#!/usr/bin/env node\n// SYNCED FROM KITT — do not edit.\nexport {};\n`);
   try {
     const counts = run(dest);
     assert.equal(counts.deleted, 1);
     assert.ok(!existsSync(join(dest, "scripts/plan-provenance.mjs")));
     assert.ok(existsSync(join(dest, "scripts/review-proxy.mjs")), "a file the payload still ships is untouched");
+  } finally {
+    removeTree(dest);
+  }
+});
+
+test("a stale copy still carrying the header's former name, AI-Handbook, is taken back", () => {
+  // KITT was named AI-Handbook until 2026-11-01. A consumer copy of a file
+  // the payload stopped shipping before that consumer's next sync still says
+  // the old name; forgetting it would strand the copy while the sync reports
+  // a clean run.
+  const dest = consumerWith("scripts/plan-provenance.mjs", `#!/usr/bin/env node\n// SYNCED FROM AI-Handbook — do not edit.\nexport {};\n`);
+  try {
+    const counts = run(dest);
+    assert.equal(counts.deleted, 1);
+    assert.ok(!existsSync(join(dest, "scripts/plan-provenance.mjs")));
   } finally {
     removeTree(dest);
   }
@@ -377,7 +392,7 @@ test("the consumer's own files are never deleted: no header, or not tracked", ()
   const dest = consumerWith("docs/ai-context/product-brief.md", "# Our product\n");
   try {
     // The phrase inside a line is prose or a string literal, not a claim.
-    writeFileSync(join(dest, "docs/quoting.md"), "Synced files open with SYNCED FROM AI-Handbook in a comment.\n");
+    writeFileSync(join(dest, "docs/quoting.md"), "Synced files open with SYNCED FROM KITT in a comment.\n");
     commitAll(dest);
     // Untracked, even with the header: the consumer's work in progress.
     writeFileSync(join(dest, "docs/draft2.md"), `${BANNER}\n`);
@@ -419,7 +434,7 @@ test("reverted case 2: a routed destination is never deleted, whatever it contai
     run(dest);
     const owned = join(dest, ".claude/settings.json");
     const settings = JSON.parse(readFileSync(owned, "utf8"));
-    const withHeader = `{\n  "$comment": "SYNCED FROM AI-Handbook — do not edit.",${JSON.stringify(settings, null, 2).slice(1)}\n`;
+    const withHeader = `{\n  "$comment": "SYNCED FROM KITT — do not edit.",${JSON.stringify(settings, null, 2).slice(1)}\n`;
     writeFileSync(owned, withHeader);
     commitAll(dest);
     const counts = run(dest);
@@ -590,7 +605,7 @@ test("a subdirectory of a checkout is refused: the routes are relative to its ro
 });
 
 test("a second sync after the first is committed changes nothing", () => {
-  const dest = consumerWith("scripts/plan-provenance.mjs", "// SYNCED FROM AI-Handbook — do not edit.\n");
+  const dest = consumerWith("scripts/plan-provenance.mjs", "// SYNCED FROM KITT — do not edit.\n");
   try {
     run(dest);
     commitAll(dest);
@@ -623,7 +638,7 @@ test("check-payload-banners names a payload file that lacks the header", () => {
     mkdirSync(join(repo, "core/docs"), { recursive: true });
     writeFileSync(join(repo, "core/docs/managed.md"), `${BANNER}\n`);
     writeFileSync(join(repo, "core/docs/unmanaged.md"), "# no header\n");
-    writeFileSync(join(repo, "core/docs/quoted.md"), "the words SYNCED FROM AI-Handbook, in prose\n");
+    writeFileSync(join(repo, "core/docs/quoted.md"), "the words SYNCED FROM KITT, in prose\n");
     mkdirSync(join(repo, "core/.claude"), { recursive: true });
     writeFileSync(join(repo, "core/.claude/settings.template.json"), "{}\n");
     commitAll(repo);
@@ -655,10 +670,26 @@ test("a header past the first 64 KiB is invisible to the check, as it is to the 
 });
 
 test("the header is read only within the window, as a whole comment line", () => {
-  assert.equal(carriesBanner(`#!/usr/bin/env bash\n# SYNCED FROM AI-Handbook — x\n`), true);
-  assert.equal(carriesBanner(`{\n  "$comment": "SYNCED FROM AI-Handbook — x",\n}`), true);
-  assert.equal(carriesBanner(`writeFileSync(abs, "<!-- SYNCED FROM AI-Handbook — do not edit -->");`), false);
-  assert.equal(carriesBanner(`${"\n".repeat(40)}// SYNCED FROM AI-Handbook — x\n`), false);
+  assert.equal(carriesBanner(`#!/usr/bin/env bash\n# SYNCED FROM KITT — x\n`), true);
+  assert.equal(carriesBanner(`{\n  "$comment": "SYNCED FROM KITT — x",\n}`), true);
+  assert.equal(carriesBanner(`writeFileSync(abs, "<!-- SYNCED FROM KITT — do not edit -->");`), false);
+  assert.equal(carriesBanner(`${"\n".repeat(40)}// SYNCED FROM KITT — x\n`), false);
+});
+
+test("the sync recognises both names; the payload check requires the current one", () => {
+  assert.equal(carriesBanner(`<!-- SYNCED FROM AI-Handbook — x -->\n`), true);
+  assert.equal(carriesCurrentBanner(`<!-- SYNCED FROM AI-Handbook — x -->\n`), false);
+  assert.equal(carriesCurrentBanner(`<!-- SYNCED FROM KITT — x -->\n`), true);
+  const repo = fresh();
+  try {
+    mkdirSync(join(repo, "core/docs"), { recursive: true });
+    writeFileSync(join(repo, "core/docs/current.md"), `${BANNER}\n`);
+    writeFileSync(join(repo, "core/docs/former.md"), `<!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. -->\n`);
+    commitAll(repo);
+    assert.deepEqual(missingBanners(repo), ["core/docs/former.md"]);
+  } finally {
+    removeTree(repo);
+  }
 });
 
 test("a dry run reports what it would do and writes nothing", () => {
@@ -760,7 +791,7 @@ test("assertNoSymlinkOnPath ignores the final entry, which rename handles", () =
 // --- #79 round 1: a seed the consumer owns still gains newly-required keys ---
 
 test("a JSON seed gains keys the template added, and loses nothing it has", () => {
-  // Phase 1 of AI-Handbook #36 made a `models` block required. Every consumer
+  // Phase 1 of KITT #36 made a `models` block required. Every consumer
   // seeded before it would have received the new scripts and then refused
   // every dispatch and every plan-review round until a human edited the file
   // by hand -- the review machinery disabled fleet-wide by a sync that

@@ -245,7 +245,7 @@ in [`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
 - **In this repository** there is no product and no database, so nearly
   every pull request owes no UAT and closes its workstream at close-out
   ([`workstream-tracking.md`](../../core/docs/ai-context/workstream-tracking.md)
-  says as much of AI-Handbook).
+  says as much of KITT).
   No Repl tracks this repository — a search of David's Replit apps on
   2026-10-03 found none — so the sync step has nothing to sync here.
 

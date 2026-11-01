@@ -10,7 +10,7 @@ const IGNORE = "# a comment, ignored by the comparison\npr-*.json\nloop-round-ch
 const CAPTURES_IGNORE = "*\n!.gitignore\n";
 
 /**
- * A minimal repo shaped like the handbook: payload under core/, root wiring
+ * A minimal repo shaped like KITT: payload under core/, root wiring
  * beside it. Every test starts from a WIRED tree and breaks one thing, so a
  * passing assertion means the check found that specific break rather than
  * tripping on fixture noise.
@@ -40,7 +40,7 @@ function fixture() {
   // so these stay wired and the assertions still count one problem. Each pair
   // MUST be built here: an unbuilt pair is a missing-file problem in every
   // test, which is how adding the reviews pair turned all ten of these red at
-  // once (AI-Handbook #91 round 2) -- and how adding the plans pair turned all
+  // once (KITT #91 round 2) -- and how adding the plans pair turned all
   // ten red again, this comment notwithstanding (#124 round 2). Reading a
   // warning is not the same as being stopped by one, which is why the list of
   // pairs and this fixture should one day be read from the same place.

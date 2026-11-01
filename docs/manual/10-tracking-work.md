@@ -113,7 +113,7 @@ board's fields on every label change, using the [payload](./glossary.md#payload)
 `core/scripts/sync-project-fields.mjs`. It resolves the board's columns by
 normalised name rather than exact spelling, and fails loudly on anything it
 cannot map. The workflow file itself is each product's own — its board and
-the token that writes to it are per product — so the handbook ships the
+the token that writes to it are per product — so KITT ships the
 script and lists the workflow among the documents a product must supply
 ([`docs/consuming-repos.md`](../consuming-repos.md)).
 
@@ -272,7 +272,7 @@ for a merge to register. The rules for that are short:
 
 - **GitHub rather than a bespoke tracker.** Issues, labels and boards already
   exist, survive any session ending, and are visible to every agent and to
-  David alike. A tracker of the handbook's own would be one more
+  David alike. A tracker of KITT's own would be one more
   thing to keep in sync.
 - **Labels, not the board, are the truth, because nothing can touch the
   board directly.** No tool available to the agents can read or write a
@@ -291,7 +291,7 @@ for a merge to register. The rules for that are short:
 - **Closing at close-out, because issues used to pile up.** Until 2026-09-25
   only an accepted UAT closed an issue, so every workstream with no UAT —
   every docs, devops and simple bug fix, and nearly every pull request in the
-  handbook itself — parked at close-out waiting for David to mark it done,
+  KITT itself — parked at close-out waiting for David to mark it done,
   and nothing ever asked him to. An open issue whose work is finished is not
   harmless: the reporting skills keep surfacing it, and it hides the issues
   that are really open.
@@ -306,7 +306,7 @@ for a merge to register. The rules for that are short:
   detection and write-target checks the GitHub API cannot cleanly provide, for
   the sake of a status report.
 - **Never poll from the shell, because a silent failure looks like
-  patience.** The handbook's recurring lesson is that a control which cannot
+  patience.** KITT's recurring lesson is that a control which cannot
   evaluate must refuse, not report success; a poll loop that returns nothing
   and sleeps is the waiting-room version of that failure.
 

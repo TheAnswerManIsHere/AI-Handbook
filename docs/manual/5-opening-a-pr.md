@@ -168,7 +168,7 @@ which pushes under David's own account. So a commit on `main` with no pull
 request behind it is not a normal event any more: it means a ruleset has been
 loosened, and Claude tells David in one line.
 
-Above the rulesets sits one more layer that is not the handbook's at all: the
+Above the rulesets sits one more layer that is not KITT's at all: the
 platform's own classifier, which may refuse an in-place edit Claude makes to
 its own guardrail files. That edit then goes through a pull request like any
 other.

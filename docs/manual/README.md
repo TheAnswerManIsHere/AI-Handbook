@@ -1,6 +1,6 @@
-# The AI-Handbook Manual
+# The KITT Manual
 
-> A living, human- and AI-readable manual for how the handbook works **and why
+> A living, human- and AI-readable manual for how KITT works **and why
 > it works that way** — the narrative of the development process every product
 > David builds with AI agents runs on. It exists so that David, Claude, Codex
 > and any future collaborator share one picture of that process, and so the
@@ -12,7 +12,7 @@
 
 ## How to read this manual
 
-The handbook governs one loop, and the manual follows it:
+KITT governs one loop, and the manual follows it:
 
 **A request arrives → it is routed → planned → built and opened as a pull
 request → reviewed → closed out → and what was learned is written down for the
@@ -23,7 +23,7 @@ reviews it and two independent assessors advise on what is worth fixing; the
 merge is verified in the running product; and the lesson lands in the durable
 docs so the next session starts from it.
 
-Chapter **1** says what the handbook is and how it reaches a product.
+Chapter **1** says what KITT is and how it reaches a product.
 Chapter **2** introduces the cast. Chapters **3–7** walk the loop in order.
 Chapters **8–11** cover what runs alongside every step — how Claude talks to
 David, how memory and documentation work, how work is tracked, and which model
@@ -55,9 +55,9 @@ phrasing being edited.
 
 **The manual does not ship.** It lives at the repository root, outside
 `core/`, so the sync never copies it into a product. Every product already has
-its own `docs/manual/` about itself, and a product's agents get the handbook's
+its own `docs/manual/` about itself, and a product's agents get KITT's
 rules directly from the payload. This manual is for whoever needs to
-understand the handbook as a system — chiefly David.
+understand KITT as a system — chiefly David.
 
 ### Name the rule; don't restate its tuning
 
@@ -75,12 +75,12 @@ If not, the sentence belongs in the rule's home, and the chapter links to it.
 This first version was written in one pass (David, 2026-10-03), the same way
 Overhype.me's manual was backfilled once. From here on it grows incrementally.
 
-**The handbook's version of the documentation ceremony is different from a
+**KITT's version of the documentation ceremony is different from a
 product's.** The fleet contract
 ([`documentation-workflow.md`](../../core/docs/ai-context/documentation-workflow.md))
 gives process pull requests no harvest, because in a product the process is
 not the product. Here the process *is* the product, so this repository keeps
-its own rule, stated in its [`CLAUDE.md`](../../CLAUDE.md): **the handbook's
+its own rule, stated in its [`CLAUDE.md`](../../CLAUDE.md): **KITT's
 `/maintenance` pass reads the pull requests merged since the last pass and
 updates the chapters they touched.** Nothing about this ships to a product.
 
@@ -145,7 +145,7 @@ In reading order. A chapter file appears only once it holds real content, so
 
 | # | Chapter | Covers | Status |
 | --- | --- | --- | --- |
-| 1 | [`1-what-the-handbook-is.md`](./1-what-the-handbook-is.md) | What the handbook is, the core/overlay split, how the sync carries it into a product and takes back what it stops shipping | ✅ written |
+| 1 | [`1-what-kitt-is.md`](./1-what-kitt-is.md) | What KITT is, the core/overlay split, how the sync carries it into a product and takes back what it stops shipping | ✅ written |
 | 2 | [`2-who-does-what.md`](./2-who-does-what.md) | David, Claude, Codex, Astra, Fable and Replit — what each is for and what each may decide | ✅ written |
 | 3 | [`3-routing-a-request.md`](./3-routing-a-request.md) | **Route** — feature, bugfix or prototype; how much ceremony a change earns; the Trivial and Documentation classes | ✅ written |
 | 4 | [`4-planning.md`](./4-planning.md) | **Plan** — the pre-plan conversation, the plan, Astra's review, the scope gate and David's approval | ✅ written |

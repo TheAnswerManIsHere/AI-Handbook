@@ -1,7 +1,7 @@
 # Chapter 9 · Memory and documentation
 
 > How what a session learns outlives the session. An AI agent forgets
-> everything when its chat ends, so the handbook treats memory as something
+> everything when its chat ends, so KITT treats memory as something
 > written into versioned files rather than held in a conversation, and splits
 > that writing into two kinds on two schedules: lessons about **how the agents
 > work together**, persisted the moment they are learned, and knowledge of
@@ -24,7 +24,7 @@
 Every session starts cold. Whatever was settled in yesterday's chat — a
 decision and its reason, an approach tried and abandoned, a tool that behaves
 oddly in this environment — is gone unless someone wrote it into a file the
-next session will read. This area of the handbook is the set of habits and
+next session will read. This area of KITT is the set of habits and
 [ceremonies](./glossary.md#ceremony) that do that writing, and that decide *where* each piece of
 knowledge goes so it has exactly one home.
 
@@ -47,7 +47,7 @@ It answers four questions:
 
 ### Two kinds of documentation, two schedules
 
-The handbook's documentation contract draws one distinction and builds
+KITT's documentation contract draws one distinction and builds
 everything else on it — [Type 1 and Type 2 documentation](./glossary.md#type-1-and-type-2-documentation):
 
 - **Type 1 — how we work together — is written immediately.** A new rule, a
@@ -188,7 +188,7 @@ link and a prompt block to paste.
 
 ### Prose sweep: keeping the rules consistent after one is retired
 
-The handbook's rules are prose, spread across dozens of files that cite one
+KITT's rules are prose, spread across dozens of files that cite one
 another. When a rule is retired or reshaped, every sentence elsewhere that
 still asserts the old version becomes a live contradiction, and an agent
 reading either one may act on it. The [`prose-sweep` skill](../../core/.claude/skills/prose-sweep/SKILL.md)
@@ -215,9 +215,9 @@ sweep before its review is requested, and never a hand-run search instead.
 ### This repository is the exception
 
 The fleet contract gives process pull requests no Type 2 harvest, since in a
-product the process is not the product. In the handbook the process *is* the
+product the process is not the product. In KITT the process *is* the
 product, and every pull request is a process pull request — so applied as
-written, nothing would ever update this manual. The handbook therefore runs
+written, nothing would ever update this manual. KITT therefore runs
 one harvest of its own: its `/maintenance` pass reads the pull requests merged
 since the last pass and updates the chapters they touched, as a Documentation
 class pull request. That rule lives in the repository's own
@@ -246,7 +246,7 @@ nothing about it ships to a product.
   worker does not inherit. The same reason keeps `/handoff` in the main loop:
   its whole subject is the session's own context, and noticing what matters
   is the task.
-- **One home per learning, because two copies drift.** The handbook's most
+- **One home per learning, because two copies drift.** KITT's most
   catalogued failure is the duplicate source of truth: two places that both
   claim to define something, a fix landing in one, and nobody knowing which is
   authoritative. Linking to a single home keeps a correction from having to
@@ -281,7 +281,7 @@ nothing about it ships to a product.
 
 - **Process pull requests get no Type 2 harvest in a product.** Anything
   durable they produce is a Type 1 lesson and was persisted when learned. The
-  handbook's own manual is the one exception, described above.
+  KITT's own manual is the one exception, described above.
 - **A prototype-phase feature waits for its harvest** until the hardening work
   after its promotion closes out; until then there is no settled behaviour to
   document.
@@ -318,7 +318,7 @@ nothing about it ships to a product.
   [`known-failure-patterns.md`](../../core/docs/ai-context/known-failure-patterns.md).
 - Where the batched harvest runs: step 6 and the contract-diet step of the
   [`maintenance` skill](../../core/.claude/skills/maintenance/SKILL.md).
-- The handbook's own harvest rule: [`CLAUDE.md`](../../CLAUDE.md) and this
+- KITT's own harvest rule: [`CLAUDE.md`](../../CLAUDE.md) and this
   manual's [README](./README.md).
 
 **Next:** chapter 10 — [`10-tracking-work.md`](./10-tracking-work.md), how

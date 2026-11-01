@@ -1,4 +1,4 @@
-# Working agreements for AI-Handbook (Claude Code)
+# Working agreements for KITT (Claude Code)
 
 @core/.agents/core/claude-core.md
 
@@ -12,8 +12,31 @@ exception for seeded files (two of which it tops up with absent keys), and delet
 payload has stopped shipping.
 
 This repo governs itself with the same file it ships: the import above is the
-handbook's own core, read from the payload. If a rule is uncomfortable to work
+KITT's own core, read from the payload. If a rule is uncomfortable to work
 under here, that is the cheapest possible signal that it is wrong everywhere.
+
+## The name, and naming what we build here
+
+**KITT is Keeper of Intent, Tooling and Tempo**, named for the car in
+*Knight Rider* (David, 2026-11-01). It was AI-Handbook until that date; a
+citation written `KITT #N` is this repository's issue or pull request N,
+whichever name it was filed under, and the sync still recognises a copy
+whose header carries the old name.
+
+**New things built for KITT get names from the Knight Rider universe**
+(David, 2026-11-01: *"Whenever we build new stuff for KITT, let's try to keep
+the naming in-universe for Knight Rider."*). That covers a new skill, script,
+role or mechanism, and the in-universe name sits beside a plain description
+of what it does, never in place of one: a name nobody can decode costs every
+cold reader a lookup. Existing names carry nicknames rather than renames:
+
+| Nickname | What it is | Why |
+|---|---|---|
+| **Bonnie** | the `/maintenance` pass | Bonnie Barstow, the engineer who keeps KITT running |
+| **KARR** | a feature in prototype phase | KITT's prototype, built without the directive to protect anyone |
+
+The command and the contract term stay as they are: `/maintenance` is still
+typed, and "prototype phase" is still the phrase the rules use.
 
 ## The one rule specific to this repo
 
@@ -49,7 +72,7 @@ risk. So:
   same judgement.
 - **Removing a file from `core/` takes it back.** The sync deletes a
   consumer's copy once nothing routes to its path, recognising the copy by the
-  `SYNCED FROM AI-Handbook` header in its own text rather than by any record
+  `SYNCED FROM KITT` header in its own text rather than by any record
   of past syncs (#55). So every non-seed payload file carries that header, and
   `node scripts/check-payload-banners.mjs` refuses one that does not — a file
   without it could be delivered and never taken back.
@@ -99,16 +122,16 @@ and the change goes as a PR either way.
 
 ## The manual, and the one harvest this repo runs
 
-[`docs/manual/`](docs/manual/README.md) is the narrative of how the handbook
+[`docs/manual/`](docs/manual/README.md) is the narrative of how KITT
 works, modelled on Overhype.me's manual (David, 2026-10-03). It sits at the
 root, outside `core/`, so it never ships: every consumer has its own
 `docs/manual/` about itself, and a payload path there would overwrite it.
 
 **The fleet contract gives process PRs no harvest, and every PR here is a
 process PR** — so applied as written it would never update this manual. The
-exception is this repo's, not the fleet's: **the handbook's `/maintenance`
+exception is this repo's, not the fleet's: **KITT's `/maintenance`
 pass reads the PRs merged since the last pass and updates the chapters they
-touched**, as a Documentation-class PR. The second handbook-only step is
+touched**, as a Documentation-class PR. The second KITT-only step is
 the refresh of `core/docs/ai-context/token-pricing.md` (the `maintenance`
 skill, step 6b): the table has one source, so only this repository's pass
 rewrites it; a consumer's pass reads its copy. Nothing else about the

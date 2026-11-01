@@ -18,7 +18,7 @@
 
 ## What it does
 
-The handbook's process is a division of labour between one person and
+KITT's process is a division of labour between one person and
 several AI agents, and most of its rules exist to keep that division clear:
 who is allowed to decide a thing, whose opinion is only advice, and who checks
 whom. The short version is that **David owns intent and approval, Claude owns

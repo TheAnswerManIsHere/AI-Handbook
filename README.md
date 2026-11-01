@@ -1,6 +1,9 @@
-# AI-Handbook
+# KITT
 
-The working contract shared by every product David builds with AI agents.
+**Keeper of Intent, Tooling and Tempo.** The working contract shared by every
+product David builds with AI agents: his software factory, and the overseer of
+how it runs. Named for the car in *Knight Rider*. It was called AI-Handbook
+until 2026-11-01.
 
 One set of rules — how work is planned, reviewed, shipped and remembered —
 maintained here and vendored into each product repo, so a lesson learned on one
@@ -22,8 +25,8 @@ and neither is wrong on its face. Hence a single source and a sync.
 ## How it works
 
 ```
-AI-Handbook (this repo)          Consumer repo
-──────────────────────           ─────────────────────────────
+KITT (this repo)                 Consumer repo
+────────────────                 ─────────────────────────────
 core/                     ──►    .agents/core/  docs/  .claude/  scripts/
   the payload                      vendored copies, overwritten by sync
 
@@ -37,7 +40,7 @@ paths in the consumer. Every agent — Claude, Codex, Replit — and every human
 reads them exactly as if they had always been there. Nothing depends on this
 repo being reachable at runtime.
 
-**Two layers, one rule each.** The handbook owns *how we work*. Each product
+**Two layers, one rule each.** KITT owns *how we work*. Each product
 repo owns *what it is*: its brief, roadmap, architecture, glossary, subsystem
 docs and product-specific skills. A rule that is true for every product belongs
 here; a rule that is true for one product belongs in that product's overlay.
@@ -61,7 +64,7 @@ changing a value the consumer already holds — a key nested inside an existing 
 added, so a script that needs one must not rely on the top-up.
 
 **What the payload stops shipping, the sync takes back.** A file a consumer's
-git index tracks, whose own text carries the `SYNCED FROM AI-Handbook` header,
+git index tracks, whose own text carries the `SYNCED FROM KITT` header,
 and that nothing in the payload routes to any more, is deleted — before any
 copy, and never when it has uncommitted edits. There is no record of past
 syncs to go wrong: the header is the record, which is why every non-seed
