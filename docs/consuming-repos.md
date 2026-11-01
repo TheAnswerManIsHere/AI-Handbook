@@ -181,7 +181,7 @@ round 4, catching a table that still described the routes this PR deleted.)
 `docs/ai-context/overlay-declarations.md` is deliberately **not** in that
 category, and the difference is not arbitrary: the roadmap is product truth
 whose organisation belongs to the product, while this file answers questions
-the *KITT* asks, in a shape every repo instantiates the same way, and both
+*KITT* asks, in a shape every repo instantiates the same way, and both
 overlays route to it by the name given here.
 
 Enforcing the rule mechanically — resolving every link in a payload file and
@@ -422,14 +422,14 @@ to worry about strange links."*)
    **`models.strongestClaude.effort` is the exception, and it is not a
    shortfall so much as a field with nothing to do here.** The Agent tool takes
    no effort argument at all — frontmatter is the only route — so a Claude
-   role's effort is whatever its synced definition declares, which is the
+   role's effort is whatever its synced definition declares, which is
    KITT's pinned value. Nothing reads this file's copy of it for a Claude
    dispatch. It is not inert everywhere: `strongestCodex.effort` IS passed per
    call, and `modelTier` validates both. The value here is KITT's pin at
    the time you were seeded (`scripts/check-agent-models.mjs` keeps the seed
    equal to it there), so it starts correct; editing it later changes nothing
    for Claude, and editing a synced definition instead is overwritten by the
-   next sync. If you ever genuinely need a different reasoning depth from the
+   next sync. If you ever genuinely need a different reasoning depth from
    KITT's, that is a change to what the sync writes, not a value you can set
    here.
 

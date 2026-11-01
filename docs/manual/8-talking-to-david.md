@@ -193,7 +193,7 @@ until checked. And a fix Claude says it made is one it has read back.
 
 Some strings trigger machinery when they appear on GitHub — most importantly
 the comment that requests a Codex review. They are never written live in pull
-request bodies, issue bodies or comments, not even inside a quotation; the
+request bodies, issue bodies or comments, not even inside a quotation;
 KITT uses one agreed, deliberately misspelled form of each so references
 stay searchable. A review request itself carries the trigger and nothing
 Claude wrote: Codex's connector sometimes reads trigger-plus-prose as a

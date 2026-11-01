@@ -154,7 +154,7 @@ the issue; the plan merges them: the forcing rule is one paragraph whose
 seeds ship beside the tool, and separating it would deliver a tool nobody is
 told to use.
 
-**Affected-surface inventory.** The patterns this plan touches in the
+**Affected-surface inventory.** The patterns this plan touches in
 KITT, each with its oracle run on 2026-10-14 against the tracked set:
 
 | Pattern | Oracle | Result |
