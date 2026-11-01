@@ -1692,12 +1692,6 @@ shows the true delta.
   dial needing no ask; `max` is session-only. For settings questions the **JSON
   schema is the source of truth, not the docs page**, which can be silently
   incomplete.
-- **Batch PR re-verification into one `pull_request_read`** with
-  `minimal_output: true` when full bodies aren't needed; prefer `list_*` over
-  `search_*` and paginate 5–10. Same cadence as ever — cheaper calls, not fewer
-  checks. When a David-prompted re-check finds nothing, I say so; when the check
-  was mine (a scheduled wake, a webhook echo), silence wins.
-
 - **Fable dispatches as a subagent whose instructions I do not write.** The
   role is an agent definition under `core/.claude/agents/`, loaded by the
   harness; I pass only the round's package or the unit's brief. **A `tools:` list there is a
