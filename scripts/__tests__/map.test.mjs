@@ -1,4 +1,4 @@
-// The map tool's integration suite: handbook-only, never shipped.
+// The map tool's integration suite: KITT-only, never shipped.
 //
 // It builds a synthetic consumer with REAL pinned dependencies (the compiler
 // and the type declarations of the libraries the supported-form matrix names),

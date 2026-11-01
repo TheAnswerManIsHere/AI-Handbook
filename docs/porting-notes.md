@@ -27,9 +27,9 @@ want the reasoning, not just the result.
 For each file: **would this still be true, unchanged, in a repo about a
 different product?**
 
-- Yes → handbook.
+- Yes → KITT.
 - No → stays with the product.
-- "Yes, but it cites the product as an example" → handbook, example intact.
+- "Yes, but it cites the product as an example" → KITT, example intact.
   Worked examples are how these documents teach. `known-failure-patterns.md`
   says so in its own header: each pattern is stated generally, then grounded
   in something that actually happened. Stripping the grounding to make the file
@@ -354,7 +354,7 @@ Make that **five** hand-corrections. The sentence "machinery — depends on
 nothing" was true again for one PR, and PR #7 falsified it the same day by
 adding `machinery-config`. A paragraph whose whole subject is having got this
 wrong four times got it wrong a fifth, which is the argument for
-[issue #6](https://github.com/TheAnswerManIsHere/AI-Handbook/issues/6) in a
+[issue #6](https://github.com/TheAnswerManIsHere/KITT/issues/6) in a
 sentence: this ordering is DERIVABLE from the manifest, and every version of it
 written by hand has been wrong. Until the check generates it, treat what
 follows as commentary and `node scripts/check-manifest.mjs` as the authority —

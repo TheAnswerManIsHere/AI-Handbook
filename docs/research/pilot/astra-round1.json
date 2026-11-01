@@ -6,7 +6,7 @@
     "The git-derived artifact design addresses the conflicting sources directly, including endpoint validation, renames, binary files, and record exclusions.",
     "The plan preserves the existing adjudicator role, verdicts, budgets, and David\u2019s authority while explicitly deferring later work.",
     "Compatibility based on the cited record\u2019s format avoids a backdating loophole.",
-    "The layout-aware resolver correctly accounts for the handbook\u2019s symlinked agent definition and absent consumer-path memory file.",
+    "The layout-aware resolver correctly accounts for KITT\u2019s symlinked agent definition and absent consumer-path memory file.",
     "Approved-plan provenance, a positive plan-review form, and reviewer-only finding bodies substantially improve the judge\u2019s evidence."
   ],
   "required_revisions": [
@@ -116,7 +116,7 @@
       "how_verified": "Inspected core/scripts/review-loop-record.mjs:274-279, 497, and 538, and core/scripts/review-counting.mjs:371-377 and 585-593."
     },
     {
-      "claim": "The handbook needs the proposed layout-aware resolution.",
+      "claim": "KITT needs the proposed layout-aware resolution.",
       "how_verified": "git ls-tree HEAD reports mode 120000 for .claude/agents/review-loop-adjudicator.md; git show returns its relative target. The threat-model file exists only under core/.agents/memory/."
     },
     {

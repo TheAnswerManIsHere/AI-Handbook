@@ -4,10 +4,10 @@ Workstream: #208. Consumer counterpart: Overhype.me #683 (adoption, blocked on t
 Research notes: `docs/research/agent-legible-codebase-research.md` (committed with this plan).
 
 ```plan-oracle
-# Scope of work — the agent-legible codebase tool (handbook payload)
+# Scope of work — the agent-legible codebase tool (KITT payload)
 
 Agreed with David 2026-10-14 in the Overhype.me session that planned the
-consumer side: he chose "handbook first" ("1", option 1 of the placement
+consumer side: he chose "KITT first" ("1", option 1 of the placement
 question) so that DojoOS and every later repository inherit the tool by sync
 rather than by extraction. The consumer-side plan (Overhype.me #683) was
 developed first through two Astra rounds and is the source of the decisions
@@ -73,7 +73,7 @@ When this increment is merged and synced:
 
 ## Must not change
 
-- The handbook ships no runtime dependency and keeps no `package.json` at its
+- KITT ships no runtime dependency and keeps no `package.json` at its
   root; the tool uses the compiler the indexed repository already depends on.
 - Nothing under `core/` names a product, a product path, a product package or
   a product subsystem except as a worked example in prose.
@@ -110,7 +110,7 @@ When this increment is merged and synced:
 - Size ratchet: cap plus frozen baselines, ratchets down only.
 - Forcing by instruction in this increment; mechanical enforcement is a later
   increment (Phase 3, swarm readiness).
-- **Handbook-owned tool, consumer-owned configuration** (David, 2026-10-14).
+- **KITT-owned tool, consumer-owned configuration** (David, 2026-10-14).
 - **The tool is an experiment with a pre-registered outcome** (David,
   2026-10-14): it ships with its eval and its kill switch, and the direction
   document states the hypothesis and the thresholds.
@@ -131,7 +131,7 @@ When this increment is merged and synced:
 
 ## Ceremony tier
 
-Internal tooling in the handbook: the two-review limit applies. What is
+Internal tooling in KITT: the two-review limit applies. What is
 downstream is every consumer's CI (a guard that wrongly blocks announces
 itself and is reverted by a sync) and every agent's navigation; nobody's
 money or data. The one line the PR body and merge report carry about
@@ -155,7 +155,7 @@ seeds ship beside the tool, and separating it would deliver a tool nobody is
 told to use.
 
 **Affected-surface inventory.** The patterns this plan touches in the
-handbook, each with its oracle run on 2026-10-14 against the tracked set:
+KITT, each with its oracle run on 2026-10-14 against the tracked set:
 
 | Pattern | Oracle | Result |
 |---|---|---|
@@ -177,7 +177,7 @@ because the marker's presence is itself the failure condition.
 
 **Specification test.** The plan specifies the tool's contract (answer
 semantics, supported forms, file-set definitions, freshness inputs, guard
-rules, the unadopted state), where its artifacts land, how the handbook
+rules, the unadopted state), where its artifacts land, how KITT
 tests it without a dependency, and the one fleet rule. It does not prescribe
 the script's internal structure, serialization details beyond determinism,
 or test assertions.
@@ -192,7 +192,7 @@ research says what helps and what does not: a structural graph queried
 narrowly at forced moments helps; overviews loaded into context do not and
 cost more; structure enforced by machines holds where prose rots. The first
 consumer planned the tool for itself (#683); David ruled that a tool true
-for every TypeScript repository belongs in the handbook, so that DojoOS and
+for every TypeScript repository belongs in KITT, so that DojoOS and
 later repositories inherit it by sync rather than by a second extraction.
 
 ## Direction
@@ -215,7 +215,7 @@ Verbatim: the oracle's *Must not change*.
 Verbatim: the oracle's *Settled decisions (pre-plan)*, plus these settled
 during planning:
 
-1. **Where the payload lands, and what stays handbook-only** (C4).
+1. **Where the payload lands, and what stays KITT-only** (C4).
    Payload: `core/scripts/map.mjs` → `scripts/map.mjs` (the tool, one file,
    banner-carrying); `core/scripts/__tests__/map.unit.test.mjs` (pure
    functions only — set-glob evaluation, SQL relation-name derivation, answer
@@ -233,7 +233,7 @@ during planning:
    `core/docs/ai-context/agent-legible-codebase-eval.md` and its harness
    `core/scripts/map-eval.mjs` (both banner-carrying, C7), and a fifth seed
    `core/.agents/map/eval-tasks.template.json` → `.agents/map/eval-tasks.json`
-   for the consumer's own question set. **Handbook-only**: the integration
+   for the consumer's own question set. **KITT-only**: the integration
    suite `scripts/__tests__/map.test.mjs`, which invokes the real
    `scripts/sync.mjs` and needs the pinned dependencies of decision 3, and
    the research notes under `docs/research/`. The fixture workspace is
@@ -248,12 +248,12 @@ during planning:
    location is not the ownership test. It refuses, with the install
    remediation, when that entry is absent or unusable — even though Node's
    ambient lookup would find another compiler, as Astra's probe from the
-   handbook root did (a 6.0.2 under a shared tools path). The resolved
+   KITT root did (a 6.0.2 under a shared tools path). The resolved
    version is recorded in the index and is a freshness input. Fixtures: the
    positive case exercises a linked entry pointing at the pinned test
    installation; the negative case an absent local entry with an ambient
    compiler available.
-3. **The handbook tests with a real, pinned compiler and stays
+3. **KITT tests with a real, pinned compiler and stays
    dependency-free** (C1). The `Test` job gains one step that installs a
    pinned TypeScript into a temporary directory outside the checkout and
    exports its path in an environment variable; the payload test builds its
@@ -264,7 +264,7 @@ during planning:
    so receiver and registration recognition is exercised against the
    libraries themselves, never handwritten lookalikes (C1). **The test
    refuses when the variable is unset** rather than skipping, printing the
-   one-line install command (the handbook's own rule: a control that cannot
+   one-line install command (KITT's own rule: a control that cannot
    evaluate must refuse). The install step runs before the root machinery
    suite (C4). No `package.json` is added at the root; the job comment that
    forbids an install step is amended to name this one exception and why.
@@ -307,7 +307,7 @@ during planning:
    resolve is retained as an unresolved site with its reason; `coverage`
    reports the candidates examined and their disposition, so a recognisable
    operation can never vanish into a confident empty answer. A fixture with
-   an unresolvable receiver proves it. Adding a form is a handbook PR with a
+   an unresolvable receiver proves it. Adding a form is a KITT PR with a
    fixture; a consumer never patches the extractor.
 7. **Programs and three file sets, defined in the consumer's `config.json`**
    (C5). The consumer declares its programs — each product `tsconfig.json`
@@ -368,7 +368,7 @@ during planning:
     headers are inert comments and may stay); remove from the fleet, **in
     this order** (C8): every consumer first removes its CI invocation and
     its consumer-owned configuration and rules file (the sync has no
-    authority over those), then the handbook deletes the payload files and
+    authority over those), then KITT deletes the payload files and
     the next sync takes back every synced copy by the banner mechanism,
     then the contract paragraph goes. Done out of order, an always-on check
     calls a script the sync has already removed. None touches data or
@@ -446,7 +446,7 @@ assessments; Astra's probe in this repository's environment of TypeScript
 ## Current Behavior
 
 The payload has no structural tooling: `sweep-scope.mjs` enumerates prose
-for readers, `check-docs-accuracy.mjs` resolves citations. The handbook's
+for readers, `check-docs-accuracy.mjs` resolves citations. KITT's
 scripts import only Node built-ins and sibling modules; the `Test` job
 installs nothing by a deliberate, commented decision. Two seeds exist and
 the sync test asserts exactly two. `agents-core.md` carries no instruction
@@ -457,7 +457,7 @@ Consumers navigate by grep and by hand-written maps.
 
 | Concept | Source of truth after this plan | Second source avoided |
 |---|---|---|
-| The tool and its contract | `core/scripts/map.mjs` and `core/docs/ai-context/agent-legible-codebase.md` in the handbook; consumers hold synced copies they never edit | a consumer-owned fork of the script |
+| The tool and its contract | `core/scripts/map.mjs` and `core/docs/ai-context/agent-legible-codebase.md` in KITT; consumers hold synced copies they never edit | a consumer-owned fork of the script |
 | A consumer's structure | its own compiler program, captured in its `.agents/map/index.json` | a hand-written architecture map's file lists |
 | A consumer's file sets, vocabulary, manifest, baseline | its four `.agents/map/*.json`, seeded once, consumer-owned | the tool never embeds a consumer's values |
 | The forcing rule | `agents-core.md`, one paragraph | a restatement in each consumer's AGENTS.md or in a synced skill |
@@ -481,7 +481,7 @@ boundaries (every edge allowed or exempted; every exemption live), sizes (no
 growth past the allowance), and adoption (no seed still unadopted). Each
 failure carries its remediation.
 
-**The integration suite** (handbook-only, decision 1) builds a synthetic
+**The integration suite** (KITT-only, decision 1) builds a synthetic
 consumer in a temporary workspace with pinned real dependencies (two packages
 with a workspace import and differing compiler options, a path alias, a
 generated barrel re-exporting a handwritten constant, an Express app with a
@@ -518,14 +518,14 @@ None.
 The tool reads a working tree and writes only under `.agents/map/`; no
 secrets, network or database. It loads code from the indexed repository's
 `node_modules` (the compiler), which every build in that repository already
-does. The handbook's threat model for operator-typed values applies to its
+does. KITT's threat model for operator-typed values applies to its
 arguments. The index records paths, symbol names and route paths, public in
 every current consumer; a private consumer's index is as private as its
 repository.
 
 ## Testing Plan
 
-`scripts/__tests__/map.test.mjs` (handbook-only) under `node --test`,
+`scripts/__tests__/map.test.mjs` (KITT-only) under `node --test`,
 refusing without the pinned install (decision 3), covering: resolution
 through a workspace package, a path alias and a generated barrel; file versus
 symbol dependents; every route form in the matrix with registration site and
@@ -563,12 +563,12 @@ merges first; Overhype.me syncs, then runs its adoption increment.
 
 ## Risks and Mitigations
 
-- **A dependency enters the handbook by the side door.** Mitigation:
+- **A dependency enters KITT by the side door.** Mitigation:
   decision 3's temporary install outside the checkout, no root
   `package.json`, and the amended job comment naming the exception.
 - **Supported forms drift from the consumers' real code.** Mitigation: the
   matrix is a contract with fixtures; a consumer that meets an unsupported
-  form sees it named in `coverage` and files a handbook PR; #683's live
+  form sees it named in `coverage` and files a KITT PR; #683's live
   journeys are the first measurement.
 - **A sync imposes an obligation a repository cannot meet.** Mitigation:
   decision 9's unadopted state and decision 10's conditioning.
@@ -621,7 +621,7 @@ None.
       `core/scripts/map-eval.mjs` builds an independent answer key on the
       synthetic consumer that includes a caller behind a barrel with no
       diagnostic and a raw-SQL site, delivered by the sync and run without
-      the handbook checkout.
+      the KITT checkout.
 - [ ] The suite shows a failing guard released by `enabled: false`; the
       three-step retirement order is documented in the direction document
       and `consuming-repos.md`.

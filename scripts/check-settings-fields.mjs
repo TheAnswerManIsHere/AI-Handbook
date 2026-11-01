@@ -36,7 +36,7 @@
  * WHAT IS DELIBERATELY NOT ENCODED HERE: Claude Code's full accepted field set.
  * It runs to about a hundred keys and drifts with every release, so a copy
  * would rot into a second wrong answer. This checks against the much smaller
- * set the handbook actually uses, and fails on anything else.
+ * set KITT actually uses, and fails on anything else.
  *
  * That means a LEGITIMATELY NEW field fails this check. That is the intended
  * trade and not an oversight: the failure is loud, immediate, at authoring
@@ -61,7 +61,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
- * Top-level keys the handbook's settings files are allowed to use.
+ * Top-level keys KITT's settings files are allowed to use.
  *
  * Every entry is a real Claude Code setting AND one this repo or its template
  * actually needs. Adding a key here is a deliberate act: confirm Claude Code

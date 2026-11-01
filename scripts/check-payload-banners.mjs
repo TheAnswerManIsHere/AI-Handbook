@@ -4,14 +4,14 @@
  * own text.
  *
  * ONE RULE: every tracked file under `core/` that is not a seed carries the
- * `SYNCED FROM AI-Handbook` header within the window `sync.mjs` reads.
+ * `SYNCED FROM KITT` header within the window `sync.mjs` reads.
  *
  * WHY THIS EXISTS. The sync deletes a consumer file when that file carries the
  * header and the payload no longer routes anything to its path (#55). It keeps
  * no ledger of what it delivered -- the ledger was the root of all four ways
  * the first removing sync deleted the wrong thing -- so the header IS the
  * record. A payload file without one is a file the sync can deliver and never
- * take back: remove or rename it in the handbook and every consumer keeps the
+ * take back: remove or rename it in KITT and every consumer keeps the
  * old copy, loaded and obeyed. This check makes that impossible to merge
  * rather than something to remember.
  *
@@ -21,15 +21,17 @@
  * cannot carry a header at all -- Claude Code
  * refuses a settings file over any unrecognised key.
  *
- * The predicate and the reader are `sync.mjs`'s own (`carriesBanner`,
- * `headOf`), so the file this check accepts is exactly the file the sync will
- * recognise.
+ * The predicate and the reader are `sync.mjs`'s own (`carriesCurrentBanner`,
+ * `headOf`), so the file this check accepts is a file the sync will
+ * recognise. The check is the stricter of the two: it requires the current
+ * name, `SYNCED FROM KITT`, while the sync also recognises the name KITT had
+ * until 2026-11-01, `AI-Handbook`, on copies already delivered.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { carriesBanner, headOf, routeOf, BANNER_WINDOW } from "./sync.mjs";
+import { carriesCurrentBanner, headOf, routeOf, BANNER_WINDOW } from "./sync.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -44,7 +46,7 @@ export function missingBanners(repoRoot = REPO_ROOT) {
   }
   return tracked.filter((rel) => {
     if (routeOf(rel.slice("core/".length)).seed) return false;
-    return !carriesBanner(headOf(join(repoRoot, rel)));
+    return !carriesCurrentBanner(headOf(join(repoRoot, rel)));
   });
 }
 
@@ -61,10 +63,10 @@ function main() {
       "copy carries the header, so a file without one can be delivered and never taken back.\n\n" +
       `Add the header as a whole comment line within the first ${BANNER_WINDOW} lines, in the\n` +
       "file's own comment syntax -- after a shebang or front matter is fine:\n" +
-      "  <!-- SYNCED FROM AI-Handbook — do not edit in a consumer repo. … -->   (Markdown, HTML)\n" +
-      "  // SYNCED FROM AI-Handbook — do not edit in a consumer repo. …        (JS, TS, DOT)\n" +
-      "  # SYNCED FROM AI-Handbook — do not edit in a consumer repo. …         (shell, Python, .gitignore)\n" +
-      '  "$comment": "SYNCED FROM AI-Handbook — do not edit in a consumer repo. …",  (JSON)\n',
+      "  <!-- SYNCED FROM KITT — do not edit in a consumer repo. … -->   (Markdown, HTML)\n" +
+      "  // SYNCED FROM KITT — do not edit in a consumer repo. …        (JS, TS, DOT)\n" +
+      "  # SYNCED FROM KITT — do not edit in a consumer repo. …         (shell, Python, .gitignore)\n" +
+      '  "$comment": "SYNCED FROM KITT — do not edit in a consumer repo. …",  (JSON)\n',
   );
   process.exitCode = 1;
 }

@@ -1,4 +1,4 @@
-# Deferred work — AI-Handbook
+# Deferred work — KITT
 
 Last maintenance pass: 2026-10-12
 
@@ -14,5 +14,5 @@ Each entry carries four fields: **What** was parked, **Why** it was parked,
 
 ## Entries
 
-None. The handbook has no dependencies of its own to hold back, and nothing
+None. KITT has no dependencies of its own to hold back, and nothing
 was parked at the 2026-10-12 pass.

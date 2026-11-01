@@ -22,7 +22,7 @@ let roots = 0;
 const io = (root, models = PIN) => ({ root: `${root}#${(roots += 1)}`, read: () => JSON.stringify({ repo: "Owner/Name", models }) });
 
 const SEED = {
-  _README: "Seeded once by the AI-Handbook sync, then owned by this repository.",
+  _README: "Seeded once by the KITT sync, then owned by this repository.",
   repo: "OWNER/REPO",
   models: { strongestClaude: { id: "claude-fable-5-1", effort: "xhigh" }, strongestCodex: { id: "gpt-6-astra", effort: "xhigh" } },
   _models: "Explanatory prose that must survive a rewrite.",

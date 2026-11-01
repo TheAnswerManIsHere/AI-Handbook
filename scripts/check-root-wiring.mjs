@@ -4,8 +4,8 @@
  *
  * THE PROBLEM THIS CLOSES. `core/.claude/skills/` is payload: files written to
  * be vendored into a consumer, where they land at `.claude/skills/` and Claude
- * Code loads them. In the handbook they sit one directory too deep, so a
- * session working ON the handbook had the core rules (CLAUDE.md imports them)
+ * Code loads them. In KITT they sit one directory too deep, so a
+ * session working ON KITT had the core rules (CLAUDE.md imports them)
  * but none of the skills those rules invoke. The fix is a per-entry symlink
  * from the root into the payload -- ONE copy, which is what the contract
  * requires: "duplicating them here to get slash commands would create exactly
@@ -21,9 +21,9 @@
  *
  * WHY A CHECK AND NOT A CONVENTION. Adding a skill to the payload is only half
  * the change. The SYNC half is now impossible to get wrong -- `core/**` ships
- * whole, so nothing can fall out of a routing table -- but the handbook's own
+ * whole, so nothing can fall out of a routing table -- but KITT's own
  * wiring is still per-entry symlinks, and those can be forgotten. Without this,
- * a new skill is invisible in the handbook and nothing
+ * a new skill is invisible in KITT and nothing
  * says so. Both directions fail: an unlinked payload entry, and a root link
  * that dangles or points outside the payload.
  *
