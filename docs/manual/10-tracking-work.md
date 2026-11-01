@@ -88,7 +88,11 @@ brand-new session with no context — pick the work up cold. It records the
 stage and holder spelled out, the last movement, what the work is for, where
 it actually stands, what is blocking and what David needs to do (restated from
 the real thread, not guessed from the stage name), the relevant artifacts, and
-how to resume.
+how to resume. Since 2026-10-21 it also carries the decisions Claude took on
+its own recommendation and one running *Spend so far* line, the build's total
+that the build report reads. Below the block, the issue collects a one-line
+comment for every FYI and a comment for every build report, so one place per
+feature holds the record without the chat.
 
 The rule that keeps it honest: **whoever changes an issue's stage or holder
 updates the block in the same edit.** A label with a stale story behind it is
@@ -142,11 +146,12 @@ and the skill starting the work searches the backlog first, so it promotes
 the existing issue rather than opening a duplicate.
 
 A follow-up filed from a review round, recording an imperfection accepted
-rather than fixed, carries the **`gap`** label and no queue label. Until David
-has triaged it, it is invisible to `/next` by design: a recorded gap is
+rather than fixed, carries the **`gap`** label and no queue label. Until it
+has been triaged, it is invisible to `/next` by design: a recorded gap is
 something to revisit, not a promise of work. The maintenance pass asks
-[now, next or never](./glossary.md#now-next-never) of every open gap, and its
-answer is what gives the gap a queue label or closes it.
+[now, next or never](./glossary.md#now-next-never) of every open gap, on
+Claude's recommendation and reported, and its answer is what gives the gap a
+queue label or closes it.
 
 ### `Blocked by:` and the descent stack
 
@@ -192,15 +197,17 @@ Three skills read this record, each answering a different question:
 
 | Skill | Question | Writes? |
 | --- | --- | --- |
-| [`/status`](../../core/.claude/skills/status/SKILL.md) | What is *this session* working on, where does it stand, how does it fit? | Offers to correct stale tracking; writes only after David confirms |
+| [`/status`](../../core/.claude/skills/status/SKILL.md) | Where does *this session's* work stand, and what has happened since David last looked? | Repairs stale tracking silently on the way, and says so in one line |
 | [`/status-all`](../../core/.claude/skills/status-all/SKILL.md) | Across every open workstream in this repository, what needs David, and what has stalled? | Never |
 | [`/next`](../../core/.claude/skills/next/SKILL.md) | What is the single best thing to pick up now, and why? | Never |
 
-`/status` reports one of five states — working, waiting on you, watching,
-stalled, done — derived from the labels plus live GitHub. Those states are a
-presentation vocabulary only: they are never stored as labels or board
-fields. And "watching" is never claimed from memory; it requires a live look
-at the pull request in that same invocation.
+`/status` is a **briefing**, written the way a direct report updates a
+manager (2026-10-23): a headline, the plan and where the build is in it,
+progress, what is happening right now, everything David would have stopped
+at since his last message, every open ask reproduced in full, what comes
+next, and the next point the build will stop for him. It collects from the
+chat, the issue record, the approved plan and live GitHub, and nothing in it
+is claimed from memory that a live look could check.
 
 `/status-all` is the cold-open board, grouped into what needs David, what has
 stalled and what is in progress. It is best run from a fresh, cheap session,
@@ -210,7 +217,9 @@ because it needs no session memory at all — everything comes from GitHub.
 **closest to done first**, lets priority flow down `Blocked by:` chains, picks
 the next phase from a Phases checklist, names which candidates are safe to run
 in parallel sessions, and — when the queue is empty — proposes what to build.
-It recommends; it never starts the work.
+It also reads every approved plan under `docs/plans/` that is still being
+built, so a build's next step is named even where no issue lists it. It
+recommends; it never starts the work.
 
 All three answer for **the repository the session is working in, never the
 [fleet](./glossary.md#fleet)**. The two repository-wide views, `/status-all`
@@ -227,14 +236,16 @@ The weekly maintenance pass
 David-invoked and covers dependency updates, production errors, CI health, a
 "what shipped" digest written for a product manager, the batched
 documentation harvest, process-health numbers counted fresh from GitHub,
-stale handoffs, branch hygiene, and one proposed rule deletion or conversion
-per pass. One step exists specifically to keep `/next` trustworthy:
+stale handoffs, branch hygiene, and one rule deleted or converted per pass. One step exists specifically to keep `/next` trustworthy:
 **backlog and dependency hygiene**. It finds issues nobody labelled, triages
 open gaps, re-checks queue priorities against the roadmap, removes stale
 `Blocked by:` markers, flags blocking cycles and deep chains, and checks each
 Phases checklist against what actually merged. It delivers all of that as a
-numbered proposed diff; David approves, amends or declines each line, and only
-then are the approved ones applied.
+numbered diff, applied on Claude's recommendation in the same session and
+reported line by line, since every line is a label, a body or a closure that a
+corrective edit undoes. A line that is a product priority call — which gap is
+wanted at all — stays proposed, since product priority is David's. Until
+2026-10-21 every line waited for his approval.
 
 **The pass reads an issue's text only when the repository's owner wrote it.**
 Anyone can open an issue in a public repository, and the session running
@@ -267,6 +278,14 @@ for a merge to register. The rules for that are short:
 - **Check-ins are scheduled as one-shot reminders only.** The recurring
   scheduling tools stall an autonomous session at a permission prompt, so
   re-arming means scheduling a fresh one-shot.
+- **A turn ends only for a reason, and its footer names it** (chapter 8). A
+  hand-back with startable work left is allowed only once that work's resume
+  is armed and named.
+- **A requested Codex review gets its own check-in at 15 minutes**, sized to
+  the machine: measured passes take a median of 1.5 minutes. A stalled pass
+  gets one bare re-request, a second stall on the same head is an outage, and
+  these wakes — at most two per head — are their own bound rather than
+  counting against the caps above.
 
 ## Why it works this way
 
@@ -300,11 +319,11 @@ for a merge to register. The rules for that are short:
   delivered. Ranking by distance to done, with priority flowing down blocker
   chains, is what keeps a three-levels-deep rebuild correctly ahead of a new
   feature: finishing it unwinds the stack back to an almost-done test.
-- **Proposed diffs, never unattended writes, for corrections.** `/status` and
-  the maintenance pass both propose and wait for David's confirmation. An
-  unattended version was designed and rejected: it would have needed conflict
-  detection and write-target checks the GitHub API cannot cleanly provide, for
-  the sake of a status report.
+- **Corrections are written and reported, not proposed.** `/status` and the
+  maintenance pass used to propose their tracking fixes and wait for David's
+  confirmation. Since 2026-10-21 both apply them and say so, because every
+  such fix is a label, a body or a closure that a corrective edit undoes, and
+  a confirmation he gives nine times in ten is a round trip for nothing.
 - **Never poll from the shell, because a silent failure looks like
   patience.** The handbook's recurring lesson is that a control which cannot
   evaluate must refuse, not report success; a poll loop that returns nothing
@@ -327,9 +346,9 @@ for a merge to register. The rules for that are short:
   the labels are authoritative.
 - **The board still shows 🛑 on the merge column** until David renames that
   option, as described above.
-- **The reporting skills are read-only or confirm-first.** None of them
-  starts work or fixes tracking on its own; `/next` in particular only
-  recommends.
+- **The reporting skills never start work.** `/status` repairs tracking as a
+  side effect and says so; `/status-all` and `/next` write nothing, and `/next`
+  in particular only recommends.
 - **Process-health numbers are counted, not stored.** The maintenance pass
   recomputes them from GitHub each time; a planning loop, which runs in
   session and leaves no GitHub record, is counted from what its harvest
@@ -354,4 +373,4 @@ for a merge to register. The rules for that are short:
 which model does each job, what is handed to a [subagent](./glossary.md#subagent), and what a review
 round costs.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

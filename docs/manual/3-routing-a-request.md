@@ -7,7 +7,8 @@
 > declared before any code moves, so David can veto it. The guiding principle
 > is that **[ceremony](./glossary.md#ceremony) is sized to what could go wrong
 > with the thing being built, not to how the request was phrased**, and that
-> when in doubt Claude asks instead of reaching for the heavier path.
+> when in doubt Claude takes the lighter path and says so, rather than
+> reaching for the heavier one.
 >
 > Deep rules: [`working-modes.md`](../../core/docs/ai-context/working-modes.md)
 > (the shared contract every agent reads),
@@ -78,7 +79,9 @@ For everything else, Claude classifies the request by its shape:
 - **Feature-shaped** — "let's build / add / change X", any behaviour change,
   and any database schema change. Feature mode is the default.
 - **Genuinely ambiguous** — "fix the ranking, it feels wrong" could be a
-  defect or a product change. Claude asks **one numbered question**.
+  defect or a product change. Whether *behaviour* should change is David's,
+  so that one question is still asked; otherwise Claude takes the lighter
+  route on its recommendation and the one-line announcement is his veto.
 
 David can force the light path by typing `/bugfix`. Even then it is a
 hypothesis, not a verdict: if diagnosis shows the "bug" is really a
@@ -121,9 +124,11 @@ chapter does not restate them. What matters is the shape: the phrase "let's
 build" triggers feature mode, and the **artifact** then decides how much of
 feature mode applies.
 
-**When the class is unclear, Claude asks one numbered question and does not
-default upward.** The contract is explicit that "the heavier path to be safe"
-is not safe: over-ceremony is the failure that has actually happened.
+**When the class is unclear, Claude takes the lighter one, says so, and does
+not default upward.** Until 2026-10-21 this was one numbered question to
+David; now the announcement is his veto. The contract is explicit that "the
+heavier path to be safe" is not safe: over-ceremony is the failure that has
+actually happened.
 
 ### Bugfix mode and its tiers
 
@@ -175,6 +180,12 @@ and every production bar: no requested Codex review, no UAT script, no
 hardening. What it keeps is Claude's own proof that a version works: the
 machine verification lanes, scaled down to a prototype, run before David is
 asked to try it, and a lane that fails is repaired before he sees anything.
+A check that would start a paid AI run stays within David's budget — $5 a
+run, $25 a week across every product — and asks him only above it. Codex's
+automatic pass still runs on a prototype's pull request, and is read for one
+thing: a defect that stops the built feature running and producing reasonable
+output. That is the one fix a prototype owes, whoever finds it; edge cases,
+security and load are left for hardening unless they do (David, 2026-10-20).
 Later versions are built straight from David's feedback, with no plan, unless
 he asks for the planning loop again in words.
 
@@ -202,7 +213,10 @@ same "how much process" decision.
   David can declare it**, in words, for one specific change, and the pull
   request quotes him. No review is requested; the change merges when CI is
   green. Codex's automatic first pass still runs and is read for one thing
-  only: a top-severity [finding](./glossary.md#finding) holds the merge and goes to David.
+  only, a top-severity [finding](./glossary.md#finding), which Claude judges
+  and reports — fixed in a named commit, or merged with the reason in the
+  merge report. On the one-line pull request that records a feature's phase,
+  the pass is read for nothing at all.
 - **Documentation** — for changes whose
   substance is prose: contracts, skills, memory notes, sweeps, and chapters
   like this one. Instead of a Codex review loop, Astra and a
@@ -229,9 +243,7 @@ the results. A clean automatic Codex pass is the whole ceremony.
 downstream of *this* change. Machinery that governs approvals, publication,
 credentials or destructive operations is weighed by its consequence and its
 recoverability, whatever folder it lives in. If its effect could not be
-trivially undone, it falls outside the
-[two-review limit](./glossary.md#two-review-limit) (chapter 6) and gets the
-ordinary loop.
+trivially undone, it earns the tier its consequence names (chapter 6).
 
 **In this repository**, almost everything is process, so almost everything is
 internal tier — but the handbook's own [`CLAUDE.md`](../../CLAUDE.md) singles
@@ -247,9 +259,10 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
   loop and reached six [review rounds](./glossary.md#review-round) and a 660-line plan before anyone asked
   whether that ceremony fitted the thing being built. Sizing ceremony to the
   artifact is the correction.
-- **Asking beats defaulting upward.** A one-question confirmation is cheap.
-  Defaulting to the heavy path "to be safe" sounds prudent, but heavy review
-  on a low-risk artifact generates new surface to review, round after round.
+- **Lighter, announced, beats defaulting upward.** An announcement David can
+  veto costs him nothing unless he disagrees. Defaulting to the heavy path "to
+  be safe" sounds prudent, but heavy review on a low-risk artifact generates
+  new surface to review, round after round.
 - **The tier waits for the diagnosis.** The earlier design picked the bugfix
   ceremony from the symptom. "Simple-seeming" describes a bug report, never a
   blast radius; only the cause tells you what the fix will touch.
@@ -287,9 +300,11 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
 - **The phase registry must be current.** Routing reads it first. A missing
   entry fails safe (production phase), but a stale entry pointing the wrong
   way would route work down the lighter path.
-- **The Documentation pass waits for Codex's automatic review to finish**,
-  with no time limit. If Codex is down, the pull request waits and the outage
-  goes to David; it is never assessed with Codex's input missing.
+- **The Documentation pass waits for Codex's automatic review to finish.**
+  A pass still running 15 minutes after its request gets one bare
+  re-request; a second stall on the same head is an outage, which stops the
+  pull request and goes to David. It is never assessed with Codex's input
+  missing.
 - **The internal-tier question is asked per change**, so two changes to the
   same file can earn different treatment. That is intended, and it is also a
   judgement no script makes.
@@ -320,4 +335,4 @@ denied is weighed on what it does; a fix to a message or to formatting is not.
 **Next:** chapter 4 — [`4-planning.md`](./4-planning.md), how a feature's
 intent is agreed and turned into a plan David approves.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*

@@ -65,10 +65,16 @@ Two message shapes stand out from everything else in the chat, each with a
 fixed, recognisable form defined in the core.
 
 **The [blocking ask](./glossary.md#blocking-ask)** — the 🛑 banner — is for
-anything that holds work up until David answers. It says what he must
-supply (information Claude cannot get, a decision reserved for him, or an
-action only he can take), offers numbered options with their consequences
-where there is a choice, and always ends with Claude's recommendation and why.
+anything that holds work up until David answers, and since 2026-10-21 only
+four things qualify: something on the irreversible list, a plan before it is
+enacted, information only he holds, and an action only he can take (a
+sign-in code, a model switch). Everything else Claude decides on its
+recommendation and reports. The banner says what he must supply, offers
+numbered options with their consequences where there is a choice, and always
+ends with Claude's recommendation and why. Its opening, `🛑 **NEED YOU** —`,
+and the later reminder line, `Still waiting on you:`, are read by a machine
+as well as by David (below), so each is written exactly, at the start of its
+own line.
 The 🛑 glyph means "David" everywhere in the handbook — the same glyph marks
 the stages only he can move past on the workstream board (chapter 10).
 
@@ -77,9 +83,13 @@ want to know that does not need an answer: a security or data-integrity
 concern found along the way, a problem bigger than the one pull request, a
 surprise about scope, a gap in the process, anything that contradicts stated
 product intent — and every reversible choice Claude went ahead with on its own
-recommendation (chapter 2), with the commit that would undo it. Work
+recommendation (chapter 2), with how to undo it. Its summary and the first
+words of each point are bold, so a decision can be found by scrolling. Work
 continues — and his phone chimes once the moment it is written (interaction
-preference 7, below). Routine correctness findings do not clear the bar.
+preference 7, below). Each FYI is also posted, in one line, as a comment on
+the workstream issue in the same turn, because the chat compacts and a fresh
+session never saw it; on a workstream that must stay private it stays in chat
+only. Routine correctness findings do not clear the bar.
 
 ### Notifications, and why the ask is the last thing written
 
@@ -117,20 +127,59 @@ leaves the choices to the banner. A later turn that leaves the ask unchanged —
 a webhook, a wake, other work — notifies again but does not reprint it: if
 that turn has anything else to say, its last line is one line pointing back
 to the open ask. The full banner returns only when the ask itself changes, and
-then it replaces the old one.
+then it replaces the old one. The one exception is `/status`, which
+reproduces every open ask in full, because saving David the scroll is its
+purpose (chapter 10).
 
-### The spend line
+### Naming a pull request or an issue
 
-**Every turn that hands back to David ends with what it spent** — wall-clock
-time, the tokens the harness reported, and a dollar figure — because he means
-to set a per-turn cap from these once he has a feel for them. Time and
-tokens are read, never estimated: time from the clock at the turn's first and
-last tool call, tokens from the harness's own count and each subagent's
-reported usage. A figure with no reading says `unable to verify`. **The dollar
-figure is an estimate**: those tokens priced at the published list prices in
+**A pull request or issue is named by its number and its title, on every
+mention** (interaction preference 14, 2026-10-23). David's words: *"Quoting PR
+or Issue numbers at me is useless. I have no idea what any of them are."* The
+form is `PR #764 — Launch Phase 4, Removal 10: delete the leaderboard pills`,
+in everything he reads, and on every mention rather than the first, since his
+reading is screens apart. A title Claude does not hold is fetched before it is
+written. Two things keep their bare form: the contract's own history
+citations, written for agents, and markers other tools read by shape, such as
+`Workstream: #N`.
+
+### The footer: done, next, what's needed, what it cost
+
+**Every turn that hands back to David ends with a fixed footer** (2026-10-21:
+*"here's what we planned, here's the unit of work that I've completed,
+here's what we should do next"*). Four bold fields:
+
+- **Done:** the unit of work this turn advanced or finished.
+- **Next:** what follows, in one of four forms — `running —` something
+  already under way that a named event will wake Claude for; `after <event> —`
+  something armed to start when that event arrives; `stopped —` what Claude
+  was waiting for, when nothing will bring it back but David or the next
+  event; or `nothing —` the plan is done.
+- **Needs you:** nothing, or the one thing.
+- **Spend:** what the turn cost.
+
+The `Next:` form exists because **a turn ends only for a reason**. Once Claude
+writes a message with no tool call, it stops, and nothing of its own carries
+on — so a last line announcing its own next step in the future tense was the
+stop itself, dressed as progress. That happened on 2026-10-21: a turn ended
+on *"Starting #730 now"* and the work sat until David asked why. A turn may
+now hand back only when the work is done, when everything startable waits on
+an event that will wake Claude, for a blocking ask, after a report the
+contract makes a turn's last text (with its continuation armed first), or
+when a check-in hits its cap. The footer's fields are also read by the alert
+hook, which decides from them how hard to ring David's phone.
+
+**The spend** is wall-clock time, the tokens the harness reported, and a
+dollar figure, because he means to set a per-turn cap from these once he has
+a feel for them. Time and tokens are read, never estimated: time from the
+clock at the turn's first and last tool call, tokens from the harness's own
+count and each subagent's reported usage. A figure with no reading says
+`unable to verify`. **The dollar figure is an estimate**: those tokens priced
+at the published list prices in
 [`token-pricing.md`](../../core/docs/ai-context/token-pricing.md), blended by
-a rule that table names as an assumption (chapter 11). The line sits last, except
-that an open ask stays below it.
+a rule that table names as an assumption (chapter 11). The workstream issue
+keeps one running *Spend so far* line, so the build report can give a build's
+total. The footer sits last, except that an open ask stays below it.
 
 One deliberate carve-out: during a live [UAT](./glossary.md#uat) walkthrough
 nearly every turn ends with a question by construction, and he is at the
@@ -153,10 +202,12 @@ Chapter 4 covers what happens once the conversation becomes a plan.
 
 The shared rules divide decisions three ways. Small engineering choices —
 naming, structure, test approach — Claude makes silently, with the review
-loop as backstop. Anything where a wrong choice could meaningfully damage the
-product is asked by default, and anything about what the product *should do*
-is always asked. What the repository can answer is never asked: Claude finds
-out.
+loop as backstop. Since 2026-10-21 everything else is **decided by default,
+and reported**: a choice Claude would have brought David with a
+recommendation is taken on that recommendation, unless it is on the
+irreversible list. Anything about what the product *should do* that no
+settled decision covers is still asked. What the repository can answer is
+never asked: Claude finds out.
 
 **Every question carries a recommendation.** David's stated view is an input,
 never the answer. Claude forms its own assessment first — what it thinks is
@@ -250,8 +301,9 @@ product, the design or correctness are weighed on the merits.
 - **Paraphrasing between tool calls is a property of the app, not something
   the handbook can fix.** The rule works around it by placement; anything
   written mid-turn should be assumed unread.
-- **Delivery surfaces are chat, deliberately.** Plans (chapter 4) and round
-  translations (chapter 6) arrive as chat messages, not as pages or links;
+- **Delivery surfaces are chat, deliberately.** Plans (chapter 4) and build
+  reports (chapter 6) arrive as chat messages, not as pages or links — a
+  build report also as a comment on the workstream issue;
   rebuilding a page for either is ruled out in the core.
 
 ## Going deeper
@@ -269,4 +321,4 @@ product, the design or correctness are weighed on the merits.
 **Next:** chapter 9 — [`9-memory-and-documentation.md`](./9-memory-and-documentation.md),
 how what was learned gets written down so the next session starts from it.
 
-*Verified against `118e076` (2026-10-03).*
+*Verified against `3692e9d` (2026-11-01).*
