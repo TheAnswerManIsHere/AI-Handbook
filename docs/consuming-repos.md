@@ -326,9 +326,11 @@ to worry about strange links."*)
    hooks and the guard are both gone. The one hook block the template carries
    now, the needs-you alert, needs no merge when the file has no `hooks` key:
    the sync adds an absent key to an existing file (below). A file that
-   already carries `hooks` is left alone, so an alert entry added later —
-   `PostToolUse`, 2026-10-30 (#264) — is merged by hand from the template,
-   named by the sync's `NOTE` (step 4). Otherwise an existing settings file
+   already carries `hooks` is left alone, so an alert entry added later is
+   merged by hand from the template, named by the sync's `NOTE` (step 4),
+   and one the template has dropped is removed by hand — the `PostToolUse`
+   entry, added 2026-10-30 (#264) and dropped 2026-11-02, which the sync
+   does not report. Otherwise an existing settings file
    is simply reviewed against the table.
 
    | Field | Decision |
@@ -339,15 +341,15 @@ to worry about strange links."*)
    | `permissions.allow` | The remote server's name varies by how the session was started, and a missing spelling surfaces as a permission prompt that stalls an autonomous session. The template seeds the **two** stable spellings (`mcp__Claude_Code_Remote__` and `mcp__claude-code-remote__`); a third, the per-environment server id, differs per environment and is the one a repo adds for itself. |
 
    **The `hooks` block is the needs-you alert, and it is not adapted.** It runs
-   `scripts/needs-you-alert.mjs` at the end of every turn (`Stop`), after
-   every tool call (`PostToolUse`), when the session parks on a permission
-   prompt (`Notification`) and when a turn dies on an error (`StopFailure`),
-   and it sends David a Pushover alert tiered to what happened: a 🛑 ask, a
-   hand-back that leaves the session idle until he acts, a prompt or an
-   error repeats until he acknowledges it, for up to three hours; a build
-   report rings once, loudly; a hand-back whose work continues and every
-   👀 FYI ring once, quietly (David, 2026-10-30, #259 and #264; the rule is
-   `claude-core.md`, interaction preferences 6 and 7). The harness's own
+   `scripts/needs-you-alert.mjs` at the end of every turn (`Stop`), when the
+   session parks on a permission prompt (`Notification`) and when a turn
+   dies on an error (`StopFailure`), and it sends David one Pushover alert,
+   never repeated, only when the session is waiting on him: a 🛑 ask, a
+   hand-back whose footer says `stopped`, `nothing` or names something he
+   must supply, a prompt, or an error stop. Nothing else rings — not a
+   build report, not an FYI, not a hand-back whose work continues (David,
+   2026-10-30, #259; narrowed 2026-11-02; the rule is `claude-core.md`,
+   interaction preference 6). The harness's own
    push withholds itself when it judges him active, which is why the hook
    exists. It reads
    `PUSHOVER_USER_KEY` and `PUSHOVER_APP_TOKEN` from the cloud environment's
@@ -357,10 +359,10 @@ to worry about strange links."*)
    the harness discards ("Fire-and-forget — hook output and exit codes are
    ignored"), nor on `Notification`, which discards it too. Missing keys
    therefore surface on the first hand-back in that environment, not before.
-   **A repo that already carries a `hooks` key gets the `PostToolUse` entry
-   by hand**: the sync never edits a present `hooks` key (below), so its
-   `NOTE` names the missing entry and whoever syncs merges it from the
-   template.
+   **A repo that already carries a `hooks` key is reconciled by hand**: the
+   sync never edits a present `hooks` key (below), so its `NOTE` names a
+   missing entry for whoever syncs to merge from the template, and a
+   `PostToolUse` entry left from 2026-10-30 is deleted by hand.
    **It is the one settings key the sync tops up**: a file with no `hooks` key
    receives this block on the next sync, and one carrying a `hooks` key of its
    own — `{}` is enough — is left alone, which is how a repo opts out.
@@ -598,4 +600,4 @@ always-on check would call a script the sync had already removed.
   The needs-you alert's `hooks` block is the one key that is, and the sync
   delivers it to a file with no `hooks` key itself (`TOPPED_UP_SEEDS` in
   `scripts/sync.mjs`); a file that already has one merges a new alert entry
-  by hand, from the `NOTE` the sync prints (step 4, `PostToolUse`).
+  by hand, from the `NOTE` the sync prints (step 4).

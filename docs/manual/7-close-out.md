@@ -88,7 +88,8 @@ Once the bar is met, Claude runs the same short sequence every time:
 5. **Post the [harvest-notes comment](./glossary.md#harvest-notes-comment)**
    on the workstream issue, for a product feature in
    [production phase](./glossary.md#production-phase).
-6. **Send the merge report** to David, with a push notification.
+6. **Send the merge report** to David — it rings his phone only when its
+   footer says the session waits on him.
 
 The merge report carries both commit identifiers, the verification results,
 the line naming any latitude the change grants Claude (chapter 5), the pull
