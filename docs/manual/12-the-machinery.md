@@ -102,11 +102,10 @@ other payload file. Each set has its own test suite, and both suites run in CI.
   private item's text relayed by David. It replaced `round-translation.mjs`
   on 2026-10-21.
 - **`needs-you-alert.mjs`** — the alert hook (chapter 8). Run by the harness
-  at every turn's end, after every tool call and on its own error and prompt
-  events, it reads the turn's last message and footer and sends David a
-  Pushover alert, tiered: one that leaves the session idle on him repeats
-  until he acknowledges it; a build report rings once
-  loudly; a turn whose work continues rings once quietly.
+  at every turn's end and on its own error and prompt events, it reads the
+  turn's last message and footer and sends David one Pushover alert, never
+  repeated, only when the session is waiting on him; a build report, an FYI
+  or a turn whose work continues rings nothing (David, 2026-11-02).
 - **`map.mjs` and `map-eval.mjs`** — the agent-legible codebase map: an
   index of a product's files, symbols, routes and tables that an agent can
   query before it edits, plus the evaluation that decides whether adopting
@@ -191,7 +190,7 @@ test database placeholder, the permission allow-list for the remote-session
 tools, a **deny list** that refuses the command which can push a database
 schema straight at a live database and refuses reading environment secret
 files, and the **hooks block** that runs the needs-you alert
-(`scripts/needs-you-alert.mjs`) at every turn's end, after every tool call,
+(`scripts/needs-you-alert.mjs`) at every turn's end,
 on a permission prompt and on an error stop (chapter 8). This repository's own copy drops what does not apply here (no
 database, no Drizzle) and keeps the rest.
 

@@ -86,7 +86,7 @@ surprise about scope, a gap in the process, anything that contradicts stated
 product intent — and every reversible choice Claude went ahead with on its own
 recommendation (chapter 2), with how to undo it. Its summary and the first
 words of each point are bold, so a decision can be found by scrolling. Work
-continues — and his phone chimes once the moment it is written (interaction
+continues, and nothing rings his phone: an FYI holds nothing up (interaction
 preference 7, below). Each FYI is also posted, in one line, as a comment on
 the workstream issue in the same turn, because the chat compacts and a fresh
 session never saw it; on a workstream that must stay private it stays in chat
@@ -101,13 +101,15 @@ notification fires in that same turn — no exceptions, no size threshold, no
 again; the notification tool deduplicates, so Claude's judgement does not
 have to. And since 2026-10-30 a second channel does not depend on Claude's
 judgement at all: a hook run by the harness rings David's phone through
-Pushover on **every** hand-back, tiered by the turn's footer — one that
-leaves the session idle until he acts repeats until he acknowledges it, a
-build report rings once loudly, a turn whose work continues rings once
-quietly — and on every FYI the instant it is written. Routine progress
-between tool calls still does not notify. The rule and the tiers are
+Pushover whenever the session is waiting on him — a 🛑 ask, or a hand-back
+whose footer says a section is done and needs his word (`stopped`), that
+everything is done (`nothing`), or that he must supply something — once,
+never repeated, since Pushover's history lets him catch up (David,
+2026-11-02, narrowing the 2026-10-30 hook that rang every hand-back, build
+report and FYI). Routine progress, a build report and an FYI do not
+notify. The rule is
 [`claude-core.md`](../../core/.agents/core/claude-core.md), interaction
-preferences 6 and 7; the hook is `scripts/needs-you-alert.mjs`.
+preference 6; the hook is `scripts/needs-you-alert.mjs`.
 
 **And the ask is the last text of the turn, after every tool call —
 including the notification.** In the Claude app, text written *between* tool
@@ -170,7 +172,8 @@ needed, among them — and a report whose continuation is startable has that
 continuation armed first. The list and the exact forms are
 [`claude-core.md`](../../core/.agents/core/claude-core.md), *Waiting, and
 scheduled check-ins*, item 0. The footer's fields are also read by the alert
-hook, which decides from them how hard to ring David's phone.
+hook, which decides from them whether David's phone rings at all — only
+when the turn waits on him (interaction preference 6).
 
 **The spend** is wall-clock time, the tokens the harness reported, and a
 dollar figure, because he means to set a per-turn cap from these once he has
@@ -188,8 +191,8 @@ One deliberate carve-out: during a live [UAT](./glossary.md#uat) walkthrough
 nearly every turn ends with a question by construction, and he is at the
 keyboard by premise, so ordinary step-by-step turns get no banner, no
 `PushNotification` call and no spend line — the run's total arrives in its
-end-of-run hand-back — though the hook still chimes once per turn, as on
-every hand-back. The banner and the push return when the run ends needing him,
+end-of-run hand-back — and the hook rings nothing on them either, since
+they carry neither a banner nor a footer. The banner and the push return when the run ends needing him,
 or when he has walked away and something needs him. The carve-out is written
 down in the [`uat`](../../core/.claude/skills/uat/SKILL.md) skill so a later
 session does not "fix" it back.

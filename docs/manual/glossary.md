@@ -647,7 +647,7 @@ of it something only David can settle — the
 [irreversible list](#irreversible-list) and a plan before it is enacted
 among them. It takes a fixed
 🛑 banner shape, with numbered options and a recommendation, is the last
-text of the turn, and rings his phone until he acknowledges it, through the
+text of the turn, and rings his phone once, through the
 [needs-you alert](#needs-you-alert).
 Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.md)
 
@@ -656,8 +656,8 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 The 👀 banner for something David would want to know but need not answer —
 a security concern found along the way, a systemic issue beyond one PR, a
 scope surprise, and every reversible choice Claude proceeded on. Work
-continues without a reply, and David's phone chimes once, the instant it is
-written. Each is also posted in one line on the workstream issue. Routine
+continues without a reply, and nothing rings his phone. Each is also
+posted in one line on the workstream issue. Routine
 correctness findings do not clear the bar.
 
 ### Irreversible list
@@ -683,10 +683,9 @@ Home: [`core/.agents/core/claude-core.md`](../../core/.agents/core/claude-core.m
 ### Needs-you alert
 
 The hook that rings David's phone through Pushover, independent of Claude
-remembering to: on a hand-back that leaves the session idle on him it repeats
-until he acknowledges; a build report rings once
-loudly; a turn whose work continues rings once quietly; an FYI chimes once
-the moment it is written.
+remembering to, only when the session is waiting on him — a 🛑 ask, a
+hand-back whose footer is `stopped` or `nothing` or names something he must
+supply, a parked prompt, an error stop — once, never repeated.
 Home: [`core/scripts/needs-you-alert.mjs`](../../core/scripts/needs-you-alert.mjs)
 
 ### Paid-run ledger
