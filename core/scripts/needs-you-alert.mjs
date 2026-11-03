@@ -228,7 +228,7 @@ export function decide(input, env = {}) {
     if (text.trim() === "") return null;
 
     const banner = text.match(ASK_BANNER);
-    if (banner) return { ...WAITING, title: `🛑 ${repo}: Claude needs you`, message: plain(banner[1]), key: `ask:${plain(banner[1], Infinity)}` };
+    if (banner) return { ...WAITING, title: `🛑 ${repo}: Claude needs you`, message: plain(banner[1]), key: `ask:${plain(text.slice(banner.index), Infinity)}` }; // the whole banner — heading, options, recommendation — so a changed decision under the same heading rings (Codex, PR #279 round 2)
     if (OPEN_ASK.test(text)) return null; // an ask already rung, unchanged
 
     const f = footer(text);
