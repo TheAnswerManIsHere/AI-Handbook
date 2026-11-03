@@ -73,9 +73,10 @@ preference 6. Everything else Claude decides on its
 recommendation and reports. The banner says what he must supply, offers
 numbered options with their consequences where there is a choice, and always
 ends with Claude's recommendation and why. Its opening, `🛑 **NEED YOU** —`,
-and the later reminder line, `Still waiting on you:`, are read by a machine
-as well as by David (below), so each is written exactly, at the start of its
-own line.
+and the later pointer line, `Still waiting on you:`, are read by a machine
+as well as by David (below): the first rings his phone, the second tells the
+hook the ask has already rung. So each is written exactly, at the start of
+its own line.
 The 🛑 glyph means "David" everywhere in KITT — the same glyph marks
 the stages only he can move past on the workstream board (chapter 10).
 
@@ -127,7 +128,8 @@ noticed.
 **An ask is shown once.** The banner is the only place its options and
 recommendation appear; the message that raises it gives the reasoning and
 leaves the choices to the banner. A later turn that leaves the ask unchanged —
-a webhook, a wake, other work — notifies again but does not reprint it: if
+a webhook, a wake, other work — re-fires the notification tool, which
+deduplicates, but never rings his phone again, and does not reprint it: if
 that turn has anything else to say, its last line is one line pointing back
 to the open ask. The full banner returns only when the ask itself changes, and
 then it replaces the old one. The one exception is `/status`, which
