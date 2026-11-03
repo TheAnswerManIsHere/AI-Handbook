@@ -228,7 +228,7 @@ export function decide(input, env = {}) {
     if (text.trim() === "") return null;
 
     const banner = text.match(ASK_BANNER);
-    if (banner) return { ...WAITING, title: `🛑 ${repo}: Claude needs you`, message: plain(banner[1]), key: `ask:${plain(banner[1])}` };
+    if (banner) return { ...WAITING, title: `🛑 ${repo}: Claude needs you`, message: plain(banner[1]), key: `ask:${plain(banner[1], Infinity)}` };
     if (OPEN_ASK.test(text)) return null; // an ask already rung, unchanged
 
     const f = footer(text);
@@ -241,7 +241,10 @@ export function decide(input, env = {}) {
     if (f.done) parts.push(`Done: ${f.done}`);
     if (f.next && !needs) parts.push(`Next: ${f.next}`);
     const title = form === "nothing" && !needs ? `✅ ${repo}: done — over to you` : `🛑 ${repo}: waiting on you`;
-    const key = needs ? `needs:${plain(f.needsYou)}` : `next:${plain(f.next)}`;
+    // Keys use the whole text, never the lock-screen truncation, so asks that differ only past 240 characters stay distinct.
+    // A stopped or nothing hand-back keys on what was done as well: a second finished task is a new hand-back even when its
+    // Next: is worded the same (Codex, PR #279 round 1).
+    const key = needs ? `needs:${plain(f.needsYou, Infinity)}` : `next:${plain(f.next, Infinity)}|done:${plain(f.done ?? "", Infinity)}`;
     return { ...WAITING, title, message: plain(parts.join(" · ")), key };
   }
   if (event === "Notification") {

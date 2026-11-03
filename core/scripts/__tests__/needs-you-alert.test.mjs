@@ -73,6 +73,17 @@ test("one ask, one ring: an unchanged Needs-you on later hand-backs rings nothin
   assert.ok(alertFor({ hook_event_name: "Notification", session_id: "s1", notification_type: "permission_prompt" }, e), "prompts are not deduplicated");
 });
 
+test("two finished tasks in a row each ring, though both end on the same Next; long asks differing only at the end stay distinct (Codex, PR #279 round 1)", () => {
+  const e = { ...env, NEEDS_YOU_ALERT_STATE_DIR: mkdtempSync(join(tmpdir(), "nya-")) };
+  const at = (text) => alertFor({ hook_event_name: "Stop", session_id: "s", last_assistant_message: text }, e);
+  const done = (what) => `**Done:** ${what} · **Next:** nothing — the plan is done · **Needs you:** nothing · **Spend:** $1`;
+  assert.ok(at(done("task one shipped")));
+  assert.ok(at(done("task two shipped")), "a second completion with its own Done rings");
+  const long = "review the release notes carefully, ".repeat(10);
+  assert.ok(at(`**Done:** x · **Next:** running — y · **Needs you:** ${long}for release A · **Spend:** $1`));
+  assert.ok(at(`**Done:** x · **Next:** running — y · **Needs you:** ${long}for release B · **Spend:** $1`), "a change past 240 characters rings");
+});
+
 test("a state file that cannot be written still rings: a duplicate is cheaper than a missed ask", () => {
   // A directory path running through a regular file: every read and write fails at once (ENOTDIR).
   const file = join(mkdtempSync(join(tmpdir(), "nya-")), "not-a-dir");
