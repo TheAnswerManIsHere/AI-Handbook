@@ -76,6 +76,19 @@ the consumer's `main` if that has moved, then synced again, its title and
 body rewritten to the new delivered commit — rather than opening a second
 that would conflict with it.
 
+**A sync PR is one this skill opened, and the title alone never shows that.**
+Every consumer is public, so anyone can open a fork PR titled `Re-sync
+KITT…` and let maintainers push to its branch. Adopting that branch would
+carry its commits into `main` under the Trivial declaration (Codex security
+review, Overhype.me PR #859). So a PR counts as a sync PR — for the
+last-delivered commit and for the one to update — only when its head branch
+is `kitt-sync/<sha7>` **in the consumer repository itself** (not a fork) and
+it was opened by the account this session pushes as. A PR that has the title
+without both is not touched: it is named in the hand-back as an impostor, and
+the run opens its own. Before merging (Step 6), the PR's diff must be only
+what the sync wrote plus Step 5's index lines; anything else stops that
+repository's merge and is reported.
+
 ## Step 4 — the declarations check (`docs/consuming-repos.md`, step 6)
 
 This is the step a blind loop would skip, and the one that fails silently:
