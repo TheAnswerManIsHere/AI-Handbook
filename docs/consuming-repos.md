@@ -483,7 +483,10 @@ to worry about strange links."*)
 7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>`, where
    the path is the root of the consumer's git checkout (the sync refuses
    anything else) — then
-   review the resulting diff as a pull request in that repo and merge. **On a
+   review the resulting diff as a pull request in that repo and merge. A
+   re-sync's pull request merges as Trivial on David's standing declaration
+   (`working-modes.md`, *Trivial*); a first sync's is read as below, since it
+   seeds files the repo then owns. **On a
    clean enrollment this is where step 4 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
    is the last moment before a session runs under it.
@@ -514,9 +517,15 @@ been asked anything new since. Without the second, enrollment text covering a
 new declaration reaches new repos only, and every repo enrolled before it
 quietly loses whatever that rule used to route.
 
-There is no longer an `enrolled` flag, and nothing fires a sync automatically —
-running it is a deliberate act, so "eligible" and "ready" are the same moment by
-construction rather than by a flag anyone has to remember to flip last. A step
+There is no longer an `enrolled` flag. A **re-sync** of an enrolled repo is
+run by KITT's `/sync-fleet` skill, automatically when approved KITT work
+that changed `core/` finishes (KITT's `CLAUDE.md`, *Delivering the
+payload*), and it runs step 6 before step 7 for each repo. A **first** sync
+is never automatic: the skill finds consumers by the vendored core already on
+their `main`, so a repo not yet enrolled is invisible to it, and running
+its first sync is a deliberate act, so "eligible" and "ready" are the same
+moment by construction rather than by a flag anyone has to remember to flip
+last. A step
 added to this list later belongs above step 7, not below it.
 
 ## Adopting the map tool, and retiring it
@@ -579,8 +588,8 @@ always-on check would call a script the sync had already removed.
   keeps no record of past syncs: the header is the record, so there is nothing
   stored to go stale. A consumer that has copied the header into a file of its
   own has claimed that file is KITT's, and a sync will treat it so.
-- **Change KITT, let the sync carry it.** One edit, every repo, each
-  through review.
+- **Change KITT, let the sync carry it.** One edit, reviewed here once, and
+  every repo receives it.
 - **Everything in `core/` syncs.** There is no staging and no per-group status:
   if a file is in the payload it reaches every consumer on the next sync. If it
   is not ready for that, it is not ready to merge here.

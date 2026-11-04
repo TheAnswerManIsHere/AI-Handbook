@@ -36,6 +36,7 @@ cold reader a lookup. Existing names carry nicknames rather than renames:
 |---|---|---|
 | **Bonnie** | the `/maintenance` pass | Bonnie Barstow, the engineer who keeps KITT running |
 | **KARR** | a feature in prototype phase | KITT's prototype, built without the directive to protect anyone |
+| **Comlink** | the `/sync-fleet` skill | the communicator KITT talks to Michael through: it carries the payload out and tells the sessions |
 
 The command and the contract term stay as they are: `/maintenance` is still
 typed, and "prototype phase" is still the phrase the rules use.
@@ -141,6 +142,22 @@ rewrites it; a consumer's pass reads its copy. Nothing else about the
 documentation contract changes here, and nothing about this ships. Chapters link to the
 payload's rules and never restate them; the manual's own README holds its
 writing rules.
+
+## Delivering the payload
+
+**When a unit of work here finishes and its merges changed `core/`, I run
+`/sync-fleet` before its final hand-back** — an approved plan before the
+plan-done line, and equally a `/maintenance` pass (whose pricing refresh
+rewrites `core/docs/ai-context/token-pricing.md`) or a one-off David asked
+for (David, 2026-11-04,
+choosing "at plan done" over "after every merge" and "only when asked").
+The plan-done line waits until every consumer's sync PR has merged or is
+waiting on a named event, and a consumer held on a question of his is a 🛑
+banner instead. Work that changed nothing under `core/` has nothing to
+deliver. A plan with several phases syncs once, at its end, so no consumer
+receives half of it. Each consumer's sync PR merges as Trivial on his
+standing declaration (`working-modes.md`, *Trivial*); the procedure is the
+skill's.
 
 ## Verifying
 
