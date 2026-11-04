@@ -64,13 +64,13 @@ others carry on.
 ## Step 3 — per consumer, what has it not got?
 
 **The last delivered commit** is the one named on the consumer's most recent
-merged sync PR (title `Sync KITT <sha7>`; Step 5). With none on record, the
+merged sync PR (title `Re-sync KITT <sha7>`, the fleet's existing form; Step 5). With none on record, the
 delta is the whole payload, and that is said. `git -C "$SCRATCH/kitt-main" log
 --oneline <last>..HEAD -- core` is what the sync will carry; empty means
 nothing to deliver, and the repository is reported as current.
 
 **One sync PR per repository, ever open at once.** Before anything is
-written, look for an open PR in that repository whose title starts `Sync
+written, look for an open PR in that repository whose title starts `Re-sync
 KITT`. If there is one, this run **updates it** — its branch, merged with
 the consumer's `main` if that has moved, then synced again, its title and
 body rewritten to the new delivered commit — rather than opening a second
@@ -118,7 +118,8 @@ documents*).
 
 Commit, push, and open (or update) the PR:
 
-- **Title:** `Sync KITT <sha7>: <n> KITT pull requests`.
+- **Title:** `Re-sync KITT <sha7>: <what it delivers, in a few words>` — the
+  form every sync PR in the fleet already carries, so Step 3 finds them.
 - **Body:** the delivered commit in full and the last one; each KITT PR in
   the range by number and title; every `NOTE` line; the declarations check's
   result; `Oracle source: no plan` — the content was reviewed where it was
