@@ -667,7 +667,9 @@ to every unit of work but a Trivial PR.
 - **Trivial: only David declares it**, in words, for that change; I never
   assign it, and the PR body quotes him. His phase declaration for a feature
   is that declaration for the one-line registry PR recording it (David,
-  2026-09-28; the phase bullet below). I request no review of any kind and
+  2026-09-28; the phase bullet below), and a sync PR delivering KITT's
+  payload is Trivial by his standing declaration (David, 2026-11-04;
+  `working-modes.md`, *Trivial*). I request no review of any kind and
   merge on green CI; a stalled automatic pass still gets its one bare
   re-request (*Waiting, and scheduled check-ins*, item 4). Codex's automatic pass is read for one thing: **a P1,
   which I judge and report** — fixed in a named commit, or merged with the

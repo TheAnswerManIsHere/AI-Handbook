@@ -514,9 +514,15 @@ been asked anything new since. Without the second, enrollment text covering a
 new declaration reaches new repos only, and every repo enrolled before it
 quietly loses whatever that rule used to route.
 
-There is no longer an `enrolled` flag, and nothing fires a sync automatically —
-running it is a deliberate act, so "eligible" and "ready" are the same moment by
-construction rather than by a flag anyone has to remember to flip last. A step
+There is no longer an `enrolled` flag. A **re-sync** of an enrolled repo is
+run by KITT's `/sync-fleet` skill, automatically when approved KITT work
+that changed `core/` finishes (KITT's `CLAUDE.md`, *Delivering the
+payload*), and it runs step 6 before step 7 for each repo. A **first** sync
+is never automatic: the skill finds consumers by the vendored core already on
+their `main`, so a repo not yet enrolled is invisible to it, and running
+its first sync is a deliberate act, so "eligible" and "ready" are the same
+moment by construction rather than by a flag anyone has to remember to flip
+last. A step
 added to this list later belongs above step 7, not below it.
 
 ## Adopting the map tool, and retiring it
