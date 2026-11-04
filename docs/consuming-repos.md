@@ -483,7 +483,10 @@ to worry about strange links."*)
 7. **Run the sync** — `node scripts/sync.mjs --to <path-to-consumer>`, where
    the path is the root of the consumer's git checkout (the sync refuses
    anything else) — then
-   review the resulting diff as a pull request in that repo and merge. **On a
+   review the resulting diff as a pull request in that repo and merge. A
+   re-sync's pull request merges as Trivial on David's standing declaration
+   (`working-modes.md`, *Trivial*); a first sync's is read as below, since it
+   seeds files the repo then owns. **On a
    clean enrollment this is where step 4 actually happens**: the seeded
    `.claude/settings.json` appears in that pull request, and adapting it there
    is the last moment before a session runs under it.
@@ -585,8 +588,8 @@ always-on check would call a script the sync had already removed.
   keeps no record of past syncs: the header is the record, so there is nothing
   stored to go stale. A consumer that has copied the header into a file of its
   own has claimed that file is KITT's, and a sync will treat it so.
-- **Change KITT, let the sync carry it.** One edit, every repo, each
-  through review.
+- **Change KITT, let the sync carry it.** One edit, reviewed here once, and
+  every repo receives it.
 - **Everything in `core/` syncs.** There is no staging and no per-group status:
   if a file is in the payload it reaches every consumer on the next sync. If it
   is not ready for that, it is not ready to merge here.

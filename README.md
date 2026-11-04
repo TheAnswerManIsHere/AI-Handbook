@@ -47,9 +47,11 @@ here; a rule that is true for one product belongs in that product's overlay.
 See [`docs/consuming-repos.md`](docs/consuming-repos.md) for the composition
 model and the overlay template.
 
-**Sync will propagate through review, not silently.** The intended model: a
-merge here opens a pull request in each enrolled consumer, so nothing lands in a
-product repo without the same review the product's own code gets.
+**Sync propagates as a pull request, not silently.** When a unit of work
+here that changed `core/` finishes — once per finished plan, not per merge —
+the `/sync-fleet` skill opens a sync pull request in each enrolled consumer.
+The content was reviewed here, where it was written, so that pull request
+merges as Trivial on David's standing declaration (`core/docs/ai-context/working-modes.md`, *Trivial*).
 
 **One rule, and a seed exception.** Everything under `core/` lands at the same
 path in the consumer, minus the `core/` prefix. The only exception is a
@@ -72,10 +74,9 @@ payload file carries one (#55).
 
 **Run it with `node scripts/sync.mjs --to <consumer-repo> [--dry-run]`**, where
 the destination is the root of the consumer's git checkout — the sync refuses
-anything else, since it finds what it manages through that repository. There
-is no scheduled workflow yet: a sync is run deliberately and its output is
-reviewed as an ordinary pull request in the consumer, so nothing reaches a
-product repo without the review that repo's own code gets.
+anything else, since it finds what it manages through that repository. A
+first sync is run deliberately, at enrollment; re-syncs are `/sync-fleet`'s
+(KITT's `CLAUDE.md`, *Delivering the payload*).
 
 **There is no staging system, deliberately.** An earlier design gave each group
 a `status`, a `requires` graph and a cohort model, to sequence a gradual
