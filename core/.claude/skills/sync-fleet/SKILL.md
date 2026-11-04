@@ -156,6 +156,12 @@ shell command never reached the running session's context over the
 following tool calls. Skills are the exception: the same session was told
 of a new `SKILL.md` the moment it was written, and could invoke it. So a
 session must get the files, then re-read the contract files among them.
+Re-reading is the best a running session can do, and it is not proven to
+win over the copy loaded at start: the same measurement showed only that the
+change is not seen, and two live instructions that contradict each other can
+either of them fire. **Only a new session is certain to run under the new
+rules**, so the message says so, and the hand-back names any change that
+needs that certainty.
 
 List the account's sessions (`list_sessions`, `mine: true`) and send each
 one that is not archived and works in a synced repository — KITT's own
@@ -166,8 +172,9 @@ interrupted:
 > next boundary — before your next push, or when you start a branch — merge
 > `origin/main` into your branch. Not mid-review-round: a merge is a new
 > head and costs a round. Then re-read these files, since a running session
-> does not reload them: `<changed paths outside .claude/skills/>`. Nothing else about your work
-> changes.
+> does not reload them: `<changed paths outside .claude/skills/>`. Re-reading
+> is best effort; a new session is the only sure way onto the new rules.
+> Nothing else about your work changes.
 
 A session in Replit or on a local machine is not reachable this way; the
 hand-back says how many were messaged and that those were not.
