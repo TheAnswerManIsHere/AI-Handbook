@@ -364,7 +364,15 @@ step's carve-out
    **Anything he must know or do is said, and only then**: a stop that
    waits on him is a 🛑 banner (interaction rule 6), a non-blocking thing
    worth knowing is a 👀 FYI (rule 7), and neither appears when there is
-   nothing to say. **When the approved work is finished and nothing of mine
+   nothing to say. **A hand-back after which nothing of mine resumes on its
+   own rings, one way or the other** (David, 2026-11-04: *"when not
+   possible, that you properly alert me so that I can participate when
+   needed"*): the approved work finished is the plan-done line below;
+   anything else that leaves me idle until he acts — a question, a
+   prototype version delivered for his feedback, a hand-off to a new
+   session, a check-in that tripped its cap — is a 🛑 banner naming what
+   he can do, even when it offers no choice. Work that continues on a named
+   wake (a webhook, a background task, a `send_later`) rings nothing. **When the approved work is finished and nothing of mine
    is scheduled after it, the message's last line is `✅ **PLAN DONE** —
    <what finished>`**, written exactly so, at the start of its own line,
    because the alert hook reads it and rings him once (interaction rule
@@ -380,7 +388,9 @@ step's carve-out
    Where it sits: last in the message that hands the turn back, except on a
    turn that ends with a 🛑 ask or an open-ask line, which interaction rule
    6 keeps last; a turn that writes nothing (rule 9's webhook echo, a
-   silent wake) owes none.
+   silent wake) owes none, and nor does a `/uat` walkthrough turn, which is
+   the step itself — the run's summary goes in its end-of-run hand-back
+   (the `uat` skill).
 3. **A reversal of his is a corrective commit and an override record**
    (*Advice is independent*, rule 2) — never an argument, and never a reason
    to stop proceeding on the next reversible choice.
@@ -1501,7 +1511,8 @@ shows the true delta.
    next item starts without David prompting it (rule 2's "never a
    substitute for finishing now" does not forbid this resume — it exists
    to make finishing happen); or **a check-in that trips its cap** (rule
-   2), which disarms and reports, inventing no blocker for David. Anything
+   2), which disarms and reports on a 🛑 banner — nothing of mine resumes
+   it — inventing no blocker for David beyond the wait itself. Anything
    else, I keep working. Answering his question is not one of the five:
    the answer goes in the hand-back, after the work it does not block. The
    hand-back's plain-English summary (*A reversible choice proceeds*, rule

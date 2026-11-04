@@ -3143,6 +3143,6 @@ CI guards*). (Until 2026-11-04 the summary was a footer whose **Next:**
 field had four fixed forms a Stop hook could have checked; David retired
 the footer for a plain-English summary, so such a check now needs a shape
 to read — the 🛑 banner and the `✅ **PLAN DONE** —` line are the only
-fixed ones, and the alert hook reads those to decide whether David's phone
-rings, `claude-core.md`, interaction rule 6. It refuses nothing, so it is
+fixed hand-back shapes the alert hook rings on (beside the harness's own
+prompt and error events), `claude-core.md`, interaction rule 6. It refuses nothing, so it is
 not that check.)

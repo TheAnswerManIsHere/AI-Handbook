@@ -108,7 +108,8 @@ asking (`claude-core.md`, *A reversible choice proceeds*).
 ARCHIVE — nothing left here.
   Pushed and merged: #231. No open PR, no armed wake, no running task.
   Close-out paid; nothing held only in chat.
-  Archiving in one minute — any message from you stops it.
+
+✅ **PLAN DONE** — the work here is done; archiving at 14:05 unless you write first
 ```
 
 ```
@@ -123,7 +124,8 @@ The verdict is the hand-back's plain-English summary (`claude-core.md`,
 `✅ **PLAN DONE** — the work here is done; archiving at <time> unless you
 write first` — which the alert hook rings once (`claude-core.md`,
 interaction rule 6): a finished session with nothing startable is one he
-directs next. A *hand off* verdict waits on him to open the new session, so
+directs next, and the one-minute archiving wake Step 3 arms is the
+session's end, not work scheduled after it. A *hand off* verdict waits on him to open the new session, so
 it ends on a 🛑 banner (the `handoff` skill).
 
 ## What this skill does not do

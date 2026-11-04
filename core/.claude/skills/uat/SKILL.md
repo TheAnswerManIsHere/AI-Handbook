@@ -586,7 +586,9 @@ Then, in one edit:
 - **Tell him what he's holding**: verdict, bugs filed with severities, what
   he can do next — and, last, the run's plain-English summary
   (`claude-core.md`, *A reversible choice proceeds, and every hand-back says what it did*, rule 2), with a 🛑 banner when what he
-  can do next is something the work waits on.
+  can do next is something the work waits on, or on the
+  `✅ **PLAN DONE** —` line when an accepted run finished the approved work
+  and nothing of mine is scheduled after it.
 
 ## Notification discipline during a run (David, 2026-08-21)
 
@@ -597,9 +599,10 @@ an active run**: ordinary step-by-step turn-taking — including the
 continue-or-pause question right after a failure — gets **no banner and no
 `PushNotification` call**. He's at the keyboard; that's the premise of the
 session. The alert hook rings nothing on those turns either: a walkthrough
-turn carries no banner and no plan-done line, and the hook rings only for
-those (`claude-core.md`, interaction rule 6; David, 2026-11-02 and
-2026-11-04).
+turn carries no banner and no plan-done line, which are the only hand-backs
+the hook rings for — beyond a permission prompt the session parks on and a
+turn that dies on an error, which ring whenever they happen
+(`claude-core.md`, interaction rule 6; David, 2026-11-02 and 2026-11-04).
 
 The banner and the push fire normally when the **run ends** needing a
 decision from him, when an ask would hold work up after he's walked away, or
