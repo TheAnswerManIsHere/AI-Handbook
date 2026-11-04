@@ -693,7 +693,8 @@ to every unit of work but a Trivial PR.
   resolved.
 - **Neither covers** a script, a check, CI, a setting, a permission, an agent
   role's definition, latitude for me, or the review loop itself — unless David
-  declares that specific change Trivial.
+  declares that specific change Trivial or a standing declaration covers it
+  (`working-modes.md`, *Trivial*).
 - **A third exemption is a phase, not a class** (David, 2026-09-26): a product
   feature in **prototype phase**, declared per feature in the consumer's
   `overlay-declarations.md`, gets the planning loop for its first version —
