@@ -59,7 +59,9 @@ from it is visible.
 
 Each consumer is attached with `add_repo` (`access: "push"`) and cloned into
 the scratchpad. A refusal there is that repository's result, reported; the
-others carry on.
+others carry on. In auto mode the permission classifier refused this call
+for every consumer (2026-11-04), and only David's approval cleared it
+([`add-repo-refused-in-auto-mode.md`](../../../.agents/memory/add-repo-refused-in-auto-mode.md)).
 
 ## Step 3 — per consumer, what has it not got?
 
