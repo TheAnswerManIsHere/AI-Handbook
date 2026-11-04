@@ -19,12 +19,13 @@ its own to deliver: invoked there, say so in one line and stop.
 
 ## When it runs
 
-- **Automatically, once a unit of approved KITT work has finished and the
-  merges in it changed `core/`** (David, 2026-11-04, choosing "at plan done"
-  over "after every merge" and "only when asked"): after the last merge
-  report's work, before the `✅ **PLAN DONE** —` line, which is not written
-  until this skill's sync PRs have merged or are each waiting on a named
-  event. Work whose merges touched nothing under `core/` has nothing to
+- **Automatically, once a unit of KITT work has finished and the merges in
+  it changed `core/`** (David, 2026-11-04, choosing "at plan done" over
+  "after every merge" and "only when asked") — an approved plan, a
+  `/maintenance` pass, a one-off he asked for: after the last merge
+  report's work and before the unit's final hand-back — for a plan, the
+  `✅ **PLAN DONE** —` line, which is not written until this skill's sync
+  PRs have merged or are each waiting on a named event. Work whose merges touched nothing under `core/` has nothing to
   deliver and does not run it. The rule is KITT's `CLAUDE.md`, *Delivering
   the payload*.
 - **When David asks**, at any time.

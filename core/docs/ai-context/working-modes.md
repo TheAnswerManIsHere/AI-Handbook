@@ -711,7 +711,8 @@ catches what the other misses, so the assessors get both.
 
 **Neither class covers** a change to a script, a check, CI, a setting, a
 permission or an agent role's definition, or one granting an agent latitude,
-unless David has declared that specific change Trivial. Those stay in the
+unless David has declared that specific change Trivial or a standing
+declaration above covers it. Those stay in the
 standard loop, and so does any change to the review loop itself.
 
 #### The prototype phase, per feature (David, 2026-09-26)

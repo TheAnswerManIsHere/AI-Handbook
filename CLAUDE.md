@@ -145,8 +145,11 @@ writing rules.
 
 ## Delivering the payload
 
-**When approved work here finishes and its merges changed `core/`, I run
-`/sync-fleet` before writing the plan-done line** (David, 2026-11-04,
+**When a unit of work here finishes and its merges changed `core/`, I run
+`/sync-fleet` before its final hand-back** — an approved plan before the
+plan-done line, and equally a `/maintenance` pass (whose pricing refresh
+rewrites `core/docs/ai-context/token-pricing.md`) or a one-off David asked
+for (David, 2026-11-04,
 choosing "at plan done" over "after every merge" and "only when asked").
 The plan-done line waits until every consumer's sync PR has merged or is
 waiting on a named event, and a consumer held on a question of his is a 🛑
