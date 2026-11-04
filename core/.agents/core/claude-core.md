@@ -1082,7 +1082,7 @@ and as a comment on the workstream issue, so one place per feature holds
 the record without the chat — **except a workstream on the private path,
 whose report goes in chat only** and is kept by David pasting it into the
 private item, since an account of its diff is what the disclosure check
-keeps off GitHub; its plan, decisions and spend reach the role as the
+keeps off GitHub; its plan and decisions reach the role as the
 item's text David relays, quoted in the brief under its provenance, never
 as my summary of it (#227). A
 Trivial PR gets none. (From 2026-09-19 to
