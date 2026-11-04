@@ -344,7 +344,9 @@ his approval).
   matches is held by it:
   - a branch it holds (`external_metadata.current_branches`,
     `session_context.outcomes[].…branches`) that is an open PR's head, a
-    plan's branch, or a registered `prototype/<feature>` branch;
+    plan's branch (one carrying `docs/plans/PLAN_*.md` ahead of `main`, as
+    `/next` Step 1's plan sweep finds it), or a registered
+    `prototype/<feature>` branch;
   - an issue, phase sub-issue or PR named in its title or
     `post_turn_summary` by number **or by its plain-English name** — the
     issue title's words, the feature name David uses. `/retitle` names a
@@ -377,9 +379,12 @@ row whose session is blocked goes under 🛑 NEEDS YOU, with "answer it in
 session *<title>*"**, even where the issue's label says `waiting:claude` —
 the session is waiting on David whatever the label last recorded, and a
 label behind its session is drift to report, not a reason to hide the ask;
-a live session that holds a row is activity, so that row is never
-**Stalled** on the strength of a quiet GitHub (the session is the activity
-GitHub cannot see — say so in the row); and a blocked session whose work is
+**holding a row is not the same as working it**, so a held row is stalled
+only when GitHub *and* the session have both been quiet past the stall
+window — the session's last activity is its `updated_at`, which a
+`working` bucket does not guarantee is recent (measured 2026-11-04: a
+session read `SESSION_STATUS_IDLE` with `SESSION_STATUS_BUCKET_WORKING`),
+and such a row reads "stalled, held by session *<title>*"; and a blocked session whose work is
 unidentified still goes under 🛑 NEEDS YOU by its title and quoted ask,
 since what needs David is the question, whatever it is about.
 
@@ -404,12 +409,17 @@ exists to surface. A Post-merge step that would start a paid AI run runs within 
 `waiting:david` and reported there, never as stalled agent work. (`/status`'s
 five-state table made the matching move on 2026-08-15; that table was
 retired on 2026-10-23 when `/status` became a briefing for David, and the
-label is the one place the distinction now lives.)
+label is the one place the distinction now lives.) **A row whose live
+session is blocked is reported under 🛑 NEEDS YOU whatever its label**
+(Step 3b), and its restated ask is that session's quoted
+`post_turn_summary.needs_action`.
 
 A workstream is **stalled** when `waiting` is NOT a David-gate (per the
 definition above — a David-gate is "needs you," a more urgent bucket, never
 double-counted as stalled) and there has been no relevant activity — no new
-commit, no Codex comment, no reply from Claude — for **more than 48 hours**.
+commit, no Codex comment, no reply from Claude, and, for a row a live
+session holds, no activity in that session (Step 3b) — for **more than 48
+hours**.
 
 **A GitHub login match is not proof David personally acted — I post
 through David's own GitHub account in this environment, not a separate
